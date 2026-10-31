@@ -1,0 +1,101 @@
+# Batch 8: more complex VCE-style Methods and Specialist examples (Define, tangent line, restricted fMax, area by abs, eigVc, impDif, complex zeros, volume/arc length, second-order ODE).
+# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
+schema_version: 1
+cases:
+- id: m8.defs.define-tangent-fmax-restricted
+  course: methods
+  tier: 1
+  tags: [define, tangentline, fmax, solve, vce]
+  steps:
+  - {in: Define h(x)=x^3-3*x, out: Done, compare: text}
+  - {in: 'tangentLine(h(x),x,2)', out: 9*x-16}
+  - {in: 'fMax(h(x),x)|x<=0', out: x=-1}
+  - {in: 'solve(h(x)=0,x)', out: x=-√(3) or x=0 or x=√(3)}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m8.defs.define-tangent-fmax-restricted-1.jpg, shots/m8.defs.define-tangent-fmax-restricted-2.jpg', note: 'Define is the keyword form
+      of :=. fMax with a constraint (|x≤0) returns the local maximiser x=-1.'}
+  status: pending
+- id: m8.calculus.area-abs-integral
+  course: methods
+  tier: 1
+  tags: [integral, abs, area, vce]
+  steps:
+  - {in: 'integral(abs(x-x^2),x,0,2)', out: '1.', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m8.calculus.area-abs-integral.jpg, note: 'Area between y=x and y=x^2 over [0,2], done in one step through abs(). The emulator displays
+      the decimal 1. (not exact 1), so it evaluates this integral numerically; compare numerically.'}
+  status: pending
+- id: m8.trig.tcollect
+  course: methods
+  tier: 1
+  tags: [trig, tcollect]
+  steps:
+  - {in: tCollect(sin(x)*cos(x)), out: sin(2*x)/2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m8.trig.tcollect.jpg}
+  status: pending
+- id: m8.matrix.eigvc-augment
+  course: specialist
+  tier: 1
+  tags: [matrix, eigvc, augment]
+  steps:
+  - {in: 'eigVc([2,1;1,2])', out: '[0.70710678,-0.70710678;0.70710678,0.70710678]', compare: numeric}
+  - {in: 'augment([1,2;3,4],[5;6])', out: '[1,2,5;3,4,6]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m8.matrix.eigvc-augment.jpg, note: 'eigVc returns decimal eigenvectors even in Auto mode. The matrix shown for [2,1;1,2] is [0.70710678,-0.70710678;0.70710678,0.70710678],
+      i.e. columns (0.707,0.707) and (-0.707,0.707); eigenvector order and sign are emulator-specific, so compare up to scale and sign when implementing.'}
+  status: pending
+- id: m8.calculus.impdif
+  course: specialist
+  tier: 1
+  tags: [impdif, implicit]
+  steps:
+  - {in: 'impDif(x^2+y^2=25,x,y)', out: -x/y}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m8.calculus.impdif.jpg}
+  status: pending
+- id: m8.trig.reciprocal-and-hyperbolic
+  course: specialist
+  tier: 1
+  tags: [trig, sec, cot, sinh]
+  steps:
+  - {in: sec(pi/3), out: '2'}
+  - {in: cot(pi/4), out: '1'}
+  - {in: sinh(ln(2)), out: 3/4}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m8.trig.reciprocal-and-hyperbolic-1.jpg, shots/m8.trig.reciprocal-and-hyperbolic-2.jpg'}
+  status: pending
+- id: m8.complex.czeros-real-imag
+  course: specialist
+  tier: 1
+  tags: [complex, czeros, real, imag]
+  steps:
+  - {in: 'cZeros(x^3-1,x)', out: '{-1/2+√(3)/2*ⅈ,-1/2-√(3)/2*ⅈ,1}'}
+  - {in: real(3+4*sqrt(-1)), out: '3'}
+  - {in: imag(3+4*sqrt(-1)), out: '4'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m8.complex.czeros-real-imag-1.jpg, shots/m8.complex.czeros-real-imag-2.jpg', note: 'real() and imag() of an expression typed with
+      sqrt(-1) show a warning triangle on the entry in this document (Real mode), but still return 3 and 4.'}
+  status: pending
+- id: m8.calculus.volume-substitution-arclength
+  course: specialist
+  tier: 1
+  tags: [integral, volume, substitution, arc-length]
+  steps:
+  - {in: 'integral(pi*x^4,x,0,1)', out: π/5}
+  - {in: 'integral(x/sqrt(1-x^2),x)', out: -√(1-x^2)}
+  - {in: 'integral(sqrt(1+4*x^2),x,0,1)', out: ln(√(5)+2)/4+√(5)/2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m8.calculus.volume-substitution-arclength-1.jpg, shots/m8.calculus.volume-substitution-arclength-2.jpg', note: 'Arc length of y=x^2
+      over [0,1] gives ln(√5+2)/4+√5/2, i.e. an ln form rather than sinh⁻¹.'}
+  status: pending
+- id: m8.calculus.desolve-second-order
+  course: specialist
+  tier: 1
+  tags: [desolve, second-order]
+  steps:
+  - {in: 'deSolve(y''''=-y,x,y)', out: y=c1*cos(x)+c2*sin(x)}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m8.calculus.desolve-second-order.jpg, note: 'Second derivative typed as two apostrophes; constants displayed as c1, c2 (bold italic).'}
+  status: pending

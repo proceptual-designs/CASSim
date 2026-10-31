@@ -213,3 +213,32 @@ Findings worth implementing against:
 - Matrix transpose is the postfix operator (typed `@t`), not a `transpose()` function.
 
 Typing note: `solve(...)|0<=x<=2*pi` works in the entry line; keep chunks to 11 characters or fewer.
+
+## 13. Batches 5 to 10 and corpus status (`corpus/seed/007` to `012`)
+
+Added 2026-11-01, all `status: pending`, Methods or Specialist presets (Radian, Auto, Real or Rectangular), CAS On.
+
+| File | Cases | Content |
+|---|---|---|
+| 007_core_batch5 | 6 | VCE-style solves, `abs` integral, `normCdf`/`binomPdf`, product rule and parts, `factor`, limit at infinity |
+| 008_core_batch6 | 7 | `crossP`, `simult`, `tExpand`, `deSolve` with initial condition, integration by parts, exact inverse trig, log equation |
+| 009_general_batch7 | 4 | `ExpReg`, `PowerReg`, `amortTbl`, `SortA`/`dim` |
+| 010_vce_batch8 | 9 | `Define`, `tangentLine`, restricted `fMax`, `tCollect`, `eigVc`/`augment`, `impDif`, `sec`/`cot`/`sinh`, `cZeros`, volume and arc length, second-order ODE |
+| 011_vce_batch9 | 10 | Trig quadratic with domain, quartic, quotient/chain rule, piecewise integral, limits and sums, 3x3 system, partial fractions, separable ODE |
+| 012_final_batch10 | 6 | `TwoVar`, `csc`/`cosh`, compound interest and depreciation via TVM, `tvmPmt`, `invNorm`/`binomCdf`, arithmetic sequence |
+
+Behaviours worth implementing against:
+
+- Results are returned in particular forms: the quotient rule gives `-(x²-1)/(x²+1)²`; `cos(π/12)` gives `(√3+1)·√2/4`; `∫1/(x²-1)dx` gives `-ln(|x+1|/|x-1|)/2`; `ln(x·y)` is not expanded.
+- `integral(abs(x-x^2),x,0,2)` returns the decimal `1.` (numeric), whereas a `when()` piecewise integral returns exact `1`.
+- `real()`/`imag()` and powers of `sqrt(-1)` show a warning triangle in Real mode but still compute.
+- `TwoVar` results are in `stat.values` (column, matrix indexing `v[k,1]`); OneVar and the regressions use `stat.results`.
+- `amortTbl` with only NPmt, N, I and PV treats periods per year as 1.
+- `eigVc` and `eigVl` return decimals even in Auto mode.
+
+Open items before the corpus is final:
+
+- Every case needs human review of the transcription (all are `pending`).
+- Build number of the emulator is still not recorded (Help > About).
+- `stdDev`/`variance`/`sort`/`transpose` echo cases (batch 3) should be confirmed against the Catalog.
+- Not captured: CAS Off and Exact Arithmetic coverage beyond the first 32 cases, graphs/geometry (out of scope), programs and Python.
