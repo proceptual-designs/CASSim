@@ -9,10 +9,16 @@ Code: `src/emcas/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{le
 - A name followed by parentheses is always a function call: `a(b+c)` calls `a`, and `2x(x-1)` is `2*x(x-1)`. The evaluator decides whether that call is valid. The guide lists error 440, "Invalid implied multiply", for `x(x+1)`.
 - Error codes: 910 syntax, 680/690 missing parentheses, 700 missing quote, 710 missing `]`, 720 missing `}`.
 
+## Settled by Simon (2026-11-01)
+
+- **Implied multiplication has the strength of `*`**, so `1/2x` is `(1/2)*x`.
+- **`e`, `ⅇ` and `ᴇ` are three different things.** `e` is an ordinary variable, `ⅇ` (bold on the calculator) is Euler's constant, and `ᴇ` (the special uppercase E) is the exponent marker. So `2e3` is `2*e3` and `2e-1` is `2*e-1`. A plain `E` is a variable too, since names are case-insensitive.
+- **Canonical text is Unicode**, because ASCII cannot carry that distinction. The GUI shows it directly. `to_ascii` in `format.py` respells it for the REPL, using spellings the lexer accepts. `@e`, `@i` and `@E` are our own choice, alongside TI's `@>` and `@t`; they do not come from TI. `∠`, `∞` and `°` have no plain spelling and stay as they are.
+
 ## Design decisions
 
 - **One AST for one meaning.** Implied multiplication becomes `Binary("*")`, spellings are folded in the lexer (`<=` to `≤`, `@>` to `▶`), and `[[1,2],[3,4]]` flattens to `[1,2;3,4]`. Assign and Store stay separate so printing preserves what was typed.
-- **Text kept as typed.** `Number` holds its raw text because `1.` and `1` differ (approximate versus exact). Names keep their case and are not resolved: `pi`, `π`, `true`, `Ans`, `undef` and `ⅈ` are plain `Name`s for the evaluator. Only `and or not xor nor nand` are keywords.
+- **Text kept as typed.** `Number` holds its raw text because `1.` and `1` differ (approximate versus exact). Names keep their case and are not resolved: `pi`, `π`, `true`, `Ans`, `undef`, `ⅇ` and `ⅈ` are plain `Name`s for the evaluator. Only `and or not xor nor nand` are keywords.
 - **Chained relations** are one `Compare` node, so `0≤x≤2*π` keeps its shape for `|` constraints.
 - **Commands** are recognised from a fixed list only at the start of a statement. Those names are reserved, and using one in an expression is a syntax error. Control flow (`If`, `For`, ...) and multi-line `Func` bodies are left to `emcas.basic` in M5.
 - **`▶` and `∠`** are missing from the EOS table. `▶` binds just above Store, because the guide allows it only at the end of an entry line. `∠` binds just below `+` and `-`, so `2∠π/4+1` keeps a whole angle; `∠θ` alone is a prefix form because TI displays vectors as `[r ∠θ z]`.
@@ -25,9 +31,6 @@ The guide does not settle these. None is pinned by a corpus case, so each is a g
 
 | Entry | Parser now reads it as | Why it matters |
 |---|---|---|
-| `1/2x` with `x:=4` | `(1/2)*x`, 2 | A wrong guess gives silently wrong answers |
-| `2e3` | `2000` (number) | Could instead be `2*e3` |
-| `2e-1` | `0.2` (number) | Could instead be `2*e-1`, about 4.44. Highest risk |
 | `2 3` | syntax error | |
 | `x 3`, `(x+1)2` | products | |
 | `sin (0)` | call to `sin` | |

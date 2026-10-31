@@ -35,7 +35,7 @@ cases:
   tier: 1
   tags: [desolve, initial-condition]
   steps:
-  - {in: 'deSolve(y''=y and y(0)=2,x,y)', out: y=2*e^x}
+  - {in: 'deSolve(y''=y and y(0)=2,x,y)', out: y=2*ⅇ^x}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.calculus.desolve-initial-condition.jpg}
   status: pending

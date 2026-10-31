@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from emcas.core.lexer import Kind, tokenize
 from emcas.core.parser import parse, parse_expression
 
 SEED = Path(__file__).parents[2] / "corpus" / "seed"
@@ -45,3 +46,10 @@ def test_entry_parses_and_round_trips(key):
 def test_result_parses_and_round_trips(key):
     tree = parse_expression(RESULTS[key])
     assert parse_expression(str(tree)) == tree
+
+
+@pytest.mark.parametrize("key", RESULTS)
+def test_result_uses_the_euler_constant_not_a_variable_e(key):
+    names = [t.text for t in tokenize(RESULTS[key]) if t.kind is Kind.NAME]
+    assert "e" not in names, "the calculator shows Euler's constant as ⅇ"
+    assert "E" not in names

@@ -1,7 +1,11 @@
 """TI grammar tokenizer.
 
-Alternative spellings are folded to one canonical operator here (`<=` to `≤`, `@>` to `▶`), so
-the parser sees each operator in one form only. Text is otherwise kept as typed.
+Alternative spellings are folded to one canonical form here (`<=` to `≤`, `@>` to `▶`), so the
+parser sees each symbol in one form only. Text is otherwise kept as typed.
+
+Three symbols look alike in ASCII but differ on the calculator, so canonical text is Unicode:
+`e` is an ordinary variable, `ⅇ` is Euler's constant, and `ᴇ` is the exponent marker in `1.5ᴇ3`.
+A plain `E` is also just a variable. `@e`, `@E` and `@i` type `ⅇ`, `ᴇ` and `ⅈ` from a keyboard.
 """
 
 import re
@@ -55,9 +59,11 @@ _OPERATORS = {
 _OPERATOR_RE = re.compile("|".join(re.escape(s) for s in sorted(_OPERATORS, key=len, reverse=True)))
 _POSTFIX_AT = {"t": "ᵀ", "r": "ʳ", "g": "ᴳ"}
 _POSTFIX_AT_RE = re.compile(r"@([trg])(?![0-9A-Za-z])")
+_AT_CONSTANT = {"e": "ⅇ", "i": "ⅈ"}
+_AT_CONSTANT_RE = re.compile(r"@([ei])(?![0-9A-Za-z])")
 _AT_NAME_RE = re.compile(r"@[A-Za-z][0-9A-Za-z]*")
 _NUMBER_RE = re.compile(
-    r"0[bB][01]+|0[hH][0-9a-fA-F]+|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eEᴇ][+-]?[0-9]+)?"
+    r"0[bB][01]+|0[hH][0-9a-fA-F]+|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:(?:ᴇ|@E)[+-]?[0-9]+)?"
 )
 _DMS_RE = re.compile(r"""[0-9]+(?:\.[0-9]*)?°[0-9]+(?:\.[0-9]*)?'(?:[0-9]+(?:\.[0-9]*)?")?""")
 # Catalog entries with an arrow inside the name, such as list▶mat(.
@@ -116,10 +122,11 @@ def _scan_name(src: str, start: int, space: bool) -> tuple[Token, int]:
 # Tokens with a fixed shape, in priority order, each with the way to read its match.
 _FIXED_TOKENS: tuple[tuple[re.Pattern[str], Kind, Callable[[re.Match[str]], str]], ...] = (
     (_DMS_RE, Kind.DMS, lambda m: m.group()),
-    (_NUMBER_RE, Kind.NUMBER, lambda m: m.group()),
+    (_NUMBER_RE, Kind.NUMBER, lambda m: m.group().replace("@E", "ᴇ")),
     (_ARROW_NAME_RE, Kind.NAME, lambda m: f"{m.group(1)}▶{m.group(2)}"),
     (_POSTFIX_AT_RE, Kind.OP, lambda m: _POSTFIX_AT[m.group(1)]),
     (_OPERATOR_RE, Kind.OP, lambda m: _OPERATORS[m.group()]),
+    (_AT_CONSTANT_RE, Kind.NAME, lambda m: _AT_CONSTANT[m.group(1)]),
     (_AT_NAME_RE, Kind.NAME, lambda m: m.group()),
 )
 

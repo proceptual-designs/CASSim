@@ -98,7 +98,7 @@ cases:
   tier: 1
   tags: [desolve, separable, initial-condition, vce]
   steps:
-  - {in: 'deSolve(y''=x*y and y(0)=1,x,y)', out: y=e^(x^2/2)}
+  - {in: 'deSolve(y''=x*y and y(0)=1,x,y)', out: y=ⅇ^(x^2/2)}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.calculus.desolve-separable-initial-condition.jpg}
   status: pending

@@ -16,6 +16,7 @@ M0 is done apart from the corpus replay harness (`tests/corpus/test_replay.py`, 
 - Python 3.14 (matches Pyodide 314.0.7). Tooling: **uv, Ruff, Ty, Git, pytest, Hypothesis, Playwright**.
 - Core engine (`src/emcas/core`) is pure Python and must never import Flet. SymPy is touched only inside `core/compat/sympy_adapter.py`. Core is fully typed and passes Ty strict.
 - TI syntax is parsed with a real tokenizer + Pratt parser, not regexes (see `spikes/ti_eval_spike.py` for why).
+- Canonical text is Unicode: `e` is a variable, `ⅇ` is Euler's constant, `ᴇ` is the exponent marker. ASCII is only a REPL spelling (`to_ascii` in `core/format.py`).
 - Library UDFs (`mm_`, `sm_`, `gm_`) are `.tns` and not loadable. Port them to native Python later (M5), after checking the LazyMath licence.
 
 ## Verified vs unverified

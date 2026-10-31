@@ -174,7 +174,7 @@ cases:
   tags: [solve, exp, log, trig]
   steps:
   - {in: 'solve(2^x=8,x)', out: x=3}
-  - {in: 'solve(ln(x)=2,x)', out: x=e^2}
+  - {in: 'solve(ln(x)=2,x)', out: x=ⅇ^2}
   - {in: 'solve(exp(x)=5,x)', out: x=ln(5)}
   - {in: 'solve(sin(x)=0.5,x)|0<=x<=2*pi', out: x=0.52359878 or x=2.6179939, compare: numeric}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
@@ -268,7 +268,7 @@ cases:
   - {in: 'integral(1/(x^2+1),x)', out: arctan(x)}
   - {in: 'integral(sqrt(1-x^2),x,-1,1)', out: π/2}
   - {in: 'nSolve(x^3+x=1,x)', out: '0.6823278', compare: numeric}
-  - {in: 'deSolve(y''=y,x,y)', out: y=c1*e^x}
+  - {in: 'deSolve(y''=y,x,y)', out: y=c1*ⅇ^x}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m3.calculus.specialist-integrals-nsolve-desolve.jpg, note: Arbitrary constant displays as c1 (bold italic). Result shown as tan⁻¹(x).}
   status: pending
@@ -323,7 +323,7 @@ cases:
   steps:
   - {in: 'x:={1,2,3,4,5}', out: '{1,2,3,4,5}', compare: ignore}
   - {in: 'z:={1,4,9,16,25}', out: '{1,4,9,16,25}', compare: ignore}
-  - {in: 'QuadReg x,z,1:stat.results', out: '[["Title","Quadratic Regression"],["RegEqn","a*x^2+b*x+c"],["a",1.],["b",1.0e-13],["c",-1.0e-13],["R²",1.],["Resid","{...}"]]', compare: numeric}
+  - {in: 'QuadReg x,z,1:stat.results', out: '[["Title","Quadratic Regression"],["RegEqn","a*x^2+b*x+c"],["a",1.],["b",1.ᴇ-13],["c",-1.ᴇ-13],["R²",1.],["Resid","{...}"]]', compare: numeric}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/general.stats.quadreg.jpg, note: 'b and c display 1.E-13 and -1.E-13: numerical noise around an exact fit (true values 0). Use an
       absolute tolerance near zero.'}

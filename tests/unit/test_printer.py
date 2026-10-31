@@ -7,6 +7,7 @@ from hypothesis import strategies as st
 from emcas.core import ast
 from emcas.core.ast import BINARY_PREC, COMPARE_OPS, POSTFIX_OPS
 from emcas.core.errors import TISyntaxError
+from emcas.core.format import to_ascii
 from emcas.core.lexer import WORD_OPERATORS
 from emcas.core.parser import COMMANDS, parse, parse_expression
 
@@ -16,7 +17,7 @@ names = st.one_of(
     st.from_regex(r"[a-z][a-z0-9_]{0,3}", fullmatch=True).filter(lambda s: s not in RESERVED),
     st.sampled_from(["π", "∞", "ⅈ", "@n1", "stat.results", "lib\\fn", "_m", "Σx"]),
 )
-numbers = st.sampled_from(["0", "1", "2", "1.", ".5", "1.5", "1E5", "1.E-13", "0hFF", "0b101"])
+numbers = st.sampled_from(["0", "1", "2", "1.", ".5", "1.5", "1ᴇ5", "1.ᴇ-13", "0hFF", "0b101"])
 strings = st.text(st.characters(codec="utf-8", exclude_categories=("Cs",)), max_size=4).filter(
     lambda s: '"' not in s
 )
@@ -138,3 +139,33 @@ def test_arbitrary_text_parses_or_reports_a_syntax_error(text):
     except TISyntaxError:
         return
     assert parse(str(tree)) == tree
+
+
+@pytest.mark.parametrize(
+    ("text", "plain"),
+    [
+        ("2*ⅇ^x", "2*@e^x"),
+        ("3+4*ⅈ", "3+4*@i"),
+        ("1.ᴇ-13", "1.@E-13"),
+        ("x=2*π", "x=2*pi"),
+        ("√(2)", "sqrt(2)"),
+        ("0≤x≤1", "0<=x<=1"),
+        ("a≠b", "a/=b"),
+        ("5→a", "5->a"),
+        ("x▶Polar", "x@>Polar"),
+        ("list▶mat(x)", "list@>mat(x)"),
+        ("[1,2]ᵀ", "[1,2]@t"),
+        ('"π≤ⅇ"', '"π≤ⅇ"'),
+        ('60°15\'45"+"π"', '60°15\'45"+"π"'),
+        ("e", "e"),
+    ],
+)
+def test_to_ascii(text, plain):
+    assert to_ascii(text) == plain
+
+
+@settings(deadline=None, max_examples=500)
+@given(lines)
+def test_ascii_text_reads_back_as_the_same_entry(tree):
+    plain = to_ascii(str(tree))
+    assert to_ascii(str(parse(plain))) == plain

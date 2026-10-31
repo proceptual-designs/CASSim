@@ -14,7 +14,7 @@ def texts(src: str) -> list[str]:
 
 @pytest.mark.parametrize(
     "src",
-    ["0", "12", "1.", ".5", "1.5", "1E5", "1.E-13", "1.0e-13", "2ᴇ3", "0b1011", "0hFF"],
+    ["0", "12", "1.", ".5", "1.5", "1ᴇ5", "1.ᴇ-13", "2ᴇ+3", "0b1011", "0hFF"],
 )
 def test_number_is_one_token_kept_as_typed(src):
     assert kinds_and_text(src) == [(Kind.NUMBER, src)]
@@ -25,6 +25,12 @@ def test_number_is_one_token_kept_as_typed(src):
     [
         ("2x", ["2", "x"]),
         ("2e", ["2", "e"]),
+        ("2e3", ["2", "e3"]),
+        ("2e-1", ["2", "e", "-", "1"]),
+        ("2E3", ["2", "E3"]),
+        ("2E-1", ["2", "E", "-", "1"]),
+        ("2ⅇ", ["2", "ⅇ"]),
+        ("ⅇx", ["ⅇ", "x"]),
         ("2π", ["2", "π"]),
         ("πx", ["π", "x"]),
         ("xπ", ["x", "π"]),
@@ -124,3 +130,10 @@ def test_illegal_character(src):
     with pytest.raises(TISyntaxError) as info:
         tokenize(src)
     assert info.value.code == SYNTAX
+
+
+def test_keyboard_spellings_of_look_alike_symbols():
+    assert kinds_and_text("@e") == [(Kind.NAME, "ⅇ")]
+    assert kinds_and_text("@i") == [(Kind.NAME, "ⅈ")]
+    assert kinds_and_text("1.5@E-3") == [(Kind.NUMBER, "1.5ᴇ-3")]
+    assert kinds_and_text("@e1") == [(Kind.NAME, "@e1")]

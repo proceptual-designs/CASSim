@@ -127,7 +127,7 @@ cases:
   tier: 3
   tags: [polar, cylind, exact-arithmetic, representation]
   steps:
-  - {in: (1+sqrt(-1))@>Polar, out: e^(ⅈ*π/4)*√(2)}
+  - {in: (1+sqrt(-1))@>Polar, out: ⅇ^(ⅈ*π/4)*√(2)}
   - {in: '[1,1,1]@>Cylind', out: '[√(2) ∠π/4 1]', compare: text}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/ea.polar-cylind.jpg, note: Rectangular domain.}

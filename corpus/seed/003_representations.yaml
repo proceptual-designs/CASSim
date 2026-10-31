@@ -88,8 +88,8 @@ cases:
   tier: 1
   tags: [polar, complex, representation]
   steps:
-  - {in: (1+sqrt(-1))@>Polar, out: e^(ⅈ*π/4)*√(2)}
-  - {in: (3+4*sqrt(-1))@>Polar, out: 5*e^(ⅈ*(π/2-arctan(3/4)))}
+  - {in: (1+sqrt(-1))@>Polar, out: ⅇ^(ⅈ*π/4)*√(2)}
+  - {in: (3+4*sqrt(-1))@>Polar, out: 5*ⅇ^(ⅈ*(π/2-arctan(3/4)))}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/repr.polar.jpg, note: Displayed as e^(i*π/4)*√2 and e^(i*(π/2-tan⁻¹(3/4)))*5. Requires Real or Complex = Rectangular.}
   status: pending

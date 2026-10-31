@@ -49,6 +49,8 @@ One or more YAML files under `corpus/`, validated by `corpus/schema.json` (JSON 
 
 **Provenance sources:** `emulator` (needs evidence screenshot, enforced by the validator) › `skill_notes` (from Simon's cas-solver skill; reported as verified there, to be re-captured) › `hand_computed` (derived independently, e.g. with SciPy) › `unverified_expectation` (from memory; treat as a hypothesis).
 
+**Notation:** `in` is what was typed; `out` is what is displayed, in canonical Unicode. The calculator separates three look-alikes, and so must the corpus: `e` is a variable, `ⅇ` is Euler's constant and `ᴇ` is the exponent marker (`1.ᴇ-13`). A test rejects a bare `e` or `E` in a result.
+
 **YAML pitfall:** PyYAML reads `1e-9` as a string. Write tolerances as `1.0e-9` (the validator catches this).
 
 **Status lifecycle:** `pending` (engine can't run it yet; replay skips it) → `pass` once the engine passes it → `xfail` + `xfail_reason` if it regresses or is a known gap. Replay marks `xfail` as `strict`, so an unexpected pass fails the run.
@@ -124,7 +126,7 @@ Emulator typing notes for future capture sessions (in addition to section 5):
 
 - Typed chunks of 16 or more characters are pasted and can fail silently (a 17-character `normCdf` line vanished). Use chunks of about 9-10 characters.
 - `x^2` captures the following text as the exponent: press Right after the exponent. A typed `/` stays inline, so no Right is needed after `1/2`.
-- Typing `pi` produces π; `sqrt(-1)` gives i in Rectangular mode; use `exp(x)` rather than `e^(x)`.
+- Typing `pi` produces π; `sqrt(-1)` gives i in Rectangular mode; use `exp(x)` rather than `e^(x)`, because a typed `e` is a variable.
 - Store arrow: click the on-screen ctrl then var keys.
 - The Doc menu route for a new Problem is Doc > 4 Insert > 1 Problem; a new page in the same Problem is Doc > 4 Insert > 3 Calculator.
 - The corpus YAML uses `<<: *emu` merge keys; any loader other than PyYAML/ruamel must support them or the anchors must be expanded.

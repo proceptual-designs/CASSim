@@ -37,8 +37,8 @@ cases:
   tier: 1
   tags: [derivative, integral, exp]
   steps:
-  - {in: 'derivative(x*exp(x),x)', out: (x+1)*e^x}
-  - {in: 'integral(x*exp(x),x)', out: (x-1)*e^x}
+  - {in: 'derivative(x*exp(x),x)', out: (x+1)*ⅇ^x}
+  - {in: 'integral(x*exp(x),x)', out: (x-1)*ⅇ^x}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: 'shots/m5.calculus.product-rule-parts-1.jpg, shots/m5.calculus.product-rule-parts-2.jpg', note: Results are returned factored.}
   status: pending
@@ -56,7 +56,7 @@ cases:
   tier: 1
   tags: [limit, infinity]
   steps:
-  - {in: 'limit((1+1/n)^n,n,∞)', out: e}
+  - {in: 'limit((1+1/n)^n,n,∞)', out: ⅇ}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m5.calculus.limit-at-infinity.jpg, note: ∞ is typed as the character itself; the keyboard shortcut @inf does NOT work (entered i*nf).}
   status: pending
