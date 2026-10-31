@@ -174,3 +174,42 @@ Probe results (Radian, Auto, Real, Float 8; screenshots `corpus/shots/casmode.ex
 - `mat▶list([1,2;3,4])` gave `{1,2,3,4}`; check the ordering again with a non-symmetric matrix.
 - Batch 2 (`004_representations_2.yaml`, 12 cases) adds `▶Rect`, `▶Cylind`/`▶Sphere`, `▶Rad`/`▶DMS` in Degree mode, `comDenom`, `approxFraction`, `cFactor`, ctrl+enter approximation, row-major `mat▶list` (confirmed with a 2x3 matrix), and Exact Arithmetic (`ea.*`): number conversions work, `expand` and `exact()` are restricted. All stay `pending`: failing until implemented is expected.
 - Not captured: `partFrac` (not found in this build's catalog), `▶Grad`, `▶Decimal`, and Exact Arithmetic `comDenom`/`cFactor`.
+
+## 11. Core batch 3 (`corpus/seed/005_core_batch3.yaml`, captured 2026-11-01)
+
+26 cases: solve and inequalities, `fMax`/`fMin`, `zeros`, limits, Taylor series, derivative forms, `nInt`, sequences and counting, list statistics, `OneVar`, distributions, matrices, vectors, complex numbers, `deSolve`, TVM solve-for, Approximate mode, `LinRegMx`, `QuadReg`. All `pending`.
+
+Findings worth designing for:
+
+- **Undefined names echo, lower-cased and italic**: `stdDev`, `stdDevSamp`, `stdDevPop`, `variance`, `sort` and `transpose` are not evaluated as functions in this build (they behave like unknown symbolic functions). Use `OneVar` for statistics and `^T` for transpose. Check the Catalog before relying on this for `stdDevSamp`, `stdDevPop` and `variance`.
+- A decimal in a CAS expression forces approximate output: `solve(sin(x)=0.5,x)|0<=x<=2*pi` gives `x=0.52359878 or x=2.6179939`.
+- `solve(x^2+1=0,x)` is real-only, even with Real or Complex = Rectangular, and returns `false`; `cSolve` gives the complex roots.
+- `eigVl([2,1;1,2])` returns decimals in the order `{3.,1.}` in Auto mode.
+- `solve` on inequalities returns chained forms, for example `-3≤x≤1` and `x<-2 or x>2`.
+- `OneVar`: `sx` is the sample standard deviation, `σx` the population one.
+- `QuadReg` on exact data shows `b=1.E-13`, `c=-1.E-13`: use an absolute tolerance near zero.
+- TVM solvers return `59.999998`, `6.000001` (≈1e-6 relative error). Argument orders: `tvmN(I,PV,Pmt,FV,PpY,CpY)`, `tvmI(N,PV,Pmt,FV,PpY,CpY)`, `tvmPV(N,I,Pmt,FV,PpY,CpY)`, `tvmFV(N,I,PV,Pmt,PpY,CpY)`.
+- In Approximate mode `floor(2.7)` displays `2.`.
+
+Typing notes added in this session:
+
+- After `stat.` a variable popup opens: type `stat.res`, then `ults`, then Escape; if the line shows a Syntax error, press Return to dismiss, clear, and type `stat.` then `results`, then Escape.
+- `^` followed by `-1` (for `[1,2;3,4]^-1`) works: type `^-1` then Right.
+- `Insert > Problem` adds the new Problem after the current one, so tab numbers shift.
+- A single computer-use batch times out after about 60 s; keep it under roughly 12 entry lines.
+- Zoom images are sometimes captured mid-redraw (results column missing): repeat the zoom after a 1 s wait.
+
+## 12. Core batch 4 (`corpus/seed/006_core_batch4.yaml`)
+
+Eight cases, captured 2026-11-01 (Methods/Specialist presets, CAS On): user-defined functions with `when()`, recursion, transpose operator, inverse/geometric distributions, inverse trig, log behaviour, parametric and system solves.
+
+Findings worth implementing against:
+
+- `ln(x*y)` is returned unexpanded; do not auto-expand logs (no positivity assumption).
+- `solve(x^2=a,x)` returns `x=-√(a) and a≥0 or x=√(a) and a≥0`: parametric solves carry domain conditions.
+- System solutions are `x=-1 and y=1 or x=3 and y=9`.
+- `g(a+1)` for `g(x):=x^2-3x` comes back factored, `(a-2)·(a+1)`.
+- `invNorm(0.9,50,10)` = 62.815516; `invBinom(0.5,10,0.5)` = 5; `geomPdf(0.3,3)` = 0.147.
+- Matrix transpose is the postfix operator (typed `@t`), not a `transpose()` function.
+
+Typing note: `solve(...)|0<=x<=2*pi` works in the entry line; keep chunks to 11 characters or fewer.

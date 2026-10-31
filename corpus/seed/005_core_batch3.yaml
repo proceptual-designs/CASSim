@@ -1,0 +1,330 @@
+# Batch 3: core Tier 1 coverage (solve/inequalities, calculus, sequences, statistics, distributions, matrices, vectors, complex, finance, regression).
+# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; General: Degree/Approximate/Real; CAS On, Float 8.
+schema_version: 1
+cases:
+- id: m3.solve.inequality-quadratic
+  course: methods
+  tier: 1
+  tags: [solve, inequality]
+  steps:
+  - {in: 'solve(x^2>4,x)', out: x<-2 or x>2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.solve.inequality-quadratic.jpg}
+  status: pending
+- id: m3.solve.abs
+  course: methods
+  tier: 1
+  tags: [solve, abs]
+  steps:
+  - {in: 'solve(abs(x-1)=3,x)', out: x=-2 or x=4}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.solve.abs.jpg}
+  status: pending
+- id: m3.zeros.cubic
+  course: methods
+  tier: 1
+  tags: [zeros]
+  steps:
+  - {in: 'zeros(x^3-x,x)', out: '{-1,0,1}'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.zeros.cubic.jpg}
+  status: pending
+- id: m3.calculus.fmax-fmin
+  course: methods
+  tier: 1
+  tags: [fmax, fmin]
+  steps:
+  - {in: 'fMax(-x^2+4*x,x)', out: x=2}
+  - {in: 'fMin(x^2-4*x,x)', out: x=2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.calculus.fmax-fmin.jpg}
+  status: pending
+- id: m3.solve.cubic-roots
+  course: methods
+  tier: 1
+  tags: [solve]
+  steps:
+  - {in: 'solve(x^3-3*x^2+2*x=0,x)', out: x=0 or x=1 or x=2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.solve.cubic-roots.jpg}
+  status: pending
+- id: m3.calculus.integral-limit-taylor
+  course: methods
+  tier: 1
+  tags: [integral, limit, taylor]
+  steps:
+  - {in: 'integral(x^2,x,0,1)', out: 1/3}
+  - {in: 'integral(sin(x),x)', out: -cos(x)}
+  - {in: 'limit(1/x,x,0,1)', out: ∞}
+  - {in: 'taylor(exp(x),x,3,0)', out: 1+x+x^2/2+x^3/6}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/m3.calculus.integral-limit-taylor-1.jpg, shots/m3.calculus.integral-limit-taylor-2.jpg]
+    note: limit with a direction argument (1 = from the right) is shown as lim x→0+.
+  status: pending
+- id: m3.calculus.derivative-forms
+  course: methods
+  tier: 1
+  tags: [derivative, nderivative, nint]
+  steps:
+  - {in: 'derivative(x^3,x,2)', out: 6*x}
+  - {in: 'derivative(sin(x),x)|x=pi/2', out: '0'}
+  - {in: 'nDerivative(x^2,x=3)', out: '6', compare: numeric}
+  - {in: 'nInt(exp(-x^2),x,-1,1)', out: '1.4936483', compare: numeric}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/m3.calculus.derivative-forms-1.jpg, shots/m3.calculus.derivative-forms-2.jpg]
+    note: nInt result 1.4936483 (true value 1.49364826...).
+  status: pending
+- id: m3.discrete.seq-sum-counting
+  course: methods
+  tier: 1
+  tags: [seq, sum, ncr, factorial, gcd, mod]
+  steps:
+  - {in: 'seq(n^2,n,1,5)', out: '{1,4,9,16,25}'}
+  - {in: 'sum(seq(n,n,1,100))', out: '5050'}
+  - {in: 'nCr(10,3)', out: '120'}
+  - {in: 5!, out: '120'}
+  - {in: 'gcd(12,18)', out: '6'}
+  - {in: 'mod(17,5)', out: '2'}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/m3.discrete.seq-sum-counting-1.jpg, shots/m3.discrete.seq-sum-counting-2.jpg]
+  status: pending
+- id: m3.stats.list-functions
+  course: methods
+  tier: 1
+  tags: [mean, median]
+  steps:
+  - {in: 'mean({1,2,3,4})', out: 5/2}
+  - {in: 'median({1,2,3,4,10})', out: '3'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.stats.list-functions.jpg}
+  status: pending
+- id: m3.syntax.undefined-stat-names
+  course: methods
+  tier: 1
+  tags: [syntax, undefined-function, stats]
+  steps:
+  - {in: 'stdDev({2,4,4,4,5,5,7,9})', out: 'stddev({2,4,4,4,5,5,7,9})', compare: text}
+  - {in: 'sort({3,1,2})', out: 'sort({3,1,2})', compare: text}
+  - {in: 'stdDevSamp({2,4,4,4,5,5,7,9})', out: 'stddevsamp({2,4,4,4,5,5,7,9})', compare: text}
+  - {in: 'stdDevPop({2,4,4,4,5,5,7,9})', out: 'stddevpop({2,4,4,4,5,5,7,9})', compare: text}
+  - {in: 'variance({2,4,4,4,5,5,7,9})', out: 'variance({2,4,4,4,5,5,7,9})', compare: text}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/m3.syntax.undefined-stat-names-1.jpg, shots/m3.syntax.undefined-stat-names-2.jpg]
+    note: These names echo unevaluated, lower-cased and italic, in this build (typed from the keyboard). Verify against the Catalog whether stdDevSamp/stdDevPop/variance should exist; until then treat as
+      undefined symbolic functions. Use OneVar for sample/population standard deviation.
+  status: pending
+- id: m3.stats.list-ops
+  course: methods
+  tier: 1
+  tags: [cumulativesum, max, sum]
+  steps:
+  - {in: 'cumulativeSum({1,2,3})', out: '{1,3,6}'}
+  - {in: 'max({1,5,3})', out: '5'}
+  - {in: 'sum({1,2,3})', out: '6'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.stats.list-ops.jpg}
+  status: pending
+- id: m3.stats.onevar
+  course: methods
+  tier: 1
+  tags: [onevar, stat-results]
+  steps:
+  - {in: 'x:={2,4,4,4,5,5,7,9}', out: '{2,4,4,4,5,5,7,9}', compare: ignore}
+  - {in: 'OneVar x,1:stat.results', out: '[["Title","One-Variable Statistics"],["x̄",5.],["Σx",40.],["Σx²",232.],["sx := sn-1x",2.1380899],["σx := σnx",2.],["n",8.],["MinX",2.],["Q₁X",4.],["MedianX",4.5],["Q₃X",6.],["MaxX",9.],["SSX
+      := Σ(x-x̄)²",32.]]', compare: numeric}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/m3.stats.onevar-1.jpg, shots/m3.stats.onevar-2.jpg]
+    note: sx is the sample standard deviation, σx the population one.
+  status: pending
+- id: m3.dist.pdf-cdf
+  course: methods
+  tier: 1
+  tags: [normpdf, binomcdf, poisspdf]
+  steps:
+  - {in: 'normPdf(0,0,1)', out: '0.39894228', compare: numeric}
+  - {in: 'binomCdf(10,0.5,3,5)', out: '0.56835938', compare: numeric}
+  - {in: 'poissPdf(2,3)', out: '0.18044704', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.dist.pdf-cdf.jpg, note: 'poissPdf(lambda, k).'}
+  status: pending
+- id: m3.solve.exp-log-trig-domain
+  course: methods
+  tier: 1
+  tags: [solve, exp, log, trig]
+  steps:
+  - {in: 'solve(2^x=8,x)', out: x=3}
+  - {in: 'solve(ln(x)=2,x)', out: x=e^2}
+  - {in: 'solve(exp(x)=5,x)', out: x=ln(5)}
+  - {in: 'solve(sin(x)=0.5,x)|0<=x<=2*pi', out: x=0.52359878 or x=2.6179939, compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.solve.exp-log-trig-domain.jpg, note: A decimal coefficient (0.5) makes the solutions approximate; compare numerically and unordered.}
+  status: pending
+- id: m3.algebra.forms-and-exact-trig
+  course: methods
+  tier: 1
+  tags: [expand, factor, inequality, trig]
+  steps:
+  - {in: expand((x+y)^2), out: x^2+2*x*y+y^2}
+  - {in: factor(x^3-8), out: (x-2)*(x^2+2*x+4)}
+  - {in: 'solve(x^2+2*x-3<=0,x)', out: -3≤x≤1}
+  - {in: cos(pi/3), out: 1/2}
+  - {in: tan(pi/4), out: '1'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.algebra.forms-and-exact-trig.jpg}
+  status: pending
+- id: m3.matrix.inverse-det-product
+  course: specialist
+  tier: 1
+  tags: [matrix, inverse, det]
+  steps:
+  - {in: '[1,2;3,4]^-1', out: '[-2,1;3/2,-1/2]'}
+  - {in: 'det([2,1;1,3])', out: '5'}
+  - {in: '[1,2;3,4]*[0,1;1,0]', out: '[2,1;4,3]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.matrix.inverse-det-product.jpg}
+  status: pending
+- id: m3.syntax.transpose-function-undefined
+  course: specialist
+  tier: 1
+  tags: [syntax, undefined-function, matrix]
+  steps:
+  - {in: 'transpose([1,2;3,4])', out: 'transpose([1,2;3,4])', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.syntax.transpose-function-undefined.jpg, note: transpose() is not a function here (echoed italic). Transpose is the postfix operator
+      ^T; capture that form next.}
+  status: pending
+- id: m3.matrix.identity-rref-eigvl
+  course: specialist
+  tier: 1
+  tags: [matrix, identity, rref, eigvl]
+  steps:
+  - {in: identity(2), out: '[1,0;0,1]'}
+  - {in: 'rref([1,2,3;4,5,6])', out: '[1,0,-1;0,1,2]'}
+  - {in: 'eigVl([2,1;1,2])', out: '{3.,1.}', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.matrix.identity-rref-eigvl.jpg, note: 'eigVl returned decimals in the order 3., 1. even in Auto mode (exact eigenvalues 3 and 1);
+      compare as an unordered set.'}
+  status: pending
+- id: m3.vector.dot-norm-unit
+  course: specialist
+  tier: 1
+  tags: [vector, dotp, norm, unitv]
+  steps:
+  - {in: 'dotP([1,2,3],[4,5,6])', out: '32'}
+  - {in: 'norm([3,4])', out: '5'}
+  - {in: 'unitV([3,4])', out: '[3/5,4/5]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.vector.dot-norm-unit.jpg}
+  status: pending
+- id: m3.complex.arithmetic
+  course: specialist
+  tier: 1
+  tags: [complex, conj, angle]
+  steps:
+  - {in: (1+sqrt(-1))*(2-sqrt(-1)), out: 3+ⅈ}
+  - {in: conj(3+4*sqrt(-1)), out: 3-4*ⅈ}
+  - {in: angle(1+sqrt(-1)), out: π/4}
+  - {in: (1+sqrt(-1))^2, out: 2*ⅈ}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.complex.arithmetic.jpg}
+  status: pending
+- id: m3.complex.csolve-roots
+  course: specialist
+  tier: 1
+  tags: [csolve, complex]
+  steps:
+  - {in: 'cSolve(x^2+2*x+5=0,x)', out: x=-1+2*ⅈ or x=-1-2*ⅈ}
+  - {in: 'cSolve(x^3=1,x)', out: x=-1/2+√(3)/2*ⅈ or x=-1/2-√(3)/2*ⅈ or x=1}
+  - {in: 'solve(x^2+1=0,x)', out: 'false', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.complex.csolve-roots.jpg, note: 'solve is real-only even with Real or Complex = Rectangular, so no real roots gives false.'}
+  status: pending
+- id: m3.calculus.specialist-integrals-nsolve-desolve
+  course: specialist
+  tier: 1
+  tags: [integral, nsolve, desolve]
+  steps:
+  - {in: 'integral(1/(x^2+1),x)', out: arctan(x)}
+  - {in: 'integral(sqrt(1-x^2),x,-1,1)', out: π/2}
+  - {in: 'nSolve(x^3+x=1,x)', out: '0.6823278', compare: numeric}
+  - {in: 'deSolve(y''=y,x,y)', out: y=c1*e^x}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.calculus.specialist-integrals-nsolve-desolve.jpg, note: Arbitrary constant displays as c1 (bold italic). Result shown as tan⁻¹(x).}
+  status: pending
+- id: m3.finance.tvm-solve-for
+  course: general
+  tier: 1
+  tags: [tvm, finance]
+  steps:
+  - {in: 'tvmN(6,10000,-193.32802,0,12,12)', out: '60', compare: numeric, tol: 1.0e-06}
+  - {in: 'tvmI(60,10000,-193.32802,0,12,12)', out: '6', compare: numeric, tol: 1.0e-06}
+  - {in: 'tvmPV(60,6,-193.32802,0,12,12)', out: '10000', compare: numeric, tol: 1.0e-06}
+  - {in: 'tvmFV(60,6,-200,0,12,12)', out: '269.77003', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m3.finance.tvm-solve-for.jpg, note: 'Displayed 59.999998, 6.000001, 10000. and 269.77003: the solver results carry ~1e-6 error, so
+      compare numerically. Argument orders: tvmN(I,PV,Pmt,FV,PpY,CpY), tvmI(N,PV,Pmt,FV,PpY,CpY), tvmPV(N,I,Pmt,FV,PpY,CpY), tvmFV(N,I,PV,Pmt,PpY,CpY).'}
+  status: pending
+- id: general.approx-mode.basics
+  course: general
+  tier: 1
+  tags: [approximate, solve, round]
+  steps:
+  - {in: sqrt(2), out: '1.4142136', compare: numeric}
+  - {in: 2/3, out: '0.66666667', compare: numeric}
+  - {in: cos(60), out: '0.5', compare: numeric}
+  - {in: 'solve(x^2=2,x)', out: x=-1.4142136 or x=1.4142136, compare: numeric}
+  - {in: 'round(3.14159,2)', out: '3.14', compare: numeric}
+  - {in: floor(2.7), out: '2.', compare: numeric}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-11-01'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/general.approx-mode.basics-1.jpg, shots/general.approx-mode.basics-2.jpg]
+    note: 'Calculation Mode = Approximate: exact results come back as decimals, floor(2.7) shows 2.'
+  status: pending
+- id: general.stats.linregmx
+  course: general
+  tier: 1
+  tags: [regression, linregmx]
+  steps:
+  - {in: 'x:={1,2,3,4,5}', out: '{1,2,3,4,5}', compare: ignore}
+  - {in: 'y:={2,4,5,4,5}', out: '{2,4,5,4,5}', compare: ignore}
+  - {in: 'LinRegMx x,y,1:stat.results', out: '[["Title","Linear Regression (mx+b)"],["RegEqn","m*x+b"],["m",0.6],["b",2.2],["r²",0.6],["r",0.77459667],["Resid","{...}"]]', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/general.stats.linregmx.jpg, note: 'Typing stat.results opens a variable popup; type stat.res, then ults, then Escape (or type results
+      and Escape).'}
+  status: pending
+- id: general.stats.quadreg
+  course: general
+  tier: 1
+  tags: [regression, quadreg]
+  steps:
+  - {in: 'x:={1,2,3,4,5}', out: '{1,2,3,4,5}', compare: ignore}
+  - {in: 'z:={1,4,9,16,25}', out: '{1,4,9,16,25}', compare: ignore}
+  - {in: 'QuadReg x,z,1:stat.results', out: '[["Title","Quadratic Regression"],["RegEqn","a*x^2+b*x+c"],["a",1.],["b",1.0e-13],["c",-1.0e-13],["R²",1.],["Resid","{...}"]]', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/general.stats.quadreg.jpg, note: 'b and c display 1.E-13 and -1.E-13: numerical noise around an exact fit (true values 0). Use an
+      absolute tolerance near zero.'}
+  status: pending

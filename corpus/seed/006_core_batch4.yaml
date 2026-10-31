@@ -1,0 +1,103 @@
+# Batch 4: user-defined functions (when/recursion), transpose, inverse distributions, inverse trig and log behaviour, parametric solves.
+# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
+schema_version: 1
+cases:
+- id: m4.defs.piecewise-when
+  course: methods
+  tier: 1
+  tags: [function, piecewise, when]
+  steps:
+  - {in: 'f(x):=when(x<0,-x,x^2)', out: Done, compare: text}
+  - {in: f(-2), out: '2'}
+  - {in: f(3), out: '9'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m4.defs.piecewise-when.jpg}
+  status: pending
+- id: m4.discrete.recursion-sequences
+  course: methods
+  tier: 1
+  tags: [recursion, seq, sum, product]
+  steps:
+  - {in: 'u(n):=when(n=1,2,u(n-1)+3)', out: Done, compare: text}
+  - {in: u(5), out: '14'}
+  - {in: 'sum(seq(2*k-1,k,1,10))', out: '100'}
+  - {in: 'seq(2^k,k,0,4)', out: '{1,2,4,8,16}'}
+  - {in: 'product({1,2,3,4})', out: '24'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m4.discrete.recursion-sequences.jpg, note: Recursive user function defined with when().}
+  status: pending
+- id: m4.matrix.transpose-operator
+  course: specialist
+  tier: 1
+  tags: [matrix, transpose]
+  steps:
+  - {in: '[1,2;3,4]^T', out: '[1,3;2,4]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m4.matrix.transpose-operator.jpg, note: 'Typed on the emulator with the transpose operator (ᵀ symbol from the keyboard), not a function
+      call.'}
+  status: pending
+- id: m4.dist.inverse-and-geometric
+  course: methods
+  tier: 1
+  tags: [invnorm, invbinom, geompdf]
+  steps:
+  - {in: 'invNorm(0.9,50,10)', out: '62.815516', compare: numeric}
+  - {in: 'invBinom(0.5,10,0.5)', out: '5', compare: numeric}
+  - {in: 'geomPdf(0.3,3)', out: '0.147', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m4.dist.inverse-and-geometric.jpg, note: 'invNorm(area,mu,sigma); invBinom(cumulative probability,n,p); geomPdf(p,k).'}
+  status: pending
+- id: m4.trig.inverse-and-solve
+  course: methods
+  tier: 1
+  tags: [trig, arcsin, arctan, solve]
+  steps:
+  - {in: arcsin(1/2), out: π/6}
+  - {in: arctan(1), out: π/4}
+  - {in: 'solve(cos(x)=1/2,x)|0<=x<=2*pi', out: x=π/3 or x=5*π/3}
+  - {in: 'solve(tan(x)=1,x)|0<=x<=2*pi', out: x=π/4 or x=5*π/4}
+  - {in: sin(x)^2+cos(x)^2, out: '1'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m4.trig.inverse-and-solve-1.jpg, shots/m4.trig.inverse-and-solve-2.jpg', note: Inverse trig results display as sin⁻¹ / tan⁻¹ in the
+      echoed input.}
+  status: pending
+- id: m4.log.rules-and-bases
+  course: methods
+  tier: 1
+  tags: [log, ln, exp]
+  steps:
+  - {in: 'log(8,2)', out: '3'}
+  - {in: log(1000), out: '3'}
+  - {in: exp(ln(5)), out: '5'}
+  - {in: ln(x*y), out: ln(x*y)}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m4.log.rules-and-bases-1.jpg, shots/m4.log.rules-and-bases-2.jpg', note: 'ln(x·y) is NOT expanded to ln(x)+ln(y): no assumption that
+      x,y>0. Do not auto-expand logs.'}
+  status: pending
+- id: m4.solve.parametric-and-system
+  course: methods
+  tier: 1
+  tags: [solve, parameter, system]
+  steps:
+  - {in: 'solve(a*x+b=0,x)', out: x=-b/a}
+  - {in: 'solve({y=x^2,y=2*x+3},{x,y})', out: x=-1 and y=1 or x=3 and y=9}
+  - {in: 'solve(x^2=a,x)', out: x=-√(a) and a≥0 or x=√(a) and a≥0}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/m4.solve.parametric-and-system.jpg, note: Parametric solutions carry domain conditions (a≥0) using "and". Solutions to a system are
+      "x=.. and y=.. or x=.. and y=..".}
+  status: pending
+- id: m4.defs.function-use
+  course: methods
+  tier: 1
+  tags: [function, solve, derivative, integral]
+  steps:
+  - {in: 'g(x):=x^2-3*x', out: Done, compare: text}
+  - {in: g(2), out: '-2'}
+  - {in: g(a+1), out: (a-2)*(a+1)}
+  - {in: 'solve(g(x)=0,x)', out: x=0 or x=3}
+  - {in: 'derivative(g(x),x)', out: 2*x-3}
+  - {in: 'integral(g(x),x,0,3)', out: -9/2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: 'shots/m4.defs.function-use-1.jpg, shots/m4.defs.function-use-2.jpg', note: 'g(a+1) is returned factored: (a-2)(a+1).'}
+  status: pending
