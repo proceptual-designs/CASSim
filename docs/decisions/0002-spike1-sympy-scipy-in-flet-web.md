@@ -32,6 +32,6 @@ Environment: Flet 1.0.5, Pyodide 314.0.7 (Python 3.14.2), Edge (headless, Playwr
 
 ## Still open from this spike
 
-- Is the UI responsive while Python is busy, and can a worker be terminated and restarted for cancel? Flet 1.0.5 does not expose the worker, so cancel likely needs a small JS hook in `python-worker.js` via the patch step.
+- ~~Is the UI responsive while Python is busy, and can a worker be terminated and restarted for cancel?~~ Answered in 0005: yes to both, by running the engine in a second Pyodide worker spawned from Flet's Python. No patch to `python-worker.js` is needed.
 - Warm-start timing with the service worker cache populated (my "warm" run did not isolate cache effects).
 - Whether the rive wasm request can be dropped.
