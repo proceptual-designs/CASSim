@@ -49,6 +49,10 @@ def test_result_parses_and_round_trips(key):
     assert parse_expression(str(tree)) == tree
 
 
+def test_no_entry_types_a_capital_t_for_the_transpose():
+    assert not [key for key, text in ENTRIES.items() if "^T" in text], "type the transpose as @t"
+
+
 @pytest.mark.parametrize("key", RESULTS)
 def test_result_uses_the_euler_constant_not_a_variable_e(key):
     names = [t.text for t in tokenize(RESULTS[key]) if t.kind is Kind.NAME]

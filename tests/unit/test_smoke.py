@@ -6,6 +6,7 @@ PACKAGES = [
     "emcas",
     "emcas.core",
     "emcas.core.compat.sympy_adapter",
+    "emcas.core.session",
     "emcas.cli",
     "emcas_app",
 ]

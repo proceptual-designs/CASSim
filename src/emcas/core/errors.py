@@ -9,6 +9,16 @@ MISSING_CLOSE_PAREN = 690
 MISSING_QUOTE = 700
 MISSING_CLOSE_BRACKET = 710
 MISSING_CLOSE_BRACE = 720
+DATA_TYPE = 210
+DIMENSION_MISMATCH = 240
+DOMAIN = 260
+INVALID_LIST_OR_MATRIX = 510
+TOO_FEW_ARGUMENTS = 930
+TOO_MANY_ARGUMENTS = 940
+# Not in the guide (3.2 predates the setting); the emulator's number was not captured.
+CAS_RESTRICTED = -1
+# Ours, for language that a later milestone will implement.
+NOT_IMPLEMENTED = -2
 
 _MESSAGES = {
     SYNTAX: "Syntax error",
@@ -17,6 +27,13 @@ _MESSAGES = {
     MISSING_QUOTE: 'Missing "',
     MISSING_CLOSE_BRACKET: "Missing ]",
     MISSING_CLOSE_BRACE: "Missing }",
+    DATA_TYPE: "Data type",
+    DIMENSION_MISMATCH: "Dimension mismatch",
+    DOMAIN: "Domain error",
+    INVALID_LIST_OR_MATRIX: "Invalid list or matrix",
+    TOO_FEW_ARGUMENTS: "Too few arguments",
+    TOO_MANY_ARGUMENTS: "Too many arguments",
+    CAS_RESTRICTED: "CAS computations are restricted in CAS Off and Exact Arithmetic modes.",
 }
 
 

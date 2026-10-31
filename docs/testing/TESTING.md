@@ -269,8 +269,18 @@ Screens other than the Calculator are recorded in a top-level `app_cases` list (
 - Spreadsheet: whole-column reference is `a[]`; naming column A `d` and using `d` in a formula raises a "Conflict Detected" dialog. Statistics results are decimals. Quartiles use the median-of-halves rule (Q1 of {1,4,9,16,25,36,49,64} is 6.5, Q3 is 42.5).
 - Graphs: coordinates are labelled to 2 decimal places; Intersection with two graphs goes straight to the bounds prompt; Integral accepts typed bounds and asks "graph?" when several graphs exist.
 
+### Batches 17 to 19 (`019` to `021`)
+
+| File | Cases | Content |
+|---|---|---|
+| 019_app_graph_analysis_2 | 3 | Graphs: inflection (0,0), dy/dx at x=2 (9), bounded area between x^3-3x and x on [0,2] (4) |
+| 020_more_settings | 3 | Gradian angle, Exponential Format Scientific and Engineering (new `exp_format` settings key) |
+| 021_app_sheet_sort | 1 | Spreadsheet sort |
+
+More behaviours: Gradian is exact (`sin(100)=1`, `arcsin(1)=100`). Scientific gives `1.2345679ᴇ4`; Engineering gives `12.345679ᴇ3` and `123.ᴇ-6`; exact results are unaffected. Bounded Area shows a warning dialog unless Real or Complex is Real. Document Settings carry over from the last changed document: a new document opened with Real or Complex = Polar (set earlier) rather than a fixed factory default, so every capture must set its settings explicitly.
+
 ### Still open
 
 - Human review of every transcription (all `pending`).
-- Spreadsheet sort, fill, 6th term of Generate Sequence, histogram/box plot, regression models other than linear, graph inflection, bounded area, `dy/dx`, conics, tables.
-- Settings not yet covered: Gradian, Exponential Format (Scientific/Engineering), Degree with Methods/Auto.
+- Spreadsheet Fill (Data > Fill did not visibly fill the selection in one attempt), 6th term of Generate Sequence, histogram and box plot, regression models other than linear in Data & Statistics, graph tables, conics.
+- Settings: Degree with Methods/Auto not captured.
