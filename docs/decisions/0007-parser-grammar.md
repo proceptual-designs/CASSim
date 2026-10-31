@@ -13,12 +13,14 @@ Code: `src/emcas/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{le
 
 - **Implied multiplication has the strength of `*`**, so `1/2x` is `(1/2)*x`.
 - **`e`, `ⅇ` and `ᴇ` are three different things.** `e` is an ordinary variable, `ⅇ` (bold on the calculator) is Euler's constant, and `ᴇ` (the special uppercase E) is the exponent marker. So `2e3` is `2*e3` and `2e-1` is `2*e-1`. A plain `E` is a variable too, since names are case-insensitive.
-- **Canonical text is Unicode**, because ASCII cannot carry that distinction. The GUI shows it directly. `to_ascii` in `format.py` respells it for the REPL, using spellings the lexer accepts. `@e`, `@i` and `@E` are our own choice, alongside TI's `@>` and `@t`; they do not come from TI. `∠`, `∞` and `°` have no plain spelling and stay as they are.
+- **Canonical text is Unicode**, because ASCII cannot carry that distinction. The GUI shows it directly. `to_ascii` in `format.py` respells it for the REPL, using spellings the lexer accepts. The spellings are TI's own table in the CAS guide, pp. 164-165: `@e`, `@i`, `@E`, `@t`, `@r`, `@g`, `@d` (°), `@<` (∠), `@>`, `infinity`, `pi`, `theta`.
+- **`polar()` was considered for `∠` and dropped**: TI's `@<` keeps it infix and reserves no name.
+- **`°` multiplies by π/180 in Radian mode and by 1 in Degree mode** (for M1b; Gradian mode is not yet checked). It also appears in results: `▶DD` shows `30°` and `▶DMS` shows `30°30'`.
 
 ## Design decisions
 
 - **One AST for one meaning.** Implied multiplication becomes `Binary("*")`, spellings are folded in the lexer (`<=` to `≤`, `@>` to `▶`), and `[[1,2],[3,4]]` flattens to `[1,2;3,4]`. Assign and Store stay separate so printing preserves what was typed.
-- **Text kept as typed.** `Number` holds its raw text because `1.` and `1` differ (approximate versus exact). Names keep their case and are not resolved: `pi`, `π`, `true`, `Ans`, `undef`, `ⅇ` and `ⅈ` are plain `Name`s for the evaluator. Only `and or not xor nor nand` are keywords.
+- **Text kept as typed.** `Number` holds its raw text because `1.` and `1` differ (approximate versus exact). Names keep their case and are not resolved: `pi`, `π`, `infinity`, `∞`, `theta`, `θ`, `true`, `Ans`, `undef`, `ⅇ` and `ⅈ` are plain `Name`s, and so is the display form `sin⁻¹`; the evaluator must treat each spelled and symbol form as one. Only `and or not xor nor nand` are keywords.
 - **Chained relations** are one `Compare` node, so `0≤x≤2*π` keeps its shape for `|` constraints.
 - **Commands** are recognised from a fixed list only at the start of a statement. Those names are reserved, and using one in an expression is a syntax error. Control flow (`If`, `For`, ...) and multi-line `Func` bodies are left to `emcas.basic` in M5.
 - **`▶` and `∠`** are missing from the EOS table. `▶` binds just above Store, because the guide allows it only at the end of an entry line. `∠` binds just below `+` and `-`, so `2∠π/4+1` keeps a whole angle; `∠θ` alone is a prefix form because TI displays vectors as `[r ∠θ z]`.

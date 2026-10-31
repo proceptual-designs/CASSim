@@ -27,7 +27,8 @@ def corpus_steps():
 
 
 STEPS = dict(corpus_steps())
-ENTRIES = {key: step["in"] for key, step in STEPS.items()}
+# Entries the emulator rejected are not all parseable, and the parser need not read them.
+ENTRIES = {key: step["in"] for key, step in STEPS.items() if not step.get("error")}
 RESULTS = {
     key: step["out"]
     for key, step in STEPS.items()

@@ -58,6 +58,8 @@ def test_token_boundaries(src, expected):
         "@n1",
         "@k2",
         "χ²Cdf",
+        "sin⁻¹",
+        "cosh⁻¹",
         "σx",
     ],
 )
@@ -79,6 +81,8 @@ def test_name_is_one_token(src):
         ("@t", "ᵀ"),
         ("@r", "ʳ"),
         ("@g", "ᴳ"),
+        ("@d", "°"),
+        ("@<", "∠"),
         ("·", "*"),
     ],
 )
@@ -101,6 +105,22 @@ def test_arrow_inside_a_catalog_name(src):
     assert tokenize(src)[0].text.casefold() == "list▶mat"
 
 
+@pytest.mark.parametrize(
+    ("src", "name"),
+    [
+        ("exp@>list(", "exp▶list"),
+        ("freqTable@>list(", "freqTable▶list"),
+        ("P@>Rx(", "P▶Rx"),
+        ("P@>Ry(", "P▶Ry"),
+        ("R@>Pr(", "R▶Pr"),
+        ("R@>Ptheta(", "R▶Ptheta"),
+        ("R▶Pθ(", "R▶Pθ"),
+    ],
+)
+def test_every_arrow_name_in_the_guide(src, name):
+    assert kinds_and_text(src)[0] == (Kind.NAME, name)
+
+
 def test_arrow_needs_the_call_to_be_a_catalog_name():
     assert texts("list@>Polar") == ["list", "▶", "Polar"]
 
@@ -108,6 +128,7 @@ def test_arrow_needs_the_call_to_be_a_catalog_name():
 def test_dms_literal():
     assert kinds_and_text("60°15'45\"") == [(Kind.DMS, "60°15'45\"")]
     assert kinds_and_text("30°30'") == [(Kind.DMS, "30°30'")]
+    assert kinds_and_text("30@d30'") == [(Kind.DMS, "30°30'")]
 
 
 def test_string_value_excludes_quotes():

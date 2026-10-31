@@ -90,6 +90,7 @@ n1, n2, n3 = Number("1"), Number("2"), Number("3")
         ("a@>Rad@>DD", "(a▶Rad)▶DD"),
         # Polar form
         ("2∠π/4+1", "2∠((π/4)+1)"),
+        ("2@<π", "2∠π"),
     ],
 )
 def test_grouping(text, grouped):

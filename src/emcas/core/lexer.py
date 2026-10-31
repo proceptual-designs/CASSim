@@ -5,7 +5,7 @@ parser sees each symbol in one form only. Text is otherwise kept as typed.
 
 Three symbols look alike in ASCII but differ on the calculator, so canonical text is Unicode:
 `e` is an ordinary variable, `ⅇ` is Euler's constant, and `ᴇ` is the exponent marker in `1.5ᴇ3`.
-A plain `E` is also just a variable. `@e`, `@E` and `@i` type `ⅇ`, `ᴇ` and `ⅈ` from a keyboard.
+A plain `E` is also just a variable. The `@` spellings are TI's own (CAS guide 3.2, pp. 164-165).
 """
 
 import re
@@ -44,6 +44,7 @@ _OPERATORS = {
     "/=": "≠",
     "->": "→",
     "@>": "▶",
+    "@<": "∠",
     "►": "▶",  # the guide's glyph; ▶ is the one the handheld shows
     "−": "-",
     "·": "*",
@@ -57,17 +58,23 @@ _OPERATORS = {
     **{ch: ch for ch in "+-*/^=<>≤≥≠(){}[],;:|!%°'&#∠→▶ᵀʳᴳ⇒⇔"},
 }
 _OPERATOR_RE = re.compile("|".join(re.escape(s) for s in sorted(_OPERATORS, key=len, reverse=True)))
-_POSTFIX_AT = {"t": "ᵀ", "r": "ʳ", "g": "ᴳ"}
-_POSTFIX_AT_RE = re.compile(r"@([trg])(?![0-9A-Za-z])")
+_POSTFIX_AT = {"t": "ᵀ", "r": "ʳ", "g": "ᴳ", "d": "°"}
+_POSTFIX_AT_RE = re.compile(r"@([trgd])(?![0-9A-Za-z])")
 _AT_CONSTANT = {"e": "ⅇ", "i": "ⅈ"}
 _AT_CONSTANT_RE = re.compile(r"@([ei])(?![0-9A-Za-z])")
 _AT_NAME_RE = re.compile(r"@[A-Za-z][0-9A-Za-z]*")
 _NUMBER_RE = re.compile(
     r"0[bB][01]+|0[hH][0-9a-fA-F]+|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:(?:ᴇ|@E)[+-]?[0-9]+)?"
 )
-_DMS_RE = re.compile(r"""[0-9]+(?:\.[0-9]*)?°[0-9]+(?:\.[0-9]*)?'(?:[0-9]+(?:\.[0-9]*)?")?""")
-# Catalog entries with an arrow inside the name, such as list▶mat(.
-_ARROW_NAME_RE = re.compile(r"(list|mat|exp)(?:▶|►|@>)(mat|list)(?=\()", re.IGNORECASE)
+_DMS_RE = re.compile(
+    r"""[0-9]+(?:\.[0-9]*)?(?:°|@d)[0-9]+(?:\.[0-9]*)?'(?:[0-9]+(?:\.[0-9]*)?")?"""
+)
+# Catalog entries with an arrow inside the name, such as list▶mat( and P▶Rx(.
+# TI displays inverse functions this way; arcsin is the typed form.
+_INVERSE_NAME_RE = re.compile(r"(?:sin|cos|tan|sec|csc|cot)h?⁻¹")
+_ARROW_NAME_RE = re.compile(
+    r"(freqTable|list|mat|exp|P|R)(?:▶|►|@>)(list|mat|Rx|Ry|Pr|Pθ|Ptheta)(?=\()", re.IGNORECASE
+)
 
 WORD_OPERATORS = frozenset({"and", "or", "not", "xor", "nor", "nand"})
 _ONE_CHAR_NAMES = frozenset("π∞ⅈⅇ√∫∏∑")
@@ -121,8 +128,9 @@ def _scan_name(src: str, start: int, space: bool) -> tuple[Token, int]:
 
 # Tokens with a fixed shape, in priority order, each with the way to read its match.
 _FIXED_TOKENS: tuple[tuple[re.Pattern[str], Kind, Callable[[re.Match[str]], str]], ...] = (
-    (_DMS_RE, Kind.DMS, lambda m: m.group()),
+    (_DMS_RE, Kind.DMS, lambda m: m.group().replace("@d", "°")),
     (_NUMBER_RE, Kind.NUMBER, lambda m: m.group().replace("@E", "ᴇ")),
+    (_INVERSE_NAME_RE, Kind.NAME, lambda m: m.group()),
     (_ARROW_NAME_RE, Kind.NAME, lambda m: f"{m.group(1)}▶{m.group(2)}"),
     (_POSTFIX_AT_RE, Kind.OP, lambda m: _POSTFIX_AT[m.group(1)]),
     (_OPERATOR_RE, Kind.OP, lambda m: _OPERATORS[m.group()]),

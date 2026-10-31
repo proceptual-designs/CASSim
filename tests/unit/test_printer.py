@@ -1,5 +1,7 @@
 """Printer tests: exact text for known cases, and parse/print round trips by Hypothesis."""
 
+import re
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -141,6 +143,9 @@ def test_arbitrary_text_parses_or_reports_a_syntax_error(text):
     assert parse(str(tree)) == tree
 
 
+DMS_AND_STRING = '60°15\'45"+"π"'
+
+
 @pytest.mark.parametrize(
     ("text", "plain"),
     [
@@ -156,8 +161,14 @@ def test_arbitrary_text_parses_or_reports_a_syntax_error(text):
         ("list▶mat(x)", "list@>mat(x)"),
         ("[1,2]ᵀ", "[1,2]@t"),
         ('"π≤ⅇ"', '"π≤ⅇ"'),
-        ('60°15\'45"+"π"', '60°15\'45"+"π"'),
+        (DMS_AND_STRING, DMS_AND_STRING.replace("°", "@d", 1)),
         ("e", "e"),
+        ("[2∠π,∠π/4]", "[2@<pi,@<pi/4]"),
+        ("30°", "30@d"),
+        ("30°30'", "30@d30'"),
+        ("x→∞", "x->infinity"),
+        ("-∞", "-infinity"),
+        ("sinh⁻¹(1)+cos⁻¹(x)", "arcsinh(1)+arccos(x)"),
     ],
 )
 def test_to_ascii(text, plain):
@@ -169,3 +180,10 @@ def test_to_ascii(text, plain):
 def test_ascii_text_reads_back_as_the_same_entry(tree):
     plain = to_ascii(str(tree))
     assert to_ascii(str(parse(plain))) == plain
+
+
+@settings(deadline=None, max_examples=500)
+@given(lines)
+def test_ascii_output_has_no_symbols_outside_strings(tree):
+    outside_strings = re.sub(r'"[^"]*"', "", to_ascii(str(tree)))
+    assert not set(outside_strings) & set("ⅇⅈᴇπ√≤≥≠→▶⇒⇔ᵀʳᴳ°∠∞⁻")
