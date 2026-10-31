@@ -4,6 +4,7 @@ import http.server
 import sys
 import threading
 import time
+from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
@@ -44,6 +45,6 @@ with sync_playwright() as p:
         page.wait_for_timeout(500)
     print("first DONE after", round(time.perf_counter() - t, 2), "s")
     print("network:", sizes)
-    print(page.screenshot(path=r"C:\dev\builds\spike1_shot.png") and "")
+    print(page.screenshot(path=str(Path(__file__).resolve().parents[1] / "builds" / "spike1_shot.png")) and "")
     b.close()
 srv.shutdown()

@@ -17,6 +17,7 @@ htmlcov/
 # Build output (Flet static sites, wheels, vendored Pyodide packages)
 dist/
 build/
+/builds/
 *.egg-info/
 .flet/
 
