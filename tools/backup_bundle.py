@@ -48,9 +48,8 @@ def main() -> None:
     bundle = args.dest / f"emcas-{stamp}.bundle"
     git("bundle", "create", str(bundle), "--all")
     git("bundle", "verify", str(bundle))
-    print(
-        f"wrote {bundle} ({bundle.stat().st_size / 1e3:.0f} kB), head {git('rev-parse', '--short', 'HEAD')}"
-    )
+    head = git("rev-parse", "--short", "HEAD")
+    print(f"wrote {bundle} ({bundle.stat().st_size / 1e3:.0f} kB), head {head}")
 
     for old in sorted(args.dest.glob("emcas-*.bundle"))[: -args.keep]:
         old.unlink()

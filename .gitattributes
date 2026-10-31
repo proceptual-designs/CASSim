@@ -1,0 +1,7 @@
+# Normalise to LF in the repo (CI and Pyodide are Linux-like); Windows checkouts convert as needed.
+* text=auto
+*.py text eol=lf
+*.jpg binary
+*.png binary
+*.pdf binary
+*.tns binary
