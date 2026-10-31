@@ -1,4 +1,4 @@
-# Environments (the real venv lives outside OneDrive: UV_PROJECT_ENVIRONMENT)
+# Environments (in-project uv venv)
 .venv/
 .env
 .env.*

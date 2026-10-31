@@ -9,7 +9,7 @@ A static, installable (PWA) browser emulation of the TI-Nspire CX CAS. Python (S
 Planning is done; no code exists yet. Next job is **M0 (Foundations and de-risking)**, then M1 (text CAS). Do not start GUI work before M1 exit criteria are met.
 
 ## Decisions already made (do not re-litigate)
-- Repo lives in this OneDrive folder. Keep the virtualenv out of OneDrive: set `UV_PROJECT_ENVIRONMENT` to a local path (e.g. `C:\dev\venvs\emcas`). Commit and push to a Git remote often.
+- Repo lives at `C:\dev\emCAS`, outside OneDrive. The virtualenv is the in-project `.venv` (uv default; do not set `UV_PROJECT_ENVIRONMENT`). Commit and push to a Git remote often.
 - Correctness is judged by **symbolic/numeric equality**, not TI's exact output text. Maths is rendered from LaTeX.
 - Python scripts in the app are sandboxed in the browser but must prompt before running.
 - Geometry page is out of initial scope.

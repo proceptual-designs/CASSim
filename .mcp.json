@@ -2,8 +2,13 @@
   "mcpServers": {
     "flet": {
       "command": "uv",
-      "args": ["run", "--group", "web", "flet", "mcp"],
-      "env": { "UV_PROJECT_ENVIRONMENT": "C:\dev\venvs\emcas" }
+      "args": [
+        "run",
+        "--group",
+        "web",
+        "flet",
+        "mcp"
+      ]
     }
   }
 }
