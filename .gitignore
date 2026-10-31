@@ -1,0 +1,39 @@
+# Environments (the real venv lives outside OneDrive: UV_PROJECT_ENVIRONMENT)
+.venv/
+.env
+.env.*
+
+# Python / tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Build output (Flet static sites, wheels, vendored Pyodide packages)
+dist/
+build/
+*.egg-info/
+.flet/
+
+# Browser test output
+node_modules/
+playwright-report/
+test-results/
+
+# Third-party reference material: copyrighted (TI, VCE publishers) or licence not yet
+# checked (LazyMath UDFs). Kept locally and backed up by OneDrive; never committed.
+/references/
+
+# Local-only editor/agent settings and OS/Office junk
+.claude/settings.local.json
+.vscode/
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*
+*.log

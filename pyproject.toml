@@ -1,0 +1,78 @@
+[project]
+name = "emcas"
+version = "0.1.0"
+description = "Browser emulation of the TI-Nspire CX CAS (Python/SymPy via Pyodide, UI in Flet)."
+authors = [{ name = "Simon Tyler" }]
+requires-python = ">=3.14"
+dependencies = [
+    "sympy>=1.14",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+stats = ["scipy>=1.16", "numpy>=2"]
+
+[project.scripts]
+emcas = "emcas.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "ty",
+    "pre-commit",
+    "types-pyyaml",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "hypothesis",
+    "playwright",
+    "pytest-playwright",
+]
+web = [
+    "flet[all]>=1.0.5",
+    "flet-mcp",
+    "scipy>=1.16",
+    "numpy>=2",
+]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests", "tools"]
+extend-exclude = ["references", "spikes"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "PL", "PT", "RUF", "TID"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "PLR2004"]
+"spikes/**" = ["ANN", "PLR2004", "T20"]
+"tools/**" = ["PLR2004"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config -m \"not e2e\""
+xfail_strict = true
+markers = [
+    "corpus: golden-corpus replay cases",
+    "e2e: Playwright end-to-end tests (need a built static site)",
+]
+
+[tool.ty.environment]
+python-version = "3.14"
+root = ["src", "."]
+
+[tool.ty.src]
+include = ["src", "tests", "tools"]
+
+[tool.ty.rules]
+# Strictness for src/emcas/core is raised as modules land; see docs/decisions/0001-tooling.md.

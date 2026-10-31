@@ -1,0 +1,221 @@
+# Seed corpus, batch 1. All 20 cases captured on the TI-Nspire CX CAS emulator on 2026-10-31.
+# Transcription was done from screenshots by Claude; not yet human-reviewed (reviewed_by says so).
+# status stays `pending` until the engine can run each case.
+schema_version: 1
+cases:
+
+# ---------- Methods (Radian / Automatic / Real) ----------
+- id: methods.solve.quadratic
+  course: methods
+  tier: 1
+  tags: [solve]
+  steps:
+    - {in: "solve(x^2-4=0,x)", out: "x=-2 or x=2"}
+  provenance: &emu
+    source: emulator
+    emulator_version: "TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)"
+    captured: "2026-10-31"
+    reviewed_by: "claude (screenshot transcription); human review pending"
+    evidence: shots/methods.solve.quadratic.jpg
+  status: pending
+
+- id: methods.define.solve-with-domain
+  course: methods
+  tier: 1
+  tags: [define, solve, constraint]
+  steps:
+    - {in: "f(x):=x^2-4", out: "Done"}
+    - {in: "solve(f(x)=0,x)|x>0", out: "x=2"}
+  provenance: {<<: *emu, evidence: shots/methods.define.solve-with-domain.jpg}
+  status: pending
+
+- id: methods.solve.system
+  course: methods
+  tier: 1
+  tags: [solve, system]
+  steps:
+    - {in: "solve({x+y=3,x-y=1},{x,y})", out: "x=2 and y=1"}
+  provenance: {<<: *emu, evidence: shots/methods.solve.system.jpg}
+  status: pending
+
+- id: methods.solve.trig-general-solution
+  course: methods
+  tier: 1
+  tags: [solve, trig, arbitrary-constant]
+  steps:
+    - {in: "solve(sin(x)=1/2,x)", out: "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6", compare: family,
+       note: "Confirmed on emulator: TI returns the general solution with n1 (shown bold italic). SymPy returns principal values only; the adapter must add the families."}
+  provenance: {<<: *emu, evidence: shots/methods.solve.trig-general-solution.jpg}
+  status: pending
+
+- id: methods.algebra.factor-expand-propfrac
+  course: methods
+  tier: 1
+  tags: [factor, expand, propFrac]
+  steps:
+    - {in: "factor(x^4-1)", out: "(x-1)*(x+1)*(x^2+1)"}
+    - {in: "expand((x+1)^3)", out: "x^3+3*x^2+3*x+1"}
+    - {in: "propFrac((x^2+1)/(x-1))", out: "2/(x-1)+x+1"}
+  provenance: {<<: *emu, evidence: shots/methods.algebra.factor-expand-propfrac.jpg}
+  status: pending
+
+- id: methods.calculus.basic
+  course: methods
+  tier: 1
+  tags: [derivative, integral, limit]
+  steps:
+    - {in: "derivative(x^2*sin(x),x)", out: "x^2*cos(x)+2*x*sin(x)"}
+    - {in: "integral(x*exp(x),x,0,1)", out: "1", note: "Emulator displays exp(x) as e^x. Typing ASCII e on the emulator gives a variable, so exp() was used."}
+    - {in: "limit(sin(x)/x,x,0)", out: "1"}
+  provenance: {<<: *emu, evidence: shots/methods.calculus.basic.jpg, note: "The derivative entry is partly scrolled off the top of the screenshot; its result is visible."}
+  status: pending
+
+- id: methods.calculus.gradient-at-point-trap
+  course: methods
+  tier: 1
+  tags: [derivative, define]
+  steps:
+    - {in: "f(x):=x^2", out: "Done"}
+    - {in: "df(x):=derivative(f(x),x)", out: "Done"}
+    - {in: "df(3)", out: "6"}
+  provenance: {<<: *emu, evidence: shots/methods.calculus.gradient-at-point-trap.jpg}
+  status: pending
+
+- id: methods.syntax.d-paren-undefined-function
+  course: methods
+  tier: 2
+  tags: [trap, syntax, undefined-function]
+  steps:
+    - {in: "d(x^2,x)", out: "d(x^2,x)",
+       note: "NOT an error. d is an undefined function, so the call is returned unevaluated. The engine must treat unknown function names as symbolic function applications."}
+  provenance: {<<: *emu, evidence: shots/methods.syntax.d-paren-undefined-function.jpg}
+  status: pending
+
+- id: methods.exact-vs-approx
+  course: methods
+  tier: 1
+  tags: [mode, approx]
+  steps:
+    - {in: "47/10", out: "47/10"}
+    - {in: "approx(47/10)", out: "4.7", compare: numeric, tol: 1.0e-9}
+    - {in: "1./3", out: "0.33333333", compare: numeric, tol: 1.0e-7, note: "decimal point forces approximate"}
+  provenance: {<<: *emu, evidence: shots/methods.exact-vs-approx.jpg}
+  status: pending
+
+- id: methods.angle.radian-exact
+  course: methods
+  tier: 1
+  tags: [mode, trig]
+  steps:
+    - {in: "sin(pi/6)", out: "1/2", note: "Typing pi on the emulator yields π."}
+  provenance: {<<: *emu, evidence: shots/methods.angle.radian-exact.jpg}
+  status: pending
+
+- id: methods.prob.distributions
+  course: methods
+  tier: 1
+  tags: [prob, normal, binomial]
+  steps:
+    - {in: "normCdf(-1,1,0,1)", out: "0.68268948", compare: numeric, tol: 1.0e-7,
+       note: "Emulator shows ...948; exact value is 0.682689492 (numerical integration, about 2e-8 relative error). Do not demand more than 1e-7."}
+    - {in: "invNorm(0.975,0,1)", out: "1.959964", compare: numeric, tol: 1.0e-7}
+    - {in: "binomPdf(10,0.5,5)", out: "0.24609375", compare: numeric, tol: 1.0e-9}
+  provenance: {<<: *emu, evidence: shots/methods.prob.distributions.jpg, note: "Emulator entries were run in the order invNorm, binomPdf, normCdf."}
+  status: pending
+
+- id: methods.matrix.det
+  course: methods
+  tier: 1
+  tags: [matrix]
+  steps:
+    - {in: "det([1,2;3,4])", out: "-2", note: "TI matrix syntax is [1,2;3,4] (semicolon separates rows)."}
+  provenance: {<<: *emu, evidence: shots/methods.matrix.det.jpg}
+  status: pending
+
+# ---------- Specialist (Radian / Automatic / Rectangular) ----------
+- id: specialist.complex.csolve
+  course: specialist
+  tier: 1
+  tags: [complex, cSolve]
+  steps:
+    - {in: "cSolve(x^2+1=0,x)", out: "x=ⅈ or x=-ⅈ", note: "Emulator lists x=i first."}
+    - {in: "abs(3+4*√(-1))", out: "5", note: "Typed as sqrt(-1) on the emulator."}
+  provenance: {<<: *emu, evidence: shots/specialist.complex.csolve.jpg}
+  status: pending
+
+- id: specialist.vector.crossp
+  course: specialist
+  tier: 1
+  tags: [vector]
+  steps:
+    - {in: "crossP([1,0,0],[0,1,0])", out: "[0,0,1]"}
+  provenance: {<<: *emu, evidence: shots/specialist.vector.crossp.jpg}
+  status: pending
+
+# ---------- General Maths (Degree / Approximate / Real) ----------
+- id: general.mode.degree-approximate
+  course: general
+  tier: 1
+  tags: [mode]
+  steps:
+    - {in: "sin(30)", out: "0.5", compare: numeric, tol: 1.0e-9}
+    - {in: "47/10", out: "4.7", compare: numeric, tol: 1.0e-9, note: "No exact fractions in Approximate mode"}
+  provenance: {<<: *emu, evidence: shots/general.mode.degree-approximate.jpg}
+  status: pending
+
+- id: general.finance.eff-nom
+  course: general
+  tier: 1
+  tags: [finance]
+  steps:
+    - {in: "eff(5.4,12)", out: "5.5356752", compare: numeric, tol: 1.0e-8}
+    - {in: "nom(5.5356751950103,12)", out: "5.4", compare: numeric, tol: 1.0e-8}
+  provenance: {<<: *emu, evidence: shots/general.finance.eff-nom.jpg}
+  status: pending
+
+- id: general.finance.tvm-pmt
+  course: general
+  tier: 1
+  tags: [finance, tvm]
+  steps:
+    - {in: "tvmPmt(60,6,10000,0,12,12)", out: "-193.32802", compare: numeric, tol: 1.0e-7,
+       note: "Argument order N,I,PV,FV,PpY,CpY confirmed; payment is negative for a positive PV."}
+  provenance: {<<: *emu, evidence: shots/general.finance.tvm-pmt.jpg}
+  status: pending
+
+- id: general.stats.linreg-bx
+  course: general
+  tier: 1
+  tags: [stats, regression]
+  steps:
+    - {in: "x:={1,2,3,4}", out: "{1,2,3,4}", compare: ignore, note: "setup; result scrolled off screen"}
+    - {in: "y:={3,4,6,9}", out: "{3,4,6,9}", compare: ignore, note: "setup; result scrolled off screen"}
+    - {in: "LinRegBx x,y,1:stat.results",
+       out: '[["Title","Linear Regression (a+bx)"],["RegEqn","a+b*x"],["a",0.5],["b",2.],["r²",0.95238095],["r",0.97590007],["Resid","{...}"]]',
+       compare: numeric, tol: 1.0e-7,
+       note: "Resid is displayed as {...}; a follow-up case should check the residual list. Individual stat.a etc. not captured yet."}
+  provenance: {<<: *emu, evidence: shots/general.stats.linreg-bx.jpg}
+  status: pending
+
+# ---------- Cross-cutting ----------
+- id: scope.problems-are-isolated
+  course: methods
+  tier: 1
+  tags: [scope, problem]
+  steps:
+    - {in: "5→a", out: "5"}
+    - {in: "a+1", out: "6"}
+    - {new_problem: true}
+    - {in: "a", out: "a", note: "Undefined variable stays symbolic in a fresh Problem"}
+  provenance: {<<: *emu, evidence: [shots/scope.problems-are-isolated-1.jpg, shots/scope.problems-are-isolated-2.jpg]}
+  status: pending
+
+- id: scope.pages-share-problem-variables
+  course: methods
+  tier: 1
+  tags: [scope, page]
+  steps:
+    - {in: "k:=7", out: "7"}
+    - {in: "k*2", out: "14", note: "Entered on a second Calculator page (15.2) in the same Problem (15.1)."}
+  provenance: {<<: *emu, evidence: [shots/scope.pages-share-problem-variables-1.jpg, shots/scope.pages-share-problem-variables-2.jpg]}
+  status: pending

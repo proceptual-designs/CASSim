@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "emCAS golden corpus file",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "cases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "angle": {
+          "enum": [
+            "radian",
+            "degree",
+            "gradian"
+          ]
+        },
+        "calc": {
+          "enum": [
+            "auto",
+            "exact",
+            "approximate"
+          ]
+        },
+        "domain": {
+          "enum": [
+            "real",
+            "rectangular",
+            "polar"
+          ]
+        },
+        "digits": {
+          "type": "string",
+          "pattern": "^(float|fix)[0-9]{1,2}$"
+        },
+        "cas_mode": {
+          "enum": [
+            "on",
+            "exact_arithmetic",
+            "off"
+          ],
+          "default": "on",
+          "description": "Document Settings > CAS Mode"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "type": "string",
+          "description": "One calculator entry line, TI syntax, ASCII-friendly"
+        },
+        "out": {
+          "type": "string",
+          "description": "Expected result in TI-style text; parsed and compared per `compare`"
+        },
+        "error": {
+          "type": "boolean",
+          "description": "Entry is expected to produce an error"
+        },
+        "error_contains": {
+          "type": "string"
+        },
+        "compare": {
+          "enum": [
+            "canonical",
+            "numeric",
+            "text",
+            "family",
+            "ignore"
+          ],
+          "default": "canonical"
+        },
+        "tol": {
+          "type": "number",
+          "description": "Relative tolerance for compare=numeric"
+        },
+        "new_problem": {
+          "type": "boolean",
+          "description": "Insert a new Problem before this step (variables cleared)"
+        },
+        "set": {
+          "$ref": "#/$defs/settings",
+          "description": "Change document settings before this step"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "in",
+            "out"
+          ]
+        },
+        {
+          "required": [
+            "in",
+            "error"
+          ]
+        },
+        {
+          "required": [
+            "new_problem"
+          ]
+        },
+        {
+          "required": [
+            "set"
+          ]
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "required": [
+        "id",
+        "course",
+        "steps",
+        "provenance",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "course": {
+          "enum": [
+            "methods",
+            "specialist",
+            "general",
+            "none"
+          ]
+        },
+        "settings": {
+          "$ref": "#/$defs/settings"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tier": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "enum": [
+                "emulator",
+                "skill_notes",
+                "hand_computed",
+                "unverified_expectation"
+              ]
+            },
+            "emulator_version": {
+              "type": "string"
+            },
+            "captured": {
+              "type": "string"
+            },
+            "evidence": {
+              "description": "Screenshot path(s) under corpus/shots/",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              ]
+            },
+            "reviewed_by": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "xfail",
+            "pending"
+          ],
+          "description": "pending = not yet runnable by the engine"
+        },
+        "xfail_reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,292 @@
+Piecewise template (2-piece)
+Piecewise template (N-piece)
+System of 2 equations template
+System of N equations template
+Absolute value template
+dd° mm’ss.ss’’ template
+Matrix template (2 x 2)
+Matrix template (1 x 2)
+Matrix template (2 x 1)
+Matrix template (m x n)
+Sum template (Σ)
+Product template (Π)
+First derivative template
+Second derivative template
+Definite integral template
+abs()
+amortTbl()
+and
+angle()
+ANOVA
+ANOVA2way
+approx()
+►approxFraction()
+approxRational()
+augment()
+avgRC()
+bal()
+►Base2
+►Base10
+►Base16
+binomCdf()
+binomPdf()
+centralDiff()
+char()
+χ22way
+χ2Cdf()
+χ2GOF
+χ2Pdf()
+ClearAZ
+ClrErr
+colAugment()
+colDim()
+colNorm()
+conj()
+constructMat()
+CopyVar
+corrMat()
+cosh()
+cosh⁻¹()
+coth()
+coth⁻¹()
+count()
+countif()
+cPolyRoots()
+crossP()
+csch()
+csch⁻¹()
+CubicReg
+cumulativeSum()
+Cycle
+►Cylind
+dbd()
+►DD
+►Decimal
+Define
+Define LibPriv
+Define LibPub
+DelVar
+delVoid()
+det()
+diag()
+dim()
+Disp
+DispAt
+►DMS
+dotP()
+eff()
+eigVc()
+eigVl()
+ElseIf
+euler ()
+Exit
+expr()
+ExpReg
+factor()
+FCdf()
+Fill
+FiveNumSummary
+floor()
+For
+format()
+fPart()
+FPdf()
+freqTable►list()
+frequency()
+FTest_2Samp
+Func
+gcd()
+geomCdf()
+geomPdf()
+getDenom()
+getKey()
+getLangInfo()
+getLockInfo()
+getMode()
+getNum()
+getType()
+getVarInfo()
+Goto
+►Grad
+identity()
+If
+ifFn()
+imag()
+inString()
+int()
+intDiv()
+interpolate ()
+invχ2 ()
+invF()
+invBinom()
+invBinomN()
+invNorm()
+invt()
+iPart()
+irr()
+isPrime()
+isVoid()
+Lbl
+lcm()
+left()
+libShortcut()
+LinRegBx
+LinRegMx
+LinRegtIntervals
+LinRegtTest
+linSolve()
+ΔList()
+list ►mat()
+LnReg
+Local
+Lock
+Logistic
+LogisticD
+Loop
+LU
+mat ►list()
+max()
+mean()
+median()
+MedMed
+mid()
+min()
+mirr()
+mod()
+mRow()
+mRowAdd()
+MultReg
+MultRegIntervals
+MultRegTests
+nCr()
+nDerivative()
+newList()
+newMat()
+nfMax()
+nfMin()
+nInt()
+nom()
+norm()
+normCdf()
+normPdf()
+not
+nPr()
+npv()
+nSolve()
+OneVar
+or
+ord()
+P►Rx()
+P►Ry()
+PassErr
+piecewise()
+poissCdf()
+poissPdf()
+►Polar
+polyEval()
+polyRoots()
+PowerReg
+Prgm
+product()
+propFrac()
+QR
+QuadReg
+QuartReg
+R►Pθ()
+R►Pr()
+►Rad
+rand()
+randBin()
+randInt()
+randMat()
+randNorm()
+randPoly()
+randSamp()
+RandSeed
+real()
+►Rect
+ref()
+RefreshProbeVars
+remain()
+Request
+RequestStr
+Return
+right()
+rk23 ()
+root()
+rotate()
+round()
+rowAdd()
+rowDim()
+rowNorm()
+rowSwap()
+rref()
+sech()
+sech⁻¹()
+seq()
+seqGen()
+seqn()
+setMode()
+shift()
+sign()
+simult()
+sinh()
+sinh⁻¹()
+SinReg
+SortA
+SortD
+►Sphere
+sqrt()
+stat.results
+stat.values
+stDevPop()
+stDevSamp()
+Stop
+string()
+subMat()
+sum()
+sumIf()
+system()
+T (transpose)
+tanh()
+tanh⁻¹()
+tCdf()
+Text
+tInterval
+tInterval_2Samp
+tPdf()
+trace()
+Try
+tTest
+tTest_2Samp
+tvmFV()
+tvmI()
+tvmN()
+tvmPmt()
+tvmPV()
+TwoVar
+unitV()
+unLock
+varPop()
+varSamp()
+Wait
+warnCodes ()
+when()
+While
+xor
+zInterval
+zInterval_1Prop
+zInterval_2Prop
+zInterval_2Samp
+zTest
+zTest_1Prop
+zTest_2Prop
+zTest_2Samp
+d() (derivative)
+∫() (integral)
+Π() (prodSeq)
+Σ() (sumSeq)
+ΣInt()
+ΣPrn()
+10^()
+^ ⁻¹ (reciprocal)

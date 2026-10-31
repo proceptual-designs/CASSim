@@ -1,0 +1,254 @@
+# CAS Mode = Off versions of the seed cases, captured on the emulator 2026-10-31.
+# Same inputs as 001_core.yaml; expectations differ where CAS Off restricts symbolic work.
+# Transcribed by Claude from screenshots; human review pending. Evidence shots: casoff.<id>[-n].jpg
+schema_version: 1
+cases:
+- id: casoff.methods.solve.quadratic
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [solve, cas-off]
+  steps:
+  - {in: 'solve(x^2-4=0,x)', error: true, error_contains: CAS computations are restricted}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.solve.quadratic.jpg}
+  status: pending
+- id: casoff.methods.define.solve-with-domain
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [define, solve, constraint, cas-off]
+  steps:
+  - {in: 'f(x):=x^2-4', out: Done}
+  - {in: 'solve(f(x)=0,x)|x>0', error: true, error_contains: CAS computations are restricted}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.methods.define.solve-with-domain-1.jpg, shots/casoff.methods.define.solve-with-domain-2.jpg]
+  status: pending
+- id: casoff.methods.solve.system
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [solve, system, cas-off]
+  steps:
+  - {in: 'solve({x+y=3,x-y=1},{x,y})', error: true, error_contains: CAS computations are restricted}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.solve.system.jpg}
+  status: pending
+- id: casoff.methods.solve.trig-general-solution
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [solve, trig, arbitrary-constant, cas-off]
+  steps:
+  - {in: 'solve(sin(x)=1/2,x)', error: true, error_contains: CAS computations are restricted}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.solve.trig-general-solution.jpg}
+  status: pending
+- id: casoff.methods.algebra.factor-expand-propfrac
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [factor, expand, propFrac, cas-off]
+  steps:
+  - {in: factor(x^4-1), error: true, error_contains: CAS computations are restricted}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.algebra.factor-expand-propfrac.jpg, note: 'Only factor was observed; expand and propFrac were not captured in CAS Off
+      (likely the same restriction, unverified).'}
+  status: pending
+- id: casoff.methods.calculus.basic
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [derivative, integral, limit, cas-off]
+  steps:
+  - {in: 'derivative(x^2*sin(x),x)', error: true, error_contains: Use Derivative at a Point}
+  - {in: 'integral(x*exp(x),x,0,1)', out: '1', note: 'Emulator displays exp(x) as e^x. Typing ASCII e on the emulator gives a variable, so exp() was used.', compare: numeric}
+  - {in: 'limit(sin(x)/x,x,0)', error: true, error_contains: CAS computations are restricted}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.methods.calculus.basic-1.jpg, shots/casoff.methods.calculus.basic-2.jpg, shots/casoff.methods.calculus.basic-3.jpg]
+    note: Definite integral is evaluated numerically in CAS Off; limit and symbolic derivative are restricted.
+  status: pending
+- id: casoff.methods.calculus.gradient-at-point-trap
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [derivative, define, cas-off]
+  steps:
+  - {in: 'f(x):=x^2', out: Done}
+  - {in: 'df(x):=derivative(f(x),x)', out: Done}
+  - {in: df(3), out: '6'}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.methods.calculus.gradient-at-point-trap-1.jpg, shots/casoff.methods.calculus.gradient-at-point-trap-2.jpg]
+    note: Definition df(x):=derivative(f(x),x) is accepted in CAS Off and df(3) evaluates to 6 (entry is shown as d/dx template). Duplicate history entry in the screenshot comes from a stray Return.
+  status: pending
+- id: casoff.methods.syntax.d-paren-undefined-function
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 2
+  tags: [trap, syntax, undefined-function, cas-off]
+  steps:
+  - {in: 'd(x^2,x)', error: true, error_contains: CAS computations are restricted}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.syntax.d-paren-undefined-function.jpg}
+  status: pending
+- id: casoff.methods.exact-vs-approx
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [mode, approx, cas-off]
+  steps:
+  - {in: 47/10, out: 47/10}
+  - {in: approx(47/10), out: '4.7', compare: numeric, tol: 1.0e-09}
+  - {in: 1./3, out: '0.33333333', compare: numeric, tol: 1.0e-07, note: decimal point forces approximate}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.exact-vs-approx.jpg, note: 47/10 stays a fraction in CAS Off with Calculation Mode Auto.}
+  status: pending
+- id: casoff.methods.angle.radian-exact
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [mode, trig, cas-off]
+  steps:
+  - {in: sin(pi/6), out: 1/2, note: Typing pi on the emulator yields π.}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.angle.radian-exact.jpg}
+  status: pending
+- id: casoff.methods.prob.distributions
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [prob, normal, binomial, cas-off]
+  steps:
+  - {in: 'normCdf(-1,1,0,1)', out: '0.68268948', compare: numeric, tol: 1.0e-07, note: 'Emulator shows ...948; exact value is 0.682689492 (numerical integration, about 2e-8 relative error). Do not demand
+      more than 1e-7.'}
+  - {in: 'invNorm(0.975,0,1)', out: '1.959964', compare: numeric, tol: 1.0e-07}
+  - {in: 'binomPdf(10,0.5,5)', out: '0.24609375', compare: numeric, tol: 1.0e-09}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.prob.distributions.jpg}
+  status: pending
+- id: casoff.methods.matrix.det
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [matrix, cas-off]
+  steps:
+  - {in: 'det([1,2;3,4])', out: '-2', note: 'TI matrix syntax is [1,2;3,4] (semicolon separates rows).'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.methods.matrix.det.jpg}
+  status: pending
+- id: casoff.scope.problems-are-isolated
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [scope, problem, cas-off]
+  steps:
+  - {in: 5→a, out: '5'}
+  - {in: a+1, out: '6'}
+  - {new_problem: true}
+  - {in: a, error: true, error_contains: CAS computations are restricted}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.scope.problems-are-isolated-1.jpg, shots/casoff.scope.problems-are-isolated-2.jpg, shots/casoff.scope.problems-are-isolated-3.jpg]
+    note: An undefined variable raises the CAS-restricted error in CAS Off (in CAS On it echoes as a symbol).
+  status: pending
+- id: casoff.scope.pages-share-problem-variables
+  course: methods
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [scope, page, cas-off]
+  steps:
+  - {in: 'k:=7', out: '7'}
+  - {in: k*2, out: '14', note: Entered on a second Calculator page (15.2) in the same Problem (15.1).}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.scope.pages-share-problem-variables-1.jpg, shots/casoff.scope.pages-share-problem-variables-2.jpg]
+    note: Captured in a fresh document (Document5); an earlier attempt failed on the 30-problem limit.
+  status: pending
+- id: casoff.specialist.complex.csolve
+  course: specialist
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [complex, cSolve, cas-off]
+  steps:
+  - {in: 'cSolve(x^2+1=0,x)', error: true, error_contains: CAS computations are restricted}
+  - {in: abs(3+4*√(-1)), out: '5', note: Typed as sqrt(-1) on the emulator.}
+  provenance:
+    source: emulator
+    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)'
+    captured: '2026-10-31'
+    reviewed_by: claude (screenshot transcription); human review pending
+    evidence: [shots/casoff.specialist.complex.csolve-1.jpg, shots/casoff.specialist.complex.csolve-2.jpg]
+  status: pending
+- id: casoff.specialist.vector.crossp
+  course: specialist
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [vector, cas-off]
+  steps:
+  - {in: 'crossP([1,0,0],[0,1,0])', out: '[0,0,1]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.specialist.vector.crossp.jpg}
+  status: pending
+- id: casoff.general.mode.degree-approximate
+  course: general
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [mode, cas-off]
+  steps:
+  - {in: sin(30), out: '0.5', compare: numeric, tol: 1.0e-09}
+  - {in: 47/10, out: '4.7', compare: numeric, tol: 1.0e-09, note: No exact fractions in Approximate mode}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.general.mode.degree-approximate.jpg}
+  status: pending
+- id: casoff.general.finance.eff-nom
+  course: general
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [finance, cas-off]
+  steps:
+  - {in: 'eff(5.4,12)', out: '5.5356752', compare: numeric, tol: 1.0e-08}
+  - {in: 'nom(5.5356751950103,12)', out: '5.4', compare: numeric, tol: 1.0e-08}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.general.finance.eff-nom.jpg}
+  status: pending
+- id: casoff.general.finance.tvm-pmt
+  course: general
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [finance, tvm, cas-off]
+  steps:
+  - {in: 'tvmPmt(60,6,10000,0,12,12)', out: '-193.32802', compare: numeric, tol: 1.0e-07, note: 'Argument order N,I,PV,FV,PpY,CpY confirmed; payment is negative for a positive PV.'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.general.finance.tvm-pmt.jpg}
+  status: pending
+- id: casoff.general.stats.linreg-bx
+  course: general
+  settings: {cas_mode: 'off'}
+  tier: 1
+  tags: [stats, regression, cas-off]
+  steps:
+  - {in: 'x:={1,2,3,4}', out: '{1,2,3,4}', compare: ignore, note: setup; result scrolled off screen}
+  - {in: 'y:={3,4,6,9}', out: '{3,4,6,9}', compare: ignore, note: setup; result scrolled off screen}
+  - {in: 'LinRegBx x,y,1:stat.results', out: '[["Title","Linear Regression (a+bx)"],["RegEqn","a+b*x"],["a",0.5],["b",2.],["r²",0.95238095],["r",0.97590007],["Resid","{...}"]]', compare: numeric, tol: 1.0e-07,
+    note: 'Resid is displayed as {...}; a follow-up case should check the residual list. Individual stat.a etc. not captured yet.'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human review pending, evidence: shots/casoff.general.stats.linreg-bx.jpg}
+  status: pending
