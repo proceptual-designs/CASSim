@@ -1,0 +1,97 @@
+# Batch 11: settings sensitivity (General Degree/Approximate, Float 3, Fix 2, Polar complex) and corrected list statistics names.
+# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human review pending. Expected to fail until implemented.
+schema_version: 1
+cases:
+- id: m11.stats.list-functions-correct-names
+  course: methods
+  tier: 1
+  tags: [stats, stdevsamp, stdevpop, varsamp, varpop]
+  steps:
+  - {in: 'stDevSamp({2,4,4,4,5,5,7,9})', out: 4*√(14)/7}
+  - {in: 'stDevPop({2,4,4,4,5,5,7,9})', out: '2'}
+  - {in: 'varSamp({2,4,4,4,5,5,7,9})', out: 32/7}
+  - {in: 'varPop({2,4,4,4,5,5,7,9})', out: '4'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m11.stats.list-functions-correct-names.jpg, note: 'The real function names (pasted from Statistics > List Math) are stDevSamp, stDevPop, varSamp, varPop. The
+      earlier stdDev/stdDevSamp/stdDevPop/variance cases in 005 were wrong names, not missing features. In Auto mode the sample results are exact: 4√14/7 and 32/7.'}
+  status: pending
+- id: m11.list.sorta-literal-list-error
+  course: methods
+  tier: 1
+  tags: [list, sorta, error]
+  steps:
+  - {in: 'SortA {3,1,2}', error: true, error_contains: Argument must be a variable name}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m11.list.sorta-literal-list-error.jpg, note: 'SortA is a command that sorts a list variable in place. Given a literal list it returns the message "Error: Argument
+      must be a variable name." (shown as a result string, not a dialog). In List Operations the menu entry is Sort Ascending.'}
+  status: pending
+- id: m11.settings.general-degree-approximate
+  course: general
+  tier: 1
+  tags: [settings, degree, approximate]
+  steps:
+  - {in: sin(30), out: '0.5', compare: numeric}
+  - {in: arcsin(0.5), out: '30.', compare: numeric}
+  - {in: tan(45), out: '1.', compare: numeric}
+  - {in: 1/3, out: '0.33333333', compare: numeric}
+  - {in: 2^0.5, out: '1.4142136', compare: numeric}
+  - {in: exp(1), out: '2.7182818', compare: numeric}
+  - {in: pi, out: '3.1415927', compare: numeric}
+  - {in: 'solve(x^2-5*x+6=0,x)', out: x=2. or x=3., compare: numeric}
+  - {in: expand((x+1)^3), out: x^3+3.*x^2+3.*x+1., compare: numeric}
+  - {in: factor(x^2-1), out: (x-1.)*(x+1.), compare: numeric}
+  - {in: 'integral(x^2,x,0,1)', out: '0.33333333', compare: numeric}
+  - {in: 'derivative(x^3,x)', out: 3.*x^2, compare: numeric}
+  - {in: sqrt(8), out: '2.8284271', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m11.settings.general-degree-approximate-1.jpg, shots/m11.settings.general-degree-approximate-2.jpg, shots/m11.settings.general-degree-approximate-3.jpg, shots/m11.settings.general-degree-approximate-4.jpg',
+    note: 'General Maths preset (Degree, Approximate, Real). Note the decimal points inside symbolic results: expand gives 3.·x² and factor gives (x-1.)·(x+1.). The coefficients become decimals but the
+      structure stays symbolic.'}
+  status: pending
+- id: m11.settings.float3
+  course: general
+  settings: {digits: float3}
+  tier: 1
+  tags: [settings, display-digits, float3]
+  steps:
+  - {in: sqrt(2), out: '1.41', compare: text}
+  - {in: pi*100, out: '314.', compare: text}
+  - {in: 1000000*pi, out: '3.14ᴇ6', compare: text}
+  - {in: '0.000123456', out: '1.23ᴇ-4', compare: text}
+  - {in: '12345.6789', out: '1.23ᴇ4', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m11.settings.float3.jpg, note: 'Display Digits = Float 3. Large and small numbers switch to scientific notation (E6, E-4). The entry echo of 0.000123456 is shown
+      as 1.23456ᴇ-4. Compare as text: the formatting is the point.'}
+  status: pending
+- id: m11.settings.fix2
+  course: general
+  settings: {digits: fix2}
+  tier: 1
+  tags: [settings, display-digits, fix2]
+  steps:
+  - {in: 1/3, out: '0.33', compare: text}
+  - {in: sqrt(2), out: '1.41', compare: text}
+  - {in: pi*100, out: '314.16', compare: text}
+  - {in: 2/3*1000, out: '666.67', compare: text}
+  - {in: '0.005', out: '5.00ᴇ-3', compare: text}
+  - {in: '12345.6789', out: '12345.68', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m11.settings.fix2-1.jpg, shots/m11.settings.fix2-2.jpg', note: 'Display Digits = Fix 2. 0.005 is shown as 5.00ᴇ-3 rather than 0.01 or 0.00: values that would
+      round to a leading zero are displayed in scientific notation. Compare as text.'}
+  status: pending
+- id: m11.settings.polar-complex
+  course: methods
+  settings: {domain: polar}
+  tier: 1
+  tags: [settings, complex, polar]
+  steps:
+  - {in: (1+sqrt(-1))^2, out: 2*ⅇ^(ⅈ*π/2)}
+  - {in: sqrt(-4), out: 2*ⅇ^(ⅈ*π/2)}
+  - {in: 'cSolve(x^2+1=0,x)', out: x=ⅇ^(ⅈ*π/2) or x=ⅇ^(-ⅈ*π/2)}
+  - {in: exp(sqrt(-1)*pi), out: '-1'}
+  - {in: 3+4*sqrt(-1), out: 5*ⅇ^(ⅈ*(π/2-arctan(3/4)))}
+  - {in: (1+sqrt(-1))*(1-sqrt(-1)), out: '2'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m11.settings.polar-complex-1.jpg, shots/m11.settings.polar-complex-2.jpg', note: 'Real or Complex = Polar: complex results are shown as r·e^(iθ), the modulus
+      written after the exponential (ⅇ^(…)·5). Angle is exact, e.g. π/2 − tan⁻¹(3/4) for 3+4i. Real results are unchanged.'}
+  status: pending

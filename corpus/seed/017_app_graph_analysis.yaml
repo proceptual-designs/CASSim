@@ -1,0 +1,64 @@
+# Batch 15: Graphs app, Analyze Graph (zero, min, max, intersection, integral) on f(x)=x^3-3x.
+# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human review pending.
+schema_version: 1
+cases: []
+app_cases:
+- id: app.graph.analyze-zero
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, zero]
+  setup: ['Add Graphs; f1(x)=x^3-3*x (default window -10..10, -6.67..6.67)', Menu > Analyze Graph > Zero, Click lower bound left of the zero (x about 1.2) then upper bound (x about 2.2)]
+  checks:
+  - what: zero point
+    expect: [1.73, 0]
+    compare: list
+    tol: 0.005
+    note: exact value sqrt(3)=1.7320508; label shows 2 decimal places
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.graph.analyze-zero.jpg, note: Coordinates on graph labels are shown to 2 decimal places by default. The bounds can be placed with the mouse; the tool refines
+      the root inside the bracket.}
+  status: pending
+- id: app.graph.analyze-minimum-maximum
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, minimum, maximum]
+  setup: [f1(x)=x^3-3*x, Menu > Analyze Graph > Minimum; bounds x about 0.3 and 1.8, Menu > Analyze Graph > Maximum; bounds x about -2.4 and -0.8]
+  checks:
+  - what: local minimum
+    expect: [1, -2]
+    compare: list
+    tol: 0.001
+  - what: local maximum
+    expect: [-1, 2]
+    compare: list
+    tol: 0.001
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/app.graph.analyze-minimum-maximum-1.jpg, shots/app.graph.analyze-minimum-maximum-2.jpg', note: 'Both turning points are labelled with exact-looking coordinates
+      (1,-2) and (-1,2). The tool snaps to the extremum within the chosen bounds.'}
+  status: pending
+- id: app.graph.analyze-intersection
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, intersection]
+  setup: ['f1(x)=x^3-3*x, f2(x)=x (added via Graph Entry/Edit > Function)', Menu > Analyze Graph > Intersection, Click lower bound (x about 1.5) and upper bound (x about 2.5)]
+  checks:
+  - what: intersection point
+    expect: [2, 2]
+    compare: list
+    tol: 0.001
+    note: other intersections are (0,0) and (-2,-2)
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.graph.analyze-intersection.jpg, note: 'With exactly two graphs the tool goes straight to the bounds prompt without asking which curves. Result (2,2) solves
+      x^3-3x=x.'}
+  status: pending
+- id: app.graph.analyze-integral
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, integral]
+  setup: [New Graphs page; f(x)=x^3-3*x, Menu > Analyze Graph > Integral, 'Type 0 Return (lower bound), 2 Return (upper bound)']
+  checks:
+  - {what: integral from 0 to 2, expect: -2, compare: numeric, tol: 1.0e-06, note: 'exact: [x^4/4-3x^2/2] from 0 to 2 = 4-6'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.graph.analyze-integral.jpg, note: 'Bounds can be typed as numbers instead of clicked, giving an exact bound. With several graphs present the tool first asks
+      "graph?" and requires choosing a curve. The region is shaded and the value shown below the curve. Graph name increments across pages (this was f3).'}
+  status: pending

@@ -9,7 +9,7 @@ cases:
   tags: [vector, crossp]
   steps:
   - {in: 'crossP([1,2,3],[4,5,6])', out: '[-3,6,-3]'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.vector.crossp.jpg, note: 'Displayed as a row vector [-3 6 -3], matching the row-vector input.'}
   status: pending
 - id: m6.matrix.simult
@@ -18,7 +18,7 @@ cases:
   tags: [matrix, simult, linear-system]
   steps:
   - {in: 'simult([1,2;3,4],[5;6])', out: '[-4;9/2]'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.matrix.simult.jpg}
   status: pending
 - id: m6.trig.texpand
@@ -27,7 +27,7 @@ cases:
   tags: [trig, texpand]
   steps:
   - {in: tExpand(sin(2*x)), out: 2*sin(x)*cos(x)}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.trig.texpand.jpg}
   status: pending
 - id: m6.calculus.desolve-initial-condition
@@ -36,7 +36,7 @@ cases:
   tags: [desolve, initial-condition]
   steps:
   - {in: 'deSolve(y''=y and y(0)=2,x,y)', out: y=2*ⅇ^x}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.calculus.desolve-initial-condition.jpg}
   status: pending
 - id: m6.calculus.integration-by-parts
@@ -45,7 +45,7 @@ cases:
   tags: [integral]
   steps:
   - {in: 'integral(x*sin(x),x)', out: sin(x)-x*cos(x)}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.calculus.integration-by-parts.jpg}
   status: pending
 - id: m6.trig.inverse-and-exact-values
@@ -56,7 +56,7 @@ cases:
   - {in: arccos(-1/2), out: 2*π/3}
   - {in: arcsin(-1), out: -π/2}
   - {in: cos(pi/12), out: (√(3)+1)*√(2)/4}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.trig.inverse-and-exact-values.jpg, note: 'cos(π/12) is returned as (√3+1)·√2/4, not (√6+√2)/4.'}
   status: pending
 - id: m6.solve.log-equation
@@ -65,6 +65,6 @@ cases:
   tags: [solve, ln, domain]
   steps:
   - {in: 'solve(ln(x)+ln(x-1)=ln(2),x)', out: x=2}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m6.solve.log-equation.jpg, note: The extraneous root x=-1 is excluded automatically (domain of ln).}
   status: pending

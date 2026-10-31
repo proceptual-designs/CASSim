@@ -9,7 +9,7 @@ cases:
   tags: [solve, trig, domain, vce]
   steps:
   - {in: 'solve(2*sin(x)^2-sin(x)-1=0,x)|0<=x<=2*pi', out: x=π/2 or x=7*π/6 or x=11*π/6}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.solve.trig-quadratic-domain.jpg}
   status: pending
 - id: m9.solve.quartic-in-quadratic-form
@@ -18,7 +18,7 @@ cases:
   tags: [solve, quartic, vce]
   steps:
   - {in: 'solve(x^4-5*x^2+4=0,x)', out: x=-2 or x=-1 or x=1 or x=2}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.solve.quartic-in-quadratic-form.jpg}
   status: pending
 - id: m9.calculus.quotient-and-chain-rule
@@ -28,7 +28,7 @@ cases:
   steps:
   - {in: 'derivative(x/(x^2+1),x)', out: -(x^2-1)/(x^2+1)^2}
   - {in: 'derivative(sin(x^2),x)', out: 2*x*cos(x^2)}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: 'shots/m9.calculus.quotient-and-chain-rule-1.jpg, shots/m9.calculus.quotient-and-chain-rule-2.jpg', note: 'The quotient-rule result is returned
       as -(x²-1)/(x²+1)², not (1-x²)/(x²+1)²: the numerator keeps its negated factored form.'}
   status: pending
@@ -38,7 +38,7 @@ cases:
   tags: [solve, inverse-function, vce]
   steps:
   - {in: 'solve(y=3*x-2,x)', out: x=(y+2)/3}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.algebra.make-subject.jpg, note: Solving for x in terms of y is how the inverse function is found.}
   status: pending
 - id: m9.defs.piecewise-integral
@@ -48,7 +48,7 @@ cases:
   steps:
   - {in: 'f(x):=when(x<1,x,2-x)', out: Done, compare: text}
   - {in: 'integral(f(x),x,0,2)', out: '1'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: 'shots/m9.defs.piecewise-integral-1.jpg, shots/m9.defs.piecewise-integral-2.jpg', note: 'Integrates a when()-defined piecewise function
       across its break point exactly (result 1, not 1.).'}
   status: pending
@@ -60,7 +60,7 @@ cases:
   - {in: 'limit(sin(3*x)/x,x,0)', out: '3'}
   - {in: 'sum(seq(1/(k*(k+1)),k,1,10))', out: 10/11}
   - {in: expand((1+x)^5), out: x^5+5*x^4+10*x^3+10*x^2+5*x+1}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.calculus.limit-sum-expand.jpg, note: Telescoping sum 1/(k(k+1)) over k=1..10 gives 10/11. expand lists descending powers.}
   status: pending
 - id: m9.complex.fourth-roots-and-power
@@ -70,7 +70,7 @@ cases:
   steps:
   - {in: 'cSolve(z^4=16,z)', out: z=2*ⅈ or z=-2*ⅈ or z=-2 or z=2}
   - {in: (1+sqrt(-1))^8, out: '16'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.complex.fourth-roots-and-power.jpg, note: 'Solutions are listed 2i, -2i, -2, 2 (not in conventional order). (1+√-1)^8 shows a warning
       triangle in Real mode but returns 16.'}
   status: pending
@@ -80,7 +80,7 @@ cases:
   tags: [solve, system, linear]
   steps:
   - {in: 'solve({x+y+z=6,x-y+z=2,2*x+y-z=1},{x,y,z})', out: x=1 and y=2 and z=3}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.solve.three-by-three-system.jpg}
   status: pending
 - id: m9.calculus.partial-fraction-integral
@@ -89,7 +89,7 @@ cases:
   tags: [integral, partial-fractions, vce]
   steps:
   - {in: 'integral(1/(x^2-1),x)', out: -ln(abs(x+1)/abs(x-1))/2}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.calculus.partial-fraction-integral.jpg, note: 'Returned as -ln(|x+1|/|x-1|)/2: absolute values are kept inside ln, and the sign
       is carried by the leading minus.'}
   status: pending
@@ -99,6 +99,6 @@ cases:
   tags: [desolve, separable, initial-condition, vce]
   steps:
   - {in: 'deSolve(y''=x*y and y(0)=1,x,y)', out: y=ⅇ^(x^2/2)}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software, CX II-T CAS handheld view (build not recorded: add from Help > About)', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human review pending, evidence: shots/m9.calculus.desolve-separable-initial-condition.jpg}
   status: pending

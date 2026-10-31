@@ -49,8 +49,6 @@ One or more YAML files under `corpus/`, validated by `corpus/schema.json` (JSON 
 
 **Provenance sources:** `emulator` (needs evidence screenshot, enforced by the validator) › `skill_notes` (from Simon's cas-solver skill; reported as verified there, to be re-captured) › `hand_computed` (derived independently, e.g. with SciPy) › `unverified_expectation` (from memory; treat as a hypothesis).
 
-**Notation:** `in` is what was typed; `out` is what is displayed, in canonical Unicode. The calculator separates three look-alikes, and so must the corpus: `e` is a variable, `ⅇ` is Euler's constant and `ᴇ` is the exponent marker (`1.ᴇ-13`). A test rejects a bare `e` or `E` in a result.
-
 **YAML pitfall:** PyYAML reads `1e-9` as a string. Write tolerances as `1.0e-9` (the validator catches this).
 
 **Status lifecycle:** `pending` (engine can't run it yet; replay skips it) → `pass` once the engine passes it → `xfail` + `xfail_reason` if it regresses or is a known gap. Replay marks `xfail` as `strict`, so an unexpected pass fails the run.
@@ -126,7 +124,7 @@ Emulator typing notes for future capture sessions (in addition to section 5):
 
 - Typed chunks of 16 or more characters are pasted and can fail silently (a 17-character `normCdf` line vanished). Use chunks of about 9-10 characters.
 - `x^2` captures the following text as the exponent: press Right after the exponent. A typed `/` stays inline, so no Right is needed after `1/2`.
-- Typing `pi` produces π; `sqrt(-1)` gives i in Rectangular mode; use `exp(x)` rather than `e^(x)`, because a typed `e` is a variable.
+- Typing `pi` produces π; `sqrt(-1)` gives i in Rectangular mode; use `exp(x)` rather than `e^(x)`.
 - Store arrow: click the on-screen ctrl then var keys.
 - The Doc menu route for a new Problem is Doc > 4 Insert > 1 Problem; a new page in the same Problem is Doc > 4 Insert > 3 Calculator.
 - The corpus YAML uses `<<: *emu` merge keys; any loader other than PyYAML/ruamel must support them or the anchors must be expanded.
@@ -241,6 +239,38 @@ Behaviours worth implementing against:
 Open items before the corpus is final:
 
 - Every case needs human review of the transcription (all are `pending`).
-- Build number of the emulator is still not recorded (Help > About).
-- `stdDev`/`variance`/`sort`/`transpose` echo cases (batch 3) should be confirmed against the Catalog.
+- (Done) Emulator build recorded as 6.0.3.374 in all provenance fields.
+- (Done) The echo cases were not missing features: the real list functions are `stDevSamp`, `stDevPop`, `varSamp`, `varPop` (m11).
 - Not captured: CAS Off and Exact Arithmetic coverage beyond the first 32 cases, graphs/geometry (out of scope), programs and Python.
+
+## 14. Batches 11 to 16: settings, errors, state, long tail, and app screens (`corpus/seed/013` to `018`)
+
+Added 2026-11-01 on emulator version 6.0.3.374, all `status: pending`. Corpus total: 177 (141 earlier + 6 settings/lists + 8 errors/state + 11 long tail + 11 `app_cases`).
+
+| File | Cases | Content |
+|---|---|---|
+| 013_settings_and_lists | 6 | Degree/Approximate (General preset), Float 3, Fix 2, Polar complex; correct list statistic names |
+| 014_errors_and_state | 8 | `undef` results, undefined variable, syntax and argument-count errors, `:=`, `delVar`, redefining and multi-argument functions, `ans`, `→` |
+| 015_long_tail_functions | 11 | `nPr`, `lcm`, `ceiling`, `int`, `sign`, `fPart`, `round`, `polyRoots`, `polyEval`, `▶Decimal`, `▶Grad`, one-sided limits, `invT`, `tCdf`, `chi2Cdf`, `arcsinh`, 3x3 `det`/inverse, `rref`, `comDenom`/`cFactor`, `randInt` range |
+| 016_app_spreadsheet | 6 | Lists & Spreadsheet: formula column, `seq`, Generate Sequence, OneVar, TwoVar, linear regression |
+| 017_app_graph_analysis | 4 | Graphs: zero, minimum/maximum, intersection, integral |
+| 018_app_scatter | 1 | Data & Statistics scatter plot with linear regression overlay |
+
+### New: `app_cases`
+
+Screens other than the Calculator are recorded in a top-level `app_cases` list (schema `$defs/app_case`): `app` (`spreadsheet`, `graphs`, `data-statistics`), `setup` (ordered UI steps), `checks` (`what`, `expect`, optional `tol`, `compare`), `provenance` and `status`. The screenshot is the primary evidence; numeric `expect` values are the pass criteria.
+
+### Behaviours worth implementing against
+
+- Settings: in Approximate mode even symbolic results carry decimal points (`x^3+3.·x^2+3.·x+1.`). Float 3 uses scientific notation outside roughly 1e-3 to 1e5 (`3.14E6`, `1.23E-4`). Fix 2 shows `0.005` as `5.00E-3`. Polar complex results print as `r·e^(ⅈθ)`.
+- `1/0` and `ln(0)` give `undef` (not errors). An undefined variable echoes back unchanged. Syntax, `Too many arguments` and `Too few arguments` are dialogs.
+- `int(-2.5)` = -3 (floor); `ceiling(2.3)` = `3.`; `fPart(7/3)` stays exact. `90▶Grad` in Radian mode treats 90 as radians.
+- `arcsinh(1)` stays unevaluated as `sinh⁻¹(1)` in Auto mode.
+- Spreadsheet: whole-column reference is `a[]`; naming column A `d` and using `d` in a formula raises a "Conflict Detected" dialog. Statistics results are decimals. Quartiles use the median-of-halves rule (Q1 of {1,4,9,16,25,36,49,64} is 6.5, Q3 is 42.5).
+- Graphs: coordinates are labelled to 2 decimal places; Intersection with two graphs goes straight to the bounds prompt; Integral accepts typed bounds and asks "graph?" when several graphs exist.
+
+### Still open
+
+- Human review of every transcription (all `pending`).
+- Spreadsheet sort, fill, 6th term of Generate Sequence, histogram/box plot, regression models other than linear, graph inflection, bounded area, `dy/dx`, conics, tables.
+- Settings not yet covered: Gradian, Exponential Format (Scientific/Engineering), Degree with Methods/Auto.

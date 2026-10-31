@@ -1,0 +1,125 @@
+# Batch 13: long-tail functions (number, polynomial, limits, distributions, matrices, random range).
+# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human review pending. Expected to fail until implemented.
+schema_version: 1
+cases:
+- id: m13.number.npr-lcm-ceiling-int-sign-fpart-round
+  course: methods
+  tier: 1
+  tags: [number, npr, lcm, ceiling, int, sign, fpart, round]
+  steps:
+  - {in: 'nPr(6,2)', out: '30'}
+  - {in: 'lcm(12,18)', out: '36'}
+  - {in: ceiling(2.3), out: '3.', compare: numeric}
+  - {in: int(-2.5), out: '-3.', compare: numeric}
+  - {in: sign(-3), out: '-1'}
+  - {in: fPart(7/3), out: 1/3}
+  - {in: 'round(3.14159,2)', out: '3.14', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m13.number.npr-lcm-ceiling-int-sign-fpart-round-1.jpg, shots/m13.number.npr-lcm-ceiling-int-sign-fpart-round-2.jpg', note: 'int is the floor function (int(-2.5)
+      = -3). ceiling and int return a decimal (3. and -3.) when given a decimal argument. fPart(7/3) keeps the exact fraction 1/3. The command is fPart, not frac.'}
+  status: pending
+- id: m13.algebra.polyroots-polyeval
+  course: methods
+  tier: 1
+  tags: [algebra, polyroots, polyeval]
+  steps:
+  - {in: 'polyRoots(x^3-6*x^2+11*x-6,x)', out: '{1,2,3}'}
+  - {in: 'polyEval({1,-2,3},2)', out: '3'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m13.algebra.polyroots-polyeval-1.jpg, shots/m13.algebra.polyroots-polyeval-2.jpg', note: 'polyEval takes a coefficient list in descending order: {1,-2,3} is
+      x²-2x+3. polyRoots returns a list.'}
+  status: pending
+- id: m13.convert.decimal
+  course: methods
+  tier: 1
+  tags: [convert, decimal]
+  steps:
+  - {in: 1/3@>Decimal, out: '0.33333333', compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.convert.decimal.jpg, note: The ▶Decimal conversion displays 8 significant digits in Float 8.}
+  status: pending
+- id: m13.calculus.one-sided-limits
+  course: methods
+  tier: 1
+  tags: [calculus, limit, one-sided]
+  steps:
+  - {in: 'limit(1/x,x,0,1)', out: ∞}
+  - {in: 'limit(1/x,x,0,-1)', out: -∞}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m13.calculus.one-sided-limits-1.jpg, shots/m13.calculus.one-sided-limits-2.jpg', note: 'The fourth argument of limit is the direction: +1 from the right (x→0+),
+      -1 from the left (x→0-). The echo shows lim x→0⁺ and lim x→0⁻.'}
+  status: pending
+- id: m13.stats.invt-tcdf-chi2cdf
+  course: methods
+  tier: 1
+  tags: [stats, distribution, invt, tcdf, chi2cdf]
+  steps:
+  - {in: 'invT(0.975,5)', out: '2.5705818', compare: numeric, tol: 1.0e-06}
+  - {in: 'tCdf(-1,1,5)', out: '0.63678253', compare: numeric, tol: 1.0e-06}
+  - {in: 'chi2Cdf(0,3,2)', out: '0.77686984', compare: numeric, tol: 1.0e-06}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m13.stats.invt-tcdf-chi2cdf-1.jpg, shots/m13.stats.invt-tcdf-chi2cdf-2.jpg', note: 'invT echoes as invt(0.975,5) (lower-case t). chi2Cdf echoes as χ²Cdf. Results
+      are decimals to 8 significant digits.'}
+  status: pending
+- id: m13.trig.arcsinh-unevaluated
+  course: methods
+  tier: 1
+  tags: [trig, hyperbolic, arcsinh]
+  steps:
+  - {in: arcsinh(1), out: sinh⁻¹(1), compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.trig.arcsinh-unevaluated.jpg, note: 'Emulator leaves sinh⁻¹(1) unevaluated in Auto mode (the exact value is ln(1+√2)); the function name arcsinh is accepted
+      and displays as sinh⁻¹. Treat as an emulator limitation: an implementation that returns the exact logarithm is acceptable if numerically equal (≈0.88137359), but the corpus records what the emulator
+      does.'}
+  status: pending
+- id: m13.convert.grad-in-radian-mode
+  course: methods
+  tier: 1
+  tags: [convert, grad, angle]
+  steps:
+  - {in: 90@>Grad, out: (18000/π)ᴳ, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.convert.grad-in-radian-mode.jpg, note: 'In Radian mode 90 is interpreted as 90 radians, so ▶Grad gives 18000/π with the gradian marker ᴳ (shown as a superscript g). The superscript g marks
+      a gradian value.'}
+  status: pending
+- id: m13.matrix.3x3-det-inverse
+  course: specialist
+  tier: 1
+  tags: [matrix, det, inverse]
+  steps:
+  - {in: 'det([[1,2,3],[4,5,6],[7,8,10]])', out: '-3'}
+  - {in: '[[1,2,3],[4,5,6],[7,8,10]]^(-1)', out: '[[-2/3,-4/3,1],[-2/3,11/3,-2],[1,-2,1]]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.matrix.3x3-det-inverse.jpg, note: Exact rational inverse of a 3×3 matrix. Typed as a matrix literal with ^(-1).}
+  status: pending
+- id: m13.matrix.rref-3x4
+  course: specialist
+  tier: 1
+  tags: [matrix, rref]
+  steps:
+  - {in: 'rref([[1,2,3,4],[2,5,7,9],[1,0,1,2]])', out: '[[1,0,1,2],[0,1,1,1],[0,0,0,0]]'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.matrix.rref-3x4.jpg, note: Rank-deficient 3×4 augmented system with a zero row in the reduced form (infinitely many solutions).}
+  status: pending
+- id: m13.algebra.comdenom-cfactor
+  course: specialist
+  tier: 1
+  tags: [algebra, comdenom, cfactor]
+  steps:
+  - {in: comDenom(1/x+1/(x+1)), out: (2*x+1)/(x^2+x)}
+  - {in: 'cFactor(x^4-1,x)', out: (x-1)*(x+1)*(x-ⅈ)*(x+ⅈ)}
+  - {in: 'factor(x^4-1,x)', out: (x-1)*(x+1)*(x^2+1)}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.algebra.comdenom-cfactor.jpg, note: comDenom shows a yellow warning triangle in the history (cause not investigated) but the result is as expected. cFactor
+      factors over the complex numbers; factor stays over the rationals (x²+1 irreducible).}
+  status: pending
+- id: m13.random.randint-range-only
+  course: methods
+  tier: 1
+  tags: [random, randint, range-only]
+  steps:
+  - {in: '{min(randInt(1,6,50)),max(randInt(1,6,50))}', out: '{1,6}', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m13.random.randint-range-only.jpg, note: 'Random output cannot be compared exactly. Over 50 draws each the minimum is 1 and the maximum is 6, so randInt(1,6,n)
+      stays within [1,6] and covers the range. Tests should only check range membership.'}
+  status: pending

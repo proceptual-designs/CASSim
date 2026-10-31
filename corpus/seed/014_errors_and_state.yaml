@@ -1,0 +1,96 @@
+# Batch 12: error messages and variable/state behaviour.
+# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human review pending. Expected to fail until implemented.
+schema_version: 1
+cases:
+- id: m12.errors.undef-results
+  course: methods
+  tier: 1
+  tags: [errors, undef, division-by-zero]
+  steps:
+  - {in: 1/0, out: undef, compare: text}
+  - {in: ln(0), out: undef, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/m12.errors.undef-results-1.jpg, shots/m12.errors.undef-results-2.jpg', note: 'Division by zero and ln(0) are not errors: the result line shows the word undef.
+      Captured with Real or Complex = Polar, but this does not depend on the domain setting.'}
+  status: pending
+- id: m12.errors.undefined-variable-echoes
+  course: methods
+  tier: 1
+  tags: [errors, variables]
+  steps:
+  - {in: zz+1, out: zz+1}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.errors.undefined-variable-echoes.jpg, note: An undefined variable is treated as a symbol and the expression is returned unchanged; there is no undefined-variable
+      error in the CAS.}
+  status: pending
+- id: m12.errors.syntax
+  course: methods
+  tier: 1
+  tags: [errors, syntax]
+  steps:
+  - {in: 2+*3, error: true, error_contains: Syntax}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.errors.syntax.jpg, note: Syntax errors show a dialog titled Error with the single word Syntax. The multiplication key echoes * as a centre dot (2+·3). The
+      cursor is left in the entry line for editing.}
+  status: pending
+- id: m12.errors.too-many-arguments
+  course: methods
+  tier: 1
+  tags: [errors, arguments]
+  steps:
+  - {in: 'sin(1,2)', error: true, error_contains: Too many arguments}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.errors.too-many-arguments.jpg, note: 'Dialog text: Too many arguments. The function or command contains an excessive number of arguments and cannot be evaluated.'}
+  status: pending
+- id: m12.errors.too-few-arguments
+  course: methods
+  tier: 1
+  tags: [errors, arguments]
+  steps:
+  - {in: solve(x^2=1), error: true, error_contains: Too few arguments}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.errors.too-few-arguments.jpg, note: 'Dialog text: Too few arguments. The function or command is missing one or more arguments. solve needs the variable: solve(x^2=1,x).'}
+  status: pending
+- id: m12.state.define-and-delvar
+  course: methods
+  tier: 1
+  tags: [state, variables, delvar]
+  steps:
+  - {in: 'a:=5', out: '5'}
+  - {in: a^2+1, out: '26'}
+  - {in: delVar a, out: Done, compare: text}
+  - {in: a^2, out: a^2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.state.define-and-delvar.jpg, note: 'Assignment with := echoes the value. delVar returns Done. After delVar the symbol is undefined again so a^2 is returned
+      unchanged.'}
+  status: pending
+- id: m12.state.redefine-and-multi-argument-function
+  course: methods
+  tier: 1
+  tags: [state, define, functions]
+  steps:
+  - {in: 'f(x):=x^2', out: Done, compare: text}
+  - {in: f(3), out: '9'}
+  - {in: 'f(x):=x^3', out: Done, compare: text}
+  - {in: f(3), out: '27'}
+  - {in: 'g(x,y):=x*y+1', out: Done, compare: text}
+  - {in: 'g(2,3)', out: '7'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.state.redefine-and-multi-argument-function.jpg, note: 'Redefining f replaces the old definition; later calls use the newest. Multi-argument functions defined
+      with := work as expected. The history is a single shared scope across lines.'}
+  status: pending
+- id: m12.state.ans-store-and-function-in-solve
+  course: methods
+  tier: 1
+  tags: [state, ans, store, solve]
+  steps:
+  - {in: 'f(x):=x^3', out: Done, compare: text}
+  - {in: 2+3, out: '5'}
+  - {in: ans*2, out: '10'}
+  - {in: 7→c, out: '7'}
+  - {in: c+1, out: '8'}
+  - {in: 'solve(f(x)=8,x)', out: x=2}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m12.state.ans-store-and-function-in-solve.jpg, note: 'ans refers to the previous result (the echo shows ans substituted: 5·2). The store arrow → assigns 7 to
+      c. A user-defined f (here f(x)=x^3, defined in the first step) can be used inside solve;'}
+  status: pending

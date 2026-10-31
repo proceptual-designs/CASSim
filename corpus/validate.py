@@ -24,7 +24,7 @@ def validate_file(path: Path, seen_ids: set[str]) -> list[str]:
     for err in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
         loc = "/".join(str(p) for p in err.path)
         problems.append(f"{path.name}: {loc}: {err.message[:160]}")
-    for case in (data or {}).get("cases", []):
+    for case in (data or {}).get("cases", []) + (data or {}).get("app_cases", []):
         cid = case.get("id", "<no id>")
         if cid in seen_ids:
             problems.append(f"{path.name}: duplicate id {cid}")
