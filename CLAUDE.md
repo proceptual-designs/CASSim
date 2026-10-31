@@ -6,7 +6,7 @@ Read `PLAN.md` first. It holds the architecture, milestones and decisions. This 
 A static, installable (PWA) browser emulation of the TI-Nspire CX CAS. Python (SymPy/SciPy) runs client-side via Pyodide; the UI is Flet. Owner: Simon Tyler, a VCE maths teacher (Methods, Specialist), strong in maths and physics, writes Python. Be accurate and concise.
 
 ## Current state
-M0 is done apart from the corpus replay harness (`tests/corpus/test_replay.py`, spec in `docs/testing/TESTING.md` section 4). Tooling, all spikes, the command coverage matrix and 141 emulator-captured corpus cases exist; every case is still `pending` and awaits Simon's review. The repo has no Git remote yet, so CI has never run. M1 (text CAS) is under way, starting with M1a (lexer, parser, AST, printer). Do not start GUI work before M1 exit criteria are met.
+M0 is done apart from the corpus replay harness (`tests/corpus/test_replay.py`, spec in `docs/testing/TESTING.md` section 4). Tooling, all spikes, the command coverage matrix and 141 emulator-captured corpus cases exist; every case is still `pending` and awaits Simon's review. The repo has no Git remote yet, so CI has never run. M1a (lexer, parser, AST, printer) is done; its grammar choices and the entries still to check on the emulator are in `docs/decisions/0007-parser-grammar.md`. Next is M1b (values, settings, formatting). Do not start GUI work before M1 exit criteria are met.
 
 ## Decisions already made (do not re-litigate)
 - Repo lives at `C:\dev\emCAS`, outside OneDrive. The virtualenv is the in-project `.venv` (uv default; do not set `UV_PROJECT_ENVIRONMENT`). Commit and push to a Git remote often.
