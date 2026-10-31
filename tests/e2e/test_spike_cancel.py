@@ -15,7 +15,9 @@ def test_engine_worker_cancel_and_restart(browser, build) -> None:
     assert run.finished, run.markers()
     assert "[-2, 2]" in run.find("B solve1")
     alive = run.find("B flet_loop_alive_during_hang")
-    ticks = int(re.search(r"ticks=(\d+)", alive).group(1))  # type: ignore[union-attr]
+    match = re.search(r"ticks=(\d+)", alive)
+    assert match, alive
+    ticks = int(match.group(1))
     assert ticks > 20, alive  # Flet's own loop kept running while the engine was stuck
     assert "hang_done=False" in alive
     assert "hang_cancelled=True" in run.find("B terminate")

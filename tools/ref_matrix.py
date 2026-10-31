@@ -192,7 +192,7 @@ def main() -> int:
             "|---|---|---|---|---|",
         ]
         picked = sorted(
-            (r for r in rows if r["priority"] == rank), key=lambda r: -r["corpus_cases"]
+            (r for r in rows if r["priority"] == rank), key=lambda r: -int(r["corpus_cases"])
         )
         out += [
             f"| `{r['command']}` | {r['corpus_cases']} | {r['book_methods']} | "

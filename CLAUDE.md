@@ -6,7 +6,7 @@ Read `PLAN.md` first. It holds the architecture, milestones and decisions. This 
 A static, installable (PWA) browser emulation of the TI-Nspire CX CAS. Python (SymPy/SciPy) runs client-side via Pyodide; the UI is Flet. Owner: Simon Tyler, a VCE maths teacher (Methods, Specialist), strong in maths and physics, writes Python. Be accurate and concise.
 
 ## Current state
-Planning is done; no code exists yet. Next job is **M0 (Foundations and de-risking)**, then M1 (text CAS). Do not start GUI work before M1 exit criteria are met.
+M0 is done apart from the corpus replay harness (`tests/corpus/test_replay.py`, spec in `docs/testing/TESTING.md` section 4). Tooling, all spikes, the command coverage matrix and 141 emulator-captured corpus cases exist; every case is still `pending` and awaits Simon's review. The repo has no Git remote yet, so CI has never run. M1 (text CAS) is under way, starting with M1a (lexer, parser, AST, printer). Do not start GUI work before M1 exit criteria are met.
 
 ## Decisions already made (do not re-litigate)
 - Repo lives at `C:\dev\emCAS`, outside OneDrive. The virtualenv is the in-project `.venv` (uv default; do not set `UV_PROJECT_ENVIRONMENT`). Commit and push to a Git remote often.
@@ -19,16 +19,8 @@ Planning is done; no code exists yet. Next job is **M0 (Foundations and de-riski
 - Library UDFs (`mm_`, `sm_`, `gm_`) are `.tns` and not loadable. Port them to native Python later (M5), after checking the LazyMath licence.
 
 ## Verified vs unverified
-Verified: `flet publish` builds a PWA static site; Pyodide 314.0.7 includes numpy, scipy, sympy, mpmath, micropip; SymPy is fast enough for core VCE operations; the parser spike works.
-**Unverified (M0 spikes decide):** SymPy and SciPy running inside the Flet static build (size, cold start, offline); whether Python runs in a worker and can be cancelled; Flet canvas drawing speed; IndexedDB from Pyodide; `openpyxl` in Pyodide; embedding MathLive (fallback MathQuill) in the Flet web build; `.tns` decodability; Ty's current stability (fallback: pyright).
-Write each spike up in `docs/decisions/` with a go/no-go.
-
-## First steps for M0
-1. `git init`, `uv init` (src layout), `pyproject.toml` with ruff + ty + pytest config, `.gitignore`, pre-commit, CI workflow.
-2. Create the package skeleton from PLAN.md section 3 (empty modules with docstrings are fine).
-3. Run the spikes in PLAN.md section 8 (M0) and record results.
-4. Build the golden-corpus tooling: YAML schema (PLAN.md section 6), replay test harness, and a capture checklist.
-5. Refine `docs/reference_index_draft.txt` into a full command coverage matrix from `references/TI-Nspire_ReferenceGuide_EN_4.5.pdf` (the draft misses entries such as `solve`).
+Spike results and go/no-go decisions are in `docs/decisions/`; read those rather than assuming. Verified on the CAS side: the Flet static build runs SymPy and SciPy, the engine runs in its own worker and is cancelled by terminating it, canvas speed is fine with one `Points` shape per curve, and IndexedDB works from Pyodide. `.tns` is a no-go for now. Offline PWA still needs the wheels vendored (see 0002).
+**Unverified:** embedding MathLive (fallback MathQuill) in the Flet web build; offline behaviour end to end.
 
 ## Conventions
 - Small commits, conventional commit messages. Every behaviour change ships with a test. Fix lint and type errors rather than suppressing them.
