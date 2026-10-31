@@ -23,3 +23,17 @@ def test_heading_name(raw: str, expected: tuple[str, bool] | None) -> None:
 def test_norm_ignores_parens_spaces_arrows_and_case() -> None:
     assert ref_matrix.norm("►approxFraction()") == ref_matrix.norm("approxFraction ()")
     assert ref_matrix.norm("d() (derivative)") == "d"
+
+
+def test_priority_prefers_corpus_then_book_mentions() -> None:
+    assert ref_matrix.priority(1, 0) == "core"
+    assert ref_matrix.priority(0, ref_matrix.LIKELY_MENTIONS) == "likely"
+    assert ref_matrix.priority(0, ref_matrix.LIKELY_MENTIONS - 1) == "later"
+
+
+def test_mentions_counts_calls_and_skips_ambiguous_words() -> None:
+    call = ref_matrix.Heading("solve()", 1, is_call=True)
+    assert ref_matrix.mentions("solve(x=1,x) and Solve(", call) == 1  # case-sensitive
+    assert ref_matrix.mentions("this and that", ref_matrix.Heading("and", 1, is_call=False)) == -1
+    word = ref_matrix.Heading("Disp", 1, is_call=False)
+    assert ref_matrix.mentions("Disp x; Display", word) == 1  # whole word only

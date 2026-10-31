@@ -1,15 +1,18 @@
-# 0006. The Reference Guide in `references/` is the non-CAS edition
+# 0006. Reference sources for the command matrix
 
-Date: 2026-11-01. Status: **open, needs a CAS command source.**
+Date: 2026-11-01. Status: accepted.
 
-`references/TI-Nspire_ReferenceGuide_EN_4.5.pdf` is the guide for the numeric TI-Nspire. It has no entries for `solve`, `cSolve`, `zeros`, `limit`, `taylor`, `deSolve`, `expand`, `completeSquare`, `cFactor` or `comDenom`, and `factor()` appears only in its numeric form. The draft index (`docs/reference_index_draft.txt`) was therefore not missing `solve` through an extraction bug: the guide does not document it.
+## Finding
+`references/TI-Nspire_ReferenceGuide_EN_4.5.pdf` is the **non-CAS** guide. It has no entries for `solve`, `cSolve`, `zeros`, `limit`, `taylor`, `deSolve`, `expand`, `completeSquare`, `cFactor` or `comDenom`, and `factor()` appears only in its numeric form. The draft index (`docs/reference_index_draft.txt`) was therefore not missing `solve` through an extraction bug: the guide does not document it. The draft also missed key-driven entries (`sin()`, `ln()`, `exp()`, `Ans`, `nand`, ...) because it matched only the `Catalog >` tag.
 
-The draft did miss real guide entries, because it matched only headings tagged `Catalog >`. Key-driven entries use a `<key> key` tag instead: `sin()`, `cos()`, `tan()`, their inverses and reciprocals, `ln()`, `log()`, `exp()`, plus `Ans`, `nand`, `nor` and others. `tools/ref_matrix.py` finds headings from the PDF structure (name line followed by its syntax line) and produces `docs/command_matrix.csv` and `.md`.
+## Decision
+1. **Primary source: the TI-Nspire CAS Reference Guide.** The newest copy found is software **3.2** (2012), kept as `references/TI-NspireCAS_ReferenceGuide_EN_3.2.pdf` (git-ignored with the rest of `references/`). The installed Teacher Software ships no reference guide. A newer CAS guide, if found, replaces it.
+2. **Every entry must be verified against the emulator Catalog**, because 3.2 predates the emulator. The matrix has an empty `emulator_verified` column for this. Commands the corpus uses that neither guide lists are reported separately.
+3. The numeric guide 4.5 supplements the CAS guide for newer numeric commands.
+4. **Not everything needs implementing first.** Priority comes from usage: **core** = used by a corpus case; **likely** = not in the corpus but mentioned 5+ times in the VCE teacher resource books; **later** = the rest. Multi-step corpus cases are listed to show which commands are combined.
 
-## Consequence
-The matrix covers the 281 numeric-guide headings. The CAS-only commands, which are the core of M1 tier 1, have no authoritative list. The corpus currently uses 25 names that are not in the guide (`docs/command_matrix.md`).
+`tools/ref_matrix.py` generates `docs/command_matrix.csv` and `.md`. It supersedes the draft index.
 
-## Options (pick one)
-1. Add TI's **CAS** Reference Guide PDF to `references/` (free from education.ti.com), and point the tool at it. Best: it also gives syntax, argument order and examples.
-2. Capture the emulator's Catalog listing (Catalog > A to Z) on the teacher-software machine, as a text list.
-3. Build the CAS list from the corpus plus the VCE teacher resource books only. Cheapest, but will be incomplete.
+## Limits
+- Book mention counts come from running text only; worked examples shown as screenshots are not searchable, so counts are lower bounds. Words like `For` and `If` count program text in the books.
+- Multi-step tests are taken from the corpus only. Extracting multi-step worked problems from the books is not done.

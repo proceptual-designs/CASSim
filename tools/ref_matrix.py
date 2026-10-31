@@ -1,10 +1,13 @@
-"""Build the command coverage matrix from the TI-Nspire Reference Guide and the golden corpus.
+"""Build the command coverage matrix: Reference Guides x golden corpus x VCE resource books.
 
-Usage:  uv run python tools/ref_matrix.py            (writes docs/command_matrix.csv and .md)
+Usage:  uv run python tools/ref_matrix.py     (writes docs/command_matrix.csv and .md)
 
-Needs ``pdftotext`` (poppler) on PATH. The guide in ``references/`` is the non-CAS edition, so
-CAS-only commands (solve, cSolve, zeros, limit, ...) cannot come from it; they are reported
-separately from the corpus as "not in guide".
+Sources, in order of authority:
+  1. the TI-Nspire CAS Reference Guide (primary; software 3.2, older than the emulator);
+  2. the TI-Nspire Reference Guide 4.5 (non-CAS; fills in newer numeric commands);
+  3. the emulator Catalog (not automated yet; the ``emulator_verified`` column is left empty).
+Priority hints come from the corpus and from how often the VCE books mention a command.
+Needs ``pdftotext`` (poppler) on PATH; extracted text is cached under ``builds/cache/``.
 """
 
 from __future__ import annotations
@@ -14,26 +17,28 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-GUIDE = ROOT / "references" / "TI-Nspire_ReferenceGuide_EN_4.5.pdf"
-DRAFT = ROOT / "docs" / "reference_index_draft.txt"
+REF = ROOT / "references"
+CAS_GUIDE = REF / "TI-NspireCAS_ReferenceGuide_EN_3.2.pdf"
+NUM_GUIDE = REF / "TI-Nspire_ReferenceGuide_EN_4.5.pdf"
+BOOKS = {
+    "methods": REF / "VCE Mathematical Methods Teacher Resource Book digital 2026.pdf",
+    "specialist": REF / "VCE Specialist Mathematics Teacher Resource Book.pdf",
+    "general": REF / "VCE General Maths Teacher Resource Book.pdf",
+}
 CORPUS = ROOT / "corpus" / "seed"
+CACHE = ROOT / "builds" / "cache"
 OUT_CSV = ROOT / "docs" / "command_matrix.csv"
 OUT_MD = ROOT / "docs" / "command_matrix.md"
 
 # Names that appear in corpus input but are not commands.
 NOT_COMMANDS = {"f", "g", "h", "k", "a", "b", "n", "p", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
-
-
-def norm(name: str) -> str:
-    """Normalise a heading for matching: drop spaces, the parentheses suffix and arrows."""
-    name = name.split(" (", maxsplit=1)[0] if name.endswith(")") and " (" in name else name
-    return re.sub(r"[\s()►▶]", "", name).lower()
-
+LIKELY_MENTIONS = 5  # book mentions at which a command not in the corpus is still "likely"
 
 # Right-hand access tag on a heading line: "Catalog >" or "<glyph> key(s)" (sin(), ln(), Ans, ...).
 TAG = r"(?:Catalog >|\S{1,3} keys?)"
@@ -41,6 +46,12 @@ HEADING = re.compile(rf"^\s*(\S.*?)\s{{2,}}{TAG}\s*$")
 CALL = re.compile(r"^([►▶]?[A-Za-z][A-Za-z0-9_.⁻¹]*)\s?\(")
 BARE = re.compile(r"^\s*([►▶]?[A-Za-z][A-Za-z0-9_.⁻¹]*\s?(?:\(\))?)\s*$")
 WORD = re.compile(r"^[►▶]?[A-Za-z][A-Za-z0-9_.]*[A-Za-z0-9_]$|^[A-Za-z]$")
+
+
+def norm(name: str) -> str:
+    """Normalise a heading for matching: drop spaces, the parentheses suffix and arrows."""
+    name = name.split(" (", maxsplit=1)[0] if name.endswith(")") and " (" in name else name
+    return re.sub(r"[\s()►▶]", "", name).lower()
 
 
 def heading_name(raw: str) -> tuple[str, bool] | None:
@@ -53,17 +64,32 @@ def heading_name(raw: str) -> tuple[str, bool] | None:
     return None
 
 
-def guide_headings() -> dict[str, tuple[str, int, bool]]:
-    """Map normalised heading -> (name, PDF page, is_call) for the first occurrence."""
-    text = subprocess.run(
-        ["pdftotext", "-enc", "UTF-8", "-layout", str(GUIDE), "-"],
-        capture_output=True,
-        text=True,
-        check=True,
-        encoding="utf-8",
-    ).stdout
-    found: dict[str, tuple[str, int, bool]] = {}
-    for number, page in enumerate(text.split(""), start=1):
+def pdf_text(path: Path, *, layout: bool) -> str:
+    """Return the text of a PDF via pdftotext, cached under builds/cache/."""
+    CACHE.mkdir(parents=True, exist_ok=True)
+    cached = CACHE / f"{path.stem}{'.layout' if layout else ''}.txt"
+    if cached.exists() and cached.stat().st_mtime >= path.stat().st_mtime:
+        return cached.read_text(encoding="utf-8")
+    cmd = ["pdftotext", "-enc", "UTF-8", *(["-layout"] if layout else []), str(path), "-"]
+    out = subprocess.run(cmd, capture_output=True, check=True).stdout
+    text = out.decode("utf-8", errors="replace")
+    cached.write_text(text, encoding="utf-8")
+    return text
+
+
+@dataclass
+class Heading:
+    """One guide entry: printed name, PDF page and whether it was written as ``name(``."""
+
+    name: str
+    page: int
+    is_call: bool
+
+
+def guide_headings(path: Path) -> dict[str, Heading]:
+    """Map normalised name -> first heading found in the guide."""
+    found: dict[str, Heading] = {}
+    for number, page in enumerate(pdf_text(path, layout=True).split("\f"), start=1):
         lines = page.splitlines()
         for i, line in enumerate(lines):
             m = HEADING.match(line)
@@ -74,96 +100,150 @@ def guide_headings() -> dict[str, tuple[str, int, bool]]:
                 if base and nxt.startswith(base) and nxt[len(base) : len(base) + 1] in "( [":
                     m = bare
             if m and (parsed := heading_name(m.group(1))):
-                found.setdefault(norm(parsed[0]), (parsed[0], number, parsed[1]))
+                base = parsed[0].removesuffix("()")
+                if len(base) == 1 and base != "d":  # error-code and symbol sections, not commands
+                    continue
+                found.setdefault(norm(parsed[0]), Heading(parsed[0], number, parsed[1]))
     return found
 
 
-def corpus_usage() -> Counter[str]:
-    """Return, per lower-cased name, the number of cases that use it (``name(`` or ``▶name``)."""
-    counts: Counter[str] = Counter()
+@dataclass
+class CorpusCase:
+    """A corpus case reduced to what the matrix needs."""
+
+    id: str
+    steps: int
+    names: set[str] = field(default_factory=set)
+
+
+def corpus_cases() -> list[CorpusCase]:
+    """Return each corpus case with the lower-cased command names its inputs use."""
+    cases = []
     for path in sorted(CORPUS.glob("*.yaml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         for case in data.get("cases", []):
-            text = " ".join(str(s.get("in", "")) for s in case.get("steps", []))
+            steps = case.get("steps", [])
+            text = " ".join(str(s.get("in", "")) for s in steps)
             names = set(re.findall(r"([A-Za-z_][A-Za-z0-9_.]*)\s*\(", text))
             names |= set(re.findall(r"[►▶]\s*([A-Za-z0-9]+)", text))
-            for name in names - NOT_COMMANDS:
-                counts[name.lower()] += 1
-    return counts
+            cases.append(
+                CorpusCase(case["id"], len(steps), {n.lower() for n in names - NOT_COMMANDS})
+            )
+    return cases
+
+
+def mentions(text: str, heading: Heading) -> int:
+    """Count case-sensitive uses of a command in running text; -1 if too ambiguous to count."""
+    base = heading.name.removesuffix("()").lstrip("►▶")
+    if heading.is_call:
+        return len(re.findall(rf"(?<![A-Za-z]){re.escape(base)}\s?\(", text))
+    if base == base.lower():  # "and", "or", "nand": indistinguishable from prose
+        return -1
+    return len(re.findall(rf"(?<![A-Za-z0-9]){re.escape(base)}(?![A-Za-z0-9])", text))
+
+
+def priority(corpus: int, books: int) -> str:
+    """Return core (in the corpus), likely (often in the books) or later."""
+    if corpus:
+        return "core"
+    return "likely" if books >= LIKELY_MENTIONS else "later"
 
 
 def main() -> int:
-    if not GUIDE.exists():
-        print(f"missing {GUIDE}", file=sys.stderr)
-        return 1
-    headings = guide_headings()
-    counts = corpus_usage()
-    draft = {norm(n.strip()) for n in DRAFT.read_text(encoding="utf-8").splitlines() if n.strip()}
+    for path in (CAS_GUIDE, NUM_GUIDE, *BOOKS.values()):
+        if not path.exists():
+            print(f"missing {path}", file=sys.stderr)
+            return 1
+    cas, num = guide_headings(CAS_GUIDE), guide_headings(NUM_GUIDE)
+    book_text = {k: pdf_text(p, layout=False) for k, p in BOOKS.items()}
+    cases = corpus_cases()
+    per_cmd = Counter(n for c in cases for n in c.names)
 
     rows = []
-    for key, (name, page, is_call) in headings.items():
-        in_draft = key in draft
-        # A bare word (no parentheses) could be prose; trust it only if the draft agrees.
-        status = "todo" if is_call or in_draft else "review"
+    for key in {**num, **cas}:  # numeric-only additions first, then CAS entries
+        h = cas.get(key) or num[key]
+        bk = {k: mentions(t, h) for k, t in book_text.items()}
+        total = sum(v for v in bk.values() if v > 0)
         rows.append(
             {
-                "command": name,
-                "guide_pdf_page": page,
-                "in_draft_index": "yes" if in_draft else "NO",
-                "corpus_cases": counts.get(key, 0),
-                "status": status,
+                "command": h.name,
+                "cas_guide_page": cas[key].page if key in cas else "",
+                "numeric_guide_page": num[key].page if key in num else "",
+                "corpus_cases": per_cmd.get(key, 0),
+                **{f"book_{k}": v for k, v in bk.items()},
+                "priority": priority(per_cmd.get(key, 0), total),
+                "emulator_verified": "",
+                "status": "todo",
             }
         )
-    missing = sorted(k for k in counts if k not in headings)
-    new_vs_draft = [
-        r["command"] for r in rows if r["in_draft_index"] == "NO" and r["status"] == "todo"
-    ]
-    to_review = [r["command"] for r in rows if r["status"] == "review"]
-    draft_only = sorted(draft - set(headings))
+    known = set(cas) | set(num)
+    unknown = sorted(k for k in per_cmd if k not in known)
 
     with OUT_CSV.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
 
-    used = sum(1 for r in rows if r["corpus_cases"])
+    by_prio = Counter(r["priority"] for r in rows)
+
+    def table(rank: str) -> list[str]:
+        out = [
+            "| Command | Corpus cases | Methods | Specialist | General |",
+            "|---|---|---|---|---|",
+        ]
+        picked = sorted(
+            (r for r in rows if r["priority"] == rank), key=lambda r: -r["corpus_cases"]
+        )
+        out += [
+            f"| `{r['command']}` | {r['corpus_cases']} | {r['book_methods']} | "
+            f"{r['book_specialist']} | {r['book_general']} |"
+            for r in picked
+        ]
+        return out
+
+    multi = sorted((c for c in cases if c.steps > 1), key=lambda c: -c.steps)
     lines = [
         "# Command coverage matrix",
         "",
         "Generated by `tools/ref_matrix.py`; do not edit. Full table: `command_matrix.csv`.",
         "",
-        f"- Guide headings found in the PDF: {len(rows)}; used by a corpus case: {used}.",
-        f"- Headings missing from `reference_index_draft.txt`: {len(new_vs_draft)}. "
-        f"Names in the draft but not matched as headings: {len(draft_only)}.",
-        "- **Source gap:** `references/TI-Nspire_ReferenceGuide_EN_4.5.pdf` is the non-CAS guide. "
-        "It has no entries for CAS-only commands (solve, cSolve, zeros, limit, taylor, deSolve, "
-        "expand, ...), "
-        "so this matrix cannot be complete for the CX CAS.",
+        f"- {len(rows)} commands: {len(cas)} from the CAS guide (primary, software 3.2), "
+        f"{len(set(num) - set(cas))} more from the numeric guide 4.5.",
+        f"- Priority hint: **core** {by_prio['core']} (used by a corpus case), "
+        f"**likely** {by_prio['likely']} (not in the corpus, {LIKELY_MENTIONS}+ mentions in the "
+        f"VCE books), **later** {by_prio['later']}.",
+        "- Book columns count `name(` in running text (-1: bare lower-case word, not countable). "
+        "Screenshots in the books are not searchable, so these are lower bounds.",
+        "- `emulator_verified` is empty: the guide (3.2, 2012) predates the emulator, so every "
+        "entry still needs a Catalog check.",
         "",
-        "## Used by the corpus but not in the guide",
+        "## Core",
         "",
-        "CAS-only commands, user-defined functions and Catalog items. Review by hand.",
+        *table("core"),
         "",
-        *(f"- `{k}` ({counts[k]} cases)" for k in missing),
+        "## Likely",
         "",
-        "## In the guide but missing from the draft index",
+        *table("likely"),
         "",
-        *(f"- {n}" for n in new_vs_draft),
+        "## Used by the corpus but in neither guide",
         "",
-        "## Bare words that may be prose (status `review` in the CSV)",
+        "Newer commands, user functions, or ASCII stand-ins for templates",
+        "(`derivative`, `integral`). Check each against the emulator Catalog.",
         "",
-        *(f"- {n}" for n in to_review),
+        *(f"- `{k}` ({per_cmd[k]} cases)" for k in unknown),
         "",
-        "## In the draft index but not matched as a heading",
+        "## Multi-step corpus cases",
         "",
-        *(f"- {n}" for n in draft_only),
+        "| Case | Steps | Commands |",
+        "|---|---|---|",
+        *(f"| `{c.id}` | {c.steps} | {', '.join(sorted(c.names))} |" for c in multi),
         "",
     ]
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
     print(
-        f"{len(rows)} headings, {len(new_vs_draft)} new vs draft, {len(to_review)} to review, "
-        f"{len(draft_only)} draft-only, {used} used by corpus, "
-        f"{len(missing)} corpus names not in guide"
+        f"{len(rows)} commands (cas {len(cas)}, numeric-only {len(set(num) - set(cas))}); "
+        f"core {by_prio['core']}, likely {by_prio['likely']}, later {by_prio['later']}; "
+        f"{len(unknown)} corpus names in neither guide; {len(multi)} multi-step cases"
     )
     return 0
 
