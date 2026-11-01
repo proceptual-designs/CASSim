@@ -6,14 +6,19 @@ from typing import Any
 from cassim.core import ast, errors
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
+from cassim.core.scope import Function, Scope
 from cassim.core.settings import Angle, CasMode, Settings
-from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Str, Value
+from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Str, Value, Void
 
 _ELEMENTWISE = {".+": "+", ".-": "-", ".*": "*", "./": "/", ".^": "^"}
 _TRIG = frozenset({"sin", "cos", "tan"})
 _ANGLE_FULL_TURN_HALF = {Angle.DEGREE: 180, Angle.GRADIAN: 200}
 # How many of each unit make a half turn, for the post operators.
 _POST_UNITS = {"°": Angle.DEGREE, "ᵍ": Angle.GRADIAN, "ʳ": Angle.RADIAN}
+# Names that mean something already, so a variable or function cannot take them.
+_RESERVED = frozenset({"true", "false", "ans", "approx"})
+# How many user-function calls may be open at once. Each takes several Python frames.
+_MAX_CALL_DEPTH = 50
 
 
 def _unsupported(what: str) -> TIError:
@@ -114,9 +119,15 @@ def _transpose(value: Value) -> Value:
 class Evaluator:
     """Evaluate one entry line under fixed settings."""
 
-    def __init__(self, settings: Settings, ans: Value | None = None) -> None:
+    def __init__(
+        self, settings: Settings, ans: Value | None = None, scope: Scope | None = None
+    ) -> None:
         self._settings = settings
         self._ans = ans
+        self._scope = scope if scope is not None else Scope()
+        # Bindings from a user-function call or a `|` constraint; the last one wins.
+        self._frames: list[dict[str, Value]] = []
+        self._calls = 0
         self._dispatch: dict[type, Callable[[Any], Value]] = {
             ast.Number: self._number,
             ast.Dms: self._dms,
@@ -140,9 +151,64 @@ class Evaluator:
         return result
 
     def _statement(self, statement: ast.Stmt) -> Value:
-        if isinstance(statement, ast.Assign | ast.Store | ast.Define | ast.Command):
-            raise _unsupported(type(statement).__name__)
-        return _map(self._finish, self.expr(statement))
+        if isinstance(statement, ast.Assign):
+            return self._assign(statement.target, statement.value)
+        if isinstance(statement, ast.Store):
+            return self._assign(statement.target, statement.value)
+        if isinstance(statement, ast.Define):
+            return self._define(statement)
+        if isinstance(statement, ast.Command):
+            return self._command(statement)
+        return self._evaluated(statement)
+
+    def _evaluated(self, node: ast.Expr) -> Value:
+        return _map(self._finish, self.expr(node))
+
+    def _variable_name(self, node: ast.Expr) -> str:
+        """The key for a name being stored to; constants and built-ins are refused."""
+        if isinstance(node, ast.Name):
+            name = node.text.casefold()
+        elif isinstance(node, ast.Call):
+            name = node.func.casefold()
+        else:
+            raise _unsupported("indexed assignment")
+        if name in _RESERVED or cas.is_constant(name) or name in cas.FUNCTIONS:
+            raise TIError(errors.RESERVED_NAME)
+        return name
+
+    def _assign(self, target: ast.Expr, body: ast.Expr) -> Value:
+        """`target:=body` and `body→target`: a variable gets the value, a function the body."""
+        name = self._variable_name(target)
+        if isinstance(target, ast.Call):
+            self._scope.define(name, self._make_function(target, body))
+            return Void()
+        value = self._evaluated(body)
+        self._scope.define(name, value)
+        return value
+
+    def _make_function(self, target: ast.Call, body: ast.Expr) -> Function:
+        params = tuple(arg.text.casefold() for arg in target.args if isinstance(arg, ast.Name))
+        if len(params) != len(target.args) or len(set(params)) != len(params):
+            raise TIError(errors.SYNTAX)
+        return Function(params, body)
+
+    def _define(self, statement: ast.Define) -> Value:
+        if statement.visibility is not None:
+            raise _unsupported(statement.visibility)
+        self._assign(statement.target, statement.body)
+        return Void()
+
+    def _command(self, statement: ast.Command) -> Value:
+        if statement.name == "DelVar":
+            for arg in statement.args:
+                if not isinstance(arg, ast.Name):
+                    raise TIError(errors.SYNTAX)
+                self._scope.delete(arg.text)
+            return Void()
+        if statement.name == "ClearAZ":
+            self._scope.clear_az()
+            return Void()
+        raise _unsupported(statement.name)
 
     def _finish(self, value: Value) -> Value:
         if not isinstance(value, Expr):
@@ -177,6 +243,12 @@ class Evaluator:
             return Bool(name == "true")
         if cas.is_constant(name):
             return Expr(cas.constant(name))
+        for frame in reversed(self._frames):
+            if name in frame:
+                return frame[name]
+        stored = self._scope.get(name)
+        if stored is not None and not isinstance(stored, Function):
+            return stored
         if name == "ans" and self._ans is not None:
             return self._ans
         return Expr(cas.symbol(name))
@@ -186,6 +258,9 @@ class Evaluator:
 
     def _call(self, node: ast.Call) -> Value:
         name = node.func.casefold()
+        stored = self._scope.get(name)
+        if isinstance(stored, Function):
+            return self._user_call(stored, node)
         if name == "approx":
             return _map(lambda v: Expr(cas.approximate(_as_expr(v).raw)), self._one_arg(node))
         if name in cas.FUNCTIONS:
@@ -193,6 +268,23 @@ class Evaluator:
             return _map(lambda v: Expr(function(_as_expr(v).raw)), self._one_arg(node))
         args = tuple(_as_expr(value).raw for value in self._arguments(node))
         return Expr(cas.undefined_function(name, args))
+
+    def _user_call(self, function: Function, node: ast.Call) -> Value:
+        args = self._arguments(node)
+        if len(args) < len(function.params):
+            raise TIError(errors.TOO_FEW_ARGUMENTS)
+        if len(args) > len(function.params):
+            raise TIError(errors.TOO_MANY_ARGUMENTS)
+        if self._calls >= _MAX_CALL_DEPTH:
+            raise TIError(errors.RECURSION)
+        # The body sees its parameters and the Problem's variables, not the caller's bindings.
+        caller, self._frames = self._frames, [dict(zip(function.params, args, strict=True))]
+        self._calls += 1
+        try:
+            return self.expr(function.body)
+        finally:
+            self._calls -= 1
+            self._frames = caller
 
     def _one_arg(self, node: ast.Call) -> Value:
         if not node.args:
@@ -265,7 +357,18 @@ class Evaluator:
             return _map(lambda v: Expr(self._from_unit(_as_expr(v).raw, unit)), value)
         raise _unsupported(f"the {node.op} operator here")
 
+    def _constrain(self, node: ast.Binary) -> Value:
+        """`expr|x=value`: evaluate `expr` with each named variable bound to its value."""
+        bindings = {name: self.expr(value) for name, value in _equalities(node.right)}
+        self._frames.append(bindings)
+        try:
+            return self.expr(node.left)
+        finally:
+            self._frames.pop()
+
     def _binary(self, node: ast.Binary) -> Value:
+        if node.op == "|":
+            return self._constrain(node)
         left, right = self.expr(node.left), self.expr(node.right)
         op = _ELEMENTWISE.get(node.op, node.op)
         if op in cas.ARITHMETIC:
@@ -287,3 +390,14 @@ class Evaluator:
         if isinstance(node.target, ast.Name) and node.target.text.casefold() == "decimal":
             return _map(lambda v: Expr(cas.approximate(_as_expr(v).raw)), self.expr(node.value))
         raise _unsupported(f"▶{node.target}")
+
+
+def _equalities(node: ast.Expr) -> list[tuple[str, ast.Expr]]:
+    """Read `x=2 and y=3` into (name, value) pairs. Inequalities wait for solve (M1d)."""
+    if isinstance(node, ast.Binary) and node.op == "and":
+        return _equalities(node.left) + _equalities(node.right)
+    if isinstance(node, ast.Compare) and len(node.rest) == 1:
+        (op, value), name = node.rest[0], node.first
+        if op == "=" and isinstance(name, ast.Name):
+            return [(name.text.casefold(), value)]
+    raise _unsupported("this kind of constraint")

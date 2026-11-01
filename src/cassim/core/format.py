@@ -6,7 +6,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.settings import Settings
-from cassim.core.values import Bool, Expr, ListValue, Str, Value
+from cassim.core.values import Bool, Expr, ListValue, Str, Value, Void
 
 # Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
 _SMALLEST_FLOAT_EXPONENT = -3
@@ -105,6 +105,8 @@ def _node(value: Value, settings: Settings) -> ast.Expr:
         return ast.String(value.value)
     if isinstance(value, Bool):
         return ast.Name("true" if value.value else "false")
+    if isinstance(value, Void):
+        return ast.Name("Done")
     if isinstance(value, ListValue):
         return ast.ListLit(tuple(_node(item, settings) for item in value.items))
     return ast.Matrix(tuple(tuple(_node(cell, settings) for cell in row) for row in value.rows))
@@ -122,6 +124,8 @@ def to_latex(value: Value) -> str:
         return rf"\text{{{value.value}}}"
     if isinstance(value, Bool):
         return rf"\text{{{str(value.value).lower()}}}"
+    if isinstance(value, Void):
+        return r"\text{Done}"
     if isinstance(value, ListValue):
         return r"\{" + ",".join(to_latex(item) for item in value.items) + r"\}"
     rows = r"\\".join("&".join(to_latex(cell) for cell in row) for row in value.rows)
