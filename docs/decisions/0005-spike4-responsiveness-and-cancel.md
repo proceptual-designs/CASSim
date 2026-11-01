@@ -19,7 +19,7 @@ Closes the first open question in 0002. Environment as in 0002 (Flet 1.0.5, Pyod
 | `terminate()` | under 1 ms |
 
 ## Decision
-- Architecture: Flet's worker holds the UI, device model and document; the **engine worker** (a Blob-spawned module worker running `emcas.core`) evaluates. The Flet side talks to it with an async request/response protocol and shows a "busy" state.
+- Architecture: Flet's worker holds the UI, device model and document; the **engine worker** (a Blob-spawned module worker running `cassim.core`) evaluates. The Flet side talks to it with an async request/response protocol and shows a "busy" state.
 - Cancel (On/Esc) terminates the engine worker, discards pending requests and boots a new one. Session state is rebuilt from the document model, as planned in PLAN.md section 3.
 - Keep a **spare engine pre-booted** after startup so a cancel feels instant. The roughly 7 s re-boot is too slow to do on demand. Booting the spare in the background costs memory; measure that in M2.
 - Do not use Pyodide's interrupt buffer. It needs `SharedArrayBuffer`, which needs cross-origin isolation headers (COOP/COEP) that plain static hosting (for example GitHub Pages) cannot set.
@@ -27,6 +27,6 @@ Closes the first open question in 0002. Environment as in 0002 (Flet 1.0.5, Pyod
 
 ## Not measured (carry into M2)
 - Memory of two Pyodide instances with SymPy loaded, especially on phones.
-- The first load with the real `emcas.core` wheel rather than just SymPy, and whether the engine can be booted from a local (`--no-cdn`) build with vendored packages.
+- The first load with the real `cassim.core` wheel rather than just SymPy, and whether the engine can be booted from a local (`--no-cdn`) build with vendored packages.
 - Large-result transfer cost across `postMessage`. Results should travel as JSON or LaTeX strings plus a layout tree, not Python objects.
 - Safari and iOS: module workers created from Blob URLs, and nested worker limits.

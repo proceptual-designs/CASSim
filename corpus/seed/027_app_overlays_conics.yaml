@@ -12,7 +12,7 @@ app_cases:
   - {what: overlay b, expect: 2, compare: numeric, tol: 1.0e-09}
   - {what: overlay r², expect: 1, compare: numeric, tol: 1.0e-09}
   - {what: overlay label as shown, expect: y = 1.·(2.)^x, compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.expreg-overlay.jpg, note: 'Label reads y=1.·(2.)ˣ with r²=1. (Document in Degree mode, Float 8.) Regression submenu item 8 is Show Exponential. TODO (later milestone) - the regression equation label on the plot can be clicked and dragged to a new position so it is easier to read; do this for every regression overlay.'}
   status: pending
 - id: app.stats.powerreg-overlay
@@ -25,7 +25,7 @@ app_cases:
   - {what: overlay b, expect: 3, compare: numeric, tol: 1.0e-09}
   - {what: overlay r², expect: 1, compare: numeric, tol: 1.0e-09}
   - {what: overlay label as shown, expect: y = 1.·x^3., compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.powerreg-overlay.jpg, note: Label reads y=1.·x³. with r²=1. Regression submenu item 7 is Show Power. TODO (later milestone) - the regression equation label on the plot can be clicked and dragged to a new position so it is easier to read; do this for every regression overlay.}
   status: pending
 - id: app.stats.cubicreg-overlay
@@ -39,7 +39,7 @@ app_cases:
   - {what: overlay c, expect: 0, compare: numeric, tol: 1.0e-09}
   - {what: overlay d, expect: 2, compare: numeric, tol: 1.0e-09}
   - {what: overlay R², expect: 1, compare: numeric, tol: 1.0e-09}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.cubicreg-overlay.jpg, note: 'Label reads y=1.·x³+1.6ᴇ-11·x²+-4.9ᴇ-11·x+2. with R²=1. The noise terms are shown (b≈1.6e-11, c≈-4.9e-11), and a negative
       coefficient is printed with a literal "+-". Regression submenu item 5 is Show Cubic. TODO (later milestone) - the regression equation label on the plot can be clicked and dragged to a new position so it is easier to read; do this for every regression overlay.'}
   status: pending
@@ -53,8 +53,8 @@ app_cases:
     expect: [1, -2]
     compare: list
   - {what: radius, expect: 3, compare: numeric}
-  - {what: label as shown, expect: (x-1)²+(y--2)²=3², compare: text, note: emulator prints the double minus literally}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  - {what: label as shown, expect: (x-1)²+(y--2)²=3², compare: text, note: simulator prints the double minus literally}
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-circle-center-form-1.jpg, shots/app.graphs.template-circle-center-form-2.jpg, shots/app.graphs.template-circle-center-form-3.jpg', note: 'Equation
       Templates submenu: 1 Line, 2 Parabola, 3 Circle, 4 Ellipse, 5 Hyperbola, 6 Conic. Circle offers Center form (x-h)²+(y-k)²=r² and Standard form a·x²+a·y²+b·x+c·y+d=0. The centre is drawn as a small
       cross. The label shows (y--2) for k=-2.'}
@@ -69,7 +69,7 @@ app_cases:
     expect: [1, -3]
     compare: list
   - {what: label as shown, expect: y=2·(x-1)²+-3, compare: text, note: negative k is printed as "+-3"}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-parabola-vertex-form-1.jpg, shots/app.graphs.template-parabola-vertex-form-2.jpg', note: 'Parabola templates: 1 Vertex form y=a(x-h)²+k,
       2 Standard form y=ax²+bx+c, 3 Vertex form x=a(y-k)²+h, 4 Standard form x=ay²+by+c. Tab order follows the template left to right: a, h, k.'}
   status: pending
@@ -85,7 +85,7 @@ app_cases:
   - {what: a (denominator under x term), expect: 2, compare: numeric}
   - {what: b (denominator under y term), expect: 4, compare: numeric}
   - {what: label as shown, expect: (x-1)²/2² - (y-3)²/4² = 1, compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-hyperbola-east-west-1.jpg, shots/app.graphs.template-hyperbola-east-west-2.jpg, shots/app.graphs.template-hyperbola-east-west-3.jpg', note: 'Hyperbola
       templates: 1 East-West (x-h)²/a² - (y-k)²/b² = 1, 2 South-North (y-k)²/a² - (x-h)²/b² = 1. Tab order is h, a, k, b (left to right, top to bottom), so typing 1,2,3,4 gives h=1, a=2, k=3, b=4. The curve
       and both asymptote-like branches are drawn; the circle and parabola from the same page remain visible, each in its own colour.'}

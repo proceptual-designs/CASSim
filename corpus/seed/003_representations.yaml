@@ -1,6 +1,6 @@
 # Representation changes (expand/factor/propFrac, exact<->approx, bases, angles, polar, string/expr, list<->matrix).
-# Captured on the emulator 2026-10-31; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler).
-# Typed conversion arrows use ASCII @> (emulator keyboard); casoff.* cases run with CAS Mode = Off.
+# Captured on the simulator 2026-10-31; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler).
+# Typed conversion arrows use ASCII @> (simulator keyboard); casoff.* cases run with CAS Mode = Off.
 schema_version: 1
 cases:
 - id: repr.expand.cube
@@ -9,7 +9,7 @@ cases:
   tags: [expand, representation]
   steps:
   - {in: expand((x+1)^3), out: x^3+3*x^2+3*x+1}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.expand.cube.jpg}
   status: pending
 - id: repr.propfrac.rational
@@ -19,7 +19,7 @@ cases:
   steps:
   - {in: propFrac((x^2+1)/(x-1)), out: 2/(x-1)+x+1}
   - {in: propFrac(7/3), out: 2+1/3, compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.propfrac.rational.jpg, note: Mixed-number display 2+1/3 is shown as 2 followed by a stacked fraction 1/3.}
   status: pending
 - id: repr.expand-factor.roundtrip
@@ -30,8 +30,8 @@ cases:
   - {in: expand((x-2)*(x-3)), out: x^2-5*x+6}
   - {in: factor(x^2-5*x+6), out: (x-3)*(x-2)}
   provenance:
-    source: emulator
-    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/repr.expand-factor.roundtrip-1.jpg, shots/repr.expand-factor.roundtrip-2.jpg]
@@ -44,7 +44,7 @@ cases:
   steps:
   - {in: approx(sqrt(8)), out: '2.8284271', compare: numeric}
   - {in: exact(0.75), out: 3/4}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.exact-approx.jpg}
   status: pending
 - id: repr.base-angle
@@ -55,8 +55,8 @@ cases:
   - {in: 255@>Base16, out: 0hFF, compare: text}
   - {in: 0b1011@>Base10, out: '11'}
   - {in: (pi/6)@>DD, out: 30°, compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
-      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.base-angle.jpg, note: '@> is how the emulator keyboard types the conversion arrow.'}
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.base-angle.jpg, note: '@> is how the simulator keyboard types the conversion arrow.'}
   status: pending
 - id: repr.string-expr
   course: methods
@@ -65,7 +65,7 @@ cases:
   steps:
   - {in: string(1+2), out: '"3"', compare: text}
   - {in: expr("1+2"), out: '3'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.string-expr.jpg, note: 'string() evaluates its argument first, so string(1+2) is "3".'}
   status: pending
 - id: repr.list-matrix
@@ -76,8 +76,8 @@ cases:
   - {in: 'list@>mat({1,2,3})', out: '[1,2,3]'}
   - {in: 'mat@>list([1,2;3,4])', out: '{1,2,3,4}'}
   provenance:
-    source: emulator
-    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/repr.list-matrix-1.jpg, shots/repr.list-matrix-2.jpg]
@@ -90,7 +90,7 @@ cases:
   steps:
   - {in: (1+sqrt(-1))@>Polar, out: ⅇ^(ⅈ*π/4)*√(2)}
   - {in: (3+4*sqrt(-1))@>Polar, out: 5*ⅇ^(ⅈ*(π/2-arctan(3/4)))}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.polar.jpg, note: Displayed as e^(i*π/4)*√2 and e^(i*(π/2-tan⁻¹(3/4)))*5. Requires Real or Complex = Rectangular.}
   status: pending
 - id: casoff.repr.expand.cube
@@ -100,7 +100,7 @@ cases:
   tags: [expand, representation, cas-off]
   steps:
   - {in: expand((x+1)^3), error: true, error_contains: CAS computations are restricted}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.repr.expand.cube.jpg}
   status: pass
 - id: casoff.repr.propfrac.rational
@@ -112,8 +112,8 @@ cases:
   - {in: propFrac((x^2+1)/(x-1)), error: true, error_contains: CAS computations are restricted}
   - {in: propFrac(7/3), out: 2+1/3, compare: text}
   provenance:
-    source: emulator
-    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.repr.propfrac.rational-1.jpg, shots/casoff.repr.propfrac.rational-2.jpg]
@@ -128,8 +128,8 @@ cases:
   - {in: approx(sqrt(8)), out: '2.8284271', compare: numeric}
   - {in: exact(0.75), error: true, error_contains: CAS computations are restricted}
   provenance:
-    source: emulator
-    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.repr.exact-approx-1.jpg, shots/casoff.repr.exact-approx-2.jpg]
@@ -143,8 +143,8 @@ cases:
   - {in: 255@>Base16, out: 0hFF, compare: text}
   - {in: (pi/6)@>DD, out: '30.', compare: numeric}
   provenance:
-    source: emulator
-    emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.repr.base-angle-1.jpg, shots/casoff.repr.base-angle-2.jpg]
@@ -158,6 +158,6 @@ cases:
   steps:
   - {in: string(1+2), out: '"3"', compare: text}
   - {in: 'list@>mat({1,2,3})', out: '[1,2,3]'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.repr.string-list.jpg}
   status: pending

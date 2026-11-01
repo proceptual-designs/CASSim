@@ -1,12 +1,12 @@
-# emCAS testing: the first bits
+# CASSim testing: the first bits
 
-Status: draft 1 (2026-10-31). Covers what must exist before M1 coding starts: the golden corpus, how it is replayed, how comparison works, and how cases are captured from the real emulator. Companion files: `corpus/schema.json`, `corpus/validate.py`, `corpus/seed/001_core.yaml` (20 seed cases).
+Status: draft 1 (2026-10-31). Covers what must exist before M1 coding starts: the golden corpus, how it is replayed, how comparison works, and how cases are captured from the real simulator. Companion files: `corpus/schema.json`, `corpus/validate.py`, `corpus/seed/001_core.yaml` (20 seed cases).
 
 ## 1. Principles
 
-- The TI-Nspire emulator is the oracle. SymPy is only the implementation.
+- The TI-Nspire simulator is the oracle. SymPy is only the implementation.
 - Correctness means **symbolic or numeric equivalence**, not identical text (decision: Simon, 2026-10-31).
-- Every case records where its expectation came from. Only `emulator` provenance counts as verified.
+- Every case records where its expectation came from. Only `simulator` provenance counts as verified.
 - Known failures are tracked, not hidden: `xfail` with a reason, and a fixed case must have its marker removed.
 
 ## 2. Test layers (in order of when they appear)
@@ -31,7 +31,7 @@ One or more YAML files under `corpus/`, validated by `corpus/schema.json` (JSON 
   steps:
     - {in: "f(x):=x^2-4", out: "Done"}
     - {in: "solve(f(x)=0,x)|x>0", out: "x=2"}
-  provenance: {source: emulator, emulator_version: "...", captured: 2026-11-02,
+  provenance: {source: simulator, simulator_version: "...", captured: 2026-11-02,
                evidence: shots/methods.define.solve-with-domain.png}
   status: pass                             # pending | pass | xfail
 ```
@@ -47,7 +47,7 @@ One or more YAML files under `corpus/`, validated by `corpus/schema.json` (JSON 
 | specialist | radian | auto | rectangular |
 | none | engine defaults (radian / auto / real) | | |
 
-**Provenance sources:** `emulator` (needs evidence screenshot, enforced by the validator) › `skill_notes` (from Simon's cas-solver skill; reported as verified there, to be re-captured) › `hand_computed` (derived independently, e.g. with SciPy) › `unverified_expectation` (from memory; treat as a hypothesis).
+**Provenance sources:** `simulator` (needs evidence screenshot, enforced by the validator) › `skill_notes` (from Simon's cas-solver skill; reported as verified there, to be re-captured) › `hand_computed` (derived independently, e.g. with SciPy) › `unverified_expectation` (from memory; treat as a hypothesis).
 
 **YAML pitfall:** PyYAML reads `1e-9` as a string. Write tolerances as `1.0e-9` (the validator catches this).
 
@@ -87,24 +87,24 @@ Errors: `error: true` passes on any engine error; `error_contains` additionally 
 
 **Outputs:** a pass/xfail/pending summary by course, tier and tag so progress is visible per milestone. CI gates: validator clean; no regressions in `pass` cases; Tier 1 pass rate recorded in the release notes.
 
-## 5. Capturing from the emulator
+## 5. Capturing from the simulator
 
 Use Simon's `vce-cas-solver` workflow (TI-Nspire CX CAS Premium Teacher Software, Handheld page size). For each case:
 
 1. Open or reuse a document; set Document Settings for the course (section 3). Check the title bar shows DEG or RAD.
 2. New Problem per case (`new_problem` steps insert another Problem inside the same case).
-3. Enter each `in` line in short chunks (about 9 characters). Beware emulator typing quirks that are properties of the keyboard, not the CAS: `^` swallows everything after it as the exponent; a line starting with an operator gets `Ans` in front; ASCII `e` and `i` are plain variables (use `e^(...)` template, `exp()`, `√(-1)`).
+3. Enter each `in` line in short chunks (about 9 characters). Beware simulator typing quirks that are properties of the keyboard, not the CAS: `^` swallows everything after it as the exponent; a line starting with an operator gets `Ans` in front; ASCII `e` and `i` are plain variables (use `e^(...)` template, `exp()`, `√(-1)`).
 4. Screenshot the result region (about 455x303 px) and save as `corpus/shots/<case-id>[-<step>].png`.
-5. Transcribe the displayed result into `out`, upgrade `provenance` to `source: emulator` with `emulator_version`, `captured`, `evidence`, `reviewed_by`, and set `status: pending` until the engine passes it.
+5. Transcribe the displayed result into `out`, upgrade `provenance` to `source: simulator` with `simulator_version`, `captured`, `evidence`, `reviewed_by`, and set `status: pending` until the engine passes it.
 6. Run `python corpus/validate.py`.
 
 Prioritise: (a) the 20 seed cases, to find where hand-computed or remembered expectations were wrong; (b) one or more cases per Tier 1 catalog entry; (c) VCE exam questions (Methods, Specialist, General) with every part of the ERQs; (d) every trap in the skill; (e) UDF calls only when the library is installed, tagged `udf`.
 
-A small helper (`tools/capture_sheet.py`, to be written) should print the pending, non-emulator cases as a checklist ordered by tier so capture sessions are efficient.
+A small helper (`tools/capture_sheet.py`, to be written) should print the pending, non-simulator cases as a checklist ordered by tier so capture sessions are efficient.
 
 ## 6. Seed corpus (`corpus/seed/001_core.yaml`)
 
-20 cases (Methods 14, General 4, Specialist 2), **all captured on the emulator on 2026-10-31**, with 22 screenshots in `corpus/shots/`. Transcription was by Claude from the screenshots and is awaiting human review. The emulator build number was not recorded (add from Help > About). Cases stay `status: pending` until the engine can run them.
+20 cases (Methods 14, General 4, Specialist 2), **all captured on the simulator on 2026-10-31**, with 22 screenshots in `corpus/shots/`. Transcription was by Claude from the screenshots and is awaiting human review. The simulator build number was not recorded (add from Help > About). Cases stay `status: pending` until the engine can run them.
 
 Findings that changed the expectations (all now in the corpus):
 
@@ -112,15 +112,15 @@ Findings that changed the expectations (all now in the corpus):
 - `d(x^2,x)` is **not an error**: an undefined function call is returned unevaluated. The engine must treat unknown names as symbolic function applications.
 - Matrices are `[1,2;3,4]`; my first draft used a nested-list form that TI does not use.
 - `tvmPmt(N,I,PV,FV,PpY,CpY)` order and sign confirmed (-193.32802 for the 60-month example).
-- `normCdf(-1,1,0,1)` displays 0.68268948; the exact value is 0.682689492. TI's numerical integration is about 2e-8 off, so tolerances tighter than 1e-7 would fail against the emulator.
+- `normCdf(-1,1,0,1)` displays 0.68268948; the exact value is 0.682689492. TI's numerical integration is about 2e-8 off, so tolerances tighter than 1e-7 would fail against the simulator.
 - `cSolve(x^2+1=0,x)` lists `x=i` first (order is irrelevant under canonical comparison).
 - `LinRegBx x,y,1:stat.results` returns a results matrix with Title "Linear Regression (a+bx)", RegEqn, a, b, r², r and a residual list shown as `{...}`.
 - Document settings in a new document default to the previous document's settings, not to the course preset: always set them explicitly.
-- The emulator exposes an "Add Python" page type in this build (CX II-T CAS), which is relevant to the plan's Python-scripting milestone.
+- The simulator exposes an "Add Python" page type in this build (CX II-T CAS), which is relevant to the plan's Python-scripting milestone.
 
 Still to capture: individual `stat.*` values, residual list contents, Tier 1 catalog coverage, and exam questions.
 
-Emulator typing notes for future capture sessions (in addition to section 5):
+Simulator typing notes for future capture sessions (in addition to section 5):
 
 - Typed chunks of 16 or more characters are pasted and can fail silently (a 17-character `normCdf` line vanished). Use chunks of about 9-10 characters.
 - `x^2` captures the following text as the exponent: press Right after the exponent. A typed `/` stays inline, so no Right is needed after `1/2`.
@@ -131,7 +131,7 @@ Emulator typing notes for future capture sessions (in addition to section 5):
 
 ## 7. Device-model test cases to write in M2 (not CAS behaviour)
 
-These come from emulator keyboard behaviour and belong to the input editor, not the evaluator:
+These come from simulator keyboard behaviour and belong to the input editor, not the evaluator:
 
 - Typing after `^` stays in the exponent until the cursor is moved out (`0.4^3*100` means 0.4^300 unless navigated).
 - An entry line beginning with a binary operator is prefixed with `Ans`.
@@ -168,7 +168,7 @@ Probe results (Radian, Auto, Real, Float 8; screenshots `corpus/shots/casmode.ex
 
 13 cases (8 CAS On, 5 CAS Off) covering expand/factor/propFrac, `approx`/`exact`, `▶Base16`/`▶Base10`, `▶DD`, `▶Polar`, `string`/`expr`, `list▶mat`/`mat▶list`. Notes:
 
-- Type the conversion arrow as `@>`; the emulator shows ▶.
+- Type the conversion arrow as `@>`; the simulator shows ▶.
 - `propFrac(7/3)` displays `2+1/3` (mixed form); `▶DD` shows `30°`; `255▶Base16` shows `0hFF`.
 - `▶Polar` needs Real or Complex = Rectangular and returns `e^(ⅈ·θ)` forms with an `arctan` term.
 - `mat▶list([1,2;3,4])` gave `{1,2,3,4}`; check the ordering again with a non-symmetric matrix.
@@ -239,13 +239,13 @@ Behaviours worth implementing against:
 Open items before the corpus is final:
 
 - Every case needs human review of the transcription (all are `pending`).
-- (Done) Emulator build recorded as 6.0.3.374 in all provenance fields.
+- (Done) Simulator build recorded as 6.0.3.374 in all provenance fields.
 - (Done) The echo cases were not missing features: the real list functions are `stDevSamp`, `stDevPop`, `varSamp`, `varPop` (m11).
 - Not captured: CAS Off and Exact Arithmetic coverage beyond the first 32 cases, graphs/geometry (out of scope), programs and Python.
 
 ## 14. Batches 11 to 16: settings, errors, state, long tail, and app screens (`corpus/seed/013` to `018`)
 
-Added 2026-11-01 on emulator version 6.0.3.374, all `status: pending`. Corpus total: 177 (141 earlier + 6 settings/lists + 8 errors/state + 11 long tail + 11 `app_cases`).
+Added 2026-11-01 on simulator version 6.0.3.374, all `status: pending`. Corpus total: 177 (141 earlier + 6 settings/lists + 8 errors/state + 11 long tail + 11 `app_cases`).
 
 | File | Cases | Content |
 |---|---|---|
@@ -294,16 +294,16 @@ Batch 20 (`022_app_stats_plots.yaml`, `023_app_stats_quadreg.yaml`): Data & Stat
 
 Batch 21 (`025_degree_and_regressions.yaml`, `026_app_graph_table_conic.yaml`): Degree with Auto (exact special angles, `sin(1)` stays unevaluated, constraint after `|` needed in solve), ExpReg/PowerReg/CubicReg on exact data (b and c of the cubic are ~1e-11 noise), Generate Sequence sixth term 63, Graphs split-screen table, typed ellipse relation. Typing `stat.` opens an autocomplete list that swallows the next key.
 
-Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays in Data & Statistics; circle (centre form), parabola (vertex form) and hyperbola (east-west) Equation Templates. The emulator prints negative parameters literally (`y--2`, `+-3`, `+-4.9ᴇ-11`), and the hyperbola template's Tab order is h, a, k, b.
+Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays in Data & Statistics; circle (centre form), parabola (vertex form) and hyperbola (east-west) Equation Templates. The simulator prints negative parameters literally (`y--2`, `+-3`, `+-4.9ᴇ-11`), and the hyperbola template's Tab order is h, a, k, b.
 
-Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the emulator prints negative parameters as `+-` / `--`.
+Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the simulator prints negative parameters as `+-` / `--`.
 
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).
 - `@i` is used in `in:` lines for the imaginary unit (cSolve/abs case); `sqrt(-1)` kept as an alternative spelling.
 - CAS Off: derivative at a point works (`derivative(x^2*sin(x),x)|x=2` = 1.9726024 in Radian).
-- Transpose is `ᵀ` (U+1D40, ASCII `@t`). On the emulator it is entered with Menu > Matrix & Vector > Transpose; typing `@t` on the keyboard is not converted.
+- Transpose is `ᵀ` (U+1D40, ASCII `@t`). On the simulator it is entered with Menu > Matrix & Vector > Transpose; typing `@t` on the keyboard is not converted.
 - `∞` can be typed as the character or spelled `infinity`.
 - `undef` carries through calculations (`0*ln(0)`, `undef+1` are `undef`) while `limit(x*ln(x),x,0,1)` = 0.
 - Error dialogs for syntax and argument errors leave the cursor in the entry line for editing.

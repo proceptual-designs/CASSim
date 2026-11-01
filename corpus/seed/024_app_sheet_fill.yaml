@@ -17,7 +17,7 @@ app_cases:
   - {what: A18, expect: 2584, compare: numeric}
   - {what: A19, expect: 4181, compare: numeric}
   - {what: fill range shown in status bar as text, expect: 'A3:A20', compare: text}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.fill-down-fibonacci-1.jpg, shots/app.sheet.fill-down-fibonacci-2.jpg', note: 'Fill works from the cell context menu (item 6), not the Data menu attempt
       tried earlier. After choosing Fill, arrow keys extend the destination range; Enter confirms. Relative references adjust per row, giving the Fibonacci numbers. Method supplied by the user.'}
   status: pending

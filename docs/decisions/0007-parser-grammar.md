@@ -1,7 +1,7 @@
 # 0007. Parser grammar (M1a)
 
-Date: 2026-11-01. Status: accepted; the choices in "To check on the emulator" are provisional.
-Code: `src/emcas/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{lexer,parser,printer,parser_corpus}.py`.
+Date: 2026-11-01. Status: accepted; the choices in "To check on the simulator" are provisional.
+Code: `src/cassim/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{lexer,parser,printer,parser_corpus}.py`.
 
 ## Settled by the Reference Guide (CAS 3.2, EOS appendix, pp. 166-167)
 
@@ -22,12 +22,12 @@ Code: `src/emcas/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{le
 - **One AST for one meaning.** Implied multiplication becomes `Binary("*")`, spellings are folded in the lexer (`<=` to `≤`, `@>` to `▶`), and `[[1,2],[3,4]]` flattens to `[1,2;3,4]`. Assign and Store stay separate so printing preserves what was typed.
 - **Text kept as typed.** `Number` holds its raw text because `1.` and `1` differ (approximate versus exact). Names keep their case and are not resolved: `pi`, `π`, `infinity`, `∞`, `theta`, `θ`, `true`, `Ans`, `undef`, `ⅇ` and `ⅈ` are plain `Name`s, and so is the display form `sin⁻¹`; the evaluator must treat each spelled and symbol form as one. Only `and or not xor nor nand` are keywords.
 - **Chained relations** are one `Compare` node, so `0≤x≤2*π` keeps its shape for `|` constraints.
-- **Commands** are recognised from a fixed list only at the start of a statement. Those names are reserved, and using one in an expression is a syntax error. Control flow (`If`, `For`, ...) and multi-line `Func` bodies are left to `emcas.basic` in M5.
+- **Commands** are recognised from a fixed list only at the start of a statement. Those names are reserved, and using one in an expression is a syntax error. Control flow (`If`, `For`, ...) and multi-line `Func` bodies are left to `cassim.basic` in M5.
 - **`▶` and `∠`** are missing from the EOS table. `▶` binds just above Store, because the guide allows it only at the end of an entry line. `∠` binds just below `+` and `-`, so `2∠π/4+1` keeps a whole angle; `∠θ` alone is a prefix form because TI displays vectors as `[r ∠θ z]`.
 - **Spaces inside `[ ]`** separate elements, since TI displays results as `[√(2) ∠π/4 1]` and the replay harness must parse displayed results. A minus stays binary, so `[1 -2]` is one element, `-1`.
 - **Depth limit.** A budget (`MAX_DEPTH`) covers both nesting and chain length, so a tree can never overflow the stack in later recursive code. Limits: about 80 levels of parentheses, or a sum of about 240 terms; beyond this the user gets a syntax error. Long data lists are unaffected.
 
-## To check on the emulator
+## To check on the simulator
 
 The guide does not settle these. None is pinned by a corpus case, so each is a guess at TI's behaviour. Each row is one entry to type.
 

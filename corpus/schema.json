@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "emCAS golden corpus file",
+  "title": "CASSim golden corpus file",
   "type": "object",
   "required": [
     "schema_version",
@@ -198,13 +198,13 @@
           "properties": {
             "source": {
               "enum": [
-                "emulator",
+                "simulator",
                 "skill_notes",
                 "hand_computed",
                 "unverified_expectation"
               ]
             },
-            "emulator_version": {
+            "simulator_version": {
               "type": "string"
             },
             "captured": {
@@ -335,13 +335,13 @@
           "properties": {
             "source": {
               "enum": [
-                "emulator",
+                "simulator",
                 "skill_notes",
                 "hand_computed",
                 "unverified_expectation"
               ]
             },
-            "emulator_version": {
+            "simulator_version": {
               "type": "string"
             },
             "captured": {

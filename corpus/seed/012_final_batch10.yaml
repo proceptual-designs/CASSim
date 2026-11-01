@@ -1,5 +1,5 @@
 # Batch 10: TwoVar, csc/cosh, finance (compound interest, depreciation, repayment), inverse normal, arithmetic sequence. Captured with Radian/Auto settings (results do not depend on them).
-# Captured on the emulator 2026-11-01; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
+# Captured on the simulator 2026-11-01; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
 # Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
 schema_version: 1
 cases:
@@ -11,9 +11,9 @@ cases:
   - {in: 'x:={1,2,3,4,5}', out: '{1,2,3,4,5}', compare: ignore}
   - {in: 'y:={2,4,5,4,5}', out: '{2,4,5,4,5}', compare: ignore}
   - {in: 'TwoVar x,y,1:stat.values', out: '["Two-Variable Statistics",3.,15.,55.,1.5811388,1.4142136,5.,4.,20.,86.,1.2247449,1.0954451,66.,0.77459667,1.,1.5,3.,4.5,5.,2.,3.,4.,5.,5.,10.,6.]', compare: numeric}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m10.stats.twovar-1.jpg, shots/m10.stats.twovar-2.jpg, shots/m10.stats.twovar-3.jpg', note: 'For TwoVar the results are in stat.values
-      (a column with a title, not stat.results as for OneVar and the regressions). Order, read from the emulator: title, x̄, Σx, Σx², sx, σx, n, ȳ, Σy, Σy², sy, σy, Σxy, r, MinX, Q1X, MedianX, Q3X, MaxX,
+      (a column with a title, not stat.results as for OneVar and the regressions). Order, read from the simulator: title, x̄, Σx, Σx², sx, σx, n, ȳ, Σy, Σy², sy, σy, Σxy, r, MinX, Q1X, MedianX, Q3X, MaxX,
       MinY, Q1Y, MedianY, Q3Y, MaxY, SSX, SSY. The labels from index 14 onward are inferred by matching the values to the data (r=0.7746, SSX=10, SSY=6), not read from the screen. stat.values is a matrix,
       so elements are v[k,1].'}
   status: pending
@@ -24,7 +24,7 @@ cases:
   steps:
   - {in: csc(pi/6), out: '2'}
   - {in: cosh(0), out: '1'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.trig.csc-cosh.jpg}
   status: pending
 - id: m10.finance.compound-interest-depreciation
@@ -34,7 +34,7 @@ cases:
   steps:
   - {in: 'tvmFV(10,5,-5000,0,1,1)', out: '8144.4731', compare: numeric}
   - {in: 'tvmFV(5,-15,-30000,0,1,1)', out: '13311.159', compare: numeric}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.finance.compound-interest-depreciation.jpg, note: 'tvmFV(N,I,PV,Pmt,PpY,CpY). Compound interest: $5000 at 5% for 10 years. Reducing-balance
       depreciation: a negative rate (-15) on a $30000 asset over 5 years. Entering the principal as negative gives a positive future value.'}
   status: pending
@@ -44,7 +44,7 @@ cases:
   tags: [finance, tvm, tvmpmt, general-maths]
   steps:
   - {in: 'tvmPmt(60,6,10000,0,12,12)', out: '-193.32802', compare: numeric}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.finance.tvmpmt.jpg, note: 'tvmPmt(N,I,PV,FV,PpY,CpY): loan repayment, shown negative (cash out).'}
   status: pending
 - id: m10.dist.invnorm-standard-and-binomcdf
@@ -54,7 +54,7 @@ cases:
   steps:
   - {in: 'invNorm(0.95,0,1)', out: '1.6448536', compare: numeric}
   - {in: 'binomCdf(20,0.3,0,5)', out: '0.41637082', compare: numeric}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.dist.invnorm-standard-and-binomcdf.jpg, note: 'binomCdf(n,p,lower,upper).'}
   status: pending
 - id: m10.seq.arithmetic-sequence
@@ -63,6 +63,6 @@ cases:
   tags: [seq, arithmetic]
   steps:
   - {in: 'seq(3+4*(n-1),n,1,5)', out: '{3,7,11,15,19}'}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.seq.arithmetic-sequence.jpg}
   status: pending

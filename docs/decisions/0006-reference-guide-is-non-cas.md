@@ -7,7 +7,7 @@ Date: 2026-11-01. Status: accepted.
 
 ## Decision
 1. **Primary source: the TI-Nspire CAS Reference Guide.** The newest copy found is software **3.2** (2012), kept as `references/TI-NspireCAS_ReferenceGuide_EN_3.2.pdf` (git-ignored with the rest of `references/`). The installed Teacher Software ships no reference guide. A newer CAS guide, if found, replaces it.
-2. **Every entry must be verified against the emulator Catalog**, because 3.2 predates the emulator. The matrix has an empty `emulator_verified` column for this. Commands the corpus uses that neither guide lists are reported separately.
+2. **Every entry must be verified against the simulator Catalog**, because 3.2 predates the simulator. The matrix has an empty `simulator_verified` column for this. Commands the corpus uses that neither guide lists are reported separately.
 3. The numeric guide 4.5 supplements the CAS guide for newer numeric commands.
 4. **Not everything needs implementing first.** Priority comes from usage: **core** = used by a corpus case; **likely** = not in the corpus but mentioned 5+ times in the VCE teacher resource books; **later** = the rest. Multi-step corpus cases are listed to show which commands are combined.
 

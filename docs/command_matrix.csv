@@ -1,4 +1,4 @@
-command,cas_guide_page,numeric_guide_page,corpus_cases,book_methods,book_specialist,book_general,priority,emulator_verified,status
+command,cas_guide_page,numeric_guide_page,corpus_cases,book_methods,book_specialist,book_general,priority,simulator_verified,status
 abs(),13,11,4,1,3,1,core,,todo
 amortTbl(),13,11,0,0,0,9,likely,,todo
 and,14,12,0,-1,-1,-1,later,,todo

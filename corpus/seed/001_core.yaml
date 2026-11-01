@@ -1,4 +1,4 @@
-# Seed corpus, batch 1. All 20 cases captured on the TI-Nspire CX CAS emulator on 2026-10-31.
+# Seed corpus, batch 1. All 20 cases captured on the TI-Nspire CX CAS simulator on 2026-10-31.
 # Transcription was done from screenshots by Claude; not yet human-reviewed (reviewed_by says so).
 # status stays `pending` until the engine can run each case.
 schema_version: 1
@@ -12,8 +12,8 @@ cases:
   steps:
     - {in: "solve(x^2-4=0,x)", out: "x=-2 or x=2"}
   provenance: &emu
-    source: emulator
-    emulator_version: "TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view"
+    source: simulator
+    simulator_version: "TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view"
     captured: "2026-10-31"
     reviewed_by: "claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)"
     evidence: shots/methods.solve.quadratic.jpg
@@ -44,7 +44,7 @@ cases:
   tags: [solve, trig, arbitrary-constant]
   steps:
     - {in: "solve(sin(x)=1/2,x)", out: "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6", compare: family,
-       note: "Confirmed on emulator: TI returns the general solution with n1 (shown bold italic). SymPy returns principal values only; the adapter must add the families."}
+       note: "Confirmed on simulator: TI returns the general solution with n1 (shown bold italic). SymPy returns principal values only; the adapter must add the families."}
   provenance: {<<: *emu, evidence: shots/methods.solve.trig-general-solution.jpg}
   status: pending
 
@@ -65,7 +65,7 @@ cases:
   tags: [derivative, integral, limit]
   steps:
     - {in: "derivative(x^2*sin(x),x)", out: "x^2*cos(x)+2*x*sin(x)"}
-    - {in: "integral(x*exp(x),x,0,1)", out: "1", note: "Emulator displays exp(x) as e^x. Typing ASCII e on the emulator gives a variable, so exp() was used."}
+    - {in: "integral(x*exp(x),x,0,1)", out: "1", note: "Simulator displays exp(x) as e^x. Typing ASCII e on the simulator gives a variable, so exp() was used."}
     - {in: "limit(sin(x)/x,x,0)", out: "1"}
   provenance: {<<: *emu, evidence: shots/methods.calculus.basic.jpg, note: "The derivative entry is partly scrolled off the top of the screenshot; its result is visible."}
   status: pending
@@ -107,7 +107,7 @@ cases:
   tier: 1
   tags: [mode, trig]
   steps:
-    - {in: "sin(pi/6)", out: "1/2", note: "Typing pi on the emulator yields π."}
+    - {in: "sin(pi/6)", out: "1/2", note: "Typing pi on the simulator yields π."}
   provenance: {<<: *emu, evidence: shots/methods.angle.radian-exact.jpg}
   status: pass
 
@@ -117,10 +117,10 @@ cases:
   tags: [prob, normal, binomial]
   steps:
     - {in: "normCdf(-1,1,0,1)", out: "0.68268948", compare: numeric, tol: 1.0e-7,
-       note: "Emulator shows ...948; exact value is 0.682689492 (numerical integration, about 2e-8 relative error). Do not demand more than 1e-7."}
+       note: "Simulator shows ...948; exact value is 0.682689492 (numerical integration, about 2e-8 relative error). Do not demand more than 1e-7."}
     - {in: "invNorm(0.975,0,1)", out: "1.959964", compare: numeric, tol: 1.0e-7}
     - {in: "binomPdf(10,0.5,5)", out: "0.24609375", compare: numeric, tol: 1.0e-9}
-  provenance: {<<: *emu, evidence: shots/methods.prob.distributions.jpg, note: "Emulator entries were run in the order invNorm, binomPdf, normCdf."}
+  provenance: {<<: *emu, evidence: shots/methods.prob.distributions.jpg, note: "Simulator entries were run in the order invNorm, binomPdf, normCdf."}
   status: pending
 
 - id: methods.matrix.det
@@ -138,8 +138,8 @@ cases:
   tier: 1
   tags: [complex, cSolve]
   steps:
-    - {in: "cSolve(x^2+1=0,x)", out: "x=ⅈ or x=-ⅈ", note: "Emulator lists x=i first."}
-    - {in: "abs(3+4*@i)", out: "5", note: "@i is the ASCII spelling of the imaginary unit ⅈ; the emulator echoes it as |3+4·ⅈ|. Confirmed in a later capture."}
+    - {in: "cSolve(x^2+1=0,x)", out: "x=ⅈ or x=-ⅈ", note: "Simulator lists x=i first."}
+    - {in: "abs(3+4*@i)", out: "5", note: "@i is the ASCII spelling of the imaginary unit ⅈ; the simulator echoes it as |3+4·ⅈ|. Confirmed in a later capture."}
     - {in: "abs(3+4*√(-1))", out: "5", note: "Alternative spelling: sqrt(-1) also gives the imaginary unit."}
   provenance: {<<: *emu, evidence: 'shots/specialist.complex.csolve.jpg, shots/specialist.complex.csolve-2.jpg'}
   status: pending

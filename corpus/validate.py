@@ -30,9 +30,9 @@ def validate_file(path: Path, seen_ids: set[str]) -> list[str]:
             problems.append(f"{path.name}: duplicate id {cid}")
         seen_ids.add(cid)
         prov = case.get("provenance", {})
-        if prov.get("source") == "emulator" and not prov.get("evidence"):
+        if prov.get("source") == "simulator" and not prov.get("evidence"):
             problems.append(
-                f"{path.name}: {cid}: emulator source needs provenance.evidence screenshot"
+                f"{path.name}: {cid}: simulator source needs provenance.evidence screenshot"
             )
         if case.get("status") == "xfail" and not case.get("xfail_reason"):
             problems.append(f"{path.name}: {cid}: xfail needs xfail_reason")

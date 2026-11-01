@@ -8,7 +8,7 @@ Same environment as 0002 (Flet 1.0.5, Pyodide 314.0.7, Edge headless).
 - All 21 reference `.tns` files (`mm_`, `sm_`, `gm_` libraries) share the magic `*TIMLP0601` and are not plain zips.
 - Payloads have about 7.97 bits/byte entropy, no zlib/deflate stream at any header offset, and every entry's data starts with the same 8 bytes `0F CE D8 D2 81 06 86 5B`.
 - [Hackspire's TNS File Format page](https://www.hackspire.org/TNS_File_Format) describes the same signature and TI's private compression method 13, and states there is "currently no known way to get data from it".
-- Consequence: no dependency on `.tns`. Libraries are ported by behaviour (PLAN.md 5.5): read the UDF guides, then verify each function against the emulator. Revisit only if a decoder appears.
+- Consequence: no dependency on `.tns`. Libraries are ported by behaviour (PLAN.md 5.5): read the UDF guides, then verify each function against the simulator. Revisit only if a decoder appears.
 - The unit test pins the header and signature, so a differing file fails loudly.
 
 ## Spike 4: IndexedDB from Pyodide: **GO**

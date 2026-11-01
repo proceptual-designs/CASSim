@@ -14,7 +14,7 @@ cases:
   - {in: stat.b, out: '0.5', compare: numeric, tol: 1.0e-06}
   - {in: stat.c, out: '10', compare: numeric, tol: 1.0e-06}
   - {in: stat.d, out: '2', compare: numeric, tol: 1.0e-06}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m16.stats.logisticd-exact-data.jpg, note: 'stat.results: Title "Logistic Regression (d≠0)", RegEqn "c/(1+a·ⅇ^(-b·x))+d", a=4, b=0.5, c=10, d=2, Resid. In the
       stat. autocomplete list results is the 8th item (a, b, c, d, freqreg, regeqn, resid, results): 7 Downs then Return, Return.'}
   status: pending

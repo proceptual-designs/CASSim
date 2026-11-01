@@ -1,6 +1,6 @@
 # TI-Nspire CX II-T CAS layout reference (design input)
 
-Screenshots from the TI-Nspire CX CAS Premium Teacher Software, captured 2026-11-02 for the GUI design phase (after M1). Reference only: do not ship TI logos, artwork or keypad graphics (see CLAUDE.md). emCAS needs its own branding and artwork.
+Screenshots from the TI-Nspire CX CAS Premium Teacher Software, captured 2026-11-02 for the GUI design phase (after M1). Reference only: do not ship TI logos, artwork or keypad graphics (see CLAUDE.md). CASSim needs its own branding and artwork.
 
 | File | Shows |
 |---|---|

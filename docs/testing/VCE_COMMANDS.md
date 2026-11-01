@@ -1,6 +1,6 @@
 # VCE command priority list and corpus coverage
 
-Generated from the corpus (`corpus/seed/*.yaml`, excluding CAS Off / Exact Arithmetic cases). A count is the number of cases whose steps use the command at least once. Zero means a gap: no emulator capture yet.
+Generated from the corpus (`corpus/seed/*.yaml`, excluding CAS Off / Exact Arithmetic cases). A count is the number of cases whose steps use the command at least once. Zero means a gap: no simulator capture yet.
 
 Priorities (P1 = needed on every exam day, P2 = frequent, P3 = occasional) are a first draft for Simon to adjust.
 

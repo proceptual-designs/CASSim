@@ -1,6 +1,6 @@
-# emCAS — plan and architecture (draft for review)
+# CASSim — plan and architecture (draft for review)
 
-A browser-based emulation of the TI-Nspire CX CAS: a static, installable (PWA) site where Python
+A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) site where Python
 (SymPy/SciPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.1, 2026-10-31.
 
 ## 1. What I checked while exploring (and what I didn't)
@@ -20,16 +20,16 @@ A browser-based emulation of the TI-Nspire CX CAS: a static, installable (PWA) s
 
 1. **Engine first, UI second.** A pure-Python core (no Flet imports, enforced by a lint rule) that is usable from a CLI, tests and the browser.
 2. **A headless "device model"** (keys, menus, cursor, screen buffer) sits between engine and Flet, so keyboard and page behaviour is tested without a GUI. Flet only renders it.
-3. **Behaviour is defined by the emulator, not by SymPy.** Every behaviour we claim is pinned by a golden test captured from the real TI-Nspire CX CAS emulator.
+3. **Behaviour is defined by the simulator, not by SymPy.** Every behaviour we claim is pinned by a golden test captured from the real TI-Nspire CX CAS simulator.
 4. **Typed, linted, reproducible:** uv, Ruff, Ty, Git, CI from day one. SymPy is weakly typed, so it is quarantined behind one typed adapter module.
 5. **Original implementation.** No TI ROM, TI artwork or logos. The handheld skin is our own design that keeps the familiar layout.
 
 ## 3. Architecture
 
 ```
-emcas/
+cassim/
   pyproject.toml            uv project; ruff + ty + pytest config; dependency groups: dev, test, web
-  src/emcas/
+  src/cassim/
     core/                   PURE PYTHON, no Flet
       lexer.py parser.py ast.py     TI grammar -> AST (Pratt parser), pretty-printer
       values.py                     typed Value union: Number, Expr, List, Matrix, Str, Bool, Eq, Void, Unit
@@ -52,11 +52,11 @@ emcas/
     doc/                    Document model (Problems, Pages), JSON schema + versioned (de)serialiser, migrations
     device/                 headless device model: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven),
                             input editor, page controllers, screen buffer
-    cli/                    `emcas` REPL (prompt_toolkit) + `emcas run file.tib`
-  src/emcas_app/            FLET (thin): layouts, keyboard widget, screen renderer, file pickers, storage, PWA bits
+    cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
+  src/cassim_app/            FLET (thin): layouts, keyboard widget, screen renderer, file pickers, storage, PWA bits
   tests/  unit/  corpus/  device/  e2e/
-  corpus/                   golden cases (YAML) + emulator screenshots as evidence
-  tools/                    capture + replay tooling for the emulator corpus
+  corpus/                   golden cases (YAML) + simulator screenshots as evidence
+  tools/                    capture + replay tooling for the simulator corpus
   docs/  references/  spikes/
 ```
 
@@ -69,7 +69,7 @@ emcas/
 - **Long-running work.** Evaluation must be cancellable (TI's On/Esc). Plan: CAS runs in a worker; cancel = terminate and restart worker with state restored from the document model. Verified in M0 spike 1.
 - **Heavy dependencies.** SymPy loads at start; SciPy lazily on first stats/numerics call. Service worker caches everything for offline use.
 - **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input starts as linear text with template insertion (fraction inserts `(`…`)/(`…`)`); a full structured 2D editor is a later, separate sub-milestone (see M2d).
-- **Storage.** Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.emcas.json` (versioned schema). `.tns` support is attempted in M6 and is not a dependency of anything else.
+- **Storage.** Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema). `.tns` support is attempted in M6 and is not a dependency of anything else.
 - **Graphics.** Engine emits a scene; Flet `canvas` draws it. Charts libraries are not suited to implicit functions, asymptotes and trace; matplotlib is too heavy for Pyodide.
 - **Spreadsheet.** Custom calc engine (TI cell/column semantics, columns are shared Problem variables so they can't map onto Excel-style engines like `formulas`/`pycel`). A library is used only for I/O: stdlib `csv` and `openpyxl` (pure Python; confirm it loads in Pyodide) for xlsx import/export.
 
@@ -88,15 +88,15 @@ The device model drives all three; modes differ only in layout components and wh
 1. **Calculator page.** History, `Ans`, ctrl+enter approximation, templates, catalog, variable menu, copy/paste of results, errors.
 2. **Pages:** Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python (new). Geometry is out of scope unless you want it.
 3. **Documents.** Multiple documents, problems, page sorter, settings dialogs, undo/redo, autosave.
-4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries. (b) A Python page and a `py("script","fn",args)` call from the CAS. Scripts get a small `emcas` API (read/write Problem variables, evaluate TI expressions). Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents are shared.
-5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the emulator with the libraries installed. **Check the LazyMath licence/EULA before porting or redistributing** (the GM folder includes an EULA text file). Ask the authors if needed.
+4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries. (b) A Python page and a `py("script","fn",args)` call from the CAS. Scripts get a small `cassim` API (read/write Problem variables, evaluate TI expressions). Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents are shared.
+5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the simulator with the libraries installed. **Check the LazyMath licence/EULA before porting or redistributing** (the GM folder includes an EULA text file). Ask the authors if needed.
 
 ## 6. Testing strategy ("every stage properly tested")
 
 | Layer | What | Tooling |
 |---|---|---|
 | Unit | lexer, parser, printer round-trips, values, settings, each catalog function | pytest, Hypothesis |
-| **Golden corpus** | Emulator-captured cases, replayed through the engine. This is the regression net | pytest parametrised from YAML |
+| **Golden corpus** | Simulator-captured cases, replayed through the engine. This is the regression net | pytest parametrised from YAML |
 | Device model | key sequence → expected screen text/state, menu navigation, mode switching | pytest, no GUI |
 | Render snapshots | handheld/tablet/computer screens at fixed viewport; image diff with tolerance | Playwright + pixelmatch-style compare |
 | E2E / PWA | built static site served locally: loads, types, evaluates, installs, works offline (service worker) | Playwright |
@@ -113,13 +113,13 @@ The device model drives all three; modes differ only in layout components and wh
       out: "Done"
     - in:  "solve(f(x)=0,x)"
       out: "x=-2 or x=2"
-  provenance: {source: emulator, version: "<TI-Nspire CX CAS Teacher Software x.y>", captured: 2026-11-xx,
+  provenance: {source: simulator, version: "<TI-Nspire CX CAS Teacher Software x.y>", captured: 2026-11-xx,
                evidence: shots/methods.solve.quadratic-001.png}
-  status: pass                   # pass | xfail(reason) | hand-verified (not yet emulator-checked)
+  status: pass                   # pass | xfail(reason) | hand-verified (not yet simulator-checked)
   compare: exact                 # exact text | canonical (symbolically equal) | numeric(tol)
 ```
 
-- Capture is done with the emulator via the existing cas-solver workflow (new Problem per case, document settings first). Each case stores a screenshot as evidence and a human review flag.
+- Capture is done with the simulator via the existing cas-solver workflow (new Problem per case, document settings first). Each case stores a screenshot as evidence and a human review flag.
 - Seed it from the skill's known traps (`d(` unsupported, `1.` forcing approximate, `^` capturing exponents, `Ans` insertion, `solve|domain`, GM Approximate mode, `eff`/`nom`, `tvm*` argument order) plus VCE exam questions across Methods/Specialist/General, plus one or more cases per catalog entry.
 - Failing-but-known cases are `xfail(strict=True)`: fixing one forces removing its marker, so progress ratchets and regressions fail CI.
 - `compare: canonical` lets early milestones check maths correctness before output formatting matches TI exactly; tighten to `exact` per area over time.
@@ -128,7 +128,7 @@ The device model drives all three; modes differ only in layout components and wh
 
 - **uv** (Python 3.14 to match Pyodide 314), lockfile committed. **Ruff** for lint and format (rules: E, F, I, UP, B, SIM, ANN, PL, PT, RUF; `ANN` and strictness on `core/`). **Ty** for types, strict on the core packages; I have not verified Ty's current stability, so M0 checks it and keeps pyright as a fallback if SymPy/Flet stubs block us. **Git** with conventional commits, pre-commit (ruff, ty, fast tests), GitHub Actions CI (lint, types, tests, web build, Playwright smoke), deploy to GitHub Pages or similar static host.
 - Flet MCP / Claude Code: helpful from M2 for GUI iteration, so I'd switch to Claude Code before M2 (and for the repo work in M0/M1 too).
-- **Caution:** `C:\Users\...\OneDrive\emCAS` is OneDrive-synced. Syncing `.git` and `.venv` is known to cause corruption and slowness. Suggested: keep the working repo outside OneDrive (e.g. `C:\dev\emCAS`), push to a Git remote, and keep OneDrive for `references/` and backups.
+- **Caution:** `C:\Users\...\OneDrive\CASSim` is OneDrive-synced. Syncing `.git` and `.venv` is known to cause corruption and slowness. Suggested: keep the working repo outside OneDrive (e.g. `C:\dev\CASSim`), push to a Git remote, and keep OneDrive for `references/` and backups.
 
 ## 8. Milestones
 
@@ -137,7 +137,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 **M0 — Foundations and de-risking (M)**
 - Repo, uv, Ruff, Ty, pytest, pre-commit, CI. Decision log in `docs/decisions/`.
 - Spike 1: SymPy + SciPy inside the Flet static build (cold-start time, download size, offline, does Python run in a worker, can we cancel?). Spike 2: `.tns` decodability. Spike 3: Flet canvas drawing speed (graph of 2000 points, pan/zoom). Spike 4: IndexedDB from Pyodide. Spike 5: `openpyxl` in Pyodide.
-- Corpus tooling (schema, replay, capture checklist) and the first ~60 emulator-captured cases.
+- Corpus tooling (schema, replay, capture checklist) and the first ~60 simulator-captured cases.
 - Extract a complete command coverage matrix from the Reference Guide (draft index of ~290 entries already in `docs/reference_index_draft.txt`; extractor misses some, e.g. `solve`, so it needs refining).
 - Exit: spikes written up with go/no-go; CI green on an empty package; corpus replays.
 
@@ -146,7 +146,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - 1b Values, settings (angle/mode/real-complex/digits), `Ans`, exact vs approximate rules, TI-style formatting and error messages.
 - 1c Documents/Problems/scope: `Define`, `:=`, `→`, `DelVar`, `ClearAZ`, `Local`, constraint `|`, libraries namespace.
 - 1d Catalog, in tiers. Tier 1 (VCE core): solve/cSolve/zeros, factor/expand/propFrac/completeSquare, derivative/integral/limit/nInt/deSolve, trig and exponentials, lists and matrices (det, inverse, rref), norm/binom/inv distributions, `tvm*`/`eff`/`nom`, regressions and OneVar. Tier 2: remainder of the Reference Guide. Tier 3: edge conversions and unusual templates.
-- 1e `emcas` REPL and script runner, tab-completion from the catalog.
+- 1e `cassim` REPL and script runner, tab-completion from the catalog.
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
 
 **M2 — GUI shell: keyboard, pages, settings (L)**
@@ -154,7 +154,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
 - 2d Structured 2D input editor (fractions, powers, roots, matrices) as a contained sub-project, shippable after 2a–2c if it slips.
-- 2e Storage and files: IndexedDB persistence, autosave, upload/download `.emcas.json`, PWA install and offline, fullscreen handheld on phones.
+- 2e Storage and files: IndexedDB persistence, autosave, upload/download `.cassim.json`, PWA install and offline, fullscreen handheld on phones.
 - Exit: build the static site, install on phone, complete the golden "exam-style" scripted flows via device-model tests and Playwright.
 
 **M3 — Data pages: Lists & Spreadsheet, Data & Statistics, Finance (L)**
@@ -167,7 +167,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - Exit: graph snapshot tests, performance budget met on mid-range phone.
 
 **M5 — Programming and extensions (L)**
-- TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the emulator.
+- TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
 
 **M6 — Polish and extras (M)**
 - `.tns` import/export if M0 shows it's feasible; accessibility; i18n; exam-restriction mode (teacher-configurable); user docs; public deployment.
@@ -179,5 +179,5 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 3. **Flet static limits** (threading, cancellation, canvas speed): M0 spikes decide; fallback is a thin custom web front-end over the same engine.
 4. **Licensing:** LazyMath UDFs (porting/redistribution); TI trademarks and artwork (own skin and name).
 5. **Appropriate use:** this is for teaching/practice and demonstration; it will not be an approved exam calculator.
-6. **Emulator capture effort:** driving the emulator by screenshot is slow; budget it per milestone and prioritise Tier 1 cases.
+6. **Simulator capture effort:** driving the simulator by screenshot is slow; budget it per milestone and prioritise Tier 1 cases.
 7. **Decisions for you:** repo location (outside OneDrive?); target Python 3.14; Geometry page yes/no; priority of structured 2D input vs earlier graphing; whether Python scripts may be embedded in shared documents.

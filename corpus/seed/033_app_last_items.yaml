@@ -13,7 +13,7 @@ app_cases:
   - {what: overlay b, expect: 0.5, compare: numeric, tol: 1.0e-06}
   - {what: overlay d, expect: 2, compare: numeric, tol: 1.0e-06}
   - {what: overlay label as shown, expect: y = 10./(1.+4.·e^(-0.5·x)) + 2., compare: text, note: stacked fraction followed by +2.; clipped at the right edge}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.logisticd-overlay.jpg, note: Regression submenu item C. Same stacked-fraction label as the d=0 fit with the d term appended.}
   status: pending
 - id: app.graphs.diffeq-initial-condition
@@ -27,9 +27,9 @@ app_cases:
   - {what: 'solution curve through (0,1)', expect: 'y = x - 1 + 2·e^(-x), drawn as a trail of dots in both directions from the initial point', compare: text}
   - {what: solution value at x=2, expect: 1.2706706, compare: numeric, tol: 1.0e-06, note: computed from the exact solution; value not read on screen}
   - {what: solution label as shown, expect: y1_1, compare: text, note: label for the solution drawn from the initial condition}
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.diffeq-initial-condition-1.jpg, shots/app.graphs.diffeq-initial-condition-2.jpg', note: 'Initial condition fields are reached with two Tabs after
-      the equation (the first Tab lands on the … options button). With (x0,y10)=(0,1) the emulator draws the slope field plus the solution curve as dots; the curve is steeply rising at left (x<0) and rises
+      the equation (the first Tab lands on the … options button). With (x0,y10)=(0,1) the simulator draws the slope field plus the solution curve as dots; the curve is steeply rising at left (x<0) and rises
       almost linearly for x>1, matching x-1+2e^(-x). Earlier case app.graphs.entry-diffeq showed y2 because y1 was in use on that page.'}
   status: pending
 - id: app.graphs.entry-sequence-custom
@@ -50,10 +50,10 @@ app_cases:
     - [4, 1.6]
     compare: list
     note: points continue to n=8 inside the default window (8, 6.4)
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-sequence-custom-1.jpg, shots/app.graphs.entry-sequence-custom-2.jpg, shots/app.graphs.entry-sequence-custom-3.jpg, shots/app.graphs.entry-sequence-custom-4.jpg',
     note: 'Custom sequences plot (x,y)=(u(n),v(n)) pairs, where both must be names of existing sequences (not expressions). The defined sequences u1 and u2 also plot against n (u1 gives the diagonal dots,
-      u2 the same points as the custom plot), so the screen shows both. Entry gotcha: typing n^2/10 in the emulator editor puts 2/10 into the exponent (n^(2/10)); use n*n/10 or leave the exponent with the
+      u2 the same points as the custom plot), so the screen shows both. Entry gotcha: typing n^2/10 in the simulator editor puts 2/10 into the exponent (n^(2/10)); use n*n/10 or leave the exponent with the
       Right arrow before typing /10. The first version of this case used n^2/10 by mistake and has been replaced.'}
   status: pending
 - id: app.graphs.template-parabola-hyperbola-non-integer
@@ -74,7 +74,7 @@ app_cases:
   - what: hyperbola vertices x
     expect: [-1, 2]
     compare: list
-  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+  provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-parabola-hyperbola-non-integer-1.jpg, shots/app.graphs.template-parabola-hyperbola-non-integer-2.jpg, shots/app.graphs.template-parabola-hyperbola-non-integer-3.jpg,
       shots/app.graphs.template-parabola-hyperbola-non-integer-4.jpg', note: 'Decimal and negative parameters are accepted; negatives are bracketed on the entry line and printed with +- in labels. Hyperbola
       Tab order is h, a, k, b.'}

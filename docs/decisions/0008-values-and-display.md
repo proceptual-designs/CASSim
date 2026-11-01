@@ -1,19 +1,19 @@
 # 0008. Values, modes and number display (M1b)
 
-Date: 2026-11-01. Status: accepted; the choices under "To check on the emulator" are provisional.
-Code: `src/emcas/core/{settings,values,evaluator,session,format}.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_session.py`. Harness: `tools/replay.py`, `tests/corpus/test_replay.py`.
+Date: 2026-11-01. Status: accepted; the choices under "To check on the simulator" are provisional.
+Code: `src/cassim/core/{settings,values,evaluator,session,format}.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_session.py`. Harness: `tools/replay.py`, `tests/corpus/test_replay.py`.
 
 ## Decisions
 
 - **`Expr` holds an opaque SymPy object**, and only the adapter looks inside it. Numbers, symbolic expressions and undecided relations are all `Expr`.
 - **Results print through the parser's AST.** The adapter turns a result into AST nodes, so one printer decides parentheses for input and output.
 - **Final form is decided once**, in `finish`: a float anywhere makes the whole result decimal (SymPy leaves `√(2)+0.5` as a sum), Approximate decimalises everything, CAS Off keeps fractions but no other exact form, and `zoo` and `nan` both become `undef`. Exact numbers are expanded, so `(1+ⅈ)^2` is `2*ⅈ`, while `(x+1)^2` stays as typed.
-- **Undefined names echo in lower case**, as the emulator does. Catalog functions not yet written echo too until M1d, except that a list or matrix argument currently gives "Data type".
+- **Undefined names echo in lower case**, as the simulator does. Catalog functions not yet written echo too until M1d, except that a list or matrix argument currently gives "Data type".
 - **Language from later milestones reports "Not implemented yet"** instead of guessing. This covers assignment, `Define`, commands, `|`, most conversions and matrix powers. Broadcasting `^` over a matrix gave a wrong `[1,2;3,4]^-1`, so it is refused until M1d.
 - **The corpus harness reports every case but enforces only reviewed ones.** `python -m tools.replay` runs everything; `pending` cases cannot fail the build unless they crash the engine. Statuses change only after Simon's review.
-- **Error codes are from the guide.** The restricted-mode error has no code in guide 3.2, and the emulator's number was not captured.
+- **Error codes are from the guide.** The restricted-mode error has no code in guide 3.2, and the simulator's number was not captured.
 
-## To check on the emulator
+## To check on the simulator
 
 | Entry | Now | Why it is a guess |
 |---|---|---|

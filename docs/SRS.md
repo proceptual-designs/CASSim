@@ -1,4 +1,4 @@
-# emCAS: Software Requirements Specification
+# CASSim: Software Requirements Specification
 
 Status: **DRAFT 0.3** (2026-11-02; all open questions answered). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0008`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
@@ -9,12 +9,12 @@ Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is
 ## 1. Introduction
 
 ### 1.1 Purpose
-Defines what emCAS must do and the constraints it must meet. It is the baseline for the design documents (SDD, `docs/design/`) and for acceptance testing.
+Defines what CASSim must do and the constraints it must meet. It is the baseline for the design documents (SDD, `docs/design/`) and for acceptance testing.
 
 ### 1.2 Scope
-emCAS is a static, installable (PWA) browser emulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy/SciPy) runs client-side in Pyodide. There is no server component. emCAS reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding.
+CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy/SciPy) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding.
 
-emCAS is a **simulator, not a full emulator**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. emCAS is released under the Unlicense.
+CASSim is a **simulator, not a hardware-level emulation**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. CASSim is released under the Unlicense.
 
 Out of scope: Geometry page; approved-exam-calculator status; TI ROM/OS code, logos or artwork; loading `.tns` libraries (the `mm_`/`sm_`/`gm_` UDFs are ported natively instead); server-side accounts or sync.
 
@@ -22,8 +22,8 @@ Out of scope: Geometry page; approved-exam-calculator status; TI ROM/OS code, lo
 | Term | Meaning |
 |---|---|
 | CAS | Computer algebra system |
-| Emulator | TI-Nspire CX CAS Premium Teacher Software, the behavioural oracle |
-| Corpus | Golden test cases captured from the emulator (`corpus/`) |
+| TI simulator | TI-Nspire CX CAS Premium Teacher Software, the behavioural oracle that CASSim is compared against |
+| Corpus | Golden test cases captured from the simulator (`corpus/`) |
 | Document / Problem / Page | TI hierarchy: a document holds Problems; Problems share variables; each holds Pages (Calculator, Graphs, ...) |
 | Device model | Headless model of keys, menus, cursor and screen, independent of Flet |
 | VCE | Victorian Certificate of Education (Methods, Specialist, General Mathematics) |
@@ -47,7 +47,7 @@ Out of scope: Geometry page; approved-exam-calculator status; TI ROM/OS code, lo
 ## 2. Overall description
 
 ### 2.1 Product perspective
-A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/emcas/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser (IndexedDB). Hosted as static files.
+A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser (IndexedDB). Hosted as static files.
 
 ### 2.2 Product functions (summary)
 Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; Python page; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use.
@@ -63,7 +63,7 @@ Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Sec
 
 ### 2.5 Constraints
 - C-1 Core is pure Python, fully typed, Ty strict; SymPy is touched only in `core/compat/sympy_adapter.py`.
-- C-2 No TI logos, artwork, ROM content. Product name is emCAS.
+- C-2 No TI logos, artwork, ROM content. Product name is CASSim.
 - C-3 TI syntax is parsed by a real tokenizer + Pratt parser, never regexes.
 - C-4 Canonical text is Unicode (`ⅇ ⅈ ᴇ π ∞ ᵀ ʳ ᵍ ° ∠ ▶`); ASCII is an input/REPL spelling only. These conventions are fixed.
 - C-5 Statistics follow the TI/school convention (quartiles as medians of halves; `sx` uses n-1, `σx` uses n); `numpy.percentile` is not used.
@@ -71,7 +71,7 @@ Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Sec
 - C-7 Must not auto-run user Python from a loaded document.
 
 ### 2.6 Assumptions and dependencies
-Pyodide continues to bundle SymPy and SciPy at compatible versions; Flet static publishing remains viable (fallback: thin custom web front-end over the same engine); emulator access remains available for corpus capture; LazyMath stays Unlicense (to be recorded in a decision before porting).
+Pyodide continues to bundle SymPy and SciPy at compatible versions; Flet static publishing remains viable (fallback: thin custom web front-end over the same engine); simulator access remains available for corpus capture; LazyMath stays Unlicense (to be recorded in a decision before porting).
 
 ---
 
@@ -79,11 +79,11 @@ Pyodide continues to bundle SymPy and SciPy at compatible versions; Flet static 
 
 This cross-cuts every functional area.
 
-- **FID-1** (M, T) Correctness is judged by canonical equality against the emulator corpus, not by TI's exact output text. Maths is rendered from LaTeX/layout tree.
-- **FID-2** (S, T) Output must be close enough not to confuse a student or teacher used to the handheld: same mathematical content, familiar form (e.g. `x=-2 or x=2`, fractions stay exact in Auto mode). Exact text match is not required. Where the corpus marks an area `compare: exact` (typically number display and simple forms), the text matches the emulator.
-- **FID-3** (M, T) Every claimed behaviour has at least one corpus case with provenance (`emulator` or `hand-verified`) and evidence where emulator-captured. No behaviour change ships without a test.
+- **FID-1** (M, T) Correctness is judged by canonical equality against the simulator corpus, not by TI's exact output text. Maths is rendered from LaTeX/layout tree.
+- **FID-2** (S, T) Output must be close enough not to confuse a student or teacher used to the handheld: same mathematical content, familiar form (e.g. `x=-2 or x=2`, fractions stay exact in Auto mode). Exact text match is not required. Where the corpus marks an area `compare: exact` (typically number display and simple forms), the text matches the simulator.
+- **FID-3** (M, T) Every claimed behaviour has at least one corpus case with provenance (`simulator` or `hand-verified`) and evidence where simulator-captured. No behaviour change ships without a test.
 - **FID-4** (M, T) Known divergences are `xfail(strict=True)` with a reason, so fixing one forces removing the marker.
-- **FID-5** (M, T) Documented emulator behaviours are matched (TESTING.md section 14), including: Approximate mode shows decimals inside symbolic results; Float 3/Fix 2 switch to `ᴇ` notation for extreme values; `1/0` and `ln(0)` give `undef`; undefined variables echo unchanged; `int(-2.5) = -3`; `sinh⁻¹(1)` is unevaluated in Auto mode.
+- **FID-5** (M, T) Documented simulator behaviours are matched (TESTING.md section 14), including: Approximate mode shows decimals inside symbolic results; Float 3/Fix 2 switch to `ᴇ` notation for extreme values; `1/0` and `ln(0)` give `undef`; undefined variables echo unchanged; `int(-2.5) = -3`; `sinh⁻¹(1)` is unevaluated in Auto mode.
 - **FID-6** (S, T) TI-specific solution forms are reproduced: general solutions with `@n1` constants, `cSolve`, `x=-2 or x=2`, domain constraints via `|`.
 
 ---
@@ -132,7 +132,7 @@ This cross-cuts every functional area.
 | FR-DOC-001 | Multiple documents; add/delete/reorder Problems and Pages; page sorter. | M | D |
 | FR-DOC-002 | Document and system settings dialogs. | M | D |
 | FR-DOC-003 | Autosave to browser storage (IndexedDB); recover after reload or crash. | M | E |
-| FR-DOC-004 | Export/import native plain-text `.emcas.json` with a versioned schema and migrations. | M | T |
+| FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python. Geometry excluded. | M | I |
 | FR-DOC-006 | `.tns` import/export: deferred to a later release (Won't for now); no other feature depends on it. | W | D |
@@ -169,9 +169,9 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-PROG-001 | TI-Basic interpreter: `Prgm`/`Func`, control flow, `Disp`/`Request`/`Text`, `Try`, `Local`. | C | T |
 | FR-PROG-002 | Program Editor page; `Define LibPub` libraries and `lib\fn` namespace. | C | T |
-| FR-PY-001 | Python page and `py("script","fn",args)` call from the CAS; small `emcas` API (read/write Problem variables, evaluate TI expressions). | C | T |
+| FR-PY-001 | Python page and `py("script","fn",args)` call from the CAS; small `cassim` API (read/write Problem variables, evaluate TI expressions). | C | T |
 | FR-PY-002 | If FR-PY-001 is built: scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
-| FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the emulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
+| FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the simulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
 
 ### 4.9 Device model and display modes — M2
 | ID | Requirement | Pri | Ver |
@@ -180,7 +180,7 @@ This cross-cuts every functional area.
 | FR-DEV-002 | **Computer** mode: page/problem sidebar, large 2D pane, templates/catalog/variable panels, physical keyboard first. Equal top priority with Handheld. | M | D |
 | FR-DEV-003 | **Tablet/demo** mode: screen plus on-screen keyboard (portrait/landscape), large touch targets, optional "show keystrokes". | S | D |
 | FR-DEV-004 | **Handheld** mode: faithful 320x240 layout and keypad, scales to fullscreen on phones, hardware keyboard mapped. Equal top priority with Computer. | M | D |
-| FR-DEV-005 | Key layout and secondary labels (ctrl/shift) match the real device layout, drawn in emCAS's own artwork. | S | I |
+| FR-DEV-005 | Key layout and secondary labels (ctrl/shift) match the real device layout, drawn in CASSim's own artwork. | S | I |
 | FR-THEME-001 | **Dark** is the default theme. | M | D |
 | FR-THEME-002 | Themes (at least Dark, Light, Outline) are selectable in the UI and defined in a config file (colours for keypad, screen, accents) that users can edit; invalid config falls back to Dark with a message. Config persists in browser storage and can be exported/imported. | S | T/D |
 | FR-DEV-006 | All three modes use the same device model; they differ only in layout components. | M | I |
@@ -221,7 +221,7 @@ This cross-cuts every functional area.
 ### 5.3 Security and privacy
 - NFR-SEC-001 (M) No server component; **no telemetry or analytics of any kind**; no student data leaves the device. Share links carry data in the URL fragment, which browsers do not send to servers.
 - NFR-SEC-002 (M) User Python runs in the browser sandbox with a trust prompt; imported documents never auto-run code (Python or programs).
-- NFR-SEC-003 (M) Imported `.emcas.json` files and share links are schema-validated and size-limited; malformed input is rejected without side effects.
+- NFR-SEC-003 (M) Imported `.cassim.json` files and share links are schema-validated and size-limited; malformed input is rejected without side effects.
 - NFR-SEC-004 (S) No eval of document-supplied strings outside the engine's parser/interpreter.
 
 ### 5.4 Usability and accessibility
@@ -239,21 +239,21 @@ This cross-cuts every functional area.
 - NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI is not yet running because there is no remote.
 - NFR-MAINT-002 (M) Core never imports Flet (lint rule); SymPy only in the adapter.
 - NFR-MAINT-003 (M) Conventional commits; small commits; decisions recorded in `docs/decisions/`.
-- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/emcas/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `emcas_app` (Flet UI) is excluded and covered by Playwright. CI reports coverage and fails below target.
+- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim_app` (Flet UI) is excluded and covered by Playwright. CI reports coverage and fails below target.
 - NFR-MAINT-006 (M) Every requirement ID appears in at least one test (marker or docstring) or is listed as untested with a reason. A generated traceability table (`docs/traceability.md`) is checked in CI.
 - NFR-MAINT-005 (S) Dependency versions pinned (uv lockfile); Pyodide upgrade procedure documented.
 
 ### 5.7 Legal and licensing
 - NFR-LEG-001 (M) No TI marks, artwork, ROM content or screenshots shipped. Reference screenshots stay in `docs/design/reference/`, not the build.
 - NFR-LEG-002 (M) A visible disclaimer: not affiliated with or endorsed by TI; not an approved exam calculator.
-- NFR-LEG-003 (M) emCAS is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, MathLive/MathQuill if used) ship with the build.
+- NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, MathLive/MathQuill if used) ship with the build.
 - NFR-LEG-004 (S) Before porting LazyMath UDFs, record the licence check (LazyMath Unlicense) in `docs/decisions/`.
 
 ---
 
 ## 6. External interfaces
 - **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
-- **Files**: `.emcas.json` (versioned), CSV, optionally xlsx; optional `.tns` (M6).
+- **Files**: `.cassim.json` (versioned), CSV, optionally xlsx; optional `.tns` (M6).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
 - **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; MathLive (fallback MathQuill) for the 2D editor, **unverified in the Flet web build**.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
