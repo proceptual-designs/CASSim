@@ -3,11 +3,10 @@ import time
 t = time.time()
 import sympy as sp
 from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
     parse_expr,
     standard_transformations,
-    implicit_multiplication_application,
-    convert_xor,
-    rationalize,
 )
 
 print("import sympy %.2fs" % (time.time() - t))

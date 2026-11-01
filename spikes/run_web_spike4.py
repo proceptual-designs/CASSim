@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as tmp, sync_playwright() as p:
         lines: list[str] = []
         stamps: dict[str, float] = {}
 
-        def on_console(m) -> None:  # noqa: ANN001
+        def on_console(m) -> None:
             lines.append(m.text)
             if m.text in ("SPIKE: A_START", "SPIKE: A_END", "SPIKE: DONE"):
                 stamps[m.text] = page.evaluate("performance.now()")
@@ -50,7 +50,9 @@ def raf_report(label: str, start: str, end: str) -> None:
         a, b = stamps[start], stamps[end]
         frames = [t for t in raf if a <= t <= b]
         gaps = [y - x for x, y in zip(frames, frames[1:], strict=False)]
-        print(f"BROWSER rAF {label}: {len(frames)} frames in {(b - a) / 1000:.1f}s, max gap {max(gaps, default=0):.0f} ms")
+        print(
+            f"BROWSER rAF {label}: {len(frames)} frames in {(b - a) / 1000:.1f}s, max gap {max(gaps, default=0):.0f} ms"
+        )
 
 
 raf_report("over 1s idle + 3s busy loop in Flet worker", "SPIKE: A_START", "SPIKE: A_END")

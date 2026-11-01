@@ -13,7 +13,7 @@ _ELEMENTWISE = {".+": "+", ".-": "-", ".*": "*", "./": "/", ".^": "^"}
 _TRIG = frozenset({"sin", "cos", "tan"})
 _ANGLE_FULL_TURN_HALF = {Angle.DEGREE: 180, Angle.GRADIAN: 200}
 # How many of each unit make a half turn, for the post operators.
-_POST_UNITS = {"°": Angle.DEGREE, "ᴳ": Angle.GRADIAN, "ʳ": Angle.RADIAN}
+_POST_UNITS = {"°": Angle.DEGREE, "ᵍ": Angle.GRADIAN, "ʳ": Angle.RADIAN}
 
 
 def _unsupported(what: str) -> TIError:

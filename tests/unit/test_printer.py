@@ -186,4 +186,4 @@ def test_ascii_text_reads_back_as_the_same_entry(tree):
 @given(lines)
 def test_ascii_output_has_no_symbols_outside_strings(tree):
     outside_strings = re.sub(r'"[^"]*"', "", to_ascii(str(tree)))
-    assert not set(outside_strings) & set("ⅇⅈᴇπ√≤≥≠→▶⇒⇔ᵀʳᴳ°∠∞⁻")
+    assert not set(outside_strings) & set("ⅇⅈᴇπ√≤≥≠→▶⇒⇔ᵀʳᵍ°∠∞⁻")

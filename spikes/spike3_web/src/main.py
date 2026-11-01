@@ -46,13 +46,15 @@ def shapes_points(pts: list[tuple[float, float]]) -> list[cv.Shape]:
 
 
 def shapes_lines(pts: list[tuple[float, float]]) -> list[cv.Shape]:
-    return [cv.Line(a[0], a[1], b[0], b[1], paint=PAINT) for a, b in zip(pts, pts[1:], strict=False)]
+    return [
+        cv.Line(a[0], a[1], b[0], b[1], paint=PAINT) for a, b in zip(pts, pts[1:], strict=False)
+    ]
 
 
 VARIANTS = {"path": shapes_path, "points": shapes_points, "lines": shapes_lines}
 
 
-async def run_variant(canvas: cv.Canvas, name: str, build) -> None:  # noqa: ANN001
+async def run_variant(canvas: cv.Canvas, name: str, build) -> None:
     """Time STEPS pans (window slides) then STEPS zooms (window width changes)."""
     steps = 5 if name == "lines" else STEPS  # per-segment shapes are far too slow to repeat 40x
     for phase in ("pan", "zoom"):
@@ -90,7 +92,7 @@ async def main(page: ft.Page) -> None:
     for name, build in VARIANTS.items():
         try:
             await run_variant(canvas, name, build)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             say(f"{name} ERROR {e!r}")
     canvas.shapes = []
     canvas.update()

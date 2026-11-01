@@ -15,16 +15,16 @@ async def main(page: ft.Page) -> None:
 
     def log(msg: str) -> None:
         lines.append(msg)
-        print(f'SPIKE: {msg}', flush=True)
+        print(f"SPIKE: {msg}", flush=True)
         out.value = "\n".join(lines)
         page.update()
 
-    def timed(label: str, fn):  # noqa: ANN001, ANN202
+    def timed(label: str, fn):
         t = time.perf_counter()
         try:
             r = fn()
             log(f"{label}: {time.perf_counter() - t:.3f}s -> {r}")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             log(f"{label}: ERROR {e!r}")
 
     log(f"main() reached {time.perf_counter() - T0:.3f}s after module import")
@@ -34,7 +34,7 @@ async def main(page: ft.Page) -> None:
 
         await micropip.install(["sympy", "numpy", "scipy"])
         log(f"micropip install sympy/numpy/scipy: {time.perf_counter() - t:.3f}s")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log(f"micropip ERROR {e!r}")
         return
     timed("import sympy", lambda: __import__("sympy").__version__)
@@ -47,7 +47,7 @@ async def main(page: ft.Page) -> None:
     timed("import numpy", lambda: __import__("numpy").__version__)
     timed("import scipy.stats", lambda: __import__("scipy.stats").__version__)
 
-    def normcdf():  # noqa: ANN202
+    def normcdf():
         from scipy.stats import norm
 
         return norm.cdf(1.96)

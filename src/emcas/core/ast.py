@@ -57,7 +57,7 @@ BINARY_PREC: dict[str, Prec] = {
 }
 RIGHT_ASSOCIATIVE = frozenset({"^", ".^"})
 COMPARE_OPS = frozenset({"=", "≠", "<", "≤", ">", "≥"})
-POSTFIX_OPS = frozenset({"!", "%", "°", "'", "ʳ", "ᴳ", "ᵀ"})
+POSTFIX_OPS = frozenset({"!", "%", "°", "'", "ʳ", "ᵍ", "ᵀ"})
 # The operand of each prefix operator is parsed at this strength.
 UNARY_OPERAND_PREC: dict[str, int] = {
     "-": Prec.NEGATE,
@@ -183,7 +183,7 @@ class Unary(Node):
 
 @dataclass(frozen=True, slots=True)
 class Postfix(Node):
-    """A post operator: `!`, `%`, `°`, `'`, `ʳ`, `ᴳ` or the transpose `ᵀ`."""
+    """A post operator: `!`, `%`, `°`, `'`, `ʳ`, `ᵍ` or the transpose `ᵀ`."""
 
     op: str
     operand: Expr

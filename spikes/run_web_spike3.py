@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as tmp, sync_playwright() as p:
         lines: list[str] = []
         stamps: dict[str, float] = {}
 
-        def on_console(m) -> None:  # noqa: ANN001
+        def on_console(m) -> None:
             lines.append(m.text)
             if m.text in ("SPIKE: START", "SPIKE: DONE"):
                 stamps[m.text] = page.evaluate("performance.now()")

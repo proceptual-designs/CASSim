@@ -55,10 +55,10 @@ _OPERATORS = {
     "./": "./",
     ".+": ".+",
     ".-": ".-",
-    **{ch: ch for ch in "+-*/^=<>≤≥≠(){}[],;:|!%°'&#∠→▶ᵀʳᴳ⇒⇔"},
+    **{ch: ch for ch in "+-*/^=<>≤≥≠(){}[],;:|!%°'&#∠→▶ᵀʳᵍ⇒⇔"},
 }
 _OPERATOR_RE = re.compile("|".join(re.escape(s) for s in sorted(_OPERATORS, key=len, reverse=True)))
-_POSTFIX_AT = {"t": "ᵀ", "r": "ʳ", "g": "ᴳ", "d": "°"}
+_POSTFIX_AT = {"t": "ᵀ", "r": "ʳ", "g": "ᵍ", "d": "°"}
 _POSTFIX_AT_RE = re.compile(r"@([trgd])(?![0-9A-Za-z])")
 _AT_CONSTANT = {"e": "ⅇ", "i": "ⅈ"}
 _AT_CONSTANT_RE = re.compile(r"@([ei])(?![0-9A-Za-z])")
@@ -79,7 +79,7 @@ _ARROW_NAME_RE = re.compile(
 WORD_OPERATORS = frozenset({"and", "or", "not", "xor", "nor", "nand"})
 _ONE_CHAR_NAMES = frozenset("π∞ⅈⅇ√∫∏∑")
 # Letters to Python, but symbols to the calculator.
-_NOT_NAME_CHARS = _ONE_CHAR_NAMES | frozenset("ᵀʳᴳᴇ")
+_NOT_NAME_CHARS = _ONE_CHAR_NAMES | frozenset("ᵀʳᵍᴇ")
 
 
 def _is_name_start(ch: str) -> bool:

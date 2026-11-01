@@ -1,9 +1,11 @@
-import re, sympy as sp
+import re
+
+import sympy as sp
 from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
     parse_expr,
     standard_transformations,
-    implicit_multiplication_application,
-    convert_xor,
 )
 
 T = standard_transformations + (implicit_multiplication_application, convert_xor)
@@ -20,7 +22,7 @@ class Problem:
             n, a, b = m.groups()
             args = sp.symbols(a)
             s.vars[n] = sp.Lambda(args, parse_expr(b, transformations=T, local_dict=s.ns()))
-            return f"Done"
+            return "Done"
         m = re.match(r"^(.+?)\s*(?:→|->)\s*(\w+)$", line)
         if m:
             v = s.ev(m.group(1))

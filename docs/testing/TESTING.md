@@ -281,6 +281,38 @@ More behaviours: Gradian is exact (`sin(100)=1`, `arcsin(1)=100`). Scientific gi
 
 ### Still open
 
-- Human review of every transcription (all `pending`).
-- Spreadsheet Fill (Data > Fill did not visibly fill the selection in one attempt), 6th term of Generate Sequence, histogram and box plot, regression models other than linear in Data & Statistics, graph tables, conics.
+- Human review of every transcription: done 2026-11-02 (Simon Tyler); provenance.reviewed_by records it. The `status: pending` field is the engine-runnable status (not review status) and stays until each case is wired into the test runner.
+- Spreadsheet Fill is now covered (`024_app_sheet_fill.yaml`): context menu 6 Fill, or Menu > 3 Data > 3 Fill, then arrow keys to extend the destination range and Enter.
+- Not captured: none of the originally listed items remain; further ideas: Graphs Hyperbola/Parabola templates in other orientations with decimals, Diff Eq with several equations, Sequence with two-term recursion.
+- Overlay labels are clipped at the plot edge when wide, and for every overlay the label should later be draggable (TODO milestone).
+
+Batch 24 (`030_app_overlays_2.yaml`, `031_app_graph_entry_types.yaml`): Data & Statistics overlays for quartic, logarithmic, median-median, sinusoidal and logistic (d=0) fits, and Graphs entry for Parametric (error "No expression specified for y" if y1 is empty on Enter), Polar, Sequence (recursive with Initial Terms) and Diff Eq (slope field). Batch 25 (`032_logisticd.yaml`, `033_app_last_items.yaml`): LogisticD (a=4, b=0.5, c=10, d=2) and its overlay, Diff Eq initial condition (two Tabs from the equation line, solution curve y1_1 plus slope field), Sequence > Custom (needs existing sequence names), decimal/negative template parameters. In the Logistic RegEqn b is the coefficient in e^(-b·x), so b is positive for a rising curve. Regression submenu: 3 MedMed, 4 Quad, 5 Cubic, 6 Quartic, 7 Power, 8 Exp, 9 Log, A Sin, B Logistic (d=0), C Logistic (d≠0).
+
+Batch 20 (`022_app_stats_plots.yaml`, `023_app_stats_quadreg.yaml`): Data & Statistics dot plot, histogram (default bin width 1 starting at the minimum) and box plot (median-of-halves quartiles: Q1 4, median 4.5, Q3 6 for {2,4,4,4,5,5,7,9}); QuadReg of {1..5} vs {2,5,10,17,26} gives a=1, c=1 and b≈1e-13 (shown as 100.ᴇ-15), so compare b with a tolerance. Typing `stat.results` in the Calculator is mangled by autocomplete.
 - Settings: Degree with Methods/Auto not captured.
+
+
+Batch 21 (`025_degree_and_regressions.yaml`, `026_app_graph_table_conic.yaml`): Degree with Auto (exact special angles, `sin(1)` stays unevaluated, constraint after `|` needed in solve), ExpReg/PowerReg/CubicReg on exact data (b and c of the cubic are ~1e-11 noise), Generate Sequence sixth term 63, Graphs split-screen table, typed ellipse relation. Typing `stat.` opens an autocomplete list that swallows the next key.
+
+Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays in Data & Statistics; circle (centre form), parabola (vertex form) and hyperbola (east-west) Equation Templates. The emulator prints negative parameters literally (`y--2`, `+-3`, `+-4.9ᴇ-11`), and the hyperbola template's Tab order is h, a, k, b.
+
+Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the emulator prints negative parameters as `+-` / `--`.
+
+### Review fixes (2026-11-02)
+
+- Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).
+- `@i` is used in `in:` lines for the imaginary unit (cSolve/abs case); `sqrt(-1)` kept as an alternative spelling.
+- CAS Off: derivative at a point works (`derivative(x^2*sin(x),x)|x=2` = 1.9726024 in Radian).
+- Transpose is `ᵀ` (U+1D40, ASCII `@t`). On the emulator it is entered with Menu > Matrix & Vector > Transpose; typing `@t` on the keyboard is not converted.
+- `∞` can be typed as the character or spelled `infinity`.
+- `undef` carries through calculations (`0*ln(0)`, `undef+1` are `undef`) while `limit(x*ln(x),x,0,1)` = 0.
+- Error dialogs for syntax and argument errors leave the cursor in the entry line for editing.
+- `int` equals `floor` (checked for positive and negative decimals).
+- The Finance Solver window is built on top of the individual `tvm*` functions.
+- Checked every `out:`/`expect:` string in the corpus for a plain `e`, `E` or `i` standing for ⅇ, ᴇ or ⅈ: none found. The corpus holds `ⅇ` everywhere (for example `x=ⅇ^2`).
+- Case setup fixed: the regression cases now define `cx` (or `cu`) themselves.
+
+### Later milestones (TODO)
+
+- Data & Statistics screens animate (for example when plot types or variables change). Reproduce the animations in a much later milestone.
+- Regression overlays: the equation label can be clicked and dragged to move it so it is easier to read. Implement for every overlay.

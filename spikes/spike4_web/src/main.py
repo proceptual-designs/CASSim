@@ -42,15 +42,19 @@ class Engine:
     """Proxy to one engine worker."""
 
     def __init__(self) -> None:
-        blob = js.Blob.new([ENGINE_JS], to_js({"type": "text/javascript"}, dict_converter=js.Object.fromEntries))
+        blob = js.Blob.new(
+            [ENGINE_JS], to_js({"type": "text/javascript"}, dict_converter=js.Object.fromEntries)
+        )
         self.url = js.URL.createObjectURL(blob)
-        self.worker = js.Worker.new(self.url, to_js({"type": "module"}, dict_converter=js.Object.fromEntries))
+        self.worker = js.Worker.new(
+            self.url, to_js({"type": "module"}, dict_converter=js.Object.fromEntries)
+        )
         self.pending: dict[int, asyncio.Future] = {}
         self.next_id = 0
         self._cb = create_proxy(self._on_message)
         self.worker.onmessage = self._cb
 
-    def _on_message(self, e) -> None:  # noqa: ANN001
+    def _on_message(self, e) -> None:
         d = e.data
         fut = self.pending.pop(int(d.id), None)
         if fut and not fut.done():
@@ -60,11 +64,15 @@ class Engine:
         self.next_id += 1
         fut = asyncio.get_running_loop().create_future()
         self.pending[self.next_id] = fut
-        self.worker.postMessage(to_js({"id": self.next_id, **msg}, dict_converter=js.Object.fromEntries))
+        self.worker.postMessage(
+            to_js({"id": self.next_id, **msg}, dict_converter=js.Object.fromEntries)
+        )
         return fut
 
     async def boot(self) -> None:
-        ok, val = await self.call(op="boot", pyodideUrl=str(js.URL.new(str(js.pyodideUrl), js.location.href).href))
+        ok, val = await self.call(
+            op="boot", pyodideUrl=str(js.URL.new(str(js.pyodideUrl), js.location.href).href)
+        )
         assert ok, val
 
     async def eval(self, code: str) -> str:
@@ -106,7 +114,9 @@ async def phase_b_cancel() -> None:
     while time.perf_counter() - t < 2.0:
         await asyncio.sleep(0.05)
         ticks += 1
-    say(f"B flet_loop_alive_during_hang ticks={ticks} in {time.perf_counter() - t:.2f}s hang_done={hang.done()}")
+    say(
+        f"B flet_loop_alive_during_hang ticks={ticks} in {time.perf_counter() - t:.2f}s hang_done={hang.done()}"
+    )
 
     t = time.perf_counter()
     eng.terminate()
@@ -127,7 +137,7 @@ async def main(page: ft.Page) -> None:
     for name, fn in (("A", phase_a_busy_in_flet_worker), ("B", phase_b_cancel)):
         try:
             await fn()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             say(f"{name} ERROR {e!r}")
     say("DONE")
 

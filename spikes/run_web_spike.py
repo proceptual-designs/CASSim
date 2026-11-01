@@ -1,4 +1,5 @@
 """Serve a flet static build and measure load in a real browser (Edge via Playwright)."""
+
 import functools
 import http.server
 import sys
@@ -45,6 +46,11 @@ with sync_playwright() as p:
         page.wait_for_timeout(500)
     print("first DONE after", round(time.perf_counter() - t, 2), "s")
     print("network:", sizes)
-    print(page.screenshot(path=str(Path(__file__).resolve().parents[1] / "builds" / "spike1_shot.png")) and "")
+    print(
+        page.screenshot(
+            path=str(Path(__file__).resolve().parents[1] / "builds" / "spike1_shot.png")
+        )
+        and ""
+    )
     b.close()
 srv.shutdown()
