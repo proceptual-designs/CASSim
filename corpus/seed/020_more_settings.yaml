@@ -1,0 +1,47 @@
+# Batch 18: Gradian angle mode and Exponential Format (Scientific, Engineering).
+# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human review pending. Expected to fail until implemented.
+schema_version: 1
+cases:
+- id: m14.settings.gradian
+  course: methods
+  settings: {angle: gradian}
+  tier: 1
+  tags: [settings, angle, gradian]
+  steps:
+  - {in: sin(100), out: '1'}
+  - {in: cos(200), out: '-1'}
+  - {in: tan(50), out: '1'}
+  - {in: arcsin(1), out: '100'}
+  - {in: arctan(1), out: '50'}
+  - {in: arccos(0), out: '100'}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m14.settings.gradian.jpg, note: 'Angle = Gradian (status bar shows GRAD). 100 grad is a right angle, so results are exact: sin(100)=1, arcsin(1)=100. Inverse
+      functions return plain numbers with no ᴳ marker.'}
+  status: pending
+- id: m14.settings.exp-scientific
+  course: methods
+  settings: {angle: gradian, exp_format: scientific}
+  tier: 1
+  tags: [settings, exponential-format, scientific]
+  steps:
+  - {in: '12345.6789', out: 1.2345679ᴇ4, compare: text}
+  - {in: '0.000123', out: 1.23ᴇ-4, compare: text}
+  - {in: sqrt(2), out: √(2), compare: text}
+  - {in: 1000000*pi, out: 1000000*π, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m14.settings.exp-scientific.jpg, note: 'Exponential Format = Scientific, Display Digits Float 8, Auto. Decimal results use d.ddddᴇn form even for 12345.6789;
+      the entry echo of 0.000123 is also reformatted. Exact results (√2, 1000000·π) are unaffected.'}
+  status: pending
+- id: m14.settings.exp-engineering
+  course: methods
+  settings: {angle: gradian, exp_format: engineering}
+  tier: 1
+  tags: [settings, exponential-format, engineering]
+  steps:
+  - {in: '12345.6789', out: 12.345679ᴇ3, compare: text}
+  - {in: '0.000123', out: 123.ᴇ-6, compare: text}
+  - {in: '1234567.5', out: 1.2345675ᴇ6, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/m14.settings.exp-engineering.jpg, note: 'Exponential Format = Engineering: exponent is a multiple of 3 and the mantissa runs from 1 to 999. 0.000123 shows as
+      123.ᴇ-6 with a trailing decimal point.'}
+  status: pending

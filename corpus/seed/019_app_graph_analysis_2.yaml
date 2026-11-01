@@ -1,0 +1,42 @@
+# Batch 17: Graphs app, Analyze Graph inflection, dy/dx, bounded area on f(x)=x^3-3x.
+# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human review pending.
+schema_version: 1
+cases: []
+app_cases:
+- id: app.graph.analyze-inflection
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, inflection]
+  setup: [Graphs; f1(x)=x^3-3*x, Menu > Analyze Graph > Inflection; bounds x about -1 and 1]
+  checks:
+  - what: inflection point
+    expect: [0, 0]
+    compare: list
+    tol: 0.001
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.graph.analyze-inflection.jpg, note: f1 has its single inflection at the origin (f1''(x)=6x).}
+  status: pending
+- id: app.graph.analyze-dydx
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, derivative]
+  setup: [Graphs; f1(x)=x^3-3*x, Menu > Analyze Graph > dy/dx, Type 2 and press Return (typed x value)]
+  checks:
+  - {what: f1'(2), expect: 9, compare: numeric, tol: 1.0e-06, note: 3*2^2-3}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.graph.analyze-dydx.jpg, note: The tool marks the point on the curve and prints the slope next to it. The x value can be typed instead of clicked.}
+  status: pending
+- id: app.graph.analyze-bounded-area
+  app: graphs
+  course: methods
+  tags: [graphs, analyze-graph, bounded-area]
+  setup: [Graphs; f1(x)=x^3-3*x and f2(x)=x, Menu > Analyze Graph > Bounded Area, Type 0 Return (lower bound) and 2 Return (upper bound)]
+  checks:
+  - {what: area between f1 and f2 for 0<=x<=2, expect: 4, compare: numeric, tol: 1.0e-06, note: integral of (x-(x^3-3x)) = 8-4}
+  - {what: warning when domain is not Real, expect: 'Bounded Area might not work as expected in complex number format. Please go to Document Settings, and change the setting ''Real or Complex Format'' to
+      ''Real.''', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: 'shots/app.graph.analyze-bounded-area-1.jpg, shots/app.graph.analyze-bounded-area-2.jpg', note: 'With exactly two graphs the tool selects them automatically and goes
+      straight to the bound prompts. A new document on this installation defaults to Rectangular complex format, which triggers the warning dialog; the tool still works after OK. On [0,2] f2 lies above
+      f1 throughout (4x-x^3 >= 0), so signed and unsigned area agree.'}
+  status: pending

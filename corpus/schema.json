@@ -62,6 +62,14 @@
           ],
           "default": "on",
           "description": "Document Settings > CAS Mode"
+        },
+        "exp_format": {
+          "enum": [
+            "normal",
+            "scientific",
+            "engineering"
+          ],
+          "description": "Exponential Format in Document Settings (default normal)."
         }
       }
     },

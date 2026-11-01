@@ -1,0 +1,18 @@
+# Batch 19: Lists & Spreadsheet sort.
+# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human review pending.
+schema_version: 1
+cases: []
+app_cases:
+- id: app.sheet.sort-column
+  app: spreadsheet
+  course: methods
+  tags: [spreadsheet, sort]
+  setup: ['Lists & Spreadsheet; enter 5,2,9,4,7 in A1:A5', Menu > Actions > Select > Select Column (column A), 'Menu > Actions > Sort; Range a[], Sort By a, Sort Ascending; OK']
+  checks:
+  - what: A1:A5 after sort
+    expect: [2, 4, 5, 7, 9]
+    compare: list
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human review pending, evidence: shots/app.sheet.sort-column.jpg, note: 'Sort is greyed out in the Actions menu until a column is selected. The Sort dialog has Range, Sort By (a column) and Sort order
+      (Ascending/Descending). The sheet may show the old order for a moment before refreshing.'}
+  status: pending
