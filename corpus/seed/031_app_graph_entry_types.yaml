@@ -1,0 +1,71 @@
+# Graphs entry types: parametric, polar, sequence, diff eq
+schema_version: 1
+cases: []
+app_cases:
+- id: app.graphs.entry-parametric
+  app: graphs
+  course: specialist
+  tags: [graphs, parametric]
+  setup: [Menu > 3 Graph Entry/Edit > 4 Parametric, 'Type 3*cos(t), Enter, then Down to y1(t) and type 2*sin(t), Enter']
+  checks:
+  - {what: default t range min, expect: 0, compare: numeric}
+  - {what: default t range max, expect: 6.28, compare: numeric, tol: 0.005, note: shown as 0≤t≤6.28}
+  - {what: default tstep, expect: 0.13, compare: numeric}
+  - {what: entry template as shown, expect: x1(t)= / y1(t)= / 0≤t≤6.28 tstep=0.13, compare: text}
+  - {what: graph shape, expect: ellipse with x semi-axis 3 and y semi-axis 2, compare: text}
+  - {what: label as shown, expect: x1(t)=3·cos(t) / y1(t)=2·sin(t), compare: text}
+  - {what: Enter on x1 with y1 empty gives error, expect: No expression specified for y, compare: text, note: dialog title Error; pressing Enter after typing only x1(t) triggers it}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-parametric-1.jpg, shots/app.graphs.entry-parametric-2.jpg, shots/app.graphs.entry-parametric-3.jpg', note: 'Parametric entry shows x1(t), y1(t)
+      and a t range line (tmin ≤ t ≤ tmax, tstep). Defaults in a Radian document are 0 to 6.28 (2π) with tstep 0.13. Enter commits the line being edited, so after typing x1(t) Enter evaluates and complains
+      that y1 is empty; use Down to reach y1(t) first.'}
+  status: pending
+- id: app.graphs.entry-polar
+  app: graphs
+  course: specialist
+  tags: [graphs, polar]
+  setup: [Menu > 3 Graph Entry/Edit > 5 Polar, 'Type 2*sin(3*θ), Enter (θ typed as the character)']
+  checks:
+  - {what: default θ range min, expect: 0, compare: numeric}
+  - {what: default θ range max, expect: 6.28, compare: numeric, tol: 0.005}
+  - {what: default θstep, expect: 0.13, compare: numeric}
+  - {what: entry template as shown, expect: r1(θ)= / 0≤θ≤6.28 θstep=0.13, compare: text}
+  - {what: graph shape, expect: 'three-petal rose, petals length 2', compare: text}
+  - {what: label as shown, expect: r1(θ)=2·sin(3·θ), compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-polar-1.jpg, shots/app.graphs.entry-polar-2.jpg', note: 'Polar entry shows r1(θ) with a θ range line. Defaults in a Radian document are 0 to
+      6.28 with θstep 0.13. The rose is entered on a fresh page in a fresh Problem, with nothing else plotted.'}
+  status: pending
+- id: app.graphs.entry-sequence
+  app: graphs
+  course: specialist
+  tags: [graphs, sequence]
+  setup: [Menu > 3 Graph Entry/Edit > 7 Sequence > 1 Sequence, 'Type 2*u1(n-1)+1 on the u1(n) line, Down to Initial Terms, type 1, Enter']
+  checks:
+  - {what: default n range, expect: 1≤n≤99 nstep=1, compare: text}
+  - {what: entry template as shown, expect: 'u1(n)= / Initial Terms:= / 1≤n≤99 nstep=1', compare: text}
+  - what: plotted points (n,u)
+    expect:
+    - [1, 1]
+    - [2, 3]
+    compare: list
+    note: points at n=3 and beyond (7, 15, ...) are above the default window top of 6.67
+  - {what: label as shown, expect: u1(n)=2·u1(n-1)+1, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-sequence-1.jpg, shots/app.graphs.entry-sequence-2.jpg, shots/app.graphs.entry-sequence-3.jpg', note: 'Sequence submenu: 1 Sequence, 2 Custom
+      (see app.graphs.entry-sequence-custom). The recursive form takes Initial Terms on a second line. Down moves from the u1(n) line to the Initial Terms line (Enter on the u1(n) line stays on that line
+      in some states, so use Down). Points are drawn as dots at integer n.'}
+  status: pending
+- id: app.graphs.entry-diffeq
+  app: graphs
+  course: specialist
+  tags: [graphs, diff-eq]
+  setup: [Menu > 3 Graph Entry/Edit > 8 Diff Eq, 'Type x-y1 on the y1'' = line, Enter']
+  checks:
+  - {what: entry template as shown, expect: 'y1'' = [ ] with checkbox and initial point (x0,y10): ( <x> , <y> )', compare: text}
+  - {what: graph, expect: slope field drawn across the window with no initial condition; segments are flat along the line y=x, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-diffeq-1.jpg, shots/app.graphs.entry-diffeq-2.jpg', note: 'Diff Eq entry is a different template: the dependent variable is y1, an equation
+      line y1''=, and an initial point (x0,y10) with placeholder <x>, <y>. With no initial condition entered, Enter draws a slope field. See app.graphs.diffeq-initial-condition for the initial condition
+      and solution curve.'}
+  status: pending

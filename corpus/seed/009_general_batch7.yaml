@@ -1,5 +1,5 @@
 # Batch 7: General Maths regression (ExpReg, PowerReg), amortTbl, SortA/dim. Captured with Radian/Auto settings (results do not depend on them).
-# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Captured on the emulator 2026-11-01; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
 # Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
 schema_version: 1
 cases:
@@ -12,7 +12,7 @@ cases:
   - {in: 'y:={2,4,8,16,32}', out: '{2,4,8,16,32}', compare: ignore}
   - {in: 'ExpReg x,y,1:stat.results', out: '[["Title","Exponential Regression"],["RegEqn","a*b^x"],["a",1.],["b",2.],["r²",1.],["r",1.],["Resid","{...}"],["ResidTrans","{...}"]]', compare: numeric}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m7.stats.expreg.jpg, note: ExpReg fits a*b^x. The result list has a ResidTrans row that LinRegMx does not.}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m7.stats.expreg.jpg, note: ExpReg fits a*b^x. The result list has a ResidTrans row that LinRegMx does not.}
   status: pending
 - id: m7.stats.powerreg
   course: methods
@@ -23,7 +23,7 @@ cases:
   - {in: 'z:={2,8,18,32,50}', out: '{2,8,18,32,50}', compare: ignore}
   - {in: 'PowerReg x,z,1:stat.results', out: '[["Title","Power Regression"],["RegEqn","a*x^b"],["a",2.],["b",2.],["r²",1.],["r",1.],["Resid","{...}"],["ResidTrans","{...}"]]', compare: numeric}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m7.stats.powerreg.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m7.stats.powerreg.jpg}
   status: pending
 - id: m7.finance.amorttbl
   course: methods
@@ -32,7 +32,7 @@ cases:
   steps:
   - {in: 'amortTbl(3,60,6,10000)', out: '[0,0.,0.,10000.;1,-600.,-18.76,9981.24;2,-598.87,-19.89,9961.35;3,-597.68,-21.08,9940.27]', compare: numeric, tol: 0.01}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: 'shots/m7.finance.amorttbl-1.jpg, shots/m7.finance.amorttbl-2.jpg', note: 'Columns: n, interest, principal, balance. With only NPmt, N,
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m7.finance.amorttbl-1.jpg, shots/m7.finance.amorttbl-2.jpg', note: 'Columns: n, interest, principal, balance. With only NPmt, N,
       I, PV given the payment periods per year default to 1, so 6% is charged annually (first interest -600.), not monthly. Payment solved is about 618.76. Row 0 is the opening balance.'}
   status: pending
 - id: m7.list.sorta-dim
@@ -45,5 +45,5 @@ cases:
   - {in: l, out: '{1,2,3}'}
   - {in: dim(l), out: '3'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m7.list.sorta-dim.jpg, note: SortA sorts the variable in place and returns Done.}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m7.list.sorta-dim.jpg, note: SortA sorts the variable in place and returns Done.}
   status: pending

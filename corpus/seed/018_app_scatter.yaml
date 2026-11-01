@@ -1,5 +1,5 @@
 # Batch 16: Data & Statistics scatter plot with linear regression overlay.
-# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human review pending.
+# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler).
 schema_version: 1
 cases: []
 app_cases:
@@ -16,7 +16,7 @@ app_cases:
   - {what: r^2, expect: 0.907598, compare: numeric, tol: 1.0e-06}
   - {what: equation label, expect: y = 10.0625·x+-24.8125, compare: text, note: the label literally shows "+-" for a negative intercept}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: 'shots/app.stats.scatter-and-linear-regression-1.jpg, shots/app.stats.scatter-and-linear-regression-2.jpg', note: 'Matches the Lists & Spreadsheet LinReg result. With
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.stats.scatter-and-linear-regression-1.jpg, shots/app.stats.scatter-and-linear-regression-2.jpg', note: 'Matches the Lists & Spreadsheet LinReg result. With
       two variables assigned the Plot Type menu enables only Scatter Plot and XY Line Plot; Dot Plot, Box Plot, Histogram, Normal Probability Plot and the category charts are greyed out until a single variable
       is used. List variables created in the Calculator appear in the axis dropdown.'}
   status: pending

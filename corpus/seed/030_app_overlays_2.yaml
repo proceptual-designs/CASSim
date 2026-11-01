@@ -1,0 +1,73 @@
+# Data & Statistics overlays: quartic, logarithmic, median-median, sinusoidal, logistic
+schema_version: 1
+cases: []
+app_cases:
+- id: app.stats.quartreg-overlay
+  app: data-statistics
+  course: methods
+  tags: [data-statistics, regression, quartic]
+  setup: ['Calculator: cx:={1,2,3,4,5,6}, cq:=cx^4-2cx^2+1', 'Data & Statistics page; cx on x, cq on y', Menu > Analyze > Regression > Show Quartic]
+  checks:
+  - {what: overlay a, expect: 1, compare: numeric, tol: 1.0e-06}
+  - {what: overlay c, expect: -2, compare: numeric, tol: 1.0e-06}
+  - {what: overlay e, expect: 1, compare: numeric, tol: 1.0e-06}
+  - {what: b and d are zero within noise, expect: 0, compare: numeric, tol: 1.0e-06, note: label shows noise such as -3.3E-10 for b}
+  - {what: overlay R², expect: 1, compare: numeric, tol: 1.0e-09}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.quartreg-overlay.jpg, note: 'Fitted curve passes through all six points. The label is wider than the plot and is clipped at the right edge, so only
+      part of it is visible. Coefficients that should be zero show floating-point noise (b ≈ -3.3E-10).'}
+  status: pending
+- id: app.stats.lnreg-overlay
+  app: data-statistics
+  course: methods
+  tags: [data-statistics, regression, logarithmic]
+  setup: ['Calculator: cx:={1,2,3,4,5,6}, cl:=2+3*ln(cx)', 'Data & Statistics page; cx on x, cl on y', Menu > Analyze > Regression > Show Logarithmic]
+  checks:
+  - {what: overlay a, expect: 2, compare: numeric, tol: 1.0e-09}
+  - {what: overlay b, expect: 3, compare: numeric, tol: 1.0e-09}
+  - {what: overlay label as shown, expect: y = 2.+3.·ln(x), compare: text}
+  - {what: overlay r², expect: 1, compare: numeric, tol: 1.0e-09}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.lnreg-overlay.jpg, note: Label reads y=2.+3.·ln(x) with r²=1 (partly overlapped by the axis numbers). Regression submenu item 9 is Show Logarithmic.}
+  status: pending
+- id: app.stats.medmed-overlay
+  app: data-statistics
+  course: methods
+  tags: [data-statistics, regression, median-median]
+  setup: ['Calculator: cx:={1,2,3,4,5,6}, cm:={1,3,2,5,4,7}', 'Data & Statistics page; cx on x, cm on y', Menu > Analyze > Regression > Show Median-Median]
+  checks:
+  - {what: overlay slope m, expect: 0.875, compare: numeric, tol: 1.0e-09}
+  - {what: overlay intercept b, expect: 0.60416667, compare: numeric, tol: 1.0e-06}
+  - {what: overlay label as shown, expect: y = 0.875·x+0.604167, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.medmed-overlay.jpg, note: 'Matches the Calculator MedMed result (m=0.875, b=0.60416667). The label shows 6 significant digits. Regression submenu item
+      3 is Show Median-Median.'}
+  status: pending
+- id: app.stats.sinreg-overlay
+  app: data-statistics
+  course: specialist
+  tags: [data-statistics, regression, sinusoidal]
+  setup: ['Calculator: cu:=seq(k,k,1,12), cv:=3*sin(30*cu)+1 evaluated in Degree mode, giving values 2.5, 3.598, 4, ... (the list was stored before the document was switched to Radian)', 'Data & Statistics
+      page; cu on x, cv on y', Menu > Analyze > Regression > Show Sinusoidal]
+  checks:
+  - {what: overlay amplitude a, expect: 3, compare: numeric, tol: 1.0e-06}
+  - {what: overlay angular frequency b (radians), expect: 0.523599, compare: numeric, tol: 1.0e-06, note: π/6 = 0.5235988; label shows 6 significant digits}
+  - {what: overlay vertical shift d, expect: 1, compare: numeric, tol: 1.0e-06}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.sinreg-overlay.jpg, note: The cv values were stored as 3·sin(30°·n)+1; the document was Radian when the overlay was drawn. The fitted b is π/6 radians
+      (SinReg always reports b in radians). The label shows y=3.·sin(0.523599·x+1.15613E-15)+1. and is clipped at the right edge; the phase term is floating-point noise.}
+  status: pending
+- id: app.stats.logistic-overlay
+  app: data-statistics
+  course: specialist
+  tags: [data-statistics, regression, logistic]
+  setup: ['Calculator: cu:=seq(k,k,1,12), cg:=10/(1+4*e^(-0.5*cu))', 'Data & Statistics page; cu on x, cg on y', Menu > Analyze > Regression > Show Logistic (d=0)]
+  checks:
+  - {what: overlay c (numerator), expect: 10, compare: numeric, tol: 1.0e-06}
+  - {what: overlay a, expect: 4, compare: numeric, tol: 1.0e-06}
+  - {what: overlay b (RegEqn uses e^(-b·x)), expect: 0.5, compare: numeric, tol: 1.0e-06}
+  - {what: overlay label as shown, expect: y = 10./(1.+4.·e^(-0.5·x)), compare: text, note: label is a stacked fraction; the exponential base is drawn as a plain italic e in this label}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.logistic-overlay.jpg, note: 'Regression submenu: A Show Sinusoidal, B Show Logistic (d=0), C Show Logistic (d≠0). The logistic fit is drawn as a stacked
+      fraction label. Logistic (d≠0) was not captured.'}
+  status: pending

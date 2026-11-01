@@ -1,0 +1,99 @@
+# Graphs Equation Templates: Line, Ellipse, Conic, standard forms, South-North hyperbola
+schema_version: 1
+cases: []
+app_cases:
+- id: app.graphs.template-line-forms
+  app: graphs
+  course: methods
+  tags: [graphs, equation-templates, line]
+  setup: ['Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 1 Line > 1 Line Slope Intercept y=m·x+b; enter m=2, b=-1', 'Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 1 Line
+      > 3 Line Standard a·x+b·y=c; enter 2, 3, 6', Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 1 Line > 2 Vertical Line x=c; enter 4]
+  checks:
+  - {what: slope-intercept label as shown, expect: y=2·x+-1, compare: text, note: negative b printed as "+-1"}
+  - {what: standard form label as shown, expect: 2·x+3·y=6, compare: text}
+  - {what: vertical line label as shown, expect: x=4, compare: text}
+  - {what: standard form y-intercept, expect: 2, compare: numeric}
+  - {what: standard form x-intercept, expect: 3, compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-line-forms-1.jpg, shots/app.graphs.template-line-forms-2.jpg, shots/app.graphs.template-line-forms-3.jpg', note: 'Line templates: 1 Line
+      Slope Intercept y=m·x+b, 2 Vertical Line x=c, 3 Line Standard a·x+b·y=c. Tab order follows the template left to right (m then b; a, b, c).'}
+  status: pending
+- id: app.graphs.template-ellipse-center-form
+  app: graphs
+  course: specialist
+  tags: [graphs, equation-templates, ellipse]
+  setup: [Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 4 Ellipse > 1 Center form (x-h)²/a²+(y-k)²/b²=1, 'Type 1, Tab, 2, Tab, 3, Tab, 4; Enter']
+  checks:
+  - what: centre
+    expect: [1, 3]
+    compare: list
+  - {what: a (x semi-axis), expect: 2, compare: numeric}
+  - {what: b (y semi-axis), expect: 4, compare: numeric}
+  - {what: label as shown, expect: (x-1)²/2² + (y-3)²/4² = 1, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-ellipse-center-form-1.jpg, shots/app.graphs.template-ellipse-center-form-2.jpg', note: 'Ellipse offers only the Center form. Tab order is
+      h, a, k, b, so typing 1,2,3,4 gives h=1, a=2, k=3, b=4. The centre is drawn as a small cross.'}
+  status: pending
+- id: app.graphs.template-conic-general
+  app: graphs
+  course: specialist
+  tags: [graphs, equation-templates, conic]
+  setup: [Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 6 Conic > 1 General a·x²+b·x·y+c·y²+d·x+e·y+f=0, 'Type 1, Tab, 2, Tab, 3, Tab, 4, Tab, 5, Tab, -6; Enter']
+  checks:
+  - {what: entry line as shown, expect: 1·x²+2·x·y+3·y²+4·x+5·y+(-6)=0, compare: text, note: negative f is wrapped in brackets on the entry line}
+  - {what: label as shown, expect: x²+2·x·y+3·y²+4·x+5·y+-6=0, compare: text, note: coefficient 1 is dropped; negative f printed as "+-6"}
+  - {what: curve type (B²-4AC<0), expect: ellipse, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-conic-general-1.jpg, shots/app.graphs.template-conic-general-2.jpg, shots/app.graphs.template-conic-general-3.jpg', note: 'Conic offers only
+      the General form. Tab order is a, b, c, d, e, f. The curve with these coefficients is an ellipse, drawn with a cross at its centre.'}
+  status: pending
+- id: app.graphs.template-circle-standard-form
+  app: graphs
+  course: methods
+  tags: [graphs, equation-templates, circle]
+  setup: [Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 3 Circle > 2 Standard form a·x²+a·y²+b·x+c·y+d=0, 'Type 1, Tab, Tab, -2, Tab, 4, Tab, -4; Enter']
+  checks:
+  - what: centre
+    expect: [1, -2]
+    compare: list
+  - {what: radius, expect: 3, compare: numeric}
+  - {what: label as shown, expect: x²+y²+-2·x+4·y+-4=0, compare: text, note: coefficient 1 dropped; negatives printed as "+-"}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-circle-standard-form-1.jpg, shots/app.graphs.template-circle-standard-form-2.jpg', note: 'The template has five boxes but the two a boxes
+      are linked: typing a value in the first a mirrors it into the second, and Tab moves from the first a to the second a before reaching b. So the Tab sequence is a, (a again), b, c, d. Pressing Tab only
+      once after a puts the next number into the second a box and Enter gives "Required field is empty!" when d is left blank.'}
+  status: pending
+- id: app.graphs.template-parabola-standard-and-sideways
+  app: graphs
+  course: methods
+  tags: [graphs, equation-templates, parabola]
+  setup: ['Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 2 Parabola > 2 Standard form y=a·x²+b·x+c; enter 1, -2, -3', 'Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 2
+      Parabola > 3 Vertex form x=a·(y-k)²+h; enter 2, 1, 3', 'Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 2 Parabola > 4 Standard form x=a·y²+b·y+c; enter -1, 2, 5']
+  checks:
+  - {what: y standard label as shown, expect: y=x²+-2·x+-3, compare: text, note: coefficient 1 dropped}
+  - {what: x vertex-form label as shown, expect: x=2·(y-1)²+3, compare: text}
+  - what: x vertex-form vertex
+    expect: [3, 1]
+    compare: list
+  - {what: x standard entry as shown, expect: x=(-1)·y²+2·y+5, compare: text, note: negative a is bracketed on the entry line}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-parabola-standard-and-sideways-1.jpg, shots/app.graphs.template-parabola-standard-and-sideways-2.jpg, shots/app.graphs.template-parabola-standard-and-sideways-3.jpg,
+      shots/app.graphs.template-parabola-standard-and-sideways-4.jpg', note: 'Tab order for x=a·(y-k)²+h is a, k, h (typing 2,1,3 gives a=2, k=1, h=3), so the vertex is (3, 1). The sideways parabolas open
+      right for a>0 and left for a<0.'}
+  status: pending
+- id: app.graphs.template-hyperbola-south-north
+  app: graphs
+  course: specialist
+  tags: [graphs, equation-templates, hyperbola]
+  setup: [Graphs page; Menu > 3 Graph Entry/Edit > 3 Equation Templates > 5 Hyperbola > 2 South-North (y-k)²/a²-(x-h)²/b²=1, 'Type 1, Tab, 2, Tab, 3, Tab, 4; Enter']
+  checks:
+  - what: centre
+    expect: [3, 1]
+    compare: list
+  - {what: a (under y term), expect: 2, compare: numeric}
+  - {what: b (under x term), expect: 4, compare: numeric}
+  - {what: label as shown, expect: (y-1)²/2² - (x-3)²/4² = 1, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-hyperbola-south-north-1.jpg, shots/app.graphs.template-hyperbola-south-north-2.jpg', note: 'Tab order is k, a, h, b, so typing 1,2,3,4 gives
+      k=1, a=2, h=3, b=4. The branches open upward and downward.'}
+  status: pending

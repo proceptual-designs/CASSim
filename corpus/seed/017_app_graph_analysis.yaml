@@ -1,5 +1,5 @@
 # Batch 15: Graphs app, Analyze Graph (zero, min, max, intersection, integral) on f(x)=x^3-3x.
-# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human review pending.
+# app_cases, screenshot evidence. Captured 2026-11-01 (6.0.3.374); transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler).
 schema_version: 1
 cases: []
 app_cases:
@@ -15,7 +15,7 @@ app_cases:
     tol: 0.005
     note: exact value sqrt(3)=1.7320508; label shows 2 decimal places
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/app.graph.analyze-zero.jpg, note: Coordinates on graph labels are shown to 2 decimal places by default. The bounds can be placed with the mouse; the tool refines
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.graph.analyze-zero.jpg, note: Coordinates on graph labels are shown to 2 decimal places by default. The bounds can be placed with the mouse; the tool refines
       the root inside the bracket.}
   status: pending
 - id: app.graph.analyze-minimum-maximum
@@ -33,7 +33,7 @@ app_cases:
     compare: list
     tol: 0.001
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: 'shots/app.graph.analyze-minimum-maximum-1.jpg, shots/app.graph.analyze-minimum-maximum-2.jpg', note: 'Both turning points are labelled with exact-looking coordinates
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graph.analyze-minimum-maximum-1.jpg, shots/app.graph.analyze-minimum-maximum-2.jpg', note: 'Both turning points are labelled with exact-looking coordinates
       (1,-2) and (-1,2). The tool snaps to the extremum within the chosen bounds.'}
   status: pending
 - id: app.graph.analyze-intersection
@@ -48,7 +48,7 @@ app_cases:
     tol: 0.001
     note: other intersections are (0,0) and (-2,-2)
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/app.graph.analyze-intersection.jpg, note: 'With exactly two graphs the tool goes straight to the bounds prompt without asking which curves. Result (2,2) solves
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.graph.analyze-intersection.jpg, note: 'With exactly two graphs the tool goes straight to the bounds prompt without asking which curves. Result (2,2) solves
       x^3-3x=x.'}
   status: pending
 - id: app.graph.analyze-integral
@@ -59,6 +59,6 @@ app_cases:
   checks:
   - {what: integral from 0 to 2, expect: -2, compare: numeric, tol: 1.0e-06, note: 'exact: [x^4/4-3x^2/2] from 0 to 2 = 4-6'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/app.graph.analyze-integral.jpg, note: 'Bounds can be typed as numbers instead of clicked, giving an exact bound. With several graphs present the tool first asks
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.graph.analyze-integral.jpg, note: 'Bounds can be typed as numbers instead of clicked, giving an exact bound. With several graphs present the tool first asks
       "graph?" and requires choosing a curve. The region is shaded and the value shown below the curve. Graph name increments across pages (this was f3).'}
   status: pending

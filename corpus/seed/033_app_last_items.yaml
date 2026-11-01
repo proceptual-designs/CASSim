@@ -1,0 +1,81 @@
+# Diff Eq initial condition, Sequence Custom, non-integer templates, LogisticD overlay
+schema_version: 1
+cases: []
+app_cases:
+- id: app.stats.logisticd-overlay
+  app: data-statistics
+  course: specialist
+  tags: [data-statistics, regression, logistic]
+  setup: ['Calculator: cu:=seq(k,k,1,12), cd:=approx(10/(1+4*exp(-0.5*cu))+2)', 'Data & Statistics page; cu on x, cd on y', Menu > Analyze > Regression > Show Logistic (d≠0)]
+  checks:
+  - {what: overlay c (numerator), expect: 10, compare: numeric, tol: 1.0e-06}
+  - {what: overlay a, expect: 4, compare: numeric, tol: 1.0e-06}
+  - {what: overlay b, expect: 0.5, compare: numeric, tol: 1.0e-06}
+  - {what: overlay d, expect: 2, compare: numeric, tol: 1.0e-06}
+  - {what: overlay label as shown, expect: y = 10./(1.+4.·e^(-0.5·x)) + 2., compare: text, note: stacked fraction followed by +2.; clipped at the right edge}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.stats.logisticd-overlay.jpg, note: Regression submenu item C. Same stacked-fraction label as the d=0 fit with the d term appended.}
+  status: pending
+- id: app.graphs.diffeq-initial-condition
+  app: graphs
+  course: specialist
+  tags: [graphs, diff-eq]
+  setup: [Menu > 3 Graph Entry/Edit > 8 Diff Eq, 'Type x-y1 on the y1'' = line, Tab (focus goes to the … button), Tab, 0, Tab, 1, Enter']
+  checks:
+  - {what: entry as shown, expect: 'y1'' = x-y1, initial point (x0,y10) = (0,1)', compare: text}
+  - {what: slope field, expect: drawn; slopes are flat where y=x, compare: text}
+  - {what: 'solution curve through (0,1)', expect: 'y = x - 1 + 2·e^(-x), drawn as a trail of dots in both directions from the initial point', compare: text}
+  - {what: solution value at x=2, expect: 1.2706706, compare: numeric, tol: 1.0e-06, note: computed from the exact solution; value not read on screen}
+  - {what: solution label as shown, expect: y1_1, compare: text, note: label for the solution drawn from the initial condition}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.diffeq-initial-condition-1.jpg, shots/app.graphs.diffeq-initial-condition-2.jpg', note: 'Initial condition fields are reached with two Tabs after
+      the equation (the first Tab lands on the … options button). With (x0,y10)=(0,1) the emulator draws the slope field plus the solution curve as dots; the curve is steeply rising at left (x<0) and rises
+      almost linearly for x>1, matching x-1+2e^(-x). Earlier case app.graphs.entry-diffeq showed y2 because y1 was in use on that page.'}
+  status: pending
+- id: app.graphs.entry-sequence-custom
+  app: graphs
+  course: specialist
+  tags: [graphs, sequence, custom]
+  setup: [Menu > 3 Graph Entry/Edit > 7 Sequence > 2 Custom, 'Entering n and n*n/10 directly gives an error; define u1(n)=n and u2(n)=n*n/10 first (Sequence > 1 Sequence), then x←u1(n), y←u2(n)']
+  checks:
+  - {what: template as shown, expect: 'p1 { x← / y← / 1≤n≤99 nstep=1', compare: text}
+  - {what: entering a non-sequence in x← gives error, expect: 'Invalid input. Choose a sequence name from the VAR menu or type the name of a sequence. For example, to choose sequence u1, select it from
+      the VAR menu or type u1 or u1(n).', compare: text}
+  - {what: label as shown, expect: 'p1:(u1(n),u2(n))', compare: text}
+  - what: plotted points (n, n²/10) for n=1..4
+    expect:
+    - [1, 0.1]
+    - [2, 0.4]
+    - [3, 0.9]
+    - [4, 1.6]
+    compare: list
+    note: points continue to n=8 inside the default window (8, 6.4)
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.entry-sequence-custom-1.jpg, shots/app.graphs.entry-sequence-custom-2.jpg, shots/app.graphs.entry-sequence-custom-3.jpg, shots/app.graphs.entry-sequence-custom-4.jpg',
+    note: 'Custom sequences plot (x,y)=(u(n),v(n)) pairs, where both must be names of existing sequences (not expressions). The defined sequences u1 and u2 also plot against n (u1 gives the diagonal dots,
+      u2 the same points as the custom plot), so the screen shows both. Entry gotcha: typing n^2/10 in the emulator editor puts 2/10 into the exponent (n^(2/10)); use n*n/10 or leave the exponent with the
+      Right arrow before typing /10. The first version of this case used n^2/10 by mistake and has been replaced.'}
+  status: pending
+- id: app.graphs.template-parabola-hyperbola-non-integer
+  app: graphs
+  course: methods
+  tags: [graphs, equation-templates, parabola, hyperbola]
+  setup: ['Menu > 3 Graph Entry/Edit > 2 Parabola > 1 y=a·(x-h)²+k; enter 0.5, 1.5, -2.5', 'Menu > 3 Graph Entry/Edit > 5 Hyperbola > 1 East-West (x-h)²/a²-(y-k)²/b²=1; enter 0.5, 1.5, -1, 2.5']
+  checks:
+  - {what: parabola entry as shown, expect: y=0.5·(x-1.5)²+(-2.5), compare: text}
+  - {what: parabola label as shown, expect: y=0.5·(x-1.5)²+-2.5, compare: text}
+  - what: parabola vertex
+    expect: [1.5, -2.5]
+    compare: list
+  - {what: hyperbola entry as shown, expect: (x-0.5)²/1.5² - (y-(-1))²/2.5² = 1, compare: text}
+  - what: hyperbola centre
+    expect: [0.5, -1]
+    compare: list
+  - what: hyperbola vertices x
+    expect: [-1, 2]
+    compare: list
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.graphs.template-parabola-hyperbola-non-integer-1.jpg, shots/app.graphs.template-parabola-hyperbola-non-integer-2.jpg, shots/app.graphs.template-parabola-hyperbola-non-integer-3.jpg,
+      shots/app.graphs.template-parabola-hyperbola-non-integer-4.jpg', note: 'Decimal and negative parameters are accepted; negatives are bracketed on the entry line and printed with +- in labels. Hyperbola
+      Tab order is h, a, k, b.'}
+  status: pending

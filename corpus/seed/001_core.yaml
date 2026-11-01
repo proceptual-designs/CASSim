@@ -15,7 +15,7 @@ cases:
     source: emulator
     emulator_version: "TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view"
     captured: "2026-10-31"
-    reviewed_by: "claude (screenshot transcription); human review pending"
+    reviewed_by: "claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)"
     evidence: shots/methods.solve.quadratic.jpg
   status: pending
 
@@ -139,8 +139,9 @@ cases:
   tags: [complex, cSolve]
   steps:
     - {in: "cSolve(x^2+1=0,x)", out: "x=ⅈ or x=-ⅈ", note: "Emulator lists x=i first."}
-    - {in: "abs(3+4*√(-1))", out: "5", note: "Typed as sqrt(-1) on the emulator."}
-  provenance: {<<: *emu, evidence: shots/specialist.complex.csolve.jpg}
+    - {in: "abs(3+4*@i)", out: "5", note: "@i is the ASCII spelling of the imaginary unit ⅈ; the emulator echoes it as |3+4·ⅈ|. Confirmed in a later capture."}
+    - {in: "abs(3+4*√(-1))", out: "5", note: "Alternative spelling: sqrt(-1) also gives the imaginary unit."}
+  provenance: {<<: *emu, evidence: 'shots/specialist.complex.csolve.jpg, shots/specialist.complex.csolve-2.jpg'}
   status: pending
 
 - id: specialist.vector.crossp

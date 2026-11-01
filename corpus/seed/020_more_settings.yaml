@@ -1,5 +1,5 @@
 # Batch 18: Gradian angle mode and Exponential Format (Scientific, Engineering).
-# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human review pending. Expected to fail until implemented.
+# Captured on the emulator 2026-11-01 (version 6.0.3.374); transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
 schema_version: 1
 cases:
 - id: m14.settings.gradian
@@ -15,8 +15,8 @@ cases:
   - {in: arctan(1), out: '50'}
   - {in: arccos(0), out: '100'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/m14.settings.gradian.jpg, note: 'Angle = Gradian (status bar shows GRAD). 100 grad is a right angle, so results are exact: sin(100)=1, arcsin(1)=100. Inverse
-      functions return plain numbers with no ᴳ marker.'}
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.gradian.jpg, note: 'Angle = Gradian (status bar shows GRAD). 100 grad is a right angle, so results are exact: sin(100)=1, arcsin(1)=100. Inverse
+      functions return plain numbers with no ᵍ marker.'}
   status: pending
 - id: m14.settings.exp-scientific
   course: methods
@@ -29,7 +29,7 @@ cases:
   - {in: sqrt(2), out: √(2), compare: text}
   - {in: 1000000*pi, out: 1000000*π, compare: text}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/m14.settings.exp-scientific.jpg, note: 'Exponential Format = Scientific, Display Digits Float 8, Auto. Decimal results use d.ddddᴇn form even for 12345.6789;
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.exp-scientific.jpg, note: 'Exponential Format = Scientific, Display Digits Float 8, Auto. Decimal results use d.ddddᴇn form even for 12345.6789;
       the entry echo of 0.000123 is also reformatted. Exact results (√2, 1000000·π) are unaffected.'}
   status: pending
 - id: m14.settings.exp-engineering
@@ -42,6 +42,6 @@ cases:
   - {in: '0.000123', out: 123.ᴇ-6, compare: text}
   - {in: '1234567.5', out: 1.2345675ᴇ6, compare: text}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
-      human review pending, evidence: shots/m14.settings.exp-engineering.jpg, note: 'Exponential Format = Engineering: exponent is a multiple of 3 and the mantissa runs from 1 to 999. 0.000123 shows as
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.exp-engineering.jpg, note: 'Exponential Format = Engineering: exponent is a multiple of 3 and the mantissa runs from 1 to 999. 0.000123 shows as
       123.ᴇ-6 with a trailing decimal point.'}
   status: pending

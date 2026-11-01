@@ -1,0 +1,28 @@
+# Data & Statistics: dot plot, histogram, box plot
+schema_version: 1
+cases: []
+app_cases:
+- id: app.stats.dot-histogram-boxplot
+  app: data-statistics
+  course: general
+  tags: [data-statistics, histogram, boxplot, dotplot]
+  setup: ['Calculator: xv:={2,4,4,4,5,5,7,9}', Add Data & Statistics page; assign xv to the horizontal axis (default plot is a dot plot), Menu > Plot Type > Histogram, Menu > Plot Type > Box Plot]
+  checks:
+  - what: 'dot plot: dots at 2,4,4,4,5,5,7,9 (stacked counts 1,3,2,1,1)'
+    expect: [1, 3, 2, 1, 1]
+    compare: list
+  - {what: histogram default bin width, expect: 1, compare: numeric}
+  - {what: histogram default first bin starts at, expect: 2, compare: numeric}
+  - what: histogram bar heights for bins [2,3),[4,5),[5,6),[7,8),[9,10)
+    expect: [1, 3, 2, 1, 1]
+    compare: list
+  - {what: box plot minX, expect: 2, compare: numeric}
+  - {what: box plot Q1, expect: 4, compare: numeric}
+  - {what: box plot median, expect: 4.5, compare: numeric}
+  - {what: box plot Q3, expect: 6, compare: numeric}
+  - {what: box plot maxX, expect: 9, compare: numeric}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.stats.dot-histogram-boxplot-1.jpg, shots/app.stats.dot-histogram-boxplot-2.jpg, shots/app.stats.dot-histogram-boxplot-3.jpg', note: 'Histogram defaults to
+      bin width 1 starting at the minimum (axis 2..11, y 0..3). Box plot uses median-of-halves quartiles (Q1=4, Q3=6); the median label reads "Median: 4.5ᴇ+0" here because the document was in GRAD mode
+      with Float format carried over. TODO (much later milestone) - the Data & Statistics screen has animations (for example when plot types or variables change) that should be reproduced.'}
+  status: pending

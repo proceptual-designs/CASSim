@@ -1,5 +1,5 @@
 # Batch 6: cross product, simult, tExpand, deSolve with initial condition, integration by parts, exact inverse trig values, log equation.
-# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Captured on the emulator 2026-11-01; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
 # Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
 schema_version: 1
 cases:
@@ -10,7 +10,7 @@ cases:
   steps:
   - {in: 'crossP([1,2,3],[4,5,6])', out: '[-3,6,-3]'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.vector.crossp.jpg, note: 'Displayed as a row vector [-3 6 -3], matching the row-vector input.'}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.vector.crossp.jpg, note: 'Displayed as a row vector [-3 6 -3], matching the row-vector input.'}
   status: pending
 - id: m6.matrix.simult
   course: specialist
@@ -19,7 +19,7 @@ cases:
   steps:
   - {in: 'simult([1,2;3,4],[5;6])', out: '[-4;9/2]'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.matrix.simult.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.matrix.simult.jpg}
   status: pending
 - id: m6.trig.texpand
   course: methods
@@ -28,7 +28,7 @@ cases:
   steps:
   - {in: tExpand(sin(2*x)), out: 2*sin(x)*cos(x)}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.trig.texpand.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.trig.texpand.jpg}
   status: pending
 - id: m6.calculus.desolve-initial-condition
   course: methods
@@ -37,7 +37,7 @@ cases:
   steps:
   - {in: 'deSolve(y''=y and y(0)=2,x,y)', out: y=2*ⅇ^x}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.calculus.desolve-initial-condition.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.calculus.desolve-initial-condition.jpg}
   status: pending
 - id: m6.calculus.integration-by-parts
   course: methods
@@ -46,7 +46,7 @@ cases:
   steps:
   - {in: 'integral(x*sin(x),x)', out: sin(x)-x*cos(x)}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.calculus.integration-by-parts.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.calculus.integration-by-parts.jpg}
   status: pending
 - id: m6.trig.inverse-and-exact-values
   course: methods
@@ -57,7 +57,7 @@ cases:
   - {in: arcsin(-1), out: -π/2}
   - {in: cos(pi/12), out: (√(3)+1)*√(2)/4}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.trig.inverse-and-exact-values.jpg, note: 'cos(π/12) is returned as (√3+1)·√2/4, not (√6+√2)/4.'}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.trig.inverse-and-exact-values.jpg, note: 'cos(π/12) is returned as (√3+1)·√2/4, not (√6+√2)/4.'}
   status: pending
 - id: m6.solve.log-equation
   course: methods
@@ -66,5 +66,5 @@ cases:
   steps:
   - {in: 'solve(ln(x)+ln(x-1)=ln(2),x)', out: x=2}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m6.solve.log-equation.jpg, note: The extraneous root x=-1 is excluded automatically (domain of ln).}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.solve.log-equation.jpg, note: The extraneous root x=-1 is excluded automatically (domain of ln).}
   status: pending

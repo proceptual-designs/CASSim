@@ -1,0 +1,23 @@
+# Data & Statistics: quadratic regression overlay
+schema_version: 1
+cases: []
+app_cases:
+- id: app.stats.quadreg-overlay
+  app: data-statistics
+  course: methods
+  tags: [data-statistics, regression, quadratic]
+  setup: ['Calculator: qx:={1,2,3,4,5}, qy:={2,5,10,17,26}; QuadReg qx,qy', 'Read stat.a, stat.b, stat.c', 'Data & Statistics page; qx on x, qy on y', Menu > Analyze > Regression > Show Quadratic]
+  checks:
+  - {what: stat.a, expect: 1, compare: numeric, tol: 1.0e-09}
+  - {what: stat.b, expect: 0, compare: numeric, tol: 1.0e-09, note: 'emulator shows 100.ᴇ-15 (float noise), so compare with tolerance'}
+  - {what: stat.c, expect: 1, compare: numeric, tol: 1.0e-09}
+  - {what: overlay R², expect: 1, compare: numeric, tol: 1.0e-09}
+  - what: overlay equation coefficients a,b,c as shown
+    expect: [1, 0, 1]
+    compare: list
+    tol: 1.0e-09
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.stats.quadreg-overlay-1.jpg, shots/app.stats.quadreg-overlay-2.jpg', note: 'QuadReg returns Done and stores stat.a/b/c. The overlay label reads y=1.ᴇ0·x²+100.ᴇ-15·x+1.ᴇ0
+      with R²=1.ᴇ0 (document was in Scientific format). stat.r2 is undefined for QuadReg; the variable is stat.R². The Regression submenu offers Linear (mx+b), Linear (a+bx), Median-Median, Quadratic, Cubic,
+      Quartic, Power, Exponential, Logarithmic, Sinusoidal and more. Typing stat.results in the Calculator is mangled by autocomplete. TODO (later milestone) - the regression equation label on the plot can be clicked and dragged to a new position so it is easier to read, and do this for every regression overlay.'}
+  status: pending

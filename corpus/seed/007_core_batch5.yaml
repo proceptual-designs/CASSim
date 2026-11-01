@@ -1,5 +1,5 @@
 # Batch 5: VCE-style exam questions (exp/cubic solves, definite integrals, normCdf/binomPdf), product-rule calculus, factor, limits at infinity.
-# Captured on the emulator 2026-11-01; transcribed by Claude, human review pending. Expected to fail until implemented.
+# Captured on the emulator 2026-11-01; transcribed by Claude, human reviewed 2026-11-02 (Simon Tyler). Expected to fail until implemented.
 # Methods cases: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular; CAS On, Float 8.
 schema_version: 1
 cases:
@@ -11,7 +11,7 @@ cases:
   - {in: 'solve(exp(2*x)-5*exp(x)+6=0,x)', out: x=ln(2) or x=ln(3)}
   - {in: 'solve(x^3-6*x^2+11*x-6=0,x)', out: x=1 or x=2 or x=3}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m5.vce.exp-quadratic-and-cubic-solve.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.vce.exp-quadratic-and-cubic-solve.jpg}
   status: pending
 - id: m5.vce.definite-integral-abs
   course: methods
@@ -20,7 +20,7 @@ cases:
   steps:
   - {in: 'integral(abs(x-1),x,0,3)', out: 5/2}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m5.vce.definite-integral-abs.jpg}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.vce.definite-integral-abs.jpg}
   status: pending
 - id: m5.vce.normcdf-binompdf
   course: methods
@@ -30,7 +30,7 @@ cases:
   - {in: 'normCdf(-1,1,0,1)', out: '0.68268948', compare: numeric}
   - {in: 'binomPdf(10,0.5,5)', out: '0.24609375', compare: numeric}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m5.vce.normcdf-binompdf.jpg, note: 'normCdf(lower,upper,mu,sigma); binomPdf(n,p,k).'}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.vce.normcdf-binompdf.jpg, note: 'normCdf(lower,upper,mu,sigma); binomPdf(n,p,k).'}
   status: pending
 - id: m5.calculus.product-rule-parts
   course: methods
@@ -40,7 +40,7 @@ cases:
   - {in: 'derivative(x*exp(x),x)', out: (x+1)*ⅇ^x}
   - {in: 'integral(x*exp(x),x)', out: (x-1)*ⅇ^x}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: 'shots/m5.calculus.product-rule-parts-1.jpg, shots/m5.calculus.product-rule-parts-2.jpg', note: Results are returned factored.}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m5.calculus.product-rule-parts-1.jpg, shots/m5.calculus.product-rule-parts-2.jpg', note: Results are returned factored.}
   status: pending
 - id: m5.algebra.factor-real-quartic
   course: methods
@@ -49,7 +49,7 @@ cases:
   steps:
   - {in: factor(x^4-1), out: (x-1)*(x+1)*(x^2+1)}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m5.algebra.factor-real-quartic.jpg, note: Over the reals the irreducible x^2+1 stays.}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.algebra.factor-real-quartic.jpg, note: Over the reals the irreducible x^2+1 stays.}
   status: pending
 - id: m5.calculus.limit-at-infinity
   course: methods
@@ -57,6 +57,7 @@ cases:
   tags: [limit, infinity]
   steps:
   - {in: 'limit((1+1/n)^n,n,∞)', out: ⅇ}
+  - {in: 'limit((1+1/n)^n,n,infinity)', out: ⅇ, note: 'Spelling infinity is converted to ∞ on entry (echoed as n→∞).'}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
-      (screenshot transcription); human review pending, evidence: shots/m5.calculus.limit-at-infinity.jpg, note: ∞ is typed as the character itself; the keyboard shortcut @inf does NOT work (entered i*nf).}
+      (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m5.calculus.limit-at-infinity.jpg, shots/m5.calculus.limit-at-infinity-2.jpg', note: ∞ can be typed as the character itself or spelled infinity (both work); the keyboard shortcut @inf does NOT work (entered i*nf).}
   status: pending

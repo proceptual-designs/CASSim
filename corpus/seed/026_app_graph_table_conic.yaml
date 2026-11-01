@@ -1,0 +1,35 @@
+# Graphs: table and conic
+schema_version: 1
+cases: []
+app_cases:
+- id: app.graphs.table-split-screen
+  app: graphs
+  course: methods
+  tags: [graphs, table]
+  setup: [Graphs page; enter f1(x)=x^2-4, Menu > 7 Table > 1 Split-screen Table (Ctrl+T)]
+  checks:
+  - what: f1 at x=1..5
+    expect: [-3, 0, 5, 12, 21]
+    compare: list
+  - {what: table column headers, expect: 'x, f1(x)', compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.graphs.table-split-screen.jpg, note: 'Split-screen table shows x and f1(x) beside the graph; the formula is shown as f1(x):= x^2-4 in the column header. Document
+      was in Scientific format so values read 1.ᴇ0, -3.ᴇ0, 0.ᴇ0, 5.ᴇ0, 12.ᴇ0, 21.ᴇ0. Rows 1 to 5 were read; the table begins at an earlier row above them.'}
+  status: pending
+- id: app.graphs.conic-ellipse
+  app: graphs
+  course: specialist
+  tags: [graphs, conic, relation]
+  setup: [Graphs page; Menu > 3 Graph Entry/Edit > 2 Relation, Enter x²/9+y²/4=1 using the stacked-fraction template, i.e. exit the exponent with the Right arrow before typing /9; typing x^2/9 literally puts 2/9 in the exponent]
+  checks:
+  - what: x-intercepts
+    expect: [-3, 3]
+    compare: list
+  - what: y-intercepts
+    expect: [-2, 2]
+    compare: list
+  - {what: entry label as shown, expect: x²/9 + y²/4 = 1, compare: text}
+  provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
+      human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.graphs.conic-ellipse.jpg, note: 'The Graph Entry/Edit menu offers Function, Relation, Equation Templates (conics), Parametric, Polar, Scatter Plot, Sequence
+      and Diff Eq. A relation is plotted as a closed curve with the equation label drawn as stacked fractions. Intercepts read from the axes (window -10..10, y +-6.67).'}
+  status: pending
