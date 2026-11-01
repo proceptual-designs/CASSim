@@ -6,12 +6,12 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from emcas.core import ast
-from emcas.core.ast import BINARY_PREC, COMPARE_OPS, POSTFIX_OPS
-from emcas.core.errors import TISyntaxError
-from emcas.core.format import to_ascii
-from emcas.core.lexer import WORD_OPERATORS
-from emcas.core.parser import COMMANDS, parse, parse_expression
+from cassim.core import ast
+from cassim.core.ast import BINARY_PREC, COMPARE_OPS, POSTFIX_OPS
+from cassim.core.errors import TISyntaxError
+from cassim.core.format import to_ascii
+from cassim.core.lexer import WORD_OPERATORS
+from cassim.core.parser import COMMANDS, parse, parse_expression
 
 RESERVED = WORD_OPERATORS | set(COMMANDS) | {"define"}
 

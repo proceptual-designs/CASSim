@@ -3,9 +3,9 @@
 Usage:  uv run python tools/ref_matrix.py     (writes docs/command_matrix.csv and .md)
 
 Sources, in order of authority:
-  1. the TI-Nspire CAS Reference Guide (primary; software 3.2, older than the emulator);
+  1. the TI-Nspire CAS Reference Guide (primary; software 3.2, older than the simulator);
   2. the TI-Nspire Reference Guide 4.5 (non-CAS; fills in newer numeric commands);
-  3. the emulator Catalog (not automated yet; the ``emulator_verified`` column is left empty).
+  3. the simulator Catalog (not automated yet; the ``simulator_verified`` column is left empty).
 Priority hints come from the corpus and from how often the VCE books mention a command.
 Needs ``pdftotext`` (poppler) on PATH; extracted text is cached under ``builds/cache/``.
 """
@@ -172,7 +172,7 @@ def main() -> int:
                 "corpus_cases": per_cmd.get(key, 0),
                 **{f"book_{k}": v for k, v in bk.items()},
                 "priority": priority(per_cmd.get(key, 0), total),
-                "emulator_verified": "",
+                "simulator_verified": "",
                 "status": "todo",
             }
         )
@@ -214,7 +214,7 @@ def main() -> int:
         f"VCE books), **later** {by_prio['later']}.",
         "- Book columns count `name(` in running text (-1: bare lower-case word, not countable). "
         "Screenshots in the books are not searchable, so these are lower bounds.",
-        "- `emulator_verified` is empty: the guide (3.2, 2012) predates the emulator, so every "
+        "- `simulator_verified` is empty: the guide (3.2, 2012) predates the simulator, so every "
         "entry still needs a Catalog check.",
         "",
         "## Core",
@@ -228,7 +228,7 @@ def main() -> int:
         "## Used by the corpus but in neither guide",
         "",
         "Newer commands, user functions, or ASCII stand-ins for templates",
-        "(`derivative`, `integral`). Check each against the emulator Catalog.",
+        "(`derivative`, `integral`). Check each against the simulator Catalog.",
         "",
         *(f"- `{k}` ({per_cmd[k]} cases)" for k in unknown),
         "",

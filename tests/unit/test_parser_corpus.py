@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from emcas.core.lexer import Kind, tokenize
-from emcas.core.parser import parse, parse_expression
+from cassim.core.lexer import Kind, tokenize
+from cassim.core.parser import parse, parse_expression
 
 SEED = Path(__file__).parents[2] / "corpus" / "seed"
 # Status words shown in the results column rather than a value.
@@ -27,7 +27,7 @@ def corpus_steps():
 
 
 STEPS = dict(corpus_steps())
-# Entries the emulator rejected are not all parseable, and the parser need not read them.
+# Entries the simulator rejected are not all parseable, and the parser need not read them.
 ENTRIES = {key: step["in"] for key, step in STEPS.items() if not step.get("error")}
 RESULTS = {
     key: step["out"]

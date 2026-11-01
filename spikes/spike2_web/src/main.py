@@ -38,7 +38,7 @@ async def open_db():
     from js import indexedDB
     from pyodide.ffi import create_proxy
 
-    req = indexedDB.open("emcas-spike", 1)
+    req = indexedDB.open("cassim-spike", 1)
     upgrade = create_proxy(lambda e: e.target.result.createObjectStore("docs"))
     req.onupgradeneeded = upgrade
     return await idb_request(req)

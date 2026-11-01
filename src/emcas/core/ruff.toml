@@ -1,4 +1,0 @@
-extend = "../../../pyproject.toml"
-
-[lint.flake8-tidy-imports.banned-api]
-"flet".msg = "emcas.core must not import Flet; UI code lives in emcas_app."

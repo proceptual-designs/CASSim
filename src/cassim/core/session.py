@@ -2,14 +2,14 @@
 
 from dataclasses import dataclass
 
-from emcas.core import ast
-from emcas.core.compat import sympy_adapter as cas
-from emcas.core.errors import TIError
-from emcas.core.evaluator import Evaluator
-from emcas.core.format import to_latex, to_text
-from emcas.core.parser import parse
-from emcas.core.settings import Settings, updated
-from emcas.core.values import Expr, ListValue, MatrixValue, Value
+from cassim.core import ast
+from cassim.core.compat import sympy_adapter as cas
+from cassim.core.errors import TIError
+from cassim.core.evaluator import Evaluator
+from cassim.core.format import to_latex, to_text
+from cassim.core.parser import parse
+from cassim.core.settings import Settings, updated
+from cassim.core.values import Expr, ListValue, MatrixValue, Value
 
 
 @dataclass(frozen=True, slots=True)

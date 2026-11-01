@@ -3,11 +3,11 @@
 from collections.abc import Callable
 from typing import Any
 
-from emcas.core import ast, errors
-from emcas.core.compat import sympy_adapter as cas
-from emcas.core.errors import TIError
-from emcas.core.settings import Angle, CasMode, Settings
-from emcas.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Str, Value
+from cassim.core import ast, errors
+from cassim.core.compat import sympy_adapter as cas
+from cassim.core.errors import TIError
+from cassim.core.settings import Angle, CasMode, Settings
+from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Str, Value
 
 _ELEMENTWISE = {".+": "+", ".-": "-", ".*": "*", "./": "/", ".^": "^"}
 _TRIG = frozenset({"sin", "cos", "tan"})

@@ -8,9 +8,9 @@ import sympy as sp
 from sympy.core.function import AppliedUndef
 from sympy.logic.boolalg import Boolean
 
-from emcas.core import ast
-from emcas.core.settings import CasMode, Settings
-from emcas.core.values import Raw
+from cassim.core import ast
+from cassim.core.settings import CasMode, Settings
+from cassim.core.values import Raw
 
 ARITHMETIC: dict[str, Callable[[Raw, Raw], Raw]] = {
     "+": operator.add,

@@ -3,12 +3,12 @@ import importlib
 import pytest
 
 PACKAGES = [
-    "emcas",
-    "emcas.core",
-    "emcas.core.compat.sympy_adapter",
-    "emcas.core.session",
-    "emcas.cli",
-    "emcas_app",
+    "cassim",
+    "cassim.core",
+    "cassim.core.compat.sympy_adapter",
+    "cassim.core.session",
+    "cassim.cli",
+    "cassim_app",
 ]
 
 

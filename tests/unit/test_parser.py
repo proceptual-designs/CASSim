@@ -1,6 +1,6 @@
 import pytest
 
-from emcas.core.ast import (
+from cassim.core.ast import (
     Assign,
     Binary,
     Call,
@@ -20,7 +20,7 @@ from emcas.core.ast import (
     String,
     Unary,
 )
-from emcas.core.errors import (
+from cassim.core.errors import (
     MISSING_CLOSE_BRACE,
     MISSING_CLOSE_BRACKET,
     MISSING_CLOSE_PAREN,
@@ -28,7 +28,7 @@ from emcas.core.errors import (
     SYNTAX,
     TISyntaxError,
 )
-from emcas.core.parser import parse, parse_expression
+from cassim.core.parser import parse, parse_expression
 
 x, y, a, b = Name("x"), Name("y"), Name("a"), Name("b")
 n1, n2, n3 = Number("1"), Number("2"), Number("3")

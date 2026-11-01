@@ -4,7 +4,7 @@ Precedence comes from the EOS table in the Reference Guide (see `Prec`). The gra
 guide does not settle are recorded in docs/decisions/0007-parser-grammar.md.
 """
 
-from emcas.core.ast import (
+from cassim.core.ast import (
     BINARY_PREC,
     COMPARE_OPS,
     POSTFIX_OPS,
@@ -32,7 +32,7 @@ from emcas.core.ast import (
     String,
     Unary,
 )
-from emcas.core.errors import (
+from cassim.core.errors import (
     MISSING_CLOSE_BRACE,
     MISSING_CLOSE_BRACKET,
     MISSING_CLOSE_PAREN,
@@ -40,7 +40,7 @@ from emcas.core.errors import (
     SYNTAX,
     TISyntaxError,
 )
-from emcas.core.lexer import Kind, Token, tokenize
+from cassim.core.lexer import Kind, Token, tokenize
 
 # A budget on how deep a tree may be, so that the parser and every later recursive walk stay well
 # inside Python's stack, including under Pyodide. Nesting costs more than one more term in a chain
@@ -49,7 +49,7 @@ from emcas.core.lexer import Kind, Token, tokenize
 MAX_DEPTH = 240
 _NESTING_COST = 3
 
-# Statements written without parentheses. Control flow (If, For, ...) belongs to emcas.basic.
+# Statements written without parentheses. Control flow (If, For, ...) belongs to cassim.basic.
 _COMMAND_NAMES = """
     ANOVA ANOVA2way ClearAZ ClrErr CopyVar CubicReg DelVar Disp DispAt ExpReg Fill
     FiveNumSummary FTest_2Samp LinRegBx LinRegMx LinRegtIntervals LinRegtTest LnReg Local

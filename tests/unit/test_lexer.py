@@ -1,7 +1,7 @@
 import pytest
 
-from emcas.core.errors import MISSING_QUOTE, SYNTAX, TISyntaxError
-from emcas.core.lexer import Kind, tokenize
+from cassim.core.errors import MISSING_QUOTE, SYNTAX, TISyntaxError
+from cassim.core.lexer import Kind, tokenize
 
 
 def kinds_and_text(src: str) -> list[tuple[Kind, str]]:

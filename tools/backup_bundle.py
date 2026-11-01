@@ -5,7 +5,7 @@ syncs safely, so writing one into a OneDrive folder gives an off-machine copy.
 
     uv run python tools/backup_bundle.py                # default destination
     uv run python tools/backup_bundle.py D:\\backups    # any folder
-    git clone emcas-20261101-1530.bundle emcas-restored # restore
+    git clone cassim-20261101-1530.bundle cassim-restored # restore
 
 Only committed work is included; commit first. Untracked files (``references/``) are
 not in git and need their own backup.
@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-DEFAULT_DEST = Path.home() / "OneDrive" / "emCAS-backups"
+DEFAULT_DEST = Path.home() / "OneDrive" / "CASSim-backups"
 KEEP = 10
 
 
@@ -45,13 +45,13 @@ def main() -> None:
 
     args.dest.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
-    bundle = args.dest / f"emcas-{stamp}.bundle"
+    bundle = args.dest / f"cassim-{stamp}.bundle"
     git("bundle", "create", str(bundle), "--all")
     git("bundle", "verify", str(bundle))
     head = git("rev-parse", "--short", "HEAD")
     print(f"wrote {bundle} ({bundle.stat().st_size / 1e3:.0f} kB), head {head}")
 
-    for old in sorted(args.dest.glob("emcas-*.bundle"))[: -args.keep]:
+    for old in sorted(args.dest.glob("cassim-*.bundle"))[: -args.keep]:
         old.unlink()
         print(f"pruned {old.name}")
 

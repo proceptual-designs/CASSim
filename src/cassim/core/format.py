@@ -3,10 +3,10 @@
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
-from emcas.core import ast
-from emcas.core.compat import sympy_adapter as cas
-from emcas.core.settings import Settings
-from emcas.core.values import Bool, Expr, ListValue, Str, Value
+from cassim.core import ast
+from cassim.core.compat import sympy_adapter as cas
+from cassim.core.settings import Settings
+from cassim.core.values import Bool, Expr, ListValue, Str, Value
 
 # Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
 _SMALLEST_FLOAT_EXPONENT = -3

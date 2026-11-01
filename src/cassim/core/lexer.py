@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from emcas.core.errors import MISSING_QUOTE, SYNTAX, TISyntaxError
+from cassim.core.errors import MISSING_QUOTE, SYNTAX, TISyntaxError
 
 
 class Kind(Enum):

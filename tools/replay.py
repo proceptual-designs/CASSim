@@ -14,8 +14,8 @@ from typing import Any
 
 import yaml
 
-from emcas.core.session import Result, Session, same_value
-from emcas.core.settings import PRESETS, Settings, updated
+from cassim.core.session import Result, Session, same_value
+from cassim.core.settings import PRESETS, Settings, updated
 
 SEED = Path(__file__).parents[1] / "corpus" / "seed"
 # Eight displayed digits, so a correct value can differ by half a unit in the last place.

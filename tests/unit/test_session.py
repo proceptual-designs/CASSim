@@ -4,9 +4,9 @@ from decimal import Decimal
 
 import pytest
 
-from emcas.core.format import decimal_text
-from emcas.core.session import Session, same_value
-from emcas.core.settings import PRESETS, Angle, Calc, CasMode, Domain, Settings
+from cassim.core.format import decimal_text
+from cassim.core.session import Session, same_value
+from cassim.core.settings import PRESETS, Angle, Calc, CasMode, Domain, Settings
 
 GENERAL = PRESETS["general"]
 AUTO = Settings()

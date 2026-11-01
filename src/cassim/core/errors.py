@@ -15,7 +15,7 @@ DOMAIN = 260
 INVALID_LIST_OR_MATRIX = 510
 TOO_FEW_ARGUMENTS = 930
 TOO_MANY_ARGUMENTS = 940
-# Not in the guide (3.2 predates the setting); the emulator's number was not captured.
+# Not in the guide (3.2 predates the setting); the simulator's number was not captured.
 CAS_RESTRICTED = -1
 # Ours, for language that a later milestone will implement.
 NOT_IMPLEMENTED = -2
