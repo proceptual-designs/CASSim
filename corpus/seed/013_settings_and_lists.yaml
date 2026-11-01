@@ -62,7 +62,7 @@ cases:
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m11.settings.float3.jpg, note: 'Display Digits = Float 3. Large and small numbers switch to scientific notation (E6, E-4). The entry echo of 0.000123456 is shown
       as 1.23456ᴇ-4. Compare as text: the formatting is the point.'}
-  status: pending
+  status: pass
 - id: m11.settings.fix2
   course: general
   settings: {digits: fix2}
@@ -78,7 +78,7 @@ cases:
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m11.settings.fix2-1.jpg, shots/m11.settings.fix2-2.jpg', note: 'Display Digits = Fix 2. 0.005 is shown as 5.00ᴇ-3 rather than 0.01 or 0.00: values that would
       round to a leading zero are displayed in scientific notation. Compare as text.'}
-  status: pending
+  status: pass
 - id: m11.settings.polar-complex
   course: methods
   settings: {domain: polar}

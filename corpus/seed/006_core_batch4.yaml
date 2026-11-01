@@ -36,7 +36,7 @@ cases:
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m4.matrix.transpose-operator.jpg, note: 'Typed on the emulator with the transpose operator (ᵀ symbol from the keyboard), not a function
       call.'}
-  status: pending
+  status: pass
 - id: m4.dist.inverse-and-geometric
   course: methods
   tier: 1

@@ -25,7 +25,7 @@ cases:
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.errors.undefined-variable-echoes.jpg, note: An undefined variable is treated as a symbol and the expression is returned unchanged; there is no undefined-variable
       error in the CAS.}
-  status: pending
+  status: pass
 - id: m12.errors.syntax
   course: methods
   tier: 1
@@ -35,7 +35,7 @@ cases:
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.errors.syntax.jpg, note: Syntax errors show a dialog titled Error with the single word Syntax. The multiplication key echoes * as a centre dot (2+·3). The
       cursor is left in the entry line for editing.}
-  status: pending
+  status: pass
 - id: m12.errors.too-many-arguments
   course: methods
   tier: 1
@@ -44,7 +44,7 @@ cases:
   - {in: 'sin(1,2)', error: true, error_contains: Too many arguments}
   provenance: {source: emulator, emulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m12.errors.too-many-arguments.jpg, shots/m12.errors.too-many-arguments-2.jpg', note: 'Dialog text: Too many arguments. The function or command contains an excessive number of arguments and cannot be evaluated. After OK the cursor is left in the entry line for editing (sin(1,2) stays there). The same applies to the other syntax and argument error dialogs.'}
-  status: pending
+  status: pass
 - id: m12.errors.too-few-arguments
   course: methods
   tier: 1
