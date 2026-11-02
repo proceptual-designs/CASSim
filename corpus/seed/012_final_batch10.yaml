@@ -37,7 +37,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.finance.compound-interest-depreciation.jpg, note: 'tvmFV(N,I,PV,Pmt,PpY,CpY). Compound interest: $5000 at 5% for 10 years. Reducing-balance
       depreciation: a negative rate (-15) on a $30000 asset over 5 years. Entering the principal as negative gives a positive future value.'}
-  status: pending
+  status: pass
 - id: m10.finance.tvmpmt
   course: methods
   tier: 1
@@ -46,7 +46,7 @@ cases:
   - {in: 'tvmPmt(60,6,10000,0,12,12)', out: '-193.32802', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.finance.tvmpmt.jpg, note: 'tvmPmt(N,I,PV,FV,PpY,CpY): loan repayment, shown negative (cash out).'}
-  status: pending
+  status: pass
 - id: m10.dist.invnorm-standard-and-binomcdf
   course: methods
   tier: 1
@@ -56,7 +56,7 @@ cases:
   - {in: 'binomCdf(20,0.3,0,5)', out: '0.41637082', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.dist.invnorm-standard-and-binomcdf.jpg, note: 'binomCdf(n,p,lower,upper).'}
-  status: pending
+  status: pass
 - id: m10.seq.arithmetic-sequence
   course: methods
   tier: 1

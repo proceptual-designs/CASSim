@@ -63,7 +63,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m13.stats.invt-tcdf-chi2cdf-1.jpg, shots/m13.stats.invt-tcdf-chi2cdf-2.jpg', note: 'invT echoes as invt(0.975,5) (lower-case t). chi2Cdf echoes as χ²Cdf. Results
       are decimals to 8 significant digits.'}
-  status: pending
+  status: pass
 - id: m13.trig.arcsinh-unevaluated
   course: methods
   tier: 1

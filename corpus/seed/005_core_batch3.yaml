@@ -166,7 +166,7 @@ cases:
   - {in: 'poissPdf(2,3)', out: '0.18044704', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.dist.pdf-cdf.jpg, note: 'poissPdf(lambda, k).'}
-  status: pending
+  status: pass
 - id: m3.solve.exp-log-trig-domain
   course: methods
   tier: 1
@@ -284,7 +284,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.finance.tvm-solve-for.jpg, note: 'Displayed 59.999998, 6.000001, 10000. and 269.77003: the solver results carry ~1e-6 error, so
       compare numerically. The Finance Solver window (Menu > Finance > Finance Solver) is built on top of these individual tvm functions, so implement the functions first and make the solver call them. Argument orders: tvmN(I,PV,Pmt,FV,PpY,CpY), tvmI(N,PV,Pmt,FV,PpY,CpY), tvmPV(N,I,Pmt,FV,PpY,CpY), tvmFV(N,I,PV,Pmt,PpY,CpY).'}
-  status: pending
+  status: pass
 - id: general.approx-mode.basics
   course: general
   tier: 1

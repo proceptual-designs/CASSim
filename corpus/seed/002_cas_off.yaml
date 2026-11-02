@@ -138,7 +138,7 @@ cases:
   - {in: 'binomPdf(10,0.5,5)', out: '0.24609375', compare: numeric, tol: 1.0e-09}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.methods.prob.distributions.jpg}
-  status: pending
+  status: pass
 - id: casoff.methods.matrix.det
   course: methods
   settings: {cas_mode: 'off'}
@@ -229,7 +229,7 @@ cases:
   - {in: 'nom(5.5356751950103,12)', out: '5.4', compare: numeric, tol: 1.0e-08}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.general.finance.eff-nom.jpg}
-  status: pending
+  status: pass
 - id: casoff.general.finance.tvm-pmt
   course: general
   settings: {cas_mode: 'off'}
@@ -239,7 +239,7 @@ cases:
   - {in: 'tvmPmt(60,6,10000,0,12,12)', out: '-193.32802', compare: numeric, tol: 1.0e-07, note: 'Argument order N,I,PV,FV,PpY,CpY confirmed; payment is negative for a positive PV.'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.general.finance.tvm-pmt.jpg}
-  status: pending
+  status: pass
 - id: casoff.general.stats.linreg-bx
   course: general
   settings: {cas_mode: 'off'}
