@@ -84,6 +84,8 @@ x=-1.4142136 or x=1.4142136
 
 With a real terminal you can press **Alt+Enter** instead of typing `:approx`. **Ctrl+Enter** works too in terminals that report it as a separate key; many send a plain Enter, which the program cannot tell apart, so use Alt+Enter or `:approx` if Ctrl+Enter does nothing.
 
+**On an empty line**, it gives the previous answer as a decimal, as on the handheld: enter `1/3`, then press Alt+Enter (or Ctrl+Enter) on the empty prompt, or type `:approx` alone. If there is no previous answer yet, nothing happens. `Done` is not an answer, so it is skipped.
+
 Only the answer is changed: `:approx a:=1/3` shows `0.33333333`, but `a` still holds the exact `1/3`. The decimal answer becomes `Ans`. The graphical app will have the real Ctrl+Enter key, using the same engine option (`Session.eval(line, approximate=True)`).
 
 ## Variables and functions
