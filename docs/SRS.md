@@ -182,7 +182,7 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-PROG-001 | TI-Basic interpreter: `Prgm`/`Func`, control flow, `Disp`/`Request`/`Text`, `Try`, `Local`. | C | T |
 | FR-PROG-002 | Program Editor page; `Define LibPub` libraries and `lib\fn` namespace. | C | T |
-| FR-PY-001 | ~~Python page and `py()` call from the CAS with a `cassim` API.~~ **Changed 2026-11-02:** the Python page is built in M7 as FR-RUN-010; the `py()` call and the `cassim` API for Problem variables are dropped (see FR-RUN-011). | n/a | n/a |
+| FR-PY-001 | A `py("script","fn",args)` call from the CAS and a small `cassim` API (read/write Problem variables, evaluate TI expressions). **Changed 2026-11-02:** the Python page itself is FR-RUN-010 (M7); this bridge is a later extra, not part of M7, and not something the handheld does (see FR-RUN-011). | C (later, after M7) | T |
 | FR-PY-002 | If Python pages are built (FR-RUN-010): scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
 | FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the simulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
 
@@ -241,7 +241,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-RUN-008 | A shared editor and console component: line numbers, indentation, error highlighting, Run/Stop, adjustable text size, keyboard-only operation, usable at 360 px width; the settings bar of FR-SET-001 sits at the top of it. | S | D |
 | FR-RUN-009 | **Code view**: standalone mode with no device skin, reachable from the start screen without the profile switcher (FR-PROF-003); files, undo and download as in FR-EDT-001 to FR-EDT-004; imported files never auto-run [Q23]. | S | E |
 | FR-RUN-010 | **Page types**: Python and Pseudocode pages can be added to a document in the Nspire profile (FR-DOC-005). Adding them bumps the document schema version with a migration (FR-DOC-004). | S | T |
-| FR-RUN-011 | ~~Scripts reading and writing Problem variables through a `cassim` API.~~ **Dropped 2026-11-02:** Python and Pseudocode pages are self-contained, with no access to the calculator's variables and no `py()` call from the CAS. Revisit only if a real need appears. | n/a | n/a |
+| FR-RUN-011 | A script on a Python or Pseudocode page can read and write the Problem's variables and evaluate TI expressions through the `cassim` API of FR-PY-001, by name and without evaluating strings outside the engine's parser (NFR-SEC-004). The real TI-Nspire does not allow this, so it is a CASSim extension, scheduled after M7 and only if wanted. Until then the pages are self-contained. | C (later, after M7) | T |
 
 **Pseudocode language (M7)** — dialect in `docs/pseudocode/dialect.md`
 | ID | Requirement | Pri | Ver |
@@ -458,4 +458,4 @@ Q1-Q15 are answered and folded into the text above. Q16-Q38 were added on 2026-1
 | `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy |
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire |
-| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration |
+| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) |
