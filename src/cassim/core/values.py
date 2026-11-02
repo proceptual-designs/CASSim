@@ -1,4 +1,4 @@
-"""Typed Value union: Expr, Str, Bool, List, Matrix, Void and Unevaluated.
+"""Typed Value union: Expr, Str, Bool, List, Matrix, Void, Unevaluated and Shown.
 
 Numbers, symbolic expressions and relations are all `Expr`, which holds a SymPy object that only
 `compat/sympy_adapter.py` may look inside. Unit values arrive with the catalog (M1d).
@@ -35,6 +35,17 @@ class Unevaluated:
 
 
 @dataclass(frozen=True, slots=True)
+class Shown:
+    """A number that prints differently from its usual form: `0hFF`, `30°30'`, `2+1/3`.
+
+    Arithmetic and comparison use `value`; only printing uses `text`.
+    """
+
+    value: Value
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
 class Void:
     """What a statement with nothing to show returns; the calculator prints `Done`."""
 
@@ -53,4 +64,4 @@ class MatrixValue:
     rows: tuple[tuple[Cell, ...], ...]
 
 
-type Value = Expr | Str | Bool | ListValue | MatrixValue | Void | Unevaluated
+type Value = Expr | Str | Bool | ListValue | MatrixValue | Void | Unevaluated | Shown

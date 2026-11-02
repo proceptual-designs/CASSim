@@ -5,6 +5,7 @@ the syntax tree, for `seq`, `when` and others that decide what to evaluate). A c
 statement written without parentheses, such as `SortA l`.
 """
 
+import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -42,6 +43,7 @@ class Host(Protocol):
 type Eager = Callable[[Host, list[Value]], Value]
 type Lazy = Callable[[Host, tuple[ast.Expr, ...]], Value]
 type CommandRun = Callable[[Host, tuple[ast.Expr, ...]], Value]
+type ConversionRun = Callable[[Host, Value, list[Value]], Value]
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +69,7 @@ type Entry = EagerEntry | LazyEntry
 
 _FUNCTIONS: dict[str, Entry] = {}
 _COMMANDS: dict[str, CommandRun] = {}
+_CONVERSIONS: dict[str, ConversionRun] = {}
 
 
 def eager[F: Callable[..., Value]](
@@ -107,8 +110,30 @@ def command(name: str) -> Callable[[CommandRun], CommandRun]:
     return decorate
 
 
+def conversion(name: str) -> Callable[[ConversionRun], ConversionRun]:
+    """Register a `▶name` conversion. It gets the value and the evaluated target arguments."""
+
+    def decorate(function: ConversionRun) -> ConversionRun:
+        _CONVERSIONS[name.casefold()] = function
+        return function
+
+    return decorate
+
+
+def lookup_conversion(name: str) -> ConversionRun | None:
+    return _CONVERSIONS.get(name.casefold())
+
+
+# `sin⁻¹` and `arcsin` are one function; the catalog knows it by the typed name.
+_INVERSE_SPELLING = re.compile(r"(sin|cos|tan|sec|csc|cot)(h?)⁻¹")
+
+
+def _canonical(name: str) -> str:
+    return _INVERSE_SPELLING.sub(r"arc\1\2", name.casefold())
+
+
 def lookup(name: str) -> Entry | None:
-    return _FUNCTIONS.get(name.casefold())
+    return _FUNCTIONS.get(_canonical(name))
 
 
 def lookup_command(name: str) -> CommandRun | None:
@@ -116,4 +141,4 @@ def lookup_command(name: str) -> CommandRun | None:
 
 
 def is_builtin(name: str) -> bool:
-    return name.casefold() in _FUNCTIONS
+    return _canonical(name) in _FUNCTIONS

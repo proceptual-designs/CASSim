@@ -10,7 +10,7 @@ from cassim.core.format import to_latex, to_text
 from cassim.core.parser import parse
 from cassim.core.scope import Scope
 from cassim.core.settings import Settings, updated
-from cassim.core.values import Expr, ListValue, MatrixValue, Value, Void
+from cassim.core.values import Expr, ListValue, MatrixValue, Shown, Value, Void
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +50,8 @@ class Session:
 
 def same_value(left: Value, right: Value, tolerance: float | None = None) -> bool:
     """Decide whether two values are mathematically equal, element by element."""
+    left = left.value if isinstance(left, Shown) else left
+    right = right.value if isinstance(right, Shown) else right
     if isinstance(left, Expr) and isinstance(right, Expr):
         return cas.equal(left.raw, right.raw, tolerance)
     if isinstance(left, ListValue) and isinstance(right, ListValue):

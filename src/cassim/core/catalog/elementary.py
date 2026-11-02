@@ -6,9 +6,10 @@ from cassim.core import angles, errors
 from cassim.core.catalog.registry import Host, eager
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
+from cassim.core.format import to_text
 from cassim.core.settings import Angle
 from cassim.core.valueops import as_expr, map_value, raw_of
-from cassim.core.values import Expr, Raw, Value
+from cassim.core.values import Expr, Raw, Shown, Value
 
 _FORWARD_TRIG = frozenset({"sin", "cos", "tan", "sec", "csc", "cot"})
 _INVERSE_TRIG = frozenset({"arcsin", "arccos", "arctan", "arcsec", "arccsc", "arccot"})
@@ -32,10 +33,29 @@ def _compute(name: str, raw: Raw, angle: Angle) -> Raw:
     return function(raw)
 
 
+def _kept_as_typed(name: str, raw: Raw, result: Raw, angle: Angle) -> bool:
+    """Is this a trig function of a plain number that stays unevaluated, such as `sin(1)` in
+    Degree mode (where SymPy holds `sin(π/180)`)? TI shows it as it was typed."""
+    return (
+        name in _FORWARD_TRIG
+        and angle is not Angle.RADIAN
+        and cas.number_value(raw) is not None
+        and result.is_Function
+    )
+
+
 def _unary(name: str) -> Callable[[Host, list[Value]], Value]:
     def run(host: Host, args: list[Value]) -> Value:
-        angle = host.settings.angle
-        return map_value(lambda value: Expr(_compute(name, raw_of(value), angle)), args[0])
+        settings = host.settings
+
+        def one(value: Value) -> Value:
+            raw = raw_of(value)
+            result = _compute(name, raw, settings.angle)
+            if _kept_as_typed(name, raw, result, settings.angle):
+                return Shown(Expr(result), f"{name}({to_text(Expr(raw), settings)})")
+            return Expr(result)
+
+        return map_value(one, args[0])
 
     return run
 

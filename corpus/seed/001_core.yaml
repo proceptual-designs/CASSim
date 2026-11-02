@@ -46,7 +46,7 @@ cases:
     - {in: "solve(sin(x)=1/2,x)", out: "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6", compare: family,
        note: "Confirmed on simulator: TI returns the general solution with n1 (shown bold italic). SymPy returns principal values only; the adapter must add the families."}
   provenance: {<<: *emu, evidence: shots/methods.solve.trig-general-solution.jpg}
-  status: pending
+  status: pass
 
 - id: methods.algebra.factor-expand-propfrac
   course: methods

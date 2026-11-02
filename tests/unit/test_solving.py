@@ -147,8 +147,24 @@ def test_solving_in_degree_mode_reads_trig_in_degrees():
     same("solve(x^2=4,x)|x>0", "x=2", DEGREE)
 
 
+def test_a_periodic_equation_gives_the_family_of_solutions():
+    assert text("solve(sin(x)=1/2,x)") == "x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6"
+    same("solve(sin(x)=1/2,x)", "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6")
+    same("solve(cos(x)=0,x)", "x=2*@n1*π+π/2 or x=2*@n1*π+3*π/2")
+
+
+def test_a_family_in_degree_mode_is_in_degrees():
+    same("solve(sin(x)=1/2,x)", "x=360*@n1+30 or x=360*@n1+150", DEGREE)
+
+
 def test_an_answer_with_no_finite_form_stays_as_typed():
-    assert text("solve(sin(x)=1/2,x)") == "solve(sin(x)=1/2,x)"
+    assert text("solve(exp(x)=x,x)") == "solve(ⅇ^x=x,x)"
+
+
+def test_roots_that_need_a_parameter_to_be_non_negative_say_so():
+    same("solve(x^2=a,x)", "x=-√(a) and a≥0 or x=√(a) and a≥0")
+    assert text("solve(x^2=a,x)") == "x=-√(a) and a≥0 or x=√(a) and a≥0"
+    assert text("solve(a*x+b=0,x)") == "x=-b/a"
 
 
 def test_the_unknown_is_symbolic_even_if_it_holds_a_value():

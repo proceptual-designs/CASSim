@@ -34,7 +34,7 @@ cases:
   - {in: tCollect(sin(x)*cos(x)), out: sin(2*x)/2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m8.trig.tcollect.jpg}
-  status: pending
+  status: pass
 - id: m8.matrix.eigvc-augment
   course: specialist
   tier: 1
@@ -45,7 +45,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m8.matrix.eigvc-augment.jpg, note: 'eigVc returns decimal eigenvectors even in Auto mode. The matrix shown for [2,1;1,2] is [0.70710678,-0.70710678;0.70710678,0.70710678],
       i.e. columns (0.707,0.707) and (-0.707,0.707); eigenvector order and sign are simulator-specific, so compare up to scale and sign when implementing.'}
-  status: pending
+  status: pass
 - id: m8.calculus.impdif
   course: specialist
   tier: 1

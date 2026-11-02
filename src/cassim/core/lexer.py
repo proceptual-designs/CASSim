@@ -72,6 +72,8 @@ _DMS_RE = re.compile(
 # Catalog entries with an arrow inside the name, such as list▶mat( and P▶Rx(.
 # TI displays inverse functions this way; arcsin is the typed form.
 _INVERSE_NAME_RE = re.compile(r"(?:sin|cos|tan|sec|csc|cot)h?⁻¹")
+# Typed on the keyboard, `sin^-1(x)` is the inverse sine, not `1/sin`; `sin(x)^-1` is unaffected.
+_CARET_INVERSE_RE = re.compile(r"(sin|cos|tan|sec|csc|cot)(h?)\^(?:-1|\(-1\))(?=\()", re.IGNORECASE)
 _ARROW_NAME_RE = re.compile(
     r"(freqTable|list|mat|exp|P|R)(?:▶|►|@>)(list|mat|Rx|Ry|Pr|Pθ|Ptheta)(?=\()", re.IGNORECASE
 )
@@ -131,6 +133,7 @@ _FIXED_TOKENS: tuple[tuple[re.Pattern[str], Kind, Callable[[re.Match[str]], str]
     (_DMS_RE, Kind.DMS, lambda m: m.group().replace("@d", "°")),
     (_NUMBER_RE, Kind.NUMBER, lambda m: m.group().replace("@E", "ᴇ")),
     (_INVERSE_NAME_RE, Kind.NAME, lambda m: m.group()),
+    (_CARET_INVERSE_RE, Kind.NAME, lambda m: f"{m.group(1)}{m.group(2)}⁻¹".lower()),
     (_ARROW_NAME_RE, Kind.NAME, lambda m: f"{m.group(1)}▶{m.group(2)}"),
     (_POSTFIX_AT_RE, Kind.OP, lambda m: _POSTFIX_AT[m.group(1)]),
     (_OPERATOR_RE, Kind.OP, lambda m: _OPERATORS[m.group()]),

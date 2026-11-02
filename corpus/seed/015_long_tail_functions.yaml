@@ -84,7 +84,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m13.convert.grad-in-radian-mode.jpg, note: 'In Radian mode 90 is interpreted as 90 radians, so ▶Grad gives 18000/π with the gradian marker ᵍ (U+1D4D, a lowercase superscript g, ASCII spelling @g; not the uppercase ᴳ). The superscript g marks
       a gradian value.'}
-  status: pending
+  status: pass
 - id: m13.matrix.3x3-det-inverse
   course: specialist
   tier: 1
@@ -115,7 +115,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m13.algebra.comdenom-cfactor.jpg, note: comDenom shows a yellow warning triangle in the history (cause not investigated) but the result is as expected. cFactor
       factors over the complex numbers; factor stays over the rationals (x²+1 irreducible).}
-  status: pending
+  status: pass
 - id: m13.random.randint-range-only
   course: methods
   tier: 1
@@ -125,4 +125,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m13.random.randint-range-only.jpg, note: 'Random output cannot be compared exactly. Over 50 draws each the minimum is 1 and the maximum is 6, so randInt(1,6,n)
       stays within [1,6] and covers the range. Tests should only check range membership.'}
-  status: pending
+  status: pass

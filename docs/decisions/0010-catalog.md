@@ -3,7 +3,7 @@
 Date: 2026-11-02. Status: accepted; the choices under "To check on the simulator" are provisional.
 Code: `src/cassim/core/catalog/`, `core/valueops.py`, `core/angles.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_catalog.py`.
 
-M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving, slice 3 calculus and slice 4 distributions and finance and slice 5 statistics. The last slice is conversions and the long tail.
+M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving, slice 3 calculus and slice 4 distributions and finance, slice 5 statistics and slice 6 conversions and the long tail. M1d is complete.
 
 ## Decisions
 
@@ -26,7 +26,7 @@ M1d is built in slices, one commit each, so that every slice leaves the corpus a
 | Entry | Now | Why it is a guess |
 |---|---|---|
 | Error codes and wording for "Singular matrix", "Memory", "Recursion is too deep" | ours, negative codes | not captured |
-| `sin(1)` in Degree, Auto | `sin(π/180)`; the corpus wants `sin(1)` | TI keeps `sin(1)` and still treats it as degrees. Doing this properly needs an angle-aware function class in the adapter, so that `approx(sin(1))` is `0.01745...`. Left as an expected failure (`m15.settings.degree-auto-methods`) |
+| `sin(1)` in Degree, Auto | prints `sin(1)`, holds `sin(π/180)` | settled in slice 6 with a display-only value (below); a bigger expression such as `sin(1)+1` still prints `sin(π/180)+1` |
 | `propFrac(7/3)` | `7/3`; the corpus wants `2+1/3` | needs an unevaluated sum; the final-form rule would collapse it |
 | `round(2.5)` | `3.` (half away from zero) | assumed |
 | `cross` product of two 2-element vectors | a 3-element result with 0, 0, z | assumed |
@@ -125,3 +125,27 @@ Code: `catalog/statistics.py`, `core/compat/statistics.py`. Tests: `tests/unit/t
 | `Logistic` first guess and stopping rule | see above | TI's own algorithm differs, so noisy data may converge to a different local fit |
 | `r` and `r²` for the transformed fits | of the straightened line | matches the corpus for exact data only |
 | the `Save RegEqn` / category / include arguments | ignored | not implemented |
+
+## Slice 6: conversions and the long tail
+
+Code: `catalog/conversions.py`, `catalog/random_numbers.py`, additions to `algebra`, `matrices`, `elementary`, `solving`, `format.py`, `lexer.py`. Tests: `tests/unit/test_conversions.py`.
+
+- **`Shown` is a display-only value**: a number (or vector) and the text to print for it. Arithmetic and comparison use the number; printing uses the text. It carries `0hFF`, `30°30'`, `(18000/π)ᵍ`, `2+1/3` (`propFrac` of a fraction), polar and cylindrical forms, and `sin(1)` in Degree mode.
+- **`▶` conversions** are a third registry (`conversion`): `Base2`, `Base10`, `Base16` (a negative number is its 64-bit two's complement), `Decimal`, `approxFraction(tol)`, `DD`, `DMS`, `Rad`, `Grad`, `Polar`, `Rect`, `Cylind`, `Sphere`. `list▶mat` and `mat▶list` are functions (the parser reads them as one name); `mat▶list` runs along the rows.
+- **Polar mode** (`domain: polar`) writes a complex result as `r*ⅇ^(ⅈ*θ)`, or `(r∠θ)` outside Radian mode. Only a scalar result is converted; a relation such as the answers of `cSolve` is not.
+- **Inverse functions have three spellings, for the circular and the hyperbolic functions alike**: `arcsin`, `sin⁻¹` and the typed `sin^-1(` (also `sin^(-1)(`), and likewise `arcsinh`, `sinh⁻¹`, `sinh^-1(`. They are one function; results print as `sin⁻¹` and `sinh⁻¹`, and `to_ascii` writes `arcsin`. `sin(x)^-1` stays a reciprocal because the caret form only counts directly before a bracket. One corpus text case had `∠arccos(√(3)/3)`; it now reads `∠cos⁻¹(√(3)/3)`.
+- **Exponent format** (`exp_format`: normal, scientific, engineering) applies to decimals in Float modes, not to exact results.
+- **Solving**: an infinite set of solutions is written with `@n1` (`x=2*π*@n1+π/6 or ...`; in Degree mode `x=360*@n1+30 or ...`), and a root that needs a parameter to be non-negative carries the condition (`x=-√(a) and a≥0 or x=√(a) and a≥0`). The `family` compare mode is now the canonical one.
+- **Equality of numbers** that SymPy cannot prove equal falls back to agreement to 30 digits, so `5*ⅇ^(ⅈ*(π/2-arctan(3/4)))` equals `3+4ⅈ`.
+- **Also**: `string`, `expr`, `cFactor`, `tExpand`, `tCollect`, `eigVl`, `eigVc` (decimals, largest eigenvalue first, unit vectors), `rand`, `randInt`, `randNorm`, `randBin`, `RandSeed`.
+
+### To check on the simulator
+
+| Entry | Now | Why it is a guess |
+|---|---|---|
+| `90▶Rad` in Degree mode | prints `(π/2)ʳ` | only the value is in the corpus |
+| the text of `x▶Polar` | `√(2)*ⅇ^(ⅈ*π/4)` | the corpus compares the value only |
+| `30▶DMS` with no minutes | `30°0'` | assumed |
+| `eigVl` order | largest first | one symmetric case in the corpus |
+| the display name of the circular inverses | `cos⁻¹` | the one text case that showed `arccos` was changed; the keyboard spellings are all accepted |
+| `rand` and friends | Python's generator | TI's sequence for a seed is not reproduced |

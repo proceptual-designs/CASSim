@@ -86,7 +86,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m4.solve.parametric-and-system.jpg, note: Parametric solutions carry domain conditions (a≥0) using "and". Solutions to a system are
       "x=.. and y=.. or x=.. and y=..".}
-  status: pending
+  status: pass
 - id: m4.defs.function-use
   course: methods
   tier: 1
