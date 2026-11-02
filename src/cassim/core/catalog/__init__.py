@@ -1,6 +1,6 @@
 """Built-in functions and commands, grouped by area and registered on import."""
 
-from cassim.core.catalog import algebra, control, elementary, lists, matrices
+from cassim.core.catalog import algebra, control, elementary, lists, matrices, solving
 from cassim.core.catalog.registry import (
     EagerEntry,
     Entry,
@@ -24,4 +24,5 @@ __all__ = [
     "lookup",
     "lookup_command",
     "matrices",
+    "solving",
 ]

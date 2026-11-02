@@ -61,7 +61,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m4.trig.inverse-and-solve-1.jpg, shots/m4.trig.inverse-and-solve-2.jpg', note: Inverse trig results display as sin⁻¹ / tan⁻¹ in the
       echoed input.}
-  status: pending
+  status: pass
 - id: m4.log.rules-and-bases
   course: methods
   tier: 1

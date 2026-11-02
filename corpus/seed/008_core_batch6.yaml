@@ -67,4 +67,4 @@ cases:
   - {in: 'solve(ln(x)+ln(x-1)=ln(2),x)', out: x=2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.solve.log-equation.jpg, note: The extraneous root x=-1 is excluded automatically (domain of ln).}
-  status: pending
+  status: pass

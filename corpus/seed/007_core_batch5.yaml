@@ -12,7 +12,7 @@ cases:
   - {in: 'solve(x^3-6*x^2+11*x-6=0,x)', out: x=1 or x=2 or x=3}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.vce.exp-quadratic-and-cubic-solve.jpg}
-  status: pending
+  status: pass
 - id: m5.vce.definite-integral-abs
   course: methods
   tier: 1

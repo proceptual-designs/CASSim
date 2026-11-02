@@ -3,7 +3,7 @@
 Date: 2026-11-02. Status: accepted; the choices under "To check on the simulator" are provisional.
 Code: `src/cassim/core/catalog/`, `core/valueops.py`, `core/angles.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_catalog.py`.
 
-M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 (this record) is the registry plus the functions that need no new maths engine. Later slices: solve and friends, calculus, distributions and finance, then statistics and the regression commands.
+M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving. Later slices: calculus, distributions and finance, then statistics and the regression commands.
 
 ## Decisions
 
@@ -36,3 +36,27 @@ M1d is built in slices, one commit each, so that every slice leaves the corpus a
 ## Not done in slice 1
 
 `solve`, `cSolve`, `zeros`, `cFactor`, `tExpand`, `tCollect`, `eigVl`, `eigVc`, `randInt`, calculus, distributions, finance, statistics commands, and the conversions after `▶` (all later slices of M1d).
+
+## Slice 2: solving
+
+Code: `catalog/solving.py`, the "Solving" section of the adapter, `Evaluator._constrain`. Tests: `tests/unit/test_solving.py`.
+
+- **`solve`, `cSolve`, `zeros`, `cZeros`, `polyRoots`, `polyEval`.** `solve` and friends are lazy: the unknown is read from the argument list as typed, and the equation is evaluated with the unknown bound to a plain symbol, so a stored value (`x:=5`) does not leak in. This also settles the design note in 0009 for `derivative`.
+- **Answers are conditions, not sets.** A finite answer is `x=a or x=b` (roots in increasing order, complex ones by real part then imaginary part descending), a range is a relation or chain (`-3≤x≤1`, `x<-2 or x>2`), no solution is `false`, every value is `true`. A system gives `x=2 and y=1`, or several such cases joined by `or`.
+- **A `|` condition that is not `x=value` becomes the domain.** `Evaluator` keeps those relations while the left side is evaluated, and `solve` intersects its real answers with them. An enclosing condition that nothing uses is ignored (`x^2|x>0` is `x^2`). The solution is found over the reals and then intersected, because SymPy misses roots when given a bounded domain directly.
+- **Degree and gradian mode.** `sin(x)` of a symbol is kept as typed when entered, so `solve` converts the argument of trig functions of the unknown to radians just before solving; the bounds stay plain numbers. Other consumers of such expressions (calculus) must do the same.
+- **Roots are checked.** SymPy returns `x=-1` for `ln(x)+ln(x-1)=ln(2)`; every finite root is put back into the equation and dropped if it is not real or does not hold.
+- **An equation with symbols is never decided by SymPy.** `x=ⅈ` for a real symbol `x` would be `false`, which would erase every `cSolve` answer, so `relation()` builds `Eq`/`Ne` with `evaluate=False` when either side has symbols and the sides differ (`x=x` is still `true`).
+- **Relations are compared in canonical form**, so `2<x` equals `x>2`; and a pair of bounds on one expression prints as a chain.
+- **Chained relations** (`0≤x≤2*π`) evaluate to the conjunction of their links.
+- **CAS Off and Exact Arithmetic** refuse all of these.
+
+### To check on the simulator
+
+| Entry | Now | Why it is a guess |
+|---|---|---|
+| `solve(sin(x)=1/2,x)` with no domain | echoed unevaluated | TI gives the family `x=2*@n1*π+π/6 or ...`; the `family` compare mode is not implemented (`methods.solve.trig-general-solution`) |
+| `solve(x^2=a,x)` | `x=-√(a) or x=√(a)` | TI adds the condition `a≥0` to each root (`m4.solve.parametric-and-system`) |
+| `zeros` with no finite answer | echoed unevaluated | assumed |
+| `polyRoots` | real roots, with multiplicity | the Reference Guide's wording was not checked against the CAS build |
+| a system with no unique answer that SymPy cannot solve | "Domain error" | assumed |

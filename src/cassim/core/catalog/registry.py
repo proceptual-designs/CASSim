@@ -13,7 +13,7 @@ from typing import Protocol
 from cassim.core import ast
 from cassim.core.scope import Scope
 from cassim.core.settings import Settings
-from cassim.core.values import Value
+from cassim.core.values import Raw, Value
 
 
 class Host(Protocol):
@@ -24,6 +24,11 @@ class Host(Protocol):
 
     @property
     def scope(self) -> Scope: ...
+
+    @property
+    def constraints(self) -> tuple[Raw, ...]:
+        """Relations from an enclosing `|`, for functions that solve within a domain."""
+        ...
 
     def expr(self, node: ast.Expr) -> Value: ...
 

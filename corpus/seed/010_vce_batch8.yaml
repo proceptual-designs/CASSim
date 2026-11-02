@@ -77,7 +77,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m8.complex.czeros-real-imag-1.jpg, shots/m8.complex.czeros-real-imag-2.jpg', note: 'real() and imag() of an expression typed with
       sqrt(-1) show a warning triangle on the entry in this document (Real mode), but still return 3 and 4.'}
-  status: pending
+  status: pass
 - id: m8.calculus.volume-substitution-arclength
   course: specialist
   tier: 1

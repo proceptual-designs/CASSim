@@ -17,7 +17,7 @@ cases:
     captured: "2026-10-31"
     reviewed_by: "claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)"
     evidence: shots/methods.solve.quadratic.jpg
-  status: pending
+  status: pass
 
 - id: methods.define.solve-with-domain
   course: methods
@@ -27,7 +27,7 @@ cases:
     - {in: "f(x):=x^2-4", out: "Done"}
     - {in: "solve(f(x)=0,x)|x>0", out: "x=2"}
   provenance: {<<: *emu, evidence: shots/methods.define.solve-with-domain.jpg}
-  status: pending
+  status: pass
 
 - id: methods.solve.system
   course: methods
@@ -36,7 +36,7 @@ cases:
   steps:
     - {in: "solve({x+y=3,x-y=1},{x,y})", out: "x=2 and y=1"}
   provenance: {<<: *emu, evidence: shots/methods.solve.system.jpg}
-  status: pending
+  status: pass
 
 - id: methods.solve.trig-general-solution
   course: methods
@@ -142,7 +142,7 @@ cases:
     - {in: "abs(3+4*@i)", out: "5", note: "@i is the ASCII spelling of the imaginary unit ⅈ; the simulator echoes it as |3+4·ⅈ|. Confirmed in a later capture."}
     - {in: "abs(3+4*√(-1))", out: "5", note: "Alternative spelling: sqrt(-1) also gives the imaginary unit."}
   provenance: {<<: *emu, evidence: 'shots/specialist.complex.csolve.jpg, shots/specialist.complex.csolve-2.jpg'}
-  status: pending
+  status: pass
 
 - id: specialist.vector.crossp
   course: specialist

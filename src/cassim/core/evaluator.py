@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from itertools import pairwise
 from typing import Any
 
 from cassim.core import angles, ast, catalog, errors
@@ -119,6 +120,8 @@ class Evaluator:
         self._scope = scope if scope is not None else Scope()
         # Bindings from a user-function call or a `|` constraint; the last one wins.
         self._frames: list[dict[str, Value]] = []
+        # Relations from enclosing `|` constraints that no binding consumes, such as `x>0`.
+        self._constraints: list[Raw] = []
         self._calls = 0
         self._dispatch: dict[type, Callable[[Any], Value]] = {
             ast.Number: self._number,
@@ -143,6 +146,10 @@ class Evaluator:
     @property
     def scope(self) -> Scope:
         return self._scope
+
+    @property
+    def constraints(self) -> tuple[Raw, ...]:
+        return tuple(self._constraints)
 
     @contextmanager
     def bound(self, bindings: dict[str, Value]) -> Generator[None]:
@@ -355,10 +362,24 @@ class Evaluator:
         raise _unsupported(f"the {node.op} operator here")
 
     def _constrain(self, node: ast.Binary) -> Value:
-        """`expr|x=value`: evaluate `expr` with each named variable bound to its value."""
-        bindings = {name: self.expr(value) for name, value in _equalities(node.right)}
-        with self.bound(bindings):
-            return self.expr(node.left)
+        """`expr|x=value` binds a variable for `expr`; other conditions such as `x>0` are kept
+        for the functions that solve within a domain, and `expr` itself is not changed by them.
+        """
+        bindings: dict[str, Value] = {}
+        relations: list[Raw] = []
+        for part in _conjuncts(node.right):
+            equality = _equality(part)
+            if equality is not None:
+                bindings[equality[0]] = self.expr(equality[1])
+            else:
+                relations.append(as_expr(self.expr(part)).raw)
+        mark = len(self._constraints)
+        self._constraints.extend(relations)
+        try:
+            with self.bound(bindings):
+                return self.expr(node.left)
+        finally:
+            del self._constraints[mark:]
 
     def _binary(self, node: ast.Binary) -> Value:
         if node.op == "|":
@@ -374,11 +395,13 @@ class Evaluator:
         raise _unsupported(f"the {node.op} operator here")
 
     def _compare(self, node: ast.Compare) -> Value:
-        if len(node.rest) > 1:
-            raise _unsupported("a chained relation")
-        op, right = node.rest[0]
-        left_value, right_value = self.expr(node.first), self.expr(right)
-        return _from_truth(cas.relation(op, as_expr(left_value).raw, as_expr(right_value).raw))
+        terms = [self.expr(node.first)] + [self.expr(term) for _, term in node.rest]
+        relations = [
+            cas.relation(op, as_expr(a).raw, as_expr(b).raw)
+            for (op, _), (a, b) in zip(node.rest, pairwise(terms), strict=True)
+        ]
+        # A chain like `0≤x≤2*π` means every link holds.
+        return _from_truth(relations[0] if len(relations) == 1 else cas.logic_all(relations))
 
     def _convert(self, node: ast.Convert) -> Value:
         if isinstance(node.target, ast.Name) and node.target.text.casefold() == "decimal":
@@ -386,12 +409,17 @@ class Evaluator:
         raise _unsupported(f"▶{node.target}")
 
 
-def _equalities(node: ast.Expr) -> list[tuple[str, ast.Expr]]:
-    """Read `x=2 and y=3` into (name, value) pairs. Inequalities wait for solve (M1d)."""
+def _conjuncts(node: ast.Expr) -> list[ast.Expr]:
+    """Split `a and b and c` into its parts."""
     if isinstance(node, ast.Binary) and node.op == "and":
-        return _equalities(node.left) + _equalities(node.right)
+        return _conjuncts(node.left) + _conjuncts(node.right)
+    return [node]
+
+
+def _equality(node: ast.Expr) -> tuple[str, ast.Expr] | None:
+    """Read `x=value` into (name, value)."""
     if isinstance(node, ast.Compare) and len(node.rest) == 1:
         (op, value), name = node.rest[0], node.first
         if op == "=" and isinstance(name, ast.Name):
-            return [(name.text.casefold(), value)]
-    raise _unsupported("this kind of constraint")
+            return name.text.casefold(), value
+    return None
