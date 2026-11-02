@@ -236,7 +236,7 @@ This cross-cuts every functional area.
 - NFR-PORT-003 (S) Handheld mode usable at 360 px wide and in both orientations.
 
 ### 5.6 Maintainability and quality
-- NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI is not yet running because there is no remote.
+- NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.
 - NFR-MAINT-002 (M) Core never imports Flet (lint rule); SymPy only in the adapter.
 - NFR-MAINT-003 (M) Conventional commits; small commits; decisions recorded in `docs/decisions/`.
 - NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim_app` (Flet UI) is excluded and covered by Playwright. CI reports coverage and fails below target.
@@ -253,7 +253,7 @@ This cross-cuts every functional area.
 
 ## 6. External interfaces
 - **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
-- **Files**: `.cassim.json` (versioned), CSV, optionally xlsx; optional `.tns` (M6).
+- **Files**: `.cassim.json` (versioned), CSV, optionally xlsx. `.tns` is deferred (FR-DOC-006).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
 - **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; MathLive (fallback MathQuill) for the 2D editor, **unverified in the Flet web build**.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
