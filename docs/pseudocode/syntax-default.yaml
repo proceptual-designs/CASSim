@@ -1,0 +1,92 @@
+# CASSim pseudocode syntax file: the built-in DEFAULT (draft schema v0, 2026-11-02).
+#
+# This is what the parser accepts and the printer writes. It is data, never code. In the app it is stored in browser storage,
+# edited under the settings "..." menu > Syntax, and can be exported and imported (SRS FR-SYN-001 to -009).
+# Format is a draft: SDD-13 may change it, but the ideas stay: several spellings per construct, each one
+#   ok   = accepted silently
+#   warn = accepted, with a warning beside the line
+#   no   = rejected with a message
+# and optional tokens (required | optional | forbidden). `emit` is what the printer writes.
+
+syntax_version: 0
+name: "CASSim default (tolerant)"
+based_on: null
+
+lexical:
+  keywords_case_insensitive: true      # define / Define / DEFINE
+  identifiers_case_sensitive: true     # A and a are different names
+  comments:      {"//": ok, "#": ok}
+  minus:         {"-": ok, "−": ok, "–": ok}
+  times:         {"×": ok, "*": ok, "·": ok}     # implicit multiplication (2a, 2t) is always allowed
+  divide:        {"÷": ok, "/": ok}
+  mod:           {"mod": ok, "MOD": ok, "%": warn}     # x <- angle mod 2pi (floor semantics)
+  div:           {"div": ok, "DIV": ok}
+  sqrt_symbol:   {"√": ok}                 # √(x+1)
+  power:         {"^": ok, "**": ok, superscript_digits: ok}
+  equal:         {"=": ok, "==": ok}
+  not_equal:     {"≠": ok, "<>": ok, "!=": ok}
+  less_equal:    {"≤": ok, "<=": ok, "⩽": ok}
+  greater_equal: {"≥": ok, ">=": ok, "⩾": ok}
+  and:           {"and": ok, "∧": ok}
+  or:            {"or": ok, "∨": ok}
+  not:           {"not": ok, "¬": ok}
+  grouping:      {"( )": ok, "[ ]": ok}
+  abs_bars:      ok
+  string_quotes: {"straight": ok, "curly": ok}
+
+constructs:
+  assign:
+    spellings: {"←": ok, "<-": ok, ":=": ok, "=": warn}
+  input:
+    keywords: {input: ok}
+  print:
+    end: newline                             # newline | space | none: what print appends (decided: newline default, changeable in the ... menu; FR-SET-007)
+    keywords: {print: ok, output: ok}
+    parentheses: optional                    # print x, y   |   print(x, y)
+    item_separator: {",": ok, juxtaposed_after_string_literal: warn}
+  if:
+    then: optional                           # required | optional | forbidden
+    else_if: {"else if": ok, "elseif": ok, "elif": ok}
+    terminators: {"end if": ok, "endif": ok, "end": no}
+  while:
+    do: optional
+    is_true: ok                              # while c is true
+    terminators: {"end while": ok, "endwhile": ok, "wend": ok, "end": no}
+  for:
+    range_words: {from: required, to: required, step: ok}
+    do: optional
+    terminators: {"end for": ok, "endfor": ok, "next": ok, "next <variable>": ok, "end": no}
+  repeat_times:
+    terminators: {"end repeat": ok, "endrepeat": ok, "next": no, "end": no}
+  repeat_until:
+    until: required                          # no separate terminator
+  define:
+    keywords: {define: ok, function: ok}
+    colon_after_header: optional             # define f(x):
+    terminators: {"end": ok, "end define": ok, "end function": ok, dedent: ok}
+  function_by_assignment: ok               # P(x) <- a x^3 + b x^2 + c : defines a local function (book newton3)
+  default_parameters: ok                   # define newton(f, x0, steps, h=10^-6)
+  return: {keywords: {return: ok}}
+  break:  {keywords: {break: ok}}
+
+# Structure: a closer for an outer block (or a dedent) closes still-open inner blocks.
+lists:
+  index_base: 1                            # 1 | 0 ; also a toggle in the ... menu, saved with the program (decided)
+
+structure:
+  missing_inner_end: warn                  # ok | warn | no  (real exams omit EndIf/End If)
+  surplus_end: no
+
+# What the printer writes (translation from Python, formatting, examples).
+emit:
+  keyword_case: lower                        # lower | UPPER | Capitalised
+  indent: 2
+  comment: "//"
+  assign: "←"
+  times: "×"
+  divide: "÷"
+  if_then: always                            # always | never
+  while_do: always
+  for_do: never
+  terminators: {if: "end if", while: "end while", for: "end for", repeat: "end repeat", define: "end"}
+  print_parentheses: never

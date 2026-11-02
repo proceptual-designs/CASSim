@@ -1,9 +1,11 @@
 # CASSim — plan and architecture (draft for review)
 
 A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) site where Python
-(SymPy/SciPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.2, 2026-11-02.
+(SymPy/SciPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.3, 2026-11-02.
 
-**Requirements live in `docs/SRS.md` (draft 0.3, all open questions answered).** This plan is the architecture and milestone view; where the two disagree, the SRS wins for *what*, this file for *how and when*. CASSim is a **simulator, not a hardware emulation**, released under the **Unlicense**.
+**Requirements live in `docs/SRS.md` (draft 0.4; Q1–Q15 answered, Q16–Q38 added for the post-Nspire scope; Q16, Q24, Q25, Q27, Q30, Q32, Q34 to Q38 answered).** This plan is the architecture and milestone view; where the two disagree, the SRS wins for *what*, this file for *how and when*. CASSim is a **simulator, not a hardware emulation**, released under the **Unlicense**.
+
+**Scope after the Nspire simulator (added 2026-11-02).** Once the Nspire work (M0–M6) is done, CASSim grows into a multi-device simulator: first a web-based Python and pseudocode environment that is both a standalone mode and a page type inside the simulators (M7, Should), then a device switcher with a Casio ClassPad profile (M8, Could), and possibly an HP Prime profile (M9, Would). See section 3.2 and milestones M7–M9. Nothing in M0–M6 is reordered or delayed; the only obligation on earlier work is the M2 guard (section 8).
 
 ## 1. What I checked while exploring (and what I didn't)
 
@@ -26,6 +28,7 @@ A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) 
 4. **Typed, linted, reproducible:** uv, Ruff, Ty, Git, CI from day one. SymPy is weakly typed, so it is quarantined behind one typed adapter module.
 5. **Original implementation.** No TI ROM, TI artwork or logos. The handheld skin is our own design that keeps the familiar layout. A visible disclaimer says CASSim is not affiliated with TI and is not an approved exam calculator.
 6. **Private by construction.** No server, no telemetry or analytics, no student data leaves the device. Imported documents and share links never auto-run code.
+7. **Nspire first, then the rest.** Other devices and the Python/pseudocode environment start only after the Nspire simulator (M0–M6) is done. Until then the only obligation is not to make that later work harder (the M2 guard in section 8).
 
 ## 3. Architecture
 
@@ -79,6 +82,40 @@ cassim/
 - **Graphics.** Engine emits a scene; Flet `canvas` draws it. Charts libraries are not suited to implicit functions, asymptotes and trace; matplotlib is too heavy for Pyodide.
 - **Spreadsheet.** Custom calc engine (TI cell/column semantics, columns are shared Problem variables so they can't map onto Excel-style engines like `formulas`/`pycel`). A library is used only for I/O: stdlib `csv` and `openpyxl` (pure Python; confirm it loads in Pyodide) for xlsx import/export.
 
+### 3.2 Beyond the Nspire: device profiles and a shared runtime (M7–M9)
+
+Nothing here is built before M7 (the runtime) or M8 (profiles and ClassPad). It is recorded now so that M0–M6 do not paint it into a corner.
+
+**Device profile.** Everything that makes one calculator behave like itself is bundled as a profile; the engine pieces that are genuinely common stay shared.
+
+| Layer | Shared | Per profile |
+|---|---|---|
+| Maths | SymPy adapter, Value types, exact/approximate machinery, stats and distribution maths, spreadsheet calc engine, graph sampler and scene format | Compat fixes (solution forms, simplification differences), number-display rules, error codes and messages |
+| Language | Tokenizer and Pratt-parser framework | Dialect: grammar tables, symbols, command names and arity, catalogue |
+| Document model | Storage, versioned-schema machinery, autosave | What a document is (Nspire: Document > Problem > Page; the others as their oracle shows) and its page/app types |
+| Device model | Key-layer, menu and screen-buffer framework | Keymap, menu tree, skin, presets (e.g. the VCE settings) |
+| Evidence | Corpus format and replay tool | `corpus/<device>/` cases captured from that device's oracle |
+
+Proposed layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../prime/`, with `core/` keeping the shared parts. Today's TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) would move under `devices/nspire/` in the M8 refactor. The exact boundary is an ADR (next number) written at the start of M8; the Nspire corpus is the safety net, and the refactor is done when every Nspire case replays unchanged. The Nspire symbol and statistics conventions (SRS C-4, C-5) stay the Nspire profile's; other profiles take theirs from their own oracle.
+
+**Runtime for Python and pseudocode** (`src/cassim/runtime/`). A small `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, cancel. Two implementations:
+- *Python*: CPython from Pyodide in a **dedicated worker**, separate from the CAS engine. A runaway script is cancelled by terminating its worker (as in decision 0005) without touching CAS state. The goal is no network and no host-page access for user code; how that is enforced (CSP, removing the `js` bridge, or both) is a spike before the build, and any gap that cannot be closed is documented rather than hidden.
+- *Pseudocode*: our own tokenizer, parser and tree-walking interpreter in pure Python, so the same code runs in the CLI, the tests and the browser. The dialect is the VCAA pseudocode as extended by the author's conventions document (`docs/pseudocode/dialect.md`): numeric types (integer, rational, real, complex) and basic strings only, function-valued parameters, and tolerant of the slips found in real exam text. Errors are reported in pseudocode terms and an execution-step limit stops runaway loops. A tree-walker is preferred over translating to Python because it gives clean errors, a step budget and a trace for free.
+
+**Where it appears.** (1) A **Code view**: editor and console with no device skin, files in browser storage, import/export of `.py` and `.txt`. (2) **Page types**, Python and Pseudocode, registered by any profile that wants them. The Nspire profile gets both: as I understand it the CX II models have a native Python page (the plain CX does not), and pseudocode is a deliberate extension that the UI labels as not a handheld feature. Whether ClassPad and Prime offer them is SRS Q22. Variable access from a page uses the same `cassim` API as the M5 `py()` bridge. Nothing auto-runs, ever (SRS C-7).
+
+**One program tree, two languages.** Pseudocode (our parser) and the supported Python subset (the standard `ast` module) are both turned into one internal program tree. Printers turn the tree back into pseudocode or readable Python, which gives translation in both directions. Normal Python **Run** still uses CPython; the tree interpreter exists for pseudocode and for tracing. The risk is the two drifting apart, so every golden program is run both ways (differential test, reals compared numerically) and round trips are property-tested.
+
+**Stepwise trace tables.** The interpreter emits an event per step (assignment, condition with values substituted, call, return, output, input). The events are kept, so stepping forwards **and backwards** moves a cursor instead of re-running, and random numbers and input replay identically. Two views of the same events: a **vertical** trace table (one row per executed line, a variable cell filled where it changes) that works for anything, and a **horizontal** desk check (code down the side, one column per loop pass) when the run has one main loop and no nesting. Auto picks; the user can switch. Layouts and the reference example: `docs/pseudocode/trace-tables.md`.
+
+**Settings bar.** The Code view's editor has a bar at the top with two controls, Number mode (Approx / Auto / Exact, the TI rule being Auto) and Angle (Radian / Degree), and a "…" menu for everything else (display precision, default 6 significant digits Mathematica-style; Real/Complex; Gradian; random seed; step limit; syntax). They govern pseudocode runs, traces and translation (Auto and Exact emit `Fraction`, Degree wraps trigonometry in `radians()`); a direct CPython run cannot honour them, so they show as disabled with the reason. On a Nspire page the bar starts from the document settings.
+
+**Configurable syntax.** The pseudocode grammar is driven by a **syntax file** (`docs/pseudocode/syntax-default.yaml`) kept in browser storage, editable in the app and exportable. It lets one construct be written several ways, each spelling accepted, warned about or rejected, with optional tokens (`then`, `do`, the colon, parentheses) and several block terminators (`end for`, `endfor`, `next`). The same file's emit section sets what the printer writes. The parser is therefore table-driven rather than hard-coded; the code pane always shows the user's own text. Because a free grammar can become ambiguous, files are validated, data-only, size-limited and fall back to the default if invalid; property tests restyle and re-parse every golden program under every preset.
+
+**Switching.** A profile switcher in the app shell. Each profile has its own documents, settings and theme namespace in storage, and its assets load lazily on first use and are then cached offline, so someone who only uses the Nspire never downloads the rest. Display modes (section 4) apply to every profile.
+
+**Oracle per device.** The Nspire uses the TI teacher software. For ClassPad and Prime the natural oracles are the manufacturers' own PC emulators (as I understand it, ClassPad Manager and the HP Prime Virtual Calculator); I have not checked availability or licence terms. The capture effort that dominated M0/M1 will recur, so each new profile ships Tier 1 first. Python semantics need no oracle (it is CPython); device-specific Python modules (e.g. TI's `ti_system`, `ti_plotlib`) are a later extra if wanted.
+
 ## 4. GUI modes (one device model, three skins)
 
 | Mode | Layout | Use |
@@ -89,13 +126,16 @@ cassim/
 
 The device model drives all three; modes differ only in layout components and which panels are visible. Primary test targets: Chromebooks, Chrome, Safari (macOS, iOS, iPadOS); secondary, smoke-tested: Edge, Firefox. Handheld mode must be usable at 360 px wide in both orientations. Hosting is any free or cheap static host (GitHub Pages first) with correct MIME types.
 
+**Profiles and modes (M8).** Switching device is orthogonal to these modes: a profile supplies its own handheld skin, keymap and page set, while the Computer and Tablet layouts are shared components that the profile configures. The Code view has no skin. The ClassPad is stylus/touch-driven, so its Handheld mode may need a touch-first interaction model rather than a key-sequence one (SRS Q19).
+
 ## 5. Features by area
 
 1. **Calculator page.** History, `Ans`, ctrl+enter approximation, templates, catalog, variable menu, copy/paste of results, errors.
-2. **Pages:** Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python (new). Geometry is out of scope.
+2. **Pages:** Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python (new), Pseudocode (new, M7). Geometry is out of scope.
 3. **Documents.** Multiple documents, problems, page sorter, settings dialogs, undo/redo, autosave.
 4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries. (b) A Python page and a `py("script","fn",args)` call from the CAS. Scripts get a small `cassim` API (read/write Problem variables, evaluate TI expressions). Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents and share links are untrusted. The Python page is Could-have; if built, the sandbox and prompt are mandatory.
 5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the simulator with the libraries installed. LazyMath is also Unlicense, so porting and redistribution are permitted; still record that check in `docs/decisions/` before the first port.
+6. **Beyond the Nspire (M7–M9).** Python and pseudocode as a standalone Code view and as page types (M7, Should); device switcher and Casio ClassPad profile (M8, Could); HP Prime profile (M9, Would, behind a go/no-go). Details in section 3.2.
 
 ## 6. Testing strategy ("every stage properly tested")
 
@@ -160,6 +200,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 **M2 — GUI shell: keyboard, pages, settings (L)**
 
 - Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
+- **Guard for the profile work in M8 (no extra scope):** framework code in `device/` and `cassim_app` holds no Nspire-specific constants. Key layers, menu trees, page types, skin and theme values come from data or registries that the Nspire profile supplies, and page types are registered, not hard-coded in a switch. This costs almost nothing now and avoids a rewrite later (section 3.2; SRS FR-DEV-007).
 - 2a Device model: key layers, menu tree from data, linear input editor, screen buffer; headless key-sequence tests.
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
@@ -178,9 +219,34 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 
 **M5 — Programming and extensions (L)**
 - TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
+- Build the Python page against the `Interpreter` interface from section 3.2 (run, stream output, cancel, trust prompt) rather than calling Pyodide directly, so M7 can lift it into the shared runtime without a rewrite.
 
 **M6 — Polish and extras (M)**
 - Accessibility follow-through (`docs/accessibility.md`); localisation-ready strings; exam-restriction mode (Could-have, teacher-configurable); theme config export/import; user docs; public deployment. `.tns` is dropped from scope for now.
+
+**M7 — Python and pseudocode: Code view, translation and trace tables (L), Should.** Starts only when M0–M6 are done.
+- 7a `runtime/`: `Interpreter` interface; Python runtime in its own worker with cancel (within 1 s), streamed output, `input()` and the trust prompt. Spike first on keeping user code off the network and the host page.
+- 7b Pseudocode language: syntax-file-driven tokenizer, parser and tree interpreter for the dialect (`docs/pseudocode/dialect.md`, `syntax-default.yaml`); numeric tower (integer, rational, real, complex) and strings; Approx / Auto / Exact number modes and Radian / Degree; 6-digit display; `input` type inference; lists (1-based by default) and seeded random numbers (Should); function-valued parameters; pseudocode-level diagnostics; step limit. Replay `corpus/pseudocode/seed.yaml` (44 cases) from the start.
+- 7c Translation: the shared program tree; pseudocode to Python and Python (subset) to pseudocode; differential and round-trip tests.
+- 7d Trace engine and tables: event recording, forwards/backwards cursor, vertical and horizontal views, Auto layout, step-limit handling. The reference bisection example must reproduce the author's two tables.
+- 7e Shared editor and console, the settings bar with its … menu, the Syntax editor (validation, live check, reset, export/import), and the standalone Code view reached from the start screen (storage, import/export, 360 px layout; SRS Q23, Q35).
+- 7f Page types: Python and Pseudocode pages in the Nspire profile (the bar starts from the document settings), variable bridge via the `cassim` API, document schema bump with a migration (FR-DOC-004).
+- Exit: every golden program passes in both languages and the two agree; trace tables match the reference tables; cancel and trust-prompt E2E pass; the installed PWA works offline.
+
+**M8 — Device profiles and Casio ClassPad (L), Could.**
+- 8a ADR on the profile boundary, then move the Nspire onto the profile interface. Gate: every Nspire corpus case replays unchanged, coverage targets (NFR-MAINT-004) still met, render snapshots unchanged. No other 8x item starts until this is green.
+- 8b Profile switcher in the app shell, per-profile storage namespaces (SRS Q20), lazy asset loading and offline caching per profile.
+- 8c Decide the model and oracle (SRS Q17), record the emulator's licence terms in `docs/decisions/`, and capture the first ~60 corpus cases in `corpus/classpad/` before writing code, as M0 did for the Nspire. Nothing is assumed to behave like the Nspire.
+- 8d Dialect, settings presets and display conventions from the corpus; Tier 1 catalogue (VCE core) first, tiers as in M1d.
+- 8e Apps/pages as the oracle shows them (calculation, graph and table, statistics, spreadsheet), reusing the M3/M4 engines through the profile. Geometry excluded.
+- 8f Device model, keymap and skin in our own artwork; decide touch-first vs key-driven interaction (SRS Q19).
+- 8g Python and Pseudocode pages if SRS Q22 says yes (the M7 runtime is reused).
+- Exit: Nspire corpus unchanged; Tier 1 ClassPad corpus passes (canonical); scripted exam-style flows for Methods and Specialist; profile switching E2E.
+
+**M9 — HP Prime profile (M–L), Would.** Not planned; kept so the option stays visible.
+- 9a Go/no-go review after M8: oracle availability and terms (SRS Q18), M8's actual effort, whether anyone needs it. A "no" costs nothing elsewhere in the plan.
+- 9b If go: the same recipe as M8 (corpus first, Tier 1 catalogue, then the apps the oracle shows; as I understand it, Home and CAS views plus an app set). The HP PPL programming language, if wanted, is a separate dialect on the runtime interface.
+- Exit: as M8.
 
 ## 9. Risks and decisions
 
@@ -191,6 +257,8 @@ Decisions (from the SRS review, 2026-11-02; do not re-litigate):
 3. **Licensing:** CASSim and LazyMath are both Unlicense. TI marks, artwork and ROM are never shipped; reference screenshots stay in `docs/design/reference/`, not the build.
 4. **Appropriate use:** teaching, practice and demonstration. Not an approved exam calculator, and the UI says so.
 5. **Python 3.14, no Geometry page, no `.tns` for now.**
+6. **Sequencing and priorities (confirmed 2026-11-02):** the Nspire simulator (M0–M6) is finished first. Then Code (Python and pseudocode, standalone and as page types) is Should (M7); the device-profile refactor and the Casio ClassPad are Could (M8); HP Prime is Would, behind a go/no-go review (M9). The M2 guard and the M7 sandbox spike are accepted.
+7. **Pseudocode choices (2026-11-02):** the TI "Auto" rule is a third number mode; printed reals default to 6 significant digits (Mathematica style); `input` infers number versus string; the settings bar is Number mode and Angle plus a "…" menu; the syntax is user-configurable through a stored syntax file; VCAA question text stays in the private repo only (decision 0012).
 
 Open risks:
 
@@ -198,7 +266,16 @@ Open risks:
 2. **Simulator capture effort:** driving the simulator by screenshot is slow; budget it per milestone and prioritise Tier 1 cases.
 3. **Offline end to end:** wheels must be vendored and `index.html` patched after `flet publish` (decision 0002); verify with Playwright.
 4. **Accessibility on a canvas renderer:** screen-reader support may not be achievable in Flet; tracked in `docs/accessibility.md`.
+5. **Oracle access for ClassPad and Prime.** Unverified: that the manufacturers' emulator software is available to you and permits corpus capture. Screenshot-driven capture was the bottleneck for the Nspire and will be again; hence Tier 1 first and the Prime go/no-go.
+6. **Maintenance load multiplies.** Each profile is its own corpus, catalogue and skin. Mitigation: shared engines, a strict profile boundary, Tier 1 per profile before widening.
+7. **Refactor regression.** Moving the Nspire onto profiles could change its behaviour. Mitigation: the corpus gate in 8a.
+8. **Sandbox for user code.** Pyodide is CPython with a `js` bridge, so "no network, no host access" needs a spike (7a) before it is claimed. Until it passes, the trust prompt is the control and the limit is stated.
+9. **Touch-first ClassPad.** The device model is key-sequence based; a stylus-driven device may need a different interaction layer (SRS Q19).
+10. **Trademarks.** Casio and HP marks, artwork and firmware are treated exactly as TI's (SRS NFR-LEG-005).
+11. **Two interpreters must agree.** Tracing and pseudocode use our tree interpreter while Python runs on CPython. Mitigation: differential tests on every golden program and on generated programs, numeric comparison for reals, and the number and angle semantics defined once, in the dialect spec.
+12. **VCAA question text.** Several corpus cases contain (c) VCAA question text (`third_party: true`). Fine for development in the private repo (decision 0012), but VCAA's terms require permission for website publication, so those cases must be cleared or replaced before anything goes public (SRS NFR-LEG-007).
+13. **Configurable grammar.** A user-editable syntax file can make the grammar ambiguous or break saved programs. Mitigation: validation (FR-SYN-004), data-only files, fall-back to the default, and property tests that restyle and re-parse every golden program under every preset (FR-SYN-007).
 
 ## 10. Design documents
 
-The SDD set (`docs/design/SDD-00` to `SDD-11`: overview, engine, worker and cancel, display and format, device model, Flet UI, document and storage, data pages, graphing, programming and Python, PWA and build, test strategy) is listed in SRS appendix A and written as each area is designed. Requirement IDs (`FR-*`, `NFR-*`) are the stable references between SRS, SDD, tests and corpus tags.
+The SDD set (`docs/design/SDD-00` to `SDD-13`: overview, engine, worker and cancel, display and format, device model, Flet UI, document and storage, data pages, graphing, programming and Python, PWA and build, test strategy, device profiles, Python and pseudocode runtime) is listed in SRS appendix A and written as each area is designed. Requirement IDs (`FR-*`, `NFR-*`) are the stable references between SRS, SDD, tests and corpus tags.
