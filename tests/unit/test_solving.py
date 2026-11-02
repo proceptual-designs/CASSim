@@ -235,3 +235,9 @@ def test_relations_with_a_symbol_are_not_decided_for_it():
     assert text("x=x") == "true"
     assert text("x=1") == "x=1"
     assert text("x≠x") == "false"
+
+
+def test_trig_equal_to_a_parameter_gives_the_general_solution():
+    session = Session()
+    assert session.eval("solve(sin(x)=y,x)").text == "x=2*π*@n1+sin⁻¹(y) or x=2*π*@n1-sin⁻¹(y)+π"
+    assert session.eval("solve(cos(x)=a,x)").error is None
