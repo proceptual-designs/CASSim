@@ -82,7 +82,7 @@ cassim> :approx solve(x^2=2,x)
 x=-1.4142136 or x=1.4142136
 ```
 
-With a real terminal you can press **Alt+Enter** instead of typing `:approx`. **Ctrl+Enter** works too in terminals that report it as a separate key; many send a plain Enter, which the program cannot tell apart, so use Alt+Enter or `:approx` if Ctrl+Enter does nothing.
+With a real terminal you can press **Alt+Enter** instead of typing `:approx`. **Ctrl+Enter** works too in terminals that report it as a separate key; many send a plain Enter, which the program cannot tell apart, so use Alt+Enter or `:approx` if Ctrl+Enter does nothing. In practice: **Alt+Enter works in the VS Code terminal, Ctrl+Enter works in Windows Terminal, and `:approx` works everywhere.**
 
 **On an empty line**, it gives the previous answer as a decimal, as on the handheld: enter `1/3`, then press Alt+Enter (or Ctrl+Enter) on the empty prompt, or type `:approx` alone. If there is no previous answer yet, nothing happens. `Done` is not an answer, so it is skipped.
 
@@ -122,7 +122,7 @@ Settings are the same ones as in Document Settings. Show them with `:settings`; 
 
 ```
 cassim> :set angle=degree calc=approximate
-angle=degree  calc=approximate  domain=real  digits=float8  cas_mode=on  exp_format=normal
+angle=degree  calc=approximate  domain=real  digits=float8  cas_mode=on  exp_format=normal  case=insensitive  pretty=off
 cassim> sin(30)
 0.5
 ```
@@ -135,8 +135,25 @@ cassim> sin(30)
 | `digits` | `float1` to `float12`, `fix0` to `fix12` | Display digits, as in Float 8 or Fix 2. |
 | `cas_mode` | `on`, `exact_arithmetic`, `off` | Off and Exact Arithmetic refuse symbolic work: `solve`, `expand`, and a result containing a variable give "CAS computations are restricted". |
 | `exp_format` | `normal`, `scientific`, `engineering` | How decimals with large or small exponents are shown. |
+| `case` | `insensitive`, `sensitive` | `insensitive` (the default, as on the handheld) makes `x` and `X` one variable. `sensitive` makes them two, for variables and your own functions (`f` and `F`). Built-in names (`sin`, `Pi`, `solve`) and the `stat.` results stay case insensitive. Switching back to `insensitive` merges names that differ only in case; the later one wins. |
+| `pretty` | `off`, `on` | `on` draws results in two dimensions, like SymPy's `pprint` (see below). |
 
 Both `:set angle=degree` and `:set angle degree` work.
+
+### Pretty printing
+
+`:set pretty=on` draws fractions, powers, roots and matrices over several lines. Digits, `ⅇ`, `π` and `sin⁻¹` follow the same rules as the one-line text:
+
+```
+cassim> :set pretty=on
+cassim> (x+1)^2/3 + sqrt(x+1)
+                  2
+  ▁▁▁▁▁    (x + 1)
+√ x + 1 + ──────────
+              3
+```
+
+With `--ascii` it draws with plain characters (`-` for the bar, `\/` for roots, `/ | \` for brackets). `:set pretty=off` goes back to one line. Only what is printed changes: results, `Ans` and stored variables are the same either way.
 
 ## What it can do
 

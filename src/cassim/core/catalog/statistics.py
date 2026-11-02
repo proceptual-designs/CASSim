@@ -69,7 +69,7 @@ def _decimal(number: float | Fraction) -> Expr:
 
 
 def _store(host: Host, name: str, value: Value) -> None:
-    host.scope.define(f"stat.{name}", value)
+    host.scope.define(f"stat.{name}".casefold(), value)
 
 
 # ---- OneVar and TwoVar -----------------------------------------------------------------------

@@ -28,6 +28,20 @@ class CasMode(StrEnum):
     OFF = "off"
 
 
+class Case(StrEnum):
+    """Whether `x` and `X` are one variable (the handheld) or two."""
+
+    INSENSITIVE = "insensitive"
+    SENSITIVE = "sensitive"
+
+
+class Pretty(StrEnum):
+    """Whether results are drawn in two dimensions as text (fractions, roots, powers)."""
+
+    OFF = "off"
+    ON = "on"
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Document settings. `digits` is `floatN` or `fixN`, as in the corpus."""
@@ -38,6 +52,8 @@ class Settings:
     digits: str = "float8"
     cas_mode: CasMode = CasMode.ON
     exp_format: str = "normal"
+    case: Case = Case.INSENSITIVE
+    pretty: Pretty = Pretty.OFF
 
 
 PRESETS = {
@@ -57,4 +73,16 @@ def updated(settings: Settings, changes: dict[str, str]) -> Settings:
         digits=changes.get("digits", settings.digits),
         cas_mode=CasMode(changes.get("cas_mode", settings.cas_mode)),
         exp_format=changes.get("exp_format", settings.exp_format),
+        case=Case(changes.get("case", settings.case)),
+        pretty=Pretty(changes.get("pretty", settings.pretty)),
     )
+
+
+def variable_key(settings: Settings, name: str) -> str:
+    """How a variable or user function name is stored: folded unless the case matters.
+
+    The `stat.` results are the calculator's own names, so they are never case sensitive.
+    """
+    if settings.case is Case.SENSITIVE and not name.casefold().startswith("stat."):
+        return name
+    return name.casefold()

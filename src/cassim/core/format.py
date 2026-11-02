@@ -3,7 +3,7 @@
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
-from cassim.core import ast
+from cassim.core import ast, pretty
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.settings import Settings
 from cassim.core.values import Bool, Expr, ListValue, Shown, Str, Unevaluated, Value, Void
@@ -137,6 +137,11 @@ def _node(value: Value, settings: Settings) -> ast.Expr:
 def to_text(value: Value, settings: Settings) -> str:
     """Show a value as TI linear text in canonical Unicode."""
     return str(_node(value, settings))
+
+
+def to_pretty(value: Value, settings: Settings, *, unicode: bool = True) -> str:
+    """Show a value in two dimensions, like SymPy's `pprint`; `unicode=False` draws in ASCII."""
+    return pretty.draw(_node(value, settings), unicode=unicode)
 
 
 def _atom_latex(value: Str | Bool | Void | Shown) -> str:

@@ -6,16 +6,17 @@ from cassim.core import angles, ast, errors
 from cassim.core.catalog.registry import Host, eager, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
+from cassim.core.settings import variable_key
 from cassim.core.valueops import list_of, raw_list, raw_of
 from cassim.core.values import Bool, Expr, ListValue, Raw, Value
 
 
-def _unknowns(node: ast.Expr) -> list[str]:
+def _unknowns(host: Host, node: ast.Expr) -> list[str]:
     """The variable or `{x,y}` list named in the second argument, as it was typed."""
     nodes = node.items if isinstance(node, ast.ListLit) else (node,)
     if not nodes or not all(isinstance(n, ast.Name) for n in nodes):
         raise TIError(errors.SYNTAX)
-    return [n.text.casefold() for n in nodes if isinstance(n, ast.Name)]
+    return [variable_key(host.settings, n.text) for n in nodes if isinstance(n, ast.Name)]
 
 
 def _radian_converter(host: Host) -> Callable[[Raw], Raw] | None:
@@ -46,7 +47,7 @@ def _answer(condition: Raw) -> Value:
 
 def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Value:
     equation_node, unknown_node = args
-    names = _unknowns(unknown_node)
+    names = _unknowns(host, unknown_node)
     equations = _equations(host, equation_node, names)
     symbols = [cas.symbol(name) for name in names]
     if len(equations) == 1 and len(symbols) == 1:
@@ -74,8 +75,8 @@ def c_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _solve(host, args, complex_roots=True)
 
 
-def _single_unknown(node: ast.Expr) -> str:
-    names = _unknowns(node)
+def _single_unknown(host: Host, node: ast.Expr) -> str:
+    names = _unknowns(host, node)
     if len(names) != 1:
         raise TIError(errors.SYNTAX)
     return names[0]
@@ -83,7 +84,7 @@ def _single_unknown(node: ast.Expr) -> str:
 
 def _zeros(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Value:
     expression_node, unknown_node = args
-    name = _single_unknown(unknown_node)
+    name = _single_unknown(host, unknown_node)
     (expression,) = _equations(host, expression_node, [name])
     symbol = cas.symbol(name)
     roots = cas.roots_of(expression, symbol, _radian_converter(host), complex_roots=complex_roots)
@@ -106,7 +107,7 @@ def c_zeros(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("polyRoots", 2, cas=True)
 def poly_roots(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     polynomial_node, unknown_node = args
-    name = _single_unknown(unknown_node)
+    name = _single_unknown(host, unknown_node)
     (polynomial,) = _equations(host, polynomial_node, [name])
     return list_of(cas.polynomial_roots(polynomial, cas.symbol(name)) or [])
 
