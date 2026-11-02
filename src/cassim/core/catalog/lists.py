@@ -6,6 +6,7 @@ from cassim.core import ast, errors
 from cassim.core.catalog.registry import Host, command, eager, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
+from cassim.core.settings import variable_key
 from cassim.core.valueops import as_expr, list_of, raw_list, raw_of
 from cassim.core.values import Expr, ListValue, MatrixValue, Raw, Str, Value, Void
 
@@ -47,7 +48,7 @@ def seq(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     while within(current):
         if len(items) >= _MAX_LIST_LENGTH:
             raise TIError(errors.MEMORY)
-        with host.bound({name.text.casefold(): Expr(current)}):
+        with host.bound({variable_key(host.settings, name.text): Expr(current)}):
             items.append(host.expr(body))
         current = current + step_raw
     return ListValue(tuple(items))
@@ -157,7 +158,7 @@ def dim(host: Host, args: list[Value]) -> Value:
 def _stored_list(host: Host, node: ast.Expr) -> tuple[str, list[Raw]]:
     if not isinstance(node, ast.Name):
         raise TIError(errors.VARIABLE_NAME_NEEDED)
-    name = node.text.casefold()
+    name = variable_key(host.settings, node.text)
     stored = host.scope.get(name)
     if not isinstance(stored, ListValue):
         raise TIError(errors.DATA_TYPE)

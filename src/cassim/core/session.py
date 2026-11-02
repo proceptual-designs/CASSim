@@ -9,7 +9,7 @@ from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_latex, to_text
 from cassim.core.parser import parse
 from cassim.core.scope import Scope
-from cassim.core.settings import Calc, Settings, updated
+from cassim.core.settings import Calc, Case, Settings, updated
 from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import (
     Bool,
@@ -34,9 +34,19 @@ class Result:
 
 class Session:
     def __init__(self, settings: Settings | None = None) -> None:
-        self.settings = settings if settings is not None else Settings()
+        self._settings = settings if settings is not None else Settings()
         self._ans: Value | None = None
         self.scope = Scope()
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings
+
+    @settings.setter
+    def settings(self, settings: Settings) -> None:
+        if settings.case is Case.INSENSITIVE and self._settings.case is Case.SENSITIVE:
+            self.scope.fold_names()
+        self._settings = settings
 
     def eval(self, line: str, *, approximate: bool = False) -> Result:
         """Evaluate one entry line. TI errors come back in `Result.error`.

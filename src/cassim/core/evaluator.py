@@ -11,7 +11,7 @@ from cassim.core.catalog.matrices import matrix_power
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.scope import Function, Scope
-from cassim.core.settings import Angle, CasMode, Domain, Settings
+from cassim.core.settings import Angle, CasMode, Domain, Settings, variable_key
 from cassim.core.valueops import as_expr, cell_of, map_value, raw_rows
 from cassim.core.values import (
     Bool,
@@ -157,6 +157,9 @@ class Evaluator:
         finally:
             self._frames.pop()
 
+    def _key(self, name: str) -> str:
+        return variable_key(self._settings, name)
+
     def lookup(self, name: str) -> Value | None:
         for frame in reversed(self._frames):
             if name in frame:
@@ -187,14 +190,15 @@ class Evaluator:
     def _variable_name(self, node: ast.Expr) -> str:
         """The key for a name being stored to; constants and built-ins are refused."""
         if isinstance(node, ast.Name):
-            name = node.text.casefold()
+            text = node.text
         elif isinstance(node, ast.Call):
-            name = node.func.casefold()
+            text = node.func
         else:
             raise _unsupported("indexed assignment")
-        if name in _RESERVED or cas.is_constant(name) or catalog.is_builtin(name):
+        folded = text.casefold()
+        if folded in _RESERVED or cas.is_constant(folded) or catalog.is_builtin(folded):
             raise TIError(errors.RESERVED_NAME)
-        return name
+        return self._key(text)
 
     def _assign(self, target: ast.Expr, body: ast.Expr) -> Value:
         """`target:=body` and `body→target`: a variable gets the value, a function the body."""
@@ -207,7 +211,7 @@ class Evaluator:
         return value
 
     def _make_function(self, target: ast.Call, body: ast.Expr) -> Function:
-        params = tuple(arg.text.casefold() for arg in target.args if isinstance(arg, ast.Name))
+        params = tuple(self._key(arg.text) for arg in target.args if isinstance(arg, ast.Name))
         if len(params) != len(target.args) or len(set(params)) != len(params):
             raise TIError(errors.SYNTAX)
         return Function(params, body)
@@ -223,7 +227,7 @@ class Evaluator:
             for arg in statement.args:
                 if not isinstance(arg, ast.Name):
                     raise TIError(errors.SYNTAX)
-                self._scope.delete(arg.text)
+                self._scope.delete(self._key(arg.text))
             return Void()
         if statement.name == "ClearAZ":
             self._scope.clear_az()
@@ -265,15 +269,16 @@ class Evaluator:
         return Expr(self._from_unit(total, Angle.DEGREE))
 
     def _name(self, node: ast.Name) -> Value:
-        name = node.text.casefold()
-        if name in {"true", "false"}:
-            return Bool(name == "true")
-        if cas.is_constant(name):
-            return Expr(cas.constant(name))
+        folded = node.text.casefold()
+        if folded in {"true", "false"}:
+            return Bool(folded == "true")
+        if cas.is_constant(folded):
+            return Expr(cas.constant(folded))
+        name = self._key(node.text)
         bound = self.lookup(name)
         if bound is not None:
             return bound
-        if name == "ans" and self._ans is not None:
+        if folded == "ans" and self._ans is not None:
             return self._ans
         return Expr(cas.symbol(name))
 
@@ -281,11 +286,11 @@ class Evaluator:
         return [self.expr(arg) for arg in node.args]
 
     def _call(self, node: ast.Call) -> Value:
-        name = node.func.casefold()
+        name = self._key(node.func)
         stored = self._scope.get(name)
         if isinstance(stored, Function):
             return self._user_call(stored, node)
-        entry = catalog.lookup(name)
+        entry = catalog.lookup(node.func)
         if entry is None:
             return self._unresolved(name, node)
         if entry.cas and self._settings.cas_mode != CasMode.ON:
@@ -359,7 +364,7 @@ class Evaluator:
         while isinstance(inner, ast.Postfix) and inner.op == "'":
             count, inner = count + 1, inner.operand
         bound = (
-            self.lookup(inner.text.casefold() + "'" * count)
+            self.lookup(self._key(inner.text) + "'" * count)
             if isinstance(inner, ast.Name)
             else None
         )
@@ -389,7 +394,7 @@ class Evaluator:
         bindings: dict[str, Value] = {}
         relations: list[Raw] = []
         for part in _conjuncts(node.right):
-            equality = _equality(part)
+            equality = _equality(part, self._key)
             if equality is not None:
                 bindings[equality[0]] = self.expr(equality[1])
             else:
@@ -441,10 +446,10 @@ def _conjuncts(node: ast.Expr) -> list[ast.Expr]:
     return [node]
 
 
-def _equality(node: ast.Expr) -> tuple[str, ast.Expr] | None:
+def _equality(node: ast.Expr, key: Callable[[str], str]) -> tuple[str, ast.Expr] | None:
     """Read `x=value` into (name, value)."""
     if isinstance(node, ast.Compare) and len(node.rest) == 1:
         (op, value), name = node.rest[0], node.first
         if op == "=" and isinstance(name, ast.Name):
-            return name.text.casefold(), value
+            return key(name.text), value
     return None

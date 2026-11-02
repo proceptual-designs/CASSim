@@ -4,7 +4,7 @@ from cassim.core import ast, errors
 from cassim.core.catalog.registry import Host, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
-from cassim.core.settings import CasMode
+from cassim.core.settings import CasMode, variable_key
 from cassim.core.valueops import raw_of
 from cassim.core.values import Expr, Raw, Value
 
@@ -19,10 +19,10 @@ _WITH_POINT = 4  # taylor(expr, x, order, point)
 _AVG_RC_WITH_STEP = 3  # avgRC(expr, x, step)
 
 
-def _name_of(node: ast.Expr) -> str:
+def _name_of(host: Host, node: ast.Expr) -> str:
     if not isinstance(node, ast.Name):
         raise TIError(errors.SYNTAX)
-    return node.text.casefold()
+    return variable_key(host.settings, node.text)
 
 
 def _expression(host: Host, node: ast.Expr, names: list[str]) -> Raw:
@@ -57,7 +57,7 @@ def _result(raw: Raw | None, call: str, expression: Raw, name: str) -> Value:
 def derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`derivative(expr, x[, n])`. A value the variable already has is put in afterwards, so that
     `df(x):=derivative(f(x),x)` gives `df(3)=6`, as TI does."""
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     order = _count(host, args[2]) if len(args) == _WITH_ORDER else 1
     current = host.lookup(name)
     expression = _expression(host, args[0], [name])
@@ -72,7 +72,7 @@ def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`integral(expr, x)` or `integral(expr, x, lower, upper)`."""
     if len(args) not in (_INTEGRAL_UNBOUNDED_ARGS, _INTEGRAL_BOUNDED_ARGS):
         raise TIError(errors.TOO_FEW_ARGUMENTS)
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     bounds = [raw_of(host.expr(arg)) for arg in args[2:]]
     lower, upper = bounds if bounds else (None, None)
@@ -83,7 +83,7 @@ def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("limit", 3, 4, cas=True)
 def limit(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`limit(expr, x, point[, direction])`: direction 1 is from the right, -1 from the left."""
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     point = raw_of(host.expr(args[2]))
     direction = None
@@ -99,7 +99,7 @@ def limit(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("taylor", 3, 4, cas=True)
 def taylor(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`taylor(expr, x, order[, point])`."""
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     order = cas.integer_value(raw_of(host.expr(args[2])))
     if order is None or order < 0:
@@ -109,7 +109,7 @@ def taylor(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 
 def _extremum(host: Host, args: tuple[ast.Expr, ...], *, maximum: bool) -> Value:
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     found = cas.extremum(expression, cas.symbol(name), host.constraints, maximum=maximum)
     return _result(found, "fMax" if maximum else "fMin", expression, name)
@@ -126,7 +126,7 @@ def f_min(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 
 def _line(host: Host, args: tuple[ast.Expr, ...], *, tangent: bool) -> Value:
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     point = raw_of(host.expr(args[2]))
     build = cas.tangent_line if tangent else cas.normal_line
@@ -146,7 +146,7 @@ def normal_line(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("impDif", 3, cas=True)
 def implicit_derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`impDif(equation, x, y)`: dy/dx."""
-    x, y = _name_of(args[1]), _name_of(args[2])
+    x, y = _name_of(host, args[1]), _name_of(host, args[2])
     equation = _expression(host, args[0], [x, y])
     return Expr(cas.implicit_derivative(equation, cas.symbol(x), cas.symbol(y)))
 
@@ -154,8 +154,8 @@ def implicit_derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 def _point(host: Host, node: ast.Expr) -> tuple[str, Raw | None]:
     """A variable with an optional value after it, as in `x=3`."""
     if isinstance(node, ast.Compare) and len(node.rest) == 1 and node.rest[0][0] == "=":
-        return _name_of(node.first), raw_of(host.expr(node.rest[0][1]))
-    return _name_of(node), None
+        return _name_of(host, node.first), raw_of(host.expr(node.rest[0][1]))
+    return _name_of(host, node), None
 
 
 @lazy("nDerivative", 2, 3)
@@ -196,7 +196,7 @@ def avg_rc(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("nInt", 4)
 def n_int(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`nInt(expr, x, lower, upper)`, as a decimal."""
-    name = _name_of(args[1])
+    name = _name_of(host, args[1])
     expression = _expression(host, args[0], [name])
     lower, upper = (raw_of(host.expr(arg)) for arg in args[2:])
     return Expr(cas.numerical_integral(expression, cas.symbol(name), lower, upper))
@@ -216,7 +216,7 @@ def n_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 @lazy("deSolve", 3, cas=True)
 def de_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`deSolve(ode, x, y)`, with `y'=...` and optionally `and y(a)=b`."""
-    x, y = _name_of(args[1]), _name_of(args[2])
+    x, y = _name_of(host, args[1]), _name_of(host, args[2])
     symbol = cas.symbol(x)
     bindings: dict[str, Value] = {x: Expr(symbol), y: Expr(cas.function_of(y, symbol))}
     for order in range(1, _MAX_ODE_ORDER + 1):

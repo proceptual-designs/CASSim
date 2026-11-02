@@ -24,3 +24,9 @@ What the matrix says is still missing among the commands the VCE books use often
 
 - Every guess listed under "To check on the simulator" in decisions 0007 to 0010 still needs checking against the simulator; the corpus has only the captured cases, and all of them replay.
 - Corpus cases are compared by value, so a wrong display form passes unless the case uses `compare: text`. The cases that do are the ones that fix the display.
+
+## Case sensitivity and pretty printing (after M1)
+
+- `Settings.case` (`insensitive`, the handheld's behaviour and the default, or `sensitive`) is a core setting so that the GUI can offer it too. It changes how variable and user-function names are stored (`variable_key` in `core/settings.py`). Built-in function, constant and command names and the `stat.` results stay case insensitive, because TI's own names are not meant to be typed in a different case. Turning it back to `insensitive` merges names that differ only in case (the later one wins).
+- `Settings.pretty` (`off` or `on`) is read by the REPL only. `core/pretty.py` lays out the same AST that `to_text` prints, so digits, `ⅇ` and `sin⁻¹` agree with the linear text; it does not go through SymPy's `pprint`. `--ascii` draws with plain characters. The GUI draws from LaTeX and ignores it.
+- Guesses to check against the simulator: none; both are CASSim additions the handheld does not have.
