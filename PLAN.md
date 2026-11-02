@@ -201,6 +201,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 
 - Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
 - **Guard for the profile work in M8 (no extra scope):** framework code in `device/` and `cassim_app` holds no Nspire-specific constants. Key layers, menu trees, page types, skin and theme values come from data or registries that the Nspire profile supplies, and page types are registered, not hard-coded in a switch. This costs almost nothing now and avoids a rewrite later (section 3.2; SRS FR-DEV-007).
+- Decisions and the four spikes that precede 2b to 2e are in `docs/decisions/0013-m2-planning.md` (2D rendering, MathLive, GitHub Pages publish, cancel and restore). The skin is driven by a config file; the display mode is remembered, with a media query on a first visit; Document Settings gain `case` and `ascii`.
 - 2a Device model: key layers, menu tree from data, linear input editor, screen buffer; headless key-sequence tests.
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
