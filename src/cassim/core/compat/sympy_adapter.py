@@ -136,6 +136,11 @@ def decimal(text: str, *, exact: bool) -> Raw:
 
 
 def approximate(raw: Raw) -> Raw:
+    """The decimal form, also of a relation (`x=√(2)`) or a combination of them with and/or."""
+    if isinstance(raw, sp.And | sp.Or):
+        return raw.func(*(approximate(arg) for arg in raw.args))
+    if isinstance(raw, sp.core.relational.Relational):
+        return raw.func(approximate(raw.lhs), approximate(raw.rhs), evaluate=False)
     return raw.evalf()
 
 

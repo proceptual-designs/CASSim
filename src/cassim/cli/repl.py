@@ -22,6 +22,10 @@ from cassim.core.session import Session
 from cassim.core.settings import PRESETS, Settings, updated
 
 PROMPT = "cassim> "
+# `:approx ENTRY` evaluates ENTRY as Ctrl+Enter does on the handheld; the prompt's Ctrl-Enter and
+# Alt-Enter keys just put this in front of what was typed.
+APPROX_PREFIX = ":approx "
+_APPROX_COMMAND = APPROX_PREFIX.strip()
 SETTING_KEYS = ("angle", "calc", "domain", "digits", "cas_mode", "exp_format")
 _CONSTANTS = ("ans", "false", "infinity", "pi", "true", "undef")
 _COMMENT = "//"
@@ -30,6 +34,8 @@ _CONVERSION_AT_END = re.compile(r"(?:▶|@>)([A-Za-z0-9]*)$")
 HELP = f"""Type an entry as on the calculator. ASCII spellings work: pi, infinity, @i, @e, @> for ▶.
   :set angle=degree calc=approximate     change a setting ({", ".join(SETTING_KEYS)})
   :settings                              show the settings
+  :approx ENTRY                          give ENTRY as a decimal, like Ctrl+Enter
+                                         (Alt+Enter at the prompt does the same)
   :new                                   start a new Problem (clears variables)
   :vars                                  list the variables and functions
   :help                                  this text
@@ -105,11 +111,13 @@ def completion_length(line: str) -> int:
     return len(word.group()) if word else 0
 
 
-def evaluate_line(session: Session, line: str, *, ascii_output: bool = False) -> Output | None:
+def evaluate_line(
+    session: Session, line: str, *, ascii_output: bool = False, approximate: bool = False
+) -> Output | None:
     """Run one entry and say what to print; None if the line was blank."""
     if not line.strip():
         return None
-    result = session.eval(line)
+    result = session.eval(line, approximate=approximate)
     if result.error is not None:
         return Output(f"Error: {result.error}", is_error=True)
     return Output(to_ascii(result.text) if ascii_output else result.text)
@@ -155,6 +163,9 @@ def _command(session: Session, line: str) -> Output:
 
 def respond(session: Session, line: str, *, ascii_output: bool = False) -> Output | None:
     stripped = line.strip()
+    if stripped == _APPROX_COMMAND or stripped.startswith(APPROX_PREFIX):
+        entry = stripped[len(_APPROX_COMMAND) :]
+        return evaluate_line(session, entry, ascii_output=ascii_output, approximate=True)
     if stripped.startswith(":") and not stripped.startswith(":="):
         return _command(session, stripped)
     return evaluate_line(session, line, ascii_output=ascii_output)

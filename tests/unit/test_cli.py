@@ -3,6 +3,9 @@
 import io
 
 import pytest
+from prompt_toolkit.application import create_app_session
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.output import DummyOutput
 
 from cassim.cli import repl
 from cassim.cli.repl import (
@@ -18,6 +21,7 @@ from cassim.cli.repl import (
     respond,
     run_script,
 )
+from cassim.cli.terminal import make_reader
 from cassim.core import catalog
 from cassim.core.session import Session
 from cassim.core.settings import PRESETS, Angle, Calc, CasMode, Settings
@@ -249,3 +253,54 @@ def test_presets_are_available_by_name():
 def test_help_names_the_settings():
     for key in repl.SETTING_KEYS:
         assert key in HELP
+
+
+# ---- Ctrl+Enter: give the entry as a decimal ---------------------------------------------------
+
+
+def test_approximate_entry_is_the_same_as_wrapping_in_approx():
+    for line in ("1/3", "sqrt(2)", "{1/2,pi}", "solve(x^2=2,x)", "[1,2;3,4]^-1", "exact(0.75)"):
+        wrapped = Session().eval(f"approx({line})")
+        direct = Session().eval(line, approximate=True)
+        assert (wrapped.error, direct.error) == (None, None), line
+        assert direct.text == wrapped.text, line
+
+
+def test_approximate_ignores_the_calculation_mode_and_leaves_text_alone():
+    exact = Session(Settings(calc=Calc.EXACT))
+    assert exact.eval("1/3", approximate=True).text == "0.33333333"
+    assert exact.eval("1/3").text == "1/3"
+    assert Session().eval('"hi"', approximate=True).text == '"hi"'
+    assert Session().eval("f(x):=x", approximate=True).text == "Done"
+    assert Session().eval("2+2", approximate=True).text == "4."
+
+
+def test_approximate_answer_becomes_ans_and_does_not_change_variables():
+    session = Session()
+    assert session.eval("a:=1/3", approximate=True).text == "0.33333333"
+    assert session.eval("ans").text == "0.33333333"
+    assert session.eval("a").text == "1/3"
+
+
+def test_approx_command_in_the_repl():
+    session = Session()
+    assert respond(session, ":approx 1/3") == Output("0.33333333")
+    assert respond(session, ":approx solve(x^2=2,x)") == Output("x=-1.4142136 or x=1.4142136")
+    assert answer(session, ":approx 1/").is_error
+    assert respond(session, ":approx") is None  # nothing to evaluate
+    assert answer(session, ":approxx 1").is_error  # a different, unknown command
+    assert answer(session, ":approx 1/3").text == "0.33333333"
+    assert "Ctrl+Enter" in HELP
+
+
+def test_prompt_keys_put_approx_in_front_of_the_entry():
+    session = Session()
+    for keys, expected in (
+        ("1/3\r", "1/3"),
+        ("1/3\x1b\r", ":approx 1/3"),  # Alt-Enter
+        ("1/3\n", ":approx 1/3"),  # Ctrl-Enter, as a terminal that reports it sends it
+    ):
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            pipe.send_text(keys)
+            reader = make_reader(session, input=pipe, output=DummyOutput())
+            assert reader.prompt("") == expected
