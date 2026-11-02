@@ -31,7 +31,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m9.calculus.quotient-and-chain-rule-1.jpg, shots/m9.calculus.quotient-and-chain-rule-2.jpg', note: 'The quotient-rule result is returned
       as -(x²-1)/(x²+1)², not (1-x²)/(x²+1)²: the numerator keeps its negated factored form.'}
-  status: pending
+  status: pass
 - id: m9.algebra.make-subject
   course: methods
   tier: 1
@@ -51,7 +51,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m9.defs.piecewise-integral-1.jpg, shots/m9.defs.piecewise-integral-2.jpg', note: 'Integrates a when()-defined piecewise function
       across its break point exactly (result 1, not 1.).'}
-  status: pending
+  status: pass
 - id: m9.calculus.limit-sum-expand
   course: methods
   tier: 1
@@ -62,7 +62,7 @@ cases:
   - {in: expand((1+x)^5), out: x^5+5*x^4+10*x^3+10*x^2+5*x+1}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.calculus.limit-sum-expand.jpg, note: Telescoping sum 1/(k(k+1)) over k=1..10 gives 10/11. expand lists descending powers.}
-  status: pending
+  status: pass
 - id: m9.complex.fourth-roots-and-power
   course: specialist
   tier: 1
@@ -92,7 +92,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.calculus.partial-fraction-integral.jpg, note: 'Returned as -ln(|x+1|/|x-1|)/2: absolute values are kept inside ln, and the sign
       is carried by the leading minus.'}
-  status: pending
+  status: pass
 - id: m9.calculus.desolve-separable-initial-condition
   course: specialist
   tier: 1
@@ -101,4 +101,4 @@ cases:
   - {in: 'deSolve(y''=x*y and y(0)=1,x,y)', out: y=ⅇ^(x^2/2)}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.calculus.desolve-separable-initial-condition.jpg}
-  status: pending
+  status: pass

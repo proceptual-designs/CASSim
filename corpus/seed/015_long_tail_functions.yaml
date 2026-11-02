@@ -51,7 +51,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m13.calculus.one-sided-limits-1.jpg, shots/m13.calculus.one-sided-limits-2.jpg', note: 'The fourth argument of limit is the direction: +1 from the right (x→0+),
       -1 from the left (x→0-). The echo shows lim x→0⁺ and lim x→0⁻.'}
-  status: pending
+  status: pass
 - id: m13.stats.invt-tcdf-chi2cdf
   course: methods
   tier: 1

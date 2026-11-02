@@ -76,7 +76,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.methods.calculus.basic-1.jpg, shots/casoff.methods.calculus.basic-2.jpg, shots/casoff.methods.calculus.basic-3.jpg, shots/casoff.methods.calculus.basic-4.jpg]
     note: Definite integral is evaluated numerically in CAS Off; limit and symbolic derivative are restricted.
-  status: pending
+  status: pass
 - id: casoff.methods.calculus.gradient-at-point-trap
   course: methods
   settings: {cas_mode: 'off'}
@@ -93,7 +93,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.methods.calculus.gradient-at-point-trap-1.jpg, shots/casoff.methods.calculus.gradient-at-point-trap-2.jpg]
     note: Definition df(x):=derivative(f(x),x) is accepted in CAS Off and df(3) evaluates to 6 (entry is shown as d/dx template). Duplicate history entry in the screenshot comes from a stray Return.
-  status: pending
+  status: pass
 - id: casoff.methods.syntax.d-paren-undefined-function
   course: methods
   settings: {cas_mode: 'off'}

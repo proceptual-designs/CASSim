@@ -1,6 +1,14 @@
 """Built-in functions and commands, grouped by area and registered on import."""
 
-from cassim.core.catalog import algebra, control, elementary, lists, matrices, solving
+from cassim.core.catalog import (
+    algebra,
+    calculus,
+    control,
+    elementary,
+    lists,
+    matrices,
+    solving,
+)
 from cassim.core.catalog.registry import (
     EagerEntry,
     Entry,
@@ -17,6 +25,7 @@ __all__ = [
     "Host",
     "LazyEntry",
     "algebra",
+    "calculus",
     "control",
     "elementary",
     "is_builtin",

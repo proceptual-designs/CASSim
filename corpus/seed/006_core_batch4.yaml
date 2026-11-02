@@ -100,4 +100,4 @@ cases:
   - {in: 'integral(g(x),x,0,3)', out: -9/2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m4.defs.function-use-1.jpg, shots/m4.defs.function-use-2.jpg', note: 'g(a+1) is returned factored: (a-2)(a+1).'}
-  status: pending
+  status: pass

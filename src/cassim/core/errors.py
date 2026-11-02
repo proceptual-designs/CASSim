@@ -25,6 +25,8 @@ RECURSION = -4
 MEMORY = -5
 SINGULAR = -6
 VARIABLE_NAME_NEEDED = -7
+USE_DERIVATIVE_AT_POINT = -8
+NO_SOLUTION = -9
 
 _MESSAGES = {
     SYNTAX: "Syntax error",
@@ -45,6 +47,8 @@ _MESSAGES = {
     MEMORY: "Memory",
     SINGULAR: "Singular matrix",
     VARIABLE_NAME_NEEDED: "Argument must be a variable name",
+    USE_DERIVATIVE_AT_POINT: "Use Derivative at a Point",
+    NO_SOLUTION: "No solution found",
 }
 
 

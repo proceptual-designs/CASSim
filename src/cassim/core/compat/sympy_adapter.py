@@ -2,8 +2,10 @@
 
 import math
 import operator
+import re
 from collections.abc import Callable, Iterable
 from decimal import ROUND_HALF_UP, Decimal
+from itertools import pairwise
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
@@ -230,7 +232,8 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
     a, b = number_value(left), number_value(right)
     if tolerance is not None and a is not None and b is not None:
         return abs(a - b) <= tolerance * max(abs(a), abs(b), 1.0)
-    difference = sp.simplify(left - right)
+    # Logarithms of products and quotients are equal once expanded: ln(a/b) is ln(a)-ln(b).
+    difference = sp.simplify(sp.expand_log(left - right, force=True))
     if tolerance is not None and not difference.is_number:
         difference = sp.simplify(difference.evalf())
         coefficients = [abs(c) for c in difference.atoms(sp.Float)]
@@ -705,3 +708,196 @@ def polynomial_value(coefficients: list[Raw], point: Raw) -> Raw:
     for coefficient in coefficients:
         total = total * point + coefficient
     return total
+
+
+# Calculus
+
+
+def substitute(raw: Raw, variable: Raw, value: Raw) -> Raw:
+    return raw.subs(variable, value)
+
+
+def differentiate(expression: Raw, variable: Raw, order: int) -> Raw:
+    return sp.diff(expression, variable, order)
+
+
+def _inverse_hyperbolics_as_logs(raw: Raw) -> Raw:
+    """TI writes `ln(2+√(5))`, where SymPy writes `asinh(2)`."""
+    return raw.replace(
+        lambda e: isinstance(e, sp.asinh), lambda e: sp.log(e.args[0] + sp.sqrt(e.args[0] ** 2 + 1))
+    )
+
+
+def _logs_of_absolute_values(raw: Raw) -> Raw:
+    """An antiderivative such as `ln(x)` is written `ln(abs(x))` unless the argument is positive."""
+    return raw.replace(
+        lambda e: isinstance(e, sp.log) and not e.args[0].is_positive,
+        lambda e: sp.log(sp.Abs(e.args[0])),
+    )
+
+
+def _without_abs(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw | None:
+    """Integrate across the points where an `abs(...)` changes sign, one piece at a time."""
+    bars = expression.atoms(sp.Abs)
+    breaks = {lower, upper}
+    for bar in bars:
+        found = sp.solveset(bar.args[0], variable, sp.Interval(lower, upper))
+        if not isinstance(found, sp.FiniteSet):
+            return None
+        breaks.update(found)
+    points = sorted(breaks, key=lambda point: float(point.evalf()))
+    total: Raw = sp.Integer(0)
+    for start, end in pairwise(points):
+        middle = (start + end) / 2
+        signs = {bar: sp.sign(bar.args[0].subs(variable, middle)) * bar.args[0] for bar in bars}
+        total += sp.integrate(expression.xreplace(signs), (variable, start, end))
+    return total
+
+
+def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | None) -> Raw | None:
+    """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it."""
+    if lower is None or upper is None:
+        result = sp.integrate(expression, variable)
+    else:
+        result = sp.integrate(expression, (variable, lower, upper))
+        if result.has(sp.Integral) and expression.has(sp.Abs):
+            result = _without_abs(expression, variable, lower, upper) or result
+    if result.has(sp.Integral):
+        return None
+    result = _inverse_hyperbolics_as_logs(result)
+    return result if lower is not None else _logs_of_absolute_values(result)
+
+
+def limit(expression: Raw, variable: Raw, point: Raw, direction: int | None) -> Raw | None:
+    """A limit; `direction` is 1 from the right, -1 from the left and None for both sides."""
+    side = "+-" if direction is None else "+" if direction > 0 else "-"
+    result = sp.limit(expression, variable, point, side)
+    return None if result.has(sp.Limit) else result
+
+
+def taylor(expression: Raw, variable: Raw, order: int, point: Raw) -> Raw:
+    return sp.series(expression, variable, point, order + 1).removeO()
+
+
+def tangent_line(expression: Raw, variable: Raw, point: Raw) -> Raw:
+    slope = sp.diff(expression, variable).subs(variable, point)
+    return sp.expand(expression.subs(variable, point) + slope * (variable - point))
+
+
+def normal_line(expression: Raw, variable: Raw, point: Raw) -> Raw:
+    slope = sp.diff(expression, variable).subs(variable, point)
+    return sp.expand(expression.subs(variable, point) - (variable - point) / slope)
+
+
+def implicit_derivative(equation: Raw, variable: Raw, dependent: Raw) -> Raw:
+    """dy/dx of an equation in x and y."""
+    expression = equation.lhs - equation.rhs if isinstance(equation, sp.Eq) else equation
+    return sp.idiff(expression, dependent, variable)
+
+
+def numerical_integral(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw:
+    return sp.Integral(expression, (variable, lower, upper)).evalf()
+
+
+_GUESSES = (1, 0, -1, 2, -2, 10, -10)
+
+
+def numerical_root(equation: Raw, variable: Raw, guess: Raw | None) -> Raw | None:
+    expression = equation.lhs - equation.rhs if isinstance(equation, sp.Eq) else equation
+    for start in (guess,) if guess is not None else _GUESSES:
+        try:
+            return sp.nsolve(expression, variable, start)
+        except ValueError, ZeroDivisionError, NotImplementedError:
+            continue
+    return None
+
+
+def extremum(
+    expression: Raw, variable: Raw, constraints: Iterable[Raw], *, maximum: bool
+) -> Raw | None:
+    """The `x=a` where `expression` is greatest (or least) in the domain, or None if none is."""
+    domain: Raw = sp.S.Reals
+    for constraint in constraints:
+        if constraint.free_symbols <= {variable}:
+            domain = domain.intersect(_constraint_set(constraint, variable))
+    critical = sp.solveset(sp.diff(expression, variable), variable, domain)
+    if critical != sp.S.EmptySet and not isinstance(critical, sp.FiniteSet):
+        return None
+    candidates = list(critical)
+    reaches: list[float] = []  # what the expression approaches at an unbounded end
+    for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
+        if not isinstance(piece, sp.Interval):
+            return None
+        for end, is_open in ((piece.start, piece.left_open), (piece.end, piece.right_open)):
+            if end.is_finite and not is_open:
+                candidates.append(end)
+            elif not end.is_finite:
+                reaches.append(float(sp.limit(expression, variable, end).evalf()))
+    if not candidates:
+        return None
+    values = {c: float(expression.subs(variable, c).evalf()) for c in candidates}
+    pick = max if maximum else min
+    best = pick(candidates, key=values.__getitem__)
+    # A value approached but never reached beats every candidate if it is more extreme.
+    if reaches and pick([values[best], *reaches]) != values[best]:
+        return None
+    return sp.Eq(variable, best, evaluate=False)
+
+
+def function_of(name: str, variable: Raw) -> Raw:
+    return undefined_function(name, (variable,))
+
+
+def derivative_of_function(name: str, variable: Raw, order: int) -> Raw:
+    return function_of(name, variable).diff(variable, order)
+
+
+_CONSTANT_NAME = re.compile(r"C\d+")
+
+
+def solve_ode(conditions: Raw, variable: Raw, name: str) -> Raw | None:
+    """Solve an ordinary differential equation, with initial values if they are given.
+
+    `conditions` is the equation, or the equation and `y(a)=b` joined by `and`. The constants of
+    integration are named `c1`, `c2`, ... as TI names them.
+    """
+    parts = conditions.args if isinstance(conditions, sp.And) else (conditions,)
+    equations = [p for p in parts if isinstance(p, sp.Eq) and p.has(sp.Derivative)]
+    initial = {
+        p.lhs: p.rhs
+        for p in parts
+        if isinstance(p, sp.Eq) and isinstance(p.lhs, sp.core.function.AppliedUndef)
+    }
+    if len(equations) != 1:
+        return None
+    try:
+        solution = sp.dsolve(
+            sp.Eq(equations[0].lhs, equations[0].rhs),
+            function_of(name, variable),
+            ics=initial or None,
+        )
+    except NotImplementedError, ValueError:
+        return None
+    if isinstance(solution, list):
+        return None
+    return sp.Eq(symbol_named(name), _renumbered(solution.rhs), evaluate=False)
+
+
+def _renumbered(expression: Raw) -> Raw:
+    """Name the constants c1, c2, ... in the order their terms print, as TI does."""
+    constants = [s for s in expression.free_symbols if _CONSTANT_NAME.fullmatch(s.name)]
+    terms = [t for t in sp.expand(expression).as_ordered_terms() if t.free_symbols & set(constants)]
+
+    def shape(term: Raw) -> str:
+        return str(term.xreplace({c: sp.Integer(1) for c in constants}))
+
+    renamed: dict[Raw, Raw] = {}
+    for term in sorted(terms, key=shape):
+        for constant in sorted(term.free_symbols & set(constants), key=lambda s: s.name):
+            if constant not in renamed:
+                renamed[constant] = sp.Symbol(f"c{len(renamed) + 1}", real=True)
+    return expression.xreplace(renamed)
+
+
+def symbol_named(name: str) -> Raw:
+    return symbol(name)

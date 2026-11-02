@@ -3,7 +3,7 @@
 Date: 2026-11-02. Status: accepted; the choices under "To check on the simulator" are provisional.
 Code: `src/cassim/core/catalog/`, `core/valueops.py`, `core/angles.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_catalog.py`.
 
-M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving. Later slices: calculus, distributions and finance, then statistics and the regression commands.
+M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving and slice 3 calculus. Later slices: distributions and finance, then statistics and the regression commands.
 
 ## Decisions
 
@@ -60,3 +60,27 @@ Code: `catalog/solving.py`, the "Solving" section of the adapter, `Evaluator._co
 | `zeros` with no finite answer | echoed unevaluated | assumed |
 | `polyRoots` | real roots, with multiplicity | the Reference Guide's wording was not checked against the CAS build |
 | a system with no unique answer that SymPy cannot solve | "Domain error" | assumed |
+
+## Slice 3: calculus
+
+Code: `catalog/calculus.py` and the "Calculus" section of the adapter. Tests: `tests/unit/test_calculus.py`.
+
+- **`derivative`, `integral`, `limit`, `taylor`, `fMax`, `fMin`, `tangentLine`, `normalLine`, `impDif`, `nDerivative`, `nInt`, `nSolve`, `deSolve`.** All are lazy: the variable is read from the argument list as typed and the expression is evaluated with it bound to a plain symbol.
+- **A value the variable already had is put in afterwards.** `df(x):=derivative(f(x),x)` evaluates its body with `x` bound to the argument, so `derivative` differentiates first and then substitutes: `df(3)` is `6`, `df(a+1)` is `3*(a+1)^2`, and `derivative(...)|x=2` works for the same reason. Host gained `lookup(name)` for this. The side effect, `x:=4` then `derivative(x^2,x)` giving `8`, is a guess (below).
+- **CAS Off**: a symbolic `derivative` reports "Use Derivative at a Point" (the corpus wording); a definite `integral` is allowed and comes out as a decimal; `limit`, `taylor`, `fMax`, `fMin`, `tangentLine`, `normalLine`, `impDif` and `deSolve` are refused.
+- **`limit`** takes a direction (1 right, -1 left); with none it is two-sided, so `limit(1/x,x,0)` is `undef`. A limit SymPy cannot find is echoed.
+- **`integral`** gives no constant. An antiderivative writes `ln(abs(x))` where the argument is not known to be positive, as TI does (`ln(x^2+1)` stays). `asinh` in a result is rewritten as `ln`. A definite integral of `abs(...)` is split at the sign changes, because SymPy leaves it unevaluated. An integral SymPy cannot do is echoed.
+- **`fMax` and `fMin`** return the location (`x=2`), look at critical points and closed finite ends of the domain given by `|`, and give up (echo) if the expression approaches a more extreme value at an unbounded end.
+- **`deSolve`** binds `y`, `y'`, `y''`... to a SymPy function and its derivatives while the equation is evaluated (the evaluator reads `y'` only from such bindings). Initial values `y(a)=b` come after `and`. Constants are named `c1`, `c2`, ... in the order their terms print (cosine before sine, for example).
+- **Equality of answers** now expands logarithms before comparing, so `ln(a/b)` equals `ln(a)-ln(b)`.
+
+### To check on the simulator
+
+| Entry | Now | Why it is a guess |
+|---|---|---|
+| `x:=4` then `derivative(x^2,x)` | `8` | TI may refuse a stored variable as the differentiation variable |
+| `y'(0)=...` as an initial condition | not supported (`y'(0)` parses as `y'*0`) | needs a parser decision |
+| `nSolve` start points | tries 1, 0, -1, 2, -2, 10, -10 | TI's method is not known |
+| `fMin(x^3,x)` | echoed | TI may give `x=-∞` or an error |
+| calculus in Degree mode | trig is treated as radians | `d/dx sin(x)` in Degree mode needs the angle-aware function class (see slice 1) |
+| `integral(sin(x)/x,x,1,2)` | `Si(2)-Si(1)` from SymPy | TI probably gives a decimal or leaves it |

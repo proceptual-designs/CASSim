@@ -15,7 +15,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m12.errors.undef-results-1.jpg, shots/m12.errors.undef-results-2.jpg, shots/m12.errors.undef-results-3.jpg', note: 'Undef results carry through a calculation (0*ln(0) and undef+1 are undef) whereas limit(x*ln(x),x,0,1) = 0. Division by zero and ln(0) are not errors: the result line shows the word undef.
       Captured with Real or Complex = Polar, but this does not depend on the domain setting.'}
-  status: pending
+  status: pass
 - id: m12.errors.undefined-variable-echoes
   course: methods
   tier: 1
