@@ -296,3 +296,40 @@ def test_a_name_that_is_not_a_function_echoes_even_with_a_list_argument():
 )
 def test_algebra(line, wanted):
     same(line, wanted)
+
+
+@pytest.mark.parametrize(
+    ("line", "wanted"),
+    [
+        ("remain(-7,3)", "-1"),
+        ("remain(7,-3)", "1"),
+        ("remain(7.5,2)", "1.5"),
+        ("left({1,2,3,4},2)", "{1,2}"),
+        ("right({1,2,3,4},3)", "{2,3,4}"),
+        ("left({1,2},5)", "{1,2}"),
+        ("subMat([1,2,3;4,5,6;7,8,9],2,2)", "[5,6;8,9]"),
+        ("subMat([1,2,3;4,5,6;7,8,9],2,1,3,2)", "[4,5;7,8]"),
+        ("subMat([1,2;3,4])", "[1,2;3,4]"),
+        ("avgRC(x^2,x=1,0.5)", "5/2"),
+        ("avgRC(x^2,x=1)", "2001/1000"),
+    ],
+)
+def test_small_commands(line, wanted):
+    same(line, wanted)
+
+
+def test_strings_and_primes_and_small_command_errors():
+    assert text('left("hello",2)') == '"he"'
+    assert text('right("hello",3)') == '"llo"'
+    assert text('right("hello")') == '"hello"'
+    assert text("isPrime(97)") == "true"
+    assert text("isPrime(91)") == "false"
+    assert error("isPrime(2.5)") == "Domain error"
+    assert error("left({1,2},-1)") == "Domain error"
+    assert error("subMat([1,2;3,4],3)") == "Domain error"
+    assert error("subMat([1,2;3,4],1,1,3,3)") == "Domain error"
+    assert error("subMat([1,2;3,4],x)") == "Domain error"
+
+
+def test_avg_rc_takes_the_value_the_variable_already_has():
+    assert text("x:=3", "avgRC(x^2,x,1)") == "7"

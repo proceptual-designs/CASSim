@@ -1057,3 +1057,13 @@ def eigenvectors(rows: list[list[Raw]]) -> list[list[Raw]]:
             columns.append((value.evalf(), [(entry / length).evalf() for entry in vector]))
     columns.sort(key=lambda column: _eigen_key(column[0]))
     return [list(row) for row in zip(*[vector for _, vector in columns], strict=True)]
+
+
+def remainder(left: Raw, right: Raw) -> Raw:
+    """`remain(a,b)`: the remainder of a/b, with the sign of `a`."""
+    return left - right * integer_part(left / right)
+
+
+def is_prime(raw: Raw) -> bool | None:
+    """Whether a whole number is prime; None if `raw` is not a whole number."""
+    return bool(sp.isprime(raw)) if raw.is_Integer else None

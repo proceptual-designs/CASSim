@@ -22,6 +22,9 @@ from pathlib import Path
 
 import yaml
 
+from cassim.core import catalog
+from cassim.core.parser import COMMANDS
+
 ROOT = Path(__file__).resolve().parents[1]
 REF = ROOT / "references"
 CAS_GUIDE = REF / "TI-NspireCAS_ReferenceGuide_EN_3.2.pdf"
@@ -52,6 +55,29 @@ def norm(name: str) -> str:
     """Normalise a heading for matching: drop spaces, the parentheses suffix and arrows."""
     name = name.split(" (", maxsplit=1)[0] if name.endswith(")") and " (" in name else name
     return re.sub(r"[\s()►▶]", "", name).lower()
+
+
+# Names the guide gives to things the engine spells another way, or handles in the language
+# itself (statements and operators) rather than in the catalog.
+_ENGINE_ALIASES = {"d": "derivative", "lim": "limit", "∑": "sum"}
+_LANGUAGE = frozenset(
+    {"ans", "define", "delvar", "clearaz", "and", "or", "not", "xor", "nor", "nand"}
+)
+_INVERSE_NAME = re.compile(r"^(sin|cos|tan|sec|csc|cot)(h?)⁻¹$")
+
+
+def engine_names() -> set[str]:
+    """Every command the engine implements, in the form `norm` produces."""
+    names = {norm(n) for n in catalog.function_names()}
+    names |= {norm(n) for n in COMMANDS.values() if catalog.lookup_command(n)}
+    names |= {norm(n) for n in catalog.conversion_names()}
+    return names | _LANGUAGE
+
+
+def is_implemented(key: str, engine: set[str]) -> bool:
+    """Does the engine have the command whose `norm`-ed name is `key`?"""
+    key = _INVERSE_NAME.sub(r"arc\1\2", key)
+    return key in engine or _ENGINE_ALIASES.get(key, "") in engine
 
 
 def heading_name(raw: str) -> tuple[str, bool] | None:
@@ -158,6 +184,7 @@ def main() -> int:
     book_text = {k: pdf_text(p, layout=False) for k, p in BOOKS.items()}
     cases = corpus_cases()
     per_cmd = Counter(n for c in cases for n in c.names)
+    engine = engine_names()
 
     rows = []
     for key in {**num, **cas}:  # numeric-only additions first, then CAS entries
@@ -173,7 +200,7 @@ def main() -> int:
                 **{f"book_{k}": v for k, v in bk.items()},
                 "priority": priority(per_cmd.get(key, 0), total),
                 "simulator_verified": "",
-                "status": "todo",
+                "status": "done" if is_implemented(key, engine) else "todo",
             }
         )
     known = set(cas) | set(num)
@@ -185,6 +212,8 @@ def main() -> int:
         w.writerows(rows)
 
     by_prio = Counter(r["priority"] for r in rows)
+    done = Counter(r["priority"] for r in rows if r["status"] == "done")
+    left = [r for r in rows if r["status"] == "todo" and r["priority"] in ("core", "likely")]
 
     def table(rank: str) -> list[str]:
         out = [
@@ -214,8 +243,21 @@ def main() -> int:
         f"VCE books), **later** {by_prio['later']}.",
         "- Book columns count `name(` in running text (-1: bare lower-case word, not countable). "
         "Screenshots in the books are not searchable, so these are lower bounds.",
+        f"- Engine status (`status`): **{sum(done.values())} of {len(rows)}** implemented; "
+        f"core {done['core']} of {by_prio['core']}, likely {done['likely']} of "
+        f"{by_prio['likely']}, later {done['later']} of {by_prio['later']}.",
         "- `simulator_verified` is empty: the guide (3.2, 2012) predates the simulator, so every "
         "entry still needs a Catalog check.",
+        "",
+        "## Core and likely commands not yet implemented",
+        "",
+        *(
+            [
+                f"- `{r['command']}` ({r['priority']}, {r['corpus_cases']} corpus cases)"
+                for r in sorted(left, key=lambda r: (r["priority"], r["command"]))
+            ]
+            or ["None: every core and likely command is implemented."]
+        ),
         "",
         "## Core",
         "",

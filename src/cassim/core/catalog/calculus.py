@@ -16,6 +16,7 @@ _INTEGRAL_UNBOUNDED_ARGS = 2
 _INTEGRAL_BOUNDED_ARGS = 4
 _WITH_DIRECTION = 4  # limit(expr, x, point, direction)
 _WITH_POINT = 4  # taylor(expr, x, order, point)
+_AVG_RC_WITH_STEP = 3  # avgRC(expr, x, step)
 
 
 def _name_of(node: ast.Expr) -> str:
@@ -168,6 +169,28 @@ def n_derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     symbol = cas.symbol(name)
     slope = cas.substitute(cas.differentiate(expression, symbol, order), symbol, point)
     return Expr(cas.approximate(slope))
+
+
+# The step avgRC uses when none is given.
+_DEFAULT_STEP = 0.001
+
+
+@lazy("avgRC", 2, 3)
+def avg_rc(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`avgRC(expr, x[=value][, step])`: the average rate of change from x to x+step."""
+    name, point = _point(host, args[1])
+    if point is None:
+        point = raw_of(host.lookup(name) or Expr(cas.symbol(name)))
+    step = (
+        raw_of(host.expr(args[2]))
+        if len(args) == _AVG_RC_WITH_STEP
+        else cas.decimal("0.001", exact=True)
+    )
+    expression = _expression(host, args[0], [name])
+    symbol = cas.symbol(name)
+    here = cas.substitute(expression, symbol, point)
+    there = cas.substitute(expression, symbol, point + step)
+    return Expr((there - here) / step)
 
 
 @lazy("nInt", 4)
