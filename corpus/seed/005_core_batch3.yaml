@@ -155,7 +155,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/m3.stats.onevar-1.jpg, shots/m3.stats.onevar-2.jpg]
     note: sx is the sample standard deviation, σx the population one.
-  status: pending
+  status: pass
 - id: m3.dist.pdf-cdf
   course: methods
   tier: 1
@@ -315,7 +315,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/general.stats.linregmx.jpg, note: 'Typing stat.results opens a variable popup; type stat.res, then ults, then Escape (or type results
       and Escape).'}
-  status: pending
+  status: pass
 - id: general.stats.quadreg
   course: general
   tier: 1
@@ -327,4 +327,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/general.stats.quadreg.jpg, note: 'b and c display 1.E-13 and -1.E-13: numerical noise around an exact fit (true values 0). Use an
       absolute tolerance near zero.'}
-  status: pending
+  status: pass

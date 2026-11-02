@@ -3,7 +3,7 @@
 Date: 2026-11-02. Status: accepted; the choices under "To check on the simulator" are provisional.
 Code: `src/cassim/core/catalog/`, `core/valueops.py`, `core/angles.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_catalog.py`.
 
-M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving, slice 3 calculus and slice 4 distributions and finance. Later slices: statistics and the regression commands, then conversions and the long tail.
+M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving, slice 3 calculus and slice 4 distributions and finance and slice 5 statistics. The last slice is conversions and the long tail.
 
 ## Decisions
 
@@ -104,3 +104,24 @@ Code: `catalog/distributions.py`, `catalog/finance.py`, `core/compat/distributio
 | `binomPdf(10,1/2,5)` | exact `63/256` | TI may give a decimal |
 | `invBinom` when the area is not reached | `n` | assumed |
 | `tvmN` for an impossible loan | "Domain error" | TI's wording not captured |
+
+## Slice 5: statistics and regression
+
+Code: `catalog/statistics.py`, `core/compat/statistics.py`. Tests: `tests/unit/test_statistics.py`.
+
+- **`OneVar`, `TwoVar`, `LinRegBx`, `LinRegMx`, `QuadReg`, `CubicReg`, `QuartReg`, `ExpReg`, `PowerReg`, `LnReg`, `MedMed`, `Logistic`, `LogisticD`, `SinReg`.** Arguments are `[count,] X[, Y][, Freq]`; a leading plain number is TI's count of lists and is ignored, and a frequency may be a list or one number.
+- **Results go to `stat.` variables**: `stat.results` (a matrix of label and value, with strings in the first column), `stat.values` (one row, title first), and one variable for each number (`stat.a`, `stat.r²`, `stat.sx`, `stat.q1x`, ...). Matrices can now hold strings for this reason (`Cell = Expr | Str`); arithmetic on one gives "Data type". The `Resid` cell shows `"{...}"` as on the calculator, and the residuals are in `stat.resid`.
+- **Quartiles use the school convention** (median of the halves, the median left out when n is odd): `6.5` and `42.5` for the squares to 64, not NumPy's `7.75` and `39.25`. Checked with Hypothesis properties.
+- **No NumPy or SciPy.** Sums, quartiles, straight-line and polynomial fits are exact (`Fraction`, Gauss-Jordan on the normal equations), so exact data gives exact coefficients. Exponential, power and logarithmic fits straighten the data with logarithms and use the line's `r`. `Logistic` and `LogisticD` use Levenberg-Marquardt from a first guess found by straightening; `SinReg` scans frequencies (for a fixed frequency the model is linear) and refines with a golden-section search. `SinReg` reports `b` in radians per unit of x whatever the angle mode, as the corpus shows.
+- **Corpus edit**: four steps (`cl:=`, `cv:=`, `cg:=`, `cd:=` in `029_more_regressions` and `032_logisticd`) compared the whole data list with what was readable on screen (the notes say only the first four to eight values were visible). They are now `compare: ignore`; the `stat.` steps that follow are what the cases test.
+
+### To check on the simulator
+
+| Entry | Now | Why it is a guess |
+|---|---|---|
+| Titles and `RegEqn` text for `Logistic`, `LogisticD`, `SinReg`, `LnReg`, `MedMed`, `CubicReg`, `QuartReg` | plausible wording | only the labels in the corpus are verified |
+| `stat.values` for `OneVar` | one row, as for `TwoVar` | only `TwoVar` is in the corpus |
+| `MedMed` group sizes for n = 3k+1 and 3k+2 | k,k+1,k and k+1,k,k+1 | the usual rule; only n = 6 is in the corpus |
+| `Logistic` first guess and stopping rule | see above | TI's own algorithm differs, so noisy data may converge to a different local fit |
+| `r` and `r²` for the transformed fits | of the straightened line | matches the corpus for exact data only |
+| the `Save RegEqn` / category / include arguments | ignored | not implemented |

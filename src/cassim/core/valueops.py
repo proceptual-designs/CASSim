@@ -5,7 +5,7 @@ from collections.abc import Callable
 from cassim.core import errors
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
-from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Value
+from cassim.core.values import Bool, Cell, Expr, ListValue, MatrixValue, Raw, Str, Value
 
 
 def as_expr(value: Value) -> Expr:
@@ -20,13 +20,18 @@ def raw_of(value: Value) -> Raw:
     return as_expr(value).raw
 
 
+def cell_of(value: Value) -> Cell:
+    """A value as a matrix cell: a string stays a string, anything else must be a number."""
+    return value if isinstance(value, Str) else as_expr(value)
+
+
 def map_value(function: Callable[[Value], Value], value: Value) -> Value:
     """Apply `function` to a value, or to each element of a list or matrix."""
     if isinstance(value, ListValue):
         return ListValue(tuple(map_value(function, item) for item in value.items))
     if isinstance(value, MatrixValue):
         return MatrixValue(
-            tuple(tuple(as_expr(function(cell)) for cell in row) for row in value.rows)
+            tuple(tuple(cell_of(function(cell)) for cell in row) for row in value.rows)
         )
     return function(value)
 
@@ -45,7 +50,7 @@ def list_of(raws: list[Raw]) -> ListValue:
 def raw_rows(value: Value) -> list[list[Raw]]:
     if not isinstance(value, MatrixValue):
         raise TIError(errors.DATA_TYPE)
-    return [[cell.raw for cell in row] for row in value.rows]
+    return [[raw_of(cell) for cell in row] for row in value.rows]
 
 
 def matrix_of(rows: list[list[Raw]]) -> MatrixValue:

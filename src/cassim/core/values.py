@@ -44,9 +44,13 @@ class ListValue:
     items: tuple[Value, ...]
 
 
+type Cell = Expr | Str
+"""A matrix cell. Strings are allowed because `stat.results` mixes labels and numbers."""
+
+
 @dataclass(frozen=True, slots=True)
 class MatrixValue:
-    rows: tuple[tuple[Expr, ...], ...]
+    rows: tuple[tuple[Cell, ...], ...]
 
 
 type Value = Expr | Str | Bool | ListValue | MatrixValue | Void | Unevaluated

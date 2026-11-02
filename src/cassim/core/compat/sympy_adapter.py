@@ -5,6 +5,7 @@ import operator
 import re
 from collections.abc import Callable, Iterable
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
 from itertools import pairwise
 
 import sympy as sp
@@ -218,6 +219,15 @@ def bound_float(raw: Raw) -> float | None:
     if raw == -sp.oo:
         return -math.inf
     return real_float(raw)
+
+
+def to_fraction(raw: Raw) -> Fraction | None:
+    """An exact number as a Fraction (a decimal is read as the decimal it shows), else None."""
+    if raw.is_Rational:
+        return Fraction(int(raw.p), int(raw.q))
+    if raw.is_Float:
+        return Fraction(Decimal(str(raw)))
+    return None
 
 
 def from_float(value: float) -> Raw:

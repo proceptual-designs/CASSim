@@ -10,6 +10,7 @@ from cassim.core.catalog import (
     lists,
     matrices,
     solving,
+    statistics,
 )
 from cassim.core.catalog.registry import (
     EagerEntry,
@@ -38,4 +39,5 @@ __all__ = [
     "lookup_command",
     "matrices",
     "solving",
+    "statistics",
 ]
