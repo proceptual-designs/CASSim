@@ -333,3 +333,9 @@ def test_strings_and_primes_and_small_command_errors():
 
 def test_avg_rc_takes_the_value_the_variable_already_has():
     assert text("x:=3", "avgRC(x^2,x,1)") == "7"
+
+
+def test_approx_of_a_relation_or_an_and_or_combination():
+    assert text("approx(solve(x^2=2,x))") == "x=-1.4142136 or x=1.4142136"
+    assert text("approx(x=1/3)") == "x=0.33333333"
+    assert text("approx(solve({x+y=1,x-y=1/3},{x,y}))") == "x=0.66666667 and y=0.33333333"

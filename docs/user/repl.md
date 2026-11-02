@@ -67,6 +67,25 @@ The handheld has keys for symbols that a plain keyboard does not. At the prompt,
 
 With `--ascii`, results are printed back in the typed spellings (`pi`, `sqrt(2)`, `arcsin(x)`), which is useful if you want to paste them somewhere.
 
+### Giving an answer as a decimal (Ctrl+Enter)
+
+On the handheld, **Ctrl+Enter** works out an entry and shows the answer as a decimal, whatever the Calculation Mode is. It is the same as wrapping the entry in `approx(...)`.
+
+At the prompt, put `:approx` in front of the entry:
+
+```
+cassim> 1/3
+1/3
+cassim> :approx 1/3
+0.33333333
+cassim> :approx solve(x^2=2,x)
+x=-1.4142136 or x=1.4142136
+```
+
+With a real terminal you can press **Alt+Enter** instead of typing `:approx`. **Ctrl+Enter** works too in terminals that report it as a separate key; many send a plain Enter, which the program cannot tell apart, so use Alt+Enter or `:approx` if Ctrl+Enter does nothing.
+
+Only the answer is changed: `:approx a:=1/3` shows `0.33333333`, but `a` still holds the exact `1/3`. The decimal answer becomes `Ans`. The graphical app will have the real Ctrl+Enter key, using the same engine option (`Session.eval(line, approximate=True)`).
+
 ## Variables and functions
 
 ```
@@ -167,6 +186,7 @@ These start with a colon and are not part of the TI language.
 | `:help` | Show a short reminder. |
 | `:settings` | Show the current settings. |
 | `:set key=value ...` | Change settings. |
+| `:approx ENTRY` | Give ENTRY as a decimal, like Ctrl+Enter. |
 | `:vars` | List the variables and functions you have defined. |
 | `:new` | Start a new Problem and clear the variables. |
 | `:quit` | Leave (so does Ctrl-D). |

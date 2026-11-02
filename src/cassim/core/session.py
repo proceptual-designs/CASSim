@@ -1,6 +1,6 @@
 """The engine's public API: one calculator session, as specified in docs/testing/TESTING.md."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
@@ -9,8 +9,19 @@ from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_latex, to_text
 from cassim.core.parser import parse
 from cassim.core.scope import Scope
-from cassim.core.settings import Settings, updated
-from cassim.core.values import Expr, ListValue, MatrixValue, Shown, Value, Void
+from cassim.core.settings import Calc, Settings, updated
+from cassim.core.valueops import map_value, raw_of
+from cassim.core.values import (
+    Bool,
+    Expr,
+    ListValue,
+    MatrixValue,
+    Shown,
+    Str,
+    Unevaluated,
+    Value,
+    Void,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,8 +38,12 @@ class Session:
         self._ans: Value | None = None
         self.scope = Scope()
 
-    def eval(self, line: str) -> Result:
-        """Evaluate one entry line. TI errors come back in `Result.error`."""
+    def eval(self, line: str, *, approximate: bool = False) -> Result:
+        """Evaluate one entry line. TI errors come back in `Result.error`.
+
+        `approximate=True` is Ctrl+Enter on the handheld: the same as wrapping the entry in
+        `approx(...)`, whatever the Calculation Mode is.
+        """
         try:
             tree: ast.Line = parse(line)
             value = Evaluator(self.settings, self._ans, self.scope).line(tree)
@@ -36,6 +51,8 @@ class Session:
             return Result(error.message, "", None, error.message)
         if value is None:
             return Result("", "", None, None)
+        if approximate:
+            value = _approximated(value, self.settings)
         if not isinstance(value, Void):
             self._ans = value
         return Result(to_text(value, self.settings), to_latex(value), value, None)
@@ -46,6 +63,14 @@ class Session:
 
     def set(self, **changes: str) -> None:
         self.settings = updated(self.settings, changes)
+
+
+def _approximated(value: Value, settings: Settings) -> Value:
+    """The decimal form of a result; text, truth values and `Done` are left as they are."""
+    if isinstance(value, Void | Str | Bool | Unevaluated):
+        return value
+    decimal = replace(settings, calc=Calc.APPROXIMATE)
+    return map_value(lambda v: Expr(cas.finish(raw_of(v), decimal)), value)
 
 
 def same_value(left: Value, right: Value, tolerance: float | None = None) -> bool:

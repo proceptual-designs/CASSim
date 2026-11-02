@@ -156,7 +156,9 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
 - **Status: done (2026-11-02).** See `docs/decisions/0007` to `0011`.
 
-**M2 — GUI shell: keyboard, pages, settings (L)**
+**M2 — GUI shell: keyboard, pages, settings (L)**
+
+- Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
 - 2a Device model: key layers, menu tree from data, linear input editor, screen buffer; headless key-sequence tests.
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
