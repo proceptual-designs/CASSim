@@ -6,11 +6,12 @@ from itertools import pairwise
 from typing import Any
 
 from cassim.core import angles, ast, catalog, errors
+from cassim.core.catalog.conversions import polar_form
 from cassim.core.catalog.matrices import matrix_power
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.scope import Function, Scope
-from cassim.core.settings import Angle, CasMode, Settings
+from cassim.core.settings import Angle, CasMode, Domain, Settings
 from cassim.core.valueops import as_expr, cell_of, map_value, raw_rows
 from cassim.core.values import (
     Bool,
@@ -237,7 +238,11 @@ class Evaluator:
             return value
         if self._settings.cas_mode != CasMode.ON and cas.is_symbolic(value.raw):
             raise TIError(errors.CAS_RESTRICTED)
-        return Expr(cas.finish(value.raw, self._settings))
+        finished = Expr(cas.finish(value.raw, self._settings))
+        # In Polar mode a complex number is written as r*ⅇ^(ⅈ*θ).
+        if self._settings.domain == Domain.POLAR:
+            return polar_form(finished, self._settings)
+        return finished
 
     def expr(self, node: ast.Expr) -> Value:
         return self._dispatch[type(node)](node)
@@ -420,9 +425,13 @@ class Evaluator:
         return _from_truth(relations[0] if len(relations) == 1 else cas.logic_all(relations))
 
     def _convert(self, node: ast.Convert) -> Value:
-        if isinstance(node.target, ast.Name) and node.target.text.casefold() == "decimal":
-            return map_value(lambda v: Expr(cas.approximate(as_expr(v).raw)), self.expr(node.value))
-        raise _unsupported(f"▶{node.target}")
+        target = node.target
+        name = target.text if isinstance(target, ast.Name) else target.func
+        run = catalog.lookup_conversion(name)
+        if run is None:
+            raise _unsupported(f"▶{target}")
+        args = [] if isinstance(target, ast.Name) else self._arguments(target)
+        return run(self, self.expr(node.value), args)
 
 
 def _conjuncts(node: ast.Expr) -> list[ast.Expr]:

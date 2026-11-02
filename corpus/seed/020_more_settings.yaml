@@ -31,7 +31,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.exp-scientific.jpg, note: 'Exponential Format = Scientific, Display Digits Float 8, Auto. Decimal results use d.ddddᴇn form even for 12345.6789;
       the entry echo of 0.000123 is also reformatted. Exact results (√2, 1000000·π) are unaffected.'}
-  status: pending
+  status: pass
 - id: m14.settings.exp-engineering
   course: methods
   settings: {angle: gradian, exp_format: engineering}
@@ -44,4 +44,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.exp-engineering.jpg, note: 'Exponential Format = Engineering: exponent is a multiple of 3 and the mantissa runs from 1 to 999. 0.000123 shows as
       123.ᴇ-6 with a trailing decimal point.'}
-  status: pending
+  status: pass

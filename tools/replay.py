@@ -22,7 +22,7 @@ SEED = Path(__file__).parents[1] / "corpus" / "seed"
 # Eight displayed digits, so a correct value can differ by half a unit in the last place.
 DEFAULT_TOLERANCE = 1.0e-7
 _NOT_COMPARED = {"ignore"}
-_UNSUPPORTED_COMPARE = {"family"}
+_UNSUPPORTED_COMPARE: set[str] = set()
 
 type Case = dict[str, Any]
 type Step = dict[str, Any]

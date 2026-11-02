@@ -37,6 +37,7 @@ class Settings:
     domain: Domain = Domain.REAL
     digits: str = "float8"
     cas_mode: CasMode = CasMode.ON
+    exp_format: str = "normal"
 
 
 PRESETS = {
@@ -55,4 +56,5 @@ def updated(settings: Settings, changes: dict[str, str]) -> Settings:
         domain=Domain(changes.get("domain", settings.domain)),
         digits=changes.get("digits", settings.digits),
         cas_mode=CasMode(changes.get("cas_mode", settings.cas_mode)),
+        exp_format=changes.get("exp_format", settings.exp_format),
     )

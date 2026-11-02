@@ -6,11 +6,12 @@ from decimal import ROUND_HALF_UP, Decimal
 from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.settings import Settings
-from cassim.core.values import Bool, Expr, ListValue, Str, Unevaluated, Value, Void
+from cassim.core.values import Bool, Expr, ListValue, Shown, Str, Unevaluated, Value, Void
 
 # Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
 _SMALLEST_FLOAT_EXPONENT = -3
 _LARGEST_FIX = Decimal(10) ** 12
+_ENGINEERING_STEP = 3
 
 # Canonical text is Unicode, which the GUI shows directly. These are TI's own keyboard spellings
 # (CAS guide 3.2, pp. 164-165), for the REPL.
@@ -89,16 +90,29 @@ def _fix_text(value: Decimal, places: int) -> str:
     return f"{_with_point(mantissa)}ᴇ{exponent}"
 
 
-def decimal_text(value: Decimal, digits: str) -> str:
+def _scaled_text(value: Decimal, places: int, *, engineering: bool) -> str:
+    """Scientific form (one digit before the point) or engineering (exponent a multiple of 3)."""
+    rounded = _round_significant(value, places)
+    exponent = rounded.adjusted()
+    if engineering:
+        exponent -= exponent % _ENGINEERING_STEP
+    return f"{_trimmed(rounded.scaleb(-exponent))}ᴇ{exponent}"
+
+
+def decimal_text(value: Decimal, digits: str, exp_format: str = "normal") -> str:
     """Show a non-negative decimal under a `floatN` or `fixN` display setting."""
     is_fix = digits.startswith("fix")
     places = int(digits.removeprefix("fix" if is_fix else "float"))
     if value == 0:
         return _with_point(format(Decimal(0).scaleb(-places), "f")) if is_fix else "0."
+    if exp_format != "normal" and not is_fix:
+        return _scaled_text(value, places, engineering=exp_format == "engineering")
     return _fix_text(value, places) if is_fix else _float_text(value, places)
 
 
-def _atom_node(value: Str | Bool | Void) -> ast.Expr:
+def _atom_node(value: Str | Bool | Void | Shown) -> ast.Expr:
+    if isinstance(value, Shown):
+        return ast.Name(value.text)
     if isinstance(value, Str):
         return ast.String(value.value)
     if isinstance(value, Bool):
@@ -108,8 +122,10 @@ def _atom_node(value: Str | Bool | Void) -> ast.Expr:
 
 def _node(value: Value, settings: Settings) -> ast.Expr:
     if isinstance(value, Expr):
-        return cas.to_ast(value.raw, lambda d: decimal_text(d, settings.digits))
-    if isinstance(value, Str | Bool | Void):
+        return cas.to_ast(
+            value.raw, lambda d: decimal_text(d, settings.digits, settings.exp_format)
+        )
+    if isinstance(value, Str | Bool | Void | Shown):
         return _atom_node(value)
     if isinstance(value, Unevaluated):
         return ast.Call(value.name, tuple(_node(arg, settings) for arg in value.args))
@@ -123,7 +139,9 @@ def to_text(value: Value, settings: Settings) -> str:
     return str(_node(value, settings))
 
 
-def _atom_latex(value: Str | Bool | Void) -> str:
+def _atom_latex(value: Str | Bool | Void | Shown) -> str:
+    if isinstance(value, Shown):
+        return rf"\text{{{value.text}}}"
     if isinstance(value, Str):
         return rf"\text{{{value.value}}}"
     if isinstance(value, Bool):
@@ -134,7 +152,7 @@ def _atom_latex(value: Str | Bool | Void) -> str:
 def to_latex(value: Value) -> str:
     if isinstance(value, Expr):
         return cas.latex(value.raw)
-    if isinstance(value, Str | Bool | Void):
+    if isinstance(value, Str | Bool | Void | Shown):
         return _atom_latex(value)
     if isinstance(value, Unevaluated):
         arguments = ",".join(to_latex(arg) for arg in value.args)

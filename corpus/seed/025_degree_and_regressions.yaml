@@ -19,7 +19,7 @@ cases:
       Mode = Auto, Real, Float 8, Normal exponent format (status bar DEG). Special angles give exact values; sin(1) stays unevaluated in Auto because 1 degree has no exact form; a decimal argument gives
       0.5. arcsin returns a plain number (30). solve with the | constraint returns the two solutions in 0<x<360; writing the constraint inside solve with "and" returns a messy n1 parametric form instead,
       so use |.'}
-  status: pending
+  status: pass
 - id: m15.stats.expreg-exact-data
   course: methods
   settings: &id001 {exp_format: scientific}

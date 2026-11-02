@@ -5,12 +5,24 @@ from collections.abc import Callable
 from cassim.core import errors
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
-from cassim.core.values import Bool, Cell, Expr, ListValue, MatrixValue, Raw, Str, Value
+from cassim.core.values import (
+    Bool,
+    Cell,
+    Expr,
+    ListValue,
+    MatrixValue,
+    Raw,
+    Shown,
+    Str,
+    Value,
+)
 
 
 def as_expr(value: Value) -> Expr:
     if isinstance(value, Expr):
         return value
+    if isinstance(value, Shown):
+        return as_expr(value.value)
     if isinstance(value, Bool):
         return Expr(cas.boolean(value.value))
     raise TIError(errors.DATA_TYPE)

@@ -94,4 +94,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m11.settings.polar-complex-1.jpg, shots/m11.settings.polar-complex-2.jpg', note: 'Real or Complex = Polar: complex results are shown as r·e^(iθ), the modulus
       written after the exponential (ⅇ^(…)·5). Angle is exact, e.g. π/2 − tan⁻¹(3/4) for 3+4i. Real results are unchanged.'}
-  status: pending
+  status: pass

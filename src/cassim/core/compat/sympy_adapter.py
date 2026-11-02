@@ -82,7 +82,8 @@ _CONSTANTS: dict[str, Raw] = {
     "infinity": sp.oo,
     "undef": sp.nan,
 }
-# How TI prints a function SymPy calls something else. The inverse functions read `sin⁻¹`.
+# How TI prints a function SymPy calls something else. Every inverse is `sin⁻¹`, `sinh⁻¹`, ...;
+# `arcsin` is the same function typed on a plain keyboard (see `to_ascii`).
 _FUNCTION_NAMES = {
     "log": "ln",
     "Abs": "abs",
@@ -257,6 +258,11 @@ def equal(left: Raw, right: Raw, tolerance: float | None = None) -> bool:
     return _close(left, right, tolerance)
 
 
+# Two exact numbers that SymPy cannot prove equal are still equal if they agree this closely.
+_NUMERIC_AGREEMENT = 1e-30
+_AGREEMENT_DIGITS = 60
+
+
 def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
     a, b = number_value(left), number_value(right)
     if tolerance is not None and a is not None and b is not None:
@@ -267,7 +273,11 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
         difference = sp.simplify(difference.evalf())
         coefficients = [abs(c) for c in difference.atoms(sp.Float)]
         return all(c <= tolerance for c in coefficients)
-    return difference == 0
+    if difference == 0:
+        return True
+    if difference.is_number:
+        return bool(abs(difference.evalf(_AGREEMENT_DIGITS)) < _NUMERIC_AGREEMENT)
+    return False
 
 
 def latex(raw: Raw) -> str:
@@ -394,15 +404,29 @@ class _Printer:
         return ast.Call(_FUNCTION_NAMES.get(name, name), args)
 
 
+def _root_key(clause: Raw) -> tuple[tuple[float, float], str]:
+    """Order roots by value, and symbolic ones by their text (so `-√(a)` comes before `√(a)`)."""
+    target = clause
+    if isinstance(clause, sp.And):
+        target = next((a for a in clause.args if isinstance(a, sp.Eq)), clause)
+    rhs = getattr(target, "rhs", clause)
+    # With the parameters taken as zero, `2*π*@n1+π/6` sorts by its π/6.
+    at_zero = rhs.subs({symbol: 0 for symbol in rhs.free_symbols})
+    usable = at_zero.is_number and at_zero.is_finite
+    return (_real_key(at_zero) if usable else (math.inf, 0.0), str(rhs))
+
+
 def _ordered(op: str, args: tuple[Raw, ...]) -> list[Raw]:
     """Order the parts of `and` and `or` as TI reads them: roots rising, variables by name."""
-    if not all(isinstance(arg, sp.core.relational.Relational) for arg in args):
+    relational = sp.core.relational.Relational
+    if op == "or" and all(isinstance(arg, relational | sp.And) for arg in args):
+        return sorted(args, key=_root_key)
+    if not all(isinstance(arg, relational) for arg in args):
         return list(args)
     if op == "and":
-        return sorted(args, key=lambda arg: str(arg.lhs))
-    return sorted(
-        args, key=lambda arg: _real_key(arg.rhs) if arg.rhs.is_number else (math.inf, 0.0)
-    )
+        # The equation for the unknown comes first, then conditions on parameters.
+        return sorted(args, key=lambda arg: (not isinstance(arg, sp.Eq), str(arg.lhs)))
+    return sorted(args, key=_root_key)
 
 
 def to_ast(raw: Raw, decimal_text: Callable[[Decimal], str]) -> ast.Expr:
@@ -650,6 +674,29 @@ def _constraint_set(constraint: Raw, variable: Raw) -> Raw:
     return sp.solveset(constraint, variable, sp.S.Reals)
 
 
+def _family(found: Raw, variable: Raw) -> Raw | None:
+    """An infinite set of solutions as `x=2*@n1*π+π/6 or ...`, with @n1 any integer."""
+    pieces = found.args if isinstance(found, sp.Union) else (found,)
+    if not all(isinstance(p, sp.ImageSet) and p.base_set == sp.S.Integers for p in pieces):
+        return None
+    counter = symbol("@n1")
+    clauses = []
+    for piece in pieces:
+        parameter, formula = piece.lamda.variables[0], piece.lamda.expr
+        clauses.append(sp.Eq(variable, sp.expand(formula.subs(parameter, counter)), evaluate=False))
+    return sp.Or(*clauses)
+
+
+def _needs_nonnegative(root: Raw) -> list[Raw]:
+    """`a>=0` for each square root (or other even root) of an expression in a parameter."""
+    conditions = []
+    for power in root.atoms(sp.Pow):
+        exponent = power.exp
+        if exponent.is_Rational and exponent.q % 2 == 0 and power.base.free_symbols:
+            conditions.append(sp.Ge(power.base, 0))
+    return conditions
+
+
 def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
     """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
     if isinstance(found, sp.Intersection):
@@ -660,9 +707,15 @@ def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
         return sp.false
     if isinstance(found, sp.FiniteSet):
         roots = [r for r in _sorted_roots(found) if _holds(equation, variable, r)]
-        return sp.Or(*[sp.Eq(variable, r, evaluate=False) for r in roots]) if roots else sp.false
+        clauses = [
+            sp.And(sp.Eq(variable, r, evaluate=False), *_needs_nonnegative(r)) for r in roots
+        ]
+        return sp.Or(*clauses) if clauses else sp.false
     if found in (sp.S.Reals, sp.S.Complexes):
         return sp.true
+    family = _family(found, variable)
+    if family is not None:
+        return family
     if found.has(sp.ImageSet, sp.ConditionSet) or isinstance(found, sp.Intersection):
         return None
     return found.as_relational(variable).replace(
@@ -930,3 +983,77 @@ def _renumbered(expression: Raw) -> Raw:
 
 def symbol_named(name: str) -> Raw:
     return symbol(name)
+
+
+# Conversions and presentation
+
+APPROX_FRACTION_TOLERANCE = 5e-14
+
+
+def nearby_fraction(raw: Raw, tolerance: float) -> Raw:
+    """The simplest fraction within `tolerance` of a number."""
+    return sp.nsimplify(raw, tolerance=tolerance, rational=True)
+
+
+def polar_parts(raw: Raw) -> tuple[Raw, Raw]:
+    """(modulus, argument in radians) of a complex number."""
+    return sp.Abs(raw), sp.arg(raw)
+
+
+def polar_expression(modulus: Raw, argument: Raw) -> Raw:
+    """`r*ⅇ^(ⅈ*θ)`, kept as a product so that it is not expanded back to `a+bⅈ`."""
+    return sp.Mul(modulus, sp.exp(sp.I * argument, evaluate=False), evaluate=False)
+
+
+def rectangular(raw: Raw) -> Raw:
+    return sp.expand(raw, complex=True)
+
+
+def cylindrical(x: Raw, y: Raw) -> tuple[Raw, Raw]:
+    return sp.sqrt(x**2 + y**2), sp.atan2(y, x)
+
+
+def spherical(x: Raw, y: Raw, z: Raw) -> tuple[Raw, Raw, Raw]:
+    radius = sp.sqrt(x**2 + y**2 + z**2)
+    return radius, sp.atan2(y, x), sp.acos(z / radius)
+
+
+def proper_fraction_text(raw: Raw) -> tuple[Raw, Raw]:
+    """Split a rational number into its integer part and fractional part, both of its sign."""
+    whole = integer_part(raw)
+    return whole, raw - whole
+
+
+def factor_over_gaussian_integers(raw: Raw) -> Raw:
+    return sp.factor(raw, extension=sp.I)
+
+
+def expand_trig(raw: Raw) -> Raw:
+    return sp.expand_trig(raw)
+
+
+def collect_trig(raw: Raw) -> Raw:
+    return sp.fu(raw)
+
+
+def _eigen_key(value: Raw) -> tuple[float, float]:
+    number = complex(value.evalf())
+    return (-number.real, -number.imag)
+
+
+def eigenvalues(rows: list[list[Raw]]) -> list[Raw]:
+    """Eigenvalues as decimals, repeated by multiplicity, largest first."""
+    found = sp.Matrix(rows).eigenvals()
+    values = [value.evalf() for value, count in found.items() for _ in range(count)]
+    return sorted(values, key=_eigen_key)
+
+
+def eigenvectors(rows: list[list[Raw]]) -> list[list[Raw]]:
+    """Unit eigenvectors as the columns of a matrix, in the order of `eigenvalues`."""
+    columns: list[tuple[Raw, list[Raw]]] = []
+    for value, count, vectors in sp.Matrix(rows).eigenvects():
+        for vector in vectors[:count]:
+            length = sp.sqrt(sum((abs(entry) ** 2 for entry in vector), sp.Integer(0)))
+            columns.append((value.evalf(), [(entry / length).evalf() for entry in vector]))
+    columns.sort(key=lambda column: _eigen_key(column[0]))
+    return [list(row) for row in zip(*[vector for _, vector in columns], strict=True)]

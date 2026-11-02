@@ -4,7 +4,14 @@ from cassim.core import errors
 from cassim.core.catalog.registry import Host, eager
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
-from cassim.core.valueops import matrix_of, raw_of, raw_rows, vector_like, vector_parts
+from cassim.core.valueops import (
+    list_of,
+    matrix_of,
+    raw_of,
+    raw_rows,
+    vector_like,
+    vector_parts,
+)
 from cassim.core.values import Expr, MatrixValue, Raw, Value
 
 
@@ -24,6 +31,18 @@ def matrix_power(matrix: MatrixValue, exponent: Value) -> Value:
     if power < 0 and cas.matrix_determinant(rows) == 0:
         raise TIError(errors.SINGULAR)
     return matrix_of(cas.matrix_power(rows, power))
+
+
+@eager("eigVl", 1)
+def eigenvalues(host: Host, args: list[Value]) -> Value:
+    """Eigenvalues as a list of decimals, largest first."""
+    return list_of(cas.eigenvalues(_square(args[0])))
+
+
+@eager("eigVc", 1)
+def eigenvectors(host: Host, args: list[Value]) -> Value:
+    """Unit eigenvectors as the columns of a matrix, in the order of `eigVl`."""
+    return matrix_of(cas.eigenvectors(_square(args[0])))
 
 
 @eager("det", 1)

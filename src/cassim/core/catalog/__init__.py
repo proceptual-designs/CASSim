@@ -4,11 +4,13 @@ from cassim.core.catalog import (
     algebra,
     calculus,
     control,
+    conversions,
     distributions,
     elementary,
     finance,
     lists,
     matrices,
+    random_numbers,
     solving,
     statistics,
 )
@@ -20,6 +22,7 @@ from cassim.core.catalog.registry import (
     is_builtin,
     lookup,
     lookup_command,
+    lookup_conversion,
 )
 
 __all__ = [
@@ -30,6 +33,7 @@ __all__ = [
     "algebra",
     "calculus",
     "control",
+    "conversions",
     "distributions",
     "elementary",
     "finance",
@@ -37,7 +41,9 @@ __all__ = [
     "lists",
     "lookup",
     "lookup_command",
+    "lookup_conversion",
     "matrices",
+    "random_numbers",
     "solving",
     "statistics",
 ]

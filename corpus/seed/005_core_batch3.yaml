@@ -225,7 +225,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.matrix.identity-rref-eigvl.jpg, note: 'eigVl returned decimals in the order 3., 1. even in Auto mode (exact eigenvalues 3 and 1);
       compare as an unordered set.'}
-  status: pending
+  status: pass
 - id: m3.vector.dot-norm-unit
   course: specialist
   tier: 1
