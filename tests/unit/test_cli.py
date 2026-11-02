@@ -282,12 +282,39 @@ def test_approximate_answer_becomes_ans_and_does_not_change_variables():
     assert session.eval("a").text == "1/3"
 
 
+def test_approximate_on_an_empty_line_gives_the_previous_answer_as_a_decimal():
+    session = Session()
+    assert session.eval("", approximate=True).text == ""  # no previous answer yet
+    assert session.eval("2/3").text == "2/3"
+    assert session.eval("", approximate=True).text == "0.66666667"
+    assert session.eval("   ", approximate=True).text == "0.66666667"
+    assert session.eval("ans").text == "0.66666667"  # and the decimal is now Ans
+    assert session.eval("solve(x^2=2,x)").text == "x=-√(2) or x=√(2)"
+    assert session.eval("", approximate=True).text == "x=-1.4142136 or x=1.4142136"
+
+
+def test_approximate_on_an_empty_line_ignores_done_and_plain_empty_lines():
+    session = Session()
+    session.eval("1/4")
+    session.eval("f(x):=x")  # prints Done, which is not an answer
+    assert session.eval("", approximate=True).text == "0.25"
+    assert session.eval("").text == ""  # without approximate an empty line does nothing
+
+
+def test_approx_command_on_an_empty_line_in_the_repl():
+    session = Session()
+    assert respond(session, ":approx") is None  # nothing yet
+    respond(session, "1/8")
+    assert respond(session, ":approx") == Output("0.125")
+    assert respond(session, ":approx ") == Output("0.125")
+    assert respond(session, "") is None  # a plain empty line still does nothing
+
+
 def test_approx_command_in_the_repl():
     session = Session()
     assert respond(session, ":approx 1/3") == Output("0.33333333")
     assert respond(session, ":approx solve(x^2=2,x)") == Output("x=-1.4142136 or x=1.4142136")
     assert answer(session, ":approx 1/").is_error
-    assert respond(session, ":approx") is None  # nothing to evaluate
     assert answer(session, ":approxx 1").is_error  # a different, unknown command
     assert answer(session, ":approx 1/3").text == "0.33333333"
     assert "Ctrl+Enter" in HELP
@@ -299,6 +326,8 @@ def test_prompt_keys_put_approx_in_front_of_the_entry():
         ("1/3\r", "1/3"),
         ("1/3\x1b\r", ":approx 1/3"),  # Alt-Enter
         ("1/3\n", ":approx 1/3"),  # Ctrl-Enter, as a terminal that reports it sends it
+        ("\x1b\r", ":approx "),  # Alt-Enter on an empty prompt: approximate the last answer
+        ("\n", ":approx "),
     ):
         with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
             pipe.send_text(keys)

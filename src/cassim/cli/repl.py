@@ -115,9 +115,11 @@ def evaluate_line(
     session: Session, line: str, *, ascii_output: bool = False, approximate: bool = False
 ) -> Output | None:
     """Run one entry and say what to print; None if the line was blank."""
-    if not line.strip():
+    if not line.strip() and not approximate:
         return None
     result = session.eval(line, approximate=approximate)
+    if not result.text and result.error is None:
+        return None  # nothing was entered and there was no previous result
     if result.error is not None:
         return Output(f"Error: {result.error}", is_error=True)
     return Output(to_ascii(result.text) if ascii_output else result.text)

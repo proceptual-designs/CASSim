@@ -42,8 +42,13 @@ class Session:
         """Evaluate one entry line. TI errors come back in `Result.error`.
 
         `approximate=True` is Ctrl+Enter on the handheld: the same as wrapping the entry in
-        `approx(...)`, whatever the Calculation Mode is.
+        `approx(...)`, whatever the Calculation Mode is. On an empty line it gives the previous
+        result (`Ans`) as a decimal, and does nothing if there is no previous result.
         """
+        if approximate and not line.strip():
+            if self._ans is None:
+                return Result("", "", None, None)
+            line = "ans"
         try:
             tree: ast.Line = parse(line)
             value = Evaluator(self.settings, self._ans, self.scope).line(tree)
