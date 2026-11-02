@@ -280,7 +280,7 @@ def levenberg_marquardt(
         gradient = [
             sum(r[i] * e for r, e in zip(jacobian, residuals, strict=True)) for i in range(size)
         ]
-        improved = False
+        improved, improvement = False, 0.0
         for _attempt in range(30):
             damped = [
                 [normal[i][j] + (damping * normal[i][i] if i == j else 0) for j in range(size)]

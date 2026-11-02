@@ -7,7 +7,7 @@ from cassim.core.catalog.registry import Host, command, eager, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.valueops import as_expr, list_of, raw_list, raw_of
-from cassim.core.values import Expr, ListValue, MatrixValue, Raw, Value, Void
+from cassim.core.values import Expr, ListValue, MatrixValue, Raw, Str, Value, Void
 
 # A list this long would not fit in the calculator's memory either.
 _MAX_LIST_LENGTH = 100_000
@@ -117,6 +117,31 @@ eager("stDevPop", 1)(_summary(_sample(cas.standard_deviation, sample=False)))
 @eager("cumulativeSum", 1)
 def cumulative_sum(host: Host, args: list[Value]) -> Value:
     return list_of(cas.running_sums(raw_list(args[0])))
+
+
+def _take(args: list[Value], *, from_left: bool) -> Value:
+    """The first (`left`) or last (`right`) n items of a list, or characters of a string."""
+    source = args[0]
+    count = cas.integer_value(raw_of(args[1])) if len(args) > 1 else None
+    if len(args) > 1 and (count is None or count < 0):
+        raise TIError(errors.DOMAIN)
+    if isinstance(source, Str):
+        letters = source.value
+        n = len(letters) if count is None else min(count, len(letters))
+        return Str(letters[:n] if from_left else letters[len(letters) - n :])
+    items = raw_list(source)
+    n = len(items) if count is None else min(count, len(items))
+    return list_of(items[:n] if from_left else items[len(items) - n :])
+
+
+@eager("left", 1, 2)
+def left(host: Host, args: list[Value]) -> Value:
+    return _take(args, from_left=True)
+
+
+@eager("right", 1, 2)
+def right(host: Host, args: list[Value]) -> Value:
+    return _take(args, from_left=False)
 
 
 @eager("dim", 1)

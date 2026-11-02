@@ -9,7 +9,7 @@ from cassim.core.errors import TIError
 from cassim.core.format import to_text
 from cassim.core.settings import Angle
 from cassim.core.valueops import as_expr, map_value, raw_of
-from cassim.core.values import Expr, Raw, Shown, Value
+from cassim.core.values import Bool, Expr, Raw, Shown, Value
 
 _FORWARD_TRIG = frozenset({"sin", "cos", "tan", "sec", "csc", "cot"})
 _INVERSE_TRIG = frozenset({"arcsin", "arccos", "arctan", "arcsec", "arccsc", "arccot"})
@@ -74,6 +74,15 @@ def exact(host: Host, args: list[Value]) -> Value:
     return map_value(lambda value: Expr(cas.exact(raw_of(value))), args[0])
 
 
+@eager("isPrime", 1)
+def is_prime(host: Host, args: list[Value]) -> Value:
+    """true or false for a whole number; a Domain error for anything else."""
+    answer = cas.is_prime(raw_of(args[0]))
+    if answer is None:
+        raise TIError(errors.DOMAIN)
+    return Bool(answer)
+
+
 @eager("log", 1, 2)
 def log(host: Host, args: list[Value]) -> Value:
     base = raw_of(args[1]) if len(args) > 1 else None
@@ -116,6 +125,7 @@ def _pair(function: Callable[[Raw, Raw], Raw]) -> Callable[[Host, list[Value]], 
     return run
 
 
+eager("remain", 2)(_pair(cas.remainder))
 eager("nPr", 2)(_pair(cas.permutations))
 eager("nCr", 2)(_pair(cas.combinations))
 eager("gcd", 2)(_pair(cas.gcd))

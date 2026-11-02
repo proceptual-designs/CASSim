@@ -154,6 +154,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - 1d Catalog, in tiers. Tier 1 (VCE core): solve/cSolve/zeros, factor/expand/propFrac/completeSquare, derivative/integral/limit/nInt/deSolve, trig and exponentials, lists and matrices (det, inverse, rref), norm/binom/inv distributions, `tvm*`/`eff`/`nom`, regressions and OneVar. Tier 2: remainder of the Reference Guide. Tier 3: edge conversions and unusual templates.
 - 1e `cassim` REPL and script runner, tab-completion from the catalog.
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
+- **Status: done (2026-11-02).** See `docs/decisions/0007` to `0011`.
 
 **M2 — GUI shell: keyboard, pages, settings (L)**
 - 2a Device model: key layers, menu tree from data, linear input editor, screen buffer; headless key-sequence tests.

@@ -45,6 +45,28 @@ def eigenvectors(host: Host, args: list[Value]) -> Value:
     return matrix_of(cas.eigenvectors(_square(args[0])))
 
 
+def _whole(value: Value) -> int:
+    number = cas.integer_value(raw_of(value))
+    if number is None:
+        raise TIError(errors.DOMAIN)
+    return number
+
+
+@eager("subMat", 1, 5)
+def sub_matrix(host: Host, args: list[Value]) -> Value:
+    """`subMat(m[, startRow, startCol, endRow, endCol])`, with every index counted from 1."""
+    rows = raw_rows(args[0])
+    given = [_whole(arg) for arg in args[1:]]
+    defaults = (1, 1, len(rows), len(rows[0]))
+    first_row, first_column, last_row, last_column = [*given, *defaults[len(given) :]]
+    if not (
+        1 <= first_row <= last_row <= len(rows) and 1 <= first_column <= last_column <= len(rows[0])
+    ):
+        raise TIError(errors.DOMAIN)
+    block = rows[first_row - 1 : last_row]
+    return matrix_of([row[first_column - 1 : last_column] for row in block])
+
+
 @eager("det", 1)
 def det(host: Host, args: list[Value]) -> Value:
     return Expr(cas.matrix_determinant(_square(args[0])))

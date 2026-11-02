@@ -70,6 +70,7 @@ type Entry = EagerEntry | LazyEntry
 _FUNCTIONS: dict[str, Entry] = {}
 _COMMANDS: dict[str, CommandRun] = {}
 _CONVERSIONS: dict[str, ConversionRun] = {}
+_CONVERSION_NAMES: list[str] = []
 
 
 def eager[F: Callable[..., Value]](
@@ -115,6 +116,7 @@ def conversion(name: str) -> Callable[[ConversionRun], ConversionRun]:
 
     def decorate(function: ConversionRun) -> ConversionRun:
         _CONVERSIONS[name.casefold()] = function
+        _CONVERSION_NAMES.append(name)
         return function
 
     return decorate
@@ -138,6 +140,15 @@ def lookup(name: str) -> Entry | None:
 
 def lookup_command(name: str) -> CommandRun | None:
     return _COMMANDS.get(name.casefold())
+
+
+def function_names() -> list[str]:
+    """Every function, as spelled in the catalog, for completion."""
+    return sorted({entry.name for entry in _FUNCTIONS.values()}, key=str.casefold)
+
+
+def conversion_names() -> list[str]:
+    return sorted(_CONVERSION_NAMES, key=str.casefold)
 
 
 def is_builtin(name: str) -> bool:

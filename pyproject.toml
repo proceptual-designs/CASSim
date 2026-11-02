@@ -11,6 +11,7 @@ dependencies = [
 
 [project.optional-dependencies]
 stats = ["scipy>=1.16", "numpy>=2"]
+cli = ["prompt-toolkit>=3"]
 
 [project.scripts]
 cassim = "cassim.cli:main"
@@ -25,6 +26,7 @@ dev = [
     "ty",
     "pre-commit",
     "types-pyyaml",
+    "prompt-toolkit>=3",
 ]
 test = [
     "pytest",
@@ -76,5 +78,7 @@ root = ["src", "."]
 [tool.ty.src]
 include = ["src", "tests", "tools"]
 
-[tool.ty.rules]
-# Strictness for src/cassim/core is raised as modules land; see docs/decisions/0001-tooling.md.
+[tool.ty.terminal]
+# Strict: a warning fails the check, so possibly-unresolved-reference, unused-ignore-comment,
+# redundant-cast and deprecated are errors too.
+error-on-warning = true
