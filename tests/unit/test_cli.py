@@ -326,6 +326,8 @@ def test_prompt_keys_put_approx_in_front_of_the_entry():
         ("1/3\r", "1/3"),
         ("1/3\x1b\r", ":approx 1/3"),  # Alt-Enter
         ("1/3\n", ":approx 1/3"),  # Ctrl-Enter, as a terminal that reports it sends it
+        ("\x1b\r", ":approx "),  # Alt-Enter on an empty prompt: approximate the last answer
+        ("\n", ":approx "),
     ):
         with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
             pipe.send_text(keys)
