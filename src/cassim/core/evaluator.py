@@ -11,7 +11,7 @@ from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.scope import Function, Scope
 from cassim.core.settings import Angle, CasMode, Settings
-from cassim.core.valueops import as_expr, map_value
+from cassim.core.valueops import as_expr, cell_of, map_value, raw_rows
 from cassim.core.values import (
     Bool,
     Expr,
@@ -68,12 +68,8 @@ def _matrix_sum(op: str, left: MatrixValue, right: MatrixValue) -> Value:
 def _matrix_product(left: MatrixValue, right: MatrixValue) -> Value:
     if len(left.rows[0]) != len(right.rows):
         raise TIError(errors.DIMENSION_MISMATCH)
-    product = cas.matrix_product(_raw_rows(left), _raw_rows(right))
+    product = cas.matrix_product(raw_rows(left), raw_rows(right))
     return MatrixValue(tuple(tuple(Expr(cell) for cell in row) for row in product))
-
-
-def _raw_rows(matrix: MatrixValue) -> list[list[Raw]]:
-    return [[cell.raw for cell in row] for row in matrix.rows]
 
 
 def _combine_matrices(op: str, left: MatrixValue, right: MatrixValue) -> Value:
@@ -340,7 +336,7 @@ class Evaluator:
         if len({len(row) for row in node.rows}) != 1:
             raise TIError(errors.INVALID_LIST_OR_MATRIX)
         return MatrixValue(
-            tuple(tuple(as_expr(self.expr(cell)) for cell in row) for row in node.rows)
+            tuple(tuple(cell_of(self.expr(cell)) for cell in row) for row in node.rows)
         )
 
     def _unary(self, node: ast.Unary) -> Value:

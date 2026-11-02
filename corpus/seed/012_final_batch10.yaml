@@ -16,7 +16,7 @@ cases:
       (a column with a title, not stat.results as for OneVar and the regressions). Order, read from the simulator: title, x̄, Σx, Σx², sx, σx, n, ȳ, Σy, Σy², sy, σy, Σxy, r, MinX, Q1X, MedianX, Q3X, MaxX,
       MinY, Q1Y, MedianY, Q3Y, MaxY, SSX, SSY. The labels from index 14 onward are inferred by matching the values to the data (r=0.7746, SSX=10, SSY=6), not read from the screen. stat.values is a matrix,
       so elements are v[k,1].'}
-  status: pending
+  status: pass
 - id: m10.trig.csc-cosh
   course: specialist
   tier: 1

@@ -196,7 +196,7 @@ cases:
        compare: numeric, tol: 1.0e-7,
        note: "Resid is displayed as {...}; a follow-up case should check the residual list. Individual stat.a etc. not captured yet."}
   provenance: {<<: *emu, evidence: shots/general.stats.linreg-bx.jpg}
-  status: pending
+  status: pass
 
 # ---------- Cross-cutting ----------
 - id: scope.problems-are-isolated

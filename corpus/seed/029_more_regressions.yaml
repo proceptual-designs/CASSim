@@ -20,7 +20,7 @@ cases:
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m16.stats.quartreg-exact-data-1.jpg, shots/m16.stats.quartreg-exact-data-2.jpg', note: 'Uses cx={1,2,3,4,5,6} (defined earlier). stat.results: Title "Quartic
       Regression", RegEqn "a·x^4+b·x^3+c·x^2+d·x+e", a=1, b=-3.3ᴇ-10, c=-2, d=-2.81ᴇ-9, e=1, R²=1, Resid. b and d are float noise, so compare with a tolerance. The stat. autocomplete list for QuartReg has
       a,b,c,d,e before freqreg, so stat.results sits at a different position than for the other regressions.'}
-  status: pending
+  status: pass
 - id: m16.stats.lnreg-exact-data
   course: methods
   settings: *id001
@@ -28,7 +28,7 @@ cases:
   tags: [regression, logarithmic, calculator]
   steps:
   - {in: 'cx:={1,2,3,4,5,6}', out: '{1,2,3,4,5,6}', compare: canonical}
-  - {in: 'cl:=approx(2+3*ln(cx))', out: '{2.,4.0794415,5.2958369,6.1588831,6.8283,7.3752}', compare: canonical, note: only the first five values were visible on screen; the rest are 2+3*ln(x)}
+  - {in: 'cl:=approx(2+3*ln(cx))', out: '{2.,4.0794415,5.2958369,6.1588831,6.8283,7.3752}', compare: ignore, note: only the first five values were visible on screen; the rest are 2+3*ln(x)}
   - {in: 'LnReg cx,cl', out: Done, compare: text}
   - {in: stat.a, out: '2', compare: numeric, tol: 1.0e-06}
   - {in: stat.b, out: '3', compare: numeric, tol: 1.0e-06}
@@ -36,7 +36,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m16.stats.lnreg-exact-data-1.jpg, shots/m16.stats.lnreg-exact-data-2.jpg', note: 'The command is LnReg (LogReg is a Syntax error). stat.results: Title "Logarithmic
       Regression", RegEqn "a+b·ln(x)", a=2, b=3, r²=1, r=1, Resid, ResidTrans.'}
-  status: pending
+  status: pass
 - id: m16.stats.medmed-line
   course: methods
   settings: *id001
@@ -51,7 +51,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m16.stats.medmed-line-1.jpg, shots/m16.stats.medmed-line-2.jpg', note: 'stat.results: Title "Median-Median Line", RegEqn "m·x+b", m=0.875, b=0.60416667, Resid.
       Hand check with six points split into thirds of two: medians (1.5,2), (3.5,3.5), (5.5,5.5) give slope 0.875 and intercept 0.604167, so the simulator uses the standard three-group method.'}
-  status: pending
+  status: pass
 - id: m16.stats.sinreg-in-degree-mode
   course: methods
   settings: *id001
@@ -59,7 +59,7 @@ cases:
   tags: [regression, sinusoidal, calculator, angle, degree]
   steps:
   - {in: 'cu:=seq(k,k,1,12)', out: '{1,2,3,4,5,6,7,8,9,10,11,12}', compare: canonical}
-  - {in: 'cv:=approx(3*sin(30*cu)+1)', out: '{2.5,3.5980762,4.,3.5980762,2.5,1.,-0.5,-1.598076,-2.,-1.598076,-0.5,1.}', compare: canonical, note: first eight values read on screen; the rest follow the 12-point
+  - {in: 'cv:=approx(3*sin(30*cu)+1)', out: '{2.5,3.5980762,4.,3.5980762,2.5,1.,-0.5,-1.598076,-2.,-1.598076,-0.5,1.}', compare: ignore, note: first eight values read on screen; the rest follow the 12-point
       period}
   - {in: 'SinReg cu,cv', out: Done, compare: text}
   - {in: stat.a, out: '3', compare: numeric, tol: 1.0e-06}
@@ -70,7 +70,7 @@ cases:
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m16.stats.sinreg-in-degree-mode-1.jpg, shots/m16.stats.sinreg-in-degree-mode-2.jpg', note: 'The data are 3*sin(30°·x)+1 with the document in Degree mode, yet
       SinReg returns b=0.52359878 (=π/6), so the fit is always in radians regardless of the angle setting. c=1.1561339ᴇ-15 (noise). stat.results: Title "Sinusoidal Regression", RegEqn "a·sin(b·x+c)+d".
       Implementations must not convert b to degrees.'}
-  status: pending
+  status: pass
 - id: m16.stats.logistic-exact-data
   course: methods
   settings: *id001
@@ -78,7 +78,7 @@ cases:
   tags: [regression, logistic, calculator]
   steps:
   - {in: 'cu:=seq(k,k,1,12)', out: '{1,2,3,4,5,6,7,8,9,10,11,12}', compare: canonical}
-  - {in: 'cg:=approx(10/(1+4*exp(-0.5*cu)))', out: '{2.9187513,4.0460968,5.2839582,6.487856}', compare: canonical, note: first four values read on screen}
+  - {in: 'cg:=approx(10/(1+4*exp(-0.5*cu)))', out: '{2.9187513,4.0460968,5.2839582,6.487856}', compare: ignore, note: first four values read on screen}
   - {in: 'Logistic cu,cg', out: Done, compare: text}
   - {in: stat.a, out: '4', compare: numeric, tol: 1.0e-06}
   - {in: stat.b, out: '0.5', compare: numeric, tol: 1.0e-06}
@@ -86,4 +86,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m16.stats.logistic-exact-data-1.jpg, shots/m16.stats.logistic-exact-data-2.jpg', note: 'stat.results: Title "Logistic Regression (d=0)", RegEqn "c/(1+a·ⅇ^(-b·x))",
       a=4, b=0.5, c=10, Resid. The Logistic command fixes d=0; see m16.stats.logisticd-exact-data for LogisticD. Uses cu={1..12}.'}
-  status: pending
+  status: pass

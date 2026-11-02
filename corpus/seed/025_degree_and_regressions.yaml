@@ -34,7 +34,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m15.stats.expreg-exact-data.jpg, note: 'ExpReg fits y=a*b^x; for y=2^x gives a=1, b=2 (shown as 1.ᴇ0 and 2.ᴇ0 because the document was in Scientific format).
       Typing "stat." in the Calculator opens an autocomplete list that swallows the next keystroke; retype it or pick from the list (stat.results lists everything).'}
-  status: pending
+  status: pass
 - id: m15.stats.powerreg-exact-data
   course: methods
   settings: *id001
@@ -50,7 +50,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m15.stats.powerreg-exact-data.jpg, note: 'stat.results for PowerReg: Title "Power Regression", RegEqn "a*x^b", a=1, b=3, r²=1, r=1, then Resid and ResidTrans
       lists. Uses cx={1..6}.'}
-  status: pending
+  status: pass
 - id: m15.stats.cubicreg-exact-data
   course: methods
   settings: *id001
@@ -68,4 +68,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m15.stats.cubicreg-exact-data.jpg, note: 'y=x^3+2 on x=1..6. stat.results shows a=1, d=2, R²=1, but b=16.ᴇ-12 and c=-49.ᴇ-12 (float noise), so b and c must be
       compared with a tolerance. CubicReg labels the fit "R²" while PowerReg labels it "r²" and "r".'}
-  status: pending
+  status: pass

@@ -13,7 +13,7 @@ cases:
   - {in: 'ExpReg x,y,1:stat.results', out: '[["Title","Exponential Regression"],["RegEqn","a*b^x"],["a",1.],["b",2.],["r²",1.],["r",1.],["Resid","{...}"],["ResidTrans","{...}"]]', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m7.stats.expreg.jpg, note: ExpReg fits a*b^x. The result list has a ResidTrans row that LinRegMx does not.}
-  status: pending
+  status: pass
 - id: m7.stats.powerreg
   course: methods
   tier: 1
@@ -24,7 +24,7 @@ cases:
   - {in: 'PowerReg x,z,1:stat.results', out: '[["Title","Power Regression"],["RegEqn","a*x^b"],["a",2.],["b",2.],["r²",1.],["r",1.],["Resid","{...}"],["ResidTrans","{...}"]]', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m7.stats.powerreg.jpg}
-  status: pending
+  status: pass
 - id: m7.finance.amorttbl
   course: methods
   tier: 1
