@@ -18,9 +18,9 @@ cases:
   pseudocode: |
     a ← 2
     while a < 20
-      a ← 2a
+      a ← 2*a
     end while
-    print(a)
+    print a
   python: |
     a = 2
     while a < 20:
@@ -32,7 +32,7 @@ cases:
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Author shows this as BOTH a vertical trace table (Line, a, a<20, Output) and a horizontal desk check (Loop 1-4)."
+  notes: "Author shows this as BOTH a vertical trace table (Line, a, a<20, Output) and a horizontal desk check (Loop 1-4). Reviewed 2026-11-02: VCAA wrote `a ← 2a` and `print(a)`; the corpus uses `2*a` and `print a` (the standard style: explicit multiplication, print as a command). Implicit multiplication and parentheses are still accepted by the parser."
   provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
   status: hand-verified
 
@@ -41,25 +41,25 @@ cases:
   source: "VCAA Mathematics Pseudocode page (study design support), questions (c) VCAA 2023; answers by S. Tyler (CC0), docs.google.com/document/d/17FAVXYfyTx4URTEFhv0O3pS4ehlJkBV2Z6sVGNTeO6Y"
   third_party: true
   pseudocode: |
-    sum ← 2
+    total ← 2
     for x from 1 to 3
       for y from 1 to 2
-        sum ← sum + x + y
+        total ← total + x + y
       end for
     end for
-    print(sum)
+    print total
   python: |
-    sum_ = 2
+    total = 2
     for x in range(1, 3+1):
         for y in range(1, 2+1):
-            sum_ = sum_ + x + y
-    print(sum_)
+            total = total + x + y
+    print(total)
   expect:
     output: ["23"]
     compare: numeric
   trace:
     horizontal_eligible: false
-  notes: "Nested loops: vertical layout only. The VCAA original wrote \"sum = sum + x + y\" (= for assignment); author corrected to the arrow. Translator must not shadow Python builtin sum (reference uses sum_)."
+  notes: "Nested loops: vertical layout only. The VCAA original wrote \"sum = sum + x + y\" (= for assignment); author corrected to the arrow. Reviewed 2026-11-02: the corpus avoids `sum` as a variable name (it is a Python builtin), so the variable is `total`, with `print total` as a command."
   provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
   status: hand-verified
 

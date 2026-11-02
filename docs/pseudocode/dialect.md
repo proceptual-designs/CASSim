@@ -109,7 +109,9 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 | Angle | **Radian** / **Degree** | `sin(30)` is 0.5 in Degree and -0.988... in Radian; inverse functions return degrees | wraps arguments: `sin(radians(x))`, `degrees(asin(x))` |
 | Display precision (… menu) | default **6 significant digits** (Mathematica style); also Fix n and Full | Reals print to the chosen precision, trailing zeros dropped (`1.2000000000000002` shows as `1.2`, `1/3` as `0.333333`). Integers and rationals always print exactly. The stored value never changes. Applies to output and to trace cells. | none: Python prints its own repr |
 | Domain (… menu, Could) | Real / Complex | Real: `sqrt(-4)` is an error; Complex: gives `2ⅈ` | complex-aware functions (`cmath`) |
-| Gradian, random seed, step limit (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
+| Gradian, random seed (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
+| Euler's number `e` (… menu, Should; FR-SET-008) | on / off | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
+| Run limits (… menu, Should; FR-SET-009) | max loop iterations, max recursion depth (low, adjustable) | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
 
@@ -166,6 +168,7 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 - **Default parameter values** appear (`newton(f, x0, steps, h=10⁻⁶)`); also `10⁻⁶` and `10^-(dp+1)` as exponent spellings.
 - **`⩽` (U+2A7D)** is the author's spelling of ≤ and **`|df - df_old|`** is absolute value; both are in the default syntax file.
 - **Print and line ends** (Q36, decided): `print` ends the line by default; the … menu and the syntax file can change what is appended (new line, space, nothing). The book's linear-search example (two prints, one output line) therefore needs a single `print` to run as shown.
+- **Style in the corpus and in printed code** (reviewed 2026-11-02): `print` is written as a command (`print total`, no parentheses; the parser still accepts `print(total)`), multiplication is written explicitly (`2*a` or `2×a`, not `2a`; implicit multiplication is still accepted on input), and `sum` is not used as a variable name (`total` instead), because it shadows a Python builtin.
 - **Author slips** the tolerant parser must survive (as in the exams): `dfPref` for `df_old`, `P(x)`/`dP(x)` used where `f(x)`/`df(x)` were defined, `⩽` in pseudocode versus `<` in the Python.
 - **Lists are Should** (`coeffs`, `tally`; 1-based by default, a toggle in the … menu switches to 0-based, decided); **sets, dictionaries, tuples, set comprehensions, prose steps and graphs/adjacency dictionaries are Could** (the middle-square "Pseudocode" is prose; the Specialist Unit 1 notebook uses sets and graphs). Generators and `yield` are Python-only (run by CPython, not translated).
 - **Random numbers are Should** (`rand()`, `randint`, `seed`). The runtime reproduces CPython's seeded sequences exactly (MT19937, CPython's seeding, `random()` and `randint`; decided), so the book's `seed(42)` tallies are golden tests; unseeded programs are tested by properties (range, mean within tolerance).

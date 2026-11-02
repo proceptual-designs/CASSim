@@ -242,6 +242,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-RUN-009 | **Code view**: standalone mode with no device skin, reachable from the start screen without the profile switcher (FR-PROF-003); files, undo and download as in FR-EDT-001 to FR-EDT-004; imported files never auto-run [Q23]. | S | E |
 | FR-RUN-010 | **Page types**: Python and Pseudocode pages can be added to a document in the Nspire profile (FR-DOC-005). Adding them bumps the document schema version with a migration (FR-DOC-004). | S | T |
 | FR-RUN-011 | A script on a Python or Pseudocode page can read and write the Problem's variables and evaluate TI expressions through the `cassim` API of FR-PY-001, by name and without evaluating strings outside the engine's parser (NFR-SEC-004). The real TI-Nspire does not allow this, so it is a CASSim extension, scheduled after M7 and only if wanted. Until then the pages are self-contained. | C (later, after M7) | T |
+| FR-RUN-012 | A **Stop** button is visible whenever code is running and stops the run within 1 s (NFR-PERF-004), keeping the output and trace so far. It works for pseudocode and Python and does not depend on the run limits of FR-SET-009. | S | T/E |
 
 **Pseudocode language (M7)** — dialect in `docs/pseudocode/dialect.md`
 | ID | Requirement | Pri | Ver |
@@ -288,11 +289,13 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 |---|---|---|---|
 | FR-SET-001 | The Code view's editor has a clear settings bar at the top with two controls, **Number mode** (Approx / Auto / Exact) and **Angle** (Radian / Degree), plus a **…** menu that holds every other setting (FR-SET-003, FR-SET-006, FR-SYN-003). The controls are always visible, show the current state, and are saved with the program. | S | D |
 | FR-SET-002 | The settings apply to pseudocode runs, traces and translation (dialect.md section 8). A Python run executed directly by CPython cannot honour them: the affected toggles are shown disabled with the reason, never silently ignored. | S | T/D |
-| FR-SET-003 | Further settings, in the **…** menu, each Could: Real/Complex domain [Q28], Gradian, random seed, step limit. | C | T |
+| FR-SET-003 | Further settings, in the **…** menu, each Could: Real/Complex domain [Q28], Gradian, random seed. (The step limit is now FR-SET-009.) | C | T |
 | FR-SET-004 | On a Nspire Python or Pseudocode page the bar starts from the document's settings (FR-EVAL-002) and can be overridden for that page. | S | T |
 | FR-SET-005 | VCE course presets (General, Methods, Specialist; FR-EVAL-003) as a one-click preset on the bar. | C | T |
 | FR-SET-006 | Printed real numbers show **6 significant digits** by default (Mathematica style; trailing zeros dropped), adjustable in the … menu (Fix n, Full). Integers and rationals always print exactly. The display never changes the stored value. It applies to pseudocode output and trace cells; a Python run by CPython prints natively. A real with a whole value prints with a trailing point (`5.`), as in Mathematica, so it differs from the integer `5`; this is display only. | S | T |
 | FR-SET-007 | **Print ends the line** by default. The … menu (and the syntax file, `print.end`) can change what `print` appends after its output: new line (default), a space, or nothing. The setting applies to the whole program; it cannot express the author's book convention (one `print` of a string followed by a second `print` joined onto the same line), which should be written as a single `print`. Saved with the program. | S | T |
+| FR-SET-008 | **Euler's number toggle** in the … menu: when on, an unassigned `e` is the constant 2.71828… (and `e^x` reads naturally); when off, `e` is an ordinary name. A variable the program assigns always shadows the constant either way, so `e ← 0.001` is safe. Saved with the program alongside the number mode and angle. Default to be decided [Q39]. | S | T |
+| FR-SET-009 | **Run limits** in the … menu, low by default and user-adjustable: a maximum number of loop iterations per run (counted across all loops) and a maximum recursion depth. Reaching either stops the run with a clear message naming the limit, the line and the setting to change it, keeps the output so far, and leaves the trace steppable (FR-TRC-005). Applies to pseudocode and, where CPython allows, to Python runs. Default values to be decided [Q39]. | S | T |
 
 **Configurable syntax (M7)** — default in `docs/pseudocode/syntax-default.yaml`
 | ID | Requirement | Pri | Ver |
@@ -439,6 +442,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q38 were added on 2026-1
 | Q36 | ~~Does `print` end the line?~~ **Answered 2026-11-02:** yes by default, and changeable in the … menu (FR-SET-007) and the syntax file. The setting is all-or-nothing, so the book's linear-search example (two `print` statements shown as one line) needs a single `print` to run as shown; a corrected corpus case is added and the original stays known-failing. | done |
 | Q37 | ~~List index base~~ **Answered 2026-11-02:** 1-based by default (as the VCAA and the author's book), with a toggle in the … menu to switch to 0-based; the choice is saved with the program, and translation to Python adjusts indexing either way. | done |
 | Q38 | ~~Match CPython's seeded random~~ **Answered 2026-11-02:** yes. The pseudocode runtime reproduces CPython's `random` module exactly for `seed(n)`, `rand()` and `randint(a, b)` (MT19937, same seeding and algorithms), so the author's seeded results can be golden tests. | done |
+| Q39 | **Defaults for the run limits (FR-SET-009) and the Euler toggle (FR-SET-008).** Proposed: 10,000 loop iterations and recursion depth 100; `e` off (an ordinary name) so VCAA-style tolerances such as `e ← 0.001` need no thought. Which defaults do you want? | Open |
 
 ---
 
