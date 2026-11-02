@@ -122,7 +122,7 @@ Settings are the same ones as in Document Settings. Show them with `:settings`; 
 
 ```
 cassim> :set angle=degree calc=approximate
-angle=degree  calc=approximate  domain=real  digits=float8  cas_mode=on  exp_format=normal  case=insensitive  pretty=off
+angle=degree  calc=approximate  domain=real  digits=float8  cas_mode=on  exp_format=normal  case=insensitive  pretty=off  ascii=off
 cassim> sin(30)
 0.5
 ```
@@ -137,6 +137,7 @@ cassim> sin(30)
 | `exp_format` | `normal`, `scientific`, `engineering` | How decimals with large or small exponents are shown. |
 | `case` | `insensitive`, `sensitive` | `insensitive` (the default, as on the handheld) makes `x` and `X` one variable. `sensitive` makes them two, for variables and your own functions (`f` and `F`). Built-in names (`sin`, `Pi`, `solve`) and the `stat.` results stay case insensitive. Switching back to `insensitive` merges names that differ only in case; the later one wins. |
 | `pretty` | `off`, `on` | `on` draws results in two dimensions, like SymPy's `pprint` (see below). |
+| `ascii` | `off`, `on` | `on` spells results with keyboard characters (`pi`, `sqrt(2)`, `@e`, `arcsin`) so they can be copied and pasted back in. The same as starting with `--ascii`. In the graphical app this is a Document Setting. |
 
 Both `:set angle=degree` and `:set angle degree` work.
 

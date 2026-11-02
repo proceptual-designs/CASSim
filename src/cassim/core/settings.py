@@ -42,6 +42,13 @@ class Pretty(StrEnum):
     ON = "on"
 
 
+class Ascii(StrEnum):
+    """Whether results use keyboard characters (`pi`, `sqrt(2)`), so they can be copied."""
+
+    OFF = "off"
+    ON = "on"
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Document settings. `digits` is `floatN` or `fixN`, as in the corpus."""
@@ -54,6 +61,7 @@ class Settings:
     exp_format: str = "normal"
     case: Case = Case.INSENSITIVE
     pretty: Pretty = Pretty.OFF
+    ascii: Ascii = Ascii.OFF
 
 
 PRESETS = {
@@ -75,6 +83,7 @@ def updated(settings: Settings, changes: dict[str, str]) -> Settings:
         exp_format=changes.get("exp_format", settings.exp_format),
         case=Case(changes.get("case", settings.case)),
         pretty=Pretty(changes.get("pretty", settings.pretty)),
+        ascii=Ascii(changes.get("ascii", settings.ascii)),
     )
 
 

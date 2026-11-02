@@ -19,14 +19,24 @@ from cassim.core import catalog
 from cassim.core.format import to_ascii, to_pretty
 from cassim.core.parser import COMMANDS
 from cassim.core.session import Session
-from cassim.core.settings import PRESETS, Pretty, Settings, updated
+from cassim.core.settings import PRESETS, Ascii, Pretty, Settings, updated
 
 PROMPT = "cassim> "
 # `:approx ENTRY` evaluates ENTRY as Ctrl+Enter does on the handheld; the prompt's Ctrl-Enter and
 # Alt-Enter keys just put this in front of what was typed.
 APPROX_PREFIX = ":approx "
 _APPROX_COMMAND = APPROX_PREFIX.strip()
-SETTING_KEYS = ("angle", "calc", "domain", "digits", "cas_mode", "exp_format", "case", "pretty")
+SETTING_KEYS = (
+    "angle",
+    "calc",
+    "domain",
+    "digits",
+    "cas_mode",
+    "exp_format",
+    "case",
+    "pretty",
+    "ascii",
+)
 _CONSTANTS = ("ans", "false", "infinity", "pi", "true", "undef")
 _COMMENT = "//"
 _WORD_AT_END = re.compile(r"[A-Za-z_@][A-Za-z0-9_.@]*$")
@@ -122,6 +132,7 @@ def evaluate_line(
         return None  # nothing was entered and there was no previous result
     if result.error is not None:
         return Output(f"Error: {result.error}", is_error=True)
+    ascii_output = ascii_output or session.settings.ascii is Ascii.ON
     text = result.text
     if session.settings.pretty is Pretty.ON and result.value is not None:
         text = to_pretty(result.value, session.settings, unicode=not ascii_output)
