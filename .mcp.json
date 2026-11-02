@@ -8,7 +8,12 @@
         "web",
         "flet",
         "mcp"
-      ]
+      ],
+      "env": {
+        "FLET_MCP_ENABLE_EXAMPLES": "1",
+        "FLET_MCP_ENABLE_DOCS": "1",
+        "FLET_MCP_ENABLE_CLI": "1"
+      }
     }
   }
 }
