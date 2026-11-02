@@ -197,9 +197,9 @@ def test_constraint_applies_in_degree_mode():
     assert run("sin(x)|x=30", settings=Settings(angle=Angle.DEGREE)) == "1/2"
 
 
-@pytest.mark.parametrize("line", ["x^2|x>0", "x^2|0<x<2", "x^2|2", "x^2|x=1 or x=2"])
-def test_other_constraints_wait_for_the_catalog(line):
-    assert "Not implemented yet" in fails(line)
+@pytest.mark.parametrize("line", ["x^2|x>0", "x^2|0<x<2", "x^2|x=1 or x=2", "x^2|x>0 and x<3"])
+def test_a_condition_nothing_uses_leaves_the_result_alone(line):
+    assert run(line) == "x^2"
 
 
 @pytest.mark.parametrize("line", ["Define LibPub f(x)=x", "l[1]:=5"])

@@ -11,7 +11,7 @@ cases:
   - {in: 'solve(2*sin(x)^2-sin(x)-1=0,x)|0<=x<=2*pi', out: x=π/2 or x=7*π/6 or x=11*π/6}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.solve.trig-quadratic-domain.jpg}
-  status: pending
+  status: pass
 - id: m9.solve.quartic-in-quadratic-form
   course: methods
   tier: 1
@@ -20,7 +20,7 @@ cases:
   - {in: 'solve(x^4-5*x^2+4=0,x)', out: x=-2 or x=-1 or x=1 or x=2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.solve.quartic-in-quadratic-form.jpg}
-  status: pending
+  status: pass
 - id: m9.calculus.quotient-and-chain-rule
   course: methods
   tier: 1
@@ -40,7 +40,7 @@ cases:
   - {in: 'solve(y=3*x-2,x)', out: x=(y+2)/3}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.algebra.make-subject.jpg, note: Solving for x in terms of y is how the inverse function is found.}
-  status: pending
+  status: pass
 - id: m9.defs.piecewise-integral
   course: methods
   tier: 1
@@ -73,7 +73,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.complex.fourth-roots-and-power.jpg, note: 'Solutions are listed 2i, -2i, -2, 2 (not in conventional order). (1+√-1)^8 shows a warning
       triangle in Real mode but returns 16.'}
-  status: pending
+  status: pass
 - id: m9.solve.three-by-three-system
   course: specialist
   tier: 1
@@ -82,7 +82,7 @@ cases:
   - {in: 'solve({x+y+z=6,x-y+z=2,2*x+y-z=1},{x,y,z})', out: x=1 and y=2 and z=3}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m9.solve.three-by-three-system.jpg}
-  status: pending
+  status: pass
 - id: m9.calculus.partial-fraction-integral
   course: specialist
   tier: 1

@@ -22,6 +22,9 @@ NOT_IMPLEMENTED = -2
 # Ours: the simulator's wording and number for these were not captured (decision 0009).
 RESERVED_NAME = -3
 RECURSION = -4
+MEMORY = -5
+SINGULAR = -6
+VARIABLE_NAME_NEEDED = -7
 
 _MESSAGES = {
     SYNTAX: "Syntax error",
@@ -39,6 +42,9 @@ _MESSAGES = {
     CAS_RESTRICTED: "CAS computations are restricted in CAS Off and Exact Arithmetic modes.",
     RESERVED_NAME: "Invalid variable name: that name is reserved",
     RECURSION: "Recursion is too deep",
+    MEMORY: "Memory",
+    SINGULAR: "Singular matrix",
+    VARIABLE_NAME_NEEDED: "Argument must be a variable name",
 }
 
 

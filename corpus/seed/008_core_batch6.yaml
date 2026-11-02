@@ -11,7 +11,7 @@ cases:
   - {in: 'crossP([1,2,3],[4,5,6])', out: '[-3,6,-3]'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.vector.crossp.jpg, note: 'Displayed as a row vector [-3 6 -3], matching the row-vector input.'}
-  status: pending
+  status: pass
 - id: m6.matrix.simult
   course: specialist
   tier: 1
@@ -20,7 +20,7 @@ cases:
   - {in: 'simult([1,2;3,4],[5;6])', out: '[-4;9/2]'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.matrix.simult.jpg}
-  status: pending
+  status: pass
 - id: m6.trig.texpand
   course: methods
   tier: 1
@@ -58,7 +58,7 @@ cases:
   - {in: cos(pi/12), out: (√(3)+1)*√(2)/4}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.trig.inverse-and-exact-values.jpg, note: 'cos(π/12) is returned as (√3+1)·√2/4, not (√6+√2)/4.'}
-  status: pending
+  status: pass
 - id: m6.solve.log-equation
   course: methods
   tier: 1
@@ -67,4 +67,4 @@ cases:
   - {in: 'solve(ln(x)+ln(x-1)=ln(2),x)', out: x=2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.solve.log-equation.jpg, note: The extraneous root x=-1 is excluded automatically (domain of ln).}
-  status: pending
+  status: pass

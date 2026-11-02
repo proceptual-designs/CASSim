@@ -1,7 +1,9 @@
 # CASSim — plan and architecture (draft for review)
 
 A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) site where Python
-(SymPy/SciPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.1, 2026-10-31.
+(SymPy/SciPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.2, 2026-11-02.
+
+**Requirements live in `docs/SRS.md` (draft 0.3, all open questions answered).** This plan is the architecture and milestone view; where the two disagree, the SRS wins for *what*, this file for *how and when*. CASSim is a **simulator, not a hardware emulation**, released under the **Unlicense**.
 
 ## 1. What I checked while exploring (and what I didn't)
 
@@ -20,9 +22,10 @@ A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) 
 
 1. **Engine first, UI second.** A pure-Python core (no Flet imports, enforced by a lint rule) that is usable from a CLI, tests and the browser.
 2. **A headless "device model"** (keys, menus, cursor, screen buffer) sits between engine and Flet, so keyboard and page behaviour is tested without a GUI. Flet only renders it.
-3. **Behaviour is defined by the simulator, not by SymPy.** Every behaviour we claim is pinned by a golden test captured from the real TI-Nspire CX CAS simulator.
+3. **Behaviour is defined by the simulator, not by SymPy.** Every behaviour we claim is pinned by a golden test captured from the real TI-Nspire CX CAS simulator. The target is "close enough not to confuse a student or teacher": same mathematical content in a familiar form, exact text only where a case says `compare: exact`.
 4. **Typed, linted, reproducible:** uv, Ruff, Ty, Git, CI from day one. SymPy is weakly typed, so it is quarantined behind one typed adapter module.
-5. **Original implementation.** No TI ROM, TI artwork or logos. The handheld skin is our own design that keeps the familiar layout.
+5. **Original implementation.** No TI ROM, TI artwork or logos. The handheld skin is our own design that keeps the familiar layout. A visible disclaimer says CASSim is not affiliated with TI and is not an approved exam calculator.
+6. **Private by construction.** No server, no telemetry or analytics, no student data leaves the device. Imported documents and share links never auto-run code.
 
 ## 3. Architecture
 
@@ -69,7 +72,10 @@ cassim/
 - **Long-running work.** Evaluation must be cancellable (TI's On/Esc). Plan: CAS runs in a worker; cancel = terminate and restart worker with state restored from the document model. Verified in M0 spike 1.
 - **Heavy dependencies.** SymPy loads at start; SciPy lazily on first stats/numerics call. Service worker caches everything for offline use.
 - **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input starts as linear text with template insertion (fraction inserts `(`…`)/(`…`)`); a full structured 2D editor is a later, separate sub-milestone (see M2d).
-- **Storage.** Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema). `.tns` support is attempted in M6 and is not a dependency of anything else.
+- **Storage.** Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema, schema-validated and size-limited on import). `.tns` import/export is deferred (Won't for now) and nothing depends on it.
+- **Sharing.** A document can be shared as a URL: compressed and encoded in the URL **fragment**, so nothing reaches a server. Opening a link asks for confirmation first. Keep links under about 2,000 characters; larger documents fall back to file export.
+- **Themes.** Dark is the default. Themes (at least Dark, Light, Outline) are defined in a user-editable config file (keypad, screen and accent colours), persisted in browser storage and exportable; an invalid config falls back to Dark with a message.
+- **Accessibility.** Should-have, applied where cheap. Keyboard-only use and visible focus in Computer mode are required. Flet renders to a canvas, so screen-reader support is hard: gaps are recorded in `docs/accessibility.md` and stubbed (labels and semantics hooks), not silently skipped.
 - **Graphics.** Engine emits a scene; Flet `canvas` draws it. Charts libraries are not suited to implicit functions, asymptotes and trace; matplotlib is too heavy for Pyodide.
 - **Spreadsheet.** Custom calc engine (TI cell/column semantics, columns are shared Problem variables so they can't map onto Excel-style engines like `formulas`/`pycel`). A library is used only for I/O: stdlib `csv` and `openpyxl` (pure Python; confirm it loads in Pyodide) for xlsx import/export.
 
@@ -77,19 +83,19 @@ cassim/
 
 | Mode | Layout | Use |
 |---|---|---|
-| **Computer CAS** | Wide window: page tabs/sidebar (problems → pages), large 2D calculator pane, scrollable history, templates palette, variable/catalog panel, physical keyboard first | Teacher/student at a desk |
+| **Computer CAS** (equal top priority) | Wide window: page tabs/sidebar (problems → pages), large 2D calculator pane, scrollable history, templates palette, variable/catalog panel, physical keyboard first | Teacher/student at a desk |
 | **Tablet / demo** | Screen on one side, on-screen keyboard on the other (portrait/landscape), big touch targets, optional "show keystrokes" for projection | Live demonstration |
-| **Handheld** | Faithful-layout 320×240 screen + keypad; scales to fullscreen on phones; hardware keyboard mapped | Practising the real handheld workflow |
+| **Handheld** (equal top priority) | Faithful-layout 320×240 screen + keypad; scales to fullscreen on phones; hardware keyboard mapped | Practising the real handheld workflow |
 
-The device model drives all three; modes differ only in layout components and which panels are visible.
+The device model drives all three; modes differ only in layout components and which panels are visible. Primary test targets: Chromebooks, Chrome, Safari (macOS, iOS, iPadOS); secondary, smoke-tested: Edge, Firefox. Handheld mode must be usable at 360 px wide in both orientations. Hosting is any free or cheap static host (GitHub Pages first) with correct MIME types.
 
 ## 5. Features by area
 
 1. **Calculator page.** History, `Ans`, ctrl+enter approximation, templates, catalog, variable menu, copy/paste of results, errors.
-2. **Pages:** Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python (new). Geometry is out of scope unless you want it.
+2. **Pages:** Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python (new). Geometry is out of scope.
 3. **Documents.** Multiple documents, problems, page sorter, settings dialogs, undo/redo, autosave.
-4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries. (b) A Python page and a `py("script","fn",args)` call from the CAS. Scripts get a small `cassim` API (read/write Problem variables, evaluate TI expressions). Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents are shared.
-5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the simulator with the libraries installed. **Check the LazyMath licence/EULA before porting or redistributing** (the GM folder includes an EULA text file). Ask the authors if needed.
+4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries. (b) A Python page and a `py("script","fn",args)` call from the CAS. Scripts get a small `cassim` API (read/write Problem variables, evaluate TI expressions). Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents and share links are untrusted. The Python page is Could-have; if built, the sandbox and prompt are mandatory.
+5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the simulator with the libraries installed. LazyMath is also Unlicense, so porting and redistribution are permitted; still record that check in `docs/decisions/` before the first port.
 
 ## 6. Testing strategy ("every stage properly tested")
 
@@ -101,6 +107,7 @@ The device model drives all three; modes differ only in layout components and wh
 | Render snapshots | handheld/tablet/computer screens at fixed viewport; image diff with tolerance | Playwright + pixelmatch-style compare |
 | E2E / PWA | built static site served locally: loads, types, evaluates, installs, works offline (service worker) | Playwright |
 | Static | formatting, lint, strict types | Ruff, Ty |
+| Coverage and traceability | At least 90% line and branch on `core/`, 80% on `device`, `doc`, `sheet`, `stats`, `graph`; `cassim_app` excluded (Playwright covers it). Every SRS requirement ID appears in a test or is listed as untested with a reason; `tools/` generates `docs/traceability.md`, checked in CI | pytest-cov, `tools/` |
 
 **Corpus case format**
 
@@ -128,7 +135,6 @@ The device model drives all three; modes differ only in layout components and wh
 
 - **uv** (Python 3.14 to match Pyodide 314), lockfile committed. **Ruff** for lint and format (rules: E, F, I, UP, B, SIM, ANN, PL, PT, RUF; `ANN` and strictness on `core/`). **Ty** for types, strict on the core packages; I have not verified Ty's current stability, so M0 checks it and keeps pyright as a fallback if SymPy/Flet stubs block us. **Git** with conventional commits, pre-commit (ruff, ty, fast tests), GitHub Actions CI (lint, types, tests, web build, Playwright smoke), deploy to GitHub Pages or similar static host.
 - Flet MCP / Claude Code: helpful from M2 for GUI iteration, so I'd switch to Claude Code before M2 (and for the repo work in M0/M1 too).
-- **Caution:** `C:\Users\...\OneDrive\CASSim` is OneDrive-synced. Syncing `.git` and `.venv` is known to cause corruption and slowness. Suggested: keep the working repo outside OneDrive (e.g. `C:\dev\CASSim`), push to a Git remote, and keep OneDrive for `references/` and backups.
 
 ## 8. Milestones
 
@@ -170,14 +176,25 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
 
 **M6 — Polish and extras (M)**
-- `.tns` import/export if M0 shows it's feasible; accessibility; i18n; exam-restriction mode (teacher-configurable); user docs; public deployment.
+- Accessibility follow-through (`docs/accessibility.md`); localisation-ready strings; exam-restriction mode (Could-have, teacher-configurable); theme config export/import; user docs; public deployment. `.tns` is dropped from scope for now.
 
-## 9. Risks and open questions
+## 9. Risks and decisions
 
-1. **Fidelity target.** How exact must output be (term ordering, `x=-2 or x=2` vs list, `@n1` constants)? Proposal: canonical equality first, exact text per area as the corpus grows.
-2. **Performance and size** of Pyodide + SymPy + SciPy on school devices and Chromebooks; mitigated by lazy SciPy, caching, and the M0 measurements.
-3. **Flet static limits** (threading, cancellation, canvas speed): M0 spikes decide; fallback is a thin custom web front-end over the same engine.
-4. **Licensing:** LazyMath UDFs (porting/redistribution); TI trademarks and artwork (own skin and name).
-5. **Appropriate use:** this is for teaching/practice and demonstration; it will not be an approved exam calculator.
-6. **Simulator capture effort:** driving the simulator by screenshot is slow; budget it per milestone and prioritise Tier 1 cases.
-7. **Decisions for you:** repo location (outside OneDrive?); target Python 3.14; Geometry page yes/no; priority of structured 2D input vs earlier graphing; whether Python scripts may be embedded in shared documents.
+Decisions (from the SRS review, 2026-11-02; do not re-litigate):
+
+1. **Fidelity:** canonical equality first, exact text per area as the corpus grows; "close enough not to confuse" is the bar.
+2. **Performance and size:** no hard budgets. Cold start (baseline 15 s vendored, 35 s CDN) and download (22 MB CDN, 95 MB vendored) are measured and reported with a progress screen. Tier 1 operations aim for 1 s or less after import; SciPy first use 5 s or less and shown as busy; Cancel within 1 s.
+3. **Licensing:** CASSim and LazyMath are both Unlicense. TI marks, artwork and ROM are never shipped; reference screenshots stay in `docs/design/reference/`, not the build.
+4. **Appropriate use:** teaching, practice and demonstration. Not an approved exam calculator, and the UI says so.
+5. **Python 3.14, no Geometry page, no `.tns` for now.**
+
+Open risks:
+
+1. **Flet static limits** (threading, cancellation, canvas speed): M0 spikes were go; fallback is a thin custom web front-end over the same engine. MathLive/MathQuill in the Flet web build is still unverified.
+2. **Simulator capture effort:** driving the simulator by screenshot is slow; budget it per milestone and prioritise Tier 1 cases.
+3. **Offline end to end:** wheels must be vendored and `index.html` patched after `flet publish` (decision 0002); verify with Playwright.
+4. **Accessibility on a canvas renderer:** screen-reader support may not be achievable in Flet; tracked in `docs/accessibility.md`.
+
+## 10. Design documents
+
+The SDD set (`docs/design/SDD-00` to `SDD-11`: overview, engine, worker and cancel, display and format, device model, Flet UI, document and storage, data pages, graphing, programming and Python, PWA and build, test strategy) is listed in SRS appendix A and written as each area is designed. Requirement IDs (`FR-*`, `NFR-*`) are the stable references between SRS, SDD, tests and corpus tags.

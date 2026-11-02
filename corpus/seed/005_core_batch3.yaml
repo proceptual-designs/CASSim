@@ -11,7 +11,7 @@ cases:
   - {in: 'solve(x^2>4,x)', out: x<-2 or x>2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.solve.inequality-quadratic.jpg}
-  status: pending
+  status: pass
 - id: m3.solve.abs
   course: methods
   tier: 1
@@ -20,7 +20,7 @@ cases:
   - {in: 'solve(abs(x-1)=3,x)', out: x=-2 or x=4}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.solve.abs.jpg}
-  status: pending
+  status: pass
 - id: m3.zeros.cubic
   course: methods
   tier: 1
@@ -29,7 +29,7 @@ cases:
   - {in: 'zeros(x^3-x,x)', out: '{-1,0,1}'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.zeros.cubic.jpg}
-  status: pending
+  status: pass
 - id: m3.calculus.fmax-fmin
   course: methods
   tier: 1
@@ -48,7 +48,7 @@ cases:
   - {in: 'solve(x^3-3*x^2+2*x=0,x)', out: x=0 or x=1 or x=2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.solve.cubic-roots.jpg}
-  status: pending
+  status: pass
 - id: m3.calculus.integral-limit-taylor
   course: methods
   tier: 1
@@ -100,7 +100,7 @@ cases:
     captured: '2026-11-01'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/m3.discrete.seq-sum-counting-1.jpg, shots/m3.discrete.seq-sum-counting-2.jpg]
-  status: pending
+  status: pass
 - id: m3.stats.list-functions
   course: methods
   tier: 1
@@ -110,7 +110,7 @@ cases:
   - {in: 'median({1,2,3,4,10})', out: '3'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.stats.list-functions.jpg}
-  status: pending
+  status: pass
 - id: m3.syntax.undefined-stat-names
   course: methods
   tier: 1
@@ -128,7 +128,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/m3.syntax.undefined-stat-names-1.jpg, shots/m3.syntax.undefined-stat-names-2.jpg]
     note: These names (stdDev, stdDevSamp, stdDevPop, variance) are not CAS functions, so they echo unevaluated as symbolic functions. The real names are stDevSamp, stDevPop, varSamp, varPop (see m11.stats.list-functions-correct-names).
-  status: pending
+  status: pass
 - id: m3.stats.list-ops
   course: methods
   tier: 1
@@ -139,7 +139,7 @@ cases:
   - {in: 'sum({1,2,3})', out: '6'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.stats.list-ops.jpg}
-  status: pending
+  status: pass
 - id: m3.stats.onevar
   course: methods
   tier: 1
@@ -178,7 +178,7 @@ cases:
   - {in: 'solve(sin(x)=0.5,x)|0<=x<=2*pi', out: x=0.52359878 or x=2.6179939, compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.solve.exp-log-trig-domain.jpg, note: A decimal coefficient (0.5) makes the solutions approximate; compare numerically and unordered.}
-  status: pending
+  status: pass
 - id: m3.algebra.forms-and-exact-trig
   course: methods
   tier: 1
@@ -191,7 +191,7 @@ cases:
   - {in: tan(pi/4), out: '1'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.algebra.forms-and-exact-trig.jpg}
-  status: pending
+  status: pass
 - id: m3.matrix.inverse-det-product
   course: specialist
   tier: 1
@@ -202,7 +202,7 @@ cases:
   - {in: '[1,2;3,4]*[0,1;1,0]', out: '[2,1;4,3]'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.matrix.inverse-det-product.jpg}
-  status: pending
+  status: pass
 - id: m3.syntax.transpose-function-undefined
   course: specialist
   tier: 1
@@ -213,7 +213,7 @@ cases:
   - {in: 'mm@t', out: '[1,3;2,4]', compare: text, note: 'Transpose is the postfix operator ᵀ (U+1D40, MODIFIER LETTER CAPITAL T), ASCII spelling @t. On the simulator it was entered with Menu > Matrix & Vector > Transpose; typing the characters @t on the keyboard was NOT converted (echoed literally and gave a Syntax error).'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m3.syntax.transpose-function-undefined.jpg, shots/m3.syntax.transpose-via-menu.jpg', note: transpose() is not a function here (echoed italic). Transpose is the postfix operator ᵀ (U+1D40) rather than ^T or a plain T.}
-  status: pending
+  status: pass
 - id: m3.matrix.identity-rref-eigvl
   course: specialist
   tier: 1
@@ -236,7 +236,7 @@ cases:
   - {in: 'unitV([3,4])', out: '[3/5,4/5]'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.vector.dot-norm-unit.jpg}
-  status: pending
+  status: pass
 - id: m3.complex.arithmetic
   course: specialist
   tier: 1
@@ -248,7 +248,7 @@ cases:
   - {in: (1+sqrt(-1))^2, out: 2*ⅈ}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.complex.arithmetic.jpg}
-  status: pending
+  status: pass
 - id: m3.complex.csolve-roots
   course: specialist
   tier: 1
@@ -259,7 +259,7 @@ cases:
   - {in: 'solve(x^2+1=0,x)', out: 'false', compare: text}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.complex.csolve-roots.jpg, note: 'solve is real-only even with Real or Complex = Rectangular, so no real roots gives false.'}
-  status: pending
+  status: pass
 - id: m3.calculus.specialist-integrals-nsolve-desolve
   course: specialist
   tier: 1
@@ -303,7 +303,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/general.approx-mode.basics-1.jpg, shots/general.approx-mode.basics-2.jpg]
     note: 'Calculation Mode = Approximate: exact results come back as decimals, floor(2.7) shows 2.'
-  status: pending
+  status: pass
 - id: general.stats.linregmx
   course: general
   tier: 1

@@ -30,7 +30,7 @@ cases:
   - {in: comDenom(1/x+1/(x+1)), out: (2*x+1)/(x^2+x)}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/repr.comdenom.jpg, note: A warning triangle appears next to the entry (not recorded as an error).}
-  status: pending
+  status: pass
 - id: repr.approxfraction
   course: methods
   tier: 2

@@ -53,7 +53,7 @@ cases:
   - {in: solve(x^2=1), error: true, error_contains: Too few arguments}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.errors.too-few-arguments.jpg, note: 'Dialog text: Too few arguments. The function or command is missing one or more arguments. solve needs the variable: solve(x^2=1,x).'}
-  status: pending
+  status: pass
 - id: m12.state.define-and-delvar
   course: methods
   tier: 1
@@ -96,4 +96,4 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.state.ans-store-and-function-in-solve.jpg, note: 'ans refers to the previous result (the echo shows ans substituted: 5·2). The store arrow → assigns 7 to
       c. A user-defined f (here f(x)=x^3, defined in the first step) can be used inside solve;'}
-  status: pending
+  status: pass

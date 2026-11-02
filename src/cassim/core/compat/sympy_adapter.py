@@ -1,8 +1,9 @@
 """The ONLY module allowed to touch SymPy internals; TI-compat fixes live here."""
 
+import math
 import operator
-from collections.abc import Callable
-from decimal import Decimal
+from collections.abc import Callable, Iterable
+from decimal import ROUND_HALF_UP, Decimal
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
@@ -19,6 +20,7 @@ ARITHMETIC: dict[str, Callable[[Raw, Raw], Raw]] = {
     "/": operator.truediv,
     "^": operator.pow,
 }
+# One-argument functions, by the name typed. Angle handling is the catalog's business.
 FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "sqrt": sp.sqrt,
     "√": sp.sqrt,
@@ -27,6 +29,33 @@ FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "sin": sp.sin,
     "cos": sp.cos,
     "tan": sp.tan,
+    "sec": sp.sec,
+    "csc": sp.csc,
+    "cot": sp.cot,
+    "sinh": sp.sinh,
+    "cosh": sp.cosh,
+    "tanh": sp.tanh,
+    "sech": sp.sech,
+    "csch": sp.csch,
+    "coth": sp.coth,
+    "arcsin": sp.asin,
+    "arccos": sp.acos,
+    "arctan": sp.atan,
+    "arcsec": sp.asec,
+    "arccsc": sp.acsc,
+    "arccot": sp.acot,
+    "arcsinh": sp.asinh,
+    "arccosh": sp.acosh,
+    "arctanh": sp.atanh,
+    "abs": sp.Abs,
+    "sign": sp.sign,
+    "floor": sp.floor,
+    "int": sp.floor,
+    "ceiling": sp.ceiling,
+    "conj": sp.conjugate,
+    "real": sp.re,
+    "imag": sp.im,
+    "angle": sp.arg,
 }
 _RELATIONS: dict[str, Callable[[Raw, Raw], Raw]] = {
     "=": sp.Eq,
@@ -37,6 +66,10 @@ _RELATIONS: dict[str, Callable[[Raw, Raw], Raw]] = {
     "≥": sp.Ge,
 }
 _RELATION_TEXT = {"==": "=", "!=": "≠", "<": "<", "<=": "≤", ">": ">", ">=": "≥"}
+# `x>=a` read the other way round is `a<=x`; these give the symbol for that reading.
+_LOWER_BOUNDS = {">=": "≤", ">": "<"}
+_UPPER_BOUNDS = {"<=": "≤", "<": "<"}
+_CHAIN_LENGTH = 2
 _CONSTANTS: dict[str, Raw] = {
     "pi": sp.pi,
     "π": sp.pi,
@@ -46,7 +79,24 @@ _CONSTANTS: dict[str, Raw] = {
     "infinity": sp.oo,
     "undef": sp.nan,
 }
-_FUNCTION_NAMES = {"log": "ln", "asin": "arcsin", "acos": "arccos", "atan": "arctan"}
+# How TI prints a function SymPy calls something else. The inverse functions read `sin⁻¹`.
+_FUNCTION_NAMES = {
+    "log": "ln",
+    "Abs": "abs",
+    "asin": "sin⁻¹",
+    "acos": "cos⁻¹",
+    "atan": "tan⁻¹",
+    "asec": "sec⁻¹",
+    "acsc": "csc⁻¹",
+    "acot": "cot⁻¹",
+    "asinh": "sinh⁻¹",
+    "acosh": "cosh⁻¹",
+    "atanh": "tanh⁻¹",
+    "re": "real",
+    "im": "imag",
+    "arg": "angle",
+    "conjugate": "conj",
+}
 
 is_constant = _CONSTANTS.__contains__
 factorial = sp.factorial
@@ -86,6 +136,10 @@ def approximate(raw: Raw) -> Raw:
 
 
 def relation(op: str, left: Raw, right: Raw) -> Raw:
+    """Build `left op right`. An equation with symbols in it stays as typed, even if SymPy would
+    call it false, as `x=-1+2ⅈ` for a real symbol `x`; the answers of `cSolve` rely on this."""
+    if op in ("=", "≠") and (left.free_symbols or right.free_symbols) and left != right:
+        return (sp.Eq if op == "=" else sp.Ne)(left, right, evaluate=False)
     return _RELATIONS[op](left, right)
 
 
@@ -95,6 +149,10 @@ def boolean(value: bool) -> Raw:
 
 def logic(op: str, left: Raw, right: Raw) -> Raw:
     return sp.And(left, right) if op == "and" else sp.Or(left, right)
+
+
+def logic_all(relations: list[Raw]) -> Raw:
+    return sp.And(*relations)
 
 
 def is_boolean(raw: Raw) -> bool:
@@ -150,6 +208,8 @@ def equal(left: Raw, right: Raw, tolerance: float | None = None) -> bool:
     if left == right:
         return True
     if isinstance(left, sp.core.relational.Relational):
+        left = left.canonical
+        right = right.canonical if isinstance(right, sp.core.relational.Relational) else right
         return (
             type(left) is type(right)
             and equal(left.lhs, right.lhs, tolerance)
@@ -210,6 +270,7 @@ class _Printer:
             (sp.exp, lambda raw: ast.Binary("^", ast.Name("ⅇ"), self.node(raw.exp))),
             (sp.Pow, self._power),
             (sp.core.relational.Relational, self._relation),
+            (sp.Piecewise, self._when),
             (sp.And, lambda raw: self._logic("and", raw)),
             (sp.Or, lambda raw: self._logic("or", raw)),
             ((sp.Function,), self._call),
@@ -262,12 +323,38 @@ class _Printer:
     def _relation(self, raw: Raw) -> ast.Expr:
         return ast.Compare(self.node(raw.lhs), ((_RELATION_TEXT[raw.rel_op], self.node(raw.rhs)),))
 
+    def _chain(self, raw: Raw) -> ast.Expr | None:
+        """Show `x>=-3 and x<=1` as the chained relation `-3≤x≤1`, as TI does."""
+        parts = [
+            r.canonical if isinstance(r, sp.core.relational.Relational) else r for r in raw.args
+        ]
+        lows = [r for r in parts if getattr(r, "rel_op", None) in _LOWER_BOUNDS]
+        highs = [r for r in parts if getattr(r, "rel_op", None) in _UPPER_BOUNDS]
+        if len(raw.args) != _CHAIN_LENGTH or len(lows) != 1 or len(highs) != 1:
+            return None
+        low, high = lows[0], highs[0]
+        if low.lhs != high.lhs:
+            return None
+        rest = ((_LOWER_BOUNDS[low.rel_op], self.node(low.lhs)),)
+        rest += ((_RELATION_TEXT[high.rel_op], self.node(high.rhs)),)
+        return ast.Compare(self.node(low.rhs), rest)
+
     def _logic(self, op: str, raw: Raw) -> ast.Expr:
-        first, *rest = raw.args
+        if op == "and" and (chain := self._chain(raw)) is not None:
+            return chain
+        first, *rest = _ordered(op, raw.args)
         result = self.node(first)
         for arg in rest:
             result = ast.Binary(op, result, self.node(arg))
         return result
+
+    def _when(self, raw: Raw) -> ast.Expr:
+        args: list[ast.Expr] = []
+        for value, condition in raw.args:
+            if condition is not sp.true:
+                args.append(self.node(condition))
+            args.append(self.node(value))
+        return ast.Call("when", tuple(args))
 
     def _call(self, raw: Raw) -> ast.Expr:
         name = str(raw.func)
@@ -275,5 +362,346 @@ class _Printer:
         return ast.Call(_FUNCTION_NAMES.get(name, name), args)
 
 
+def _ordered(op: str, args: tuple[Raw, ...]) -> list[Raw]:
+    """Order the parts of `and` and `or` as TI reads them: roots rising, variables by name."""
+    if not all(isinstance(arg, sp.core.relational.Relational) for arg in args):
+        return list(args)
+    if op == "and":
+        return sorted(args, key=lambda arg: str(arg.lhs))
+    return sorted(
+        args, key=lambda arg: _real_key(arg.rhs) if arg.rhs.is_number else (math.inf, 0.0)
+    )
+
+
 def to_ast(raw: Raw, decimal_text: Callable[[Decimal], str]) -> ast.Expr:
     return _Printer(decimal_text).node(raw)
+
+
+# Functions whose SymPy result is not the form TI shows
+
+
+def inverse_hyperbolic(name: str, raw: Raw) -> Raw:
+    """`arcsinh(1)` stays as typed in Auto, where SymPy would give `ln(1+√(2))`."""
+    if name != "arcsinh" or raw.is_Float or raw.free_symbols or raw == 0:
+        return FUNCTIONS[name](raw)
+    return sp.asinh(raw, evaluate=False)
+
+
+def hyperbolic(name: str, raw: Raw) -> Raw:
+    """`sinh(ln(2))` is `3/4`, but `sinh(1)` stays as typed."""
+    result = FUNCTIONS[name](raw)
+    if raw.free_symbols or raw.is_Float:
+        return result
+    rewritten = result.rewrite(sp.exp)
+    return rewritten if rewritten.is_Rational else result
+
+
+def log(value: Raw, base: Raw | None) -> Raw:
+    """`log(x)` is the common logarithm; `log(x,b)` uses base `b`."""
+    return sp.log(value, 10 if base is None else base)
+
+
+def integer_part(raw: Raw) -> Raw:
+    return sp.sign(raw) * sp.floor(sp.Abs(raw))
+
+
+def fractional_part(raw: Raw) -> Raw:
+    return raw - integer_part(raw)
+
+
+def round_to(raw: Raw, places: int) -> Raw:
+    """Round half away from zero to `places` decimals, giving a decimal number."""
+    step = Decimal(1).scaleb(-places)
+    return sp.Float(str(Decimal(str(raw.evalf(30))).quantize(step, ROUND_HALF_UP)), 15)
+
+
+def permutations(n: Raw, k: Raw) -> Raw:
+    return sp.factorial(n) / sp.factorial(n - k)
+
+
+def combinations(n: Raw, k: Raw) -> Raw:
+    return sp.binomial(n, k)
+
+
+def gcd(left: Raw, right: Raw) -> Raw:
+    return sp.gcd(left, right)
+
+
+def lcm(left: Raw, right: Raw) -> Raw:
+    return sp.lcm(left, right)
+
+
+def modulo(left: Raw, right: Raw) -> Raw:
+    return sp.Mod(left, right)
+
+
+def exact(raw: Raw) -> Raw:
+    return sp.nsimplify(raw, rational=True)
+
+
+def integer_value(raw: Raw) -> int | None:
+    return int(raw) if raw.is_Integer else None
+
+
+def when(condition: Raw, then: Raw, otherwise: Raw | None) -> Raw:
+    """A piecewise value that is still undecided because the condition is symbolic."""
+    if otherwise is None:
+        return sp.Piecewise((then, condition))
+    return sp.Piecewise((then, condition), (otherwise, True))
+
+
+# Algebra
+
+
+def expand(raw: Raw) -> Raw:
+    return sp.expand(raw)
+
+
+def factor(raw: Raw) -> Raw:
+    return sp.factor(raw)
+
+
+def partial_fractions(raw: Raw) -> Raw:
+    return sp.apart(raw)
+
+
+def common_denominator(raw: Raw) -> Raw:
+    return sp.together(raw)
+
+
+# Lists and statistics
+
+
+def add_all(items: list[Raw]) -> Raw:
+    return sp.Add(*items)
+
+
+def multiply_all(items: list[Raw]) -> Raw:
+    return sp.Mul(*items)
+
+
+def _sorted(items: list[Raw]) -> list[Raw]:
+    return sorted(items, key=lambda item: float(item.evalf()))
+
+
+def sort_order(items: list[Raw], *, descending: bool = False) -> list[int]:
+    """The indices that put `items` in order; ties keep their place."""
+    keys = [float(item.evalf()) for item in items]
+    return sorted(range(len(items)), key=keys.__getitem__, reverse=descending)
+
+
+def smallest(items: list[Raw]) -> Raw:
+    return _sorted(items)[0]
+
+
+def largest(items: list[Raw]) -> Raw:
+    return _sorted(items)[-1]
+
+
+def mean(items: list[Raw]) -> Raw:
+    return sp.Add(*items) / len(items)
+
+
+def median(items: list[Raw]) -> Raw:
+    ordered = _sorted(items)
+    middle, odd = divmod(len(ordered), 2)
+    return ordered[middle] if odd else (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def variance(items: list[Raw], *, sample: bool) -> Raw:
+    centre = mean(items)
+    total = sp.Add(*[(item - centre) ** 2 for item in items])
+    return total / (len(items) - 1 if sample else len(items))
+
+
+def standard_deviation(items: list[Raw], *, sample: bool) -> Raw:
+    return sp.sqrt(variance(items, sample=sample))
+
+
+def running_sums(items: list[Raw]) -> list[Raw]:
+    total: Raw = sp.Integer(0)
+    sums: list[Raw] = []
+    for item in items:
+        total = total + item
+        sums.append(total)
+    return sums
+
+
+# Matrices and vectors
+
+
+def matrix_determinant(rows: list[list[Raw]]) -> Raw:
+    return sp.Matrix(rows).det()
+
+
+def matrix_power(rows: list[list[Raw]], exponent: int) -> list[list[Raw]]:
+    return (sp.Matrix(rows) ** exponent).tolist()
+
+
+def matrix_rref(rows: list[list[Raw]]) -> list[list[Raw]]:
+    return sp.Matrix(rows).rref()[0].tolist()
+
+
+def matrix_identity(size: int) -> list[list[Raw]]:
+    return sp.eye(size).tolist()
+
+
+def matrix_solve(coefficients: list[list[Raw]], constants: list[list[Raw]]) -> list[list[Raw]]:
+    return (sp.Matrix(coefficients).inv() * sp.Matrix(constants)).tolist()
+
+
+def cross_product(left: list[Raw], right: list[Raw]) -> list[Raw]:
+    return list(sp.Matrix(left).cross(sp.Matrix(right)))
+
+
+def dot_product(left: list[Raw], right: list[Raw]) -> Raw:
+    return sp.Matrix(left).dot(sp.Matrix(right))
+
+
+def vector_norm(items: list[Raw]) -> Raw:
+    return sp.sqrt(sp.Add(*[sp.Abs(item) ** 2 for item in items]))
+
+
+# Solving
+
+# A root is kept if the equation holds to this much when it is put back in.
+_ROOT_CHECK = 1e-9
+
+
+def as_equation(raw: Raw) -> Raw:
+    """`solve(expr,x)` with no `=` means `expr=0`."""
+    return raw if isinstance(raw, Boolean) else sp.Eq(raw, 0, evaluate=False)
+
+
+def with_trig_in_radians(raw: Raw, to_radians: Callable[[Raw], Raw]) -> Raw:
+    """Convert the arguments of trig functions of a variable from the document's angle unit.
+
+    Trig of a symbol is left alone when it is entered, so that `sin(x)` prints as typed. A solver
+    reads it as radians, so the conversion is done here, just before solving.
+    """
+    trig = (sp.sin, sp.cos, sp.tan, sp.sec, sp.csc, sp.cot)
+
+    def convert(call: Raw) -> Raw:
+        return call.func(to_radians(call.args[0]))
+
+    return raw.replace(lambda e: isinstance(e, trig) and bool(e.args[0].free_symbols), convert)
+
+
+def _real_key(root: Raw) -> tuple[float, float]:
+    """Sort numbers by real part, then imaginary part descending; symbolic roots go last."""
+    if not root.is_number:
+        return (math.inf, 0.0)
+    value = complex(root.evalf())
+    return (value.real, -value.imag)
+
+
+def _sorted_roots(roots: Iterable[Raw]) -> list[Raw]:
+    return sorted(roots, key=_real_key)
+
+
+def _holds(equation: Raw, variable: Raw, root: Raw) -> bool:
+    """Does `root` really satisfy `equation`? SymPy sometimes returns a root that is not real."""
+    if not isinstance(equation, sp.Eq) or (equation.free_symbols - {variable}):
+        return True
+    residual = (equation.lhs - equation.rhs).subs(variable, root).evalf()
+    if residual.has(sp.nan, sp.zoo) or not residual.is_number:
+        return False
+    value = complex(residual)
+    return abs(value.imag) <= _ROOT_CHECK and abs(value.real) <= _ROOT_CHECK
+
+
+def _constraint_set(constraint: Raw, variable: Raw) -> Raw:
+    if isinstance(constraint, sp.And):
+        return sp.Intersection(*[_constraint_set(c, variable) for c in constraint.args])
+    if isinstance(constraint, sp.Or):
+        return sp.Union(*[_constraint_set(c, variable) for c in constraint.args])
+    return sp.solveset(constraint, variable, sp.S.Reals)
+
+
+def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
+    """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
+    if isinstance(found, sp.Intersection):
+        # {-b/a} intersected with the reals: the answer is the finite part.
+        finite = [part for part in found.args if isinstance(part, sp.FiniteSet)]
+        found = finite[0] if finite else found
+    if found == sp.S.EmptySet:
+        return sp.false
+    if isinstance(found, sp.FiniteSet):
+        roots = [r for r in _sorted_roots(found) if _holds(equation, variable, r)]
+        return sp.Or(*[sp.Eq(variable, r, evaluate=False) for r in roots]) if roots else sp.false
+    if found in (sp.S.Reals, sp.S.Complexes):
+        return sp.true
+    if found.has(sp.ImageSet, sp.ConditionSet) or isinstance(found, sp.Intersection):
+        return None
+    return found.as_relational(variable).replace(
+        lambda e: isinstance(e, sp.core.relational.Relational), lambda e: e.canonical
+    )
+
+
+def solve_equation(
+    equation: Raw,
+    variable: Raw,
+    constraints: Iterable[Raw],
+    to_radians: Callable[[Raw], Raw] | None,
+    *,
+    complex_roots: bool,
+) -> Raw | None:
+    """Solve for one variable. `constraints` restrict the real answers, as `|x>0` does."""
+    equation = as_equation(equation)
+    if to_radians is not None:
+        equation = with_trig_in_radians(equation, to_radians)
+    try:
+        found = sp.solveset(equation, variable, sp.S.Complexes if complex_roots else sp.S.Reals)
+        if not complex_roots:
+            for constraint in constraints:
+                if constraint.free_symbols <= {variable}:
+                    found = found.intersect(_constraint_set(constraint, variable))
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    return _as_condition(found, variable, equation)
+
+
+def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
+    try:
+        solutions = sp.solve([as_equation(e) for e in equations], variables, dict=True)
+    except NotImplementedError:
+        return None
+    if not solutions:
+        return sp.false
+    cases = [
+        sp.And(*[sp.Eq(v, solution[v], evaluate=False) for v in variables if v in solution])
+        for solution in solutions
+    ]
+    return sp.Or(*cases)
+
+
+def roots_of(
+    expression: Raw, variable: Raw, to_radians: Callable[[Raw], Raw] | None, *, complex_roots: bool
+) -> list[Raw] | None:
+    """The zeros of an expression as a sorted list, or None if they are not a finite set."""
+    found = solve_equation(expression, variable, [], to_radians, complex_roots=complex_roots)
+    if found is None:
+        return None
+    if found == sp.false:
+        return []
+    clauses = found.args if isinstance(found, sp.Or) else (found,)
+    if not all(isinstance(clause, sp.Eq) for clause in clauses):
+        return None
+    return _sorted_roots(clause.rhs for clause in clauses)
+
+
+def polynomial_roots(expression: Raw, variable: Raw) -> list[Raw] | None:
+    """The real roots of a polynomial, repeated by multiplicity, in increasing order."""
+    found = sp.roots(sp.Poly(expression, variable), filter="R")
+    roots: list[Raw] = []
+    for root, multiplicity in found.items():
+        roots.extend([root] * multiplicity)
+    return _sorted_roots(roots)
+
+
+def polynomial_value(coefficients: list[Raw], point: Raw) -> Raw:
+    """Horner's rule, with the highest power's coefficient first as `polyEval` has it."""
+    total: Raw = sp.Integer(0)
+    for coefficient in coefficients:
+        total = total * point + coefficient
+    return total

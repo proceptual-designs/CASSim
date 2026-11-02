@@ -17,7 +17,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m14.settings.gradian.jpg, note: 'Angle = Gradian (status bar shows GRAD). 100 grad is a right angle, so results are exact: sin(100)=1, arcsin(1)=100. Inverse
       functions return plain numbers with no ᵍ marker.'}
-  status: pending
+  status: pass
 - id: m14.settings.exp-scientific
   course: methods
   settings: {angle: gradian, exp_format: scientific}

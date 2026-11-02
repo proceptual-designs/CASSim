@@ -223,10 +223,7 @@ def test_symbols_are_restricted_without_cas(line, settings):
 @pytest.mark.parametrize(
     "line",
     [
-        "SortA l",
         "x@>Polar",
-        "[1,2;3,4]^-1",
-        "[1,2;3,4]^2",
         "1/[1,2;3,4]",
         "2^[1,2]",
     ],
