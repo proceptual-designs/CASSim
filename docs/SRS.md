@@ -58,7 +58,7 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser (IndexedDB). Hosted as static files.
 
 ### 2.2 Product functions (summary)
-Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; Python page; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M7: a Python and pseudocode environment, standalone and as page types; later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
+Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M7: a Python and pseudocode environment, standalone and as page types; later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
 
 ### 2.3 Users and classes
 1. **Student**: knows the handheld; wants identical keystrokes and results.
@@ -182,8 +182,8 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-PROG-001 | TI-Basic interpreter: `Prgm`/`Func`, control flow, `Disp`/`Request`/`Text`, `Try`, `Local`. | C | T |
 | FR-PROG-002 | Program Editor page; `Define LibPub` libraries and `lib\fn` namespace. | C | T |
-| FR-PY-001 | Python page and `py("script","fn",args)` call from the CAS; small `cassim` API (read/write Problem variables, evaluate TI expressions). | C | T |
-| FR-PY-002 | If FR-PY-001 is built: scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
+| FR-PY-001 | ~~Python page and `py()` call from the CAS with a `cassim` API.~~ **Changed 2026-11-02:** the Python page is built in M7 as FR-RUN-010; the `py()` call and the `cassim` API for Problem variables are dropped (see FR-RUN-011). | n/a | n/a |
+| FR-PY-002 | If Python pages are built (FR-RUN-010): scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
 | FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the simulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
 
 ### 4.9 Device model and display modes — M2
@@ -215,7 +215,7 @@ This cross-cuts every functional area.
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
 ### 4.12 Multi-device profiles and programming environments — M7–M9
-Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorders or blocks M0–M6 except the M2 guard FR-DEV-007. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code first, then ClassPad, then possibly HP. Question numbers refer to section 10. FR-PY-001/002 (M5) are implemented against FR-RUN-001, so this section builds on them rather than replacing them.
+Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorders or blocks M0–M6 except the M2 guard FR-DEV-007. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code first, then ClassPad, then possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page built here, and the Python page itself is FR-RUN-010 (moved from M5 to M7).
 
 **Device profiles (M8)**
 | ID | Requirement | Pri | Ver |
@@ -231,7 +231,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 **Python and pseudocode runtime (M7)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
-| FR-RUN-001 | A language-neutral `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, and cancel. Python and pseudocode implement it, and so does the M5 Python page. | S | I/T |
+| FR-RUN-001 | A language-neutral `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, and cancel. Python and pseudocode implement it, and so does the Nspire Python page (FR-RUN-010). | S | I/T |
 | FR-RUN-002 | Python runs on CPython in Pyodide in a dedicated worker, separate from the CAS engine. Cancel terminates that worker within 1 s (NFR-PERF-004) and leaves CAS state intact. | S | T/E |
 | FR-RUN-003 | Python environment: the standard library plus the numerical libraries already shipped; any others are decided in Q21. User code has no network access and no access to the host page. How this is enforced is settled by a spike before the build; any gap that cannot be closed is documented in the SDD and shown in the trust prompt. | S | T/E |
 | FR-RUN-004 | The prompt-before-run rule of FR-PY-002 applies to pseudocode as well as Python; code from documents, imports or links never auto-runs (C-7, NFR-SEC-002). | M (conditional) | T/E |
@@ -241,7 +241,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-RUN-008 | A shared editor and console component: line numbers, indentation, error highlighting, Run/Stop, adjustable text size, keyboard-only operation, usable at 360 px width; the settings bar of FR-SET-001 sits at the top of it. | S | D |
 | FR-RUN-009 | **Code view**: standalone mode with no device skin, reachable from the start screen without the profile switcher (FR-PROF-003); files, undo and download as in FR-EDT-001 to FR-EDT-004; imported files never auto-run [Q23]. | S | E |
 | FR-RUN-010 | **Page types**: Python and Pseudocode pages can be added to a document in the Nspire profile (FR-DOC-005). Adding them bumps the document schema version with a migration (FR-DOC-004). | S | T |
-| FR-RUN-011 | A script on an Nspire Python or Pseudocode page can read and write the Problem's variables and evaluate TI expressions through the `cassim` API of FR-PY-001, by name and without evaluating strings outside the engine's parser (NFR-SEC-004). | S | T |
+| FR-RUN-011 | ~~Scripts reading and writing Problem variables through a `cassim` API.~~ **Dropped 2026-11-02:** Python and Pseudocode pages are self-contained, with no access to the calculator's variables and no `py()` call from the CAS. Revisit only if a real need appears. | n/a | n/a |
 
 **Pseudocode language (M7)** — dialect in `docs/pseudocode/dialect.md`
 | ID | Requirement | Pri | Ver |
@@ -313,7 +313,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 |---|---|---|---|
 | FR-EDT-001 | **Unlimited undo and redo** per file: no fixed depth, Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z and Ctrl+Y, plus toolbar buttons. History is stored compactly (as diffs, with typing coalesced into word-sized steps) and Regularise, Translate, paste, Open and Revert each form one step. Undo never touches output or trace results, which are marked stale instead. The history survives reload and crash where storage allows, is kept per file, and is trimmed oldest-first only when the storage quota is reached, with a visible message and never silently. | S | T/D |
 | FR-EDT-002 | **Save to browser storage**: named files in IndexedDB, available in the Code view and from Python and Pseudocode pages: list, open, new, save, save as, rename, duplicate and delete (with confirmation). Unsaved edits autosave as a draft and are recovered after reload or crash (FR-DOC-003). Each file records its language, its list index base and any non-default syntax or settings overrides (FR-SYN-009). A quota warning is shown before saves fail, with a link to export everything. | S | T/D |
-| FR-EDT-003 | **Download and upload**: download the current file, or all files as one archive, as plain text with the extension `.py` for Python and a pseudocode extension (default `.pseudo.txt`, final choice a decision to record); uploading or dropping a file adds it to the list. The header carrying settings and syntax overrides is a comment block so the file still reads, and runs as Python, elsewhere. Downloads work offline and use the platform's save mechanism, with a fallback on browsers lacking one. | S | T/D |
+| FR-EDT-003 | **Download and upload**: download the current file, or all files as one archive, as plain text with the extension `.py` for Python and `.pseudo.txt` for pseudocode (decided 2026-11-02; opens in any text editor, and the app also accepts `.pseudo` and `.txt` on upload); uploading or dropping a file adds it to the list. The header carrying settings and syntax overrides is a comment block so the file still reads, and runs as Python, elsewhere. Downloads work offline and use the platform's save mechanism, with a fallback on browsers lacking one. | S | T/D |
 | FR-EDT-004 | Uploaded or imported files, and files arriving in a shared document or link, are opened but never run until the user chooses Run (FR-RUN-004, C-7, NFR-SEC-002). Overrides in the header are shown and need acceptance (FR-SYN-009). File size and name length are limited and names are sanitised. | S | T |
 | FR-EDT-005 | Undo history and files are exported and restored with the rest of the user's data (FR-DOC-004 backup), so clearing the browser is recoverable from a backup file. | C | T |
 
@@ -454,8 +454,8 @@ Q1-Q15 are answered and folded into the text above. Q16-Q38 were added on 2026-1
 | `SDD-06-document-and-storage.md` | Schema, versioning, IndexedDB, import/export |
 | `SDD-07-data-pages.md` | Spreadsheet, statistics, finance |
 | `SDD-08-graphing.md` | Scene format, sampling, analysis tools, performance |
-| `SDD-09-programming-and-python.md` | TI-Basic, Python bridge, trust/sandbox model |
+| `SDD-09-programming-and-python.md` | TI-Basic, trust/sandbox model |
 | `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy |
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire |
-| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration, variable bridge |
+| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration |
