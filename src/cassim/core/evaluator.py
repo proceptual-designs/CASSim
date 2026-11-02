@@ -12,7 +12,7 @@ from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.scope import Function, Scope
 from cassim.core.settings import Angle, CasMode, Domain, Settings, variable_key
-from cassim.core.valueops import as_expr, cell_of, map_value, raw_rows
+from cassim.core.valueops import as_expr, cell_of, map_value, raw_of, raw_rows
 from cassim.core.values import (
     Bool,
     Expr,
@@ -120,6 +120,8 @@ class Evaluator:
         # Relations from enclosing `|` constraints that no binding consumes, such as `x>0`.
         self._constraints: list[Raw] = []
         self._calls = 0
+        # The `|` bindings in force, which also reach into stored values and Ans.
+        self._substitutions: list[dict[str, Value]] = []
         self._dispatch: dict[type, Callable[[Any], Value]] = {
             ast.Number: self._number,
             ast.Dms: self._dms,
@@ -277,10 +279,24 @@ class Evaluator:
         name = self._key(node.text)
         bound = self.lookup(name)
         if bound is not None:
-            return bound
+            return bound if self._in_frame(name) else self._substituted(bound)
         if folded == "ans" and self._ans is not None:
-            return self._ans
+            return self._substituted(self._ans)
         return Expr(cas.symbol(name))
+
+    def _in_frame(self, name: str) -> bool:
+        return any(name in frame for frame in self._frames)
+
+    def _substituted(self, value: Value) -> Value:
+        """Apply the enclosing `|` bindings to a stored value or Ans: `Ans|x=1` with Ans `x^2`."""
+        for bindings in self._substitutions:
+            for name, replacement in bindings.items():
+                symbol = cas.symbol(name)
+                new = raw_of(as_expr(replacement))
+                value = map_value(
+                    lambda v, s=symbol, r=new: Expr(cas.substitute(raw_of(v), s, r)), value
+                )
+        return value
 
     def _arguments(self, node: ast.Call) -> list[Value]:
         return [self.expr(arg) for arg in node.args]
@@ -401,11 +417,13 @@ class Evaluator:
                 relations.append(as_expr(self.expr(part)).raw)
         mark = len(self._constraints)
         self._constraints.extend(relations)
+        self._substitutions.append(bindings)
         try:
             with self.bound(bindings):
                 return self.expr(node.left)
         finally:
             del self._constraints[mark:]
+            self._substitutions.pop()
 
     def _binary(self, node: ast.Binary) -> Value:
         if node.op == "|":

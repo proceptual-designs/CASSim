@@ -728,6 +728,13 @@ def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
     )
 
 
+def _unconditioned(found: Raw, variable: Raw) -> Raw:
+    """`sin(x)=y` is solved only for |y|<=1, a condition on the parameter that TI leaves unsaid."""
+    if isinstance(found, sp.ConditionSet) and variable not in found.condition.free_symbols:
+        return found.args[2]
+    return found
+
+
 def solve_equation(
     equation: Raw,
     variable: Raw,
@@ -742,6 +749,7 @@ def solve_equation(
         equation = with_trig_in_radians(equation, to_radians)
     try:
         found = sp.solveset(equation, variable, sp.S.Complexes if complex_roots else sp.S.Reals)
+        found = _unconditioned(found, variable)
         if not complex_roots:
             for constraint in constraints:
                 if constraint.free_symbols <= {variable}:

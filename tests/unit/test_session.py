@@ -312,3 +312,19 @@ def test_same_value_within_a_tolerance():
     assert same_value(value("1.41421356"), value("sqrt(2)"), 1.0e-7)
     assert not same_value(value("1.4142"), value("sqrt(2)"), 1.0e-7)
     assert same_value(value("3.0000000001*x^2"), value("3*x^2"), 1.0e-7)
+
+
+def test_such_that_reaches_into_ans_and_stored_values():
+    session = Session()
+    session.eval("x^2")
+    assert session.eval("Ans|x=1").text == "1"
+    session.eval("b:=x^2+y")
+    assert session.eval("b|x=2").text == "y+4"
+    assert session.eval("b").text == "x^2+y"
+
+
+def test_such_that_does_not_leak_into_user_function_locals():
+    session = Session()
+    session.eval("b:=x^2")
+    session.eval("f(x):=x*b")
+    assert session.eval("f(2)").text == "2*x^2"
