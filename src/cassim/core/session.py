@@ -6,10 +6,10 @@ from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
-from cassim.core.format import to_latex, to_text
+from cassim.core.format import to_ascii, to_latex, to_text
 from cassim.core.parser import parse
 from cassim.core.scope import Scope
-from cassim.core.settings import Calc, Case, Settings, updated
+from cassim.core.settings import Ascii, Calc, Case, Settings, updated
 from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import (
     Bool,
@@ -70,7 +70,10 @@ class Session:
             value = _approximated(value, self.settings)
         if not isinstance(value, Void):
             self._ans = value
-        return Result(to_text(value, self.settings), to_latex(value), value, None)
+        text = to_text(value, self.settings)
+        if self.settings.ascii is Ascii.ON:
+            text = to_ascii(text)
+        return Result(text, to_latex(value), value, None)
 
     def new_problem(self) -> None:
         self._ans = None

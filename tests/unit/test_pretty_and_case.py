@@ -129,3 +129,19 @@ def test_turning_case_sensitivity_off_merges_names():
     session.set(case="insensitive")
     assert session.eval("x").text == "2"
     assert session.settings.case is Case.INSENSITIVE
+
+
+def test_ascii_setting_spells_results_with_keyboard_characters():
+    session = Session()
+    assert session.eval("sqrt(2)*pi").text == "√(2)*π"
+    session.set(ascii="on")
+    result = session.eval("sqrt(2)*pi")
+    assert result.text == "sqrt(2)*pi"
+    assert session.eval("arcsin(x)").text == "arcsin(x)"
+
+
+def test_ascii_setting_in_the_repl_also_covers_pretty_output():
+    session = Session()
+    respond(session, ":set ascii=on pretty=on")
+    assert said(session, "[1,2;3,4]").text.isascii()
+    assert said(session, "pi/2").text.replace("\n", "").strip().isascii()
