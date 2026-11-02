@@ -3,7 +3,7 @@
 Date: 2026-11-02. Status: accepted; the choices under "To check on the simulator" are provisional.
 Code: `src/cassim/core/catalog/`, `core/valueops.py`, `core/angles.py`, `core/compat/sympy_adapter.py`. Tests: `tests/unit/test_catalog.py`.
 
-M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving and slice 3 calculus. Later slices: distributions and finance, then statistics and the regression commands.
+M1d is built in slices, one commit each, so that every slice leaves the corpus and the tests green. Slice 1 is the registry plus the functions that need no new maths engine. Slice 2 is solving, slice 3 calculus and slice 4 distributions and finance. Later slices: statistics and the regression commands, then conversions and the long tail.
 
 ## Decisions
 
@@ -84,3 +84,23 @@ Code: `catalog/calculus.py` and the "Calculus" section of the adapter. Tests: `t
 | `fMin(x^3,x)` | echoed | TI may give `x=-∞` or an error |
 | calculus in Degree mode | trig is treated as radians | `d/dx sin(x)` in Degree mode needs the angle-aware function class (see slice 1) |
 | `integral(sin(x)/x,x,1,2)` | `Si(2)-Si(1)` from SymPy | TI probably gives a decimal or leaves it |
+
+## Slice 4: distributions and finance
+
+Code: `catalog/distributions.py`, `catalog/finance.py`, `core/compat/distributions.py`, `core/compat/finance.py`. Tests: `tests/unit/test_distributions_finance.py`.
+
+- **No SciPy for this.** The continuous distributions (normal, t, chi-square, F) use mpmath, which SymPy already needs, at 30 digits; inverses use `erfinv` for the normal and bisection for the rest. They agree with SciPy to 12 digits on the reference values fixed in the tests. SciPy stays optional and lazy, for the regression fitting in slice 5 if it is needed.
+- **Discrete distributions** (`binomPdf/Cdf`, `invBinom`, `geomPdf/Cdf`, `poissPdf/Cdf`) are computed with exact arithmetic, so `binomPdf(10,1/2,5)` is `63/256` and `binomPdf(10,0.5,5)` is `0.24609375`. Poisson always gives a decimal.
+- **Argument shapes** follow the TI forms: `normCdf(lower,upper[,μ,σ])`, `binomCdf(n,p[,lower],upper)`, `binomPdf(n,p)` with no `x` lists every k, a list `x` gives a list, `∞` is allowed as a bound.
+- **Distributions work in CAS Off**, as the corpus shows; they are not marked `cas`.
+- **Finance**: `tvmN/I/PV/Pmt/FV` take the four unknown-complement values and then `[PpY, CpY, PmtAt]` (defaults 1, 1, end). The per-period rate is `(1+I/(100·CpY))^(CpY/PpY)-1`. `tvmI` brackets a sign change on a grid of rates and bisects. `eff`, `nom`, `amortTbl`, `bal`, `ΣInt` and `ΣPrn` are included; the table rounds the payment and every amount to 2 decimals (the corpus values are consistent with that) and the first payment at the start of a period pays no interest.
+
+### To check on the simulator
+
+| Entry | Now | Why it is a guess |
+|---|---|---|
+| `tvm*` with `PmtAt` 1 | annuity-due formula | only the end-of-period case is in the corpus |
+| `amortTbl` with `PmtAt` 1, or a non-default `round` | as described above | not in the corpus |
+| `binomPdf(10,1/2,5)` | exact `63/256` | TI may give a decimal |
+| `invBinom` when the area is not reached | `n` | assumed |
+| `tvmN` for an impossible loan | "Domain error" | TI's wording not captured |

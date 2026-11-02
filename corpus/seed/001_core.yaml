@@ -121,7 +121,7 @@ cases:
     - {in: "invNorm(0.975,0,1)", out: "1.959964", compare: numeric, tol: 1.0e-7}
     - {in: "binomPdf(10,0.5,5)", out: "0.24609375", compare: numeric, tol: 1.0e-9}
   provenance: {<<: *emu, evidence: shots/methods.prob.distributions.jpg, note: "Simulator entries were run in the order invNorm, binomPdf, normCdf."}
-  status: pending
+  status: pass
 
 - id: methods.matrix.det
   course: methods
@@ -172,7 +172,7 @@ cases:
     - {in: "eff(5.4,12)", out: "5.5356752", compare: numeric, tol: 1.0e-8}
     - {in: "nom(5.5356751950103,12)", out: "5.4", compare: numeric, tol: 1.0e-8}
   provenance: {<<: *emu, evidence: shots/general.finance.eff-nom.jpg}
-  status: pending
+  status: pass
 
 - id: general.finance.tvm-pmt
   course: general
@@ -182,7 +182,7 @@ cases:
     - {in: "tvmPmt(60,6,10000,0,12,12)", out: "-193.32802", compare: numeric, tol: 1.0e-7,
        note: "Argument order N,I,PV,FV,PpY,CpY confirmed; payment is negative for a positive PV."}
   provenance: {<<: *emu, evidence: shots/general.finance.tvm-pmt.jpg}
-  status: pending
+  status: pass
 
 - id: general.stats.linreg-bx
   course: general

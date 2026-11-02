@@ -34,7 +34,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m7.finance.amorttbl-1.jpg, shots/m7.finance.amorttbl-2.jpg', note: 'Columns: n, interest, principal, balance. With only NPmt, N,
       I, PV given the payment periods per year default to 1, so 6% is charged annually (first interest -600.), not monthly. Payment solved is about 618.76. Row 0 is the opening balance.'}
-  status: pending
+  status: pass
 - id: m7.list.sorta-dim
   course: methods
   tier: 1

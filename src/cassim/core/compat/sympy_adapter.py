@@ -205,6 +205,25 @@ def number_value(raw: Raw) -> complex | None:
     return complex(raw)
 
 
+def real_float(raw: Raw) -> float | None:
+    """A finite real number as a float, or None if `raw` is not one."""
+    value = number_value(raw)
+    return None if value is None or value.imag else value.real
+
+
+def bound_float(raw: Raw) -> float | None:
+    """Like `real_float`, but ∞ and -∞ are allowed, as for the limits of a probability."""
+    if raw == sp.oo:
+        return math.inf
+    if raw == -sp.oo:
+        return -math.inf
+    return real_float(raw)
+
+
+def from_float(value: float) -> Raw:
+    return sp.Float(value, 15)
+
+
 def equal(left: Raw, right: Raw, tolerance: float | None = None) -> bool:
     """Decide mathematical equality, within a relative tolerance if one is given."""
     if left == right:
