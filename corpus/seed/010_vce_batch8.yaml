@@ -65,7 +65,7 @@ cases:
   - {in: sinh(ln(2)), out: 3/4}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m8.trig.reciprocal-and-hyperbolic-1.jpg, shots/m8.trig.reciprocal-and-hyperbolic-2.jpg'}
-  status: pending
+  status: pass
 - id: m8.complex.czeros-real-imag
   course: specialist
   tier: 1

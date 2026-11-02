@@ -14,7 +14,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m11.stats.list-functions-correct-names.jpg, note: 'The real function names (pasted from Statistics > List Math) are stDevSamp, stDevPop, varSamp, varPop. The
       earlier stdDev/stdDevSamp/stdDevPop/variance cases in 005 were wrong names, not missing features. In Auto mode the sample results are exact: 4√14/7 and 32/7.'}
-  status: pending
+  status: pass
 - id: m11.list.sorta-literal-list-error
   course: methods
   tier: 1
@@ -24,7 +24,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m11.list.sorta-literal-list-error.jpg, note: 'SortA is a command that sorts a list variable in place. Given a literal list it returns the message "Error: Argument
       must be a variable name." (shown as a result string, not a dialog). In List Operations the menu entry is Sort Ascending.'}
-  status: pending
+  status: pass
 - id: m11.settings.general-degree-approximate
   course: general
   tier: 1

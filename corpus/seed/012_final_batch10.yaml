@@ -26,7 +26,7 @@ cases:
   - {in: cosh(0), out: '1'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.trig.csc-cosh.jpg}
-  status: pending
+  status: pass
 - id: m10.finance.compound-interest-depreciation
   course: methods
   tier: 1
@@ -65,4 +65,4 @@ cases:
   - {in: 'seq(3+4*(n-1),n,1,5)', out: '{3,7,11,15,19}'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m10.seq.arithmetic-sequence.jpg}
-  status: pending
+  status: pass

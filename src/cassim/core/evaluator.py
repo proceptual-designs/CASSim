@@ -1,22 +1,33 @@
 """AST to Value, mode-aware."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from typing import Any
 
-from cassim.core import ast, errors
+from cassim.core import angles, ast, catalog, errors
+from cassim.core.catalog.matrices import matrix_power
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.scope import Function, Scope
 from cassim.core.settings import Angle, CasMode, Settings
-from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Str, Value, Void
+from cassim.core.valueops import as_expr, map_value
+from cassim.core.values import (
+    Bool,
+    Expr,
+    ListValue,
+    MatrixValue,
+    Raw,
+    Str,
+    Unevaluated,
+    Value,
+    Void,
+)
 
 _ELEMENTWISE = {".+": "+", ".-": "-", ".*": "*", "./": "/", ".^": "^"}
-_TRIG = frozenset({"sin", "cos", "tan"})
-_ANGLE_FULL_TURN_HALF = {Angle.DEGREE: 180, Angle.GRADIAN: 200}
-# How many of each unit make a half turn, for the post operators.
+# The unit each angle post operator means.
 _POST_UNITS = {"°": Angle.DEGREE, "ᵍ": Angle.GRADIAN, "ʳ": Angle.RADIAN}
 # Names that mean something already, so a variable or function cannot take them.
-_RESERVED = frozenset({"true", "false", "ans", "approx"})
+_RESERVED = frozenset({"true", "false", "ans"})
 # How many user-function calls may be open at once. Each takes several Python frames.
 _MAX_CALL_DEPTH = 50
 
@@ -25,32 +36,13 @@ def _unsupported(what: str) -> TIError:
     return TIError(errors.NOT_IMPLEMENTED, f"Not implemented yet: {what}")
 
 
-def _as_expr(value: Value) -> Expr:
-    if isinstance(value, Expr):
-        return value
-    if isinstance(value, Bool):
-        return Expr(cas.boolean(value.value))
-    raise TIError(errors.DATA_TYPE)
-
-
 def _from_truth(raw: Raw) -> Value:
     decided = cas.truth(raw)
     return Expr(raw) if decided is None else Bool(decided)
 
 
-def _map(function: Callable[[Value], Value], value: Value) -> Value:
-    """Apply `function` to a value, or to each element of a list or matrix."""
-    if isinstance(value, ListValue):
-        return ListValue(tuple(_map(function, item) for item in value.items))
-    if isinstance(value, MatrixValue):
-        return MatrixValue(
-            tuple(tuple(_as_expr(function(cell)) for cell in row) for row in value.rows)
-        )
-    return function(value)
-
-
 def _arithmetic(op: str, left: Value, right: Value) -> Value:
-    return Expr(cas.ARITHMETIC[op](_as_expr(left).raw, _as_expr(right).raw))
+    return Expr(cas.ARITHMETIC[op](as_expr(left).raw, as_expr(right).raw))
 
 
 def _elementwise_lists(op: str, left: ListValue, right: ListValue) -> Value:
@@ -66,7 +58,7 @@ def _matrix_sum(op: str, left: MatrixValue, right: MatrixValue) -> Value:
     rows = zip(left.rows, right.rows, strict=True)
     return MatrixValue(
         tuple(
-            tuple(_as_expr(_arithmetic(op, a, b)) for a, b in zip(*pair, strict=True))
+            tuple(as_expr(_arithmetic(op, a, b)) for a, b in zip(*pair, strict=True))
             for pair in rows
         )
     )
@@ -100,13 +92,13 @@ def _combine(op: str, left: Value, right: Value) -> Value:
     if isinstance(left, ListValue) and isinstance(right, ListValue):
         return _elementwise_lists(op, left, right)
     if op == "^" and isinstance(left, MatrixValue):
-        raise _unsupported("matrix powers")  # m^-1 is an inverse, not an elementwise power
+        return matrix_power(left, right)  # m^-1 is an inverse, not an elementwise power
     if op in ("/", "^") and isinstance(right, MatrixValue):
         raise _unsupported(f"{op} by a matrix")
     if isinstance(left, ListValue | MatrixValue):
-        return _map(lambda item: _combine(op, item, right), left)
+        return map_value(lambda item: _combine(op, item, right), left)
     if isinstance(right, ListValue | MatrixValue):
-        return _map(lambda item: _combine(op, left, item), right)
+        return map_value(lambda item: _combine(op, left, item), right)
     return _arithmetic(op, left, right)
 
 
@@ -144,6 +136,23 @@ class Evaluator:
             ast.Convert: self._convert,
         }
 
+    @property
+    def settings(self) -> Settings:
+        return self._settings
+
+    @property
+    def scope(self) -> Scope:
+        return self._scope
+
+    @contextmanager
+    def bound(self, bindings: dict[str, Value]) -> Generator[None]:
+        """Evaluate with these names bound to values, as for a `seq` index or a `|` constraint."""
+        self._frames.append(bindings)
+        try:
+            yield
+        finally:
+            self._frames.pop()
+
     def line(self, line: ast.Line) -> Value | None:
         result: Value | None = None
         for statement in line.statements:
@@ -162,7 +171,7 @@ class Evaluator:
         return self._evaluated(statement)
 
     def _evaluated(self, node: ast.Expr) -> Value:
-        return _map(self._finish, self.expr(node))
+        return map_value(self._finish, self.expr(node))
 
     def _variable_name(self, node: ast.Expr) -> str:
         """The key for a name being stored to; constants and built-ins are refused."""
@@ -172,7 +181,7 @@ class Evaluator:
             name = node.func.casefold()
         else:
             raise _unsupported("indexed assignment")
-        if name in _RESERVED or cas.is_constant(name) or name in cas.FUNCTIONS:
+        if name in _RESERVED or cas.is_constant(name) or catalog.is_builtin(name):
             raise TIError(errors.RESERVED_NAME)
         return name
 
@@ -208,7 +217,10 @@ class Evaluator:
         if statement.name == "ClearAZ":
             self._scope.clear_az()
             return Void()
-        raise _unsupported(statement.name)
+        run = catalog.lookup_command(statement.name)
+        if run is None:
+            raise _unsupported(statement.name)
+        return run(self, statement.args)
 
     def _finish(self, value: Value) -> Value:
         if not isinstance(value, Expr):
@@ -261,13 +273,25 @@ class Evaluator:
         stored = self._scope.get(name)
         if isinstance(stored, Function):
             return self._user_call(stored, node)
-        if name == "approx":
-            return _map(lambda v: Expr(cas.approximate(_as_expr(v).raw)), self._one_arg(node))
-        if name in cas.FUNCTIONS:
-            function = self._function(name)
-            return _map(lambda v: Expr(function(_as_expr(v).raw)), self._one_arg(node))
-        args = tuple(_as_expr(value).raw for value in self._arguments(node))
-        return Expr(cas.undefined_function(name, args))
+        entry = catalog.lookup(name)
+        if entry is None:
+            return self._unresolved(name, node)
+        if entry.cas and self._settings.cas_mode != CasMode.ON:
+            raise TIError(errors.CAS_RESTRICTED)
+        if len(node.args) < entry.low:
+            raise TIError(errors.TOO_FEW_ARGUMENTS)
+        if entry.high is not None and len(node.args) > entry.high:
+            raise TIError(errors.TOO_MANY_ARGUMENTS)
+        if isinstance(entry, catalog.LazyEntry):
+            return entry.run(self, node.args)
+        return entry.run(self, self._arguments(node))
+
+    def _unresolved(self, name: str, node: ast.Call) -> Value:
+        """A call to a name that is not a function stays as typed, with its arguments evaluated."""
+        args = self._arguments(node)
+        if all(isinstance(arg, Expr | Bool) for arg in args):
+            return Expr(cas.undefined_function(name, tuple(as_expr(arg).raw for arg in args)))
+        return Unevaluated(name, tuple(args))
 
     def _user_call(self, function: Function, node: ast.Call) -> Value:
         args = self._arguments(node)
@@ -286,42 +310,15 @@ class Evaluator:
             self._calls -= 1
             self._frames = caller
 
-    def _one_arg(self, node: ast.Call) -> Value:
-        if not node.args:
-            raise TIError(errors.TOO_FEW_ARGUMENTS)
-        if len(node.args) > 1:
-            raise TIError(errors.TOO_MANY_ARGUMENTS)
-        return self.expr(node.args[0])
-
-    def _function(self, name: str) -> Callable[[Raw], Raw]:
-        function = cas.FUNCTIONS[name]
-        if name not in _TRIG:
-            return function
-
-        def trig(raw: Raw) -> Raw:
-            # A symbolic argument stays as typed, so sin(x) in Degree mode prints as sin(x).
-            is_number = cas.number_value(raw) is not None
-            return function(self._to_radians(raw) if is_number else raw)
-
-        return trig
-
-    def _to_radians(self, raw: Raw) -> Raw:
-        half_turn = _ANGLE_FULL_TURN_HALF.get(self._settings.angle)
-        return raw if half_turn is None else raw * cas.pi / half_turn
-
     def _from_unit(self, raw: Raw, unit: Angle) -> Raw:
         """Convert an angle typed in `unit` to the document's angle mode."""
-        if unit == self._settings.angle:
-            return raw
-        half_turns = raw / _ANGLE_FULL_TURN_HALF[unit] if unit != Angle.RADIAN else raw / cas.pi
-        target = _ANGLE_FULL_TURN_HALF.get(self._settings.angle)
-        return half_turns * (cas.pi if target is None else target)
+        return angles.convert(raw, unit, self._settings.angle)
 
     def _index(self, node: ast.Index) -> Value:
         base = self.expr(node.base)
         if not isinstance(base, ListValue) or len(node.subscripts) != 1:
             raise _unsupported("this subscript")
-        position = cas.number_value(_as_expr(self.expr(node.subscripts[0])).raw)
+        position = cas.number_value(as_expr(self.expr(node.subscripts[0])).raw)
         if position is None or position.imag or int(position.real) != position.real:
             raise TIError(errors.DOMAIN)
         if not 1 <= position.real <= len(base.items):
@@ -332,7 +329,7 @@ class Evaluator:
         if len({len(row) for row in node.rows}) != 1:
             raise TIError(errors.INVALID_LIST_OR_MATRIX)
         return MatrixValue(
-            tuple(tuple(_as_expr(self.expr(cell)) for cell in row) for row in node.rows)
+            tuple(tuple(as_expr(self.expr(cell)) for cell in row) for row in node.rows)
         )
 
     def _unary(self, node: ast.Unary) -> Value:
@@ -349,22 +346,19 @@ class Evaluator:
         if node.op == "ᵀ":
             return _transpose(value)
         if node.op == "!":
-            return _map(lambda v: Expr(cas.factorial(_as_expr(v).raw)), value)
+            return map_value(lambda v: Expr(cas.factorial(as_expr(v).raw)), value)
         if node.op == "%":
             return _combine("/", value, Expr(cas.integer(100)))
         if node.op in _POST_UNITS:
             unit = _POST_UNITS[node.op]
-            return _map(lambda v: Expr(self._from_unit(_as_expr(v).raw, unit)), value)
+            return map_value(lambda v: Expr(self._from_unit(as_expr(v).raw, unit)), value)
         raise _unsupported(f"the {node.op} operator here")
 
     def _constrain(self, node: ast.Binary) -> Value:
         """`expr|x=value`: evaluate `expr` with each named variable bound to its value."""
         bindings = {name: self.expr(value) for name, value in _equalities(node.right)}
-        self._frames.append(bindings)
-        try:
+        with self.bound(bindings):
             return self.expr(node.left)
-        finally:
-            self._frames.pop()
 
     def _binary(self, node: ast.Binary) -> Value:
         if node.op == "|":
@@ -374,7 +368,7 @@ class Evaluator:
         if op in cas.ARITHMETIC:
             return _combine(op, left, right)
         if op in ("and", "or"):
-            return _from_truth(cas.logic(op, _as_expr(left).raw, _as_expr(right).raw))
+            return _from_truth(cas.logic(op, as_expr(left).raw, as_expr(right).raw))
         if op == "&" and isinstance(left, Str) and isinstance(right, Str):
             return Str(left.value + right.value)
         raise _unsupported(f"the {node.op} operator here")
@@ -384,11 +378,11 @@ class Evaluator:
             raise _unsupported("a chained relation")
         op, right = node.rest[0]
         left_value, right_value = self.expr(node.first), self.expr(right)
-        return _from_truth(cas.relation(op, _as_expr(left_value).raw, _as_expr(right_value).raw))
+        return _from_truth(cas.relation(op, as_expr(left_value).raw, as_expr(right_value).raw))
 
     def _convert(self, node: ast.Convert) -> Value:
         if isinstance(node.target, ast.Name) and node.target.text.casefold() == "decimal":
-            return _map(lambda v: Expr(cas.approximate(_as_expr(v).raw)), self.expr(node.value))
+            return map_value(lambda v: Expr(cas.approximate(as_expr(v).raw)), self.expr(node.value))
         raise _unsupported(f"▶{node.target}")
 
 

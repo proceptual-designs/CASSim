@@ -2,7 +2,7 @@
 
 import operator
 from collections.abc import Callable
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
@@ -19,6 +19,7 @@ ARITHMETIC: dict[str, Callable[[Raw, Raw], Raw]] = {
     "/": operator.truediv,
     "^": operator.pow,
 }
+# One-argument functions, by the name typed. Angle handling is the catalog's business.
 FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "sqrt": sp.sqrt,
     "√": sp.sqrt,
@@ -27,6 +28,33 @@ FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "sin": sp.sin,
     "cos": sp.cos,
     "tan": sp.tan,
+    "sec": sp.sec,
+    "csc": sp.csc,
+    "cot": sp.cot,
+    "sinh": sp.sinh,
+    "cosh": sp.cosh,
+    "tanh": sp.tanh,
+    "sech": sp.sech,
+    "csch": sp.csch,
+    "coth": sp.coth,
+    "arcsin": sp.asin,
+    "arccos": sp.acos,
+    "arctan": sp.atan,
+    "arcsec": sp.asec,
+    "arccsc": sp.acsc,
+    "arccot": sp.acot,
+    "arcsinh": sp.asinh,
+    "arccosh": sp.acosh,
+    "arctanh": sp.atanh,
+    "abs": sp.Abs,
+    "sign": sp.sign,
+    "floor": sp.floor,
+    "int": sp.floor,
+    "ceiling": sp.ceiling,
+    "conj": sp.conjugate,
+    "real": sp.re,
+    "imag": sp.im,
+    "angle": sp.arg,
 }
 _RELATIONS: dict[str, Callable[[Raw, Raw], Raw]] = {
     "=": sp.Eq,
@@ -46,7 +74,24 @@ _CONSTANTS: dict[str, Raw] = {
     "infinity": sp.oo,
     "undef": sp.nan,
 }
-_FUNCTION_NAMES = {"log": "ln", "asin": "arcsin", "acos": "arccos", "atan": "arctan"}
+# How TI prints a function SymPy calls something else. The inverse functions read `sin⁻¹`.
+_FUNCTION_NAMES = {
+    "log": "ln",
+    "Abs": "abs",
+    "asin": "sin⁻¹",
+    "acos": "cos⁻¹",
+    "atan": "tan⁻¹",
+    "asec": "sec⁻¹",
+    "acsc": "csc⁻¹",
+    "acot": "cot⁻¹",
+    "asinh": "sinh⁻¹",
+    "acosh": "cosh⁻¹",
+    "atanh": "tanh⁻¹",
+    "re": "real",
+    "im": "imag",
+    "arg": "angle",
+    "conjugate": "conj",
+}
 
 is_constant = _CONSTANTS.__contains__
 factorial = sp.factorial
@@ -210,6 +255,7 @@ class _Printer:
             (sp.exp, lambda raw: ast.Binary("^", ast.Name("ⅇ"), self.node(raw.exp))),
             (sp.Pow, self._power),
             (sp.core.relational.Relational, self._relation),
+            (sp.Piecewise, self._when),
             (sp.And, lambda raw: self._logic("and", raw)),
             (sp.Or, lambda raw: self._logic("or", raw)),
             ((sp.Function,), self._call),
@@ -269,6 +315,14 @@ class _Printer:
             result = ast.Binary(op, result, self.node(arg))
         return result
 
+    def _when(self, raw: Raw) -> ast.Expr:
+        args: list[ast.Expr] = []
+        for value, condition in raw.args:
+            if condition is not sp.true:
+                args.append(self.node(condition))
+            args.append(self.node(value))
+        return ast.Call("when", tuple(args))
+
     def _call(self, raw: Raw) -> ast.Expr:
         name = str(raw.func)
         args = tuple(self.node(arg) for arg in raw.args)
@@ -277,3 +331,188 @@ class _Printer:
 
 def to_ast(raw: Raw, decimal_text: Callable[[Decimal], str]) -> ast.Expr:
     return _Printer(decimal_text).node(raw)
+
+
+# Functions whose SymPy result is not the form TI shows
+
+
+def inverse_hyperbolic(name: str, raw: Raw) -> Raw:
+    """`arcsinh(1)` stays as typed in Auto, where SymPy would give `ln(1+√(2))`."""
+    if name != "arcsinh" or raw.is_Float or raw.free_symbols or raw == 0:
+        return FUNCTIONS[name](raw)
+    return sp.asinh(raw, evaluate=False)
+
+
+def hyperbolic(name: str, raw: Raw) -> Raw:
+    """`sinh(ln(2))` is `3/4`, but `sinh(1)` stays as typed."""
+    result = FUNCTIONS[name](raw)
+    if raw.free_symbols or raw.is_Float:
+        return result
+    rewritten = result.rewrite(sp.exp)
+    return rewritten if rewritten.is_Rational else result
+
+
+def log(value: Raw, base: Raw | None) -> Raw:
+    """`log(x)` is the common logarithm; `log(x,b)` uses base `b`."""
+    return sp.log(value, 10 if base is None else base)
+
+
+def integer_part(raw: Raw) -> Raw:
+    return sp.sign(raw) * sp.floor(sp.Abs(raw))
+
+
+def fractional_part(raw: Raw) -> Raw:
+    return raw - integer_part(raw)
+
+
+def round_to(raw: Raw, places: int) -> Raw:
+    """Round half away from zero to `places` decimals, giving a decimal number."""
+    step = Decimal(1).scaleb(-places)
+    return sp.Float(str(Decimal(str(raw.evalf(30))).quantize(step, ROUND_HALF_UP)), 15)
+
+
+def permutations(n: Raw, k: Raw) -> Raw:
+    return sp.factorial(n) / sp.factorial(n - k)
+
+
+def combinations(n: Raw, k: Raw) -> Raw:
+    return sp.binomial(n, k)
+
+
+def gcd(left: Raw, right: Raw) -> Raw:
+    return sp.gcd(left, right)
+
+
+def lcm(left: Raw, right: Raw) -> Raw:
+    return sp.lcm(left, right)
+
+
+def modulo(left: Raw, right: Raw) -> Raw:
+    return sp.Mod(left, right)
+
+
+def exact(raw: Raw) -> Raw:
+    return sp.nsimplify(raw, rational=True)
+
+
+def integer_value(raw: Raw) -> int | None:
+    return int(raw) if raw.is_Integer else None
+
+
+def when(condition: Raw, then: Raw, otherwise: Raw | None) -> Raw:
+    """A piecewise value that is still undecided because the condition is symbolic."""
+    if otherwise is None:
+        return sp.Piecewise((then, condition))
+    return sp.Piecewise((then, condition), (otherwise, True))
+
+
+# Algebra
+
+
+def expand(raw: Raw) -> Raw:
+    return sp.expand(raw)
+
+
+def factor(raw: Raw) -> Raw:
+    return sp.factor(raw)
+
+
+def partial_fractions(raw: Raw) -> Raw:
+    return sp.apart(raw)
+
+
+def common_denominator(raw: Raw) -> Raw:
+    return sp.together(raw)
+
+
+# Lists and statistics
+
+
+def add_all(items: list[Raw]) -> Raw:
+    return sp.Add(*items)
+
+
+def multiply_all(items: list[Raw]) -> Raw:
+    return sp.Mul(*items)
+
+
+def _sorted(items: list[Raw]) -> list[Raw]:
+    return sorted(items, key=lambda item: float(item.evalf()))
+
+
+def sort_order(items: list[Raw], *, descending: bool = False) -> list[int]:
+    """The indices that put `items` in order; ties keep their place."""
+    keys = [float(item.evalf()) for item in items]
+    return sorted(range(len(items)), key=keys.__getitem__, reverse=descending)
+
+
+def smallest(items: list[Raw]) -> Raw:
+    return _sorted(items)[0]
+
+
+def largest(items: list[Raw]) -> Raw:
+    return _sorted(items)[-1]
+
+
+def mean(items: list[Raw]) -> Raw:
+    return sp.Add(*items) / len(items)
+
+
+def median(items: list[Raw]) -> Raw:
+    ordered = _sorted(items)
+    middle, odd = divmod(len(ordered), 2)
+    return ordered[middle] if odd else (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def variance(items: list[Raw], *, sample: bool) -> Raw:
+    centre = mean(items)
+    total = sp.Add(*[(item - centre) ** 2 for item in items])
+    return total / (len(items) - 1 if sample else len(items))
+
+
+def standard_deviation(items: list[Raw], *, sample: bool) -> Raw:
+    return sp.sqrt(variance(items, sample=sample))
+
+
+def running_sums(items: list[Raw]) -> list[Raw]:
+    total: Raw = sp.Integer(0)
+    sums: list[Raw] = []
+    for item in items:
+        total = total + item
+        sums.append(total)
+    return sums
+
+
+# Matrices and vectors
+
+
+def matrix_determinant(rows: list[list[Raw]]) -> Raw:
+    return sp.Matrix(rows).det()
+
+
+def matrix_power(rows: list[list[Raw]], exponent: int) -> list[list[Raw]]:
+    return (sp.Matrix(rows) ** exponent).tolist()
+
+
+def matrix_rref(rows: list[list[Raw]]) -> list[list[Raw]]:
+    return sp.Matrix(rows).rref()[0].tolist()
+
+
+def matrix_identity(size: int) -> list[list[Raw]]:
+    return sp.eye(size).tolist()
+
+
+def matrix_solve(coefficients: list[list[Raw]], constants: list[list[Raw]]) -> list[list[Raw]]:
+    return (sp.Matrix(coefficients).inv() * sp.Matrix(constants)).tolist()
+
+
+def cross_product(left: list[Raw], right: list[Raw]) -> list[Raw]:
+    return list(sp.Matrix(left).cross(sp.Matrix(right)))
+
+
+def dot_product(left: list[Raw], right: list[Raw]) -> Raw:
+    return sp.Matrix(left).dot(sp.Matrix(right))
+
+
+def vector_norm(items: list[Raw]) -> Raw:
+    return sp.sqrt(sp.Add(*[sp.Abs(item) ** 2 for item in items]))

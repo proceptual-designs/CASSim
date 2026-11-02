@@ -13,7 +13,7 @@ cases:
   - {in: f(3), out: '9'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m4.defs.piecewise-when.jpg}
-  status: pending
+  status: pass
 - id: m4.discrete.recursion-sequences
   course: methods
   tier: 1
@@ -26,7 +26,7 @@ cases:
   - {in: 'product({1,2,3,4})', out: '24'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m4.discrete.recursion-sequences.jpg, note: Recursive user function defined with when().}
-  status: pending
+  status: pass
 - id: m4.matrix.transpose-operator
   course: specialist
   tier: 1
@@ -74,7 +74,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m4.log.rules-and-bases-1.jpg, shots/m4.log.rules-and-bases-2.jpg', note: 'ln(x·y) is NOT expanded to ln(x)+ln(y): no assumption that
       x,y>0. Do not auto-expand logs.'}
-  status: pending
+  status: pass
 - id: m4.solve.parametric-and-system
   course: methods
   tier: 1

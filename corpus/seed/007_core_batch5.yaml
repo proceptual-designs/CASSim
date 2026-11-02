@@ -50,7 +50,7 @@ cases:
   - {in: factor(x^4-1), out: (x-1)*(x+1)*(x^2+1)}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.algebra.factor-real-quartic.jpg, note: Over the reals the irreducible x^2+1 stays.}
-  status: pending
+  status: pass
 - id: m5.calculus.limit-at-infinity
   course: methods
   tier: 1

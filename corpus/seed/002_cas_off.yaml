@@ -148,7 +148,7 @@ cases:
   - {in: 'det([1,2;3,4])', out: '-2', note: 'TI matrix syntax is [1,2;3,4] (semicolon separates rows).'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.methods.matrix.det.jpg}
-  status: pending
+  status: pass
 - id: casoff.scope.problems-are-isolated
   course: methods
   settings: {cas_mode: 'off'}
@@ -197,7 +197,7 @@ cases:
     captured: '2026-10-31'
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.specialist.complex.csolve-1.jpg, shots/casoff.specialist.complex.csolve-2.jpg]
-  status: pending
+  status: pass
 - id: casoff.specialist.vector.crossp
   course: specialist
   settings: {cas_mode: 'off'}
@@ -207,7 +207,7 @@ cases:
   - {in: 'crossP([1,0,0],[0,1,0])', out: '[0,0,1]'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-10-31', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/casoff.specialist.vector.crossp.jpg}
-  status: pending
+  status: pass
 - id: casoff.general.mode.degree-approximate
   course: general
   settings: {cas_mode: 'off'}

@@ -6,7 +6,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.settings import Settings
-from cassim.core.values import Bool, Expr, ListValue, Str, Value, Void
+from cassim.core.values import Bool, Expr, ListValue, Str, Unevaluated, Value, Void
 
 # Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
 _SMALLEST_FLOAT_EXPONENT = -3
@@ -98,15 +98,21 @@ def decimal_text(value: Decimal, digits: str) -> str:
     return _fix_text(value, places) if is_fix else _float_text(value, places)
 
 
-def _node(value: Value, settings: Settings) -> ast.Expr:
-    if isinstance(value, Expr):
-        return cas.to_ast(value.raw, lambda d: decimal_text(d, settings.digits))
+def _atom_node(value: Str | Bool | Void) -> ast.Expr:
     if isinstance(value, Str):
         return ast.String(value.value)
     if isinstance(value, Bool):
         return ast.Name("true" if value.value else "false")
-    if isinstance(value, Void):
-        return ast.Name("Done")
+    return ast.Name("Done")
+
+
+def _node(value: Value, settings: Settings) -> ast.Expr:
+    if isinstance(value, Expr):
+        return cas.to_ast(value.raw, lambda d: decimal_text(d, settings.digits))
+    if isinstance(value, Str | Bool | Void):
+        return _atom_node(value)
+    if isinstance(value, Unevaluated):
+        return ast.Call(value.name, tuple(_node(arg, settings) for arg in value.args))
     if isinstance(value, ListValue):
         return ast.ListLit(tuple(_node(item, settings) for item in value.items))
     return ast.Matrix(tuple(tuple(_node(cell, settings) for cell in row) for row in value.rows))
@@ -117,15 +123,22 @@ def to_text(value: Value, settings: Settings) -> str:
     return str(_node(value, settings))
 
 
-def to_latex(value: Value) -> str:
-    if isinstance(value, Expr):
-        return cas.latex(value.raw)
+def _atom_latex(value: Str | Bool | Void) -> str:
     if isinstance(value, Str):
         return rf"\text{{{value.value}}}"
     if isinstance(value, Bool):
         return rf"\text{{{str(value.value).lower()}}}"
-    if isinstance(value, Void):
-        return r"\text{Done}"
+    return r"\text{Done}"
+
+
+def to_latex(value: Value) -> str:
+    if isinstance(value, Expr):
+        return cas.latex(value.raw)
+    if isinstance(value, Str | Bool | Void):
+        return _atom_latex(value)
+    if isinstance(value, Unevaluated):
+        arguments = ",".join(to_latex(arg) for arg in value.args)
+        return rf"\text{{{value.name}}}\left({arguments}\right)"
     if isinstance(value, ListValue):
         return r"\{" + ",".join(to_latex(item) for item in value.items) + r"\}"
     rows = r"\\".join("&".join(to_latex(cell) for cell in row) for row in value.rows)
