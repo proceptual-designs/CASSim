@@ -19,6 +19,9 @@ TOO_MANY_ARGUMENTS = 940
 CAS_RESTRICTED = -1
 # Ours, for language that a later milestone will implement.
 NOT_IMPLEMENTED = -2
+# Ours: the simulator's wording and number for these were not captured (decision 0009).
+RESERVED_NAME = -3
+RECURSION = -4
 
 _MESSAGES = {
     SYNTAX: "Syntax error",
@@ -34,6 +37,8 @@ _MESSAGES = {
     TOO_FEW_ARGUMENTS: "Too few arguments",
     TOO_MANY_ARGUMENTS: "Too many arguments",
     CAS_RESTRICTED: "CAS computations are restricted in CAS Off and Exact Arithmetic modes.",
+    RESERVED_NAME: "Invalid variable name: that name is reserved",
+    RECURSION: "Recursion is too deep",
 }
 
 

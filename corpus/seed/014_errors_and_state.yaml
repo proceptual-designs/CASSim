@@ -66,7 +66,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.state.define-and-delvar.jpg, note: 'Assignment with := echoes the value. delVar returns Done. After delVar the symbol is undefined again so a^2 is returned
       unchanged.'}
-  status: pending
+  status: pass
 - id: m12.state.redefine-and-multi-argument-function
   course: methods
   tier: 1
@@ -81,7 +81,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m12.state.redefine-and-multi-argument-function.jpg, note: 'Redefining f replaces the old definition; later calls use the newest. Multi-argument functions defined
       with := work as expected. The history is a single shared scope across lines.'}
-  status: pending
+  status: pass
 - id: m12.state.ans-store-and-function-in-solve
   course: methods
   tier: 1

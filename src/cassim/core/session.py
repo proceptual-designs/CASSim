@@ -8,8 +8,9 @@ from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_latex, to_text
 from cassim.core.parser import parse
+from cassim.core.scope import Scope
 from cassim.core.settings import Settings, updated
-from cassim.core.values import Expr, ListValue, MatrixValue, Value
+from cassim.core.values import Expr, ListValue, MatrixValue, Value, Void
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,21 +25,24 @@ class Session:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings if settings is not None else Settings()
         self._ans: Value | None = None
+        self.scope = Scope()
 
     def eval(self, line: str) -> Result:
         """Evaluate one entry line. TI errors come back in `Result.error`."""
         try:
             tree: ast.Line = parse(line)
-            value = Evaluator(self.settings, self._ans).line(tree)
+            value = Evaluator(self.settings, self._ans, self.scope).line(tree)
         except TIError as error:
             return Result(error.message, "", None, error.message)
         if value is None:
             return Result("", "", None, None)
-        self._ans = value
+        if not isinstance(value, Void):
+            self._ans = value
         return Result(to_text(value, self.settings), to_latex(value), value, None)
 
     def new_problem(self) -> None:
         self._ans = None
+        self.scope.clear()
 
     def set(self, **changes: str) -> None:
         self.settings = updated(self.settings, changes)

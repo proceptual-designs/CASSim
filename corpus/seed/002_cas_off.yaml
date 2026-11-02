@@ -166,7 +166,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.scope.problems-are-isolated-1.jpg, shots/casoff.scope.problems-are-isolated-2.jpg, shots/casoff.scope.problems-are-isolated-3.jpg]
     note: An undefined variable raises the CAS-restricted error in CAS Off (in CAS On it echoes as a symbol).
-  status: pending
+  status: pass
 - id: casoff.scope.pages-share-problem-variables
   course: methods
   settings: {cas_mode: 'off'}
@@ -182,7 +182,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/casoff.scope.pages-share-problem-variables-1.jpg, shots/casoff.scope.pages-share-problem-variables-2.jpg]
     note: Captured in a fresh document (Document5); an earlier attempt failed on the 30-problem limit.
-  status: pending
+  status: pass
 - id: casoff.specialist.complex.csolve
   course: specialist
   settings: {cas_mode: 'off'}

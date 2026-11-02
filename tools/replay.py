@@ -16,6 +16,7 @@ import yaml
 
 from cassim.core.session import Result, Session, same_value
 from cassim.core.settings import PRESETS, Settings, updated
+from cassim.core.values import Void
 
 SEED = Path(__file__).parents[1] / "corpus" / "seed"
 # Eight displayed digits, so a correct value can differ by half a unit in the last place.
@@ -67,6 +68,8 @@ def _result_failure(step: Step, result: Result, settings: Settings) -> str | Non
 
 def _value_failure(step: Step, result: Result, settings: Settings, compare: str) -> str | None:
     expected = str(step["out"])
+    if expected == "Done":
+        return None if isinstance(result.value, Void) else f"{step['in']}: got {result.text}"
     # Expected text is read with CAS on and Auto, so it means what it shows.
     reader = Session(Settings(angle=settings.angle))
     wanted = reader.eval(expected)

@@ -1,7 +1,7 @@
-"""Typed Value union: Number, Expr, List, Matrix, Str, Bool, Eq, Void, Unit.
+"""Typed Value union: Expr, Str, Bool, List, Matrix and Void.
 
 Numbers, symbolic expressions and relations are all `Expr`, which holds a SymPy object that only
-`compat/sympy_adapter.py` may look inside. Void and Unit values arrive with the catalog (M1d).
+`compat/sympy_adapter.py` may look inside. Unit values arrive with the catalog (M1d).
 """
 
 from dataclasses import dataclass
@@ -26,6 +26,11 @@ class Bool:
 
 
 @dataclass(frozen=True, slots=True)
+class Void:
+    """What a statement with nothing to show returns; the calculator prints `Done`."""
+
+
+@dataclass(frozen=True, slots=True)
 class ListValue:
     items: tuple[Value, ...]
 
@@ -35,4 +40,4 @@ class MatrixValue:
     rows: tuple[tuple[Expr, ...], ...]
 
 
-type Value = Expr | Str | Bool | ListValue | MatrixValue
+type Value = Expr | Str | Bool | ListValue | MatrixValue | Void

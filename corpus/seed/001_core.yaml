@@ -209,7 +209,7 @@ cases:
     - {new_problem: true}
     - {in: "a", out: "a", note: "Undefined variable stays symbolic in a fresh Problem"}
   provenance: {<<: *emu, evidence: [shots/scope.problems-are-isolated-1.jpg, shots/scope.problems-are-isolated-2.jpg]}
-  status: pending
+  status: pass
 
 - id: scope.pages-share-problem-variables
   course: methods
@@ -219,4 +219,4 @@ cases:
     - {in: "k:=7", out: "7"}
     - {in: "k*2", out: "14", note: "Entered on a second Calculator page (15.2) in the same Problem (15.1)."}
   provenance: {<<: *emu, evidence: [shots/scope.pages-share-problem-variables-1.jpg, shots/scope.pages-share-problem-variables-2.jpg]}
-  status: pending
+  status: pass
