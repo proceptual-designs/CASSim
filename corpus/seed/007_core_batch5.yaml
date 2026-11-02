@@ -21,7 +21,7 @@ cases:
   - {in: 'integral(abs(x-1),x,0,3)', out: 5/2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m5.vce.definite-integral-abs.jpg}
-  status: pending
+  status: pass
 - id: m5.vce.normcdf-binompdf
   course: methods
   tier: 1
@@ -41,7 +41,7 @@ cases:
   - {in: 'integral(x*exp(x),x)', out: (x-1)*ⅇ^x}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m5.calculus.product-rule-parts-1.jpg, shots/m5.calculus.product-rule-parts-2.jpg', note: Results are returned factored.}
-  status: pending
+  status: pass
 - id: m5.algebra.factor-real-quartic
   course: methods
   tier: 1
@@ -60,4 +60,4 @@ cases:
   - {in: 'limit((1+1/n)^n,n,infinity)', out: ⅇ, note: 'Spelling infinity is converted to ∞ on entry (echoed as n→∞).'}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m5.calculus.limit-at-infinity.jpg, shots/m5.calculus.limit-at-infinity-2.jpg', note: ∞ can be typed as the character itself or spelled infinity (both work); the keyboard shortcut @inf does NOT work (entered i*nf).}
-  status: pending
+  status: pass

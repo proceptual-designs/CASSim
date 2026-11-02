@@ -68,7 +68,7 @@ cases:
     - {in: "integral(x*exp(x),x,0,1)", out: "1", note: "Simulator displays exp(x) as e^x. Typing ASCII e on the simulator gives a variable, so exp() was used."}
     - {in: "limit(sin(x)/x,x,0)", out: "1"}
   provenance: {<<: *emu, evidence: shots/methods.calculus.basic.jpg, note: "The derivative entry is partly scrolled off the top of the screenshot; its result is visible."}
-  status: pending
+  status: pass
 
 - id: methods.calculus.gradient-at-point-trap
   course: methods
@@ -79,7 +79,7 @@ cases:
     - {in: "df(x):=derivative(f(x),x)", out: "Done"}
     - {in: "df(3)", out: "6"}
   provenance: {<<: *emu, evidence: shots/methods.calculus.gradient-at-point-trap.jpg}
-  status: pending
+  status: pass
 
 - id: methods.syntax.d-paren-undefined-function
   course: methods

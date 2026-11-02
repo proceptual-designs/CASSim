@@ -15,7 +15,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m8.defs.define-tangent-fmax-restricted-1.jpg, shots/m8.defs.define-tangent-fmax-restricted-2.jpg', note: 'Define is the keyword form
       of :=. fMax with a constraint (|x≤0) returns the local maximiser x=-1.'}
-  status: pending
+  status: pass
 - id: m8.calculus.area-abs-integral
   course: methods
   tier: 1
@@ -25,7 +25,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m8.calculus.area-abs-integral.jpg, note: 'Area between y=x and y=x^2 over [0,2], done in one step through abs(). The simulator displays
       the decimal 1. (not exact 1), so it evaluates this integral numerically; compare numerically.'}
-  status: pending
+  status: pass
 - id: m8.trig.tcollect
   course: methods
   tier: 1
@@ -54,7 +54,7 @@ cases:
   - {in: 'impDif(x^2+y^2=25,x,y)', out: -x/y}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m8.calculus.impdif.jpg}
-  status: pending
+  status: pass
 - id: m8.trig.reciprocal-and-hyperbolic
   course: specialist
   tier: 1
@@ -89,7 +89,7 @@ cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m8.calculus.volume-substitution-arclength-1.jpg, shots/m8.calculus.volume-substitution-arclength-2.jpg', note: 'Arc length of y=x^2
       over [0,1] gives ln(√5+2)/4+√5/2, i.e. an ln form rather than sinh⁻¹.'}
-  status: pending
+  status: pass
 - id: m8.calculus.desolve-second-order
   course: specialist
   tier: 1
@@ -98,4 +98,4 @@ cases:
   - {in: 'deSolve(y''''=-y,x,y)', out: y=c1*cos(x)+c2*sin(x)}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m8.calculus.desolve-second-order.jpg, note: 'Second derivative typed as two apostrophes; constants displayed as c1, c2 (bold italic).'}
-  status: pending
+  status: pass

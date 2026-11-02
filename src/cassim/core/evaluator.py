@@ -160,6 +160,13 @@ class Evaluator:
         finally:
             self._frames.pop()
 
+    def lookup(self, name: str) -> Value | None:
+        for frame in reversed(self._frames):
+            if name in frame:
+                return frame[name]
+        stored = self._scope.get(name)
+        return None if stored is None or isinstance(stored, Function) else stored
+
     def line(self, line: ast.Line) -> Value | None:
         result: Value | None = None
         for statement in line.statements:
@@ -262,12 +269,9 @@ class Evaluator:
             return Bool(name == "true")
         if cas.is_constant(name):
             return Expr(cas.constant(name))
-        for frame in reversed(self._frames):
-            if name in frame:
-                return frame[name]
-        stored = self._scope.get(name)
-        if stored is not None and not isinstance(stored, Function):
-            return stored
+        bound = self.lookup(name)
+        if bound is not None:
+            return bound
         if name == "ans" and self._ans is not None:
             return self._ans
         return Expr(cas.symbol(name))
@@ -348,7 +352,23 @@ class Evaluator:
                 return Bool(not value.value)
         raise _unsupported(f"the {node.op} operator here")
 
+    def _prime(self, node: ast.Postfix) -> Value:
+        """`y'` and `y''` mean a derivative only where a differential equation binds them."""
+        count, inner = 1, node.operand
+        while isinstance(inner, ast.Postfix) and inner.op == "'":
+            count, inner = count + 1, inner.operand
+        bound = (
+            self.lookup(inner.text.casefold() + "'" * count)
+            if isinstance(inner, ast.Name)
+            else None
+        )
+        if bound is None:
+            raise _unsupported("the ' operator here")
+        return bound
+
     def _postfix(self, node: ast.Postfix) -> Value:
+        if node.op == "'":
+            return self._prime(node)
         value = self.expr(node.operand)
         if node.op == "ᵀ":
             return _transpose(value)

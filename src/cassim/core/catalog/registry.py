@@ -32,6 +32,10 @@ class Host(Protocol):
 
     def expr(self, node: ast.Expr) -> Value: ...
 
+    def lookup(self, name: str) -> Value | None:
+        """The value a variable has now (a binding, then the Problem), if it has one."""
+        ...
+
     def bound(self, bindings: dict[str, Value]) -> AbstractContextManager[None]: ...
 
 

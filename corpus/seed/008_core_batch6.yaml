@@ -38,7 +38,7 @@ cases:
   - {in: 'deSolve(y''=y and y(0)=2,x,y)', out: y=2*ⅇ^x}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.calculus.desolve-initial-condition.jpg}
-  status: pending
+  status: pass
 - id: m6.calculus.integration-by-parts
   course: methods
   tier: 1
@@ -47,7 +47,7 @@ cases:
   - {in: 'integral(x*sin(x),x)', out: sin(x)-x*cos(x)}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m6.calculus.integration-by-parts.jpg}
-  status: pending
+  status: pass
 - id: m6.trig.inverse-and-exact-values
   course: methods
   tier: 1

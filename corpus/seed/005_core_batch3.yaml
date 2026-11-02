@@ -39,7 +39,7 @@ cases:
   - {in: 'fMin(x^2-4*x,x)', out: x=2}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.calculus.fmax-fmin.jpg}
-  status: pending
+  status: pass
 - id: m3.solve.cubic-roots
   course: methods
   tier: 1
@@ -65,7 +65,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/m3.calculus.integral-limit-taylor-1.jpg, shots/m3.calculus.integral-limit-taylor-2.jpg]
     note: limit with a direction argument (1 = from the right) is shown as lim x→0+.
-  status: pending
+  status: pass
 - id: m3.calculus.derivative-forms
   course: methods
   tier: 1
@@ -82,7 +82,7 @@ cases:
     reviewed_by: claude (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler)
     evidence: [shots/m3.calculus.derivative-forms-1.jpg, shots/m3.calculus.derivative-forms-2.jpg]
     note: nInt result 1.4936483 (true value 1.49364826...).
-  status: pending
+  status: pass
 - id: m3.discrete.seq-sum-counting
   course: methods
   tier: 1
@@ -271,7 +271,7 @@ cases:
   - {in: 'deSolve(y''=y,x,y)', out: y=c1*ⅇ^x}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: shots/m3.calculus.specialist-integrals-nsolve-desolve.jpg, note: Arbitrary constant displays as c1 (bold italic). Result shown as tan⁻¹(x).}
-  status: pending
+  status: pass
 - id: m3.finance.tvm-solve-for
   course: general
   tier: 1
