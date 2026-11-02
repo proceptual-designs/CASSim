@@ -178,6 +178,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 **M5 — Programming and extensions (L)**
 - TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
 
+- **Status: done (2026-11-02).** Spikes 1–5 are written up in `docs/decisions/` (go, except `.tns`, which is a no-go for now), CI is green, and the corpus replays (179 cases, all passing).
 **M6 — Polish and extras (M)**
 - Accessibility follow-through (`docs/accessibility.md`); localisation-ready strings; exam-restriction mode (Could-have, teacher-configurable); theme config export/import; user docs; public deployment. `.tns` is dropped from scope for now.
 
