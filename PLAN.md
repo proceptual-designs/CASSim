@@ -146,6 +146,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - Corpus tooling (schema, replay, capture checklist) and the first ~60 simulator-captured cases.
 - Extract a complete command coverage matrix from the Reference Guide (draft index of ~290 entries already in `docs/reference_index_draft.txt`; extractor misses some, e.g. `solve`, so it needs refining).
 - Exit: spikes written up with go/no-go; CI green on an empty package; corpus replays.
+- **Status: done (2026-11-02).** Spikes 1–5 are written up in `docs/decisions/` (go, except `.tns`, which is a no-go for now), CI is green, and the corpus replays (179 cases, all passing).
 
 **M1 — Text-based CAS with TI syntax (L)**
 - 1a Lexer, parser, AST, printer (+ Hypothesis round-trips).
@@ -178,7 +179,6 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 **M5 — Programming and extensions (L)**
 - TI-Basic interpreter + Program Editor; library mechanism; Python page and `py()` bridge with trust model; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
 
-- **Status: done (2026-11-02).** Spikes 1–5 are written up in `docs/decisions/` (go, except `.tns`, which is a no-go for now), CI is green, and the corpus replays (179 cases, all passing).
 **M6 — Polish and extras (M)**
 - Accessibility follow-through (`docs/accessibility.md`); localisation-ready strings; exam-restriction mode (Could-have, teacher-configurable); theme config export/import; user docs; public deployment. `.tns` is dropped from scope for now.
 
