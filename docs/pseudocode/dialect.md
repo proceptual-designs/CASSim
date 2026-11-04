@@ -25,7 +25,7 @@ Decision of 2026-11-02: pseudocode needs only **numeric variables and basic stri
 | integer | `5`, `-2`, `0` | `int` |
 | rational | `3/4`, `-11/8` (Auto and Exact modes, see section 8) | `fractions.Fraction` |
 | real | `1.23`, `-0.18`, `747.0` | `float` |
-| complex | literal syntax is Q28 | `complex` |
+| complex | `1+2i`, `1+2ⅈ`, `complex(1,2)` (decided 2026-11-04; Real domain by default) | `complex` |
 | string | `"3.14"`, `""`, `":P"` | `str` |
 
 Also needed, because the sources use them: **boolean** values arising from comparisons (`true`, `false`; used in conditions and printable, as in `print avgHatP - ME ≤ p ≤ avgHatP + ME`), and **function values** passed as arguments (section 6). Both are results or arguments, not a general type system: there are no declarations.
@@ -49,6 +49,26 @@ Every spelling in this section and in section 4 is the default of the user's syn
 - **Numbers**: `12`, `0.5`, `.5`, and scientific notation as `1E-3` or `1ᴇ-3` only (lowercase `e` is never an exponent marker, so `2e3` is `2 × e3`).
 - **Strings**: double quotes, straight or curly. Concatenation with `+`.
 - **Constants and functions**: section 7.
+- **Symbol equivalents** (decided 2026-11-04): ASCII and Unicode spellings are interchangeable, in any mix; the syntax file marks each ok, warn or no. The table is the default of `syntax-default.yaml` (`symbols`):
+
+| Meaning | ASCII | Unicode |
+|---|---|---|
+| assign | `<-`, `:=` | `←` |
+| multiply | `*` | `×`, `·` |
+| divide | `/` | `÷` |
+| less or equal | `<=` | `≤`, `⩽` |
+| greater or equal | `>=` | `≥`, `⩾` |
+| not equal | `!=`, `<>` | `≠` |
+| square root | `sqrt(x)` | `√(x)`, `√x` |
+| pi | `pi` | `π` |
+| infinity | `inf` | `∞` |
+| absolute value | `abs(x)` | `\|x\|` |
+| power | `x^2`, `x**2`, `x^-1` | `x²`, `x⁻¹` (integer exponents only) |
+| minus | `-` | `−`, `–` |
+| logic | `and`, `or`, `not` | `∧`, `∨`, `¬` |
+| natural log | `ln(x)`, `loge(x)` | |
+
+  The **Convert symbols** button (FR-SYN-012) switches a selection or the whole program between the two styles, working on tokens so strings, comments and names are never touched; a variable named `pi` is left alone. `x^(n+1)` has no superscript form and stays. The **symbol palette** (FR-EDT-006) inserts them on devices without the keys. The printer's `emit.symbols` (`unicode`, `ascii` or `keep`) controls what translation and Regularise write.
 
 ## 4 Statements
 
@@ -91,13 +111,13 @@ bisection(2x-3, 0, 2, 0.1)
 ```
 
 - A parameter written `f(x)` is a **function parameter**; plain `f` is accepted too (as in `define euler(f, t0, x0, dt, n)`).
-- An argument may be an **expression in the parameter's variable** (`2x-3` binds `x`) or the **name of a defined function** (`euler(f, 0, 0.5, 1, 2)`). Python equivalents: a `lambda` or the function name.
+- **Two ways to pass a function** (decided 2026-11-04). (1) **Expression form**, as on the CAS: the header declares `f(x)` and is followed by the variable, and the call passes an expression and the variable name: `define trapezium(f(x), x, a, b, n)` called as `trapezium(4-(x-1)^2, x, 0, 3, 6)`; inside, `f(x)` evaluates the expression at the current `x`. (2) **First-class function form**: the function is defined first and passed by name: `define f(x)` ... `trapezium(f, 0, 3, 6)`, header `define trapezium(f, a, b, n)`. Both forms are accepted; the corpus has each example in both (`<id>` and `<id>.fn`). Corpus rule: **never `lambda`**; Python references define a named `f(x)` first, and the expression form uses SymPy (`Symbol`, `subs`) in the Python reference. Binding (decided 2026-11-04, Q40): the name must match the variable the expression uses (a mismatch is an error naming both); `f(t)` evaluates the expression with that variable set to `t`; assigning to `x` inside the function is local.
 - Functions are called with parentheses; `f()` with no arguments is allowed (`sum_100()`). Functions may return a number or a string, and a function with no `return` returns nothing.
 - Variables assigned inside a function are local to it; top-level variables are global and readable inside a function. Recursion is allowed.
 
 ## 7 Built-ins and constants
 
-Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants `π`/`pi` and `e` (Q29). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
+Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default off; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
 
 ## 8 Numbers and settings
 
@@ -110,10 +130,12 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 | Display precision (… menu) | default **6 significant digits** (Mathematica style); also Fix n and Full | Reals print to the chosen precision, trailing zeros dropped (`1.2000000000000002` shows as `1.2`, `1/3` as `0.333333`). Integers and rationals always print exactly. The stored value never changes. Applies to output and to trace cells. | none: Python prints its own repr |
 | Domain (… menu, Could) | Real / Complex | Real: `sqrt(-4)` is an error; Complex: gives `2ⅈ` | complex-aware functions (`cmath`) |
 | Gradian, random seed (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
-| Euler's number `e` (… menu, Should; FR-SET-008) | on / off | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
-| Run limits (… menu, Should; FR-SET-009) | max loop iterations, max recursion depth (low, adjustable) | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
+| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default off) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
+| Run limits (… menu, Should; FR-SET-009) | max loop iterations (default 10,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
+
+Exact values (Q41, decided 2026-11-04): in the first release `sqrt(2)`, `π` and similar are reals in every mode. Exact surd and index forms through the CAS engine, in Auto and Exact modes on CAS pages, are a Could (FR-PSE-012).
 
 ## 9 Diagnostics
 
@@ -149,7 +171,7 @@ The parser and the printer are driven by a **syntax file** (`syntax-default.yaml
 
 - **Several spellings per construct**, each one `ok`, `warn` or `no`. An `if` may require, allow or forbid `then`. A `for` loop may end with `end for`, `endfor`, `next` or `next k`; a `while` with `end while`, `endwhile` or `wend`; a function with `end`, `end define`, `end function` or a dedent.
 - **Optional tokens**: `then`, `do`, the colon after a `define` header, `is true` after a `while` condition, parentheses around `print` arguments.
-- **Operators and symbols**: the spelling lists for `×`, `÷`, `≤`, `←` and so on, with their ASCII equivalents.
+- **Operators and symbols**: the spelling lists for `×`, `÷`, `≤`, `←` and so on, with their ASCII equivalents (the `symbols` table of section 3), and the palette contents.
 - **Emit style**: what the printer writes when it translates from Python or formats code: keyword case, indent width, which terminators, whether to write `then` and `do`, the arrow and the comment marker.
 - **Display**: code is always shown as the user typed it. Trace tables and the code pane refer to the user's own lines, never to a normalised reprint.
 - **Safety**: the file is data only (no code, no regular-expression hooks), schema-validated and size-limited. It is rejected, with a message naming the entry, if it makes the grammar ambiguous (one spelling for two constructs; a bare `end` accepted for several constructs without the innermost-block rule; no spelling left for a required construct), and an invalid file falls back to the default.
@@ -167,8 +189,8 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 - **`mod`** is an infix operator (`x ← angle mod 2π`); `π` is a constant and `2π` is implicit multiplication. Open: the book's pseudocode `sine` means the true π, while its Python uses `355/113`, so their printed errors differ.
 - **Default parameter values** appear (`newton(f, x0, steps, h=10⁻⁶)`); also `10⁻⁶` and `10^-(dp+1)` as exponent spellings.
 - **`⩽` (U+2A7D)** is the author's spelling of ≤ and **`|df - df_old|`** is absolute value; both are in the default syntax file.
-- **Print and line ends** (Q36, decided): `print` ends the line by default; the … menu and the syntax file can change what is appended (new line, space, nothing). The book's linear-search example (two prints, one output line) therefore needs a single `print` to run as shown.
-- **Style in the corpus and in printed code** (reviewed 2026-11-02): `print` is written as a command (`print total`, no parentheses; the parser still accepts `print(total)`), multiplication is written explicitly (`2*a` or `2×a`, not `2a`; implicit multiplication is still accepted on input), and `sum` is not used as a variable name (`total` instead), because it shadows a Python builtin.
+- **Print and line ends** (Q36, decided): `print` ends the line by default; the … menu and the syntax file can change what is appended (new line, space, nothing). The book's linear-search example (two prints, one output line, split only to fit the page) is kept in the corpus as a single `print`.
+- **Style** (reviewed 2026-11-04): the printer writes `print` as a command (`print total`) and multiplication explicitly (`2*a` or `2×a`); the parser still accepts `print(total)` and `2a`, and VCAA cases that use them are kept exactly as VCAA wrote them to exercise the flexible syntax. `sum` is not used as a variable name in the corpus (`total` instead; it shadows a Python builtin, and VCAA's `sum` is noted on each case). Python references have a blank line after each function.
 - **Author slips** the tolerant parser must survive (as in the exams): `dfPref` for `df_old`, `P(x)`/`dP(x)` used where `f(x)`/`df(x)` were defined, `⩽` in pseudocode versus `<` in the Python.
 - **Lists are Should** (`coeffs`, `tally`; 1-based by default, a toggle in the … menu switches to 0-based, decided); **sets, dictionaries, tuples, set comprehensions, prose steps and graphs/adjacency dictionaries are Could** (the middle-square "Pseudocode" is prose; the Specialist Unit 1 notebook uses sets and graphs). Generators and `yield` are Python-only (run by CPython, not translated).
 - **Random numbers are Should** (`rand()`, `randint`, `seed`). The runtime reproduces CPython's seeded sequences exactly (MT19937, CPython's seeding, `random()` and `randint`; decided), so the book's `seed(42)` tallies are golden tests; unseeded programs are tested by properties (range, mean within tolerance).

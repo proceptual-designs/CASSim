@@ -3,7 +3,7 @@
 # Each case holds the pseudocode as the author writes it, a hand-written reference Python translation, and the expected output.
 # Expected output was produced by RUNNING the reference Python (floats shown to 12 significant figures: these are reference values for numeric comparison, NOT the app's display, which defaults to 6 digits) and, where the author
 # published an answer, asserted equal to it by tools-style script; so status is `hand-verified`, not simulator-captured.
-# reviewed_by: claude (extraction); NOT yet human-reviewed by Simon.
+# reviewed_by: claude (extraction); reviewed and approved case by case by Simon Tyler on 2026-11-04 (all 58 cases; changes from the review applied).
 # third_party: true = question text is (c) VCAA; fine in the private repo, must be cleared or replaced before anything is public (decision 0012, SRS NFR-LEG-007).
 # compare: exact | numeric (all numeric tokens within 1e-9 relative) | tokens-numeric (whitespace-split, numeric tokens numeric, others exact) | numeric(tol).
 # trace.horizontal_eligible: exactly one loop is executed and no loop is nested in another (the desk-check layout applies).
@@ -18,9 +18,9 @@ cases:
   pseudocode: |
     a ← 2
     while a < 20
-      a ← 2*a
+      a ← 2a
     end while
-    print a
+    print(a)
   python: |
     a = 2
     while a < 20:
@@ -32,9 +32,13 @@ cases:
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Author shows this as BOTH a vertical trace table (Line, a, a<20, Output) and a horizontal desk check (Loop 1-4). Reviewed 2026-11-02: VCAA wrote `a ← 2a` and `print(a)`; the corpus uses `2*a` and `print a` (the standard style: explicit multiplication, print as a command). Implicit multiplication and parentheses are still accepted by the parser."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author shows this as BOTH a vertical trace table (Line, a, a<20, Output) and a horizontal desk check (Loop 1-4). Reviewed 2026-11-02: kept exactly as VCAA wrote it (`2a`, `print(a)`) on purpose, to exercise the flexible syntax. The standard style the printer writes is `2*a` and `print a` (dialect.md)."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2023.q2.nested-sum
   tags: [for, nested]
@@ -47,7 +51,7 @@ cases:
         total ← total + x + y
       end for
     end for
-    print total
+    print(total)
   python: |
     total = 2
     for x in range(1, 3+1):
@@ -59,9 +63,13 @@ cases:
     compare: numeric
   trace:
     horizontal_eligible: false
-  notes: "Nested loops: vertical layout only. The VCAA original wrote \"sum = sum + x + y\" (= for assignment); author corrected to the arrow. Reviewed 2026-11-02: the corpus avoids `sum` as a variable name (it is a Python builtin), so the variable is `total`, with `print total` as a command."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Nested loops: vertical layout only. The VCAA original wrote \"sum = sum + x + y\" (= for assignment); author corrected to the arrow. Reviewed 2026-11-02: VCAA used `sum` as the variable name; the corpus uses `total` (`sum` and `sum_` are avoided because `sum` is a Python builtin)."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2023.q3.bisection-count
   tags: [while, function, if-else]
@@ -71,6 +79,7 @@ cases:
     define f(x)
       return 2e^x − 17
     end
+
     a ← 2
     b ← 3
     c ← (a+b)/2
@@ -88,6 +97,7 @@ cases:
   python: |
     def f(x):
         return 2*exp(x) - 17
+
     a = 2
     b = 3
     c = (a+b)/2
@@ -107,8 +117,12 @@ cases:
   trace:
     horizontal_eligible: true
   notes: "The VCAA program has no print; \"print count, c\" is added as the last line of the loop to expose the answer (c = 2.1875 when count = 3, end of the 3rd pass, per the author). Uses e^x with a Unicode minus."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2023.q4.three-dice
   tags: [for, nested, triple]
@@ -138,8 +152,12 @@ cases:
   trace:
     horizontal_eligible: false
   notes: "216 lines of output; the 4th is \"4 6\" (answer x = 6). Output format of print(a, b) is open question Q26 (space-separated assumed)."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2023.q5a.cubes
   tags: [for, print]
@@ -157,8 +175,12 @@ cases:
     compare: numeric
   trace:
     horizontal_eligible: true
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2023.q5b.squares-if
   tags: [for, if-else]
@@ -183,15 +205,19 @@ cases:
     compare: numeric
   trace:
     horizontal_eligible: true
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: author.linear.2x-3
-  tags: [repeat-until, function-arg, string, print-juxtaposed]
+  tags: [repeat-until, expression-arg, string, print-juxtaposed]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define linear(f(x), x0, h)
+    define linear(f(x), x, x0, h)
       x ← x0
       y ← f(x)
       repeat
@@ -201,35 +227,49 @@ cases:
       until yold × y ≤ 0
       print "zero between " x-h "and" x
     end
-    linear(2x-3, 0, 0.4)
+
+    linear(2x-3, x, 0, 0.4)
   python: |
-    def linear(f, x0, h):
-        x = x0
-        y = f(x)
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def linear(f, x, x0, h):
+        x_ = x0
+        y = f.subs(x, x_)
         while True:
             yold = y
-            x = x + h
-            y = f(x)
+            x_ = x_ + h
+            y = f.subs(x, x_)
             if yold*y <= 0: break
-        print("zero between", x-h, "and", x)
-    linear(lambda x: 2*x-3, 0, 0.4)
+        print("zero between", x_-h, "and", x_)
+
+    linear(2*x-3, x, 0, 0.4)
   expect:
     output: ["zero between 1.2 and 1.6"]
     compare: tokens-numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Needs: function-valued parameter written f(x); an expression in x passed as an argument; print with items juxtaposed (no commas) around string literals; float noise (x accumulates 0.4: 1.2000000000000002) so real display must round or compare numerically."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Needs: function-valued parameter written f(x); an expression in x passed as an argument; print with items juxtaposed (no commas) around string literals; float noise (x accumulates 0.4: 1.2000000000000002) so real display must round or compare numerically. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.linear.2x-3.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.linear.x2-2
-  tags: [repeat-until, function-arg]
+
+
+
+
+- id: author.linear.2x-3.fn
+  tags: [repeat-until, first-class-function, string, print-juxtaposed]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define linear(f(x), x0, h)
+    define f(x)
+      return 2x-3
+    end
+
+    define linear(f, x0, h)
       x ← x0
       y ← f(x)
       repeat
@@ -239,8 +279,12 @@ cases:
       until yold × y ≤ 0
       print "zero between " x-h "and" x
     end
-    linear(x^2-2, 1, 0.2)
+
+    linear(f, 0, 0.4)
   python: |
+    def f(x):
+        return 2*x-3
+
     def linear(f, x0, h):
         x = x0
         y = f(x)
@@ -250,24 +294,79 @@ cases:
             y = f(x)
             if yold*y <= 0: break
         print("zero between", x-h, "and", x)
-    linear(lambda x: x**2-2, 1, 0.2)
+
+    linear(f, 0, 0.4)
+  expect:
+    output: ["zero between 1.2 and 1.6"]
+    compare: tokens-numeric
+    float_noise: true
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Needs: function-valued parameter written f(x); an expression in x passed as an argument; print with items juxtaposed (no commas) around string literals; float noise (x accumulates 0.4: 1.2000000000000002) so real display must round or compare numerically. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.linear.2x-3."
+  provenance: {"source": "claude-derived", "derived_from": "author.linear.2x-3", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.linear.x2-2
+  tags: [repeat-until, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define linear(f(x), x, x0, h)
+      x ← x0
+      y ← f(x)
+      repeat
+        yold ← y
+        x ← x + h
+        y ← f(x)
+      until yold × y ≤ 0
+      print "zero between " x-h "and" x
+    end
+
+    linear(x^2-2, x, 1, 0.2)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def linear(f, x, x0, h):
+        x_ = x0
+        y = f.subs(x, x_)
+        while True:
+            yold = y
+            x_ = x_ + h
+            y = f.subs(x, x_)
+            if yold*y <= 0: break
+        print("zero between", x_-h, "and", x_)
+
+    linear(x**2-2, x, 1, 0.2)
   expect:
     output: ["zero between 1.4 and 1.6"]
     compare: tokens-numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
     loop_iterations: 3
-  notes: "Author solution trace: loop1 x=1.2 y=-0.56 yold=-1 false; loop2 x=1.4 y=-0.04 false; loop3 x=1.6 y=0.56 true."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author solution trace: loop1 x=1.2 y=-0.56 yold=-1 false; loop2 x=1.4 y=-0.04 false; loop3 x=1.6 y=0.56 true. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.linear.x2-2.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.linear.1-x
-  tags: [repeat-until, function-arg]
+
+
+
+
+- id: author.linear.x2-2.fn
+  tags: [repeat-until, first-class-function]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define linear(f(x), x0, h)
+    define f(x)
+      return x^2-2
+    end
+
+    define linear(f, x0, h)
       x ← x0
       y ← f(x)
       repeat
@@ -277,8 +376,12 @@ cases:
       until yold × y ≤ 0
       print "zero between " x-h "and" x
     end
-    linear(1-x, 0, 0.3)
+
+    linear(f, 1, 0.2)
   python: |
+    def f(x):
+        return x**2-2
+
     def linear(f, x0, h):
         x = x0
         y = f(x)
@@ -288,24 +391,79 @@ cases:
             y = f(x)
             if yold*y <= 0: break
         print("zero between", x-h, "and", x)
-    linear(lambda x: 1-x, 0, 0.3)
+
+    linear(f, 1, 0.2)
+  expect:
+    output: ["zero between 1.4 and 1.6"]
+    compare: tokens-numeric
+    float_noise: true
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 3
+  notes: "Author solution trace: loop1 x=1.2 y=-0.56 yold=-1 false; loop2 x=1.4 y=-0.04 false; loop3 x=1.6 y=0.56 true. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.linear.x2-2."
+  provenance: {"source": "claude-derived", "derived_from": "author.linear.x2-2", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.linear.1-x
+  tags: [repeat-until, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define linear(f(x), x, x0, h)
+      x ← x0
+      y ← f(x)
+      repeat
+        yold ← y
+        x ← x + h
+        y ← f(x)
+      until yold × y ≤ 0
+      print "zero between " x-h "and" x
+    end
+
+    linear(1-x, x, 0, 0.3)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def linear(f, x, x0, h):
+        x_ = x0
+        y = f.subs(x, x_)
+        while True:
+            yold = y
+            x_ = x_ + h
+            y = f.subs(x, x_)
+            if yold*y <= 0: break
+        print("zero between", x_-h, "and", x_)
+
+    linear(1-x, x, 0, 0.3)
   expect:
     output: ["zero between 0.9 and 1.2"]
     compare: tokens-numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Author: number of loops = number of steps = 4 (x = 0.3, 0.6, 0.9, 1.2)."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author: number of loops = number of steps = 4 (x = 0.3, 0.6, 0.9, 1.2). Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.linear.1-x.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.linear.1+x.infinite
-  tags: [repeat-until, step-limit]
+
+
+
+
+- id: author.linear.1-x.fn
+  tags: [repeat-until, first-class-function]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define linear(f(x), x0, h)
+    define f(x)
+      return 1-x
+    end
+
+    define linear(f, x0, h)
       x ← x0
       y ← f(x)
       repeat
@@ -315,8 +473,12 @@ cases:
       until yold × y ≤ 0
       print "zero between " x-h "and" x
     end
-    linear(1+x, 0, 0.3)
+
+    linear(f, 0, 0.3)
   python: |
+    def f(x):
+        return 1-x
+
     def linear(f, x0, h):
         x = x0
         y = f(x)
@@ -326,23 +488,122 @@ cases:
             y = f(x)
             if yold*y <= 0: break
         print("zero between", x-h, "and", x)
-    linear(lambda x: 1+x, 0, 0.3)
+
+    linear(f, 0, 0.3)
+  expect:
+    output: ["zero between 0.9 and 1.2"]
+    compare: tokens-numeric
+    float_noise: true
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Author: number of loops = number of steps = 4 (x = 0.3, 0.6, 0.9, 1.2). First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.linear.1-x."
+  provenance: {"source": "claude-derived", "derived_from": "author.linear.1-x", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.linear.1+x.infinite
+  tags: [repeat-until, step-limit, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define linear(f(x), x, x0, h)
+      x ← x0
+      y ← f(x)
+      repeat
+        yold ← y
+        x ← x + h
+        y ← f(x)
+      until yold × y ≤ 0
+      print "zero between " x-h "and" x
+    end
+
+    linear(1+x, x, 0, 0.3)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def linear(f, x, x0, h):
+        x_ = x0
+        y = f.subs(x, x_)
+        while True:
+            yold = y
+            x_ = x_ + h
+            y = f.subs(x, x_)
+            if yold*y <= 0: break
+        print("zero between", x_-h, "and", x_)
+
+    linear(1+x, x, 0, 0.3)
   expect:
     halt: step_limit
     output: []
     compare: tokens-numeric
   trace:
     horizontal_eligible: true
-  notes: "No zero exists: infinite loop (author: \"stuck in an infinite loop!\"). Expected: run halts at the step limit with a clear message, nothing printed, and the trace is still stepable and truncated."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "No zero exists: infinite loop (author: \"stuck in an infinite loop!\"). Expected: run halts at the step limit with a clear message, nothing printed, and the trace is still stepable and truncated. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.linear.1+x.infinite.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.bisection.2x-3
-  tags: [repeat-until, return, function-arg, abs-bars]
+
+
+
+
+- id: author.linear.1+x.infinite.fn
+  tags: [repeat-until, step-limit, first-class-function]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define bisection(f(x), L, R, P)
+    define f(x)
+      return 1+x
+    end
+
+    define linear(f, x0, h)
+      x ← x0
+      y ← f(x)
+      repeat
+        yold ← y
+        x ← x + h
+        y ← f(x)
+      until yold × y ≤ 0
+      print "zero between " x-h "and" x
+    end
+
+    linear(f, 0, 0.3)
+  python: |
+    def f(x):
+        return 1+x
+
+    def linear(f, x0, h):
+        x = x0
+        y = f(x)
+        while True:
+            yold = y
+            x = x + h
+            y = f(x)
+            if yold*y <= 0: break
+        print("zero between", x-h, "and", x)
+
+    linear(f, 0, 0.3)
+  expect:
+    halt: step_limit
+    output: []
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: true
+  notes: "No zero exists: infinite loop (author: \"stuck in an infinite loop!\"). Expected: run halts at the step limit with a clear message, nothing printed, and the trace is still stepable and truncated. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.linear.1+x.infinite."
+  provenance: {"source": "claude-derived", "derived_from": "author.linear.1+x.infinite", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.bisection.2x-3
+  tags: [repeat-until, return, expression-arg, abs-bars]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define bisection(f(x), x, L, R, P)
       repeat
         M ← (L + R) ÷ 2
         if f(M) = 0 then
@@ -355,35 +616,49 @@ cases:
       until |R - L| ≤ P
       return (L+R)÷2
     end
-    print bisection(2x-3, 0, 2, 0.1)
+
+    print bisection(2x-3, x, 0, 2, 0.1)
   python: |
-    def bisection(f, L, R, P):
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def bisection(f, x, L, R, P):
         while True:
             M = (L + R)/2
-            if f(M) == 0:
+            if f.subs(x, M) == 0:
                 return M
-            elif f(M)*f(L) < 0:
+            elif f.subs(x, M)*f.subs(x, L) < 0:
                 R = M
             else:
                 L = M
             if abs(R - L) <= P: break
         return (L+R)/2
-    print(bisection(lambda x: 2*x-3, 0, 2, 0.1))
+
+    print(bisection(2*x-3, x, 0, 2, 0.1))
   expect:
     output: ["1.5"]
     compare: numeric
   trace:
     horizontal_eligible: true
-  notes: "Early return from inside the loop; |R - L| absolute-value bars. Author: [0,2] -> M=1 -> [1,2] -> M=1.5 returned."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Early return from inside the loop; |R - L| absolute-value bars. Author: [0,2] -> M=1 -> [1,2] -> M=1.5 returned. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.bisection.2x-3.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.bisection.3x-2
-  tags: [repeat-until, return, function-arg]
+
+
+
+
+- id: author.bisection.2x-3.fn
+  tags: [repeat-until, return, first-class-function, abs-bars]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define bisection(f(x), L, R, P)
+    define f(x)
+      return 2x-3
+    end
+
+    define bisection(f, L, R, P)
       repeat
         M ← (L + R) ÷ 2
         if f(M) = 0 then
@@ -396,8 +671,12 @@ cases:
       until |R - L| ≤ P
       return (L+R)÷2
     end
-    print bisection(3x-2, 0, 2, 0.1)
+
+    print bisection(f, 0, 2, 0.1)
   python: |
+    def f(x):
+        return 2*x-3
+
     def bisection(f, L, R, P):
         while True:
             M = (L + R)/2
@@ -409,23 +688,130 @@ cases:
                 L = M
             if abs(R - L) <= P: break
         return (L+R)/2
-    print(bisection(lambda x: 3*x-2, 0, 2, 0.1))
+
+    print(bisection(f, 0, 2, 0.1))
+  expect:
+    output: ["1.5"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+  notes: "Early return from inside the loop; |R - L| absolute-value bars. Author: [0,2] -> M=1 -> [1,2] -> M=1.5 returned. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.bisection.2x-3."
+  provenance: {"source": "claude-derived", "derived_from": "author.bisection.2x-3", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.bisection.3x-2
+  tags: [repeat-until, return, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define bisection(f(x), x, L, R, P)
+      repeat
+        M ← (L + R) ÷ 2
+        if f(M) = 0 then
+          return M
+        else if f(M)×f(L) < 0 then
+          R ← M
+        else
+          L ← M
+        end if
+      until |R - L| ≤ P
+      return (L+R)÷2
+    end
+
+    print bisection(3x-2, x, 0, 2, 0.1)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def bisection(f, x, L, R, P):
+        while True:
+            M = (L + R)/2
+            if f.subs(x, M) == 0:
+                return M
+            elif f.subs(x, M)*f.subs(x, L) < 0:
+                R = M
+            else:
+                L = M
+            if abs(R - L) <= P: break
+        return (L+R)/2
+
+    print(bisection(3*x-2, x, 0, 2, 0.1))
   expect:
     output: ["0.65625"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 5
-  notes: "Author trace table (Loop#, L, R, M, f(M)): M = 1, 0.5, 0.75, 0.625, 0.6875; returns 0.65625."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author trace table (Loop#, L, R, M, f(M)): M = 1, 0.5, 0.75, 0.625, 0.6875; returns 0.65625. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.bisection.3x-2.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
+- id: author.bisection.3x-2.fn
+  tags: [repeat-until, return, first-class-function]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return 3x-2
+    end
+
+    define bisection(f, L, R, P)
+      repeat
+        M ← (L + R) ÷ 2
+        if f(M) = 0 then
+          return M
+        else if f(M)×f(L) < 0 then
+          R ← M
+        else
+          L ← M
+        end if
+      until |R - L| ≤ P
+      return (L+R)÷2
+    end
+
+    print bisection(f, 0, 2, 0.1)
+  python: |
+    def f(x):
+        return 3*x-2
+
+    def bisection(f, L, R, P):
+        while True:
+            M = (L + R)/2
+            if f(M) == 0:
+                return M
+            elif f(M)*f(L) < 0:
+                R = M
+            else:
+                L = M
+            if abs(R - L) <= P: break
+        return (L+R)/2
+
+    print(bisection(f, 0, 2, 0.1))
+  expect:
+    output: ["0.65625"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 5
+  notes: "Author trace table (Loop#, L, R, M, f(M)): M = 1, 0.5, 0.75, 0.625, 0.6875; returns 0.65625. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.bisection.3x-2."
+  provenance: {"source": "claude-derived", "derived_from": "author.bisection.3x-2", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
 - id: author.bisection.abt.x4+x-2
-  tags: [if-else, while, nested-in-if, function-arg, string]
+  tags: [if-else, while, nested-in-if, expression-arg, string]
   source: "S. Tyler, Desk Check and Trace Table for a Bisection Method Question, docs.google.com/document/d/1XnSruS94-3yUl7f5s4-Eqpt1I1knXPkzMWN431hD_08"
   third_party: false
   pseudocode: |
-    define bisection(f(x), a, b, t)
+    define bisection(f(x), x, a, b, t)
       c ← (a+b)/2
       if f(a)×f(b) > 0 then
         print "Require f(a) and f(b) to have different signs"
@@ -441,8 +827,72 @@ cases:
         print c
       end if
     end
-    bisection(x^4+x-2, -2, -1, 0.2)
+
+    bisection(x^4+x-2, x, -2, -1, 0.2)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def bisection(f, x, a, b, t):
+        c = (a+b)/2
+        if f.subs(x, a)*f.subs(x, b) > 0:
+            print("Require f.subs(x, a) and f.subs(x, b) to have different signs")
+        else:
+            while (b-a)/2 > t:
+                if f.subs(x, a)*f.subs(x, c) < 0:
+                    b = c
+                else:
+                    a = c
+                c = (a+b)/2
+            print(c)
+
+    bisection(x**4+x-2, x, -2, -1, 0.2)
+  expect:
+    output: ["-1.375"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 2
+  notes: "THE reference example for trace layouts: the author gives it as a vertical trace table (lines 1,2,3,6,7,10,12,6,7,8,12,6,14) AND a horizontal desk check (Init, Loop 1, Loop 2, Loop 3 with the loop condition failing). One main loop inside an else branch counts as \"single loop\" for the horizontal layout. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.bisection.abt.x4+x-2.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+
+
+
+
+
+- id: author.bisection.abt.x4+x-2.fn
+  tags: [if-else, while, nested-in-if, first-class-function, string]
+  source: "S. Tyler, Desk Check and Trace Table for a Bisection Method Question, docs.google.com/document/d/1XnSruS94-3yUl7f5s4-Eqpt1I1knXPkzMWN431hD_08"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^4+x-2
+    end
+
+    define bisection(f, a, b, t)
+      c ← (a+b)/2
+      if f(a)×f(b) > 0 then
+        print "Require f(a) and f(b) to have different signs"
+      else
+        while (b-a)/2 > t do
+          if f(a)×f(c) < 0 then
+            b ← c
+          else
+            a ← c
+          end if
+          c ← (a+b)/2
+        end while
+        print c
+      end if
+    end
+
+    bisection(f, -2, -1, 0.2)
+  python: |
+    def f(x):
+        return x**4+x-2
+
     def bisection(f, a, b, t):
         c = (a+b)/2
         if f(a)*f(b) > 0:
@@ -455,23 +905,26 @@ cases:
                     a = c
                 c = (a+b)/2
             print(c)
-    bisection(lambda x: x**4+x-2, -2, -1, 0.2)
+
+    bisection(f, -2, -1, 0.2)
   expect:
     output: ["-1.375"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "THE reference example for trace layouts: the author gives it as a vertical trace table (lines 1,2,3,6,7,10,12,6,7,8,12,6,14) AND a horizontal desk check (Init, Loop 1, Loop 2, Loop 3 with the loop condition failing). One main loop inside an else branch counts as \"single loop\" for the horizontal layout."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "THE reference example for trace layouts: the author gives it as a vertical trace table (lines 1,2,3,6,7,10,12,6,7,8,12,6,14) AND a horizontal desk check (Init, Loop 1, Loop 2, Loop 3 with the loop condition failing). One main loop inside an else branch counts as \"single loop\" for the horizontal layout. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.bisection.abt.x4+x-2."
+  provenance: {"source": "claude-derived", "derived_from": "author.bisection.abt.x4+x-2", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
 
+
+
 - id: author.newton.golden-ratio
-  tags: [while, function-arg, two-function-args]
+  tags: [while, expression-arg, two-function-args]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define newton(f(x), Df(x), x0, ac)
+    define newton(f(x), Df(x), x, x0, ac)
       x ← x0
       y ← f(x)
       while |y| > ac do
@@ -481,8 +934,70 @@ cases:
       end while
       return x
     end
-    print newton(x^2-x-1, 2x-1, 2.0, 0.01)
+
+    print newton(x^2-x-1, 2x-1, x, 2.0, 0.01)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def newton(f, Df, x, x0, ac):
+        x_ = x0
+        y = f.subs(x, x_)
+        while abs(y) > ac:
+            m = Df.subs(x, x_)
+            x_ = x_ - y/m
+            y = f.subs(x, x_)
+        return x_
+
+    print(newton(x**2-x-1, 2*x-1, x, 2.0, 0.01))
+  expect:
+    output: ["1.61904761905"]
+    compare: numeric
+    float_noise: true
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 2
+  notes: "Author: two iterations give 34/21 = 1.619 (exact root 1.618...). ac = 0.01 chosen here so the loop stops after exactly two iterations. Exact-rational display (34/21) is a candidate for the rational type. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.newton.golden-ratio.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+
+
+
+
+
+- id: author.newton.golden-ratio.fn
+  tags: [while, first-class-function, two-function-args]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2-x-1
+    end
+
+    define Df(x)
+      return 2x-1
+    end
+
+    define newton(f, Df, x0, ac)
+      x ← x0
+      y ← f(x)
+      while |y| > ac do
+        m ← Df(x)
+        x ← x - y/m
+        y ← f(x)
+      end while
+      return x
+    end
+
+    print newton(f, Df, 2.0, 0.01)
+  python: |
+    def f(x):
+        return x**2-x-1
+
+    def Df(x):
+        return 2*x-1
+
     def newton(f, Df, x0, ac):
         x = x0
         y = f(x)
@@ -491,24 +1006,27 @@ cases:
             x = x - y/m
             y = f(x)
         return x
-    print(newton(lambda x: x**2-x-1, lambda x: 2*x-1, 2.0, 0.01))
+
+    print(newton(f, Df, 2.0, 0.01))
   expect:
     output: ["1.61904761905"]
     compare: numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "Author: two iterations give 34/21 = 1.619 (exact root 1.618...). ac = 0.01 chosen here so the loop stops after exactly two iterations. Exact-rational display (34/21) is a candidate for the rational type."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author: two iterations give 34/21 = 1.619 (exact root 1.618...). ac = 0.01 chosen here so the loop stops after exactly two iterations. Exact-rational display (34/21) is a candidate for the rational type. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.newton.golden-ratio."
+  provenance: {"source": "claude-derived", "derived_from": "author.newton.golden-ratio", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
 
+
+
 - id: author.riemann.left.x2-x
-  tags: [for, function-arg]
+  tags: [for, expression-arg]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define riemann(f(x), a, b, n)
+    define riemann(f(x), x, a, b, n)
       h ← (b - a) ÷ n
       area ← 0
       for k from 0 to n-1
@@ -518,8 +1036,62 @@ cases:
       next k
       return area
     end
-    print riemann(x^2-x, 1, 5, 4)
+
+    print riemann(x^2-x, x, 1, 5, 4)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def riemann(f, x, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            x_ = a + k*h
+            A = h*f.subs(x, x_)
+            area = area + A
+        return area
+
+    print(riemann(x**2-x, x, 1, 5, 4))
+  expect:
+    output: ["20"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Author trace: area 0, 2, 8, 20 (A = 0, 2, 6, 12). Variable A and a differ only by case: identifiers must be case-sensitive. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.riemann.left.x2-x.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+
+
+
+
+
+- id: author.riemann.left.x2-x.fn
+  tags: [for, first-class-function]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2-x
+    end
+
+    define riemann(f, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        x ← a + k×h
+        A ← h×f(x)
+        area ← area + A
+      next k
+      return area
+    end
+
+    print riemann(f, 1, 5, 4)
+  python: |
+    def f(x):
+        return x**2-x
+
     def riemann(f, a, b, n):
         h = (b - a)/n
         area = 0
@@ -528,23 +1100,26 @@ cases:
             A = h*f(x)
             area = area + A
         return area
-    print(riemann(lambda x: x**2-x, 1, 5, 4))
+
+    print(riemann(f, 1, 5, 4))
   expect:
     output: ["20"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Author trace: area 0, 2, 8, 20 (A = 0, 2, 6, 12). Variable A and a differ only by case: identifiers must be case-sensitive."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author trace: area 0, 2, 8, 20 (A = 0, 2, 6, 12). Variable A and a differ only by case: identifiers must be case-sensitive. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.riemann.left.x2-x."
+  provenance: {"source": "claude-derived", "derived_from": "author.riemann.left.x2-x", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
 
+
+
 - id: author.trapezium.x2-x
-  tags: [for, function-arg]
+  tags: [for, expression-arg]
   source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define trapezium(f(x), a, b, n)
+    define trapezium(f(x), x, a, b, n)
       h ← (b - a) ÷ n
       area ← 0
       for k from 0 to n-1
@@ -554,33 +1129,47 @@ cases:
       next k
       return area
     end
-    print trapezium(x^2-x, 1, 5, 4)
+
+    print trapezium(x^2-x, x, 1, 5, 4)
   python: |
-    def trapezium(f, a, b, n):
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def trapezium(f, x, a, b, n):
         h = (b - a)/n
         area = 0
         for k in range(0, n-1+1):
-            x = a + k*h
-            A = h*(f(x)+f(x+h))/2
+            x_ = a + k*h
+            A = h*(f.subs(x, x_)+f.subs(x, x_+h))/2
             area = area + A
         return area
-    print(trapezium(lambda x: x**2-x, 1, 5, 4))
+
+    print(trapezium(x**2-x, x, 1, 5, 4))
   expect:
     output: ["30"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 4
-  notes: "Author trace: area 1, 5, 14, 30 (exact integral 29 1/3)."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Author trace: area 1, 5, 14, 30 (exact integral 29 1/3). Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.trapezium.x2-x.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.trapezium.slides.4-(x-1)^2
-  tags: [for, function-arg]
-  source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
+
+
+
+
+- id: author.trapezium.x2-x.fn
+  tags: [for, first-class-function]
+  source: "S. Tyler, Algorithms and Pseudocode - Practice Questions + Solutions (c) 2023-2024, docs.google.com/document/d/1ro2NG-D11AnFfhOD78CQ2LFhYrxwzfebSCPcDo0FB2Y"
   third_party: false
   pseudocode: |
-    define trapezium(f(x), a, b, n)
+    define f(x)
+      return x^2-x
+    end
+
+    define trapezium(f, a, b, n)
       h ← (b - a) ÷ n
       area ← 0
       for k from 0 to n-1
@@ -590,8 +1179,12 @@ cases:
       next k
       return area
     end
-    print trapezium(4-(x-1)^2, 0, 3, 6)
+
+    print trapezium(f, 1, 5, 4)
   python: |
+    def f(x):
+        return x**2-x
+
     def trapezium(f, a, b, n):
         h = (b - a)/n
         area = 0
@@ -600,23 +1193,119 @@ cases:
             A = h*(f(x)+f(x+h))/2
             area = area + A
         return area
-    print(trapezium(lambda x: 4-(x-1)**2, 0, 3, 6))
+
+    print(trapezium(f, 1, 5, 4))
+  expect:
+    output: ["30"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Author trace: area 1, 5, 14, 30 (exact integral 29 1/3). First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.trapezium.x2-x."
+  provenance: {"source": "claude-derived", "derived_from": "author.trapezium.x2-x", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.trapezium.slides.4-(x-1)^2
+  tags: [for, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
+  third_party: false
+  pseudocode: |
+    define trapezium(f(x), x, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        x ← a + k×h
+        A ← h×(f(x)+f(x+h))÷2
+        area ← area + A
+      next k
+      return area
+    end
+
+    print trapezium(4-(x-1)^2, x, 0, 3, 6)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def trapezium(f, x, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            x_ = a + k*h
+            A = h*(f.subs(x, x_)+f.subs(x, x_+h))/2
+            area = area + A
+        return area
+
+    print(trapezium(4-(x-1)**2, x, 0, 3, 6))
   expect:
     output: ["8.875"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 6
-  notes: "Slides: left sum 9.625, right sum 8.125, trapezium 8.875 (average of the two), exact 9."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Slides: left sum 9.625, right sum 8.125, trapezium 8.875 (average of the two), exact 9. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.trapezium.slides.4-(x-1)^2.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: author.riemann.left.slides.4-(x-1)^2
-  tags: [for, function-arg]
+
+
+
+
+- id: author.trapezium.slides.4-(x-1)^2.fn
+  tags: [for, first-class-function]
   source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
   third_party: false
   pseudocode: |
-    define riemann(f(x), a, b, n)
+    define f(x)
+      return 4-(x-1)^2
+    end
+
+    define trapezium(f, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        x ← a + k×h
+        A ← h×(f(x)+f(x+h))÷2
+        area ← area + A
+      next k
+      return area
+    end
+
+    print trapezium(f, 0, 3, 6)
+  python: |
+    def f(x):
+        return 4-(x-1)**2
+
+    def trapezium(f, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            x = a + k*h
+            A = h*(f(x)+f(x+h))/2
+            area = area + A
+        return area
+
+    print(trapezium(f, 0, 3, 6))
+  expect:
+    output: ["8.875"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 6
+  notes: "Slides: left sum 9.625, right sum 8.125, trapezium 8.875 (average of the two), exact 9. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.trapezium.slides.4-(x-1)^2."
+  provenance: {"source": "claude-derived", "derived_from": "author.trapezium.slides.4-(x-1)^2", "extracted": "2026-11-04", "reference_python_run": true}
+  status: hand-verified
+
+
+
+- id: author.riemann.left.slides.4-(x-1)^2
+  tags: [for, expression-arg]
+  source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
+  third_party: false
+  pseudocode: |
+    define riemann(f(x), x, a, b, n)
       h ← (b - a) ÷ n
       area ← 0
       for k from 0 to n-1
@@ -625,8 +1314,60 @@ cases:
       next k
       return area
     end
-    print riemann(4-(x-1)^2, 0, 3, 6)
+
+    print riemann(4-(x-1)^2, x, 0, 3, 6)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def riemann(f, x, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            A = h*f.subs(x, a + k*h)
+            area = area + A
+        return area
+
+    print(riemann(4-(x-1)**2, x, 0, 3, 6))
+  expect:
+    output: ["9.625"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 6
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+  notes: "Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.riemann.left.slides.4-(x-1)^2.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+
+
+
+
+
+- id: author.riemann.left.slides.4-(x-1)^2.fn
+  tags: [for, first-class-function]
+  source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return 4-(x-1)^2
+    end
+
+    define riemann(f, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        A ← h×f(a + k×h)
+        area ← area + A
+      next k
+      return area
+    end
+
+    print riemann(f, 0, 3, 6)
+  python: |
+    def f(x):
+        return 4-(x-1)**2
+
     def riemann(f, a, b, n):
         h = (b - a)/n
         area = 0
@@ -634,22 +1375,26 @@ cases:
             A = h*f(a + k*h)
             area = area + A
         return area
-    print(riemann(lambda x: 4-(x-1)**2, 0, 3, 6))
+
+    print(riemann(f, 0, 3, 6))
   expect:
     output: ["9.625"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 6
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "claude-derived", "derived_from": "author.riemann.left.slides.4-(x-1)^2", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
+  notes: "First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.riemann.left.slides.4-(x-1)^2."
+
+
 
 - id: author.linear.x4-x-1
-  tags: [repeat-until, function-arg]
+  tags: [repeat-until, expression-arg]
   source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
   third_party: false
   pseudocode: |
-    define linear(f(x), x0, h)
+    define linear(f(x), x, x0, h)
       x ← x0
       y ← f(x)
       repeat
@@ -659,8 +1404,63 @@ cases:
       until yold × y ≤ 0
       print "zero between " x-h "and" x
     end
-    linear(x^4-x-1, 0, 0.25)
+
+    linear(x^4-x-1, x, 0, 0.25)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def linear(f, x, x0, h):
+        x_ = x0
+        y = f.subs(x, x_)
+        while True:
+            yold = y
+            x_ = x_ + h
+            y = f.subs(x, x_)
+            if yold*y <= 0: break
+        print("zero between", x_-h, "and", x_)
+
+    linear(x**4-x-1, x, 0, 0.25)
+  expect:
+    output: ["zero between 1 and 1.25"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 5
+  notes: "Slides trace: x = 0.25..1.25, y = -1.246, -1.4375, -1.4336, -1, 0.1914. \"1.0\" vs \"1\": compare numerically. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: author.linear.x4-x-1.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+
+
+
+
+
+- id: author.linear.x4-x-1.fn
+  tags: [repeat-until, first-class-function]
+  source: "S. Tyler, Algorithms and Pseudocode in VCE Mathematics (slides) (c) 2023-2025, docs.google.com/presentation/d/1Q20zSaKnqc910envdJhdf-nZY8pvobZYbDNjonXSUjA"
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^4-x-1
+    end
+
+    define linear(f, x0, h)
+      x ← x0
+      y ← f(x)
+      repeat
+        yold ← y
+        x ← x + h
+        y ← f(x)
+      until yold × y ≤ 0
+      print "zero between " x-h "and" x
+    end
+
+    linear(f, 0, 0.25)
+  python: |
+    def f(x):
+        return x**4-x-1
+
     def linear(f, x0, h):
         x = x0
         y = f(x)
@@ -670,16 +1470,19 @@ cases:
             y = f(x)
             if yold*y <= 0: break
         print("zero between", x-h, "and", x)
-    linear(lambda x: x**4-x-1, 0, 0.25)
+
+    linear(f, 0, 0.25)
   expect:
     output: ["zero between 1 and 1.25"]
     compare: tokens-numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 5
-  notes: "Slides trace: x = 0.25..1.25, y = -1.246, -1.4375, -1.4336, -1, 0.1914. \"1.0\" vs \"1\": compare numerically."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Slides trace: x = 0.25..1.25, y = -1.246, -1.4375, -1.4336, -1, 0.1914. \"1.0\" vs \"1\": compare numerically. First-class form: the function is defined first and passed by name (no lambda). Expression twin: author.linear.x4-x-1."
+  provenance: {"source": "claude-derived", "derived_from": "author.linear.x4-x-1", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
+
+
 
 - id: vcaa.2024.nht2.q14.intersect
   tags: [while, if, return, string, colon-define, no-end-define, chained-inequality]
@@ -695,6 +1498,7 @@ cases:
         x ← x + 0.01
       end while
       return "No intersection found"
+    end
 
     print intersect(0.6, 0.8)
   python: |
@@ -705,24 +1509,30 @@ cases:
                 return x
             x = x + 0.01
         return "No intersection found"
+
     print(intersect(0.6, 0.8))
   expect:
     output: ["0.74"]
     compare: numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
-  notes: "Answer D = 0.74. The VCAA original has \"define name(args):\" with a colon and no closing end (function body ends at the dedent), chained inequality, and returns a number or a string. Float noise: x accumulates 0.01 steps."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer D = 0.74. The VCAA original has \"define name(args):\" with a colon and no closing end (function body ends at the dedent), chained inequality, and returns a number or a string. Float noise: x accumulates 0.01 steps. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: vcaa.2025.nht2.q18.bisection-for
-  tags: [for, if-else-if, function-no-end, chained-inequality]
+  tags: [for, if-else-if, chained-inequality]
   source: "VCAA 2025 NHT Exam 2 Q18 (c) VCAA 2025 as transcribed in S. Tyler 2025 MM Algorithm Questions slides"
   third_party: true
   pseudocode: |
     define f(x)
       return loge(x) - x/3
+    end
 
     a ← 4
     b ← 6
@@ -739,6 +1549,7 @@ cases:
   python: |
     def f(x):
         return loge(x) - x/3
+
     a = 4
     b = 6
     for i in range(1, 3+1):
@@ -755,9 +1566,13 @@ cases:
   trace:
     horizontal_eligible: true
     loop_iterations: 3
-  notes: "Answer B = 4.5. Author desk check: i=1 c=5 f=-0.0572 so b=5; i=2 c=4.5 f=0.0041 prints 4.5; i=3 c=4.5 prints 4.5 again (no further bisection). loge = natural log."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer B = 4.5. Author desk check: i=1 c=5 f=-0.0572 so b=5; i=2 c=4.5 f=0.0041 prints 4.5; i=3 c=4.5 prints 4.5 again (no further bisection). loge = natural log. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2026.nht2.mcq2.two-dice
   tags: [for, nested, print]
@@ -780,8 +1595,12 @@ cases:
   trace:
     horizontal_eligible: false
   notes: "Answer A: the 9th output is \"2, 3\"."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2024.nht2.sm-mcq2.arc-length
   tags: [while, function, sqrt]
@@ -790,8 +1609,9 @@ cases:
   pseudocode: |
     define f(x)
       return x^2
+    end
 
-    sum ← 0
+    total ← 0
     a ← 1
     b ← 2
     h ← 0.5
@@ -799,15 +1619,16 @@ cases:
     right ← a + h
     while right ≤ b do
       arc ← sqrt((f(right) - f(left))^2 + h^2)
-      sum ← sum + arc
+      total ← total + arc
       left ← left + h
       right ← right + h
     end while
-    print sum
+    print total
   python: |
     def f(x):
         return x**2
-    sum_ = 0
+
+    total = 0
     a = 1
     b = 2
     h = 0.5
@@ -815,20 +1636,24 @@ cases:
     right = a + h
     while right <= b:
         arc = sqrt((f(right) - f(left))**2 + h**2)
-        sum_ = sum_ + arc
+        total = total + arc
         left = left + h
         right = right + h
-    print(sum_)
+    print(total)
   expect:
     output: ["3.1663186741"]
     compare: numeric(1e-4)
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "Answer E = 3.1663. The slide text mixes L/R and left/right and uses [ ] for grouping; here normalised to left/right and ( ). A good undefined-variable diagnostic matters because real exam text contains such slips."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer E = 3.1663. The slide text mixes L/R and left/right and uses [ ] for grouping; here normalised to left/right and ( ). A good undefined-variable diagnostic matters because real exam text contains such slips. VCAA originally used the variable `sum`; the corpus uses `total` (it shadows a Python builtin). VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.euler.x-t
   tags: [for, function-by-name, two-arg-function, print]
@@ -855,6 +1680,7 @@ cases:
   python: |
     def f(x, t):
         return x - t
+
     def euler(f, t0, x0, dt, n):
         t = t0
         x = x0
@@ -863,6 +1689,7 @@ cases:
             x = x + dt*f(x, t)
             t = t + dt
             print(t, x)
+
     euler(f, 0, 0.5, 1, 2)
     euler(f, 0, 0.5, 0.5, 4)
   expect:
@@ -871,8 +1698,12 @@ cases:
   trace:
     horizontal_eligible: false
   notes: "Slides: dx/dt = x - t, x(0) = 0.5. A named function (f) passed as an argument; \"Output (t, x)\" in the slides is a pair print (treated as print t, x). Two calls at top level so vertical layout; horizontal applies per call."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.length.parametric
   tags: [repeat-times, function-by-name, sqrt]
@@ -911,21 +1742,28 @@ cases:
             l = l + dl
             t = t + dt
         return l
+
     def dx(t):
         return 1
+
     def dy(t):
         return 2*t
+
     print("n = 5, l =", length(dx, dy, -1, 2, 5))
     print("n = 50, l =", length(dx, dy, -1, 2, 50))
   expect:
     output: ["n = 5, l = 6.06906044553", "n = 50, l = 6.12516723429"]
     compare: tokens-numeric
-    float_noise: true   # raw Python repr differs from the 6-digit display (decided: hidden by the default display precision)
+    float_noise: true
   trace:
     horizontal_eligible: false
   notes: "Based on the author Python on the slide (the slide pseudocode has slips: t + h, x'(t) derivative notation). Uses repeat n times / end repeat. Pseudocode `2t` is implicit multiplication."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.sum-100
   tags: [for, function, no-arg-call]
@@ -939,6 +1777,7 @@ cases:
       next n
       return total
     end
+
     print sum_100()
   python: |
     def sum_100():
@@ -946,14 +1785,19 @@ cases:
         for n in range(1, 100+1):
             total = total + n
         return total
+
     print(sum_100())
   expect:
     output: ["5050"]
     compare: numeric
   trace:
     horizontal_eligible: true
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.mult.repeat-times
   tags: [repeat-times, function]
@@ -967,6 +1811,7 @@ cases:
       end repeat
       return total
     end
+
     print mult(6, 7)
   python: |
     def mult(a, b):
@@ -974,14 +1819,19 @@ cases:
         for _ in range(a):
             total = total + b
         return total
+
     print(mult(6, 7))
   expect:
     output: ["42"]
     compare: numeric
   trace:
     horizontal_eligible: true
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.password.repeat-until-input
   tags: [repeat-until, input, string]
@@ -1009,8 +1859,12 @@ cases:
     horizontal_eligible: true
     loop_iterations: 2
   notes: "Needs scripted input. `input guess` infers its type (decided 2026-11-02: anything that can be a number, including a fraction, is a number, otherwise a string); the reference Python uses int."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: author.think-of-a-number
   tags: [input, string, arithmetic]
@@ -1045,15 +1899,19 @@ cases:
   trace:
     horizontal_eligible: false
   notes: "Author comment \"should be 5\". Python prints 5.0 because / always gives a float; in Auto and Exact modes integer / integer is a rational, so the result is exactly 5; in Approx it is the real 5, displayed as `5.`."
-  provenance: {source: author-document, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-document", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: proposed.settings.exact-vs-approx.bisection
-  tags: [settings, exact, rational, repeat-until, function-arg]
+  tags: [settings, exact, rational, repeat-until, expression-arg]
   source: "Exact-mode variant of the author's bisection example. f(x) = x^3/3 + 2x + 4 is recovered from the author's worked values f(-2) = -8/3, f(-3/2) = -1/8, f(-1) = 5/3, f(-5/4) = 163/192 (slides, Bisection Method). Proposed by Claude."
   third_party: false
   pseudocode: |
-    define bisection(f(x), L, R, P)
+    define bisection(f(x), x, L, R, P)
       repeat
         M ← (L + R) ÷ 2
         if f(M) = 0 then
@@ -1066,9 +1924,72 @@ cases:
       until |R - L| ≤ P
       return (L+R)÷2
     end
-    print bisection(x^3/3 + 2x + 4, -2, -1, 1/4)
+
+    print bisection(x^3/3 + 2x + 4, x, -2, -1, 1/4)
   python: |
     from fractions import Fraction
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def bisection(f, x, L, R, P):
+        while True:
+            M = (L + R)/2
+            if f.subs(x, M) == 0:
+                return M
+            elif f.subs(x, M)*f.subs(x, L) < 0:
+                R = M
+            else:
+                L = M
+            if abs(R - L) <= P: break
+        return (L+R)/2
+
+    print(bisection(x**3/3 + 2*x + 4, x, Fraction(-2), Fraction(-1), Fraction(1, 4)))   # Exact mode
+  expect_by_settings:
+    - {"settings": {"number": "exact"}, "output": ["-11/8"], "compare": "exact"}
+    - {"settings": {"number": "auto"}, "output": ["-11/8"], "compare": "exact"}
+    - {"settings": {"number": "approx"}, "output": ["-1.375"], "compare": "numeric"}
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 2
+  notes: "In Auto and Exact modes integer / integer is a rational (no rounding anywhere, so f(M) = 0 tests are exact); in Approx mode it is a real. Same program, same trace layout; only the cell values differ (-3/2 vs -1.5). Python translation in Exact mode uses Fraction. Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: proposed.settings.exact-vs-approx.bisection.fn. Python: the variable symbol is the function's `x` argument and the local is `x_`."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-02", "reference_python_run": true}
+  status: hand-verified
+
+
+
+
+
+- id: proposed.settings.exact-vs-approx.bisection.fn
+  tags: [settings, exact, rational, repeat-until, first-class-function]
+  source: "Exact-mode variant of the author's bisection example. f(x) = x^3/3 + 2x + 4 is recovered from the author's worked values f(-2) = -8/3, f(-3/2) = -1/8, f(-1) = 5/3, f(-5/4) = 163/192 (slides, Bisection Method). Proposed by Claude."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^3/3 + 2x + 4
+    end
+
+    define bisection(f, L, R, P)
+      repeat
+        M ← (L + R) ÷ 2
+        if f(M) = 0 then
+          return M
+        else if f(M)×f(L) < 0 then
+          R ← M
+        else
+          L ← M
+        end if
+      until |R - L| ≤ P
+      return (L+R)÷2
+    end
+
+    print bisection(f, -2, -1, 1/4)
+  python: |
+    from fractions import Fraction
+
+    def f(x):
+        return x**3/3 + 2*x + 4
+
     def bisection(f, L, R, P):
         while True:
             M = (L + R)/2
@@ -1080,18 +2001,21 @@ cases:
                 L = M
             if abs(R - L) <= P: break
         return (L+R)/2
-    print(bisection(lambda x: x**3/3 + 2*x + 4, Fraction(-2), Fraction(-1), Fraction(1, 4)))   # Exact mode
+
+    print(bisection(f, Fraction(-2), Fraction(-1), Fraction(1, 4)))   # Exact mode
     # Approx mode: the same call with -2, -1, 0.25 prints -1.375
   expect_by_settings:
-    - {settings: {number: exact},  output: ["-11/8"], compare: exact}
-    - {settings: {number: auto},   output: ["-11/8"], compare: exact}
-    - {settings: {number: approx}, output: ["-1.375"], compare: numeric}
+    - {"settings": {"number": "exact"}, "output": ["-11/8"], "compare": "exact"}
+    - {"settings": {"number": "auto"}, "output": ["-11/8"], "compare": "exact"}
+    - {"settings": {"number": "approx"}, "output": ["-1.375"], "compare": "numeric"}
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "In Auto and Exact modes integer / integer is a rational (no rounding anywhere, so f(M) = 0 tests are exact); in Approx mode it is a real. Same program, same trace layout; only the cell values differ (-3/2 vs -1.5). Python translation in Exact mode uses Fraction."
-  provenance: {source: claude-proposed, extracted: "2026-11-02", reference_python_run: true}
+  notes: "In Auto and Exact modes integer / integer is a rational (no rounding anywhere, so f(M) = 0 tests are exact); in Approx mode it is a real. Same program, same trace layout; only the cell values differ (-3/2 vs -1.5). Python translation in Exact mode uses Fraction. First-class form: the function is defined first and passed by name (no lambda). Expression twin: proposed.settings.exact-vs-approx.bisection."
+  provenance: {"source": "claude-derived", "derived_from": "proposed.settings.exact-vs-approx.bisection", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
+
+
 
 - id: proposed.settings.degree-vs-radian
   tags: [settings, angle, trig]
@@ -1104,11 +2028,15 @@ cases:
     print(sin(radians(30)))   # Degree mode
     # Radian mode: print(sin(30))
   expect_by_settings:
-    - {settings: {angle: degree}, output: ["0.5"],            compare: numeric}
-    - {settings: {angle: radian}, output: ["-0.988031624093"], compare: numeric}
+    - {"settings": {"angle": "degree"}, "output": ["0.5"], "compare": "numeric"}
+    - {"settings": {"angle": "radian"}, "output": ["-0.988031624093"], "compare": "numeric"}
   notes: "Degree-mode translation must wrap the argument (sin(radians(x))) and inverse functions must convert back (degrees(asin(x))), so the translated Python means the same as the pseudocode."
-  provenance: {source: claude-proposed, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: proposed.settings.display-6-digits
   tags: [settings, display, exact, rational]
@@ -1132,12 +2060,16 @@ cases:
     print(sqrt(2))
     print(22000/7)
   expect_by_settings:
-    - {settings: {number: approx, display: 6}, output: ["0.333333", "0.666667", "33.3333", "0.3", "1.41421", "3142.86"], compare: exact}
-    - {settings: {number: auto,   display: 6}, output: ["1/3", "2/3", "100/3", "0.3", "1.41421", "22000/7"], compare: exact}
-    - {settings: {number: exact,  display: 6}, output: ["1/3", "2/3", "100/3", "3/10", "1.41421", "22000/7"], compare: exact}
+    - {"settings": {"number": "approx", "display": 6}, "output": ["0.333333", "0.666667", "33.3333", "0.3", "1.41421", "3142.86"], "compare": "exact"}
+    - {"settings": {"number": "auto", "display": 6}, "output": ["1/3", "2/3", "100/3", "0.3", "1.41421", "22000/7"], "compare": "exact"}
+    - {"settings": {"number": "exact", "display": 6}, "output": ["1/3", "2/3", "100/3", "3/10", "1.41421", "22000/7"], "compare": "exact"}
   notes: "Rationals and integers are never rounded by the display. Auto: the decimal literals 0.1 and 0.2 make 0.1 + 0.2 a real (0.3, after 6-digit display hides 0.30000000000000004). Exact: they are read as the fractions 1/10 and 2/10, so the sum is exactly 3/10. sqrt(2) is irrational so it is a real in every mode."
-  provenance: {source: claude-proposed, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 # ---------------------------------------------------------------------------------------------------------------------------
 # Batch 2 (2026-11-02): practice booklet images read via the browser; S. Tyler's "Algorithms and Mathematics" Unit 1 & 2 Methods book (Apr 2024, PDF) and notebook.
@@ -1163,9 +2095,12 @@ cases:
         i ← i + 1
       EndWhile
       Return mid
+    End
+
     print bisection(sin(x), 3, 5, 2)
   python: |
     from math import sin
+
     def bisection(f, a, b, mx):
         if f(a) * f(b) > 0:
             return "Invalid interval"
@@ -1180,16 +2115,22 @@ cases:
                 a = mid
             i = i + 1
         return mid
+
     print(bisection(sin, 3, 5, 2))
+  settings: {"number": "approx", "angle": "radian"}
   expect:
     output: ["3.5"]
     compare: numeric
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "Answer D (3.5), verified by running; sin is radians. Real exam text: no `then`/`end` on the first If, `EndWhile` closer, the nested If bodies lack closers (indentation decides), and the while body mixes If/Else with a following line (i <- i+1) at the loop level. Exercises function-valued parameter f(x) and the Return-inside-loop. Confirmed from the slide: this is Sample Exam 2 MCQ6. The slide shows the author's version with the missing `End If` added and the note 'Missing in original code', so this case keeps the original text (no `End If` before `i ← i + 1`, the tolerant parser must close it)."
-  provenance: {source: practice-booklet-image, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer D (3.5), verified by running; sin is radians. Real exam text: no `then`/`end` on the first If, `EndWhile` closer, the nested If bodies lack closers (indentation decides), and the while body mixes If/Else with a following line (i <- i+1) at the loop level. Exercises function-valued parameter f(x) and the Return-inside-loop. Confirmed from the slide: this is Sample Exam 2 MCQ6. The slide shows the author's version with the missing `End If` added and the note 'Missing in original code', so this case keeps the original text (no `End If` before `i ← i + 1`, the tolerant parser must close it). Must run in Radian mode (settings: angle radian). VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "practice-booklet-image", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: book.u1.table-of-values.cubic
   tags: [define, for, step, float-step, print-multiple]
@@ -1200,6 +2141,7 @@ cases:
       y ← x³ - 4
       return y
     end
+
     for x from -3 to 3 step 0.5
       print x, f(x)
     end for
@@ -1207,6 +2149,7 @@ cases:
     def f(x):
         y = x**3 - 4
         return y
+
     x, xmax, xstep = -3, 3, 0.5
     while x <= xmax:
         print(x, f(x))
@@ -1218,46 +2161,12 @@ cases:
     horizontal_eligible: true
     loop_iterations: 13
   notes: "Inclusive float-step for loop; all values are exact in binary, so accumulating or index-based stepping agree. The author's own printed table shows `-3.0 -31.0` (Python reals); `compare: tokens-numeric` ignores the trailing point (see Q34)."
-  provenance: {source: author-book-pdf, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-book-pdf", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: book.u1.linear-search.x4-10x-2
-  tags: [define, for, step, if, print-two-statements, float-step, q36]
-  source: "S. Tyler, Algorithms and Mathematics: Methods Unit 1 (Apr 2024), p.98 (own work)"
-  third_party: false
-  pseudocode: |
-    define P(x)
-      return x⁴ - 10*x - 2
-    end
 
-    for x from -5 to 5 step 0.1
-      xnext ← x + 0.1
-      if P(x)*P(xnext) ⩽ 0 then
-        print "Zero between"
-        print x, "and", xnext
-      end if
-    end for
-  python: |
-    def P(x):
-        return x**4 - 10*x - 2
-    xmin, xmax, xstep = -5, 5, 0.1
-    x = xmin
-    while x <= xmax:
-        xnext = x + xstep
-        if P(x)*P(xnext) <= 0:
-            print("Zero between", end=" ")
-            print(f"{x:.1f} and {xnext:.1f}")
-        x = xnext
-  expect:
-    output: ["Zero between -0.2 and -0.1", "Zero between 2.2 and 2.3"]
-    compare: tokens-numeric
-  known_failing: "Q36 (decided: print ends the line): the book's pseudocode has two `print` statements but its output shows ONE line per zero (its Python uses end=' '), so as written it prints four lines. Kept as the author's original; see the corrected case book.u1.linear-search.x4-10x-2.single-print."
-  trace:
-    horizontal_eligible: false
-    loop_iterations: 101
-  notes: "Condition is <= 0 (⩽) in pseudocode and Python alike, 'in case we step right on a zero'. The book's output is hand-formatted to 1 d.p. (Python {x:.1f}); with the 6-digit display the unformatted values print as -0.2 and -0.1 because the float noise (-0.19999999999999996) is hidden. The book says this took 100 steps (101 loop passes inclusive)."
-  provenance: {source: author-book-pdf, extracted: "2026-11-02", reference_python_run: true}
-  status: hand-verified
+
+
 
 - id: book.u1.bisection.x4-10x-2
   tags: [define, while, if-else, float, tolerance, power-negative]
@@ -1284,6 +2193,7 @@ cases:
   python: |
     def P(x):
         return x**4 - 10*x - 2
+
     L, R = -5, 0
     accuracy = 1E-6
     while R - L > accuracy:
@@ -1300,8 +2210,12 @@ cases:
     horizontal_eligible: true
     loop_iterations: 23
   notes: "The author says 23 iterations (confirmed by running); his Python prints 'Zero between -0.199841 and -0.199840' where the pseudocode prints M. Pseudocode uses ⩽ where the book's Python uses <; both give the same result here. `10⁻⁶` is a superscript power; M equals the final L."
-  provenance: {source: author-book-pdf, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-book-pdf", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: book.u1.derivative-limit.1-over-x
   tags: [function-keyword, end-function, repeat-until, abs-bars, comment, power-expression]
@@ -1323,12 +2237,13 @@ cases:
       h ← h / 2
       df ← (f(x0+h) - f(x0))/h
       print h, df  // debugging
-    until |df - df_old| ≤ 10^-(dp+1)
+    until |df - df_old| ≤ 10^(-(dp+1))
 
     print "Derivative at", x0, "is", df, "accurate to", dp, "decimal places"
   python: |
     def f(x):
         return 1/x
+
     x0 = 2
     h = 0.1
     df = (f(x0+h) - f(x0))/h
@@ -1339,18 +2254,22 @@ cases:
         h = h / 2
         df = (f(x0+h) - f(x0))/h
         print(h, df)
-        if abs(df-df_old) <= 10**-(dp+1):
+        if abs(df-df_old) <= 10**(-(dp+1)):
             break
     print("Derivative at", x0, "is", df, "accurate to", dp, "decimal places")
-  expect:
-    output: ["0.1 -0.238095238095", "0.05 -0.243902439024", "0.025 -0.246913580247", "0.0125 -0.248447204969", "0.00625 -0.249221183801", "0.003125 -0.249609984399", "0.0015625 -0.249804839969", "0.00078125 -0.249902381882", "Derivative at 2 is -0.249902381882 accurate to 3 decimal places"]
-    compare: tokens-numeric
+  expect_by_settings:
+    - {"settings": {"display": "full"}, "output": ["0.1 -0.238095238095", "0.05 -0.243902439024", "0.025 -0.246913580247", "0.0125 -0.248447204969", "0.00625 -0.249221183801", "0.003125 -0.249609984399", "0.0015625 -0.249804839969", "0.00078125 -0.249902381882", "Derivative at 2 is -0.249902381882 accurate to 3 decimal places"], "compare": "tokens-numeric"}
+    - {"settings": {"display": 6}, "output": ["0.1 -0.238095", "0.05 -0.243902", "0.025 -0.246914", "0.0125 -0.248447", "0.00625 -0.249221", "0.003125 -0.24961", "0.0015625 -0.249805", "0.00078125 -0.249902", "Derivative at 2 is -0.249902 accurate to 3 decimal places"], "compare": "exact"}
   trace:
     horizontal_eligible: true
     loop_iterations: 7
-  notes: "Authoritative loop of 7 passes (the debug list in the book has 8 lines including the pre-loop print). The book prints the last line as `-0.2499` (hand-rounded); the real value is -0.249902381882 (display: -0.249902). The until condition in the book's pseudocode is typed `|df - dfPref| ≤ ...`: df_old is clearly meant (typo in the source). Superscript exponent `10^-(dp+1)` mixes with typed `^`."
-  provenance: {source: author-book-pdf, extracted: "2026-11-02", reference_python_run: true, source_slips: ["dfPref for df_old"]}
+  notes: "Authoritative loop of 7 passes (the debug list in the book has 8 lines including the pre-loop print). The book prints the last line as `-0.2499` (hand-rounded); the real value is -0.249902381882, which the default 6-digit display shows as -0.249902 (second expectation). The until condition in the book's pseudocode is typed `|df - dfPref| ≤ ...`: df_old is clearly meant (typo in the source). The power is written `10^(-(dp+1))` with explicit brackets in the corpus; the book's `10^-(dp+1)` form is still accepted by the parser."
+  provenance: {"source": "author-book-pdf", "extracted": "2026-11-02", "reference_python_run": true, "source_slips": ["dfPref for df_old"]}
   status: hand-verified
+
+
+
+
 
 - id: book.u2.newton3.cubic
   tags: [function-keyword, function-by-assignment, for-do, next, implicit-multiplication, print-in-loop]
@@ -1382,6 +2301,7 @@ cases:
             x = x - P(x)/dP(x)
             print(x)
         return x
+
     newton3(1, -1, -2, 2, 2, 10)
   expect:
     output: ["1.66666666667", "1.49382716049", "1.42684587138", "1.41462942111", "1.41421404005", "1.41421356237", "1.41421356237", "1.41421356237", "1.41421356237", "1.41421356237"]
@@ -1390,11 +2310,15 @@ cases:
     horizontal_eligible: true
     loop_iterations: 10
   notes: "New dialect feature: a function is DEFINED BY ASSIGNMENT inside a function (`P(x) ← ...`), with implicit multiplication (`3ax²`). The call statement `newton3(...)` is used as a statement whose return value is discarded. The book's printed output matches (1.6666666666666667, 1.4938271604938271, ... converging to sqrt 2)."
-  provenance: {source: author-book-pdf, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "author-book-pdf", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
-- id: book.u1.linear-search.x4-10x-2.single-print
-  tags: [define, for, step, if, float-step, print-multiple, q36]
+
+
+
+
+- id: book.u1.linear-search.x4-10x-2
+  tags: [define, for, step, if, float-step, print-multiple]
   source: "S. Tyler, Algorithms and Mathematics: Methods Unit 1 (Apr 2024), p.98 (own work), with the two prints merged into one (Q36)"
   third_party: false
   pseudocode: |
@@ -1411,6 +2335,7 @@ cases:
   python: |
     def P(x):
         return x**4 - 10*x - 2
+
     xmin, xmax, xstep = -5, 5, 0.1
     x = xmin
     while x <= xmax:
@@ -1424,16 +2349,20 @@ cases:
   trace:
     horizontal_eligible: false
     loop_iterations: 101
-  notes: "Same program as the book's with a single print, which gives the book's two output lines under 'print ends the line'. With the display at 6 digits the values print as -0.2 and -0.1; the raw floats differ in the 16th digit, hence the numeric comparison."
-  provenance: {source: author-book-pdf-adapted, extracted: "2026-11-02", reference_python_run: true}
+  notes: "The book split this line over two `print` statements only to fit the page width; the corpus keeps the single-print version, which gives the book's two output lines under 'print ends the line'. With the display at 6 digits the values print as -0.2 and -0.1; the raw floats differ in the 16th digit, hence the numeric comparison."
+  provenance: {"source": "author-book-pdf-adapted", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: vcaa.2023.mm2.mcq13.newton-for
-  tags: [define, for, if-else, return-in-loop, function-param, missing-end, implicit-multiplication]
+  tags: [define, for, if-else, return-in-loop, expression-arg, missing-end, implicit-multiplication]
   source: "VCAA 2023 MM Exam 2 MCQ 13 (c) VCAA, via S. Tyler's 2023 slides (docs.google.com/presentation/d/17teqp5_ryQYdwsip9TquacEEJYWDwDgzHctryatExmw)"
   third_party: true
   pseudocode: |
-    Define newton(f(x), df(x), x0)
+    Define newton(f(x), df(x), x, x0)
       For i from 1 to 3
         If df(x0) = 0 Then
           Return "Error: Division by zero"
@@ -1441,8 +2370,68 @@ cases:
           x0 ← x0 - f(x0) ÷ df(x0)
       EndFor
       Return x0
-    print newton(x³ + 3x - 3, 3x² + 3, 1)
+    End
+
+    print newton(x³ + 3x - 3, 3x² + 3, x, 1)
   python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def newton(f, df, x, x0):
+        for i in range(3):
+            if df.subs(x, x0) == 0:
+                return "Error: Division by zero"
+            else:
+                x0 = x0 - f.subs(x, x0)/df.subs(x, x0)
+        return x0
+
+    print(newton(x**3 + 3*x - 3, 3*x**2 + 3, x, 1.0))
+  expect:
+    output: ["0.81773167"]
+    compare: numeric(1e-6)
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 3
+  notes: "The paper omits `EndIf` before `EndFor` (the author's slide adds it with the comment 'Missing in question paper!'): the original is kept here, so the parser must close the open If at `EndFor` with a warning (dialect.md section 5). Iterates 0.83333, 0.81785, 0.81773 (the author's TI Nspire 'Ans' recursion). The call line is added; the exam gives the call in words (newton(x^3 + 3x - 3, 3x^2 + 3, 1)). Expression form (CAS style): the call passes an expression and the name of its variable. First-class twin: vcaa.2023.mm2.mcq13.newton-for.fn. VCAA/author text adapted: the variable argument was added. Python: the variable symbol is the function's `x` argument and the local is `x_`. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true, "source_slips": ["missing EndIf"]}
+  status: hand-verified
+
+
+
+
+
+- id: vcaa.2023.mm2.mcq13.newton-for.fn
+  tags: [define, for, if-else, return-in-loop, first-class-function, missing-end, implicit-multiplication]
+  source: "VCAA 2023 MM Exam 2 MCQ 13 (c) VCAA, via S. Tyler's 2023 slides (docs.google.com/presentation/d/17teqp5_ryQYdwsip9TquacEEJYWDwDgzHctryatExmw)"
+  third_party: true
+  pseudocode: |
+    define f(x)
+      return x³ + 3x - 3
+    end
+
+    define df(x)
+      return 3x² + 3
+    end
+
+    Define newton(f, df, x0)
+      For i from 1 to 3
+        If df(x0) = 0 Then
+          Return "Error: Division by zero"
+        Else
+          x0 ← x0 - f(x0) ÷ df(x0)
+      EndFor
+      Return x0
+    End
+
+    print newton(f, df, 1)
+  python: |
+    def f(x):
+        return x**3 + 3*x - 3
+
+    def df(x):
+        return 3*x**2 + 3
+
     def newton(f, df, x0):
         for i in range(3):
             if df(x0) == 0:
@@ -1450,27 +2439,32 @@ cases:
             else:
                 x0 = x0 - f(x0)/df(x0)
         return x0
-    print(newton(lambda x: x**3 + 3*x - 3, lambda x: 3*x**2 + 3, 1))
+
+    print(newton(f, df, 1))
   expect:
     output: ["0.81773167"]
     compare: numeric(1e-6)
   trace:
     horizontal_eligible: true
     loop_iterations: 3
-  notes: "The paper omits `EndIf` before `EndFor` (the author's slide adds it with the comment 'Missing in question paper!'): the original is kept here, so the parser must close the open If at `EndFor` with a warning (dialect.md section 5). Iterates 0.83333, 0.81785, 0.81773 (the author's TI Nspire 'Ans' recursion). The call line is added; the exam gives the call in words (newton(x^3 + 3x - 3, 3x^2 + 3, 1))."
-  provenance: {source: slide-image, extracted: "2026-11-02", reference_python_run: true, source_slips: ["missing EndIf"]}
+  notes: "The paper omits `EndIf` before `EndFor` (the author's slide adds it with the comment 'Missing in question paper!'): the original is kept here, so the parser must close the open If at `EndFor` with a warning (dialect.md section 5). Iterates 0.83333, 0.81785, 0.81773 (the author's TI Nspire 'Ans' recursion). The call line is added; the exam gives the call in words (newton(x^3 + 3x - 3, 3x^2 + 3, 1)). First-class form: the function is defined first and passed by name (no lambda). Expression twin: vcaa.2023.mm2.mcq13.newton-for. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "claude-derived", "derived_from": "vcaa.2023.mm2.mcq13.newton-for", "extracted": "2026-11-04", "reference_python_run": true}
   status: hand-verified
 
+
+
 - id: vcaa.2024.nov.mm2.q17.integer-roots
-  tags: [define-without-end, while, if, print-negation, dedent-ends-function]
+  tags: [while, if, print-negation]
   source: "VCAA 2024 November MM Exam 2 Question 17 (c) VCAA, via S. Tyler's 2024 slides (docs.google.com/presentation/d/1N__h-LvFPOR-uscgMY9oefkUVK3aZ55sbzFiaD5Oz_0)"
   third_party: true
   pseudocode: |
     define f(x)
-      return (x³ - 2x² - 9x + 18)
+      return x³ - 2x² - 9x + 18
+    end
+
     c ← f(0)
     if c < 0 then
-      c ← (-c)
+      c ← -c
     end if
     while c > 0
       if f(c) = 0 then
@@ -1483,7 +2477,8 @@ cases:
     end while
   python: |
     def f(x):
-        return (x**3 - 2*x**2 - 9*x + 18)
+        return x**3 - 2*x**2 - 9*x + 18
+
     c = f(0)
     if c < 0:
         c = -c
@@ -1499,9 +2494,13 @@ cases:
   trace:
     horizontal_eligible: false
     loop_iterations: 18
-  notes: "Answer D. The function has no `end` (the body ends by dedent), the first `if` guards a sign flip, and all integers from 18 down to 1 are tested in the order c then -c. All values are integers, so the output is exact."
-  provenance: {source: slide-image, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer D. The function has no `end` (the body ends by dedent), the first `if` guards a sign flip, and all integers from 18 down to 1 are tested in the order c then -c. All values are integers, so the output is exact. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
 
 - id: vcaa.2025.nov.mm2.mcq7.repeated-subtraction
   tags: [while, single-loop, print-in-loop]
@@ -1527,81 +2526,101 @@ cases:
     horizontal_eligible: true
     loop_iterations: 3
   notes: "Answer C. The author draws this as a horizontal desk check (Init, then one column per pass with the test `17 > 5 ✓`). Repeated subtraction, so the final printed value is the remainder 17 mod 5 only because the loop stops before n < k."
-  provenance: {source: slide-image, extracted: "2026-11-02", reference_python_run: true}
+  provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: vcaa.2025.nov.sm2.mcq4.volume-of-revolution
-  tags: [define-without-end, while, sqrt-symbol, pi, power-superscript, accumulator]
+  tags: [while, sqrt-symbol, pi, power-superscript, accumulator]
   source: "VCAA 2025 November Specialist Maths Exam 2 MCQ 4 (c) VCAA, via S. Tyler's 2024-2026 SM slides (docs.google.com/presentation/d/1H3R5CQh_CD9BwhydlZZwqXs1ey24AnOmuSUaWOkMjak); the slide title reads 'VCE Exam 2 MCQ 4'"
   third_party: true
   pseudocode: |
     define f(x)
       return √(x + 1)
-    sum ← 0
+    end
+
+    total ← 0
     a ← 1
     b ← 3
     left ← a
     while left ≤ b
       volume ← π(f(left))²
-      sum ← sum + volume
+      total ← total + volume
       left ← left + 1
     end while
-    print sum
+    print total
   python: |
     from math import sqrt, pi
+
     def f(x):
         return sqrt(x + 1)
-    sum_ = 0
+
+    total = 0
     a = 1
     b = 3
     left = a
     while left <= b:
         volume = pi*(f(left))**2
-        sum_ = sum_ + volume
+        total = total + volume
         left = left + 1
-    print(sum_)
+    print(total)
   expect:
     output: ["28.2743338823"]
     compare: numeric(1e-9)
   trace:
     horizontal_eligible: true
     loop_iterations: 3
-  notes: "Answer B (9π). `sum` is a variable name that shadows the built-in `sum` (the reference Python uses sum_). Exactly 9π = 28.2743...; in Auto and Exact mode π is a symbol the pseudocode evaluates numerically (no symbolic CAS), so it prints 28.2743 at 6 digits. The author's slide has this as a horizontal desk check."
-  provenance: {source: slide-image, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer B (9π). Exactly 9π = 28.2743...; in Auto and Exact mode π is a symbol the pseudocode evaluates numerically (no symbolic CAS), so it prints 28.2743 at 6 digits. The author's slide has this as a horizontal desk check. VCAA originally used the variable `sum`; the corpus uses `total` (it shadows a Python builtin). VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
 
+
+
+
+
 - id: vcaa.2026.nht.sm2.mcq3.surface-of-revolution
-  tags: [define-without-end, while, sqrt-symbol, pi, nested-function-call, accumulator]
+  tags: [while, sqrt-symbol, pi, nested-function-call, accumulator]
   source: "VCAA 2026 NHT Specialist Maths Exam 2 MCQ 3 (c) VCAA, via S. Tyler's 2024-2026 SM slides (docs.google.com/presentation/d/1H3R5CQh_CD9BwhydlZZwqXs1ey24AnOmuSUaWOkMjak)"
   third_party: true
   pseudocode: |
     define f(x)
       return √(x² + 1)
-    sum ← 0
+    end
+
+    total ← 0
     left ← 0
     while left ≤ 1
       area ← 2π × f((left + (left + 1)) ÷ 2) × √((f(left) - f(left + 1))² + 1)
-      sum ← sum + area
+      total ← total + area
       left ← left + 1
     end while
-    print sum
+    print total
   python: |
     from math import sqrt, pi
+
     def f(x):
         return sqrt(x**2 + 1)
-    sum_ = 0
+
+    total = 0
     left = 0
     while left <= 1:
         area = 2*pi*f((left + (left + 1))/2)*sqrt((f(left) - f(left + 1))**2 + 1)
-        sum_ = sum_ + area
+        total = total + area
         left = left + 1
-    print(sum_)
+    print(total)
   expect:
     output: ["22.2653811"]
     compare: numeric(1e-6)
   trace:
     horizontal_eligible: true
     loop_iterations: 2
-  notes: "Answer C (22.265). Two slices, midpoint estimate of y; the author's CAS check gives area(0) = 7.6036047, area(1) = 14.661177. The exact integral is 22.7654, so the options are close and the display must show enough digits (6 by default is fine)."
-  provenance: {source: slide-image, extracted: "2026-11-02", reference_python_run: true}
+  notes: "Answer C (22.265). Two slices, midpoint estimate of y; the author's CAS check gives area(0) = 7.6036047, area(1) = 14.661177. The exact integral is 22.7654, so the options are close and the display must show enough digits (6 by default is fine). VCAA originally used the variable `sum`; the corpus uses `total` (it shadows a Python builtin). VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
+  provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true}
   status: hand-verified
+
+
+
+
