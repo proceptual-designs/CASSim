@@ -128,7 +128,7 @@ class Editor:
         fraction.slots[0] = numerator
         row[start : self.pos] = [fraction]
         self.pos = start
-        self._enter(start, 1)
+        self._enter(start, 1 if numerator else 0)  # an empty numerator is filled first
 
     def _unselect(self, *, replace: bool = False) -> None:
         """Drop the highlight; typing over it deletes the highlighted template."""
@@ -155,25 +155,33 @@ class Editor:
             self._dissolve()
 
     def delete(self) -> None:
-        self._unselect()
+        if self.selected:
+            self._unselect(replace=True)
+            return
         row = self.row()
         if self.pos < len(row):
             node = row[self.pos]
             if isinstance(node, Template):
-                self._enter(self.pos, 0)
+                self.pos += 1  # forward delete highlights the template first
+                self.selected = True
             else:
                 del row[self.pos]
 
     def _dissolve(self) -> None:
         """Backspace at the start of a slot removes the template and keeps what was in it.
 
-        At the start of a template's first slot it highlights the whole template instead.
+        At the start of a template's first slot it highlights the whole template instead, or deletes
+        it when it is empty.
         """
         template = self._parent()
         index, slot = self.path.pop()
         if slot == 0:
-            self.pos = index + 1
-            self.selected = True
+            if any(template.slots):
+                self.pos = index + 1
+                self.selected = True
+            else:
+                del self.row()[index]
+                self.pos = index
             return
         before = sum(len(s) for s in template.slots[:slot])
         self.row()[index : index + 1] = [item for s in template.slots for item in s]
@@ -191,13 +199,22 @@ class Editor:
             else:
                 self.pos -= 1
         elif self.path:
-            index, slot = self.path[-1]
-            if slot:
-                self.path[-1] = (index, slot - 1)
-                self.pos = len(self.row())
-            else:
-                self.path.pop()
-                self.pos = index
+            index, _ = self.path.pop()  # Left from the start of any slot leaves on the left
+            self.pos = index
+
+    def shift_tab(self) -> None:
+        """The reverse of Tab: the previous slot, then out to the left of the template."""
+        self._unselect()
+        if not self.path:
+            self.left()
+            return
+        index, slot = self.path[-1]
+        if slot:
+            self.path[-1] = (index, slot - 1)
+            self.pos = len(self.row())
+        else:
+            self.path.pop()
+            self.pos = index
 
     def right(self) -> None:
         """Right leaves the slot it is in, even the numerator of a fraction (0017)."""

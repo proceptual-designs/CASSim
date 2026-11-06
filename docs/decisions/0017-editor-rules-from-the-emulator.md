@@ -13,8 +13,17 @@ Date: 2026-11-06. Status: accepted. Source: `docs/testing/emulator-editor-result
 - Up on an **empty** entry line selects the last result, then the last entry; Return copies it into the line. This belongs to the document/history layer, not the editor (M2c).
 - `^` and `√` build templates while typing and stay open until Right (confirmed).
 
+## Added by the shortcuts run (`docs/testing/emulator-shortcuts-results.md`)
+- ctrl+/ and keypad ctrl+÷ both give the fraction template, with the same capture rule. On an empty line it gives an empty fraction with the cursor in the **numerator**. A selection becomes the numerator (selection is not built yet).
+- Left from the start of any slot leaves the template on the left. shift+Tab is the exact reverse of Tab. Forward Delete in front of a template highlights it (a second press deletes it). Backspace in an empty exponent, radicand or fraction removes the template.
+- The keypad ctrl and shift layers use the keypad labels (x² square root, ^ nth root, 10ˣ log with a base, eˣ ln, × string template, var store arrow, (−) Ans, ctrl+enter approximate). Computer ctrl+Q, ctrl+K, ctrl+H and ctrl+. do nothing; computer ctrl+L is the variable list.
+- Matrix: Return evaluates (it does not add a row); alt+Return adds a row above, shift+Return a column to the left; the size limit is 99 by 99.
+- Undo and redo (ctrl+Z, ctrl+Y) act on the entry line, grouped by operator (`ab+c` is three steps). Not built yet (M2d).
+- The only way found to clear an entry is ctrl+A then Backspace; Esc does nothing.
+- The key table is in `docs/design/shortcuts.md`.
+
 ## Changes made (`device/editor.py`)
-Typed `/` is a plain character; `insert_template(Kind.FRACTION)` is the palette fraction with the capture rule above. Added highlight state (`selected`), `tab()`, the `Ans` rule, and the numerator and bracket rules. Tests in `tests/device/test_editor.py`.
+Typed `/` is a plain character; `insert_template(Kind.FRACTION)` is the palette fraction with the capture rule above. Added highlight state (`selected`), `tab()` and `shift_tab()`, the `Ans` rule, the numerator and bracket rules, forward-delete highlight, and removal of an empty template. Tests in `tests/device/test_editor.py`.
 
 ## Not done, still open
 - Drawing the highlight in `latex()`; the history echo that stacks a typed `/` after Return (GUI/result layer).

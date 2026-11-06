@@ -1,6 +1,6 @@
 # Keyboard shortcuts (FR-CALC-004, FR-DEV-001)
 
-The shortcuts of the TI-Nspire CX family that the device model should map. This is the working table; `Check` says what still needs the emulator (brief: `docs/testing/emulator-shortcuts-capture.md`).
+The shortcuts of the TI-Nspire CX family that the device model should map. This is the working table; `Check` says what still needs the emulator (brief: `docs/testing/emulator-shortcuts-capture.md`; results: `docs/testing/emulator-shortcuts-results.md`, run 2026-11-06).
 
 Sources:
 - **A** `references/TI-Nspire CX II Family Shortcuts 2026.pdf` (TI, with thanks to Neale Woods).
@@ -13,55 +13,55 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 ## 1. Entry and templates (the editor)
 | Keys | Action | Hand | Comp | Source | CASSim | Check |
 |---|---|---|---|---|---|---|
-| ctrl+/ | Fraction template (takes the preceding term) | ✓ (ctrl+÷) | ✓ | C, S | M2d, Must | Run: does ctrl+÷ and ctrl+/ both work; what is captured |
-| ctrl+Q | Square root | ✓ | | C | M2d | key letter is a keypad label; verify |
-| ctrl+L | nth root | ✓ | | C | M2d | verify; clashes with "display variable list" |
-| shift+minus | Derivative template | ✓ | | A, B, C | M2d | Run |
-| shift+plus | Integral template | ✓ | | A, B, C | M2d | Run |
-| ctrl+* (keypad ×) | Template palette | ✓ | | C | M2d | Run; A/B do not list it |
-| ctrl+K | Symbol palette | ✓ | | C | M2e, Should | Run (A/B give ctrl+K as "select page") |
-| ctrl+( , ctrl+) | `[ ]` and `{ }` | ✓ | | C | M2d | Run |
-| ctrl+= | Inequality menu | ✓ | | C | M2e, Could | Run |
-| ctrl+S (keypad) | log( ) | ✓ | | C | M2d | Run; conflicts with "save" on a computer |
-| ctrl+U (keypad) | ln( ) | ✓ | | C | M2d | Run |
-| ctrl+minus (keypad) | `Ans` | ✓ | | C | M2d | Run |
-| ctrl+h / ctrl+Ë (keypad) | Store arrow `→` (and `=:`) | ✓ | | C | M2d | Run |
-| ctrl+space | Underscore | ✓ | | A, B, C | M2d | Run |
-| ctrl+· (keypad) | Approximate: force a decimal result | ✓ | ✓ | C | M2d | Run (ctrl+Enter is the computer form) |
-| ctrl+. | Clear entry (hand) / manual data capture | ✓ | | C | M2d | duplicated in C; verify |
-| shift+/ | `\` symbol | ✓ | | C | M2d | Run |
+| ctrl+/ | Fraction template (takes the preceding term) | ✓ (ctrl+÷) | ✓ | C, S | M2d, Must | Confirmed (S1): both work; takes the preceding term or whole product, stops at `+`, drops brackets on a bare `(a+b)` but keeps them before a power, a selection becomes the numerator, empty line gives an empty fraction (cursor in numerator), nests |
+| ctrl+Q | Square root | ✓ | | C | M2d | Differs (S2): keypad ctrl+x² gives the template; computer ctrl+Q does nothing |
+| ctrl+L | nth root | ✓ | | C | M2d | Differs (S2): keypad ctrl+^ gives it (slots index, radicand); computer ctrl+L opens the variable list |
+| shift+minus | Derivative template | ✓ | | A, B, C | M2d | Confirmed (S2): slots variable, then expression |
+| shift+plus | Integral template | ✓ | | A, B, C | M2d | Confirmed (S2): definite; slots lower, upper, integrand, variable |
+| ctrl+* (keypad ×) | Template palette | ✓ | | C | M2d | Differs (S2): gives a string template `" "`, not the palette |
+| ctrl+K | Symbol palette | ✓ | | C | M2e, Should | Differs (S2): computer ctrl+K no visible effect; keypad not tested |
+| ctrl+( , ctrl+) | `[ ]` and `{ }` | ✓ | | C | M2d | Confirmed (S2) |
+| ctrl+= | Inequality menu | ✓ | | C | M2e, Could | Confirmed (S2): menu `> < ≠ ≥ ≤ \|` |
+| ctrl+S (keypad) | log( ) | ✓ | | C | M2d | Differs (S2): the key is ctrl+10ˣ and it gives a `log_a(b)` template (base slot, then argument) |
+| ctrl+U (keypad) | ln( ) | ✓ | | C | M2d | Confirmed (S2): the key is ctrl+eˣ |
+| ctrl+minus (keypad) | `Ans` | ✓ | | C | M2d | Confirmed (S3): keypad ctrl+(−) |
+| ctrl+h / ctrl+Ë (keypad) | Store arrow `→` (and `=:`) | ✓ | | C | M2d | Confirmed (S3): keypad ctrl+var; computer ctrl+H does nothing |
+| ctrl+space | Underscore | ✓ | ✓ | A, B, C | M2d | Confirmed (S3), computer keyboard |
+| ctrl+· (keypad) | Approximate: force a decimal result | ✓ | ✓ | C | M2d | Differs (S4): keypad ctrl+enter and computer ctrl+Return both give `0.33333333` in a new history row; ctrl+· not used |
+| ctrl+. | Clear entry (hand) / manual data capture | ✓ | | C | M2d | Differs (S3, S8): no effect; the only clear found is ctrl+A then Backspace |
+| shift+/ | `\` symbol | ✓ | | C | M2d | Confirmed (S2): keypad shift+÷; Syntax on Return |
 
 ## 2. Moving and selecting
 | Keys | Action | Hand | Comp | Source | CASSim | Check |
 |---|---|---|---|---|---|---|
 | Tab | Next field or slot (template slots in order, then out) | ✓ | ✓ | A, B, C | M2d | Confirmed in templates (results T7, T8) |
-| shift+Tab | Previous field or slot | ✓ | ✓ | A, B, C | M2d | Run |
-| shift+arrows | Select | ✓ | ✓ | A, B, C | M2d | Partly (T10b) |
-| ctrl+A | Select all | ✓ | ✓ | A, B, C | M2d | Run |
-| ctrl+7 / ctrl+8 | Jump to first line / start of line | ✓ | ✓ | A, B, C | M2d | Run (Home confirmed, T10a) |
-| ctrl+1 / ctrl+2 | Jump to last line / end of line | ✓ | ✓ | A, B, C | M2d | Run |
-| ctrl+3 / ctrl+9 | Page down / page up | ✓ | ✓ | A, B, C | M2c | Run |
-| ctrl+up | Move up the document hierarchy | ✓ | ✓ | C | M2c, Could | Run |
+| shift+Tab | Previous field or slot | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): exact reverse of Tab |
+| shift+arrows | Select | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): a template is selected as one unit |
+| ctrl+A | Select all | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): typing replaces |
+| ctrl+7 / ctrl+8 | Jump to first line / start of line | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): ctrl+7 selects the first history row, ctrl+8 start of line |
+| ctrl+1 / ctrl+2 | Jump to last line / end of line | ✓ | ✓ | A, B, C | M2d | ctrl+2 end of line confirmed; ctrl+1 no visible effect (S5) |
+| ctrl+3 / ctrl+9 | Page down / page up | ✓ | ✓ | A, B, C | M2c | Confirmed (S5): scroll the history (ctrl+3 to the bottom) |
+| ctrl+up | Move up the document hierarchy | ✓ | ✓ | C | M2c, Could | Confirmed (S5): opens the page sorter |
 | Up on an empty entry line | Select last result, then last entry; Return copies | ✓ | ✓ | emulator | M2c | Confirmed (T4d) |
 
 ## 3. Matrices
 | Keys | Action | Hand | Comp | Source | Check |
 |---|---|---|---|---|---|
-| Return (in a matrix) | Add a row | ✓ | | A, B | Run (hand) |
-| alt+Enter | Add a row | | ✓ | A, B, C | Run |
-| shift+Return | Add a column | ✓ | | A | Run |
-| shift+Enter | Add a column | | ✓ | A, B, C | Run |
+| Return (in a matrix) | Add a row | ✓ | | A, B | Differs (S6): Return and keypad enter evaluate the matrix |
+| alt+Enter | Add a row | | ✓ | A, B, C | Confirmed (S6): row inserted above the current one |
+| shift+Return | Add a column | ✓ | | A | Confirmed (S6): column inserted to the left |
+| shift+Enter | Add a column | | ✓ | A, B, C | Confirmed (S6): keypad version put the column to the right when the cursor was at the end of the cell |
 | Tab | Next cell, row by row; past the last cell leaves | ✓ | ✓ | emulator | Confirmed (T8b) |
 
 ## 4. Editing, document and page
 | Keys | Action | Source | CASSim | Check |
 |---|---|---|---|---|
-| ctrl+C, ctrl+X, ctrl+V | Copy, cut, paste | A, B, C | M2d | Copy and paste of a template not tested |
-| ctrl+Z, ctrl+Y | Undo, redo | A, B, C | M2d | Run |
-| shift+Esc | Redo (hand) | B | M2d, Could | Run |
+| ctrl+C, ctrl+X, ctrl+V | Copy, cut, paste | A, B, C | M2d | Confirmed (S7): paste keeps the 2D template |
+| ctrl+Z, ctrl+Y | Undo, redo | A, B, C | M2d | Confirmed (S7 d): entry-line undo grouped by operator (`ab+c` is 3 steps: `ab`, `+`, `c`) |
+| shift+Esc | Redo (hand) | B | M2d, Could | Unsure (S7): no visible effect in my run |
 | ctrl+I | Insert page | A, B, C | M2c | Used in the capture runs |
 | ctrl+N, ctrl+O, ctrl+S, ctrl+W | New, open, save, close document | A, B, C | M2c | not needed on the emulator |
-| ctrl+L | Variable list (Calc); store or link a variable (L&S) | A, B, C | M2c | Run |
+| ctrl+L | Variable list (Calc); store or link a variable (L&S) | A, B, C | M2c | Confirmed (S2) for Calculator |
 | ctrl+R | Recalculate (L&S) | A, B, C | M5 | |
 | ctrl+G | Go to cell or line; toggle the graph entry line | A, B, C | M3, M4 | |
 | ctrl+T | Toggle table | A, B | M3 | |
@@ -76,6 +76,14 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 
 ## 6. Handheld key combinations not on the sheets
 The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV-005). Items in section 1 marked with a keypad label (ctrl+Q, ctrl+L, ctrl+S, ctrl+U, ctrl+h) refer to the letter printed under the key, not a computer key, so the Handheld key map must be built from the keypad and not from this table alone.
+
+## Other findings from the shortcuts run (S5 to S9)
+- Clearing an entry: only ctrl+A then Backspace worked. Esc, keypad shift+del and computer shift+Delete did nothing visible. Computer Delete deletes forward, and in front of a template selects it.
+- Backspace: nothing at the start of the line; in an empty exponent or radicand it removes the template.
+- Left from the start of a denominator leaves the fraction on the left. Tab runs numerator, denominator, out; shift+Tab reverses it.
+- Matrix size limit is 99 by 99. A fraction in a cell exits with Right and stays in the cell.
+- Symbols: EE key gives `ᴇ` (3.14ᴇ6 is 3140000.); `@E` is scientific notation, typed letters `EE` are not (Simon); `5%` gives 1/20; `<=`, `/=`, `=>` become ≤, ≠, ⇒ on Return; `pi`, `infinity`, `@i` become π, ∞, ⅈ; keypad eˣ gives bold ⅇ.
+- A keypad click followed at once by typed text can be reordered; wait after a keypad click.
 
 ## Implementation notes
 - Bindings are data (profile registry), not code (FR-DEV-007). The editor exposes the actions: `insert_template(kind)`, `tab()`, `left()` and so on.

@@ -78,12 +78,12 @@ def test_the_engine_evaluates_the_linear_text(sequence, wanted):
     assert result.text == wanted
 
 
-def test_fraction_template_on_an_empty_line_starts_in_the_denominator():
+def test_fraction_template_on_an_empty_line_starts_in_the_numerator():
     editor = Editor()
     editor.insert_template(Kind.FRACTION)
-    editor.insert_text("2")
-    editor.up()
     editor.insert_text("1")
+    editor.down()
+    editor.insert_text("2")
     assert editor.linear() == "((1)/(2))"
 
 
@@ -110,11 +110,17 @@ def test_right_leaves_a_slot_and_left_comes_back():
 def test_arrows_walk_through_both_slots_of_a_fraction():
     editor = keys("1F2")
     editor.left()
-    editor.left()  # out of the denominator's start into the numerator's end
-    assert editor.path == [(0, 0)]
-    assert editor.pos == 1
+    editor.left()  # out of the denominator's start, to the left of the fraction
+    assert editor.path == []
+    assert editor.pos == 0
+    editor.right()  # into the numerator
     editor.tab()  # into the denominator
     assert editor.path == [(0, 1)]
+    editor.shift_tab()  # back, at the end of the numerator
+    assert editor.path == [(0, 0)]
+    editor.shift_tab()  # out on the left
+    assert editor.path == []
+    assert editor.pos == 0
 
 
 def test_backspace_highlights_a_template_then_deletes_it():
@@ -181,13 +187,22 @@ def test_dissolving_from_the_denominator_keeps_the_cursor_between_the_parts():
     assert editor.pos == 1
 
 
-def test_delete_removes_the_next_character_and_enters_a_template():
+def test_delete_removes_the_next_character_and_highlights_a_template():
     editor = keys("12H")
     editor.delete()
     assert editor.linear() == "2"
     editor = keys("√2RH")
     editor.delete()
-    assert editor.path == [(0, 0)]
+    assert editor.selected
+    editor.delete()
+    assert editor.is_empty
+
+
+def test_backspace_in_an_empty_slot_removes_the_template():
+    for sequence in ("x^", "√", "F"):
+        editor = keys(sequence)
+        editor.backspace()
+        assert editor.linear() == ("x" if sequence == "x^" else "")
 
 
 def test_home_and_end_return_to_the_top_level():
