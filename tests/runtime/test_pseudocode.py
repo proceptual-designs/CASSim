@@ -129,9 +129,12 @@ def test_closers_for_all_loop_spellings() -> None:
     assert out(source) == ["1", "2"]
 
 
-def test_bracket_grouping_and_lists() -> None:
-    assert out("print [1+2]*3") == ["9"]
+def test_only_parens_group_and_brackets_make_lists() -> None:
+    assert out("print (1+2)*3") == ["9"]
     assert out("a ← [1, 2, 3]\nprint a") == ["[1, 2, 3]"]
+    assert out("a ← [7]\nprint a, len(a)") == ["[7] 1"]
+    assert out("a ← []\nprint len(a)") == ["0"]
+    assert failure("print [1+2]*3").halt == "error"  # a list, not a grouping
 
 
 def test_one_line_if() -> None:
@@ -212,9 +215,10 @@ def test_implicit_multiplication_and_split_names() -> None:
 
 
 def test_euler_toggle() -> None:
-    assert "e is not defined" in (failure("print 2e^1").error or "")
-    assert out("print 2e^0", euler_e=True) == ["2."]
-    assert out("e ← 5\nprint e", euler_e=True) == ["5"]
+    """FR-SET-008: `e` is Euler's number by default; the toggle can turn it off."""
+    assert out("print 2e^0") == ["2."]
+    assert out("e ← 5\nprint e") == ["5"]
+    assert "e is not defined" in (failure("print 2e^1", euler_e=False).error or "")
 
 
 # ------------------------------------------------------------------------------- functions
@@ -280,6 +284,18 @@ def test_loop_limit_stops_with_a_steppable_trace() -> None:
     assert "50 loop passes" in (result.error or "")
     assert result.steps[-1].kind == "halt"
     assert result.variables["x"] == 50
+
+
+def test_default_run_limits() -> None:
+    """FR-SET-009: 1,000 passes per loop, 20,000 recorded steps, recursion depth 100."""
+    s = Settings()
+    assert (s.max_iterations, s.max_events, s.max_depth) == (1_000, 20_000, 100)
+    assert failure("x ← 0\nwhile true\n  x ← x + 1\nend while").variables["x"] == 1_000
+
+
+def test_loop_limit_is_per_loop_not_across_loops() -> None:
+    two = "for i from 1 to 600\n  x ← i\nend for\nfor j from 1 to 600\n  y ← j\nend for\nprint x, y"
+    assert out(two, max_events=100_000) == ["600 600"]
 
 
 def test_recursion_limit() -> None:

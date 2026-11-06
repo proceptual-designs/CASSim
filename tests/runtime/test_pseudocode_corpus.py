@@ -1,6 +1,6 @@
 """Replay corpus/pseudocode/seed.yaml against the tree interpreter (M7b; FR-PSE-*, FR-SET-*).
 
-Every case runs with display=full, Approx, Radian and the Euler toggle on (case q3 writes `2e^x`)
+Every case runs with display=full, Approx, Radian and the Euler toggle on (its default)
 unless the case says otherwise. Comparison modes are those named in the file header.
 """
 
@@ -18,16 +18,9 @@ SEED = Path(__file__).parents[2] / "corpus" / "pseudocode" / "seed.yaml"
 CASES: list[dict[str, Any]] = yaml.safe_load(SEED.read_text(encoding="utf-8"))["cases"]
 ALL = pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 
-# The corpus marks these as not desk-checkable although each has exactly one un-nested loop;
-# the rule in docs/pseudocode/trace-tables.md section 3 says they qualify. Awaiting Simon's call.
-ELIGIBILITY_DISAGREES = {
-    "book.u1.linear-search.x4-10x-2": "101 passes",
-    "vcaa.2024.nov.mm2.q17.integer-roots": "18 passes with two ifs per pass",
-}
-
 
 def settings_for(case: dict[str, Any], extra: dict[str, Any] | None = None) -> Settings:
-    changes: dict[str, Any] = {"display": "full", "euler_e": True, **case.get("settings", {})}
+    changes: dict[str, Any] = {"display": "full", **case.get("settings", {})}
     changes.update(extra or {})
     return Settings(**changes)
 
@@ -108,8 +101,6 @@ def test_horizontal_eligibility(case: dict[str, Any]) -> None:
     """FR-TRC-003: one un-nested loop makes the desk-check layout available."""
     if "trace" not in case:
         pytest.skip("no trace expectation")
-    if case["id"] in ELIGIBILITY_DISAGREES:
-        pytest.xfail(f"corpus flag disagrees with the rule: {ELIGIBILITY_DISAGREES[case['id']]}")
     result = run(case["pseudocode"], settings_for(case), case.get("inputs", []))
     assert result.horizontal_eligible == case["trace"]["horizontal_eligible"]
 

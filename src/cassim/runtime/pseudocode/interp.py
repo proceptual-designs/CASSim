@@ -395,7 +395,7 @@ class Interpreter:
     def next_pass(self, line: int) -> None:
         self.loops[-1][1] += 1
         self.iterations += 1
-        if self.iterations > self.settings.max_iterations:
+        if self.loops[-1][1] > self.settings.max_iterations:  # per loop run, not across loops
             raise RunLimitError(
                 f"stopped after {self.settings.max_iterations} loop passes "
                 "(the loop limit; change it in the settings)",

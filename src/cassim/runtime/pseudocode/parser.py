@@ -652,21 +652,17 @@ class Parser:
         raise self.error(f"unexpected {tok.raw or tok.text!r}", tok)
 
     def _parse_bracket(self, tok: Token) -> Expr:
-        """`[a+b]` groups (exam text uses it); `[]`, `[1, 2]` are lists."""
+        """`[]`, `[x]` and `[1, 2]` are lists; only `( )` groups (decision 0020 item 3)."""
         saved, self.abs_depth = self.abs_depth, 0
         items: list[Expr] = []
-        had_comma = False
         while not self.at_op("]"):
             items.append(self.parse_or())
             if self.at_op(","):
                 self.take()
-                had_comma = True
             elif not self.at_op("]"):
                 raise self.error("expected ',' or ']'")
         self.expect_op("]")
         self.abs_depth = saved
-        if len(items) == 1 and not had_comma:
-            return Paren(items[0], tok.line)
         return ListLit(tuple(items), tok.line)
 
 

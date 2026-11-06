@@ -2347,7 +2347,7 @@ cases:
     output: ["Zero between -0.2 and -0.1", "Zero between 2.2 and 2.3"]
     compare: tokens-numeric(1e-9)
   trace:
-    horizontal_eligible: false
+    horizontal_eligible: true
     loop_iterations: 101
   notes: "The book split this line over two `print` statements only to fit the page width; the corpus keeps the single-print version, which gives the book's two output lines under 'print ends the line'. With the display at 6 digits the values print as -0.2 and -0.1; the raw floats differ in the 16th digit, hence the numeric comparison."
   provenance: {"source": "author-book-pdf-adapted", "extracted": "2026-11-02", "reference_python_run": true}
@@ -2492,7 +2492,7 @@ cases:
     output: ["3", "-3", "2"]
     compare: exact
   trace:
-    horizontal_eligible: false
+    horizontal_eligible: true
     loop_iterations: 18
   notes: "Answer D. The function has no `end` (the body ends by dedent), the first `if` guards a sign flip, and all integers from 18 down to 1 are tested in the order c then -c. All values are integers, so the output is exact. VCAA's function has no `end`; the corpus adds the missing `end` (decided 2026-11-04)."
   provenance: {"source": "slide-image", "extracted": "2026-11-02", "reference_python_run": true}
