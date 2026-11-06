@@ -259,3 +259,38 @@ class TestLatex:
 
     def test_nested_templates(self):
         assert keys("1F(√2R)").latex(cursor=False) == r"\frac{1}{(\sqrt{2})}"
+
+
+def test_matrix_template_reads_as_ti_text_and_moves_by_cells() -> None:
+    """The grid template: Tab goes cell by cell, Up and Down by row (FR-CALC-004)."""
+    editor = Editor()
+    editor.insert_template(Kind.MATRIX, (2, 2))
+    for cell in ("1", "2", "3", "4"):
+        editor.insert_text(cell)
+        editor.tab()
+    assert editor.linear() == "[1,2;3,4]"
+    editor.left()  # back into the last cell
+    editor.up()
+    editor.insert_text("9")
+    assert editor.linear() == "[1,29;3,4]"
+    editor.down()
+    editor.insert_text("8")
+    assert editor.linear() == "[1,29;3,48]"
+
+
+def test_matrix_backspace_steps_back_without_merging_cells() -> None:
+    editor = Editor()
+    editor.insert_template(Kind.MATRIX, (1, 2))
+    editor.insert_text("5")
+    editor.tab()
+    editor.backspace()  # at the start of the second cell
+    assert editor.linear() == "[5,]"
+    assert editor.path == [(0, 0)]
+
+
+def test_matrix_latex_is_a_bracketed_grid() -> None:
+    editor = Editor()
+    editor.insert_template(Kind.MATRIX, (2, 1))
+    latex = editor.latex(cursor=False)
+    assert r"\begin{matrix}" in latex
+    assert r"\\" in latex

@@ -240,3 +240,31 @@ def test_cut_is_undoable_and_paste_of_other_text_is_typed() -> None:
     assert page.editor.linear() == "abc"
     page.perform(Binding("paste", "x\ny"))  # text from outside the calculator
     assert page.editor.linear() == "abx y"  # undo brought back the selection, which paste replaces
+
+
+def test_recalling_an_entry_keeps_its_templates() -> None:
+    """Up then Enter puts a fraction back as a fraction, not as `(1)/(2)` text (FR-CALC-004)."""
+    calc = Calculator()
+    calc.perform(Binding("template", "fraction"))
+    calc.perform(Binding("insert", "1"))
+    calc.perform(Binding("tab"))
+    calc.perform(Binding("insert", "2"))
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))  # the entry row
+    calc.perform(Binding("enter"))
+    assert calc.editor.root
+    assert not isinstance(calc.editor.root[0], str)  # a template, not characters
+
+
+def test_clicking_a_history_row_picks_it_and_a_second_click_recalls_it() -> None:
+    calc = Calculator()
+    for char in "1+2":
+        calc.perform(Binding("insert", char))
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("recall_at", "0:entry"))
+    assert calc.recall == (0, "entry")
+    assert calc.editor.linear() == ""
+    calc.perform(Binding("recall_at", "0:entry"))
+    assert calc.editor.linear() == "1+2"
+    calc.perform(Binding("recall_at", "9:entry"))  # no such row: ignored

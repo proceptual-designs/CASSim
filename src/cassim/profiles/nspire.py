@@ -205,7 +205,16 @@ MENU = MenuItem(
             ),
         ),
         MenuItem("Statistics", items=_insert("mean", "median", "stDevSamp", "stDevPop")),
-        MenuItem("Matrix & Vector", items=_insert("det", "identity", "dotP", "crossP", "norm")),
+        MenuItem(
+            "Matrix & Vector",
+            items=(
+                MenuItem("Matrix 2×2", "template", "matrix:2,2"),
+                MenuItem("Matrix 3×3", "template", "matrix:3,3"),
+                MenuItem("Column vector 3×1", "template", "matrix:3,1"),
+                MenuItem("Row vector 1×3", "template", "matrix:1,3"),
+                *_insert("det", "identity", "dotP", "crossP", "norm"),
+            ),
+        ),
     ),
 )
 

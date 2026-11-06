@@ -42,7 +42,7 @@ class App:
         self.page = page
         self.state = state
         self.theme = DARK
-        self.view = CalculatorView(state, self.theme)
+        self.view = CalculatorView(state, self.theme, self.act)
         self.keypad = Keypad(state, self.press, self.theme)
         self.sidebar = Sidebar(state, self.refresh, self.theme)
         self.toolbar = ft.Row(spacing=6, wrap=True)

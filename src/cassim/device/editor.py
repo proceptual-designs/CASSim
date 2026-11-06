@@ -24,6 +24,7 @@ class Kind(StrEnum):
     FRACTION = "fraction"  # numerator, denominator
     POWER = "power"  # exponent, attached to the term before it
     ROOT = "root"  # radicand
+    MATRIX = "matrix"  # rows x columns of cells, row by row
 
 
 _SLOTS = {Kind.FRACTION: 2, Kind.POWER: 1, Kind.ROOT: 1}
@@ -38,9 +39,13 @@ _ANS_OPERATORS = frozenset("+-*/^")
 class Template:
     kind: Kind
     slots: list[Row] = field(default_factory=list)
+    cols: int = 0  # a matrix's columns; its rows are len(slots) // cols
 
     @classmethod
-    def empty(cls, kind: Kind) -> Template:
+    def empty(cls, kind: Kind, shape: tuple[int, int] = (1, 1)) -> Template:
+        if kind is Kind.MATRIX:
+            rows, cols = shape
+            return cls(kind, [[] for _ in range(rows * cols)], cols)
         return cls(kind, [[] for _ in range(_SLOTS[kind])])
 
 
@@ -108,7 +113,7 @@ class Editor:
             self.row().insert(self.pos, char)
             self.pos += 1
 
-    def insert_template(self, kind: Kind) -> None:
+    def insert_template(self, kind: Kind, shape: tuple[int, int] = (2, 2)) -> None:
         """A template from the palette: empty slots, cursor in the first.
 
         A fraction takes the term before the cursor as its numerator and starts in the denominator,
@@ -121,7 +126,7 @@ class Editor:
         if kind is Kind.FRACTION:
             self._fraction()
         else:
-            self.row().insert(self.pos, Template.empty(kind))
+            self.row().insert(self.pos, Template.empty(kind, shape))
             self._enter(self.pos, 0)
 
     def _fraction(self, selection: tuple[int, int] | None = None) -> None:
@@ -189,9 +194,15 @@ class Editor:
         self._extend_to(self.pos + step)
 
     def _extend_to(self, pos: int) -> None:
+        """Move the free end of the selection. Running off the end of a slot selects the whole
+        template in the row outside it, and the selection carries on from there."""
         self.selected = False
         if self.anchor is None:
             self.anchor = self.pos
+        if (pos < 0 or pos > len(self.row())) and self.path:
+            index, _ = self.path.pop()
+            self.anchor, self.pos = (index + 1, index) if pos < 0 else (index, index + 1)
+            return
         self.pos = max(0, min(pos, len(self.row())))
         if self.pos == self.anchor:
             self.anchor = None
@@ -309,6 +320,11 @@ class Editor:
         it when it is empty.
         """
         template = self._parent()
+        if template.kind is Kind.MATRIX and self.path[-1][1] > 0:  # cells do not merge: step back
+            index, slot = self.path[-1]
+            self.path[-1] = (index, slot - 1)
+            self.pos = len(self.row())
+            return
         index, slot = self.path.pop()
         if slot == 0:
             if any(template.slots):
@@ -386,18 +402,25 @@ class Editor:
             self.pos = index + 1
 
     def up(self) -> None:
-        self._between_fraction_rows(from_slot=1)
+        self._between_rows(from_slot=1, step=-1)
 
     def down(self) -> None:
-        self._between_fraction_rows(from_slot=0)
+        self._between_rows(from_slot=0, step=1)
 
-    def _between_fraction_rows(self, *, from_slot: int) -> None:
+    def _between_rows(self, *, from_slot: int, step: int) -> None:
+        """Up and Down: between the two slots of a fraction, or between a matrix's rows."""
         self._unselect()
         if not self.path:
             return
         index, slot = self.path[-1]
-        if self._parent().kind is Kind.FRACTION and slot == from_slot:
-            self.path[-1] = (index, 1 - from_slot)
+        parent = self._parent()
+        target = slot
+        if parent.kind is Kind.FRACTION and slot == from_slot:
+            target = 1 - from_slot
+        elif parent.kind is Kind.MATRIX and 0 <= slot + step * parent.cols < len(parent.slots):
+            target = slot + step * parent.cols
+        if target != slot:
+            self.path[-1] = (index, target)
             self.pos = min(self.pos, len(self.row()))
 
     def home(self) -> None:
@@ -467,6 +490,10 @@ def _linear(row: Row) -> str:
             out.append(f"(({_linear(node.slots[0])})/({_linear(node.slots[1])}))")
         elif node.kind is Kind.POWER:
             out.append(f"^({_linear(node.slots[0])})")
+        elif node.kind is Kind.MATRIX:
+            cells = [_linear(slot) for slot in node.slots]
+            rows = [",".join(cells[i : i + node.cols]) for i in range(0, len(cells), node.cols)]
+            out.append("[" + ";".join(rows) + "]")
         else:
             out.append(f"√({_linear(node.slots[0])})")
     return "".join(out)
@@ -474,6 +501,7 @@ def _linear(row: Row) -> str:
 
 # Digit height with a little depth: a taller bar pushes a denominator down.
 _CURSOR = r"{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}"
+_CURSOR_IN_SELECTION = r"{\color{#0b3d78}\rule[-0.15em]{0.06em}{0.8em}}"  # darker on the highlight
 _EMPTY_SLOT = r"\square"
 _SELECTION = "#7fb2e8"
 _SYMBOLS = {
@@ -545,6 +573,10 @@ def _latex(
         ]
         if node.kind is Kind.FRACTION:
             pieces.append(rf"\frac{{{slots[0]}}}{{{slots[1]}}}")
+        elif node.kind is Kind.MATRIX:
+            rows = [slots[i : i + node.cols] for i in range(0, len(slots), node.cols)]
+            body = r" \\ ".join(" & ".join(row) for row in rows)
+            pieces.append(rf"\left[\begin{{matrix}}{body}\end{{matrix}}\right]")
         elif node.kind is Kind.POWER:
             pieces.append(rf"{{}}^{{{slots[0]}}}")  # `{}` keeps a power at the start of a row valid
         else:
@@ -552,15 +584,15 @@ def _latex(
     cursor = _CURSOR if here_cursor else ""
     if high > low:
         chosen = "".join(pieces[low:high])
+        if here_cursor:  # the cursor sits inside the highlight at its edge, so no gap opens
+            bar = _CURSOR_IN_SELECTION
+            chosen = bar + chosen if at == low else chosen + bar
         # \colorbox draws no fill; \fcolorbox pads by 0.34em, so pull the contents back to its edges
         box = (
             rf"\fcolorbox{{{_SELECTION}}}{{{_SELECTION}}}"
             rf"{{$\kern-0.34em {chosen}\kern-0.34em$}}"
         )
-        before, after = "".join(pieces[:low]), "".join(pieces[high:])
-        if at == low:
-            return before + cursor + box + after
-        return before + box + cursor + after
+        return "".join(pieces[:low]) + box + "".join(pieces[high:])
     if not here_cursor:
         return "".join(pieces)
     return "".join(pieces[:at]) + cursor + "".join(pieces[at:])

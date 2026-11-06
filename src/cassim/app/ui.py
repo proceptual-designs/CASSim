@@ -32,9 +32,15 @@ def math(latex: str, theme: Theme, size: int = 20) -> ft.Markdown:
 class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
-    def __init__(self, state: AppState, theme: Theme = DARK) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        theme: Theme = DARK,
+        on_action: Callable[[str, str], None] = lambda action, arg: None,
+    ) -> None:
         self.state = state
         self.theme = theme
+        self.on_action = on_action
         self.status = ft.Text(size=12, color="#ffffff", weight=ft.FontWeight.BOLD)
         self.title = ft.Text(size=12, color="#ffffff")
         # The entry line sits in the list with a blank line under it, so the end of the list always
@@ -64,17 +70,19 @@ class CalculatorView:
         self.status.value = screen.status
         self.entry.content = math(screen.entry, self.theme, self.state.system.math_size)
         self.history.controls = [
-            *(self._line(line) for line in screen.lines),
+            *(self._line(line, number) for number, line in enumerate(screen.lines)),
             self.entry,
             ft.Container(height=ENTRY_ROOM),
         ]
         self._error(screen)
         self._menu(screen.menu)
 
-    def _line(self, line: Line) -> ft.Control:
+    def _line(self, line: Line, number: int) -> ft.Control:
         right = line.kind == "result"
+        spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
         return ft.Container(
             math(line.latex, self.theme, self.state.system.math_size),
+            on_click=lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
             padding=ft.Padding.symmetric(horizontal=6),

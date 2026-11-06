@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 from cassim.core.session import Result, Session
 from cassim.device.clipboard import Clipboard
-from cassim.device.editor import Editor, Kind
+from cassim.device.editor import Editor, Kind, Node
 from cassim.device.editor import Row as EditorRow
 
 if TYPE_CHECKING:
@@ -44,6 +44,7 @@ class Entry:
     latex: str  # as drawn: templates stacked
     result: Result
     approximate: bool = False
+    nodes: tuple[Node, ...] = ()  # the entry's templates and characters, for recall
 
 
 class Calculator:
@@ -108,6 +109,7 @@ class Calculator:
             undo=lambda _: self._step(self._undo, self._redo),
             redo=lambda _: self._step(self._redo, self._undo),
             escape=lambda _: self._mover(lambda: None)(""),
+            recall_at=self._recall_at,
         )
         return actions
 
@@ -125,8 +127,12 @@ class Calculator:
         kind = "operand" if all(char in _OPERAND_CHARS for char in text) else "operator"
         self._edit(kind, lambda: self.editor.insert_text(text))
 
-    def _template(self, kind: str) -> None:
-        self._edit("other", lambda: self.editor.insert_template(Kind(kind)))
+    def _template(self, spec: str) -> None:
+        """`fraction`, `root`, or `matrix:ROWS,COLS`."""
+        kind, _, shape = spec.partition(":")
+        rows, _, cols = shape.partition(",")
+        size = (int(rows), int(cols)) if shape else (2, 2)
+        self._edit("other", lambda: self.editor.insert_template(Kind(kind), size))
 
     def _power(self, exponent: str) -> None:
         """A key that opens an exponent already holding `exponent` (x squared)."""
@@ -202,12 +208,27 @@ class Calculator:
         at = max(at - 1, 0) if up else at + 1
         self.recall = rows[at] if at < len(rows) else None
 
+    def _recall_at(self, spec: str) -> None:
+        """A click on a history row (`INDEX:entry` or `INDEX:result`): the first click picks it,
+        a second click on the same row brings it into the entry line."""
+        index, _, row = spec.partition(":")
+        picked = (int(index), "result" if row == "result" else "entry")
+        if not 0 <= picked[0] < len(self.history):
+            return
+        if self.recall == picked:
+            self._enter(approximate=False)
+        else:
+            self.recall = picked
+
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:
             index, row = self.recall
             entry = self.history[index]
             self.recall = None
-            self.editor.insert_text(entry.text if row == "entry" else entry.result.text)
+            if row == "entry" and entry.nodes:  # keep fractions and powers as templates
+                self.editor.paste(list(entry.nodes))
+            else:
+                self.editor.insert_text(entry.text if row == "entry" else entry.result.text)
             return
         text = self.editor.linear()
         if not text:
@@ -222,6 +243,7 @@ class Calculator:
                 self.editor.latex(cursor=False, is_function=self.session.is_function),
                 result,
                 approximate,
+                tuple(copy.deepcopy(self.editor.root)),
             )
         )
         self.editor.clear()

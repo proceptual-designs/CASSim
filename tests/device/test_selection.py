@@ -150,3 +150,55 @@ def test_copy_keeps_templates_and_cut_removes_them() -> None:
     editor.select_left()
     assert linear_text(editor.cut()) == "((1)/(2))"
     assert editor.linear() == "((1)/(2))"
+
+
+def _fraction(numerator: str = "12", denominator: str = "3") -> Editor:
+    editor = Editor()
+    editor.insert_template(Kind.FRACTION)
+    editor.insert_text(numerator)
+    editor.tab()
+    editor.insert_text(denominator)
+    return editor
+
+
+def test_selection_leaving_a_slot_takes_the_whole_template() -> None:
+    """Shift+Right at the end of a slot selects the fraction, not a half of it."""
+    editor = _fraction()
+    editor.shift_tab()  # end of the numerator
+    editor.select_right()
+    assert editor.path == []
+    assert editor.span == (0, 1)
+    assert linear_text(editor.selection()) == "((12)/(3))"
+
+
+def test_selection_leaving_a_slot_on_the_left() -> None:
+    editor = _fraction()
+    editor.shift_tab()
+    editor.left()
+    editor.left()  # start of the numerator
+    editor.select_left()
+    assert editor.path == []
+    assert editor.span == (0, 1)
+
+
+def test_selection_carries_on_from_the_template() -> None:
+    editor = _fraction()
+    editor.right()
+    editor.insert_text("+1")
+    editor.home()
+    editor.right()  # into the numerator
+    editor.right()
+    editor.right()  # to its end
+    editor.select_right()
+    editor.select_right()
+    assert editor.span == (0, 2)  # the fraction and the + after it
+
+
+def test_the_cursor_is_drawn_inside_the_highlight() -> None:
+    editor = Editor("abc")
+    editor.select_left()
+    editor.select_left()
+    latex = editor.latex()
+    box = latex[latex.index(r"\fcolorbox") :]
+    assert "#0b3d78" in box  # the in-highlight cursor
+    assert "#4da3ff" not in latex  # no ordinary cursor beside it, so no gap
