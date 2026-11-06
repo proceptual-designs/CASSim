@@ -7,11 +7,25 @@ from cassim.runtime.pseudocode.interp import Interpreter
 from cassim.runtime.pseudocode.parser import parse
 from cassim.runtime.pseudocode.settings import Settings
 from cassim.runtime.pseudocode.steps import RunResult, Step
+from cassim.runtime.pseudocode.syntax import DEFAULT, PRESETS, Syntax, SyntaxFileError, load_syntax
 from cassim.runtime.pseudocode.tree import Diagnostic, Program
 
 __all__ = [
-    "Diagnostic", "Interpreter", "Program", "PseudocodeError", "PseudocodeSyntaxError", "RunResult",
-    "Settings", "Step", "parse", "run",
+    "DEFAULT",
+    "PRESETS",
+    "Diagnostic",
+    "Interpreter",
+    "Program",
+    "PseudocodeError",
+    "PseudocodeSyntaxError",
+    "RunResult",
+    "Settings",
+    "Step",
+    "Syntax",
+    "SyntaxFileError",
+    "load_syntax",
+    "parse",
+    "run",
 ]  # fmt: skip
 
 
@@ -21,10 +35,11 @@ def run(
     inputs: Iterable[str] = (),
     *,
     trace: bool = True,
+    syntax: Syntax = DEFAULT,
 ) -> RunResult:
     """Parse and run `source`. A syntax error is returned as a result with halt == "error"."""
     try:
-        program = parse(source)
+        program = parse(source, syntax)
     except PseudocodeSyntaxError as e:
         step = Step(0, e.line, "halt", 0, calc=e.message)
         return RunResult([], [step], [], "error", e.message, e.line)

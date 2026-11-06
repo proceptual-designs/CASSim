@@ -7,6 +7,7 @@
 # third_party: true = question text is (c) VCAA; fine in the private repo, must be cleared or replaced before anything is public (decision 0012, SRS NFR-LEG-007).
 # compare: exact | numeric (all numeric tokens within 1e-9 relative) | tokens-numeric (whitespace-split, numeric tokens numeric, others exact) | numeric(tol).
 # trace.horizontal_eligible: exactly one loop is executed and no loop is nested in another (the desk-check layout applies).
+# syntax: optional built-in preset name (default, vcaa, author, strict) the case is parsed under; absent means default. The default does not split `ax` into a*x; the vcaa and author presets do (decision 0021).
 # settings: every case runs with number=approx, angle=radian and display=full unless it has a `settings:` or `expect_by_settings:` block (SRS FR-SET-001..006). Replay compares the underlying printed values, so the 6-digit display default does not change a result; `display: 6` cases check the display itself.
 schema_version: 0
 cases:
@@ -1547,6 +1548,8 @@ cases:
       end if
     end for
   python: |
+    from math import log as loge
+
     def f(x):
         return loge(x) - x/3
 
@@ -2272,6 +2275,7 @@ cases:
 
 
 - id: book.u2.newton3.cubic
+  syntax: author
   tags: [function-keyword, function-by-assignment, for-do, next, implicit-multiplication, print-in-loop]
   source: "S. Tyler, Algorithms and Mathematics: Methods Unit 2 (Apr 2024), p.119 (own work)"
   third_party: false

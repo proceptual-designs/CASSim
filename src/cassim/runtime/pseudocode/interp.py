@@ -596,6 +596,11 @@ class Interpreter:
 
     def split_name(self, name: str) -> list[object] | None:
         """`ax` as a product of the variables a and x, when `ax` itself is not defined."""
+        if not self.program.split_names:
+            return None
+        return self.product_parts(name)
+
+    def product_parts(self, name: str) -> list[object] | None:
         if len(name) < 2 or self.scope.get(name) is not _MISSING:  # noqa: PLR2004
             return None
         values: list[object] = []
@@ -646,6 +651,8 @@ class Interpreter:
         if not close:
             close = [n for n in known if n.lower() == name.lower()]
         hint = f", did you mean {close[0]}?" if close else ""
+        if not self.program.split_names and self.product_parts(name) is not None:
+            hint = f", did you mean {'*'.join(name)}? (write a product with * or a space)"
         return PseudocodeRuntimeError(f"{name} is not defined{hint}", line)
 
     # ------------------------------------------------------------------ calls

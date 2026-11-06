@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from cassim.runtime.pseudocode import RunResult, Settings, parse, run, trace
+from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, parse, run, trace
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
 from cassim.runtime.pseudocode.lexer import tokenize
@@ -206,12 +206,16 @@ def test_strings() -> None:
 
 
 def test_implicit_multiplication_and_split_names() -> None:
-    assert out("a ← 2\nb ← 3\nprint 2a + 3b\nprint ab\nprint a(b+1)\nprint ab²") == [
-        "13",
-        "6",
-        "8",
-        "18",
-    ]
+    source = "a ← 2\nb ← 3\nprint 2a + 3b\nprint ab\nprint a(b+1)\nprint ab²"
+    for preset in ("vcaa", "author"):
+        result = run(source, Settings(), [], syntax=PRESETS[preset])
+        assert result.output == ["13", "6", "8", "18"]
+    # The default and strict presets do not split a name: `ab` must be written a*b.
+    result = run(source, Settings(), [], syntax=PRESETS["default"])
+    assert result.output == ["13"]
+    assert "did you mean a*b?" in (result.error or "")
+    strict = run("a ← 2\nb ← 3\nprint ab", Settings(), [], syntax=PRESETS["strict"])
+    assert "did you mean a*b?" in (strict.error or "")
 
 
 def test_euler_toggle() -> None:

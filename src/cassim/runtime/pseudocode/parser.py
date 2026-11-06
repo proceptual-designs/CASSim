@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.lexer import Token, tokenize
+from cassim.runtime.pseudocode.syntax import DEFAULT, Mode, Syntax
 from cassim.runtime.pseudocode.tree import (
     Append,
     Assign,
@@ -47,17 +48,8 @@ CONSTANT_NAMES = {"π", "pi", "ⅇ", "ⅈ"}
 # Words that end an expression and so can never start an implicitly multiplied factor.
 _STOP_WORDS = {"then", "do", "to", "step", "times", "is", "and", "or", "not", "mod", "div", "from",
                "in", "until", "else"}  # fmt: skip
-_NEXT_WORDS = 2  # `next` or `next k`
 _MIN_FUNC_ASSIGN = 4  # name ( ) ←
 _COMPARE = {"=", "≠", "<", ">", "≤", "≥"}
-_CLOSERS: dict[tuple[str, ...], str] = {
-    ("endif",): "if", ("end", "if"): "if",
-    ("endwhile",): "while", ("wend",): "while", ("end", "while"): "while",
-    ("endfor",): "for", ("end", "for"): "for",
-    ("endrepeat",): "repeat", ("end", "repeat"): "repeat",
-    ("enddefine",): "define", ("endfunction",): "define", ("end", "define"): "define",
-    ("end", "function"): "define", ("end",): "define",
-}  # fmt: skip
 
 
 @dataclass(slots=True)
@@ -67,40 +59,22 @@ class Line:
     col: int
 
 
-def _closer_kind(line: Line) -> str | None:
-    if any(t.kind != "NAME" for t in line.toks):
-        return None
-    words = tuple(t.text.lower() for t in line.toks)
-    if words and words[0] == "next" and len(words) <= _NEXT_WORDS:  # `next` or `next k`
-        return "for"
-    return _CLOSERS.get(words)
-
-
-def _continuation(line: Line) -> str | None:
-    first = line.toks[0]
-    if first.kind != "NAME":
-        return None
-    word = first.text.lower()
-    if word in ("elseif", "elif"):
-        return "elseif"
-    if word == "else":
-        nxt = line.toks[1].text.lower() if len(line.toks) > 1 else ""
-        return "elseif" if nxt == "if" else "else"
-    if word == "until":
-        return "until"
-    return None
-
-
 def _text(line: Line) -> str:
     return " ".join(t.raw or t.text for t in line.toks)
 
 
+def _text_of(line: Line, words: int) -> str:
+    return " ".join(t.text for t in line.toks[:words])
+
+
 class Parser:
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, syntax: Syntax = DEFAULT) -> None:
         self.source = source
+        self.syn = syntax
+        self.warnings: list[Diagnostic] = []
         self.lines: list[Line] = []
         current: list[Token] = []
-        for tok in tokenize(source):
+        for tok in tokenize(source, syntax, self.warn):
             if tok.kind == "NEWLINE":
                 if current:
                     self.lines.append(Line(current, current[0].line, current[0].col))
@@ -108,7 +82,6 @@ class Parser:
             elif tok.kind != "EOF":
                 current.append(tok)
         self.pos = 0
-        self.warnings: list[Diagnostic] = []
         self.stack: list[str] = []
         self.t: list[Token] = []  # tokens of the line being parsed
         self.i = 0
@@ -126,6 +99,71 @@ class Parser:
             tok = self.t[min(self.i, len(self.t) - 1)]
         return PseudocodeSyntaxError(message, tok.line if tok else 0, tok.col if tok else 0)
 
+    def kw(self, text: str) -> str:
+        return self.syn.kw(text)
+
+    def note(self, mode: Mode, line: int, what: str, warning: str | None = None) -> None:
+        """Apply a spelling or option mode: `no` is an error, `warn` a warning, `ok` nothing."""
+        if mode == "no":
+            raise PseudocodeSyntaxError(
+                f"{what} is not accepted by the {self.syn.name} syntax", line
+            )
+        if mode == "warn":
+            self.warn(line, warning or f"{what} is not preferred in the {self.syn.name} syntax")
+
+    def closer_of(self, line: Line) -> tuple[str, Mode, str] | None:
+        """(block kind, mode, spelling) when `line` is a block closer."""
+        if any(t.kind != "NAME" for t in line.toks):
+            return None
+        words = tuple(self.kw(t.text) for t in line.toks)
+        spelling = " ".join(t.text for t in line.toks)
+        if words[0] == "next" and len(words) == 2:  # noqa: PLR2004
+            words = ("next", "<variable>")
+        found = self.syn.closers.get(words)
+        return (found[0], found[1], spelling) if found else None
+
+    def continuation_of(self, line: Line) -> tuple[str, int, Mode] | None:
+        """(kind, keyword words, mode) when `line` starts `else if`, `else` or `until`."""
+        first = line.toks[0]
+        if first.kind != "NAME":
+            return None
+        w0 = self.kw(first.text)
+        w1 = (
+            self.kw(line.toks[1].text) if len(line.toks) > 1 and line.toks[1].kind == "NAME" else ""
+        )
+        if (w0, w1) in self.syn.else_if:
+            return "elseif", 2, self.syn.else_if[(w0, w1)]
+        if (w0,) in self.syn.else_if:
+            return "elseif", 1, self.syn.else_if[(w0,)]
+        if w0 == "else":
+            return "else", 1, "ok"
+        if w0 == "until":
+            return "until", 1, "ok"
+        return None
+
+    def at_logic(self, word: str) -> bool:
+        """`and`/`or`/`not` as a word or as the symbol the lexer canonicalised (∧ ∨ ¬)."""
+        tok = self.peek()
+        if tok is None:
+            return False
+        if tok.kind == "OP":
+            return tok.text == word
+        return tok.kind == "NAME" and self.kw(tok.text) == word
+
+    def take_logic(self) -> int:
+        tok = self.take()
+        if tok.kind == "NAME":
+            self.note(self.syn.word_mode(tok.text), tok.line, f"'{tok.text}'")
+        return tok.line
+
+    def take_option(self, word: str, policy: str) -> None:
+        """An optional word (`then`, `do`): required, optional or forbidden by the syntax file."""
+        present = self.skip_word(word)
+        if policy == "required" and not present:
+            raise self.error(f"expected '{word}'")
+        if policy == "forbidden" and present:
+            raise self.error(f"'{word}' is not accepted by the {self.syn.name} syntax")
+
     def peek(self) -> Token | None:
         return self.t[self.i] if self.i < len(self.t) else None
 
@@ -135,7 +173,7 @@ class Parser:
 
     def at_word(self, *words: str) -> bool:
         tok = self.peek()
-        return tok is not None and tok.kind == "NAME" and tok.text.lower() in words
+        return tok is not None and tok.kind == "NAME" and self.kw(tok.text) in words
 
     def take(self) -> Token:
         tok = self.peek()
@@ -174,14 +212,20 @@ class Parser:
 
     def parse_program(self) -> Program:
         body = self.parse_body(None)
-        if self.pos < len(self.lines):
+        while self.pos < len(self.lines):
             line = self.lines[self.pos]
-            if _continuation(line):
+            if self.continuation_of(line):
                 raise PseudocodeSyntaxError(
                     f"'{line.toks[0].text}' without a matching block", line.no
                 )
-            raise PseudocodeSyntaxError(f"'{_text(line)}' closes nothing", line.no)
-        return Program(body, self.source.splitlines(), self.warnings)
+            if self.closer_of(line) is None or self.syn.surplus_end == "no":
+                raise PseudocodeSyntaxError(f"'{_text(line)}' closes nothing", line.no)
+            self.note(self.syn.surplus_end, line.no, f"an extra '{_text(line)}'")
+            self.pos += 1
+            body.extend(self.parse_body(None))
+        return Program(
+            body, self.source.splitlines(), self.warnings, split_names=self.syn.split_products
+        )
 
     def parse_body(self, opener: Line | None) -> list[Stmt]:
         """Statements up to a closer, a continuation (else, until) or, if indented, a dedent."""
@@ -189,7 +233,7 @@ class Parser:
         dedent_closes = False
         while self.pos < len(self.lines):
             line = self.lines[self.pos]
-            if _continuation(line) or _closer_kind(line):
+            if self.continuation_of(line) or self.closer_of(line):
                 break
             if opener is not None and body and dedent_closes and line.col <= opener.col:
                 break
@@ -207,21 +251,34 @@ class Parser:
 
     def close_block(self, kind: str, opener: Line) -> None:
         """Consume the closer of `kind`, or note that it is missing."""
+        found = self.closer_of(self.lines[self.pos]) if self.pos < len(self.lines) else None
+        if found is not None and found[0] == kind:
+            line = self.lines[self.pos]
+            self.note(found[1], line.no, f"'{found[2]}'")
+            self.pos += 1
+            return
         if self.pos >= len(self.lines):
             if kind != "define":
                 raise PseudocodeSyntaxError(
                     f"missing 'end {kind}' for the {kind} on line {opener.no}", opener.no
                 )
-            return
-        line = self.lines[self.pos]
-        closer = _closer_kind(line)
-        if closer == kind:
-            self.pos += 1
-            return
-        if closer is not None and closer not in self.stack:
-            raise PseudocodeSyntaxError(f"'{_text(line)}' closes nothing", line.no)
-        if kind != "define":
-            self.warn(opener.no, f"missing 'end {kind}' for the {kind} on line {opener.no}")
+        elif found is not None and found[0] not in self.stack:
+            raise PseudocodeSyntaxError(
+                f"'{_text(self.lines[self.pos])}' closes nothing", self.lines[self.pos].no
+            )
+        if kind == "define":
+            self.note(
+                self.syn.dedent_closes_define,
+                opener.no,
+                f"ending the function on line {opener.no} by indentation",
+            )
+        else:
+            self.note(
+                self.syn.missing_inner_end,
+                opener.no,
+                f"a missing 'end {kind}' for the {kind} on line {opener.no}",
+                f"missing 'end {kind}' for the {kind} on line {opener.no}",
+            )
 
     # ------------------------------------------------------------------ statements
 
@@ -229,30 +286,41 @@ class Parser:
         line = self.lines[self.pos]
         self.use(line)
         first = line.toks[0]
-        word = first.text.lower() if first.kind == "NAME" else ""
+        word = self.kw(first.text) if first.kind == "NAME" else ""
         nxt = line.toks[1] if len(line.toks) > 1 else None
         assigning = nxt is not None and nxt.kind == "OP" and nxt.text == "←"
         if word and not assigning:
+            if word in self.syn.keywords["define"]:
+                self.note(self.syn.keywords["define"][word], line.no, f"'{first.text}'")
+                return self.parse_define(line)
             block = {
-                "define": self.parse_define, "function": self.parse_define,
                 "if": self.parse_if, "while": self.parse_while, "for": self.parse_for,
                 "repeat": self.parse_repeat,
             }.get(word)  # fmt: skip
             if block is not None:
                 return block(line)
             simple = {
-                "return": self.parse_return, "print": self.parse_print, "output": self.parse_print,
-                "input": self.parse_input, "append": self.parse_append, "break": self.parse_break,
-            }.get(word)  # fmt: skip
-            if simple is not None:
+                "return": self.parse_return,
+                "print": self.parse_print,
+                "input": self.parse_input,
+                "break": self.parse_break,
+            }
+            for kind, handler in simple.items():
+                if word in self.syn.keywords[kind]:
+                    self.note(self.syn.keywords[kind][word], line.no, f"'{first.text}'")
+                    self.pos += 1
+                    self.i = 1
+                    return handler(line)
+            if word == "append":
                 self.pos += 1
                 self.i = 1
-                return simple(line)
+                return self.parse_append(line)
         self.pos += 1
         return self.parse_simple(line)
 
     def parse_simple(self, line: Line) -> Stmt:
         if self._is_func_assign():
+            self.note(self.syn.func_assign, line.no, "defining a function by assignment")
             name = self.take().text
             self.expect_op("(")
             params: list[str] = []
@@ -278,7 +346,12 @@ class Parser:
             and expr.ops == ("=",)
             and isinstance(expr.first, Name | Index)
         ):
-            self.warn(line.no, "'=' used to assign; treated as '←'")
+            self.note(
+                self.syn.eq_assign,
+                line.no,
+                "'=' used to assign",
+                "'=' used to assign; treated as '←'",
+            )
             return Assign(self._target(expr.first), expr.rest[0], line.no)
         return ExprStmt(expr, line.no)
 
@@ -325,14 +398,22 @@ class Parser:
     def parse_print(self, line: Line) -> Stmt:
         items: list[Expr] = []
         wrapped = self.at_op("(") and self._matching_paren(self.i) == len(self.t) - 1
+        if self.syn.print_parens == "required" and not wrapped:
+            raise self.error("print needs its items in brackets: print(a, b)")
         if wrapped:  # print(a, b): the brackets hold the whole argument list
+            self.note("no" if self.syn.print_parens == "forbidden" else "ok", line.no, "print(...)")
             self.take()
         while self.peek() is not None and not (wrapped and self.at_op(")")):
             items.append(self.parse_or())
             if self.at_op(","):
                 self.take()
             elif self.peek() is not None and not (wrapped and self.at_op(")")):
-                self.warn(line.no, "print items without a comma; treated as separate items")
+                self.note(
+                    self.syn.juxtaposed,
+                    line.no,
+                    "print items without a comma",
+                    "print items without a comma; treated as separate items",
+                )
         if wrapped:
             self.expect_op(")")
         self.expect_end()
@@ -367,6 +448,10 @@ class Parser:
             self.expect_op(")")
         if self.at_op(":"):
             self.take()
+            if self.syn.define_colon == "forbidden":
+                raise self.error("a colon after the function header is not accepted")
+        elif self.syn.define_colon == "required":
+            raise self.error("expected ':' after the function header")
         self.expect_end()
         self.pos += 1
         body = self.parse_block("define", line)
@@ -388,7 +473,7 @@ class Parser:
             sig = tuple(names)
         default = None
         if self.at_op("="):
-            self.take()
+            self.note(self.syn.default_params, self.take().line, "a default parameter value")
             default = self.parse_or()
         return Param(pname.text, sig, default)
 
@@ -401,7 +486,7 @@ class Parser:
             self.use(cur)
             self.i = keyword_len
             cond = self.parse_or()
-            self.skip_word("then")
+            self.take_option("then", self.syn.then)
             if self.peek() is not None:  # one-line form: if c then statement
                 rest = self.t[self.i :]
                 self.pos += 1
@@ -416,10 +501,12 @@ class Parser:
             if self.pos >= len(self.lines):
                 break
             cont = self.lines[self.pos]
-            kind = _continuation(cont)
-            if kind == "elseif":
+            found = self.continuation_of(cont)
+            kind = found[0] if found else None
+            if found and kind == "elseif":
+                self.note(found[2], cont.no, f"'{_text_of(cont, found[1])}'")
                 cur = cont
-                keyword_len = 2 if cont.toks[0].text.lower() == "else" else 1
+                keyword_len = found[1]
                 continue
             if kind == "else":
                 else_line = cont.no
@@ -434,7 +521,8 @@ class Parser:
         cond = self.parse_or()
         if self.skip_word("is"):
             self.expect_word("true")
-        self.skip_word("do")
+            self.note(self.syn.is_true, line.no, "'is true' after a while condition")
+        self.take_option("do", self.syn.while_do)
         self.expect_end()
         self.pos += 1
         body = self.parse_block("while", line)
@@ -447,7 +535,7 @@ class Parser:
             var = self.take().text
             self.expect_word("in")
             iterable = self.parse_or()
-            self.skip_word("do")
+            self.take_option("do", self.syn.for_do)
             self.expect_end()
             self.pos += 1
             body = self.parse_block("for", line)
@@ -458,8 +546,11 @@ class Parser:
         start = self.parse_or()
         self.expect_word("to")
         stop = self.parse_or()
-        step = self.parse_or() if self.skip_word("step") else None
-        self.skip_word("do")
+        step = None
+        if self.at_word("step"):
+            self.note(self.syn.for_step, self.take().line, "'step'")
+            step = self.parse_or()
+        self.take_option("do", self.syn.for_do)
         self.expect_end()
         self.pos += 1
         body = self.parse_block("for", line)
@@ -478,7 +569,8 @@ class Parser:
             return RepeatTimes(count, body, line.no)
         self.pos += 1
         body = self.parse_block("repeat", line)
-        if self.pos >= len(self.lines) or _continuation(self.lines[self.pos]) != "until":
+        found = self.continuation_of(self.lines[self.pos]) if self.pos < len(self.lines) else None
+        if found is None or found[0] != "until":
             raise PseudocodeSyntaxError(f"'repeat' on line {line.no} has no 'until'", line.no)
         until = self.lines[self.pos]
         self.use(until)
@@ -492,21 +584,21 @@ class Parser:
 
     def parse_or(self) -> Expr:
         left = self.parse_and()
-        while self.at_word("or"):
-            line = self.take().line
+        while self.at_logic("or"):
+            line = self.take_logic()
             left = Binary("or", left, self.parse_and(), line)
         return left
 
     def parse_and(self) -> Expr:
         left = self.parse_not()
-        while self.at_word("and"):
-            line = self.take().line
+        while self.at_logic("and"):
+            line = self.take_logic()
             left = Binary("and", left, self.parse_not(), line)
         return left
 
     def parse_not(self) -> Expr:
-        if self.at_word("not"):
-            line = self.take().line
+        if self.at_logic("not"):
+            line = self.take_logic()
             return Unary("not", self.parse_not(), line)
         return self.parse_compare()
 
@@ -535,7 +627,7 @@ class Parser:
         if tok.kind == "NUMBER":
             return True
         if tok.kind == "NAME":
-            return tok.text.lower() not in _STOP_WORDS
+            return self.kw(tok.text) not in _STOP_WORDS
         if tok.kind == "OP":
             if tok.text == "|":
                 return self.abs_depth == 0
@@ -552,8 +644,9 @@ class Parser:
                 self.take()
                 op = "mod" if tok.text == "%" else tok.text
                 left = Binary(op, left, self.parse_unary(), tok.line)
-            elif tok.kind == "NAME" and tok.text.lower() in ("div", "mod"):
+            elif tok.kind == "NAME" and self.kw(tok.text) in ("div", "mod"):
                 self.take()
+                self.note(self.syn.word_mode(tok.text), tok.line, f"'{tok.text}'")
                 left = Binary(tok.text.lower(), left, self.parse_unary(), tok.line)
             elif self._starts_factor() and not isinstance(left, Str):
                 if isinstance(left, Num) and tok.kind == "NUMBER":
@@ -666,5 +759,5 @@ class Parser:
         return ListLit(tuple(items), tok.line)
 
 
-def parse(source: str) -> Program:
-    return Parser(source).parse_program()
+def parse(source: str, syntax: Syntax = DEFAULT) -> Program:
+    return Parser(source, syntax).parse_program()

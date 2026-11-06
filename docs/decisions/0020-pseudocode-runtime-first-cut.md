@@ -12,7 +12,7 @@ green, including the five `expect_by_settings` cases; loop-pass counts match the
 1. **Grammar is hard-coded, not yet driven by the syntax file.** The tolerant default of
    `syntax-default.yaml` is written directly in `parser.py`. FR-SYN-001 to -009 (the table-driven
    parser, presets, validation) are the next step; the tables at the top of `parser.py` and `lexer.py`
-   are where it plugs in.
+   are where it plugs in. **Done 2026-11-07, see 0021.**
 2. **Block ends.** End keywords decide structure. A missing `end if` (and the other inner closers) is
    a warning and is closed by an outer closer or by a dedent, but a dedent closes a block only when the
    block's first body line is indented deeper than its opener, so flat-indented programs with proper
@@ -43,7 +43,7 @@ green, including the five `expect_by_settings` cases; loop-pass counts match the
 - **Euler's `e` is on by default** (item 4). The corpus replay no longer needs to force it.
 - **Run limits lowered** (item 8): 1,000 passes **per loop run** (each loop counts its own passes; it
   was a single count across all loops) and 20,000 recorded steps. Recursion depth stays 100.
-- **Name splitting** (item 5): undecided; behaviour unchanged for now.
+- **Name splitting** (item 5): decided in [0021](0021-pseudocode-syntax-file.md): off in the default and strict presets, on in the vcaa and author presets.
 - **Square brackets always make a list** (item 3): `[x]` is a one-item list, and only `( )` groups.
   Exam text that groups with `[ ]` must be normalised to `( )`, as the corpus already does.
 - **Eligibility disagreement resolved**: the rule stands and the two corpus flags are now `true`.

@@ -4,9 +4,13 @@ Keywords are not decided here: a NAME is a keyword only where the parser expects
 called `end` is still possible in expression position.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
+from cassim.runtime.pseudocode.syntax import DEFAULT, Mode, Syntax
+
+type Warn = Callable[[int, str], None]
 
 SUPERSCRIPT = {
     "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
@@ -47,23 +51,52 @@ def _is_name_part(c: str) -> bool:
     return (c.isalnum() and c not in SUPERSCRIPT) or c == "_" or c in "ⅇⅈ'"
 
 
-def tokenize(source: str) -> list[Token]:
+def _spelling(
+    mode: Mode | None, what: str, syntax: Syntax, at: tuple[int, int], warn: Warn
+) -> None:
+    """Apply a spelling's mode from the syntax file: `no` stops the parse, `warn` is noted."""
+    line, col = at
+    if mode == "no" or mode is None:
+        raise PseudocodeSyntaxError(
+            f"{what} is not accepted by the {syntax.name} syntax", line, col
+        )
+    if mode == "warn":
+        warn(line, f"{what} is not preferred in the {syntax.name} syntax")
+
+
+def _ignore(line: int, message: str) -> None:
+    del line, message
+
+
+def tokenize(source: str, syntax: Syntax = DEFAULT, warn: Warn = _ignore) -> list[Token]:
     tokens: list[Token] = []
     for lineno, text in enumerate(source.splitlines(), start=1):
-        _tokenize_line(text, lineno, tokens)
+        _tokenize_line(text, lineno, tokens, syntax, warn)
         tokens.append(Token("NEWLINE", "", lineno, len(text), len(text)))
     last = len(source.splitlines()) + 1
     tokens.append(Token("EOF", "", last, 0, 0))
     return tokens
 
 
-def _tokenize_line(text: str, lineno: int, out: list[Token]) -> None:  # noqa: PLR0912
+def _comment_marker(text: str, i: int, syntax: Syntax) -> str | None:
+    for marker in syntax.comments:
+        if text.startswith(marker, i):
+            return marker
+    return None
+
+
+def _tokenize_line(  # noqa: PLR0912
+    text: str, lineno: int, out: list[Token], syntax: Syntax, warn: Warn
+) -> None:
     i, n = 0, len(text)
     while i < n:
         c = text[i]
+        marker = _comment_marker(text, i, syntax)
         if c in " \t":
             i += 1
-        elif text.startswith("//", i) or c == "#":
+        elif marker is not None:
+            what = f"the comment marker '{marker}'"
+            _spelling(syntax.comments[marker], what, syntax, (lineno, i), warn)
             break
         elif (c.isdigit() and c not in SUPERSCRIPT) or (
             c == "." and i + 1 < n and text[i + 1].isdigit()
@@ -78,21 +111,15 @@ def _tokenize_line(text: str, lineno: int, out: list[Token]) -> None:  # noqa: P
                 j += 1
             if j >= n:
                 raise PseudocodeSyntaxError("unterminated string", lineno, i)
+            kind = "straight" if c == '"' else "curly"
+            _spelling(syntax.quotes.get(kind), f"{kind} quotes", syntax, (lineno, i), warn)
             out.append(Token("STRING", text[i + 1 : j], lineno, i, j + 1))
             i = j + 1
         elif c in SUPERSCRIPT or c == SUPERSCRIPT_MINUS:
-            j = i
-            sign = ""
-            if text[j] == SUPERSCRIPT_MINUS:
-                sign, j = "-", j + 1
-            start = j
-            while j < n and text[j] in SUPERSCRIPT:
-                j += 1
-            if j == start:
-                raise PseudocodeSyntaxError("a superscript minus needs digits", lineno, i)
-            digits = "".join(SUPERSCRIPT[ch] for ch in text[start:j])
-            out.append(Token("SUP", sign + digits, lineno, i, j))
-            i = j
+            _spelling(syntax.superscripts, "superscript exponents", syntax, (lineno, i), warn)
+            tok = _scan_superscript(text, i, lineno)
+            out.append(tok)
+            i = tok.end
         elif _is_name_start(c):
             j = i + 1
             while j < n and _is_name_part(text[j]):
@@ -102,12 +129,27 @@ def _tokenize_line(text: str, lineno: int, out: list[Token]) -> None:  # noqa: P
         else:
             for op in _OPERATORS:
                 if text.startswith(op, i):
+                    if op in syntax.op_modes:
+                        _spelling(syntax.op_modes[op], f"'{op}'", syntax, (lineno, i), warn)
                     canon = _CANONICAL.get(op, op)
                     out.append(Token("OP", canon, lineno, i, i + len(op), op))
                     i += len(op)
                     break
             else:
                 raise PseudocodeSyntaxError(f"unexpected character {c!r}", lineno, i)
+
+
+def _scan_superscript(text: str, i: int, lineno: int) -> Token:
+    j, n, sign = i, len(text), ""
+    if text[j] == SUPERSCRIPT_MINUS:
+        sign, j = "-", j + 1
+    start = j
+    while j < n and text[j] in SUPERSCRIPT:
+        j += 1
+    if j == start:
+        raise PseudocodeSyntaxError("a superscript minus needs digits", lineno, i)
+    digits = "".join(SUPERSCRIPT[ch] for ch in text[start:j])
+    return Token("SUP", sign + digits, lineno, i, j)
 
 
 def _scan_number(text: str, i: int) -> int:

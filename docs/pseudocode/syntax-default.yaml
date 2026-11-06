@@ -12,6 +12,9 @@ syntax_version: 0
 name: "CASSim default (tolerant)"
 based_on: null
 
+names:
+  split_products: false                  # `ax` is the product a*x when a and x are defined: off here (an error with a hint), on in the vcaa and author presets
+
 lexical:
   keywords_case_insensitive: true      # define / Define / DEFINE
   identifiers_case_sensitive: true     # A and a are different names

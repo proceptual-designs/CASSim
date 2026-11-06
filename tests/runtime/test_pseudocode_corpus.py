@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 import yaml
 
-from cassim.runtime.pseudocode import RunResult, Settings, run
+from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, run
 
 SEED = Path(__file__).parents[2] / "corpus" / "pseudocode" / "seed.yaml"
 CASES: list[dict[str, Any]] = yaml.safe_load(SEED.read_text(encoding="utf-8"))["cases"]
@@ -23,6 +23,16 @@ def settings_for(case: dict[str, Any], extra: dict[str, Any] | None = None) -> S
     changes: dict[str, Any] = {"display": "full", **case.get("settings", {})}
     changes.update(extra or {})
     return Settings(**changes)
+
+
+def run_case(case: dict[str, Any], extra: dict[str, Any] | None = None) -> RunResult:
+    """Run a case under its `syntax:` preset (default when the case names none)."""
+    return run(
+        case["pseudocode"],
+        settings_for(case, extra),
+        case.get("inputs", []),
+        syntax=PRESETS[case.get("syntax", "default")],
+    )
 
 
 def as_number(token: str) -> float | None:
@@ -76,7 +86,7 @@ def test_golden_output(case: dict[str, Any]) -> None:
     """FR-PSE-001 to -007: the program's printed output matches the reference Python."""
     if "expect" not in case or not case["expect"]:
         pytest.skip("expectations are in expect_by_settings")
-    result = run(case["pseudocode"], settings_for(case), case.get("inputs", []))
+    result = run_case(case)
     check(result, case["expect"])
 
 
@@ -90,9 +100,7 @@ BY_SETTINGS = [
 @pytest.mark.parametrize(("case", "variant"), BY_SETTINGS)
 def test_golden_output_by_settings(case: dict[str, Any], variant: dict[str, Any]) -> None:
     """FR-SET-001 to -006: number mode, angle and display precision change the printed values."""
-    result = run(
-        case["pseudocode"], settings_for(case, variant["settings"]), case.get("inputs", [])
-    )
+    result = run_case(case, variant["settings"])
     check(result, variant)
 
 
@@ -101,7 +109,7 @@ def test_horizontal_eligibility(case: dict[str, Any]) -> None:
     """FR-TRC-003: one un-nested loop makes the desk-check layout available."""
     if "trace" not in case:
         pytest.skip("no trace expectation")
-    result = run(case["pseudocode"], settings_for(case), case.get("inputs", []))
+    result = run_case(case)
     assert result.horizontal_eligible == case["trace"]["horizontal_eligible"]
 
 
@@ -111,5 +119,5 @@ def test_loop_iterations(case: dict[str, Any]) -> None:
     iterations = case.get("trace", {}).get("loop_iterations")
     if iterations is None or case.get("expect", {}).get("halt"):
         pytest.skip("no iteration count")
-    result = run(case["pseudocode"], settings_for(case), case.get("inputs", []))
+    result = run_case(case)
     assert result.loop_body_runs == iterations

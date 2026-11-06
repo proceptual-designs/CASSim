@@ -229,3 +229,4 @@ class Program:
     body: list[Stmt]
     lines: list[str]
     warnings: list[Diagnostic] = field(default_factory=list)
+    split_names: bool = False  # `ax` is a×x when undefined (syntax file: names.split_products)
