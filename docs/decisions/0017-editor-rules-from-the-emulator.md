@@ -8,6 +8,7 @@ Date: 2026-11-06. Status: accepted. Source: `docs/testing/emulator-editor-result
 - A bracketed plain sum loses its brackets as a numerator (`(a+b)/2`); a bracketed power keeps them (`(a+b)²/c`).
 - Backspace just after a template highlights it; a second press deletes it. Backspace at the start of the first slot (numerator, exponent, radicand) highlights the whole template; at the start of the denominator it dissolves the fraction and keeps its contents.
 - Right leaves the slot it is in, including a numerator. Tab visits slots in order, then leaves. Down goes from numerator to denominator.
+- The fraction template also has a shortcut: **ctrl+/** on a computer keyboard and **ctrl+÷** on the handheld keypad (confirmed by Simon, 2026-11-06; not yet run through the emulator). Plain `/` and ÷ stay linear.
 - An operator typed first on an empty line (`/ ^ * + -`) inserts `Ans`.
 - Up on an **empty** entry line selects the last result, then the last entry; Return copies it into the line. This belongs to the document/history layer, not the editor (M2c).
 - `^` and `√` build templates while typing and stay open until Right (confirmed).
