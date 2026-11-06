@@ -30,7 +30,7 @@ lexical:
   and:           {"and": ok, "∧": ok}
   or:            {"or": ok, "∨": ok}
   not:           {"not": ok, "¬": ok}
-  grouping:      {"( )": ok, "[ ]": ok}
+  grouping:      {"( )": ok}
   abs_bars:      ok
   string_quotes: {"straight": ok, "curly": ok}
 

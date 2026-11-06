@@ -45,7 +45,7 @@ Every spelling in this section and in section 4 is the default of the user's syn
 - **Implicit multiplication**: `2a`, `2t`, `2e^x`, `(a+b)(c+d)`. A name followed by `(` is a call if it is a defined function or a function parameter, otherwise it is a product.
 - **Comparison**: `=` (equality in an expression; `==` also accepted), `≠ <> !=`, `< >`, `≤ <= ⩽`, `≥ >= ⩾`. **Chained comparisons** are allowed with Python meaning: `-0.01 < cos(x) - x < 0.01`.
 - **Logic**: `and or not`, and `∧ ∨ ¬` (Specialist).
-- **Absolute value** bars `|R - L|`; **grouping** with `( )` and, because exam text uses it, `[ ]`.
+- **Absolute value** bars `|R - L|`; **grouping** with `( )` only (decided 2026-11-06); `[ ]` always makes a list, so `[x]` is a one-item list.
 - **Numbers**: `12`, `0.5`, `.5`, and scientific notation as `1E-3` or `1ᴇ-3` only (lowercase `e` is never an exponent marker, so `2e3` is `2 × e3`).
 - **Strings**: double quotes, straight or curly. Concatenation with `+`.
 - **Constants and functions**: section 7.
@@ -117,7 +117,7 @@ bisection(2x-3, 0, 2, 0.1)
 
 ## 7 Built-ins and constants
 
-Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default off; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
+Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default on; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
 
 ## 8 Numbers and settings
 
@@ -130,8 +130,8 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 | Display precision (… menu) | default **6 significant digits** (Mathematica style); also Fix n and Full | Reals print to the chosen precision, trailing zeros dropped (`1.2000000000000002` shows as `1.2`, `1/3` as `0.333333`). Integers and rationals always print exactly. The stored value never changes. Applies to output and to trace cells. | none: Python prints its own repr |
 | Domain (… menu, Could) | Real / Complex | Real: `sqrt(-4)` is an error; Complex: gives `2ⅈ` | complex-aware functions (`cmath`) |
 | Gradian, random seed (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
-| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default off) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
-| Run limits (… menu, Should; FR-SET-009) | max loop iterations (default 10,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
+| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default on) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
+| Run limits (… menu, Should; FR-SET-009) | max passes of any one loop run (default 1,000), max recorded trace steps (default 20,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
 

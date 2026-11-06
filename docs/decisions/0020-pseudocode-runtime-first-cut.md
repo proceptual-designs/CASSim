@@ -1,6 +1,6 @@
 # 0020 Pseudocode runtime, first cut (M7b)
 
-Date: 2026-11-06. Status: built, awaiting review by Simon.
+Date: 2026-11-06. Status: built; Simon's review of 2026-11-06 is recorded below.
 
 `src/cassim/runtime/pseudocode/` holds a tokenizer, a line-oriented block parser with a Pratt
 expression parser, a tree-walking interpreter that records one `Step` per executed line, and the two
@@ -38,7 +38,19 @@ green, including the five `expect_by_settings` cases; loop-pass counts match the
    recorded steps (200,000, reported as `event_cap`), each ending the run with a final `halt` step so
    the trace stays steppable.
 
-## Disagreement for Simon
+## Simon's review, 2026-11-06
+
+- **Euler's `e` is on by default** (item 4). The corpus replay no longer needs to force it.
+- **Run limits lowered** (item 8): 1,000 passes **per loop run** (each loop counts its own passes; it
+  was a single count across all loops) and 20,000 recorded steps. Recursion depth stays 100.
+- **Name splitting** (item 5): undecided; behaviour unchanged for now.
+- **Square brackets always make a list** (item 3): `[x]` is a one-item list, and only `( )` groups.
+  Exam text that groups with `[ ]` must be normalised to `( )`, as the corpus already does.
+- **Eligibility disagreement resolved**: the rule stands and the two corpus flags are now `true`.
+- **VCAA question text** (0012): Simon stands by the view that the questions are too generic, with too
+  much prior art, to be copyrightable. The 0012 pre-release condition is left as written.
+
+## Disagreement for Simon (resolved above)
 
 `trace.horizontal_eligible` is `false` in the corpus for `book.u1.linear-search.x4-10x-2` and
 `vcaa.2024.nov.mm2.q17.integer-roots`, but each runs exactly one un-nested loop, so the rule in
