@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from cassim.core.session import Result, Session
+from cassim.device.clipboard import Clipboard
 from cassim.device.editor import Editor, Kind
+from cassim.device.editor import Row as EditorRow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,9 +21,19 @@ if TYPE_CHECKING:
     from cassim.device.keys import Binding
 
 type Row = Literal["entry", "result"]
-type Snapshot = tuple[object, ...]
 
 _OPERAND_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_πⅇⅈ")
+
+
+@dataclass
+class Snapshot:
+    """The entry line at one moment, for undo and redo."""
+
+    root: EditorRow
+    path: list[tuple[int, int]]
+    pos: int
+    selected: bool
+    anchor: int | None
 
 
 @dataclass(frozen=True)
@@ -35,8 +47,9 @@ class Entry:
 
 
 class Calculator:
-    def __init__(self, session: Session | None = None) -> None:
+    def __init__(self, session: Session | None = None, clipboard: Clipboard | None = None) -> None:
         self.session = session if session is not None else Session()
+        self.clipboard = clipboard if clipboard is not None else Clipboard()
         self.editor = Editor()
         self.history: list[Entry] = []
         self.error: str | None = None  # a dialog waiting for a key press
@@ -66,6 +79,15 @@ class Calculator:
             "shift_tab": self.editor.shift_tab,
             "home": self.editor.home,
             "end": self.editor.end,
+            "select_left": self.editor.select_left,
+            "select_right": self.editor.select_right,
+            "select_all": self.editor.select_all,
+            "select_word_left": self.editor.select_word_left,
+            "select_word_right": self.editor.select_word_right,
+            "select_to_start": self.editor.select_to_start,
+            "select_to_end": self.editor.select_to_end,
+            "word_left": self.editor.word_left,
+            "word_right": self.editor.word_right,
         }
         actions: dict[str, Callable[[str], None]] = {
             name: self._mover(method) for name, method in move.items()
@@ -76,6 +98,9 @@ class Calculator:
             power=self._power,
             backspace=lambda _: self._edit("other", self.editor.backspace),
             delete=lambda _: self._edit("other", self.editor.delete),
+            copy=lambda _: self._copy(),
+            cut=lambda _: self._cut(),
+            paste=self._paste,
             up=lambda _: self._vertical(up=True),
             down=lambda _: self._vertical(up=False),
             enter=lambda _: self._enter(approximate=False),
@@ -113,19 +138,44 @@ class Calculator:
     def _edit(self, kind: str, change: Callable[[], None]) -> None:
         """Run an edit. Undo steps back one group: a run of operands, or one operator."""
         self.recall = None
+        if self.editor.anchor is not None:
+            kind = "other"  # typing over a selection is a step of its own
         if kind != self._group or kind != "operand":
             self._undo.append(self._snapshot())
             self._redo.clear()
         self._group = kind
         change()
 
+    def _copy(self) -> None:
+        nodes = self.editor.selection()
+        if nodes:
+            self.clipboard.nodes = nodes
+
+    def _cut(self) -> None:
+        if self.editor.selection():
+            self._edit("other", lambda: setattr(self.clipboard, "nodes", self.editor.cut()))
+
+    def _paste(self, text: str) -> None:
+        """Paste the clipboard's nodes, or `text` from the system clipboard if it differs."""
+        if text and text != self.clipboard.text:
+            self._edit("other", lambda: self.editor.insert_text(" ".join(text.split())))
+        elif self.clipboard.nodes:
+            self._edit("other", lambda: self.editor.paste(self.clipboard.nodes))
+
     def _snapshot(self) -> Snapshot:
-        editor = self.editor
-        return copy.deepcopy((editor.root, editor.path, editor.pos, editor.selected))
+        e = self.editor
+        return copy.deepcopy(Snapshot(e.root, e.path, e.pos, e.selected, e.anchor))
 
     def _restore(self, snapshot: Snapshot) -> None:
-        editor = self.editor
-        editor.root, editor.path, editor.pos, editor.selected = copy.deepcopy(snapshot)  # ty: ignore[invalid-assignment]
+        e = self.editor
+        saved = copy.deepcopy(snapshot)
+        e.root, e.path, e.pos, e.selected, e.anchor = (
+            saved.root,
+            saved.path,
+            saved.pos,
+            saved.selected,
+            saved.anchor,
+        )
 
     def _step(self, source: list[Snapshot], target: list[Snapshot]) -> None:
         if source:
@@ -165,7 +215,14 @@ class Calculator:
         if result.error is not None:
             self.error = result.error
             return
-        self.history.append(Entry(text, self.editor.latex(cursor=False), result, approximate))
+        self.history.append(
+            Entry(
+                text,
+                self.editor.latex(cursor=False, is_function=self.session.is_function),
+                result,
+                approximate,
+            )
+        )
         self.editor.clear()
         self._undo.clear()
         self._redo.clear()

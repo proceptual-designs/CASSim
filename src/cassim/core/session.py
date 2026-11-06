@@ -2,14 +2,14 @@
 
 from dataclasses import dataclass, replace
 
-from cassim.core import ast, errors
+from cassim.core import ast, catalog, errors
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_ascii, to_latex, to_text
 from cassim.core.parser import parse
-from cassim.core.scope import Scope
-from cassim.core.settings import Ascii, Calc, Case, Settings, updated
+from cassim.core.scope import Function, Scope
+from cassim.core.settings import Ascii, Calc, Case, Settings, updated, variable_key
 from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import (
     Bool,
@@ -30,6 +30,16 @@ class Result:
     latex: str
     value: Value | None
     error: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class VariableInfo:
+    """One row of the variable list."""
+
+    name: str
+    text: str  # the value as linear text, or `f(x)` for a function
+    latex: str
+    is_function: bool
 
 
 class Session:
@@ -79,6 +89,26 @@ class Session:
         if not isinstance(value, Void):
             self._ans = value
         return Result(text, latex, value, None)
+
+    def is_function(self, name: str) -> bool:
+        """Whether `name` is a built-in command or a user function defined in this Problem."""
+        return catalog.is_builtin(name.casefold()) or isinstance(
+            self.scope.get(variable_key(self.settings, name)), Function
+        )
+
+    def variables(self) -> list[VariableInfo]:
+        """The Problem's variables and user functions, sorted by name (the variable list)."""
+        rows: list[VariableInfo] = []
+        for name in sorted(self.scope.names()):
+            item = self.scope.get(name)
+            if isinstance(item, Function):
+                head = f"{name}({','.join(item.params)})"
+                rows.append(
+                    VariableInfo(name, head, rf"\mathbf{{{name}}}({','.join(item.params)})", True)
+                )
+            elif item is not None:
+                rows.append(VariableInfo(name, to_text(item, self.settings), to_latex(item), False))
+        return rows
 
     def new_problem(self) -> None:
         self._ans = None

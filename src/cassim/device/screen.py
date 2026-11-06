@@ -1,0 +1,48 @@
+"""The screen buffer (FR-DEV-001): what a Calculator page shows, as data a GUI can draw.
+
+It holds LaTeX and plain text only; the GUI decides fonts, sizes and layout.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+from cassim.device.document import Document
+
+
+@dataclass(frozen=True)
+class Line:
+    kind: Literal["entry", "result"]
+    latex: str
+    text: str
+    selected: bool = False  # Up has picked this row for recall
+
+
+@dataclass(frozen=True)
+class Screen:
+    title: str  # "1.1" (problem.page)
+    status: str
+    lines: tuple[Line, ...]
+    entry: str  # LaTeX of the entry line, cursor drawn
+    error: str | None
+
+
+def render(document: Document, status: str = "") -> Screen:
+    """Describe the current page. A page without a model shows an empty screen."""
+    title = f"{document.problem + 1}.{document.page + 1}"
+    page = document.current.calculator
+    if page is None:
+        return Screen(title, status, (), "", None)
+    lines: list[Line] = []
+    for index, entry in enumerate(page.history):
+        lines.append(Line("entry", entry.latex, entry.text, page.recall == (index, "entry")))
+        result = entry.result.latex or f"\text{{{entry.result.text}}}"
+        lines.append(Line("result", result, entry.result.text, page.recall == (index, "result")))
+    return Screen(
+        title,
+        status,
+        tuple(lines),
+        page.editor.latex(is_function=page.session.is_function),
+        page.error,
+    )

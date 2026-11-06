@@ -46,3 +46,17 @@ class Keyboard:
         if binding is None and typed and len(key) == 1:
             return Binding("insert", key)
         return binding
+
+
+@dataclass(frozen=True)
+class Key:
+    """A key as drawn on a keypad: its name for `Keyboard.press`, its label, and the labels of the
+    other layers (empty when the layer does nothing)."""
+
+    name: str
+    label: str
+    shift: str = ""
+    ctrl: str = ""
+
+
+type Keypad = tuple[tuple[Key, ...], ...]

@@ -11,6 +11,8 @@ renderer (decision 0015).
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -50,6 +52,7 @@ class Editor:
         self.path: list[tuple[int, int]] = []
         self.pos = 0
         self.selected = False  # the template just before the cursor is highlighted
+        self.anchor: int | None = None  # the far end of a shift-arrow selection in this row
         self.insert_text(text)
 
     # ---- state ------------------------------------------------------------------------------
@@ -63,6 +66,7 @@ class Editor:
         self.path = []
         self.pos = 0
         self.selected = False
+        self.anchor = None
 
     def row(self) -> Row:
         """The row the cursor is in."""
@@ -107,8 +111,12 @@ class Editor:
     def insert_template(self, kind: Kind) -> None:
         """A template from the palette: empty slots, cursor in the first.
 
-        A fraction takes the term before the cursor as its numerator and starts in the denominator.
+        A fraction takes the term before the cursor as its numerator and starts in the denominator,
+        or takes the selection (S1 h).
         """
+        if kind is Kind.FRACTION and self.anchor is not None:
+            self._fraction(self.span)
+            return
         self._unselect(replace=True)
         if kind is Kind.FRACTION:
             self._fraction()
@@ -116,33 +124,160 @@ class Editor:
             self.row().insert(self.pos, Template.empty(kind))
             self._enter(self.pos, 0)
 
-    def _fraction(self) -> None:
+    def _fraction(self, selection: tuple[int, int] | None = None) -> None:
         row = self.row()
-        start = self.pos
-        while start and (row[start - 1] == ")" or _takes_numerator(row[start - 1])):
-            start = _matching_open(row, start - 1) if row[start - 1] == ")" else start - 1
-        numerator = row[start : self.pos]
-        if _is_bracketed(numerator):
+        if selection is not None:
+            start, end = selection
+            self.anchor = None
+        else:
+            start = end = self.pos
+            while start and (row[start - 1] == ")" or _takes_numerator(row[start - 1])):
+                start = _matching_open(row, start - 1) if row[start - 1] == ")" else start - 1
+        numerator = row[start:end]
+        if selection is None and _is_bracketed(numerator):
             numerator = numerator[1:-1]  # a plain bracketed sum loses its brackets
         fraction = Template.empty(Kind.FRACTION)
         fraction.slots[0] = numerator
-        row[start : self.pos] = [fraction]
+        row[start:end] = [fraction]
         self.pos = start
         self._enter(start, 1 if numerator else 0)  # an empty numerator is filled first
 
     def _unselect(self, *, replace: bool = False) -> None:
-        """Drop the highlight; typing over it deletes the highlighted template."""
+        """Drop the highlight; typing over it deletes the highlighted template or selection."""
+        if self.anchor is not None:
+            low, high = self.span
+            if replace:
+                del self.row()[low:high]
+            self.pos = low
+            self.anchor = None
         if self.selected and replace:
             del self.row()[self.pos - 1]
             self.pos -= 1
         self.selected = False
+
+    # ---- selecting --------------------------------------------------------------------------
+
+    @property
+    def span(self) -> tuple[int, int]:
+        """The selected nodes of the current row, as `[low, high)`; empty when nothing is."""
+        if self.anchor is None:
+            return (self.pos, self.pos)
+        return (min(self.anchor, self.pos), max(self.anchor, self.pos))
+
+    def select_left(self) -> None:
+        """Shift+Left: extend the selection by one node. A template counts as one unit (S5)."""
+        self._extend(-1)
+
+    def select_right(self) -> None:
+        self._extend(1)
+
+    def select_word_left(self) -> None:
+        """Ctrl+Shift+Left: extend to the start of the word, or past one template."""
+        self._extend_to(self._word_edge(-1))
+
+    def select_word_right(self) -> None:
+        self._extend_to(self._word_edge(1))
+
+    def select_to_start(self) -> None:
+        """Shift+Home: extend to the start of the row the cursor is in."""
+        self._extend_to(0)
+
+    def select_to_end(self) -> None:
+        self._extend_to(len(self.row()))
+
+    def _extend(self, step: int) -> None:
+        self._extend_to(self.pos + step)
+
+    def _extend_to(self, pos: int) -> None:
+        self.selected = False
+        if self.anchor is None:
+            self.anchor = self.pos
+        self.pos = max(0, min(pos, len(self.row())))
+        if self.pos == self.anchor:
+            self.anchor = None
+
+    def word_left(self) -> None:
+        """Ctrl+Left: collapse any selection, then move to the start of the word."""
+        self._unselect()
+        self.pos = self._word_edge(-1)
+
+    def word_right(self) -> None:
+        if self.anchor is not None:
+            self.pos = self.span[1]
+            self.anchor = None
+        self._unselect()
+        self.pos = self._word_edge(1)
+
+    def _word_edge(self, step: int) -> int:
+        """Where a word move from the cursor lands: over a run of letters and digits, a run of
+        other characters, or one template; trailing spaces are skipped going right."""
+        row = self.row()
+
+        def kind(index: int) -> str:
+            node = row[index]
+            if isinstance(node, Template):
+                return "template"
+            if node == " ":
+                return "space"
+            return "word" if node in _TERM_CHARS else "other"
+
+        pos = self.pos
+        if step > 0:
+            if pos >= len(row):
+                return pos
+            first = kind(pos)
+            pos += 1
+            while first not in ("template", "space") and pos < len(row) and kind(pos) == first:
+                pos += 1
+            while pos < len(row) and kind(pos) == "space":
+                pos += 1
+            return pos
+        while pos and kind(pos - 1) == "space":
+            pos -= 1
+        if not pos:
+            return 0
+        first = kind(pos - 1)
+        pos -= 1
+        while first != "template" and pos and kind(pos - 1) == first:
+            pos -= 1
+        return pos
+
+    # ---- clipboard --------------------------------------------------------------------------
+
+    def selection(self) -> Row:
+        """A copy of the selected nodes (templates intact), or the highlighted template."""
+        if self.anchor is not None:
+            low, high = self.span
+            return copy.deepcopy(self.row()[low:high])
+        if self.selected:
+            return copy.deepcopy([self.row()[self.pos - 1]])
+        return []
+
+    def cut(self) -> Row:
+        nodes = self.selection()
+        self._unselect(replace=True)
+        return nodes
+
+    def paste(self, nodes: Row) -> None:
+        """Insert copies of `nodes` at the cursor, replacing any selection."""
+        self._unselect(replace=True)
+        row = self.row()
+        row[self.pos : self.pos] = copy.deepcopy(nodes)
+        self.pos += len(nodes)
+
+    def select_all(self) -> None:
+        """Ctrl+A: the whole entry line."""
+        self.selected = False
+        self.path = []
+        self.anchor = 0 if self.root else None
+        self.pos = len(self.root)
 
     # ---- deleting ---------------------------------------------------------------------------
 
     def backspace(self) -> None:
         """Just after a template the first press highlights it and the second deletes it (0017)."""
         row = self.row()
-        if self.selected:
+        if self.anchor is not None or self.selected:
             self._unselect(replace=True)
         elif self.pos:
             previous = row[self.pos - 1]
@@ -155,7 +290,7 @@ class Editor:
             self._dissolve()
 
     def delete(self) -> None:
-        if self.selected:
+        if self.anchor is not None or self.selected:
             self._unselect(replace=True)
             return
         row = self.row()
@@ -190,6 +325,9 @@ class Editor:
     # ---- moving -----------------------------------------------------------------------------
 
     def left(self) -> None:
+        if self.anchor is not None:  # a selection collapses to its left edge
+            self._unselect()
+            return
         self._unselect()
         row = self.row()
         if self.pos:
@@ -218,6 +356,10 @@ class Editor:
 
     def right(self) -> None:
         """Right leaves the slot it is in, even the numerator of a fraction (0017)."""
+        if self.anchor is not None:  # a selection collapses to its right edge
+            self.pos = self.span[1]
+            self.anchor = None
+            return
         self._unselect()
         row = self.row()
         if self.pos < len(row):
@@ -274,9 +416,18 @@ class Editor:
         """The TI text for the parser."""
         return _linear(self.root)
 
-    def latex(self, *, cursor: bool = True) -> str:
-        """LaTeX for the entry, with the cursor drawn as a bar and empty slots as boxes."""
-        return _latex(self.root, (self.path, self.pos) if cursor else None, [])
+    def latex(
+        self, *, cursor: bool = True, is_function: Callable[[str], bool] = lambda _: False
+    ) -> str:
+        """LaTeX for the entry, with the cursor drawn as a bar and empty slots as boxes. Names
+        that `is_function` accepts are bold."""
+        place = (self.path, self.pos, self.span) if cursor else None
+        return _latex(self.root, place, [], is_function)
+
+
+def linear_text(nodes: Row) -> str:
+    """The TI text of some nodes, as for the system clipboard."""
+    return _linear(nodes)
 
 
 def _template(node: Node) -> Template:
@@ -321,10 +472,15 @@ def _linear(row: Row) -> str:
     return "".join(out)
 
 
-_CURSOR = r"{\color{#4da3ff}\rule{0.06em}{1.0em}}"
+# Digit height with a little depth: a taller bar pushes a denominator down.
+_CURSOR = r"{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}"
 _EMPTY_SLOT = r"\square"
+_SELECTION = "#7fb2e8"
 _SYMBOLS = {
     "*": r"\cdot ",
+    "\\": r"\backslash ",
+    "~": r"\sim ",
+    "|": r"\vert ",
     "<": r"\lt ",
     ">": r"\gt ",
     "≤": r"\le ",
@@ -349,43 +505,62 @@ _SYMBOLS = {
 }
 
 
-def _function_names(row: Row) -> set[int]:
-    """Indices of letters that spell a name followed by `(`, such as the `sin` in `sin(x)`."""
+def _function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
+    """Indices of letters that spell a defined function followed by `(`, such as `sin` in
+    `sin(x)` or a user's `f` in `f(x)`. A name nothing defines stays plain."""
     marked: set[int] = set()
     run: list[int] = []
     for index, node in enumerate([*row, ""]):
-        if isinstance(node, str) and node.isascii() and node.isalpha():
+        if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
             run.append(index)
             continue
-        followed_by_bracket = isinstance(node, str) and node == "("
-        if len(run) > 1 and followed_by_bracket:
-            marked.update(run)
+        if run and node == "(":
+            name = "".join(str(row[i]) for i in run)
+            if is_function(name):
+                marked.update(run)
         run = []
     return marked
 
 
+type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
+
+
 def _latex(
-    row: Row, cursor: tuple[list[tuple[int, int]], int] | None, here: list[tuple[int, int]]
+    row: Row, place: Place | None, here: list[tuple[int, int]], is_function: Callable[[str], bool]
 ) -> str:
-    here_cursor = cursor is not None and cursor[0] == here
-    at = cursor[1] if cursor is not None else -1
-    names = _function_names(row)
-    out: list[str] = []
+    """The row as LaTeX. `place` is the cursor's path, its position and the selected span."""
+    here_cursor = place is not None and place[0] == here
+    at = place[1] if place is not None else -1
+    low, high = place[2] if here_cursor and place is not None else (0, 0)
+    names = _function_names(row, is_function)
     if not row:
-        out.append(_CURSOR if here_cursor else _EMPTY_SLOT)
+        return _CURSOR if here_cursor else _EMPTY_SLOT
+    pieces: list[str] = []
     for i, node in enumerate(row):
-        if here_cursor and at == i:
-            out.append(_CURSOR)
         if isinstance(node, str):
-            out.append(rf"\mathrm{{{node}}}" if i in names else _SYMBOLS.get(node, node))
+            pieces.append(rf"\mathbf{{{node}}}" if i in names else _SYMBOLS.get(node, node))
             continue
-        slots = [_latex(slot, cursor, [*here, (i, s)]) for s, slot in enumerate(node.slots)]
+        slots = [
+            _latex(slot, place, [*here, (i, s)], is_function) for s, slot in enumerate(node.slots)
+        ]
         if node.kind is Kind.FRACTION:
-            out.append(rf"\frac{{{slots[0]}}}{{{slots[1]}}}")
+            pieces.append(rf"\frac{{{slots[0]}}}{{{slots[1]}}}")
         elif node.kind is Kind.POWER:
-            out.append(rf"{{}}^{{{slots[0]}}}")  # `{}` keeps a power at the start of a row valid
+            pieces.append(rf"{{}}^{{{slots[0]}}}")  # `{}` keeps a power at the start of a row valid
         else:
-            out.append(rf"\sqrt{{{slots[0]}}}")
-    if row and here_cursor and at == len(row):
-        out.append(_CURSOR)
-    return "".join(out)
+            pieces.append(rf"\sqrt{{{slots[0]}}}")
+    cursor = _CURSOR if here_cursor else ""
+    if high > low:
+        chosen = "".join(pieces[low:high])
+        # \colorbox draws no fill; \fcolorbox pads by 0.34em, so pull the contents back to its edges
+        box = (
+            rf"\fcolorbox{{{_SELECTION}}}{{{_SELECTION}}}"
+            rf"{{$\kern-0.34em {chosen}\kern-0.34em$}}"
+        )
+        before, after = "".join(pieces[:low]), "".join(pieces[high:])
+        if at == low:
+            return before + cursor + box + after
+        return before + box + cursor + after
+    if not here_cursor:
+        return "".join(pieces)
+    return "".join(pieces[:at]) + cursor + "".join(pieces[at:])

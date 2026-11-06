@@ -1,0 +1,134 @@
+"""Entry point: `uv run flet run src/cassim/app/main.py` (or `python -m cassim.app.main`)."""
+
+from __future__ import annotations
+
+import flet as ft
+
+from cassim.app.state import AppState, Mode
+from cassim.app.theme import DARK
+from cassim.app.ui import (
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    CalculatorView,
+    Keypad,
+    Sidebar,
+    chip,
+    settings_dialog,
+)
+from cassim.device.keys import Binding
+
+# TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
+# Flet fires no resize event at start-up, so this needs a different hook.
+
+
+def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
+    """Copy and cut also fill the system clipboard; paste reads it (see `Clipboard`)."""
+    clipboard = ft.Clipboard()
+    page.services.append(clipboard)
+
+    def copy_out(text: str) -> None:
+        page.run_task(clipboard.set, text)
+
+    state.clipboard_out = copy_out
+    return clipboard
+
+
+class App:
+    """Wires the state to the views: the top bar, the screen, the keypad and the sidebar."""
+
+    def __init__(self, page: ft.Page, state: AppState) -> None:
+        self.page = page
+        self.state = state
+        self.theme = DARK
+        self.view = CalculatorView(state, self.theme)
+        self.keypad = Keypad(state, self.press, self.theme)
+        self.sidebar = Sidebar(state, self.refresh, self.theme)
+        self.toolbar = ft.Row(spacing=6, wrap=True)
+        self.layout = ft.Container(expand=True)
+        self.clipboard = connect_clipboard(page, state)
+
+    def start(self) -> None:
+        page = self.page
+        page.title = "CASSim"
+        page.theme_mode = ft.ThemeMode.DARK
+        page.bgcolor = self.theme.background
+        page.padding = 12
+        page.on_keyboard_event = self.on_key
+        self.arrange()
+        page.add(ft.Column([self.toolbar, self.layout], expand=True))
+        self.refresh()
+        print("CASSIM: READY", flush=True)
+
+    def refresh(self) -> None:
+        self.view.refresh()
+        self.keypad.refresh()
+        self.sidebar.refresh()
+        self.toolbar.controls = self.toolbar_controls()
+        self.page.update()
+
+    def press(self, name: str) -> None:
+        self.state.press_keypad(name)
+        self.refresh()
+
+    async def on_key(self, e: ft.KeyboardEvent) -> None:
+        state = self.state
+        binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
+        if binding is None:
+            return
+        if binding.action == "paste":  # the system clipboard may hold text from elsewhere
+            binding = Binding("paste", await self.clipboard.get() or "")
+        state.run(binding)
+        self.refresh()
+
+    def act(self, action: str) -> None:
+        self.state.run_action(action)
+        self.refresh()
+
+    def set_mode(self, mode: Mode) -> None:
+        self.state.mode = mode
+        self.arrange()
+        self.refresh()
+
+    def toolbar_controls(self) -> list[ft.Control]:
+        theme, mode = self.theme, self.state.mode
+        return [
+            chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
+            chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
+            chip("◀ page", lambda: self.act("prev_page"), theme),
+            chip("page ▶", lambda: self.act("next_page"), theme),
+            chip("+ page", lambda: self.act("add_page"), theme),
+            chip("+ problem", lambda: self.act("add_problem"), theme),
+            chip("delete page", lambda: self.act("delete_page"), theme),
+            chip("settings", self.open_settings, theme),
+        ]
+
+    def open_settings(self) -> None:
+        settings_dialog(self.page, self.state, self.refresh, self.theme)
+
+    def arrange(self) -> None:
+        view = self.view.control
+        if self.state.mode is Mode.HANDHELD:
+            view.width, view.height = SCREEN_WIDTH, SCREEN_HEIGHT
+            view.expand = False
+            self.layout.content = ft.Column(
+                [view, self.keypad.control],
+                spacing=12,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                scroll=ft.ScrollMode.AUTO,
+            )
+        else:
+            view.width = view.height = None
+            view.expand = True
+            self.layout.content = ft.Row(
+                [ft.Container(self.sidebar.control, width=170, padding=8), view],
+                expand=True,
+                spacing=12,
+            )
+
+
+def main(page: ft.Page) -> None:
+    App(page, AppState()).start()
+
+
+if __name__ == "__main__":
+    ft.run(main)

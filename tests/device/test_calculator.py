@@ -6,6 +6,7 @@ import pytest
 
 from cassim import device
 from cassim.device.calculator import Calculator
+from cassim.device.document import Document
 from cassim.device.keys import Binding, Keyboard
 from cassim.profiles import nspire
 
@@ -173,3 +174,69 @@ def test_framework_does_not_import_a_profile():
     """FR-DEV-007: profiles depend on the device package, never the reverse."""
     for module in Path(device.__file__).parent.glob("*.py"):
         assert "cassim.profiles" not in module.read_text(encoding="utf-8"), module.name
+
+
+def test_user_and_builtin_functions_are_bold_once_defined() -> None:
+    """A function is bold when something defines it: a built-in, or `f(x):=...` in the Problem."""
+    page = computer(*"f(x):=x^2", "Enter")
+    typed = Keyboard(nspire.COMPUTER)
+    for key in "f(2)":
+        press(page, typed, key)
+    assert r"\mathbf{f}" in page.editor.latex(is_function=page.session.is_function)
+    page.editor.clear()
+    for key in "g(2)":
+        press(page, typed, key)
+    assert r"\mathbf" not in page.editor.latex(is_function=page.session.is_function)
+    page.editor.clear()
+    for key in "solve(":
+        press(page, typed, key)
+    assert r"\mathbf{s}" in page.editor.latex(is_function=page.session.is_function)
+
+
+def test_shift_arrows_select_and_typing_replaces() -> None:
+    """Computer shift+arrows, ctrl+A; the keypad's shift then an arrow does the same (S5)."""
+    page = computer(*"abc", "shift+ArrowLeft", "shift+ArrowLeft", "9")
+    assert page.editor.linear() == "a9"
+    page = computer(*"a+b", "ctrl+a", "7")
+    assert page.editor.linear() == "7"
+    page = handheld(*"abc", "shift", "left", "shift", "left", "del")
+    assert page.editor.linear() == "a"
+
+
+def test_undo_restores_a_replaced_selection() -> None:
+    page = computer(*"abc", "ctrl+a", "9", "ctrl+z")
+    assert page.editor.linear() == "abc"
+
+
+def test_ctrl_shift_arrows_select_words() -> None:
+    page = computer(*"ab cd", "ctrl+shift+ArrowLeft", "ctrl+shift+ArrowLeft")
+    assert page.editor.span == (0, 5)
+    page = computer(*"ab cd", "ctrl+shift+ArrowLeft", "x")
+    assert page.editor.linear() == "ab x"
+
+
+def test_copy_cut_and_paste_across_pages_and_into_a_template() -> None:
+    """S7: a pasted fraction stays stacked; the clipboard is shared by the pages of a document."""
+    document = Document()
+    first = document.current.calculator
+    assert first is not None
+    keyboard = Keyboard(nspire.COMPUTER)
+    for key in ("1", "ctrl+/", "2", "ArrowRight", "shift+ArrowLeft", "ctrl+c"):
+        press(first, keyboard, key)
+    document.add_page()
+    second = document.current.calculator
+    assert second is not None
+    for key in ("ctrl+v", "+", "ctrl+v"):
+        press(second, keyboard, key)
+    assert second.editor.linear() == "((1)/(2))+((1)/(2))"
+    assert second.editor.latex(cursor=False).count(r"\frac") == 2
+
+
+def test_cut_is_undoable_and_paste_of_other_text_is_typed() -> None:
+    page = computer(*"abc", "shift+ArrowLeft", "ctrl+x")
+    assert page.editor.linear() == "ab"
+    assert page.clipboard.text == "c"
+    press(page, Keyboard(nspire.COMPUTER), "ctrl+z")
+    assert page.editor.linear() == "abc"
+    page.perform(Binding("paste", "x\ny"))  # text from outside the calculator
+    assert page.editor.linear() == "abx y"  # undo brought back the selection, which paste replaces

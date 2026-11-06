@@ -89,3 +89,7 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 - Bindings are data (profile registry), not code (FR-DEV-007). The editor exposes the actions: `insert_template(kind)`, `tab()`, `left()` and so on.
 - A computer keyboard has two forms of some keys (Return versus Enter, ctrl+Enter, alt+Enter); the Handheld and Computer maps are separate tables.
 - Do not bind browser-reserved combinations (ctrl+W, ctrl+N, ctrl+S, ctrl+P, ctrl+T) in the web build; use the on-screen menu for those. Record the list here when the key handler exists.
+
+## Selection and clipboard in CASSim (computer keyboard)
+- shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move by word. These word and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
+- ctrl+C, ctrl+X, ctrl+V: the calculator's clipboard keeps templates, so a pasted fraction is stacked (S7), and it is shared by all pages of a document. The text is also put on the system clipboard; on paste, system text that matches the calculator's clipboard brings the templates back, any other text is typed in (newlines become spaces).

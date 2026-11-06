@@ -239,9 +239,20 @@ class TestLatex:
     def test_symbols_are_typeset(self):
         assert Editor("2π*ⅇ").latex(cursor=False) == r"2\pi \cdot \mathrm{e}"
 
-    def test_function_names_are_upright_and_variables_are_not(self):
-        assert Editor("sin(x)").latex(cursor=False) == r"\mathrm{s}\mathrm{i}\mathrm{n}(x)"
+    def test_defined_function_names_are_bold(self):
+        """Only names the engine knows (or the user defined) turn bold, and only before `(`."""
+        known = {"sin", "f"}.__contains__
+        assert Editor("sin(x)").latex(cursor=False, is_function=known) == (
+            r"\mathbf{s}\mathbf{i}\mathbf{n}(x)"
+        )
+        assert Editor("f(x)").latex(cursor=False, is_function=known) == r"\mathbf{f}(x)"
+        assert Editor("g(x)").latex(cursor=False, is_function=known) == "g(x)"
+        assert Editor("sin").latex(cursor=False, is_function=known) == "sin"
         assert Editor("xy").latex(cursor=False) == "xy"
+
+    def test_cursor_bar_is_no_taller_than_a_digit(self):
+        """A taller bar pushed the denominator down while it was being typed."""
+        assert r"\rule[-0.15em]{0.06em}{0.8em}" in keys("1F2").latex()
 
     def test_a_leading_power_is_valid_latex(self):
         assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")  # after the inserted Ans

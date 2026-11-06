@@ -13,6 +13,7 @@ from enum import StrEnum
 from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.calculator import Calculator
+from cassim.device.clipboard import Clipboard
 
 MAX_PAGES = 50  # per Problem, as on the emulator (docs/testing/emulator-editor-capture.md)
 
@@ -37,10 +38,13 @@ class Page:
 @dataclass
 class Problem:
     session: Session
+    clipboard: Clipboard
     pages: list[Page] = field(default_factory=list)
 
     def new_page(self, kind: PageKind) -> Page:
-        calculator = Calculator(self.session) if kind is PageKind.CALCULATOR else None
+        calculator = (
+            Calculator(self.session, self.clipboard) if kind is PageKind.CALCULATOR else None
+        )
         return Page(kind, calculator)
 
 
@@ -50,6 +54,7 @@ class Document:
     def __init__(self, name: str = "Untitled", settings: Settings | None = None) -> None:
         self.name = name
         self.settings = settings if settings is not None else Settings()
+        self.clipboard = Clipboard()  # shared by every page, so copy works across them
         self.problems: list[Problem] = []
         self.problem = 0  # the current Problem
         self.page = 0  # the current Page within it
@@ -76,7 +81,7 @@ class Document:
 
     def add_problem(self, kind: PageKind = PageKind.CALCULATOR) -> Page:
         """Insert a Problem after the current one, with one page, and go to it."""
-        problem = Problem(Session(self.settings))
+        problem = Problem(Session(self.settings), self.clipboard)
         index = self.problem + 1 if self.problems else 0
         self.problems.insert(index, problem)
         page = problem.new_page(kind)
@@ -148,6 +153,12 @@ class Document:
         self.problem = to
 
     # ---- settings --------------------------------------------------------------------------
+
+    def use(self, settings: Settings) -> None:
+        """Make `settings` the Document Settings of every Problem (the settings dialog)."""
+        for problem in self.problems:
+            problem.session.settings = settings
+        self.settings = settings
 
     def set(self, **changes: str) -> None:
         """Change Document Settings (angle, display digits, calculation mode...) everywhere."""
