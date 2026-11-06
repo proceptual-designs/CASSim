@@ -26,6 +26,10 @@ class Kind(StrEnum):
 
 _SLOTS = {Kind.FRACTION: 2, Kind.POWER: 1, Kind.ROOT: 1}
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
+# What the fraction template takes as its numerator: terms and products, not sums (0017).
+_NUMERATOR_CHARS = _TERM_CHARS | {"*"}
+# An operator typed first on an empty line is applied to the last answer, as on the handheld.
+_ANS_OPERATORS = frozenset("+-*/^")
 
 
 @dataclass
@@ -45,6 +49,7 @@ class Editor:
         self.root: Row = []
         self.path: list[tuple[int, int]] = []
         self.pos = 0
+        self.selected = False  # the template just before the cursor is highlighted
         self.insert_text(text)
 
     # ---- state ------------------------------------------------------------------------------
@@ -57,6 +62,7 @@ class Editor:
         self.root = []
         self.path = []
         self.pos = 0
+        self.selected = False
 
     def row(self) -> Row:
         """The row the cursor is in."""
@@ -82,10 +88,15 @@ class Editor:
             self.insert(char)
 
     def insert(self, char: str) -> None:
-        """Type one character. `/`, `^` and `√` build templates as on the handheld."""
-        if char == "/":
-            self._fraction()
-        elif char == "^":
+        """Type one character. `^` and `√` build templates; `/` stays linear, as on the handheld.
+
+        The fraction is stacked only after Return or from the palette (`insert_template`).
+        """
+        self._unselect(replace=True)
+        if char in _ANS_OPERATORS and not self.root:
+            self.root.extend("Ans")
+            self.pos = 3
+        if char == "^":
             self.insert_template(Kind.POWER)
         elif char == "√":
             self.insert_template(Kind.ROOT)
@@ -94,34 +105,49 @@ class Editor:
             self.pos += 1
 
     def insert_template(self, kind: Kind) -> None:
-        """A template from the palette: empty slots, cursor in the first."""
-        self.row().insert(self.pos, Template.empty(kind))
-        self._enter(self.pos, 0)
+        """A template from the palette: empty slots, cursor in the first.
+
+        A fraction takes the term before the cursor as its numerator and starts in the denominator.
+        """
+        self._unselect(replace=True)
+        if kind is Kind.FRACTION:
+            self._fraction()
+        else:
+            self.row().insert(self.pos, Template.empty(kind))
+            self._enter(self.pos, 0)
 
     def _fraction(self) -> None:
-        """The term before the cursor becomes the numerator."""
         row = self.row()
         start = self.pos
-        if start and row[start - 1] == ")":
-            start = _matching_open(row, start - 1)
-        else:
-            while start and _is_term(row[start - 1]):
-                start -= 1
+        while start and (row[start - 1] == ")" or _takes_numerator(row[start - 1])):
+            start = _matching_open(row, start - 1) if row[start - 1] == ")" else start - 1
+        numerator = row[start : self.pos]
+        if _is_bracketed(numerator):
+            numerator = numerator[1:-1]  # a plain bracketed sum loses its brackets
         fraction = Template.empty(Kind.FRACTION)
-        fraction.slots[0] = row[start : self.pos]
+        fraction.slots[0] = numerator
         row[start : self.pos] = [fraction]
         self.pos = start
         self._enter(start, 1)
 
+    def _unselect(self, *, replace: bool = False) -> None:
+        """Drop the highlight; typing over it deletes the highlighted template."""
+        if self.selected and replace:
+            del self.row()[self.pos - 1]
+            self.pos -= 1
+        self.selected = False
+
     # ---- deleting ---------------------------------------------------------------------------
 
     def backspace(self) -> None:
+        """Just after a template the first press highlights it and the second deletes it (0017)."""
         row = self.row()
-        if self.pos:
+        if self.selected:
+            self._unselect(replace=True)
+        elif self.pos:
             previous = row[self.pos - 1]
             if isinstance(previous, Template):
-                # Step into the template first, so one key press never deletes a whole fraction.
-                self._enter(self.pos - 1, len(previous.slots) - 1, at_end=True)
+                self.selected = True
             else:
                 del row[self.pos - 1]
                 self.pos -= 1
@@ -129,6 +155,7 @@ class Editor:
             self._dissolve()
 
     def delete(self) -> None:
+        self._unselect()
         row = self.row()
         if self.pos < len(row):
             node = row[self.pos]
@@ -138,9 +165,16 @@ class Editor:
                 del row[self.pos]
 
     def _dissolve(self) -> None:
-        """Backspace at the start of a slot removes the template and keeps what was in it."""
+        """Backspace at the start of a slot removes the template and keeps what was in it.
+
+        At the start of a template's first slot it highlights the whole template instead.
+        """
         template = self._parent()
         index, slot = self.path.pop()
+        if slot == 0:
+            self.pos = index + 1
+            self.selected = True
+            return
         before = sum(len(s) for s in template.slots[:slot])
         self.row()[index : index + 1] = [item for s in template.slots for item in s]
         self.pos = index + before
@@ -148,6 +182,7 @@ class Editor:
     # ---- moving -----------------------------------------------------------------------------
 
     def left(self) -> None:
+        self._unselect()
         row = self.row()
         if self.pos:
             previous = row[self.pos - 1]
@@ -165,6 +200,8 @@ class Editor:
                 self.pos = index
 
     def right(self) -> None:
+        """Right leaves the slot it is in, even the numerator of a fraction (0017)."""
+        self._unselect()
         row = self.row()
         if self.pos < len(row):
             node = row[self.pos]
@@ -173,13 +210,21 @@ class Editor:
             else:
                 self.pos += 1
         elif self.path:
-            index, slot = self.path[-1]
-            if slot + 1 < len(self._parent().slots):
-                self.path[-1] = (index, slot + 1)
-                self.pos = 0
-            else:
-                self.path.pop()
-                self.pos = index + 1
+            index, _ = self.path.pop()
+            self.pos = index + 1
+
+    def tab(self) -> None:
+        """Tab visits the slots in order, then leaves the template."""
+        self._unselect()
+        if not self.path:
+            return
+        index, slot = self.path[-1]
+        if slot + 1 < len(self._parent().slots):
+            self.path[-1] = (index, slot + 1)
+            self.pos = 0
+        else:
+            self.path.pop()
+            self.pos = index + 1
 
     def up(self) -> None:
         self._between_fraction_rows(from_slot=1)
@@ -188,6 +233,7 @@ class Editor:
         self._between_fraction_rows(from_slot=0)
 
     def _between_fraction_rows(self, *, from_slot: int) -> None:
+        self._unselect()
         if not self.path:
             return
         index, slot = self.path[-1]
@@ -196,10 +242,12 @@ class Editor:
             self.pos = min(self.pos, len(self.row()))
 
     def home(self) -> None:
+        self._unselect()
         self.path = []
         self.pos = 0
 
     def end(self) -> None:
+        self._unselect()
         self.path = []
         self.pos = len(self.root)
 
@@ -219,8 +267,14 @@ def _template(node: Node) -> Template:
     return node
 
 
-def _is_term(node: Node) -> bool:
-    return node in _TERM_CHARS if isinstance(node, str) else True  # any template is a term
+def _takes_numerator(node: Node) -> bool:
+    return node in _NUMERATOR_CHARS if isinstance(node, str) else True  # any template is a term
+
+
+def _is_bracketed(run: Row) -> bool:
+    if not run or run[0] != "(" or run[-1] != ")":
+        return False
+    return _matching_open(run, len(run) - 1) == 0 and len(run) > len("()")
 
 
 def _matching_open(row: Row, close: int) -> int:
