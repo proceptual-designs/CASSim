@@ -135,7 +135,7 @@ This cross-cuts every functional area.
 | FR-CALC-001 | History of input/result pairs (input left, result right), scrollable, with `Ans`. | M | D/E |
 | FR-CALC-002 | Evaluate (Enter) and force-approximate (ctrl+Enter). | M | T |
 | FR-CALC-003 | Results rendered as 2D maths (fractions, powers, roots, matrices, summations). | M | D |
-| FR-CALC-004 | Input starts as linear text with template insertion; a structured 2D editor follows (M2d). | M / S | D |
+| FR-CALC-004 | Input is a structured 2D template editor, as on the handheld: `/` makes a fraction from the preceding term, `^` and `√` open a slot, arrows move between slots, Backspace removes a template and keeps its contents (decision 0015). Matrices and lists as templates follow. | M | D |
 | FR-CALC-005 | Templates palette, Catalog, variable menu, copy/paste of inputs and results, up-arrow recall/edit of history. | M | D |
 | FR-CALC-006 | Undo/redo of edits and of deleted history. | S | T |
 

@@ -68,6 +68,7 @@ def derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 
 @lazy("integral", 2, 4)
+@lazy("∫", 2, 4)
 def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`integral(expr, x)` or `integral(expr, x, lower, upper)`."""
     if len(args) not in (_INTEGRAL_UNBOUNDED_ARGS, _INTEGRAL_BOUNDED_ARGS):
@@ -78,6 +79,30 @@ def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     lower, upper = bounds if bounds else (None, None)
     result = cas.integrate(expression, cas.symbol(name), lower, upper)
     return _result(result, "integral", expression, name)
+
+
+def _series(host: Host, args: tuple[ast.Expr, ...], call: str, *, product: bool) -> Value:
+    name = _name_of(host, args[1])
+    expression = _expression(host, args[0], [name])
+    lower, upper = (raw_of(host.expr(arg)) for arg in args[2:])
+    result = cas.series_total(expression, cas.symbol(name), lower, upper, product=product)
+    return _result(result, call, expression, name)
+
+
+@lazy("sumSeq", 4)
+@lazy("Σ", 4)
+@lazy("∑", 4)
+def sum_seq(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`sumSeq(expr, k, low, high)`: the template `Σ(expr, k, low, high)`; `high` may be `∞`."""
+    return _series(host, args, "sumSeq", product=False)
+
+
+@lazy("prodSeq", 4)
+@lazy("Π", 4)
+@lazy("∏", 4)
+def prod_seq(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`prodSeq(expr, k, low, high)`: the template `Π(expr, k, low, high)`."""
+    return _series(host, args, "prodSeq", product=True)
 
 
 @lazy("limit", 3, 4, cas=True)

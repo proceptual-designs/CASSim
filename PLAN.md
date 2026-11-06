@@ -74,7 +74,7 @@ cassim/
 - **Scoping.** Document → Problems → Pages. All pages in a Problem share variables; a new Problem is a blank slate; `Define`/`→` writes the current Problem; library functions are document-wide and read-only; `Local` for programs.
 - **Long-running work.** Evaluation must be cancellable (TI's On/Esc). Plan: CAS runs in a worker; cancel = terminate and restart worker with state restored from the document model. Verified in M0 spike 1.
 - **Heavy dependencies.** SymPy loads at start; SciPy lazily on first stats/numerics call. Service worker caches everything for offline use.
-- **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input starts as linear text with template insertion (fraction inserts `(`…`)/(`…`)`); a full structured 2D editor is a later, separate sub-milestone (see M2d).
+- **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input is a 2D template editor (decision 0015): the tree model in `device/editor.py` draws itself as LaTeX with a cursor glyph and writes the linear TI text for the parser, so the engine is unchanged.
 - **Storage.** Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema, schema-validated and size-limited on import). `.tns` import/export is deferred (Won't for now) and nothing depends on it.
 - **Sharing.** A document can be shared as a URL: compressed and encoded in the URL **fragment**, so nothing reaches a server. Opening a link asks for confirmation first. Keep links under about 2,000 characters; larger documents fall back to file export.
 - **Themes.** Dark is the default. Themes (at least Dark, Light, Outline) are defined in a user-editable config file (keypad, screen and accent colours), persisted in browser storage and exportable; an invalid config falls back to Dark with a message.
@@ -202,10 +202,10 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
 - **Guard for the profile work in M8 (no extra scope):** framework code in `device/` and `cassim_app` holds no Nspire-specific constants. Key layers, menu trees, page types, skin and theme values come from data or registries that the Nspire profile supplies, and page types are registered, not hard-coded in a switch. This costs almost nothing now and avoids a rewrite later (section 3.2; SRS FR-DEV-007).
 - Decisions and the four spikes that precede 2b to 2e are in `docs/decisions/0013-m2-planning.md` (2D rendering, MathLive, GitHub Pages publish, cancel and restore). The skin is driven by a config file; the display mode is remembered, with a media query on a first visit; Document Settings gain `case` and `ascii`.
-- 2a Device model: key layers, menu tree from data, linear input editor, screen buffer; headless key-sequence tests.
+- 2a Device model: key layers, menu tree from data, the 2D template input editor (`device/editor.py`: fractions, powers, roots done; matrices, lists, selection, copy and paste to do), screen buffer; headless key-sequence tests.
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
-- 2d Structured 2D input editor (fractions, powers, roots, matrices) as a contained sub-project, shippable after 2a–2c if it slips.
+- 2d Editor completion: matrix and list templates, selection, copy and paste, history recall as templates (parse an old entry back into the tree), click-to-place the cursor, typed-character capture on other keyboard layouts (needs a Dart key handler or a hidden text field; see 0015).
 - 2e Storage and files: IndexedDB persistence, autosave, upload/download `.cassim.json`, PWA install and offline, fullscreen handheld on phones.
 - Exit: build the static site, install on phone, complete the golden "exam-style" scripted flows via device-model tests and Playwright.
 

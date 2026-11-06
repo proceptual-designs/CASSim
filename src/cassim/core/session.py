@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, replace
 
-from cassim.core import ast
+from cassim.core import ast, errors
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
@@ -62,18 +62,23 @@ class Session:
         try:
             tree: ast.Line = parse(line)
             value = Evaluator(self.settings, self._ans, self.scope).line(tree)
+            if value is None:
+                return Result("", "", None, None)
+            if approximate:
+                value = _approximated(value, self.settings)
+            text = to_text(value, self.settings)
+            if self.settings.ascii is Ascii.ON:
+                text = to_ascii(text)
+            latex = to_latex(value)
         except TIError as error:
             return Result(error.message, "", None, error.message)
-        if value is None:
-            return Result("", "", None, None)
-        if approximate:
-            value = _approximated(value, self.settings)
+        except RecursionError:
+            # A result with thousands of terms nests deeper than Python's stack allows.
+            message = TIError(errors.MEMORY).message
+            return Result(message, "", None, message)
         if not isinstance(value, Void):
             self._ans = value
-        text = to_text(value, self.settings)
-        if self.settings.ascii is Ascii.ON:
-            text = to_ascii(text)
-        return Result(text, to_latex(value), value, None)
+        return Result(text, latex, value, None)
 
     def new_problem(self) -> None:
         self._ans = None

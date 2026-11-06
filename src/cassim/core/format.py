@@ -166,3 +166,11 @@ def to_latex(value: Value) -> str:
         return r"\{" + ",".join(to_latex(item) for item in value.items) + r"\}"
     rows = r"\\".join("&".join(to_latex(cell) for cell in row) for row in value.rows)
     return rf"\begin{{bmatrix}}{rows}\end{{bmatrix}}"
+
+
+def latex_for_markdown(latex: str) -> str:
+    r"""Make LaTeX survive Flet's Markdown, which collapses a double backslash to one (0014).
+
+    The TeX row end `\cr` means the same as a row break and passes through unchanged.
+    """
+    return latex.replace("\\\\", r"\cr ")
