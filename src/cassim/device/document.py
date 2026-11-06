@@ -48,6 +48,15 @@ class Problem:
         return Page(kind, calculator)
 
 
+@dataclass(frozen=True)
+class _Layout:
+    """Which pages sit in which Problems, and where we are (for document undo)."""
+
+    problems: tuple[tuple[Problem, tuple[Page, ...]], ...]
+    problem: int
+    page: int
+
+
 class Document:
     """The pages in order, grouped by Problem, and which page is showing."""
 
@@ -58,7 +67,9 @@ class Document:
         self.problems: list[Problem] = []
         self.problem = 0  # the current Problem
         self.page = 0  # the current Page within it
-        self.add_problem()
+        self._new_problem(PageKind.CALCULATOR)
+        self._undo: list[_Layout] = []  # structure only; page contents have their own undo
+        self._redo: list[_Layout] = []
 
     # ---- looking ---------------------------------------------------------------------------
 
@@ -81,6 +92,10 @@ class Document:
 
     def add_problem(self, kind: PageKind = PageKind.CALCULATOR) -> Page:
         """Insert a Problem after the current one, with one page, and go to it."""
+        self._remember()
+        return self._new_problem(kind)
+
+    def _new_problem(self, kind: PageKind) -> Page:
         problem = Problem(Session(self.settings), self.clipboard)
         index = self.problem + 1 if self.problems else 0
         self.problems.insert(index, problem)
@@ -94,6 +109,7 @@ class Document:
         if not self.can_add_page():
             msg = f"a Problem holds at most {MAX_PAGES} pages"
             raise ValueError(msg)
+        self._remember()
         problem = self.problems[self.problem]
         page = problem.new_page(kind)
         self.page += 1
@@ -103,6 +119,7 @@ class Document:
     def delete_page(self) -> None:
         """Remove the current page. Removing the last page of a Problem removes the Problem,
         and a document is never left empty: its last page is replaced by a blank Calculator."""
+        self._remember()
         problem = self.problems[self.problem]
         del problem.pages[self.page]
         if problem.pages:
@@ -111,15 +128,16 @@ class Document:
         del self.problems[self.problem]
         if not self.problems:
             self.problem = 0
-            self.add_problem()
+            self._new_problem(PageKind.CALCULATOR)
             return
         self.problem = min(self.problem, len(self.problems) - 1)
         self.page = min(self.page, len(self.problems[self.problem].pages) - 1)
 
     def delete_problem(self) -> None:
+        self._remember()
         del self.problems[self.problem]
         if not self.problems:
-            self.add_problem()
+            self._new_problem(PageKind.CALCULATOR)
             return
         self.problem = min(self.problem, len(self.problems) - 1)
         self.page = 0
@@ -142,15 +160,50 @@ class Document:
 
     def move_page(self, to: int) -> None:
         """Reorder: put the current page at position `to` of its Problem."""
+        self._remember()
         pages = self.problems[self.problem].pages
         to = max(0, min(to, len(pages) - 1))
         pages.insert(to, pages.pop(self.page))
         self.page = to
 
     def move_problem(self, to: int) -> None:
+        self._remember()
         to = max(0, min(to, len(self.problems) - 1))
         self.problems.insert(to, self.problems.pop(self.problem))
         self.problem = to
+
+    # ---- undo ------------------------------------------------------------------------------
+
+    def _layout(self) -> _Layout:
+        return _Layout(
+            tuple((problem, tuple(problem.pages)) for problem in self.problems),
+            self.problem,
+            self.page,
+        )
+
+    def _remember(self) -> None:
+        self._undo.append(self._layout())
+        self._redo.clear()
+
+    def _restore(self, layout: _Layout) -> None:
+        for problem, pages in layout.problems:
+            problem.pages[:] = pages
+        self.problems[:] = [problem for problem, _ in layout.problems]
+        self.problem, self.page = layout.problem, layout.page
+
+    def undo(self) -> bool:
+        """Undo the last add, delete or move of a page or Problem. False when there is none."""
+        return self._step(self._undo, self._redo)
+
+    def redo(self) -> bool:
+        return self._step(self._redo, self._undo)
+
+    def _step(self, source: list[_Layout], target: list[_Layout]) -> bool:
+        if not source:
+            return False
+        target.append(self._layout())
+        self._restore(source.pop())
+        return True
 
     # ---- settings --------------------------------------------------------------------------
 

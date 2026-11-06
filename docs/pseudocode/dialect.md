@@ -196,3 +196,11 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 - **Random numbers are Should** (`rand()`, `randint`, `seed`). The runtime reproduces CPython's seeded sequences exactly (MT19937, CPython's seeding, `random()` and `randint`; decided), so the book's `seed(42)` tallies are golden tests; unseeded programs are tested by properties (range, mean within tolerance).
 - **Python subset used in the notebook** (relevant to the Python worker, FR-RUN, not to the shared tree): `input`/`float(input())`, f-strings with `:.2f`/`:.6f`/`:0>4`, list and generator comprehensions, `lambda`, `enumerate`, `zip`, `set`, `Counter`, `random`, `math`, `numpy`, `sympy` and `matplotlib`. The Pyodide worker must therefore ship numpy, sympy and matplotlib.
 - **`√` and `√( )`** are sqrt (2025 and 2026 Specialist exams: `return √(x + 1)`); `π(f(left))²` is π × f(left) squared by implicit multiplication; a function named `sum` or a variable named `sum` is legal (it shadows the built-in). Function bodies without `end` (ended by dedent) are common in the 2024 and 2025 exam text.
+
+## 13 Decisions of 2026-11-07 (from the batch-3 corpus review)
+
+- **`and` and `or` short-circuit**, as in Python: `while i ≥ 1 and a[i] > key` must not evaluate `a[i]` when `i` is 0. The tracer shows only the operands actually evaluated.
+- **Operator precedence copies Python's.** `DIV` and `MOD` have the same level as `×` and `÷`, evaluated left to right (`a × b DIV g` is `(a×b) DIV g`); `^` binds tighter than unary minus on its left (`-x^2` is `-(x^2)`).
+- **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a`, `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
+- **π is the built-in constant** (`π` or `pi`) wherever a program needs it; a program may instead define its own decimal approximation (a name it assigns shadows the constant). The book's `sine` therefore uses `π`, not 355 ÷ 113 (its printed error table is what true π gives).
+- **Extended Euclid** (Bezout coefficients) is in the corpus as a Specialist example.

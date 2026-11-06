@@ -145,6 +145,12 @@ DOC = MenuItem(
                 MenuItem("Next page", "next_page"),
                 MenuItem("Previous page", "prev_page"),
                 MenuItem("Delete page", "delete_page"),
+                MenuItem("Move page earlier", "move_page", "-1"),
+                MenuItem("Move page later", "move_page", "1"),
+                MenuItem("Move Problem earlier", "move_problem", "-1"),
+                MenuItem("Move Problem later", "move_problem", "1"),
+                MenuItem("Undo page change", "undo_pages"),
+                MenuItem("Redo page change", "redo_pages"),
             ),
         ),
         MenuItem(

@@ -120,23 +120,30 @@ class AppState:
 
     def _document_action(self, binding: Binding) -> bool:
         document = self.document
-        match binding.action:
-            case "add_page":
-                if document.can_add_page():
-                    document.add_page(PageKind(binding.arg or PageKind.CALCULATOR))
-            case "add_problem":
-                document.add_problem(PageKind(binding.arg or PageKind.CALCULATOR))
-            case "delete_page":
-                document.delete_page()
-            case "next_page":
-                document.next_page()
-            case "prev_page":
-                document.next_page(-1)
-            case "dialog":
-                if self.show_dialog is not None:
-                    self.show_dialog(binding.arg)
-            case _:
-                return False
+        kind = (
+            PageKind(binding.arg or PageKind.CALCULATOR)
+            if binding.action.startswith("add")
+            else None
+        )
+        steps = int(binding.arg or 1) if binding.action.startswith("move") else 0
+        actions: dict[str, Callable[[], object]] = {
+            "add_page": lambda: (
+                document.can_add_page() and document.add_page(kind or PageKind.CALCULATOR)
+            ),
+            "add_problem": lambda: document.add_problem(kind or PageKind.CALCULATOR),
+            "delete_page": document.delete_page,
+            "next_page": document.next_page,
+            "prev_page": lambda: document.next_page(-1),
+            "move_page": lambda: document.move_page(document.page + steps),
+            "move_problem": lambda: document.move_problem(document.problem + steps),
+            "undo_pages": document.undo,
+            "redo_pages": document.redo,
+            "dialog": lambda: self.show_dialog and self.show_dialog(binding.arg),
+        }
+        action = actions.get(binding.action)
+        if action is None:
+            return False
+        action()
         return True
 
     def _perform(self, keyboard: Keyboard, name: str) -> bool:

@@ -54,3 +54,42 @@ def test_delete_page_action() -> None:
     state.run_action("add_page")
     state.run_action("delete_page")
     assert len(state.document.sorter()) == 1
+
+
+def test_page_move_and_undo_redo() -> None:
+    """Pages reorder within a Problem, and every structural change can be undone (FR-DOC-001)."""
+    state = AppState()
+    enter(state, "a:=1")
+    state.run_action("add_page")
+    enter(state, "2")
+    state.run_action("add_page")
+    enter(state, "3")
+    document = state.document
+    texts = lambda: [  # noqa: E731
+        page.calculator.history[0].text for page in document.problems[0].pages if page.calculator
+    ]
+    assert texts() == ["a:=1", "2", "3"]
+    state.run_action("move_page", "-2")
+    assert texts() == ["3", "a:=1", "2"]
+    assert document.page == 0
+    state.run_action("undo_pages")
+    assert texts() == ["a:=1", "2", "3"]
+    assert document.page == 2
+    state.run_action("redo_pages")
+    assert texts() == ["3", "a:=1", "2"]
+    state.run_action("delete_page")
+    assert len(document.problems[0].pages) == 2
+    state.run_action("undo_pages")
+    assert texts() == ["3", "a:=1", "2"]  # the deleted page is back with its content
+
+
+def test_undo_restores_a_deleted_problem_and_is_empty_at_start() -> None:
+    state = AppState()
+    assert not state.document.undo()
+    state.run_action("add_problem")
+    state.run_action("delete_page")  # removes the new Problem
+    assert len(state.document.problems) == 1
+    state.run_action("undo_pages")
+    assert len(state.document.problems) == 2
+    state.run_action("move_problem", "-1")
+    assert state.document.problem == 0

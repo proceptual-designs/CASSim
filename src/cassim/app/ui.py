@@ -200,7 +200,22 @@ class Sidebar:
         document = self.state.document
         theme = self.theme
         here = (document.problem, document.page)
-        rows: list[ft.Control] = [ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text)]
+        rows: list[ft.Control] = [
+            ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text),
+            ft.Row(
+                [
+                    chip(label, lambda a=action, g=arg: self._act(a, g), theme)
+                    for label, action, arg in (
+                        ("▲", "move_page", "-1"),
+                        ("▼", "move_page", "1"),
+                        ("↶", "undo_pages", ""),
+                        ("↷", "redo_pages", ""),
+                    )
+                ],
+                spacing=4,
+                wrap=True,
+            ),
+        ]
         for problem, page, kind in document.sorter():
             rows.append(
                 ft.Container(
@@ -222,6 +237,10 @@ class Sidebar:
             for row in variables
         )
         self.control.controls = rows
+
+    def _act(self, action: str, arg: str) -> None:
+        self.state.run_action(action, arg)
+        self.on_change()
 
     def _go(self, problem: int, page: int) -> None:
         self.state.document.go(problem, page)

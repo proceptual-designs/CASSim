@@ -1,4 +1,8 @@
-"""Drive the running app (flet run --web --port 8560) in headless Edge and save screenshots."""
+"""Drive the running app in headless Edge and save screenshots.
+
+Start the app without opening a browser (`flet run --web` always opens one):
+    FLET_FORCE_WEB_SERVER=true FLET_SERVER_PORT=8560 python src/cassim/app/main.py
+"""
 
 import sys
 from pathlib import Path
