@@ -33,7 +33,7 @@ Build **Option 2** for M2: it is pure Python and testable in `core`-style unit t
 
 ## Next
 - Port the model into the product (`src/cassim/…`, not core, since it is UI state), with unit tests against the TI template behaviour; the handheld's behaviours should be captured on the simulator first (what `/`, `^`, `√`, Backspace and the arrows do, matrix entry, how brackets show).
-- Flutter check, if the owner installs it: does `flet build web` with a trivial extension publish to a static folder that works offline from a Pages-style path, with the Pyodide setup from 0002? That decides whether any later Dart code (a typed-character key handler, MathLive, click-to-place) is possible at all.
+- ~~Flutter check, if the owner installs it: does `flet build web` with a trivial extension publish to a static folder that works offline from a Pages-style path, with the Pyodide setup from 0002? That decides whether any later Dart code (a typed-character key handler, MathLive, click-to-place) is possible at all.~~ Answered in 0018: yes to all, including a Dart-to-Python event.
 
 ## Handheld behaviours to confirm on the simulator
 The editor's rules are from memory of the handheld. Check each in the Teacher Software and make the confirmed ones corpus or device cases:
