@@ -8,6 +8,7 @@ from enum import StrEnum
 from cassim.app.keyboard import key_name
 from cassim.device.document import Document, PageKind
 from cassim.device.keys import Binding, Keyboard
+from cassim.device.menu import MenuState
 from cassim.device.screen import Screen, render
 from cassim.profiles import Profile, nspire
 
@@ -33,6 +34,8 @@ class AppState:
         self.keypad_keys = Keyboard(profile.handheld, profile.modifiers)
         self.computer_keys = Keyboard(profile.computer)
         self.clipboard_out: Callable[[str], None] | None = None  # set by the GUI: system clipboard
+        self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
+        self.menu: MenuState | None = None
 
     @property
     def pending(self) -> str:
@@ -40,7 +43,8 @@ class AppState:
         return self.keypad_keys.pending
 
     def screen(self) -> Screen:
-        return render(self.document, self.profile.status(self.document.settings))
+        view = self.menu.view() if self.menu is not None and self.menu.open else None
+        return render(self.document, self.profile.status(self.document.settings), view)
 
     def press_keypad(self, name: str) -> None:
         self._perform(self.keypad_keys, name)
@@ -85,6 +89,12 @@ class AppState:
 
     def run(self, binding: Binding) -> None:
         """Do a binding: document actions here, everything else on the current page."""
+        if self.menu is not None and self.menu.open:
+            self._menu_key(binding)
+            return
+        if binding.action == "open_menu":
+            self._open_menu(binding.arg)
+            return
         if self._document_action(binding):
             return
         calculator = self.document.current.calculator
@@ -93,6 +103,20 @@ class AppState:
         calculator.perform(binding)
         if binding.action in ("copy", "cut") and self.clipboard_out is not None:
             self.clipboard_out(self.document.clipboard.text)
+
+    def _open_menu(self, name: str) -> None:
+        root = self.profile.menus.get(name)
+        if root is not None:
+            self.menu = MenuState(root)
+
+    def _menu_key(self, binding: Binding) -> None:
+        """While a menu is open it takes every key; a chosen leaf runs once the menu has closed."""
+        assert self.menu is not None
+        chosen = self.menu.press(binding.action, binding.arg)
+        if not self.menu.open:
+            self.menu = None
+        if chosen is not None:
+            self.run(chosen)
 
     def _document_action(self, binding: Binding) -> bool:
         document = self.document
@@ -108,6 +132,9 @@ class AppState:
                 document.next_page()
             case "prev_page":
                 document.next_page(-1)
+            case "dialog":
+                if self.show_dialog is not None:
+                    self.show_dialog(binding.arg)
             case _:
                 return False
         return True

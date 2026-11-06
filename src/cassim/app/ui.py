@@ -12,6 +12,7 @@ from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.keys import Key
+from cassim.device.menu import MenuView
 from cassim.device.screen import Line, Screen
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240  # the handheld's pixels (FR-DEV-004)
@@ -43,6 +44,7 @@ class CalculatorView:
         )
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
+        self.menu = ft.Container(visible=False, alignment=ft.Alignment.TOP_LEFT, expand=True)
         title_bar = ft.Container(
             ft.Row([self.title, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             bgcolor=theme.title_bar,
@@ -50,7 +52,7 @@ class CalculatorView:
         )
         body = ft.Column([self.history], expand=True, spacing=0)
         self.control = ft.Container(
-            ft.Column([title_bar, ft.Stack([body, self.error], expand=True)], spacing=0),
+            ft.Column([title_bar, ft.Stack([body, self.error, self.menu], expand=True)], spacing=0),
             bgcolor=theme.screen,
             border_radius=6,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
@@ -67,6 +69,7 @@ class CalculatorView:
             ft.Container(height=ENTRY_ROOM),
         ]
         self._error(screen)
+        self._menu(screen.menu)
 
     def _line(self, line: Line) -> ft.Control:
         right = line.kind == "result"
@@ -75,6 +78,36 @@ class CalculatorView:
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
             padding=ft.Padding.symmetric(horizontal=6),
+        )
+
+    def _menu(self, view: MenuView | None) -> None:
+        """The open menu: a list over the page, the chosen row highlighted (FR-DEV-001)."""
+        self.menu.visible = view is not None
+        if view is None:
+            return
+        theme = self.theme
+        rows: list[ft.Control] = [
+            ft.Text(view.title, size=12, weight=ft.FontWeight.BOLD, color=theme.key_label)
+        ]
+        rows.extend(
+            ft.Container(
+                ft.Text(
+                    f"{row.key}  {row.label}{'  ▸' if row.submenu else ''}",
+                    size=13,
+                    color="#ffffff" if row.selected else theme.key_text,
+                ),
+                bgcolor=theme.accent if row.selected else None,
+                padding=ft.Padding.symmetric(horizontal=6, vertical=1),
+            )
+            for row in view.rows
+        )
+        self.menu.content = ft.Container(
+            ft.Column(rows, spacing=0, tight=True, scroll=ft.ScrollMode.AUTO),
+            bgcolor=theme.title_bar,
+            padding=6,
+            border_radius=6,
+            margin=4,
+            width=230,
         )
 
     def _error(self, screen: Screen) -> None:

@@ -46,6 +46,7 @@ class App:
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
         self.clipboard = connect_clipboard(page, state)
+        state.show_dialog = self.show_dialog
 
     def start(self) -> None:
         page = self.page
@@ -80,8 +81,8 @@ class App:
         state.run(binding)
         self.refresh()
 
-    def act(self, action: str) -> None:
-        self.state.run_action(action)
+    def act(self, action: str, arg: str = "") -> None:
+        self.state.run_action(action, arg)
         self.refresh()
 
     def set_mode(self, mode: Mode) -> None:
@@ -99,8 +100,14 @@ class App:
             chip("+ page", lambda: self.act("add_page"), theme),
             chip("+ problem", lambda: self.act("add_problem"), theme),
             chip("delete page", lambda: self.act("delete_page"), theme),
+            chip("Doc", lambda: self.act("open_menu", "doc"), theme),
+            chip("Menu", lambda: self.act("open_menu", "menu"), theme),
             chip("settings", self.open_settings, theme),
         ]
+
+    def show_dialog(self, name: str) -> None:
+        if name == "document_settings":
+            self.open_settings()
 
     def open_settings(self) -> None:
         settings_dialog(self.page, self.state, self.refresh, self.theme)

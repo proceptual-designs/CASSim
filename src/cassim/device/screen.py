@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cassim.device.document import Document
+from cassim.device.menu import MenuView
 
 
 @dataclass(frozen=True)
@@ -26,14 +27,15 @@ class Screen:
     lines: tuple[Line, ...]
     entry: str  # LaTeX of the entry line, cursor drawn
     error: str | None
+    menu: MenuView | None = None  # drawn over the page while a menu is open
 
 
-def render(document: Document, status: str = "") -> Screen:
+def render(document: Document, status: str = "", menu: MenuView | None = None) -> Screen:
     """Describe the current page. A page without a model shows an empty screen."""
     title = f"{document.problem + 1}.{document.page + 1}"
     page = document.current.calculator
     if page is None:
-        return Screen(title, status, (), "", None)
+        return Screen(title, status, (), "", None, menu)
     lines: list[Line] = []
     for index, entry in enumerate(page.history):
         lines.append(Line("entry", entry.latex, entry.text, page.recall == (index, "entry")))
@@ -45,4 +47,5 @@ def render(document: Document, status: str = "") -> Screen:
         tuple(lines),
         page.editor.latex(is_function=page.session.is_function),
         page.error,
+        menu,
     )

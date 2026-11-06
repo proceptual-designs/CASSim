@@ -93,3 +93,8 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 ## Selection and clipboard in CASSim (computer keyboard)
 - shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move by word. These word and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
 - ctrl+C, ctrl+X, ctrl+V: the calculator's clipboard keeps templates, so a pasted fraction is stacked (S7), and it is shared by all pages of a document. The text is also put on the system clipboard; on paste, system text that matches the calculator's clipboard brings the templates back, any other text is typed in (newlines become spaces).
+
+## Menus (M2c)
+- Computer: `F2` opens the Menu (commands), `F4` opens Doc, `Escape` goes back or closes. Up/Down move, Enter or Right opens, Left goes back, the item's number or letter chooses it. These keys are CASSim's own choice, not checked against the Nspire software (Unsure); F-keys other than F2 and F4 stay with the browser.
+- Handheld keypad: the `esc`, `doc` and `menu` keys do the same.
+- Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status > 2 Document Settings follow the routes used on the simulator; the Page group (Doc > 2) and the Menu tree are CASSim's own starter set.

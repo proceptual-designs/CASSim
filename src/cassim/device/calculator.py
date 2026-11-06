@@ -107,6 +107,7 @@ class Calculator:
             approximate=lambda _: self._enter(approximate=True),
             undo=lambda _: self._step(self._undo, self._redo),
             redo=lambda _: self._step(self._redo, self._undo),
+            escape=lambda _: self._mover(lambda: None)(""),
         )
         return actions
 

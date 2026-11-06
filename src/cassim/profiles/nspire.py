@@ -7,6 +7,7 @@ values with a `ctrl+`, `shift+` or `alt+` prefix.
 
 from cassim.core.settings import Settings
 from cassim.device.keys import Binding, Key, Keymap, Keypad
+from cassim.device.menu import MenuItem
 from cassim.profiles import Profile
 
 MODIFIERS = ("shift", "ctrl")
@@ -20,6 +21,9 @@ _ARROWS = {
 
 HANDHELD: Keymap = {
     **_ARROWS,
+    "esc": Binding("escape"),
+    "doc": Binding("open_menu", "doc"),
+    "menu": Binding("open_menu", "menu"),
     "tab": Binding("tab"),
     "shift+tab": Binding("shift_tab"),
     "shift+left": Binding("select_left"),
@@ -51,6 +55,9 @@ COMPUTER: Keymap = {
     "ArrowDown": Binding("down"),
     "Home": Binding("home"),
     "End": Binding("end"),
+    "Escape": Binding("escape"),
+    "F2": Binding("open_menu", "menu"),
+    "F4": Binding("open_menu", "doc"),
     "Tab": Binding("tab"),
     "shift+Tab": Binding("shift_tab"),
     "shift+ArrowLeft": Binding("select_left"),
@@ -92,6 +99,7 @@ def status_line(settings: Settings) -> str:
 # CASSim's own keypad, five keys across (FR-DEV-005): not a copy of the handheld's artwork.
 # Letters come from the computer keyboard; x and y are here for the common cases.
 KEYPAD: Keypad = (
+    (Key("esc", "esc"), Key("doc", "doc"), Key("menu", "menu")),
     (
         Key("ctrl", "ctrl"),
         Key("shift", "shift"),
@@ -119,4 +127,84 @@ KEYPAD: Keypad = (
     ),
 )
 
-PROFILE = Profile("TI-Nspire CX CAS", HANDHELD, COMPUTER, MODIFIERS, KEYPAD, status_line)
+
+def _insert(*names: str) -> tuple[MenuItem, ...]:
+    """Leaves that type a command name and its opening bracket."""
+    return tuple(MenuItem(name, "insert", f"{name}(") for name in names)
+
+
+# Doc: Insert > Problem and Calculator, and Settings & Status > Document Settings are the routes
+# used on the simulator (TESTING.md section 6). The other entries are CASSim's own.
+DOC = MenuItem(
+    "Doc",
+    items=(
+        MenuItem(
+            "Page",
+            key="2",
+            items=(
+                MenuItem("Next page", "next_page"),
+                MenuItem("Previous page", "prev_page"),
+                MenuItem("Delete page", "delete_page"),
+            ),
+        ),
+        MenuItem(
+            "Insert",
+            key="4",
+            items=(
+                MenuItem("Problem", "add_problem"),
+                MenuItem("Calculator", "add_page", "calculator", key="3"),
+            ),
+        ),
+        MenuItem(
+            "Settings & Status",
+            key="7",
+            items=(MenuItem("Document Settings", "dialog", "document_settings", key="2"),),
+        ),
+    ),
+)
+
+# The calculator's Menu: command names to type. Layout follows the handheld's top-level groups;
+# the entries are a starter set, grown with the catalog in M2d.
+MENU = MenuItem(
+    "Menu",
+    items=(
+        MenuItem(
+            "Number",
+            items=(
+                *_insert("abs", "round", "floor", "ceiling", "gcd", "lcm", "factor"),
+                MenuItem("Fraction tools", items=_insert("propFrac", "getNum", "getDenom")),
+            ),
+        ),
+        MenuItem(
+            "Algebra",
+            items=_insert(
+                "solve", "factor", "expand", "zeros", "cSolve", "completeSquare", "nSolve"
+            ),
+        ),
+        MenuItem(
+            "Calculus",
+            items=_insert("derivative", "integral", "limit", "nInt", "fMin", "fMax"),
+        ),
+        MenuItem(
+            "Probability",
+            items=(
+                MenuItem(
+                    "Distributions", items=_insert("normCdf", "invNorm", "binomPdf", "binomCdf")
+                ),
+                *_insert("randInt", "randNorm"),
+            ),
+        ),
+        MenuItem("Statistics", items=_insert("mean", "median", "stDevSamp", "stDevPop")),
+        MenuItem("Matrix & Vector", items=_insert("det", "identity", "dotP", "crossP", "norm")),
+    ),
+)
+
+PROFILE = Profile(
+    "TI-Nspire CX CAS",
+    HANDHELD,
+    COMPUTER,
+    MODIFIERS,
+    KEYPAD,
+    status_line,
+    {"doc": DOC, "menu": MENU},
+)

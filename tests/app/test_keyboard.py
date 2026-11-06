@@ -20,7 +20,7 @@ CASES = [
     ("Arrow Left", "", "ArrowLeft"),
     ("Space", "c", "ctrl+ "),
     ("Shift Left", "", None),
-    ("Escape", "", None),
+    ("Escape", "", "Escape"),
     ("F5", "", None),
 ]
 

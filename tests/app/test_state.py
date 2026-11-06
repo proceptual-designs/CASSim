@@ -47,5 +47,5 @@ def test_shifted_symbols_and_unknown_keys() -> None:
     state.key_event("3")
     state.key_event("Enter")
     assert state.screen().lines[1].text == "8"
-    assert state.key_event("Escape") is False
+    assert state.key_event("F5") is False
     assert state.key_event("Shift Left") is False
