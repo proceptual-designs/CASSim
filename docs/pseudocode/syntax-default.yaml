@@ -34,6 +34,30 @@ lexical:
   abs_bars:      ok
   string_quotes: {"straight": ok, "curly": ok}
 
+symbols:                                 # ASCII <-> Unicode equivalents (SRS FR-SYN-011, FR-SYN-012); both always accepted, each ok | warn | no
+  assign:        {ascii: ["<-", ":="], unicode: ["←"]}
+  times:         {ascii: ["*"], unicode: ["×", "·"]}
+  divide:        {ascii: ["/"], unicode: ["÷"]}
+  less_equal:    {ascii: ["<="], unicode: ["≤", "⩽"]}
+  greater_equal: {ascii: [">="], unicode: ["≥", "⩾"]}
+  not_equal:     {ascii: ["!=", "<>"], unicode: ["≠"]}
+  sqrt:          {ascii: ["sqrt("], unicode: ["√(", "√"]}
+  pi:            {ascii: ["pi"], unicode: ["π"]}          # a user variable called pi is never converted
+  infinity:      {ascii: ["inf"], unicode: ["∞"]}
+  abs:           {ascii: ["abs("], unicode: ["|x|"]}
+  power:         {ascii: ["^", "**"], unicode: ["superscript integers"]}   # integer exponents only; x^(n+1) has no superscript form
+  and_or_not:    {ascii: ["and", "or", "not"], unicode: ["∧", "∨", "¬"]}
+  convert_button_default: unicode          # target of the Convert symbols button when the program is mixed
+
+palette:                                 # shown by the symbol palette (FR-EDT-006); only symbols accepted above are listed
+  groups:
+    arithmetic: ["×", "÷", "±", "≤", "≥", "≠", "←", "≈"]
+    powers_roots: ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "e", "∞"]
+    logic: ["∧", "∨", "¬"]
+    brackets: ["|x|", "( )", "[ ]"]
+    greek: ["θ", "α", "β", "δ", "λ", "μ", "σ"]
+  templates: [if, for, while, repeat, define]   # insert a block in the user's own syntax style
+
 constructs:
   assign:
     spellings: {"←": ok, "<-": ok, ":=": ok, "=": warn}
@@ -90,3 +114,4 @@ emit:
   for_do: never
   terminators: {if: "end if", while: "end while", for: "end for", repeat: "end repeat", define: "end"}
   print_parentheses: never
+  symbols: unicode                       # unicode | ascii | keep: what the printer and Regularise write (FR-SYN-005, FR-SYN-012)

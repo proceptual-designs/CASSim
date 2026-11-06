@@ -72,7 +72,7 @@ Other examples in the author's material that use this layout: `a ← 2; while a 
 
 - **Auto** (default): horizontal when eligible, otherwise vertical. The user can switch to the other layout at any time when it applies, and the choice is remembered per program.
 - The layout is a **view**: switching it does not re-run anything, and the cursor stays on the same event.
-- The author's practice questions use a third, per-iteration table (`Loop #, x, y, y_old, condition, Output`, one row per pass, variable values as columns). It is a simple summary of the same events and is a candidate third view (Q33).
+- The author's practice questions use a third, per-iteration table (`Loop #, x, y, y_old, condition, Output`, one row per pass, variable values as columns). It is a simple summary of the same events and is a Could third view (FR-TRC-011, Q33 decided 2026-11-04), after the vertical and horizontal views.
 
 ## 5 Stepping and controls
 

@@ -7,10 +7,12 @@ from collections.abc import Callable, Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from itertools import pairwise
+from typing import Any
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
 from sympy.logic.boolalg import Boolean
+from sympy.printing.latex import LatexPrinter
 
 from cassim.core import ast
 from cassim.core.settings import CasMode, Settings
@@ -285,8 +287,24 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
     return False
 
 
+class _TILatexPrinter(LatexPrinter):
+    """SymPy's LaTeX printer with TI's conventions: upright ⅇ and ⅈ, `ln`, `sin⁻¹`."""
+
+    def _print(self, expr: Any, **kwargs: Any) -> str:  # noqa: ANN401
+        if expr is sp.E:
+            return r"\mathrm{e}"
+        if expr is sp.I:
+            return r"\mathrm{i}"
+        if isinstance(expr, sp.exp):
+            return rf"\mathrm{{e}}^{{{self._print(expr.exp)}}}"
+        return super()._print(expr, **kwargs)
+
+
+_LATEX_SETTINGS = {"inv_trig_style": "power", "ln_notation": True}
+
+
 def latex(raw: Raw) -> str:
-    return sp.latex(raw)
+    return _TILatexPrinter(_LATEX_SETTINGS).doprint(raw)
 
 
 def _negate(node: ast.Expr) -> ast.Expr:
@@ -861,6 +879,15 @@ def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | No
         return None
     result = _inverse_hyperbolics_as_logs(result)
     return result if lower is not None else _logs_of_absolute_values(result)
+
+
+def series_total(
+    expression: Raw, variable: Raw, lower: Raw, upper: Raw, *, product: bool
+) -> Raw | None:
+    """`sumSeq` or `prodSeq`; None if SymPy has no closed form."""
+    bounds = (variable, lower, upper)
+    result = sp.product(expression, bounds) if product else sp.summation(expression, bounds)
+    return None if result.has(sp.Sum, sp.Product) else result
 
 
 def limit(expression: Raw, variable: Raw, point: Raw, direction: int | None) -> Raw | None:

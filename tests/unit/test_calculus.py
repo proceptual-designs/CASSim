@@ -262,3 +262,25 @@ def test_calculus_in_approximate_mode_gives_decimals():
 def test_tangent_fmax_and_limit_are_refused_in_cas_off():
     for line in ("tangentLine(x^2,x,1)", "fMax(-x^2,x)", "taylor(exp(x),x,2)", "impDif(x=y,x,y)"):
         assert "restricted" in error(line, settings=CAS_OFF)
+
+
+@pytest.mark.parametrize(
+    ("line", "wanted"),
+    [
+        ("sumSeq(2*k-1,k,1,10)", "100"),
+        ("Σ(n,n,1,10)", "55"),
+        ("sumSeq(1/2^n,n,0,∞)", "2"),
+        ("Σ(1/n^2,n,1,∞)", "π^2/6"),
+        ("prodSeq(n,n,1,5)", "120"),
+        ("Π(k,k,1,4)", "24"),
+        ("∫(x^2,x,0,2)", "8/3"),
+        ("∫(x^2,x)", "x^3/3"),
+    ],
+)
+def test_series_and_template_spellings(line, wanted):
+    """The templates `Σ(`, `Π(` and `∫(` are `sumSeq`, `prodSeq` and `integral`."""
+    assert text(line) == wanted
+
+
+def test_symbolic_upper_limit_of_a_sum():
+    same("sumSeq(k,k,1,n)", "n*(n+1)/2")
