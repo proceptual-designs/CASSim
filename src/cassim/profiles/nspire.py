@@ -153,6 +153,7 @@ DOC = MenuItem(
                 MenuItem("Redo page change", "redo_pages"),
             ),
         ),
+        MenuItem("Page Sorter", "dialog", "page_sorter", key="3"),
         MenuItem(
             "Insert",
             key="4",
@@ -164,7 +165,10 @@ DOC = MenuItem(
         MenuItem(
             "Settings & Status",
             key="7",
-            items=(MenuItem("Document Settings", "dialog", "document_settings", key="2"),),
+            items=(
+                MenuItem("System Settings", "dialog", "system_settings", key="1"),
+                MenuItem("Document Settings", "dialog", "document_settings", key="2"),
+            ),
         ),
     ),
 )

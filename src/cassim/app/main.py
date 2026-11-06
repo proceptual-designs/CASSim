@@ -14,6 +14,8 @@ from cassim.app.ui import (
     Sidebar,
     chip,
     settings_dialog,
+    sorter_dialog,
+    system_settings_dialog,
 )
 from cassim.device.keys import Binding
 
@@ -102,12 +104,20 @@ class App:
             chip("delete page", lambda: self.act("delete_page"), theme),
             chip("Doc", lambda: self.act("open_menu", "doc"), theme),
             chip("Menu", lambda: self.act("open_menu", "menu"), theme),
+            chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
             chip("settings", self.open_settings, theme),
         ]
 
     def show_dialog(self, name: str) -> None:
         if name == "document_settings":
             self.open_settings()
+        elif name == "system_settings":
+            system_settings_dialog(self.page, self.state, self.on_system_change, self.theme)
+        elif name == "page_sorter":
+            sorter_dialog(self.page, self.state, self.refresh, self.theme)
+
+    def on_system_change(self) -> None:
+        self.refresh()
 
     def open_settings(self) -> None:
         settings_dialog(self.page, self.state, self.refresh, self.theme)

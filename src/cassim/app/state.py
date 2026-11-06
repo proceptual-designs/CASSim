@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import StrEnum
 
 from cassim.app.keyboard import key_name
@@ -16,6 +17,17 @@ from cassim.profiles import Profile, nspire
 class Mode(StrEnum):
     HANDHELD = "handheld"
     COMPUTER = "computer"
+
+
+@dataclass
+class System:
+    """System Settings: how the app looks, apart from the document (FR-DOC-002)."""
+
+    start_mode: Mode = Mode.COMPUTER
+    math_size: int = 20  # LaTeX size in the entry and history
+
+
+MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}
 
 
 class AppState:
@@ -36,6 +48,7 @@ class AppState:
         self.clipboard_out: Callable[[str], None] | None = None  # set by the GUI: system clipboard
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.menu: MenuState | None = None
+        self.system = System(mode)
 
     @property
     def pending(self) -> str:

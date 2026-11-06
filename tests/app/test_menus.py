@@ -12,6 +12,7 @@ def test_doc_menu_opens_and_lists_rows() -> None:
     assert view.title == "Doc"
     assert [(row.key, row.label) for row in view.rows] == [
         ("2", "Page"),
+        ("3", "Page Sorter"),
         ("4", "Insert"),
         ("7", "Settings & Status"),
     ]
@@ -38,6 +39,7 @@ def test_doc_insert_calculator_adds_a_page_in_the_problem() -> None:
 def test_arrows_and_enter_choose() -> None:
     state = AppState()
     state.key_event("F4")
+    state.key_event("Arrow Down")  # Page Sorter
     state.key_event("Arrow Down")  # Insert
     state.key_event("Enter")  # open it
     view = state.screen().menu
@@ -103,3 +105,12 @@ def test_selection_wraps_and_explicit_keys_are_reserved() -> None:
     assert menu.level.index == 2
     assert menu.press("enter") is not None
     assert not menu.open
+
+
+def test_page_sorter_and_system_settings_ask_for_dialogs() -> None:
+    state = AppState()
+    asked: list[str] = []
+    state.show_dialog = asked.append
+    for key in ("F4", "3", "F4", "7", "1"):
+        state.key_event(key)
+    assert asked == ["page_sorter", "system_settings"]

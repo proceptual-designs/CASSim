@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from cassim.device.document import Document
+from cassim.device.document import Document, Page
 from cassim.device.menu import MenuView
 
 
@@ -28,6 +28,18 @@ class Screen:
     entry: str  # LaTeX of the entry line, cursor drawn
     error: str | None
     menu: MenuView | None = None  # drawn over the page while a menu is open
+
+
+def thumbnail(page: Page, rows: int = 3) -> tuple[str, ...]:
+    """The last few lines of a page as plain text, for the page sorter."""
+    if page.calculator is None:
+        return (page.kind.value,)
+    lines = [
+        text
+        for entry in page.calculator.history[-rows:]
+        for text in (entry.text, entry.result.text)
+    ]
+    return tuple(lines[-rows:])
 
 
 def render(document: Document, status: str = "", menu: MenuView | None = None) -> Screen:

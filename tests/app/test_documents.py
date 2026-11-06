@@ -2,8 +2,9 @@
 
 from dataclasses import replace
 
-from cassim.app.state import AppState
+from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.core.settings import Angle
+from cassim.device.screen import thumbnail
 
 
 def enter(state: AppState, text: str) -> None:
@@ -93,3 +94,18 @@ def test_undo_restores_a_deleted_problem_and_is_empty_at_start() -> None:
     assert len(state.document.problems) == 2
     state.run_action("move_problem", "-1")
     assert state.document.problem == 0
+
+
+def test_page_thumbnail_shows_the_last_lines() -> None:
+    state = AppState()
+    for text in ("1+1", "2+2"):
+        enter(state, text)
+    assert thumbnail(state.document.current)[-1] == "4"
+    state.run_action("add_page")
+    assert thumbnail(state.document.current) == ()
+
+
+def test_system_settings_start_in_the_state_mode() -> None:
+    state = AppState(mode=Mode.HANDHELD)
+    assert state.system.start_mode is Mode.HANDHELD
+    assert state.system.math_size == MATH_SIZES["Normal"]

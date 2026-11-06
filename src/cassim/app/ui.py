@@ -7,25 +7,25 @@ from enum import StrEnum
 
 import flet as ft
 
-from cassim.app.state import AppState
+from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView
-from cassim.device.screen import Line, Screen
+from cassim.device.screen import Line, Screen, thumbnail
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240  # the handheld's pixels (FR-DEV-004)
 ENTRY_ROOM = 28  # the blank line kept below the entry
 
 
-def math(latex: str, theme: Theme) -> ft.Markdown:
+def math(latex: str, theme: Theme, size: int = 20) -> ft.Markdown:
     """LaTeX drawn on the Flutter canvas (decision 0014)."""
     return ft.Markdown(
         f"${latex_for_markdown(latex)}$" if latex else " ",
         extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
         fit_content=True,
-        latex_style=ft.TextStyle(color=theme.screen_text, size=20),
+        latex_style=ft.TextStyle(color=theme.screen_text, size=size),
     )
 
 
@@ -62,7 +62,7 @@ class CalculatorView:
         screen = self.state.screen()
         self.title.value = screen.title
         self.status.value = screen.status
-        self.entry.content = math(screen.entry, self.theme)
+        self.entry.content = math(screen.entry, self.theme, self.state.system.math_size)
         self.history.controls = [
             *(self._line(line) for line in screen.lines),
             self.entry,
@@ -74,7 +74,7 @@ class CalculatorView:
     def _line(self, line: Line) -> ft.Control:
         right = line.kind == "result"
         return ft.Container(
-            math(line.latex, self.theme),
+            math(line.latex, self.theme, self.state.system.math_size),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
             padding=ft.Padding.symmetric(horizontal=6),
@@ -291,5 +291,120 @@ def settings_dialog(
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),
             ],
+        )
+    )
+
+
+def system_settings_dialog(
+    page: ft.Page, state: AppState, on_change: Callable[[], None], theme: Theme = DARK
+) -> None:
+    """System Settings: the view the app starts in and the size of the maths."""
+    system = state.system
+    start = ft.Dropdown(
+        label="Start in",
+        value=system.start_mode.value,
+        options=[ft.DropdownOption(key=m.value, text=m.name.title()) for m in Mode],
+        width=240,
+    )
+    size = ft.Dropdown(
+        label="Maths size",
+        value=next(name for name, px in MATH_SIZES.items() if px == system.math_size),
+        options=[ft.DropdownOption(key=name, text=name) for name in MATH_SIZES],
+        width=240,
+    )
+
+    def apply() -> None:
+        system.start_mode = Mode(start.value or system.start_mode)
+        system.math_size = MATH_SIZES.get(size.value or "", system.math_size)
+        page.pop_dialog()
+        on_change()
+
+    page.show_dialog(
+        ft.AlertDialog(
+            title=ft.Text("System Settings"),
+            content=ft.Column([start, size], tight=True, spacing=12),
+            actions=[
+                ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+                ft.TextButton("OK", on_click=apply),
+            ],
+        )
+    )
+
+
+def sorter_dialog(
+    page: ft.Page, state: AppState, on_change: Callable[[], None], theme: Theme = DARK
+) -> None:
+    """The page sorter: every page as a tile, grouped by Problem. Click a tile to go to it, then
+    move or delete it with the buttons."""
+    document = state.document
+    body = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, width=520, height=360)
+
+    def act(action: str, arg: str = "") -> None:
+        state.run_action(action, arg)
+        build()
+        on_change()
+
+    def go(problem: int, index: int) -> None:
+        document.go(problem, index)
+        build()
+        on_change()
+
+    def tile(problem: int, index: int) -> ft.Control:
+        here = (problem, index) == (document.problem, document.page)
+        shown = document.problems[problem].pages[index]
+        return ft.Container(
+            ft.Column(
+                [
+                    ft.Text(f"{problem + 1}.{index + 1}", size=11, color=theme.key_label),
+                    *(ft.Text(line, size=11, color=theme.screen_text) for line in thumbnail(shown)),
+                ],
+                spacing=1,
+            ),
+            width=110,
+            height=84,
+            padding=6,
+            bgcolor=theme.selection if here else theme.screen,
+            border=ft.Border.all(2, theme.accent if here else theme.title_bar),
+            border_radius=6,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            on_click=lambda _, p=problem, q=index: go(p, q),
+        )
+
+    def build() -> None:
+        body.controls = [
+            ft.Row(
+                [
+                    ft.Text(f"Problem {p + 1}", color=theme.key_text, width=70),
+                    ft.Row([tile(p, q) for q in range(len(problem.pages))], wrap=True, expand=True),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+            for p, problem in enumerate(document.problems)
+        ]
+        page.update()
+
+    build()
+    buttons = [
+        ("◀ earlier", "move_page", "-1"),
+        ("later ▶", "move_page", "1"),
+        ("delete", "delete_page", ""),
+        ("↶ undo", "undo_pages", ""),
+        ("↷ redo", "redo_pages", ""),
+    ]
+    page.show_dialog(
+        ft.AlertDialog(
+            title=ft.Text("Page Sorter"),
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [chip(label, lambda a=a, g=g: act(a, g), theme) for label, a, g in buttons],
+                        spacing=4,
+                        wrap=True,
+                    ),
+                    body,
+                ],
+                tight=True,
+            ),
+            actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())],
         )
     )
