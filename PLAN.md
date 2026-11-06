@@ -197,12 +197,12 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
 - **Status: done (2026-11-02).** See `docs/decisions/0007` to `0011`.
 
-**M2 — GUI shell: keyboard, pages, settings (L)**
+**M2 — GUI shell: keyboard, pages, settings (L)**
 
 - Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
 - **Guard for the profile work in M8 (no extra scope):** framework code in `device/` and `cassim_app` holds no Nspire-specific constants. Key layers, menu trees, page types, skin and theme values come from data or registries that the Nspire profile supplies, and page types are registered, not hard-coded in a switch. This costs almost nothing now and avoids a rewrite later (section 3.2; SRS FR-DEV-007).
 - Decisions and the four spikes that precede 2b to 2e are in `docs/decisions/0013-m2-planning.md` (2D rendering, MathLive, GitHub Pages publish, cancel and restore). The skin is driven by a config file; the display mode is remembered, with a media query on a first visit; Document Settings gain `case` and `ascii`.
-- 2a Device model (started 2026-11-06: `device/keys.py`, `device/calculator.py` with entry, history, recall, undo and redo, and the Nspire keymaps in `profiles/nspire.py` are done; the menu tree, documents and screen buffer are next): key layers, menu tree from data, the 2D template input editor (`device/editor.py`: fractions, powers, roots done; matrices, lists, selection, copy and paste to do), screen buffer; headless key-sequence tests.
+- 2a Device model (started 2026-11-06: `device/keys.py`, `device/calculator.py` with entry, history, recall, undo and redo, and the Nspire keymaps in `profiles/nspire.py` are done; the `device/document.py` with Problems, Pages, the page sorter order and document settings is done; the menu tree and screen buffer are next): key layers, menu tree from data, the 2D template input editor (`device/editor.py`: fractions, powers, roots done; matrices, lists, selection, copy and paste to do), screen buffer; headless key-sequence tests.
 - 2b Flet app with the three modes; 2D result rendering from layout tree; physical keyboard mapping.
 - 2c Documents, Problems, Pages (add/delete/reorder, page sorter), variable list, document/system settings dialogs, undo/redo.
 - 2d Editor completion: matrix and list templates, selection, copy and paste, history recall as templates (parse an old entry back into the tree), click-to-place the cursor, typed-character capture on other keyboard layouts (needs a Dart key handler or a hidden text field; see 0015).
