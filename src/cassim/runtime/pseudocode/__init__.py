@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from cassim.runtime.pseudocode.errors import PseudocodeError, PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
 from cassim.runtime.pseudocode.parser import parse
+from cassim.runtime.pseudocode.printer import PrintError, print_expr, print_program, shape
 from cassim.runtime.pseudocode.settings import Settings
 from cassim.runtime.pseudocode.steps import RunResult, Step
 from cassim.runtime.pseudocode.syntax import DEFAULT, PRESETS, Syntax, SyntaxFileError, load_syntax
@@ -15,6 +16,7 @@ __all__ = [
     "PRESETS",
     "Diagnostic",
     "Interpreter",
+    "PrintError",
     "Program",
     "PseudocodeError",
     "PseudocodeSyntaxError",
@@ -25,7 +27,10 @@ __all__ = [
     "SyntaxFileError",
     "load_syntax",
     "parse",
+    "print_expr",
+    "print_program",
     "run",
+    "shape",
 ]  # fmt: skip
 
 

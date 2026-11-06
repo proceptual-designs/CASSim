@@ -152,22 +152,27 @@ def _scan_superscript(text: str, i: int, lineno: int) -> Token:
     return Token("SUP", sign + digits, lineno, i, j)
 
 
+def _is_digit(c: str) -> bool:
+    """A decimal digit, not a superscript one (`2E3²` is 2E3 squared)."""
+    return c.isdigit() and c not in SUPERSCRIPT
+
+
 def _scan_number(text: str, i: int) -> int:
     n = len(text)
     j = i
-    while j < n and text[j].isdigit() and text[j] not in SUPERSCRIPT:
+    while j < n and _is_digit(text[j]):
         j += 1
     if j < n and text[j] == "." and not text.startswith("..", j):
         j += 1
-        while j < n and text[j].isdigit() and text[j] not in SUPERSCRIPT:
+        while j < n and _is_digit(text[j]):
             j += 1
     # Scientific notation is `E` or `ᴇ` only; lowercase `e` is never an exponent marker.
     if j < n and text[j] in "Eᴇ":
         k = j + 1
         if k < n and text[k] in "+-−":
             k += 1
-        if k < n and text[k].isdigit():
-            while k < n and text[k].isdigit():
+        if k < n and _is_digit(text[k]):
+            while k < n and _is_digit(text[k]):
                 k += 1
             return k
     return j

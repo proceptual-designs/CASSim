@@ -42,6 +42,16 @@ _KEYWORD_SETS = (
     ("define", "keywords"), ("print", "keywords"), ("input", "keywords"),
     ("return", "keywords"), ("break", "keywords"),
 )  # fmt: skip
+_EMIT_CHOICES = {
+    "comment": ("//", "#"),
+    "assign": ("←", "<-", ":=", "="),
+    "times": ("×", "*", "·"),
+    "divide": ("÷", "/"),
+    "if_then": ("always", "never"),
+    "while_do": ("always", "never"),
+    "for_do": ("always", "never"),
+    "print_parentheses": ("always", "never"),
+}
 _ASCII_WORDS = frozenset({"and", "or", "not", "mod", "div"})
 
 
@@ -399,6 +409,13 @@ def _check_modes(d: dict[str, Any], problems: list[str]) -> None:  # noqa: PLR09
         )
     ):
         problems.append("emit.indent: must be a whole number from 1 to 8")
+    for key, allowed in _EMIT_CHOICES.items():
+        if emit[key] not in allowed:
+            problems.append(f"emit.{key}: must be one of {', '.join(allowed)}")
+    for key in ("if", "while", "for", "repeat", "define"):
+        value = emit["terminators"].get(key)
+        if value is not None and not (isinstance(value, str) and value.strip()):
+            problems.append(f"emit.terminators.{key}: must be a spelling such as 'end {key}'")
 
 
 def _check_phrase(path: str, spelling: str, problems: list[str]) -> None:

@@ -65,8 +65,7 @@ Corpus cases may carry `syntax: <preset>`; only `book.u2.newton3.cubic` needs on
 
 ## Not done yet
 
-- The printer (the `emit` section) and the round-trip property tests of FR-SYN-007; the translator
-  (FR-XLT) needs them.
+- The translator (FR-XLT), which uses the printer.
 - The settings UI to edit, preview, export and import a syntax file (FR-SYN-003) and Regularise and
   Convert symbols (FR-SYN-010 to -012). These wait for the M2 GUI shell.
 - Per-spelling modes for the words `and`, `or`, `not`, `mod`, `div` are by word, not by capitalisation
@@ -89,3 +88,31 @@ Design notes for when it is:
   symbolically, not as floats.
 - Risks: the 20,000-step limit does not bound expression growth in loops (for example Newton's method in
   Exact mode gives huge fractions). Plan a size cap on exact values that falls back to a decimal with a warning.
+
+## The printer and round trips (FR-SYN-005, FR-SYN-007), 2026-11-07
+
+`runtime/pseudocode/printer.py`: `print_program(tree, syntax)`, `print_expr`, `shape` (a tree without line
+numbers, for comparing) and `PrintError`.
+
+- **Emit options used:** `keyword_case`, `indent`, `assign`, `times`, `divide`, `if_then`, `while_do`,
+  `for_do`, `print_parentheses`, `terminators`, `symbols` (`ascii` writes `<-`, `*`, `/`, `<=`, `>=`,
+  `!=` and `^` for powers; `unicode` and `keep` are the same, because the tree does not remember the
+  user's spelling). Validated with entry-naming messages. `comment` is validated but unused: the tree has no comments.
+- **Never writes what the syntax refuses.** A preferred spelling the syntax marks `no` is replaced by one
+  it accepts (strict with `symbols: ascii` still writes `≤`). A `then`/`do` the syntax requires is written
+  whatever `if_then`/`while_do` say, and one it forbids is left out. In a case-sensitive syntax every keyword is
+  written in lower case. `and`, `or`, `not`, `mod`, `div` are written as words, not `∧ ∨ ¬`.
+- **Brackets** are added only where precedence needs them, and a tree that already has `Paren` nodes
+  keeps them. `a^b^c` reads as a^(b^c), and `√x²` as √(x²), as the parser does.
+- **`PrintError`** (named reason) when the tree has something the syntax cannot write: a function by
+  assignment under strict, a string with a quote mark the syntax rejects, an empty function that has only
+  dedent to end it, a `step` where it is refused. Printing never guesses.
+- **Property tests** (`tests/runtime/test_pseudocode_printer.py`): all 58 golden programs under all four presets
+  (strict skips the one that defines a function by assignment); hypothesis-generated expressions and programs
+  under every preset; and generated syntax files (random emit section, `then`/`do`/print/colon policies, case
+  sensitivity, optional `based_on`). Comparison is `shape`, which treats `/` and `÷` as one operator and, for
+  built trees, ignores grouping brackets.
+- **Found on the way:** `next <variable>` was written with its placeholder (fixed); an ASCII `<=` was written
+  under strict, which refuses it (fixed).
+- **Lexer bug found by the property test:** `2E3²` read the `²` as an exponent digit (`2E3` then `2`); superscripts
+  are no longer digits in a number's exponent.
