@@ -135,7 +135,7 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
 
-Exact values (Q41, decided 2026-11-04): in the first release `sqrt(2)`, `π` and similar are reals in every mode. Exact surd and index forms through the CAS engine, in Auto and Exact modes on CAS pages, are a Could (FR-PSE-012).
+Exact values (Q41, revised 2026-11-07; FR-PSE-012, Should): today `sqrt(2)`, `π` and similar are reals in every mode, because only Approx is built. Planned: the Number mode control behaves as on the CAS. Exact keeps `π`, `ⅇ`, surds and fractions unevaluated (`√2`, `π/6`, `7/2`); Auto stays exact until a decimal enters; Approx is numeric. Loop and `if` tests compare numerically.
 
 ## 9 Diagnostics
 

@@ -71,3 +71,21 @@ Corpus cases may carry `syntax: <preset>`; only `book.u2.newton3.cubic` needs on
   Convert symbols (FR-SYN-010 to -012). These wait for the M2 GUI shell.
 - Per-spelling modes for the words `and`, `or`, `not`, `mod`, `div` are by word, not by capitalisation
   (`MOD` and `mod` share a mode).
+
+## Symbolic pseudocode promoted to Should (2026-11-07)
+
+Simon asked for exact values in pseudocode, with the CAS's Approx / Auto / Exact toggle. FR-PSE-012 moved
+from Could to Should and Q41 was revised (see `docs/SRS.md`). Not built yet.
+
+Design notes for when it is:
+
+- Values: add an exact number type backed by SymPy, touched only in `core/compat/sympy_adapter.py`. The
+  interpreter's `arith.py` already routes arithmetic, so Exact and Auto swap the number kind there.
+- Auto: exact while every operand is exact; a decimal, `rand()` or an Approx function makes the result a float.
+- Default stays Approx, so the 58 golden programs do not change. Add Exact and Auto corpus cases (surds,
+  `π/6`, `7/2`, `2^(1/3)`).
+- Conditions (`if`, `while`) compare numerically; trace cells and `print` show the exact form.
+- Translator: exact mode needs `sympy` in the generated Python; FR-XLT-004 compares exact results
+  symbolically, not as floats.
+- Risks: the 20,000-step limit does not bound expression growth in loops (for example Newton's method in
+  Exact mode gives huge fractions). Plan a size cap on exact values that falls back to a decimal with a warning.
