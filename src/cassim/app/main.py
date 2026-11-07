@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import flet as ft
 
-from cassim.app.state import AppState, Mode
+from cassim.app.state import AppState, Mode, System
 from cassim.app.theme import DARK
 from cassim.app.ui import (
     SCREEN_HEIGHT,
@@ -19,12 +19,14 @@ from cassim.app.ui import (
 )
 from cassim.device.keys import Binding
 from cassim.device.serialize import DocumentFileError, dumps, loads
+from cassim.device.share import LinkTooLongError, decode, encode
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
 AUTOSAVE_KEY = "cassim.autosave"
+SYSTEM_KEY = "cassim.system"
 
 
 def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
@@ -82,6 +84,7 @@ class App:
         )
         await self.recover()
         self.refresh()
+        self.offer_shared(self.page.route)
         print("CASSIM: READY", flush=True)
 
     def autosave(self) -> None:
@@ -92,7 +95,12 @@ class App:
             self.page.run_task(self.prefs.set, AUTOSAVE_KEY, text)
 
     async def recover(self) -> None:
-        """Reopen the autosaved document, if there is a readable one."""
+        """Reopen the saved System Settings and the autosaved document, if they are readable."""
+        saved = await self.prefs.get(SYSTEM_KEY)
+        if isinstance(saved, str):
+            self.state.system = System.loads(saved)
+            self.state.mode = self.state.system.start_mode
+            self.arrange()
         text = await self.prefs.get(AUTOSAVE_KEY)
         if not isinstance(text, str):
             return
@@ -164,6 +172,8 @@ class App:
             self.page.run_task(self.save_file)
         elif name == "open_file":
             self.page.run_task(self.open_file)
+        elif name == "share_link":
+            self.share_link()
         elif name == "document_settings":
             self.open_settings()
         elif name == "system_settings":
@@ -195,6 +205,48 @@ class App:
             self.notice("Cannot open that file", str(error))
         self.refresh()
 
+    def share_link(self) -> None:
+        """Copy a link that holds the document in its fragment (FR-DOC-007)."""
+        try:
+            fragment = encode(self.state.document)
+        except LinkTooLongError as error:
+            self.notice("Too big for a link", f"{error}. Use Doc > File > Save to file instead.")
+            return
+        # the dev server reports a socket URL
+        base = (self.page.url or "").partition("#")[0].replace("ws", "http", 1)
+        self.page.run_task(self.clipboard.set, f"{base.rstrip('/')}/#/{fragment}")
+        self.notice("Link copied", "Anyone with the link can open this document. Nothing is sent.")
+
+    def offer_shared(self, fragment: str) -> None:
+        """A page opened from a share link asks before replacing the document (FR-DOC-007). The
+        hash URL strategy makes the fragment `/doc=...` the page's route."""
+        try:
+            shared = decode(fragment.lstrip("/"))
+        except DocumentFileError as error:
+            self.notice("Cannot open that link", str(error))
+            return
+        if shared is None:
+            return
+
+        def accept() -> None:
+            self.state.replace_document(shared)
+            self.page.pop_dialog()
+            self.refresh()
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Open shared document?"),
+                content=ft.Text(
+                    f"“{shared.name}” came from a link. It replaces what is open now; "
+                    "nothing in it runs until you run it."
+                ),
+                actions=[
+                    ft.TextButton("Open", on_click=accept),
+                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                ],
+            )
+        )
+
     def notice(self, title: str, message: str) -> None:
         self.page.show_dialog(
             ft.AlertDialog(
@@ -205,6 +257,7 @@ class App:
         )
 
     def on_system_change(self) -> None:
+        self.page.run_task(self.prefs.set, SYSTEM_KEY, self.state.system.dumps())
         self.refresh()
 
     def open_settings(self) -> None:
@@ -236,4 +289,4 @@ async def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH)

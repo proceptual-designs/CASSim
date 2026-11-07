@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 
 from cassim.app.keyboard import key_name
@@ -25,6 +26,22 @@ class System:
 
     start_mode: Mode = Mode.COMPUTER
     math_size: int = 20  # LaTeX size in the entry and history
+
+    def dumps(self) -> str:
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def loads(cls, text: str) -> System:
+        """Saved settings; anything unreadable or out of range falls back to the default."""
+        system = cls()
+        try:
+            data = json.loads(text)
+            system.start_mode = Mode(data["start_mode"])
+            size = data["math_size"]
+            system.math_size = size if size in MATH_SIZES.values() else system.math_size
+        except ValueError, KeyError, TypeError:
+            return cls()
+        return system
 
 
 MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}

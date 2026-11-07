@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 
-from cassim.app.state import MATH_SIZES, AppState, Mode
+from cassim.app.state import MATH_SIZES, AppState, Mode, System
 from cassim.core.settings import Angle
 from cassim.device.screen import thumbnail
 
@@ -136,3 +136,12 @@ def test_file_menu_asks_for_the_file_dialogs() -> None:
     for key in ("F4", "1", "2", "F4", "1", "3"):
         state.key_event(key)
     assert asked == ["open_file", "save_file"]
+
+
+def test_system_settings_round_trip_and_fall_back() -> None:
+    """FR-DOC-002: System Settings survive a reload; a bad saved value gives the defaults."""
+    system = System(Mode.HANDHELD, MATH_SIZES["Large"])
+    assert System.loads(system.dumps()) == system
+    for bad in ("", "[]", '{"start_mode": "x", "math_size": 20}', '{"start_mode": "computer"}'):
+        assert System.loads(bad) == System()
+    assert System.loads('{"start_mode": "handheld", "math_size": 99}').math_size == 20

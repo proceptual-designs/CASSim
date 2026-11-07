@@ -145,6 +145,7 @@ DOC = MenuItem(
                 MenuItem("New", "new_document"),
                 MenuItem("Open file…", "dialog", "open_file"),
                 MenuItem("Save to file…", "dialog", "save_file"),
+                MenuItem("Copy share link", "dialog", "share_link"),
             ),
         ),
         MenuItem(
