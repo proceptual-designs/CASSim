@@ -777,6 +777,11 @@ def solve_equation(
     return _as_condition(found, variable, equation)
 
 
+def conjuncts(raw: Raw) -> list[Raw]:
+    """The parts of `a and b and c`, or just `raw`: a system can be typed either way."""
+    return list(raw.args) if isinstance(raw, sp.And) else [raw]
+
+
 def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
     try:
         solutions = sp.solve([as_equation(e) for e in equations], variables, dict=True)

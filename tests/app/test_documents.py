@@ -133,7 +133,7 @@ def test_file_menu_asks_for_the_file_dialogs() -> None:
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append
-    for key in ("F4", "1", "2", "F4", "1", "3"):
+    for key in ("F4", "1", "2", "F4", "1", "4"):  # File > 2 Open, File > 4 Save
         state.key_event(key)
     assert asked == ["open_file", "save_file"]
 

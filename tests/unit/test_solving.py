@@ -91,6 +91,11 @@ def test_roots_print_in_increasing_order_and_ranges_as_chains():
         ("solve({y=x^2,y=2*x+3},{x,y})", "x=-1 and y=1 or x=3 and y=9"),
         ("solve({x+y+z=6,x-y+z=2,2*x+y-z=1},{x,y,z})", "x=1 and y=2 and z=3"),
         ("solve({x+y=3,x+y=4},{x,y})", "false"),
+        # The same systems typed with `and`, as the handheld's system template writes them
+        ("solve(x+y=3 and x-y=1,{x,y})", "x=2 and y=1"),
+        ("solve(y=x^2 and y=2*x+3,{x,y})", "x=-1 and y=1 or x=3 and y=9"),
+        ("solve(x+y+z=6 and x-y+z=2 and 2*x+y-z=1,{x,y,z})", "x=1 and y=2 and z=3"),
+        ("solve(x+y=3 and x+y=4,{x,y})", "false"),
     ],
 )
 def test_solve_systems(line, wanted):

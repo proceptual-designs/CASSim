@@ -43,20 +43,41 @@ class Keyboard:
         typed = not self.pending
         self.pending = ""
         binding = self.keymap.get(name)
-        if binding is None and typed and len(key) == 1:
-            return Binding("insert", key)
+        if binding is None and len(key) == 1:
+            if typed:
+                return Binding("insert", key)
+            if name == f"shift+{key}" and key.isalpha():
+                return Binding("insert", key.upper())  # shift then a letter types a capital
         return binding
 
 
 @dataclass(frozen=True)
 class Key:
     """A key as drawn on a keypad: its name for `Keyboard.press`, its label, and the labels of the
-    other layers (empty when the layer does nothing)."""
+    other layers (empty when the layer does nothing).
+
+    `width` and `height` are in key units (a row is as tall as its tallest key); `style` is a name
+    the theme gives colours to (`digit`, `alpha`, `nav`...). A key with no name is a gap."""
 
     name: str
     label: str
     shift: str = ""
     ctrl: str = ""
+    width: float = 1.0
+    height: float = 1.0
+    style: str = ""
+
+
+def gap(width: float = 1.0) -> Key:
+    """Empty space in a keypad row."""
+    return Key("", "", width=width)
 
 
 type Keypad = tuple[tuple[Key, ...], ...]
+
+
+def keypad_units(keypad: Keypad) -> tuple[float, float]:
+    """The keypad's size in key units: its widest row, and the sum of the row heights."""
+    width = max(sum(key.width for key in row) for row in keypad)
+    height = sum(max(key.height for key in row) for row in keypad)
+    return width, height

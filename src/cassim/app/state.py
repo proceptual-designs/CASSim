@@ -12,10 +12,13 @@ from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.document import Document, PageKind
 from cassim.device.engine import RemoteSession
-from cassim.device.keys import Binding, Keyboard
-from cassim.device.menu import MenuState
+from cassim.device.keys import Binding, Keyboard, Keypad
+from cassim.device.menu import MenuItem, MenuState
 from cassim.device.screen import Screen, render
+from cassim.device.wizard import Wizard
 from cassim.profiles import Profile, nspire
+
+_MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
 
 
 class Mode(StrEnum):
@@ -29,6 +32,8 @@ class System:
 
     start_mode: Mode = Mode.COMPUTER
     math_size: int = 20  # LaTeX size in the entry and history
+    computer_keypad: bool = False  # Computer mode shows the keypad beside the screen
+    letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
 
     def dumps(self) -> str:
         return json.dumps(asdict(self))
@@ -42,6 +47,9 @@ class System:
             system.start_mode = Mode(data["start_mode"])
             size = data["math_size"]
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
+            system.computer_keypad = data.get("computer_keypad") is True
+            letters = data.get("letters", "")
+            system.letters = letters if isinstance(letters, str) else ""
         except ValueError, KeyError, TypeError:
             return cls()
         return system
@@ -69,6 +77,7 @@ class AppState:
         self.computer_keys = Keyboard(profile.computer)
         self.clipboard_out: Callable[[str], None] | None = None  # set by the GUI: system clipboard
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
+        self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
         self.system = System(mode)
         self.scale = 1.0  # Handheld mode draws everything this many times larger (FR-DEV-004)
@@ -81,6 +90,11 @@ class AppState:
     def px(self, size: float) -> float:
         """A length in the handheld's pixels, drawn at the current scale."""
         return size * self.scale
+
+    @property
+    def keypad(self) -> Keypad:
+        """The keypad in the chosen letter layout; an unknown choice gives the profile's own."""
+        return self.profile.keypads.get(self.system.letters, self.profile.keypad)
 
     @property
     def pending(self) -> str:
@@ -150,6 +164,11 @@ class AppState:
         if binding.action == "open_menu":
             self._open_menu(binding.arg)
             return
+        if binding.action in _MENU_ONLY:
+            return  # a menu click or the touchpad's centre with no menu open
+        if binding.action == "wizard":
+            self._open_wizard(binding.arg)
+            return
         if self._document_action(binding):
             return
         calculator = self.document.current.calculator
@@ -160,9 +179,36 @@ class AppState:
             self.clipboard_out(self.document.clipboard.text)
 
     def _open_menu(self, name: str) -> None:
-        root = self.profile.menus.get(name)
+        root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if root is not None:
             self.menu = MenuState(root)
+
+    def _variables_menu(self) -> MenuItem | None:
+        """The var key: the current Problem's variables, each typed by choosing it."""
+        calculator = self.document.current.calculator
+        if calculator is None:
+            return None
+        rows = sorted(calculator.session.variables(), key=lambda row: row.name.casefold())
+        items = tuple(
+            MenuItem(row.text, "insert", f"{row.name}(", hint="function")
+            if row.is_function
+            else MenuItem(row.name, "insert", row.name, hint=f"{row.name} = {row.text}")
+            for row in rows
+        )
+        return MenuItem("Variables", jump=True, items=items or (MenuItem("(none)", "escape"),))
+
+    def _open_wizard(self, name: str) -> None:
+        wizard = self.profile.wizards.get(name)
+        if wizard is not None and self.show_wizard is not None:
+            self.show_wizard(wizard)
+
+    def finish_wizard(self, wizard: Wizard, values: dict[str, str]) -> list[str]:
+        """Paste what a dialog built. Returns the problems instead if a field will not do."""
+        problems = wizard.problems(values)
+        if not problems:
+            for binding in wizard.bindings(values):
+                self.run(binding)
+        return problems
 
     def _menu_key(self, binding: Binding) -> None:
         """While a menu is open it takes every key; a chosen leaf runs once the menu has closed."""

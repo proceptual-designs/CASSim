@@ -16,6 +16,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
+
 type Row = list[Node]
 type Node = str | Template
 
@@ -93,8 +95,37 @@ class Editor:
     # ---- typing -----------------------------------------------------------------------------
 
     def insert_text(self, text: str) -> None:
+        """Type `text` key by key: a `^` opens an exponent that the rest is typed into."""
         for char in text:
             self.insert(char)
+
+    def insert_linear(self, text: str, mark: str = "") -> None:
+        """Paste linear text as the parser reads it: `^` takes only its operand (a bracketed group
+        or a run of term characters) and `√(…)` is a root, so `x^2+1` is x² + 1, not x^(2+1).
+        `mark`, if given, is a character in `text` where the cursor is left."""
+        self._unselect(replace=True)
+        spot = self._paste_linear(text, mark)
+        if spot is not None:
+            self.path, self.pos = spot
+
+    def _paste_linear(self, text: str, mark: str) -> tuple[list[tuple[int, int]], int] | None:
+        spot: tuple[list[tuple[int, int]], int] | None = None
+        index = 0
+        while index < len(text):
+            char = text[index]
+            if mark and char == mark:
+                spot = (list(self.path), self.pos)
+                index += 1
+            elif char in "^√":
+                operand, index = _operand(text, index + 1, root=char == "√")
+                self.insert_template(Kind.POWER if char == "^" else Kind.ROOT)
+                spot = self._paste_linear(operand, mark) or spot
+                self.right()  # out of the template
+            else:
+                self.row().insert(self.pos, char)
+                self.pos += 1
+                index += 1
+        return spot
 
     def insert(self, char: str) -> None:
         """Type one character. `^` and `√` build templates; `/` stays linear, as on the handheld.
@@ -534,6 +565,23 @@ def _unit(path: list[tuple[int, int]], pos: int, shared: int) -> tuple[int, int]
     if len(path) > shared:
         return (path[shared][0], path[shared][0] + 1)
     return (pos, pos)
+
+
+def _operand(text: str, start: int, *, root: bool) -> tuple[str, int]:
+    """The operand of a `^` or `√` at `start`, and the index after it. A bracketed group loses its
+    brackets; otherwise a sign and a run of term characters (a root without brackets takes the
+    same run)."""
+    if start < len(text) and text[start] == "(":
+        depth = 0
+        for end in range(start, len(text)):
+            depth += {"(": 1, ")": -1}.get(text[end], 0)
+            if depth == 0:
+                return text[start + 1 : end], end + 1
+        return text[start + 1 :], len(text)  # unbalanced: the rest
+    end = start + (not root and start < len(text) and text[start] == "-")
+    while end < len(text) and text[end] in _TERM_CHARS:
+        end += 1
+    return text[start:end], end
 
 
 def _template(node: Node) -> Template:

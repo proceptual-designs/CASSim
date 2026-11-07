@@ -50,6 +50,8 @@ def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
     names = _unknowns(host, unknown_node)
     equations = _equations(host, equation_node, names)
     symbols = [cas.symbol(name) for name in names]
+    if len(symbols) > 1:  # `solve(eq1 and eq2, {x,y})` is the same system as `{eq1, eq2}`
+        equations = [part for equation in equations for part in cas.conjuncts(equation)]
     if len(equations) == 1 and len(symbols) == 1:
         condition = cas.solve_equation(
             equations[0],

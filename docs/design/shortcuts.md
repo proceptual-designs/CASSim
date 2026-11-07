@@ -97,4 +97,5 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 ## Menus (M2c)
 - Computer: `F2` opens the Menu (commands), `F4` opens Doc, `Escape` goes back or closes. Up/Down move, Enter or Right opens, Left goes back, the item's number or letter chooses it. These keys are CASSim's own choice, not checked against the Nspire software (Unsure); F-keys other than F2 and F4 stay with the browser.
 - Handheld keypad: the `esc`, `doc` and `menu` keys do the same.
-- Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status > 2 Document Settings follow the routes used on the simulator; the Page group (Doc > 2) and the Menu tree are CASSim's own starter set.
+- Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status > 2 Document Settings follow the routes used on the simulator. The Calculator Menu follows the handheld's numbering (M2f, decision 0022; unverified), and every row can be clicked or tapped.
+- Keypad keys added in M2f (decision 0022): var, ctrl+var `→`, ctrl+del clear, ctrl+= relations, trig, templates, catalog, ctrl+catalog symbols, eˣ/ln, 10ˣ/log, ctrl+esc undo, ctrl+doc add page, ctrl+▲ sorter, ctrl+◀/▶ pages, ?!▸, π▸, shift+letter capitals. Computer: ctrl+L variables, ctrl+↑ sorter.
