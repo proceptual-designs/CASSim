@@ -1,4 +1,4 @@
-"""Replay corpus/pseudocode/seed.yaml against the tree interpreter (M7b; FR-PSE-*, FR-SET-*).
+"""Replay corpus/pseudocode/seed.yaml and batch*.yaml against the interpreter (M7b; FR-PSE-*).
 
 Every case runs with display=full, Approx, Radian and the Euler toggle on (its default)
 unless the case says otherwise. Comparison modes are those named in the file header.
@@ -6,21 +6,26 @@ unless the case says otherwise. Comparison modes are those named in the file hea
 
 import math
 import re
-from pathlib import Path
 from typing import Any
 
+import pseudo_cases
 import pytest
-import yaml
 
 from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, run
 
-SEED = Path(__file__).parents[2] / "corpus" / "pseudocode" / "seed.yaml"
-CASES: list[dict[str, Any]] = yaml.safe_load(SEED.read_text(encoding="utf-8"))["cases"]
-ALL = pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
+CASES = pseudo_cases.CASES
+ALL = pytest.mark.parametrize("case", pseudo_cases.params(run=True))
+# Corpus replay is about the language, not the run limits (those have their own tests).
+LIMITS = {"max_iterations": 10**8, "max_events": 10**9}
 
 
 def settings_for(case: dict[str, Any], extra: dict[str, Any] | None = None) -> Settings:
-    changes: dict[str, Any] = {"display": "full", **case.get("settings", {})}
+    halts = bool(case.get("expect", {}).get("halt"))  # these cases test the default limits
+    changes: dict[str, Any] = {
+        "display": "full",
+        **({} if halts else LIMITS),
+        **case.get("settings", {}),
+    }
     changes.update(extra or {})
     return Settings(**changes)
 
@@ -105,8 +110,13 @@ def test_golden_output_by_settings(case: dict[str, Any], variant: dict[str, Any]
 
 
 @ALL
-def test_horizontal_eligibility(case: dict[str, Any]) -> None:
+def test_horizontal_eligibility(case: dict[str, Any], request: pytest.FixtureRequest) -> None:
     """FR-TRC-003: one un-nested loop makes the desk-check layout available."""
+    if case["id"] in pseudo_cases.HORIZONTAL_LATER:
+        reason = "horizontal_eligible disagrees with the rule: settle in M7 (trace tables)"
+        request.applymarker(pytest.mark.xfail(reason=reason, strict=True))
+    if case["id"] in pseudo_cases.NOT_YET:
+        pytest.skip("the program cannot run yet")
     if "trace" not in case:
         pytest.skip("no trace expectation")
     result = run_case(case)

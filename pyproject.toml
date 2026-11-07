@@ -66,10 +66,11 @@ allowed-confusables = ["α", "ⅈ", "ⅇ", "ᴇ", "σ", "−", "×", "∗", "∨
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --strict-config -m \"not e2e\""
+addopts = "-ra --strict-markers --strict-config -m \"not e2e and not slow\""
 xfail_strict = true
 markers = [
     "corpus: golden-corpus replay cases",
+    "slow: seeded simulations of 10^5 to 10^6 passes (20 to 100 s each); run with -m slow",
     "e2e: Playwright end-to-end tests (need a built static site)",
 ]
 

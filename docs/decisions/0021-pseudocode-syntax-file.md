@@ -116,3 +116,20 @@ numbers, for comparing) and `PrintError`.
   under strict, which refuses it (fixed).
 - **Lexer bug found by the property test:** `2E3²` read the `²` as an exponent digit (`2E3` then `2`); superscripts
   are no longer digits in a number's exponent.
+
+## Corpus batch 3 check (2026-11-07)
+
+`corpus/pseudocode/batch3.yaml` (77 cases: 36 approved, 42 unreviewed as written; kept in the main checkout, copied
+here) is replayed with `seed.yaml` (`tests/runtime/pseudo_cases.py`). 76 of 77 print the recorded output, including
+the five seeded simulations, which match CPython's `random` exactly. Run limits are raised for corpus replay
+(except the two cases that expect a limit halt). Three simulations of 10^5 to 10^6 passes are marked `slow`
+(20 to 100 s each; `pytest -m slow`; CI runs them).
+
+Fixed from it: `angle mod 2π` took only the `2` (factors with no space between them now form one product on the
+right of `mod`/`div`); printed booleans are `TRUE`/`FALSE` and strings inside a printed list are in single quotes
+(dialect section 14).
+
+**To do in M7** (strict xfails, reasons in `pseudo_cases.py`):
+- `proposed.tuple-return.box-volume`: tuples and tuple return (FR-PSE-008, Could).
+- Ten cases whose `trace.horizontal_eligible` flag disagrees with the one-loop, none-nested rule: decide whether the
+  rule or the flag is wrong when the trace tables are worked on.

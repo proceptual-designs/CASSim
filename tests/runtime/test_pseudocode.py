@@ -195,14 +195,14 @@ def test_round_is_half_up() -> None:
 
 def test_chained_comparison_and_logic() -> None:
     assert out("x ← 0.5\nprint -1 < x < 1\nprint 1 < x < 2\nprint not (x > 1) and true") == [
-        "true",
-        "false",
-        "true",
+        "TRUE",
+        "FALSE",
+        "TRUE",
     ]
 
 
 def test_strings() -> None:
-    assert out('s ← "ab" + "cd"\nprint s, len(s)\nprint s = "abcd"') == ["abcd 4", "true"]
+    assert out('s ← "ab" + "cd"\nprint s, len(s)\nprint s = "abcd"') == ["abcd 4", "TRUE"]
 
 
 def test_implicit_multiplication_and_split_names() -> None:

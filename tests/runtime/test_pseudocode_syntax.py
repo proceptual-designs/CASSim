@@ -7,8 +7,8 @@ back), -004 (validation names the entry), -008 (presets), -009 (data only, size-
 from pathlib import Path
 from typing import Any
 
+import pseudo_cases
 import pytest
-import yaml
 
 from cassim.runtime.pseudocode import (
     DEFAULT,
@@ -30,7 +30,7 @@ from cassim.runtime.pseudocode.syntax import (
 )
 
 ROOT = Path(__file__).parents[2]
-SEED = yaml.safe_load((ROOT / "corpus/pseudocode/seed.yaml").read_text(encoding="utf-8"))["cases"]
+SEED = pseudo_cases.CASES
 
 
 def with_syntax(**overlay: Any) -> Any:
@@ -199,8 +199,8 @@ def test_symbol_spellings_comments_and_quotes() -> None:
 
 
 def test_logic_symbols_follow_the_word_forms() -> None:
-    assert run("print 1 < 2 and 2 < 3").output == ["true"]
-    assert run("print 1 < 2 ∧ 2 < 3").output == ["true"]
+    assert run("print 1 < 2 and 2 < 3").output == ["TRUE"]
+    assert run("print 1 < 2 ∧ 2 < 3").output == ["TRUE"]
     no_symbol = with_syntax(lexical={"and": {"∧": "no"}})
     assert "'∧' is not accepted" in (run("print 1 < 2 ∧ 2 < 3", syntax=no_symbol).error or "")
 
@@ -399,7 +399,7 @@ def settings_for(case: dict[str, Any]) -> Settings:
 
 
 @pytest.mark.parametrize("preset", ["vcaa", "author"])
-@pytest.mark.parametrize("case", SEED, ids=[c["id"] for c in SEED])
+@pytest.mark.parametrize("case", pseudo_cases.params(run=False))
 def test_tolerant_presets_give_the_default_result(case: dict[str, Any], preset: str) -> None:
     """FR-SYN-008: VCAA and Author read every golden program and agree with the default."""
     base = PRESETS[case.get("syntax", "default")]
