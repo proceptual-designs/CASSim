@@ -8,6 +8,7 @@ from enum import StrEnum
 import flet as ft
 
 from cassim.app.entry import EntryLine
+from cassim.app.layout import KEY_GAP, KEY_H, KEY_W
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
@@ -17,12 +18,11 @@ from cassim.device.keys import Key
 from cassim.device.menu import MenuView
 from cassim.device.screen import Line, Screen, thumbnail
 
-SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240  # the handheld's pixels (FR-DEV-004)
 # Arrows and shapes are not in the default font, and the browser's fallback font comes from a
 # Google server, which the offline build cannot reach (FR-PWA-002). They are set in a vendored font.
 SYMBOL_FONT = "Symbols"
 SYMBOL_FONT_FILE = "fonts/NotoSansSymbols2-Regular.ttf"
-SYMBOLS = frozenset("◀▶▲▼")
+SYMBOLS = frozenset("◀▶▲▼␣")
 
 
 def label_text(text: str, **style: object) -> ft.Text:
@@ -49,7 +49,7 @@ def _span(run: str) -> ft.TextSpan:
 ENTRY_ROOM = 28  # the blank line kept below the entry
 
 
-def math(latex: str, theme: Theme, size: int = 20) -> ft.Markdown:
+def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
     """LaTeX drawn on the Flutter canvas (decision 0014)."""
     return ft.Markdown(
         f"${latex_for_markdown(latex)}$" if latex else " ",
@@ -100,11 +100,12 @@ class CalculatorView:
         screen = self.state.screen()
         self.title.value = screen.title
         self.status.value = screen.status
+        self.title.size = self.status.size = self.state.px(12)
         self.entry.content = self._entry(screen)
         self.history.controls = [
             *(self._line(line, number) for number, line in enumerate(screen.lines)),
             self.entry,
-            ft.Container(height=ENTRY_ROOM),
+            ft.Container(height=self.state.px(ENTRY_ROOM)),
         ]
         self._error(screen)
         self._menu(screen.menu)
@@ -113,10 +114,10 @@ class CalculatorView:
         """The entry line as clickable controls; a page without a calculator shows its LaTeX."""
         calculator = self.state.document.current.calculator
         if calculator is None:
-            return math(screen.entry, self.theme, self.state.system.math_size)
+            return math(screen.entry, self.theme, self.state.math_size)
         return EntryLine(
             self.theme,
-            self.state.system.math_size,
+            self.state.math_size,
             self._click,
             calculator.session.is_function,
         ).build(calculator.editor)
@@ -129,7 +130,7 @@ class CalculatorView:
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
         return ft.Container(
-            math(line.latex, self.theme, self.state.system.math_size),
+            math(line.latex, self.theme, self.state.math_size),
             on_click=lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
@@ -143,13 +144,15 @@ class CalculatorView:
             return
         theme = self.theme
         rows: list[ft.Control] = [
-            ft.Text(view.title, size=12, weight=ft.FontWeight.BOLD, color=theme.key_label)
+            ft.Text(
+                view.title, size=self.state.px(12), weight=ft.FontWeight.BOLD, color=theme.key_label
+            )
         ]
         rows.extend(
             ft.Container(
                 ft.Text(
                     f"{row.key}  {row.label}{'  ▸' if row.submenu else ''}",
-                    size=13,
+                    size=self.state.px(13),
                     color="#ffffff" if row.selected else theme.key_text,
                 ),
                 bgcolor=theme.accent if row.selected else None,
@@ -163,7 +166,7 @@ class CalculatorView:
             padding=6,
             border_radius=6,
             margin=4,
-            width=230,
+            width=self.state.px(230),
         )
 
     def _error(self, screen: Screen) -> None:
@@ -173,9 +176,11 @@ class CalculatorView:
         self.error.content = ft.Container(
             ft.Column(
                 [
-                    ft.Text("Error", weight=ft.FontWeight.BOLD, color="#ffffff"),
-                    ft.Text(screen.error, color="#ffffff"),
-                    ft.Text("press any key", size=11, color="#ffd0cc"),
+                    ft.Text(
+                        "Error", size=self.state.px(14), weight=ft.FontWeight.BOLD, color="#ffffff"
+                    ),
+                    ft.Text(screen.error, size=self.state.px(14), color="#ffffff"),
+                    ft.Text("press any key", size=self.state.px(11), color="#ffd0cc"),
                 ],
                 spacing=4,
                 tight=True,
@@ -193,13 +198,16 @@ class Keypad:
         self.state = state
         self.on_key = on_key
         self.theme = theme
-        self.control = ft.Column(spacing=4)
+        self.control = ft.Column(spacing=KEY_GAP)
         self.refresh()
 
     def refresh(self) -> None:
+        self.control.spacing = self.state.px(KEY_GAP)
         self.control.controls = [
             ft.Row(
-                [self._key(key) for key in row], spacing=4, alignment=ft.MainAxisAlignment.CENTER
+                [self._key(key) for key in row],
+                spacing=self.state.px(KEY_GAP),
+                alignment=ft.MainAxisAlignment.CENTER,
             )
             for row in self.state.profile.keypad
         ]
@@ -210,10 +218,12 @@ class Keypad:
         return ft.Container(
             ft.Column(
                 [
-                    label_text(key.ctrl or key.shift, size=9, color=self.theme.key_label),
+                    label_text(
+                        key.ctrl or key.shift, size=self.state.px(9), color=self.theme.key_label
+                    ),
                     label_text(
                         layer or key.label,
-                        size=15,
+                        size=self.state.px(15),
                         color=self.theme.key_text,
                         weight=ft.FontWeight.W_600,
                     ),
@@ -222,8 +232,8 @@ class Keypad:
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
-            width=58,
-            height=44,
+            width=self.state.px(KEY_W),
+            height=self.state.px(KEY_H),
             bgcolor=self.theme.modifier_on if pending == key.name else self.theme.key,
             border_radius=8,
             ink=True,

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import flet as ft
 
+from cassim.app.layout import GAP, NARROW, SCREEN_H, SCREEN_W, handheld_plan, starting_mode
 from cassim.app.state import AppState, Mode, System
 from cassim.app.theme import DARK
 from cassim.app.ui import (
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
@@ -62,6 +62,7 @@ class App:
         self.runner = runner  # None: the maths runs in this process, synchronously
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
+        self.first_visit = False  # nothing saved yet: the window size picks the mode
         self.starting = False  # loading the autosave through a remote engine
         self.theme = DARK
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
@@ -86,6 +87,7 @@ class App:
         page.bgcolor = self.theme.background
         page.padding = 12
         page.on_keyboard_event = self.on_key
+        page.on_resize = self.on_resize
         page.on_app_lifecycle_state_change = self.on_lifecycle
         self.arrange()
         # The page's key event never reports Shift on its own, so a listener tracks it for
@@ -124,6 +126,10 @@ class App:
         if isinstance(saved, str):
             self.state.system = System.loads(saved)
             self.state.mode = self.state.system.start_mode
+            self.arrange()
+        else:
+            self.first_visit = True
+            self.state.mode = starting_mode(self.page.width, self.page.height)
             self.arrange()
         text = await self.prefs.get(AUTOSAVE_KEY)
         if not isinstance(text, str):
@@ -239,13 +245,76 @@ class App:
         self.state.run_action(action, arg)
         self.refresh()
 
+    def on_resize(self, e: ft.PageResizeEvent) -> None:
+        """Keep the layout fitted to the window; a first visit follows its size until chosen."""
+        if self.first_visit:
+            self.state.mode = starting_mode(e.width, e.height)
+        self.arrange()
+        self.refresh()
+
+    @property
+    def compact(self) -> bool:
+        """A narrow window in Handheld mode: the calculator gets the room, tools go in a dialog."""
+        sides = [side for side in (self.page.width, self.page.height) if side]
+        return self.state.mode is Mode.HANDHELD and bool(sides) and min(sides) < NARROW
+
+    def go_fullscreen(self) -> None:
+        if sys.platform == "emscripten":
+            import js  # noqa: PLC0415  # ty: ignore[unresolved-import]
+
+            js.document.documentElement.requestFullscreen()
+
+    def tools_dialog(self) -> None:
+        def then(action: Callable[[], None]) -> Callable[[], None]:
+            def run() -> None:
+                self.page.pop_dialog()
+                action()
+
+            return run
+
+        theme = self.theme
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Tools"),
+                content=ft.Row(
+                    [chip(label, then(action), theme) for label, action in self.tool_actions()],
+                    wrap=True,
+                    spacing=6,
+                    run_spacing=6,
+                ),
+                actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
+            )
+        )
+
+    def tool_actions(self) -> list[tuple[str, Callable[[], None]]]:
+        actions: list[tuple[str, Callable[[], None]]] = [
+            ("◀ page", lambda: self.act("prev_page")),
+            ("page ▶", lambda: self.act("next_page")),
+            ("+ page", lambda: self.act("add_page")),
+            ("+ problem", lambda: self.act("add_problem")),
+            ("delete page", lambda: self.act("delete_page")),
+            ("Doc", lambda: self.act("open_menu", "doc")),
+            ("Menu", lambda: self.act("open_menu", "menu")),
+            ("Sorter", lambda: self.show_dialog("page_sorter")),
+            ("settings", self.open_settings),
+        ]
+        if self.page.web:
+            actions.append(("Fullscreen", self.go_fullscreen))
+        return actions
+
     def set_mode(self, mode: Mode) -> None:
+        self.first_visit = False
         self.state.mode = mode
         self.arrange()
         self.refresh()
 
     def toolbar_controls(self) -> list[ft.Control]:
         theme, mode = self.theme, self.state.mode
+        if self.compact:
+            return [
+                chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme),
+                chip("Tools", self.tools_dialog, theme),
+            ]
         return [
             chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
             chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
@@ -362,16 +431,31 @@ class App:
 
     def arrange(self) -> None:
         view = self.view.control
-        if self.state.mode is Mode.HANDHELD:
-            view.width, view.height = SCREEN_WIDTH, SCREEN_HEIGHT
+        state = self.state
+        if state.mode is Mode.HANDHELD:
+            keypad = state.profile.keypad
+            plan = handheld_plan(
+                self.page.width, self.page.height, max(len(row) for row in keypad), len(keypad)
+            )
+            state.scale = plan.scale
+            view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False
-            self.layout.content = ft.Column(
-                [view, self.keypad.control],
-                spacing=12,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                scroll=ft.ScrollMode.AUTO,
+            parts: list[ft.Control] = [view, self.keypad.control]
+            gap = state.px(GAP)
+            self.layout.alignment = ft.Alignment.CENTER
+            self.layout.content = (
+                ft.Row(parts, spacing=gap, alignment=ft.MainAxisAlignment.CENTER)
+                if plan.side_by_side
+                else ft.Column(
+                    parts,
+                    spacing=gap,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                )
             )
         else:
+            state.scale = 1.0
+            self.layout.alignment = None
             view.width = view.height = None
             view.expand = True
             self.layout.content = ft.Row(

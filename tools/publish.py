@@ -295,6 +295,7 @@ def write_manifest(dist: Path) -> None:
         "start_url": "./",
         "scope": "./",
         "display": "standalone",
+        "display_override": ["fullscreen", "standalone"],  # a phone hides its status bar too
         "background_color": THEME,
         "theme_color": THEME,
         "icons": [
