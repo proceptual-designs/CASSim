@@ -8,9 +8,11 @@ still needs checking on the simulator. A label ending in `…` opens a dialog (a
 
 from __future__ import annotations
 
+import math
 import string
 from collections.abc import Mapping
 
+from cassim.core.compat import finance as fin
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import CURSOR, Field, Wizard
 from cassim.profiles.nspire_syntax import COMMANDS, CONVERSIONS, FUNCTIONS
@@ -125,13 +127,66 @@ def _regression(title: str, command: str) -> Wizard:
 
 _TVM_ORDER = ("n", "i", "pv", "pmt", "fv")
 _TVM_NAMES = {"n": "tvmN", "i": "tvmI", "pv": "tvmPV", "pmt": "tvmPmt", "fv": "tvmFV"}
+_TVM_LABELS = {
+    "n": "N",
+    "i": "I (%)",
+    "pv": "PV",
+    "pmt": "Pmt",
+    "fv": "FV",
+    "ppy": "PpY",
+    "cpy": "CpY",
+}
+SOLVED = "_solved"  # in the Finance Solver's values: the field calculated last
 
 
 def _finance(v: Mapping[str, str]) -> str:
-    """Finance Solver: the TVM function for the chosen unknown, from the other four values."""
-    target = v["solve"]
+    """OK in the Finance Solver: the TVM call for the field calculated last, so the history keeps
+    it (nothing if no field was calculated)."""
+    target = v.get(SOLVED, "")
+    if target not in _TVM_NAMES:
+        return ""
     known = [v[name] for name in _TVM_ORDER if name != target]
     return call(_TVM_NAMES[target], *known, v["ppy"], v["cpy"], v["pmtat"])
+
+
+def _number(v: Mapping[str, str], name: str) -> float:
+    """A box of the Finance Solver as a number: decimals, `ᴇ` or `E`, a fraction `a/b`."""
+    text = v.get(name, "").strip().replace("ᴇ", "e").replace("−", "-")
+    try:
+        top, _, bottom = text.partition("/")
+        return float(top) / float(bottom) if bottom else float(top)
+    except ValueError, ZeroDivisionError:
+        raise ValueError(f"{_TVM_LABELS[name]}: enter a number") from None
+
+
+def _shown(number: float) -> str:
+    text = f"{number:.9g}"  # the iterative interest solve is good to about 9 digits
+    return "0" if text == "-0" else text
+
+
+def finance_calculate(v: Mapping[str, str], target: str) -> dict[str, str]:
+    """The Finance Solver's live calculation (the handheld's: put the cursor in a box, press
+    Enter): `target` is worked out from the other four values and the timing."""
+    if target not in _TVM_NAMES:
+        raise ValueError("Choose N, I (%), PV, Pmt or FV to calculate")
+    known = {name: _number(v, name) for name in (*_TVM_ORDER, "ppy", "cpy") if name != target}
+    pp, cp, at = known["ppy"], known["cpy"], 1 if v.get("pmtat") == "1" else 0
+    rate = fin.period_rate(known["i"], pp, cp) if target != "i" else 0.0
+    n, pv, pmt, fv = (known.get(name, 0.0) for name in ("n", "pv", "pmt", "fv"))
+    solvers = {
+        "n": lambda: fin.periods(rate, pv, pmt, fv, at),
+        "i": lambda: fin.nominal_percent(fin.interest_rate(n, pv, pmt, fv, at), pp, cp),
+        "pv": lambda: fin.present_value(n, rate, pmt, fv, at),
+        "pmt": lambda: fin.payment(n, rate, pv, fv, at),
+        "fv": lambda: fin.future_value(n, rate, pv, pmt, at),
+    }
+    try:
+        answer = solvers[target]()
+    except ValueError, ZeroDivisionError, OverflowError:
+        raise ValueError(f"{_TVM_LABELS[target]}: no solution for these values") from None
+    if not math.isfinite(answer):
+        raise ValueError(f"{_TVM_LABELS[target]}: no solution for these values")
+    return {**v, target: _shown(answer), SOLVED: target}
 
 
 _REGRESSIONS = (
@@ -234,12 +289,6 @@ WIZARDS: dict[str, Wizard] = {
     "finance": Wizard(
         "Finance Solver",
         (
-            Field(
-                "solve",
-                "Solve for",
-                "fv",
-                choices=(("n", "N"), ("i", "I (%)"), ("pv", "PV"), ("pmt", "Pmt"), ("fv", "FV")),
-            ),
             Field("n", "N"),
             Field("i", "I (%)"),
             Field("pv", "PV"),
@@ -251,19 +300,33 @@ WIZARDS: dict[str, Wizard] = {
         ),
         run=True,
         build=_finance,
+        calculate=finance_calculate,
     ),
     **{name: _dist(title, name, *fields) for title, name, _, fields in _DISTRIBUTIONS},
     **{command.casefold(): _regression(title, command) for title, command, _ in _REGRESSIONS},
 }
 
 
-DISTRIBUTIONS = sub(
-    "Distributions",
-    "5",
-    *(wiz(title, name, key, FUNCTIONS[name]) for title, name, key, _ in _DISTRIBUTIONS),
-)
+NOT_YET = "Not in CASSim yet"
 
-# The Calculator's Menu (menu key, F2 on a computer).
+
+def todo(label: str, key: str, *, submenu: bool = False) -> MenuItem:
+    """A greyed placeholder for a device item CASSim cannot do yet: it keeps the item's number so
+    the keys match the handheld (`submenu` draws the ▶ the device shows)."""
+    items = (MenuItem(NOT_YET, enabled=False),) if submenu else ()
+    return MenuItem(label, key=key, hint=NOT_YET, enabled=False, items=items)
+
+
+def _dist_item(title: str, name: str, key: str) -> MenuItem:
+    return wiz(title, name, key, FUNCTIONS[name])
+
+
+_DIST_ITEMS = [_dist_item(title, name, key) for title, name, key, _ in _DISTRIBUTIONS]
+_DIST_ITEMS.insert(15, todo("Inverse Binomial with N…", "G"))
+DISTRIBUTIONS = sub("Distributions", "5", *_DIST_ITEMS)
+
+# The Calculator's Menu (menu key, F2 on a computer). Every item of the handheld's menu is here,
+# greyed when CASSim cannot do it yet, so the numbers match the device.
 MENU = MenuItem(
     "Menu",
     items=(
@@ -271,8 +334,13 @@ MENU = MenuItem(
             "Actions",
             "1",
             cmd("Define", "Define", "1"),
+            todo("Recall Definition", "2"),
             cmd("Delete Variable", "DelVar", "3"),
             cmd("Clear a-z", "ClearAZ", "4"),
+            todo("Clear History", "5"),
+            todo("Insert Comment", "6"),
+            todo("Library", "7", submenu=True),
+            todo("Lock", "8", submenu=True),
         ),
         sub(
             "Number",
@@ -283,7 +351,13 @@ MENU = MenuItem(
             fn("Least Common Multiple", "lcm", "4"),
             fn("Greatest Common Divisor", "gcd", "5"),
             fn("Remainder", "remain", "6"),
-            sub("Fraction Tools", "7", fn("Proper Fraction", "propFrac", "1")),
+            sub(
+                "Fraction Tools",
+                "7",
+                fn("Proper Fraction", "propFrac", "1"),
+                todo("Get Numerator", "2"),
+                todo("Get Denominator", "3"),
+            ),
             sub(
                 "Number Tools",
                 "8",
@@ -307,6 +381,13 @@ MENU = MenuItem(
                 conv("Convert to Rectangular", "▶Rect", "7"),
             ),
             fn("Prime Number Test", "isPrime", "A"),
+            sub(
+                "Base",
+                "B",
+                conv("Convert to Binary", "▶Base2", "1"),
+                conv("Convert to Decimal", "▶Base10", "2"),
+                conv("Convert to Hexadecimal", "▶Base16", "3"),
+            ),
         ),
         sub(
             "Algebra",
@@ -315,6 +396,7 @@ MENU = MenuItem(
             fn("Factor", "factor", "2"),
             fn("Expand", "expand", "3"),
             fn("Zeros", "zeros", "4"),
+            todo("Complete the Square", "5"),
             fn("Numerical Solve", "nSolve", "6"),
             sub(
                 "Solve System of Equations",
@@ -338,13 +420,21 @@ MENU = MenuItem(
                 wiz("Find Roots of Polynomial", "poly_roots", "1", FUNCTIONS["polyRoots"]),
                 fn("Real Roots of Polynomial", "polyRoots", "2"),
                 fn("Complex Roots of Polynomial", "cZeros", "3"),
+                todo("Remainder of Polynomial", "4"),
+                todo("Quotient of Polynomial", "5"),
+                todo("GCD of Polynomials", "6"),
+                todo("Coefficients of Polynomial", "7"),
+                todo("Degree of Polynomial", "8"),
             ),
             sub(
                 "Fraction Tools",
                 "9",
                 fn("Proper Fraction", "propFrac", "1"),
+                todo("Get Numerator", "2"),
+                todo("Get Denominator", "3"),
                 fn("Common Denominator", "comDenom", "4"),
             ),
+            todo("Convert Expression", "A", submenu=True),
             sub("Trigonometry", "B", fn("Expand", "tExpand", "1"), fn("Collect", "tCollect", "2")),
             sub(
                 "Complex",
@@ -368,7 +458,14 @@ MENU = MenuItem(
             fn("Function Maximum", "fMax", "8"),
             fn("Tangent Line", "tangentLine", "9"),
             fn("Normal Line", "normalLine", "A"),
-            sub("Series", "C", fn("Taylor Polynomial", "taylor", "1")),
+            todo("Arc Length", "B"),
+            sub(
+                "Series",
+                "C",
+                fn("Taylor Polynomial", "taylor", "1"),
+                todo("Generalized Series", "2"),
+                todo("Dominant Term", "3"),
+            ),
             fn("Differential Equation Solver", "deSolve", "D"),
             fn("Implicit Differentiation", "impDif", "E"),
             sub(
@@ -396,6 +493,7 @@ MENU = MenuItem(
                 fn("Integer", "randInt", "2"),
                 fn("Binomial", "randBin", "3"),
                 fn("Normal", "randNorm", "4"),
+                todo("Sample", "5"),
                 cmd("Seed", "RandSeed", "6"),
             ),
             DISTRIBUTIONS,
@@ -412,6 +510,7 @@ MENU = MenuItem(
                     wiz(title, command.casefold(), key, COMMANDS[command])
                     for title, command, key in _REGRESSIONS
                 ),
+                todo("Multiple Linear Regression…", "F"),
             ),
             MenuItem("Stat Results", "insert", "stat.results", key="2", hint="stat.results"),
             sub(
@@ -442,10 +541,15 @@ MENU = MenuItem(
                 cmd("Sort Ascending", "SortA", "1"),
                 cmd("Sort Descending", "SortD", "2"),
                 fn("Cumulative Sum List", "cumulativeSum", "3"),
+                todo("Fill", "4"),
+                todo("Difference List", "5"),
+                todo("Delete Invalid Data", "6"),
                 fn("Convert Matrix to List", "mat▶list", "7"),
                 fn("Convert List to Matrix", "list▶mat", "8"),
             ),
             DISTRIBUTIONS,
+            todo("Confidence Intervals", "6", submenu=True),
+            todo("Stat Tests", "7", submenu=True),
         ),
         sub(
             "Matrix & Vector",
@@ -454,29 +558,59 @@ MENU = MenuItem(
                 "Create",
                 "1",
                 wiz("Matrix", "matrix", "1", "Rows × columns template"),
+                todo("Zero Matrix", "2"),
                 fn("Identity", "identity", "3"),
+                todo("Random", "4"),
+                todo("Diagonal", "5"),
+                todo("Construct", "6"),
                 fn("Sub-matrix", "subMat", "7"),
                 fn("Augment", "augment", "8"),
+                todo("Column Augment", "9"),
+                todo("Fill", "A"),
             ),
             conv("Transpose", "ᵀ", "2"),
             fn("Determinant", "det", "3"),
+            todo("Row-Echelon Form", "4"),
             fn("Reduced Row-Echelon Form", "rref", "5"),
             fn("Simultaneous", "simult", "6"),
-            sub("Norms", "7", fn("Norm", "norm", "1")),
-            sub("Dimensions", "8", fn("Dimension", "dim", "1")),
-            sub("Advanced", "B", fn("Eigenvalue", "eigVl"), fn("Eigenvector", "eigVc")),
+            sub(
+                "Norms",
+                "7",
+                fn("Norm", "norm", "1"),
+                todo("Row Norm", "2"),
+                todo("Column Norm", "3"),
+            ),
+            sub(
+                "Dimensions",
+                "8",
+                fn("Dimension", "dim", "1"),
+                todo("Row Dimension", "2"),
+                todo("Column Dimension", "3"),
+            ),
+            todo("Row Operations", "9", submenu=True),
+            todo("Element Operations", "A", submenu=True),
+            sub(
+                "Advanced",
+                "B",
+                todo("Characteristic Polynomial", "1"),
+                todo("Trace", "2"),
+                todo("LU Decomposition", "3"),
+                fn("Eigenvalue", "eigVl", "4"),
+                fn("Eigenvector", "eigVc", "5"),
+            ),
             sub(
                 "Vector",
                 "C",
                 fn("Unit Vector", "unitV", "1"),
                 fn("Cross Product", "crossP", "2"),
                 fn("Dot Product", "dotP", "3"),
+                todo("Vector Conversions", "4", submenu=True),
             ),
         ),
         sub(
             "Finance",
             "8",
-            wiz("Finance Solver", "finance", "1", "Solves for one of N, I, PV, Pmt, FV"),
+            wiz("Finance Solver", "finance", "1", "Enter in a box works it out from the others"),
             sub(
                 "TVM Functions",
                 "2",
@@ -494,18 +628,21 @@ MENU = MenuItem(
                 fn("Interest Paid", "ΣInt", "3"),
                 fn("Principal Paid", "ΣPrn", "4"),
             ),
+            todo("Cash Flows", "4", submenu=True),
             sub(
                 "Interest Conversion",
                 "5",
                 fn("Nominal Interest Rate", "nom", "1"),
                 fn("Effective Interest Rate", "eff", "2"),
             ),
+            todo("Days between Dates", "6"),
         ),
+        todo("Functions & Programs", "9", submenu=True),
     ),
 )
 
 # Doc (doc key, F4). Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status are the
-# routes used on the simulator; the other entries are CASSim's own, numbered after the real ones.
+# routes used on the simulator; the other app pages are placeholders until their milestones.
 DOC = MenuItem(
     "Doc",
     items=(
@@ -545,7 +682,13 @@ DOC = MenuItem(
             "4",
             MenuItem("Problem", "add_problem", key="1"),
             MenuItem("Calculator", "add_page", "calculator", key="3", hint="ctrl+I"),
+            todo("Graphs", "4"),
+            todo("Geometry", "5"),
+            todo("Lists & Spreadsheet", "6"),
+            todo("Data & Statistics", "7"),
+            todo("Notes", "8"),
         ),
+        todo("Page Layout", "5", submenu=True),
         sub(
             "Settings & Status",
             "7",

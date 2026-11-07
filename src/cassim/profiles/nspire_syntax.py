@@ -185,5 +185,8 @@ CONVERSIONS: dict[str, str] = {
     "▶approxFraction()": "Expr▶approxFraction([Tol])",
     "▶Polar": "Vector▶Polar",
     "▶Rect": "Vector▶Rect",
+    "▶Base2": "Integer▶Base2",
+    "▶Base10": "Integer▶Base10",
+    "▶Base16": "Integer▶Base16",
     "ᵀ": "Matrixᵀ",
 }

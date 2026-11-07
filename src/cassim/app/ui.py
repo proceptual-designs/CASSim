@@ -230,8 +230,15 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         on = row.selected
         colour = "#ffffff" if on else theme.key_text
+        if not row.enabled:  # a placeholder keeps the device's numbering, greyed out
+            colour = theme.menu_disabled
         parts: list[ft.Control] = [
-            ft.Text(row.key, size=px(12), color=colour if on else theme.key_label, width=px(14)),
+            ft.Text(
+                row.key,
+                size=px(12),
+                color=colour if on or not row.enabled else theme.key_label,
+                width=px(14),
+            ),
             label_text(row.label, size=px(13), color=colour, expand=True, no_wrap=True),
         ]
         if wide and row.hint:
@@ -241,7 +248,7 @@ class CalculatorView:
             parts.append(label_text("▶", size=px(10), color=colour))
         return ft.Container(
             ft.Row(parts, spacing=px(4)),
-            bgcolor=(theme.accent if active else theme.key) if on else None,
+            bgcolor=(theme.accent if active and row.enabled else theme.key) if on else None,
             padding=ft.Padding.symmetric(horizontal=px(4), vertical=px(2)),
             border_radius=px(3),
             tooltip=row.hint or None,
@@ -596,8 +603,24 @@ def wizard_dialog(
     page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
 ) -> ft.AlertDialog:
     """A command's dialog (FR-CALC-005): a box per field, OK pastes the command. A field that
-    will not do is reported in the dialog, which stays open."""
+    will not do is reported in the dialog, which stays open.
+
+    A live dialog (`wizard.calculate`, the Finance Solver) works out the box the cursor is in when
+    Enter is pressed there or Calculate is clicked, and keeps the other values."""
+    live = wizard.calculate
     boxes: dict[str, ft.TextField | ft.Dropdown] = {}
+    extra: dict[str, str] = {}  # values the dialog keeps that have no box (the field solved last)
+    focused = [""]  # the text box the cursor is in, or was in last
+
+    def on_focus(name: str) -> Callable[[ft.Event[ft.TextField]], None]:
+        def focus(_: ft.Event[ft.TextField]) -> None:
+            focused[0] = name
+
+        return focus
+
+    def on_submit(name: str) -> Callable[[ft.Event[ft.TextField]], None]:
+        return lambda _: calculate(name) if live is not None else ok()
+
     for field in wizard.fields:
         if field.choices:
             boxes[field.name] = ft.Dropdown(
@@ -612,31 +635,60 @@ def wizard_dialog(
                 value=field.default,
                 width=280,
                 dense=True,
-                on_submit=lambda _: ok(),
+                on_focus=on_focus(field.name),
+                on_submit=on_submit(field.name),
             )
     problems = ft.Text("", color="#ff8a80", size=12)
 
+    def values() -> dict[str, str]:
+        return {**extra, **{name: str(box.value or "") for name, box in boxes.items()}}
+
+    def report(message: str) -> None:
+        problems.value = message
+        problems.update()
+
+    def calculate(name: str) -> None:
+        assert live is not None
+        try:
+            found = live(values(), name)
+        except ValueError as error:
+            report(str(error))
+            return
+        for key, value in found.items():
+            if key in boxes:
+                boxes[key].value = value
+            else:
+                extra[key] = value
+        report("")
+        page.update()
+
     def ok() -> None:
-        values = {name: str(box.value or "") for name, box in boxes.items()}
-        found = wizard.problems(values)
+        found = wizard.problems(values())
         if found:
-            problems.value = "\n".join(found)
-            problems.update()
+            report("\n".join(found))
             return
         page.pop_dialog()
-        state.finish_wizard(wizard, values)
+        state.finish_wizard(wizard, values())
         on_change()
 
     first = next((box for box in boxes.values() if isinstance(box, ft.TextField)), None)
     if first is not None:
         first.autofocus = True
+    hint = (
+        [ft.Text("Put the cursor in the box to work out, then press Enter.", size=12, italic=True)]
+        if live is not None
+        else []
+    )
+    actions: list[ft.Control] = [
+        ft.TextButton("OK", on_click=lambda _: ok()),
+        ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+    ]
+    if live is not None:
+        actions.insert(0, ft.TextButton("Calculate", on_click=lambda _: calculate(focused[0])))
     dialog = ft.AlertDialog(
         title=ft.Text(wizard.title),
-        content=ft.Column([*boxes.values(), problems], tight=True, spacing=10),
-        actions=[
-            ft.TextButton("OK", on_click=lambda _: ok()),
-            ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-        ],
+        content=ft.Column([*hint, *boxes.values(), problems], tight=True, spacing=10),
+        actions=actions,
     )
     page.show_dialog(dialog)
     return dialog

@@ -20,6 +20,7 @@ def test_doc_menu_opens_and_lists_rows() -> None:
         ("2", "Edit"),
         ("3", "View"),
         ("4", "Insert"),
+        ("5", "Page Layout"),
         ("7", "Settings & Status"),
     ]
     assert view.rows[0].selected
@@ -289,3 +290,34 @@ def _calculator(state: AppState) -> Calculator:
     calculator = state.document.current.calculator
     assert calculator is not None
     return calculator
+
+
+def test_placeholders_keep_the_handheld_numbering() -> None:
+    """Items CASSim lacks are greyed but keep their numbers (decision 0022)."""
+    state = AppState()
+    state.key_event("F2")
+    assert [row.key for row in _menu(state).rows] == list("123456789")
+    assert not _menu(state).rows[8].enabled  # 9 Functions & Programs
+    state.key_event("3")  # Algebra
+    rows = _menu(state).rows
+    assert [row.key for row in rows] == list("123456789ABCD")
+    assert (rows[4].label, rows[4].enabled) == ("Complete the Square", False)
+    assert rows[5].label == "Numerical Solve"
+    assert rows[5].enabled
+
+
+def test_a_placeholder_does_nothing_when_chosen() -> None:
+    state = AppState()
+    for key in ("F2", "3", "5"):  # Algebra > 5 Complete the Square (not yet)
+        state.key_event(key)
+    view = _menu(state)
+    assert view.title == "Menu > Algebra"  # still open, the placeholder highlighted
+    assert view.rows[4].selected
+    assert view.hint == "Not in CASSim yet"
+    state.key_event("Enter")
+    state.run_action("menu_pick", "1:4")
+    state.key_event("A")  # Convert Expression, a placeholder submenu: it does not open
+    assert _menu(state).title == "Menu > Algebra"
+    state.key_event("Escape")
+    state.key_event("Escape")
+    assert _calculator(state).editor.linear() == ""

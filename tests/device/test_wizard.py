@@ -6,7 +6,7 @@ from cassim.app.state import AppState
 from cassim.device.calculator import Calculator
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.wizard import CURSOR, Field, Wizard
-from cassim.profiles.nspire_menus import WIZARDS, polynomial
+from cassim.profiles.nspire_menus import SOLVED, WIZARDS, polynomial
 
 
 def _calculator(state: AppState) -> Calculator:
@@ -80,8 +80,41 @@ def test_polynomial_from_coefficients(coeffs: str, text: str) -> None:
     assert polynomial(coeffs, "x") == text
 
 
-def test_finance_solver_solves_for_the_chosen_value() -> None:
-    state = _finish("finance", solve="fv", n="10", i="5", pv="-100", pmt="0")
+_LOAN = {"n": "10", "i": "5", "pv": "-100", "pmt": "0", "fv": "", "ppy": "1", "cpy": "1"}
+
+
+def test_finance_solver_works_out_the_box_it_is_asked_for() -> None:
+    """Live, as on the handheld: Enter in a box calculates that box from the others."""
+    wizard = WIZARDS["finance"]
+    assert wizard.calculate is not None
+    values = wizard.calculate({**wizard.defaults(), **_LOAN}, "fv")
+    assert values["fv"] == "162.889463"
+    assert values[SOLVED] == "fv"
+    assert wizard.calculate({**values, "n": ""}, "n")["n"] == "10"
+    rate = wizard.calculate({**values, "i": "99"}, "i")["i"]  # the box's own value is ignored
+    assert float(rate) == pytest.approx(5, abs=1e-6)  # FV was rounded to 9 digits
+    payment = wizard.calculate({**values, "pmtat": "1"}, "pmt")["pmt"]
+    assert float(payment) == pytest.approx(0, abs=1e-6)
+
+
+def test_finance_solver_reports_what_is_missing() -> None:
+    wizard = WIZARDS["finance"]
+    assert wizard.calculate is not None
+    with pytest.raises(ValueError, match="PV: enter a number"):
+        wizard.calculate({**_LOAN, "pv": "lots"}, "fv")
+    with pytest.raises(ValueError, match="Choose"):
+        wizard.calculate(_LOAN, "ppy")
+    assert wizard.calculate({**_LOAN, "pv": "-1/2", "i": "5ᴇ0"}, "fv")["fv"] == "0.814447313"
+
+
+def test_finance_solver_ok_keeps_the_last_calculation_in_the_history() -> None:
+    wizard = WIZARDS["finance"]
+    assert wizard.calculate is not None
+    state = AppState()
+    assert state.finish_wizard(wizard, {**wizard.defaults(), **_LOAN}) == []
+    assert _calculator(state).history == []  # nothing calculated, nothing pasted
+    solved = wizard.calculate({**wizard.defaults(), **_LOAN}, "fv")
+    assert state.finish_wizard(wizard, solved) == []
     entry = _calculator(state).history[-1]
     assert entry.text == "tvmFV(10,5,-100,0,1,1,0)"
     assert entry.result.text == "162.88946"
@@ -98,6 +131,8 @@ def test_every_dialog_builds_with_its_defaults_filled() -> None:
     for name, wizard in WIZARDS.items():
         values = {field.name: field.default or "1" for field in wizard.fields}
         assert wizard.problems(values) == [], name
+        if wizard.calculate is not None:
+            values = wizard.calculate(values, "fv")
         assert wizard.bindings(values), name
 
 

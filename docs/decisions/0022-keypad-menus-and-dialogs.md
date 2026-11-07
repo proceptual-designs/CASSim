@@ -41,16 +41,17 @@ editor support yet, so those layers are unlabelled.
 `profiles/nspire_menus.py` holds Doc, the Calculator Menu, and the trig, templates, catalog,
 relations, punctuation and symbols menus; `var` builds the variables menu from the Problem. The
 Calculator Menu keeps the handheld's numbers (`menu 3 1` is Solve, `menu 5 5 2` Normal Cdf…).
-Items the engine cannot do yet are left out rather than greyed, and the rest keep their real numbers,
-so some numbers are skipped (Algebra has no 5 until `completeSquare` exists). The numbering is
-reconstructed from the Reference Guide and memory of OS 5/6 and is **unverified**: Simon, please check
-each top-level menu against the simulator. Left out for now: Recall Definition, Clear History, Insert
-Comment, Library, Lock; Approximate to Fraction as a function; getNum/getDenom; Complete the Square;
-Convert Expression (▶ln, ▶exp...); Arc Length; Random Sample; Confidence Intervals; Stat Tests; Fill;
-Difference List; Row operations; Functions & Programs (M7).
+Items the engine cannot do yet are greyed placeholders (`todo` in `nspire_menus.py`, `enabled=False`)
+in their real places, so every number matches the device and muscle memory carries over (Simon,
+2026-11-08). A placeholder can be highlighted, shows "Not in CASSim yet" as its hint, and does nothing
+when chosen (the menu stays open); a placeholder submenu shows its ▶ but does not open. When a command
+is implemented, its `todo(...)` becomes a real item with the same key. The numbering is reconstructed
+from the Reference Guide and memory of OS 5/6 and is **unverified**: Simon, please check each menu
+against the simulator, especially Number > B Base, Matrix & Vector > B Advanced and the Doc menu.
 
-Doc keeps the simulator routes (4 Insert > 1 Problem / 3 Calculator, 7 Settings & Status). File, Edit
-and View are CASSim's own; page moves now sit under Edit after the real Undo to Paste.
+Doc keeps the simulator routes (4 Insert > 1 Problem / 3 Calculator, 7 Settings & Status), with the
+other page types (4 Graphs to 8 Notes) and 5 Page Layout as placeholders. File, Edit and View are
+CASSim's own; page moves sit under Edit after the real Undo to Paste.
 
 Touch and mouse: every row of every open level is clickable (`MenuState.pick`): a submenu opens, a leaf
 runs, a click on an open submenu's parent row or on a submenu's `◀` title closes that level, and a click
@@ -80,19 +81,28 @@ Two-Variable Statistics…, the twelve regressions…, Finance Solver…, and th
 Choices made without the simulator (**unsure**): the distribution, stats and Finance Solver dialogs paste
 and run at once; stats and regressions append `: stat.results` so the table shows; empty trailing
 arguments are dropped; Lower Bound defaults to `-9ᴇ999`; the system dialog pastes the list form
-`solve({eq1,eq2},{x,y})` (the `and` form crashes the engine, see below) rather than the handheld's system
-template; Find Roots asks for the coefficients in one box instead of a second dialog; Finance Solver is a
-one-shot dialog, not the handheld's live solver; regressions do not offer "Save RegEqn to" (`CopyVar` is
-not implemented).
+`solve({eq1,eq2},{x,y})` rather than the handheld's system
+template; Find Roots asks for the coefficients in one box instead of a second dialog; regressions do not
+offer "Save RegEqn to" (`CopyVar` is not implemented).
+
+**Finance Solver is live** (Simon, 2026-11-08): put the cursor in a box (N, I (%), PV, Pmt or FV) and
+press Enter, or click Calculate, and that box is worked out from the others; it can be done again for any
+box. A `Wizard` with `calculate` is live. The calculation runs in the app with the same pure-float code
+as the `tvm*` functions (`core/compat/finance.py`), so it needs no trip to the maths worker; boxes accept
+decimals, `ᴇ` and fractions `a/b`, and answers show 9 significant digits. OK puts the TVM call for the
+box calculated last in the history and runs it (nothing if no box was calculated); Cancel closes.
+**Unsure:** whether the handheld's OK pastes anything, and whether it stores `tvm.n` and so on.
 
 Dialog output is pasted with the new `Editor.insert_linear`, in which `^` takes only its operand
 (`x^2-3*x+2` is x² − 3x + 2, not x^(2−3x+2)) and a `▮` marks where the cursor is left. Pasting text from
 the system clipboard uses it too, which fixes the same problem there.
 
-## Found on the way (not fixed here)
+## Found on the way
 
-- `solve(x+y=3 and x-y=1,{x,y})` raises an uncaught `AttributeError` in `sympy_adapter.solve_system`.
-- The LaTeX of an approximate result ignores Float 8 (`normCdf(-1,1,0,1)` draws 0.682689492137086;
-  its text is 0.68268949).
+- `solve(x+y=3 and x-y=1,{x,y})` crashed (an uncaught `AttributeError`). Fixed: with several unknowns,
+  `solve` and `cSolve` split an `and` into its equations (`sympy_adapter.conjuncts`), so the Boolean form
+  and the list form `{eq1,eq2}` give the same answer.
+- The LaTeX of an approximate result shows more digits than Float 8 (`normCdf(-1,1,0,1)` draws
+  0.682689492137086; its text is 0.68268949). Simon: fine as it is (2026-11-08).
 - In Computer mode the screen shrank to its lines (on `main` too); it now gets a height from the window
   (`layout.computer_screen_height`), since a menu drawn on it was clipped.

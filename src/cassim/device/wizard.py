@@ -45,7 +45,12 @@ class Wizard:
     """A dialog that pastes `text` (a `str.format` pattern over the field names) or, if `build`
     is given, what it returns; a `CURSOR` in it is where the cursor is left. `template` pastes a
     2D template instead (`matrix:{rows},{cols}`). `run` presses Enter afterwards, as the
-    handheld does for the distribution dialogs."""
+    handheld does for the distribution dialogs.
+
+    A *live* dialog (Finance Solver) also has `calculate(values, field)`, which returns the values
+    with `field` worked out from the others (or raises `ValueError` with a message for the user).
+    The GUI calls it when Enter is pressed in a box or Calculate is clicked. Values may carry
+    extra keys, such as which field was solved last, for `build` to read."""
 
     title: str
     fields: tuple[Field, ...]
@@ -53,6 +58,7 @@ class Wizard:
     template: str = ""
     run: bool = False
     build: Callable[[Mapping[str, str]], str] | None = None
+    calculate: Callable[[Mapping[str, str], str], dict[str, str]] | None = None
 
     def defaults(self) -> dict[str, str]:
         return {field.name: field.default for field in self.fields}
@@ -63,10 +69,13 @@ class Wizard:
 
     def bindings(self, values: Mapping[str, str]) -> list[Binding]:
         """The key actions that paste the command (and run it). Check `problems` first."""
-        filled = {field.name: values.get(field.name, "").strip() for field in self.fields}
+        filled = {field.name: "" for field in self.fields}
+        filled.update((name, value.strip()) for name, value in values.items())
         if self.template:
             return [Binding("template", self.template.format_map(filled))]
         text = self.build(filled) if self.build is not None else self.text.format_map(filled)
+        if not text:
+            return []  # nothing to paste (a live dialog closed before any calculation)
         bindings = [Binding("insert_linear", text)]
         if self.run:
             bindings.append(Binding("enter"))

@@ -21,6 +21,7 @@ class Theme:
     key_styles: Mapping[str, tuple[str, str]] = field(default_factory=dict, compare=False)
     shift_label: str = "#e8b04a"  # the shift layer's small label (ctrl uses `key_label`)
     menu_hint: str = "#a9c4e0"
+    menu_disabled: str = "#7d8894"  # a menu placeholder for a command CASSim does not have yet
 
     def key_colours(self, style: str) -> tuple[str, str]:
         return self.key_styles.get(style, (self.key, self.key_text))

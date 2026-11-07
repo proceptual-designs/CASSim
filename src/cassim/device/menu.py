@@ -20,7 +20,8 @@ class MenuItem:
     """A leaf does `action`; an item with `items` opens a submenu. `key` overrides the position.
 
     `hint` is the syntax shown beside the item (`solve(Equation, Var)`). A label ending in `…`
-    opens a dialog, as on the handheld."""
+    opens a dialog, as on the handheld. A disabled item is a greyed placeholder: it keeps its
+    place and number (so the numbering matches the device) but cannot be chosen."""
 
     label: str
     action: str = ""
@@ -28,6 +29,7 @@ class MenuItem:
     items: tuple[MenuItem, ...] = ()
     key: str = ""
     hint: str = ""
+    enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ class Row:
     submenu: bool
     selected: bool
     hint: str = ""
+    enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -94,7 +97,14 @@ class MenuState:
             Panel(
                 entry.item.label,
                 tuple(
-                    Row(key, item.label, bool(item.items), index == entry.index, item.hint)
+                    Row(
+                        key,
+                        item.label,
+                        bool(item.items),
+                        index == entry.index,
+                        item.hint,
+                        item.enabled,
+                    )
                     for index, (key, item) in enumerate(
                         zip(item_keys(entry.item), entry.item.items, strict=True)
                     )
@@ -156,6 +166,8 @@ class MenuState:
     def _choose(self, index: int, *, only_submenu: bool) -> Binding | None:
         item = self.level.item.items[index]
         self.level.index = index
+        if not item.enabled:
+            return None  # a placeholder: highlighted, but it does nothing and the menu stays open
         if item.items:
             self.levels.append(_Level(item))
             return None
