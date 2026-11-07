@@ -46,7 +46,8 @@ class App:
         self.page = page
         self.state = state
         self.theme = DARK
-        self.view = CalculatorView(state, self.theme, self.act)
+        self.shift = False  # Flet sends no modifiers with a click, so remember the key
+        self.view = CalculatorView(state, self.theme, self.act, lambda: self.shift)
         self.keypad = Keypad(state, self.press, self.theme)
         self.sidebar = Sidebar(state, self.refresh, self.theme)
         self.toolbar = ft.Row(spacing=6, wrap=True)
@@ -66,8 +67,19 @@ class App:
         page.bgcolor = self.theme.background
         page.padding = 12
         page.on_keyboard_event = self.on_key
+        page.on_app_lifecycle_state_change = self.on_lifecycle
         self.arrange()
-        page.add(ft.Column([self.toolbar, self.layout], expand=True))
+        # The page's key event never reports Shift on its own, so a listener tracks it for
+        # shift+click (decision 0019).
+        page.add(
+            ft.KeyboardListener(
+                ft.Column([self.toolbar, self.layout], expand=True),
+                autofocus=True,
+                expand=True,
+                on_key_down=lambda e: self.track_shift(e.key, down=True),
+                on_key_up=lambda e: self.track_shift(e.key, down=False),
+            )
+        )
         await self.recover()
         self.refresh()
         print("CASSIM: READY", flush=True)
@@ -102,8 +114,18 @@ class App:
         self.state.press_keypad(name)
         self.refresh()
 
+    def on_lifecycle(self, e: ft.AppLifecycleStateChangeEvent) -> None:
+        """A key-up is lost when the window loses focus, so drop Shift then."""
+        if e.state is not ft.AppLifecycleState.RESUME:
+            self.shift = False
+
+    def track_shift(self, key: str, *, down: bool) -> None:
+        if "shift" in key.lower():
+            self.shift = down
+
     async def on_key(self, e: ft.KeyboardEvent) -> None:
         state = self.state
+        self.shift = e.shift
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return

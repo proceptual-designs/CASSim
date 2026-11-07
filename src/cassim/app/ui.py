@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 
 import flet as ft
 
+from cassim.app.entry import EntryLine
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
+from cassim.device.editor import format_target
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView
 from cassim.device.screen import Line, Screen, thumbnail
@@ -37,10 +39,12 @@ class CalculatorView:
         state: AppState,
         theme: Theme = DARK,
         on_action: Callable[[str, str], None] = lambda action, arg: None,
+        shift: Callable[[], bool] = lambda: False,
     ) -> None:
         self.state = state
         self.theme = theme
         self.on_action = on_action
+        self.shift = shift
         self.status = ft.Text(size=12, color="#ffffff", weight=ft.FontWeight.BOLD)
         self.title = ft.Text(size=12, color="#ffffff")
         # The entry line sits in the list with a blank line under it, so the end of the list always
@@ -68,7 +72,7 @@ class CalculatorView:
         screen = self.state.screen()
         self.title.value = screen.title
         self.status.value = screen.status
-        self.entry.content = math(screen.entry, self.theme, self.state.system.math_size)
+        self.entry.content = self._entry(screen)
         self.history.controls = [
             *(self._line(line, number) for number, line in enumerate(screen.lines)),
             self.entry,
@@ -76,6 +80,22 @@ class CalculatorView:
         ]
         self._error(screen)
         self._menu(screen.menu)
+
+    def _entry(self, screen: Screen) -> ft.Control:
+        """The entry line as clickable controls; a page without a calculator shows its LaTeX."""
+        calculator = self.state.document.current.calculator
+        if calculator is None:
+            return math(screen.entry, self.theme, self.state.system.math_size)
+        return EntryLine(
+            self.theme,
+            self.state.system.math_size,
+            self._click,
+            calculator.session.is_function,
+        ).build(calculator.editor)
+
+    def _click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A click in the entry: place the cursor, or extend the selection with shift held."""
+        self.on_action("extend" if self.shift() else "place", format_target(path, pos))
 
     def _line(self, line: Line, number: int) -> ft.Control:
         right = line.kind == "result"

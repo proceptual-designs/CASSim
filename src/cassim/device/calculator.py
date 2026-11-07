@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 from cassim.core.session import Result, Session
 from cassim.device.clipboard import Clipboard
-from cassim.device.editor import Editor, Kind, Node
+from cassim.device.editor import Editor, Kind, Node, parse_target
 from cassim.device.editor import Row as EditorRow
 
 if TYPE_CHECKING:
@@ -110,6 +110,8 @@ class Calculator:
             redo=lambda _: self._step(self._redo, self._undo),
             escape=lambda _: self._mover(lambda: None)(""),
             recall_at=self._recall_at,
+            place=lambda arg: self._place(arg, extend=False),
+            extend=lambda arg: self._place(arg, extend=True),
         )
         return actions
 
@@ -207,6 +209,14 @@ class Calculator:
         at = rows.index(self.recall) if self.recall in rows else len(rows)
         at = max(at - 1, 0) if up else at + 1
         self.recall = rows[at] if at < len(rows) else None
+
+    def _place(self, target: str, *, extend: bool) -> None:
+        """A click in the entry line (`place`) or a shift+click (`extend`): see `Editor.place`."""
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._mover(lambda: self.editor.place(path, pos, extend=extend))("")
 
     def _recall_at(self, spec: str) -> None:
         """A click on a history row (`INDEX:entry` or `INDEX:result`): the first click picks it,

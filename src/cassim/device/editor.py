@@ -12,7 +12,7 @@ renderer (decision 0015).
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -433,6 +433,67 @@ class Editor:
         self.path = []
         self.pos = len(self.root)
 
+    # ---- placing the cursor by target (a click) ---------------------------------------------
+
+    def place(self, path: Sequence[tuple[int, int]], pos: int, *, extend: bool = False) -> None:
+        """Put the cursor at `pos` in the row reached by `path`, as a click does.
+
+        A path that leaves the tree is cut where it stops being valid and `pos` is clamped to the
+        row, so a stale click never raises. With `extend` (shift+click) the selection grows from
+        where the cursor or selection started; when the two ends are in different rows it takes
+        the whole templates that hold them, in their nearest common row.
+        """
+        target_path = self._valid_path(path)
+        target_pos = max(0, min(pos, len(self._row_at(target_path))))
+        if not extend:
+            self.selected = False
+            self.anchor = None
+            self.path = target_path
+            self.pos = target_pos
+            return
+        self.selected = False
+        start_path = list(self.path)
+        start_pos = self.pos if self.anchor is None else self.anchor
+        shared = 0
+        while (
+            shared < min(len(start_path), len(target_path))
+            and start_path[shared] == target_path[shared]
+        ):
+            shared += 1
+        if shared == len(start_path) == len(target_path):
+            self.path = target_path
+            self.pos = target_pos
+            self.anchor = start_pos if start_pos != target_pos else None
+            return
+        # Different rows: work in the nearest common row, a template counting as one unit.
+        first = _unit(start_path, start_pos, shared)
+        second = _unit(target_path, target_pos, shared)
+        low, high = min(first[0], second[0]), max(first[1], second[1])
+        self.path = start_path[:shared]
+        forward = second[0] >= first[0]
+        self.anchor, self.pos = (low, high) if forward else (high, low)
+        if low == high:
+            self.anchor = None
+
+    def _valid_path(self, path: Sequence[tuple[int, int]]) -> list[tuple[int, int]]:
+        row = self.root
+        valid: list[tuple[int, int]] = []
+        for index, slot in path:
+            if not 0 <= index < len(row) or not isinstance(row[index], Template):
+                break
+            template = _template(row[index])
+            if not 0 <= slot < len(template.slots):
+                break
+            valid.append((index, slot))
+            row = template.slots[slot]
+        return valid
+
+    def _row_at(self, path: Sequence[tuple[int, int]]) -> Row:
+        row = self.root
+        for index, slot in path:
+            row = _template(row[index]).slots[slot]
+        return row
+
     # ---- output -----------------------------------------------------------------------------
 
     def linear(self) -> str:
@@ -451,6 +512,28 @@ class Editor:
 def linear_text(nodes: Row) -> str:
     """The TI text of some nodes, as for the system clipboard."""
     return _linear(nodes)
+
+
+def format_target(path: Sequence[tuple[int, int]], pos: int) -> str:
+    """A cursor target as GUI event text, `INDEX.SLOT/INDEX.SLOT:POS` (the path may be empty)."""
+    return "/".join(f"{i}.{s}" for i, s in path) + f":{pos}"
+
+
+def parse_target(text: str) -> tuple[list[tuple[int, int]], int]:
+    """The inverse of `format_target`; a malformed text raises `ValueError`."""
+    steps, _, pos = text.rpartition(":")
+    path: list[tuple[int, int]] = []
+    for step in filter(None, steps.split("/")):
+        index, _, slot = step.partition(".")
+        path.append((int(index), int(slot)))
+    return path, int(pos)
+
+
+def _unit(path: list[tuple[int, int]], pos: int, shared: int) -> tuple[int, int]:
+    """The nodes of the common row that a cursor stands for: the template holding it, or the gap."""
+    if len(path) > shared:
+        return (path[shared][0], path[shared][0] + 1)
+    return (pos, pos)
 
 
 def _template(node: Node) -> Template:
@@ -533,7 +616,7 @@ _SYMBOLS = {
 }
 
 
-def _function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
+def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
     """Indices of letters that spell a defined function followed by `(`, such as `sin` in
     `sin(x)` or a user's `f` in `f(x)`. A name nothing defines stays plain."""
     marked: set[int] = set()
@@ -560,7 +643,7 @@ def _latex(
     here_cursor = place is not None and place[0] == here
     at = place[1] if place is not None else -1
     low, high = place[2] if here_cursor and place is not None else (0, 0)
-    names = _function_names(row, is_function)
+    names = function_names(row, is_function)
     if not row:
         return _CURSOR if here_cursor else _EMPTY_SLOT
     pieces: list[str] = []

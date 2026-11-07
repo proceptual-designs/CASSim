@@ -173,6 +173,7 @@ dev = [
 ]
 test = [
     { name = "hypothesis" },
+    { name = "pillow" },
     { name = "playwright" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -205,6 +206,7 @@ dev = [
 ]
 test = [
     { name = "hypothesis" },
+    { name = "pillow" },
     { name = "playwright" },
     { name = "pytest" },
     { name = "pytest-cov" },
