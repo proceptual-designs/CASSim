@@ -14,6 +14,7 @@ from cassim.core.session import Result, Session
 from cassim.device.clipboard import Clipboard
 from cassim.device.editor import Editor, Kind, Node, parse_target
 from cassim.device.editor import Row as EditorRow
+from cassim.device.engine import RemoteSession
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -47,8 +48,18 @@ class Entry:
     nodes: tuple[Node, ...] = ()  # the entry's templates and characters, for recall
 
 
+@dataclass(frozen=True)
+class Pending:
+    """An entry waiting for the engine."""
+
+    text: str
+    approximate: bool
+
+
 class Calculator:
-    def __init__(self, session: Session | None = None, clipboard: Clipboard | None = None) -> None:
+    def __init__(
+        self, session: Session | RemoteSession | None = None, clipboard: Clipboard | None = None
+    ) -> None:
         self.session = session if session is not None else Session()
         self.clipboard = clipboard if clipboard is not None else Clipboard()
         self.editor = Editor()
@@ -58,11 +69,16 @@ class Calculator:
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
         self._group: str | None = None  # the kind of edit in progress, for undo grouping
+        # With a deferred session (the maths runs in another worker) Enter only queues the entry;
+        # the app evaluates it and calls `finish` (or `abort` after a Cancel).
+        self.pending: Pending | None = None
 
     # ---- actions ----------------------------------------------------------------------------
 
     def perform(self, binding: Binding) -> None:
         """Do what a key says. While a dialog is showing, any key only dismisses it."""
+        if self.pending is not None:
+            return  # busy: the app's Runner owns the keyboard until the result arrives
         if self.error is not None:
             self.error = None
             return
@@ -243,7 +259,14 @@ class Calculator:
         text = self.editor.linear()
         if not text:
             return
-        result = self.session.eval(text, approximate=approximate)
+        if getattr(self.session, "deferred", False):
+            self.pending = Pending(text, approximate)
+            return
+        self.finish(self.session.eval(text, approximate=approximate), text, approximate)
+
+    def finish(self, result: Result, text: str, approximate: bool) -> None:
+        """Record an evaluated entry: history on success, an error dialog otherwise."""
+        self.pending = None
         if result.error is not None:
             self.error = result.error
             return

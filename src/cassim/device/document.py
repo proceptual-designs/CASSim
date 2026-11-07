@@ -7,6 +7,7 @@ Problem. Page types other than Calculator have no model yet and are placeholders
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -14,6 +15,7 @@ from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.calculator import Calculator
 from cassim.device.clipboard import Clipboard
+from cassim.device.engine import RemoteSession
 
 MAX_PAGES = 50  # per Problem, as on the emulator (docs/testing/emulator-editor-capture.md)
 
@@ -37,7 +39,7 @@ class Page:
 
 @dataclass
 class Problem:
-    session: Session
+    session: Session | RemoteSession
     clipboard: Clipboard
     pages: list[Page] = field(default_factory=list)
 
@@ -60,8 +62,14 @@ class _Layout:
 class Document:
     """The pages in order, grouped by Problem, and which page is showing."""
 
-    def __init__(self, name: str = "Untitled", settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        name: str = "Untitled",
+        settings: Settings | None = None,
+        sessions: Callable[[Settings], Session | RemoteSession] = Session,
+    ) -> None:
         self.name = name
+        self.sessions = sessions  # makes each Problem's session (a RemoteSession in the browser)
         self.settings = settings if settings is not None else Settings()
         self.clipboard = Clipboard()  # shared by every page, so copy works across them
         self.problems: list[Problem] = []
@@ -96,7 +104,7 @@ class Document:
         return self._new_problem(kind)
 
     def _new_problem(self, kind: PageKind) -> Page:
-        problem = Problem(Session(self.settings), self.clipboard)
+        problem = Problem(self.sessions(self.settings), self.clipboard)
         index = self.problem + 1 if self.problems else 0
         self.problems.insert(index, problem)
         page = problem.new_page(kind)
