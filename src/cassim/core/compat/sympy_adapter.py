@@ -288,13 +288,15 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
 
 
 class _TILatexPrinter(LatexPrinter):
-    """SymPy's LaTeX printer with TI's conventions: upright ⅇ and ⅈ, `ln`, `sin⁻¹`."""
+    """SymPy's LaTeX printer with TI's conventions: upright ⅇ and ⅈ, `ln`, `sin⁻¹`, `undef`."""
 
     def _print(self, expr: Any, **kwargs: Any) -> str:  # noqa: ANN401
         if expr is sp.E:
             return r"\mathrm{e}"
         if expr is sp.I:
             return r"\mathrm{i}"
+        if expr is sp.nan:
+            return r"\text{undef}"  # SymPy would print NaN
         if isinstance(expr, sp.exp):
             return rf"\mathrm{{e}}^{{{self._print(expr.exp)}}}"
         return super()._print(expr, **kwargs)
@@ -520,6 +522,20 @@ def exact(raw: Raw) -> Raw:
 
 def integer_value(raw: Raw) -> int | None:
     return int(raw) if raw.is_Integer else None
+
+
+def nth_root(raw: Raw, index: Raw) -> Raw:
+    """`root(x, n)`: an odd root of a negative number is real (root(-8,3) is -2), as on TI."""
+    if index.is_integer and index.is_odd and raw.is_negative:
+        return -sp.root(-raw, index)
+    return sp.root(raw, index)
+
+
+def piecewise(pieces: list[tuple[Raw, Raw]], otherwise: Raw | None) -> Raw:
+    """A piecewise value whose conditions are still symbolic: (value, condition) in order, then
+    the value when none holds."""
+    tail = [(otherwise, sp.true)] if otherwise is not None else []
+    return sp.Piecewise(*pieces, *tail)
 
 
 def when(condition: Raw, then: Raw, otherwise: Raw | None) -> Raw:

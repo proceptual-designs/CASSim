@@ -4,7 +4,7 @@ from cassim.core import ast
 from cassim.core.catalog.registry import Host, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.valueops import raw_of
-from cassim.core.values import Bool, Expr, Value
+from cassim.core.values import Bool, Expr, Raw, Value
 
 # `when(condition, then, otherwise, unknown)` has two arguments after `then`.
 _WITH_UNKNOWN = 2
@@ -28,3 +28,30 @@ def when(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     # Undecided because the condition is symbolic: keep the choice for later.
     otherwise = raw_of(host.expr(rest[0])) if rest else None
     return Expr(cas.when(raw_of(condition), raw_of(host.expr(then)), otherwise))
+
+
+@lazy("piecewise", 1, None)
+def piecewise(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`piecewise(value1, condition1, value2, condition2, ..., [otherwise])`, the piecewise
+    template: the first piece whose condition is true. Only the piece chosen is run; no piece
+    true gives `undef`; symbolic conditions keep the rest of the choice for later."""
+    undecided: list[tuple[Raw, Raw]] = []
+    otherwise: Raw | None = None
+    for start in range(0, len(args), 2):
+        value_node, *condition_node = args[start : start + 2]
+        if not condition_node:  # a last value without a condition: otherwise
+            otherwise = raw_of(host.expr(value_node))
+            break
+        condition = host.expr(condition_node[0])
+        truth = condition.value if isinstance(condition, Bool) else cas.truth(raw_of(condition))
+        if truth is False:
+            continue
+        if truth is True:
+            if not undecided:
+                return host.expr(value_node)
+            otherwise = raw_of(host.expr(value_node))
+            break
+        undecided.append((raw_of(host.expr(value_node)), raw_of(condition)))
+    if not undecided:
+        return Expr(otherwise) if otherwise is not None else Expr(cas.constant("undef"))
+    return Expr(cas.piecewise(undecided, otherwise))

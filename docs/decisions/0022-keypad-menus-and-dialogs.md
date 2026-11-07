@@ -64,9 +64,8 @@ two dimensions, cells have no keys, the hint names the cell. The Catalog has six
 opens on tab 1, one alphabetical list of every command with its hint, where a typed letter jumps to its
 first entry (`MenuItem.jump`) and a digit changes tab. Tab 4 is the device's symbol grid (11 wide; the
 first seven rows and the Greek letters, the rest left out), tab 5 the templates grid; tabs 2, 3 and 6 are
-placeholders. The variables menu is alphabetical with no keys and jumps by letter. Template cells CASSim
-has no 2D template for (nth root, piecewise, N-equation system, degrees-minutes-seconds, nth
-derivative, subscript) are greyed; the others paste the template or its linear form.
+placeholders. The variables menu is alphabetical with no keys and jumps by letter. Template cells CASSim has no 2D template for are greyed (since 0023 only nth derivative,
+degrees-minutes-seconds and subscript); the others paste the template.
 
 Touch and mouse: every row or cell of every open level is clickable (`MenuState.pick`); a click on a
 submenu's `◀` title or its parent row closes it; a click outside closes the menu. Long lists and grids
@@ -95,9 +94,8 @@ and Create Matrix only paste (cursor in the first slot); Find Roots of Polynomia
 without running it; Normal Cdf's Lower Bound starts as `-∞` and Upper Bound blank; Binomial Pdf's X Value
 is optional (blank gives the whole list).
 
-**CASSim** differences, for now: Derivative at a Point pastes `derivative(□,x)|x=v` (the device's d/dx
-template) and has no "nth Derivative" choice; Solve System pastes `solve({□,□},{x,y})` (the device's
-system template); Find Roots asks for the coefficients in one box (the device asks the degree, then one
+**CASSim** differences, for now (since 0023 Derivative at a Point and Solve System paste the device's
+d/dx and system templates): Derivative at a Point has no "nth Derivative" choice; Find Roots asks for the coefficients in one box (the device asks the degree, then one
 box per coefficient); One-Variable Statistics skips the device's "Num of Lists" step and Category fields;
 regressions do not offer "Save RegEqn to" (`CopyVar` is not implemented); Inverse Binomial has no
 "Display Result" option; the Differential Equation Solver types `deSolve(` instead of opening the

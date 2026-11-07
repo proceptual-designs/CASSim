@@ -150,10 +150,11 @@ class Calculator:
         self._edit(kind, lambda: self.editor.insert_text(text))
 
     def _template(self, spec: str) -> None:
-        """`fraction`, `root`, or `matrix:ROWS,COLS`."""
+        """A `Kind` name, with `:ROWS,COLS` for a matrix or `:ROWS` for a piecewise or system
+        template (`fraction`, `matrix:2,3`, `system:2`)."""
         kind, _, shape = spec.partition(":")
         rows, _, cols = shape.partition(",")
-        size = (int(rows), int(cols)) if shape else (2, 2)
+        size = (int(rows), int(cols or 1)) if shape else (2, 2)
         self._edit("other", lambda: self.editor.insert_template(Kind(kind), size))
 
     def _power(self, exponent: str) -> None:

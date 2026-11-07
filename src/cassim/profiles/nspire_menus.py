@@ -13,9 +13,9 @@ import math
 from collections.abc import Mapping
 
 from cassim.core.compat import finance as fin
-from cassim.device.editor import MARK
+from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem
-from cassim.device.wizard import CURSOR, Field, Wizard
+from cassim.device.wizard import Field, Wizard
 from cassim.profiles.nspire_syntax import COMMANDS, CONVERSIONS, FUNCTIONS
 
 NOT_YET = "Not in CASSim yet"
@@ -94,17 +94,34 @@ def _dist(title: str, name: str, *fields: Field) -> Wizard:
     return Wizard(title, fields, run=True, build=lambda v: call(name, *(v[n] for n in names)))
 
 
-def _derivative_at(v: Mapping[str, str]) -> str:
-    """The device pastes d/dx(□)|x=Value with the box ready; this is its linear form."""
-    order = "" if v["order"] == "1" else f",{v['order']}"
-    return f"derivative({CURSOR},{v['var']}{order})|{v['var']}={v['value']}"
+def _derivative_at(v: Mapping[str, str]) -> list[Binding]:
+    """d/dx(□)|x=Value, as the device pastes it: the variable filled in, the cursor in the box."""
+    kind = "derivative" if v["order"] == "1" else "derivative2"
+    after = f"|{v['var']}={v['value']}"
+    return [
+        Binding("template", kind),
+        Binding("insert", v["var"]),
+        Binding("tab"),  # to the expression
+        Binding("tab"),  # out of the template
+        Binding("insert", after),
+        *(Binding("left") for _ in after),
+        Binding("left"),  # back into the expression
+    ]
 
 
-def _system(v: Mapping[str, str]) -> str:
-    """The equations as a list; the cursor waits in the first one. (The device pastes its
-    system template, which CASSim does not have yet.)"""
-    slots = CURSOR + "," * (int(v["count"]) - 1)
-    return f"solve({{{slots}}},{{{v['vars']}}})"
+def _system(v: Mapping[str, str]) -> list[Binding]:
+    """solve( with the device's system template and the variables; the cursor in the first
+    equation."""
+    count, after = int(v["count"]), f",{{{v['vars']}}})"
+    return [
+        Binding("insert", "solve("),
+        Binding("template", f"system:{count}"),
+        *(Binding("tab") for _ in range(count)),  # out of the template
+        Binding("insert", after),
+        *(Binding("left") for _ in after),
+        Binding("left"),  # into the last equation
+        *(Binding("shift_tab") for _ in range(count - 1)),  # back to the first
+    ]
 
 
 def polynomial(coefficients: str, var: str) -> str:
@@ -237,11 +254,21 @@ WIZARDS: dict[str, Wizard] = {
     "derivative_at": Wizard(
         "Derivative at a Point",
         (Field("var", "Variable", "x"), Field("value", "Value"), _ORDER),
-        build=_derivative_at,
+        steps=_derivative_at,
     ),
-    "solve_system": Wizard("Solve a System of Equations", _SYSTEM_FIELDS, build=_system),
+    "solve_system": Wizard("Solve a System of Equations", _SYSTEM_FIELDS, steps=_system),
     "solve_linear_system": Wizard(
-        "Solve a System of Linear Equations", _SYSTEM_FIELDS, build=_system
+        "Solve a System of Linear Equations", _SYSTEM_FIELDS, steps=_system
+    ),
+    "piecewise": Wizard(
+        "Piecewise Function",
+        (Field("count", "Number of function pieces", "3", whole=(1, 20)),),
+        template="piecewise:{count}",
+    ),
+    "system": Wizard(
+        "Create a System of Equations",
+        (Field("count", "Number of equations", "3", whole=(1, 20)),),
+        template="system:{count}",
     ),
     "poly_roots": Wizard(  # the device asks the degree, then the coefficients; it does not run
         "Find Roots of a Polynomial",
@@ -295,6 +322,12 @@ WIZARDS: dict[str, Wizard] = {
 _DIST_ITEMS = [wiz(title, name, key, FUNCTIONS[name]) for title, name, key, _ in _DISTRIBUTIONS]
 _DIST_ITEMS.insert(12, todo("Inverse Binomial N…", "D"))
 DISTRIBUTIONS = sub("Distributions", "5", *_DIST_ITEMS)
+
+
+def _template_item(label: str, kind: str, name: str, key: str) -> MenuItem:
+    """A menu item that pastes a 2D template, as the device's Calculus items do."""
+    return MenuItem(label, "template", kind, key=key, hint=FUNCTIONS[name])
+
 
 # The Calculator's Menu (menu key, F2 on a computer).
 MENU = MenuItem(
@@ -427,12 +460,12 @@ MENU = MenuItem(
         sub(
             "Calculus",
             "4",
-            fn("Derivative", "derivative", "1"),
+            _template_item("Derivative", "derivative", "derivative", "1"),
             wiz("Derivative at a Point", "derivative_at", "2", "derivative(Expr, Var)|Var=Value"),
-            fn("Integral", "∫", "3"),
-            fn("Limit", "limit", "4"),
-            fn("Sum", "Σ", "5"),
-            fn("Product", "Π", "6"),
+            _template_item("Integral", "integral", "∫", "3"),
+            _template_item("Limit", "limit", "limit", "4"),
+            _template_item("Sum", "sum", "Σ", "5"),
+            _template_item("Product", "product", "Π", "6"),
             fn("Function Minimum", "fMin", "7"),
             fn("Function Maximum", "fMax", "8"),
             fn("Tangent Line", "tangentLine", "9"),
@@ -846,13 +879,13 @@ SYMBOLS = MenuItem(
 )
 
 
-def _linear(label: str, name: str, text: str) -> MenuItem:
-    """A template cell pasted as linear text, the cursor at `MARK`."""
-    return MenuItem(label, "insert_linear", text, hint=name)
+def _cell(label: str, name: str, spec: str) -> MenuItem:
+    """A template cell: `spec` is the template kind, as for the `template` key action."""
+    return MenuItem(label, "template", spec, hint=name)
 
 
 # The templates key: the device's 25 icons, 11 to a row, in order. Templates CASSim does not have
-# yet are greyed; the others paste the template or its linear form.
+# yet are greyed.
 TEMPLATES = MenuItem(
     "Templates",
     columns=11,
@@ -860,27 +893,27 @@ TEMPLATES = MenuItem(
         MenuItem("a/b", "template", "fraction", hint="Fraction (ctrl+÷)"),
         MenuItem("xʸ", "insert", "^", hint="Exponent (^)"),
         MenuItem("√", "template", "root", hint="Square root (ctrl+x²)"),
-        MenuItem("ⁿ√", hint="Nth root: " + NOT_YET, enabled=False),
+        _cell("ⁿ√", "Nth root (ctrl+^)", "nth_root"),
         MenuItem("eˣ", "insert", "ⅇ^", hint="e exponent (eˣ)"),
-        _linear("log", "Log with base", f"log({MARK},)"),
-        MenuItem("{2", hint="Piecewise, 2 pieces: " + NOT_YET, enabled=False),
-        MenuItem("{n", hint="Piecewise, N pieces: " + NOT_YET, enabled=False),
-        _linear("{=", "System of 2 equations", f"{{{MARK},}}"),
-        MenuItem("{n=", hint="System of N equations: " + NOT_YET, enabled=False),
-        _linear("|x|", "Absolute value", f"abs({MARK})"),
+        _cell("log", "Log with base (ctrl+10ˣ)", "log"),
+        _cell("{2", "Piecewise, 2 pieces", "piecewise:2"),
+        MenuItem("{n", "wizard", "piecewise", hint="Piecewise, N pieces…"),
+        _cell("{=", "System of 2 equations", "system:2"),
+        MenuItem("{n=", "wizard", "system", hint="System of N equations…"),
+        _cell("|x|", "Absolute value", "abs"),
         MenuItem("°'\"", hint="Degrees, minutes, seconds: " + NOT_YET, enabled=False),
         MenuItem("2×2", "template", "matrix:2,2", hint="2 × 2 matrix"),
         MenuItem("1×2", "template", "matrix:1,2", hint="1 × 2 matrix"),
         MenuItem("2×1", "template", "matrix:2,1", hint="2 × 1 matrix"),
         MenuItem("m×n", "wizard", "matrix", hint="m × n matrix…"),
-        _linear("Σ", "Sum", f"Σ({MARK},)"),
-        _linear("Π", "Product", f"Π({MARK},)"),
-        _linear("d/d", "First derivative", f"derivative({MARK},x)"),
-        _linear("d²", "Second derivative", f"derivative({MARK},x,2)"),
+        _cell("Σ", "Sum", "sum"),
+        _cell("Π", "Product", "product"),
+        _cell("d/d", "First derivative (shift+−)", "derivative"),
+        _cell("d²", "Second derivative", "derivative2"),
         MenuItem("dⁿ", hint="Nth derivative: " + NOT_YET, enabled=False),
-        _linear("∫ₐᵇ", "Definite integral", f"∫({MARK},x,,)"),
-        _linear("∫", "Indefinite integral", f"∫({MARK},x)"),
-        _linear("lim", "Limit", f"limit({MARK},x,)"),
+        _cell("∫ₐᵇ", "Definite integral (shift++)", "integral"),
+        _cell("∫", "Indefinite integral", "antiderivative"),
+        _cell("lim", "Limit", "limit"),
         MenuItem("x₁", hint="Subscript: " + NOT_YET, enabled=False),
     ),
 )

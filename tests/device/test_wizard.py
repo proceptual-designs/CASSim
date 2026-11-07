@@ -66,7 +66,10 @@ def test_solve_system_has_a_slot_per_equation() -> None:
     state = _finish("solve_system", count="3", vars="x,y,z")
     calculator = _calculator(state)
     assert calculator.editor.linear() == "solve({,,},{x,y,z})"
-    assert calculator.editor.pos == len("solve({")
+    template = calculator.editor.root[len("solve(")]
+    assert isinstance(template, Template)
+    assert (template.kind, len(template.slots)) == (Kind.SYSTEM, 3)
+    assert calculator.editor.path == [(len("solve("), 0)]  # the cursor in the first equation
 
 
 def test_find_roots_of_polynomial_pastes_without_running() -> None:

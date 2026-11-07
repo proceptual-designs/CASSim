@@ -126,6 +126,7 @@ def _pair(function: Callable[[Raw, Raw], Raw]) -> Callable[[Host, list[Value]], 
 
 
 eager("remain", 2)(_pair(cas.remainder))
+eager("root", 2)(_pair(cas.nth_root))  # the nth-root template: root(radicand, index)
 eager("nPr", 2)(_pair(cas.permutations))
 eager("nCr", 2)(_pair(cas.combinations))
 eager("gcd", 2)(_pair(cas.gcd))
