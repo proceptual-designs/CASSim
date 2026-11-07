@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 from cassim.core.session import Result, Session
 from cassim.device.clipboard import Clipboard
-from cassim.device.editor import Editor, Kind, Node, parse_target
+from cassim.device.editor import MARK, Editor, Kind, Node, parse_target
 from cassim.device.editor import Row as EditorRow
 from cassim.device.engine import RemoteSession
 
@@ -111,10 +111,14 @@ class Calculator:
         }
         actions.update(
             insert=self._insert,
+            insert_linear=lambda text: self._edit(
+                "other", lambda: self.editor.insert_linear(text, MARK)
+            ),
             template=self._template,
             power=self._power,
             backspace=lambda _: self._edit("other", self.editor.backspace),
             delete=lambda _: self._edit("other", self.editor.delete),
+            clear=lambda _: self._edit("other", self.editor.clear),
             copy=lambda _: self._copy(),
             cut=lambda _: self._cut(),
             paste=self._paste,
@@ -183,7 +187,7 @@ class Calculator:
     def _paste(self, text: str) -> None:
         """Paste the clipboard's nodes, or `text` from the system clipboard if it differs."""
         if text and text != self.clipboard.text:
-            self._edit("other", lambda: self.editor.insert_text(" ".join(text.split())))
+            self._edit("other", lambda: self.editor.insert_linear(" ".join(text.split())))
         elif self.clipboard.nodes:
             self._edit("other", lambda: self.editor.paste(self.clipboard.nodes))
 

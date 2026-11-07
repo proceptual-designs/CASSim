@@ -8,21 +8,22 @@ from enum import StrEnum
 import flet as ft
 
 from cassim.app.entry import EntryLine
-from cassim.app.layout import KEY_GAP, KEY_H, KEY_W
+from cassim.app.layout import KEY_GAP, KEY_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
 from cassim.device.keys import Key
-from cassim.device.menu import MenuView
+from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.screen import Line, Screen, thumbnail
+from cassim.device.wizard import Wizard
 
 # Arrows and shapes are not in the default font, and the browser's fallback font comes from a
 # Google server, which the offline build cannot reach (FR-PWA-002). They are set in a vendored font.
 SYMBOL_FONT = "Symbols"
 SYMBOL_FONT_FILE = "fonts/NotoSansSymbols2-Regular.ttf"
-SYMBOLS = frozenset("◀▶▲▼␣")
+SYMBOLS = frozenset("◀▶▲▼␣●⏎▸□▮▦")
 
 
 def label_text(text: str, **style: object) -> ft.Text:
@@ -47,6 +48,8 @@ def _span(run: str) -> ft.TextSpan:
 
 
 ENTRY_ROOM = 28  # the blank line kept below the entry
+MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
+MENU_ROWS, MENU_ROWS_WIDE = 5, 16  # rows shown at once; the rest follow the highlight
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -138,35 +141,112 @@ class CalculatorView:
         )
 
     def _menu(self, view: MenuView | None) -> None:
-        """The open menu: a list over the page, the chosen row highlighted (FR-DEV-001)."""
+        """The open menu (FR-DEV-001): each level is a panel, submenus cascading to the right as
+        on the handheld. Every row is clickable; a tap outside the panels closes the menu. The
+        highlighted row's syntax shows at the foot of the deepest panel (beside every row in
+        Computer mode, where there is room)."""
         self.menu.visible = view is not None
         if view is None:
             return
-        theme = self.theme
-        rows: list[ft.Control] = [
-            ft.Text(
-                view.title, size=self.state.px(12), weight=ft.FontWeight.BOLD, color=theme.key_label
-            )
-        ]
-        rows.extend(
+        wide = self.state.mode is Mode.COMPUTER
+        px = self.state.px
+        # Submenus overlap their parent by half (Computer) or nearly all of it (Handheld).
+        step_x, step_y = (px(MENU_W_WIDE) / 2, px(10)) if wide else (px(22), px(10))
+        panels = [
             ft.Container(
-                ft.Text(
-                    f"{row.key}  {row.label}{'  ▸' if row.submenu else ''}",
-                    size=self.state.px(13),
-                    color="#ffffff" if row.selected else theme.key_text,
-                ),
-                bgcolor=theme.accent if row.selected else None,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=1),
+                self._panel(view, depth, panel, wide=wide),
+                left=px(4) + depth * step_x,
+                top=px(4) + depth * step_y,
             )
-            for row in view.rows
+            for depth, panel in enumerate(view.panels)
+        ]
+        outside = ft.Container(
+            left=0,
+            top=0,
+            right=0,
+            bottom=0,
+            bgcolor="#30000000",
+            on_click=lambda _: self.on_action("escape", ""),
         )
-        self.menu.content = ft.Container(
-            ft.Column(rows, spacing=0, tight=True, scroll=ft.ScrollMode.AUTO),
+        self.menu.content = ft.Stack([outside, *panels])
+
+    def _panel(self, view: MenuView, depth: int, panel: Panel, *, wide: bool) -> ft.Control:
+        theme, px = self.theme, self.state.px
+        last = depth == len(view.panels) - 1
+        shown = MENU_ROWS_WIDE if wide else MENU_ROWS
+        chosen = selected_index(panel)
+        start = max(0, min(chosen - shown // 2, len(panel.rows) - shown))
+        window = range(start, min(len(panel.rows), start + shown))
+        items: list[ft.Control] = [self._header(view, depth, panel)]
+        if start:
+            items.append(self._more("▲ more", -shown, active=last))
+        items.extend(
+            self._menu_row(depth, n, panel.rows[n], wide=wide, active=last) for n in window
+        )
+        if window.stop < len(panel.rows):
+            items.append(self._more("▼ more", shown, active=last))
+        if last and view.hint and not wide:
+            items.append(
+                ft.Container(
+                    ft.Text(view.hint, size=px(10), color=theme.menu_hint, italic=True),
+                    padding=ft.Padding.only(left=px(4), top=px(3), right=px(4)),
+                    border=ft.Border.only(top=ft.BorderSide(1, theme.key_label)),
+                )
+            )
+        return ft.Container(
+            ft.Column(items, spacing=0, tight=True),
             bgcolor=theme.title_bar,
-            padding=6,
-            border_radius=6,
-            margin=4,
-            width=self.state.px(230),
+            padding=px(4),
+            border_radius=px(6),
+            width=px(MENU_W_WIDE if wide else MENU_W),
+            shadow=ft.BoxShadow(blur_radius=8, color="#80000000"),
+            on_click=lambda _: None,  # a click between rows is not a click outside the menu
+        )
+
+    def _header(self, view: MenuView, depth: int, panel: Panel) -> ft.Control:
+        """The panel's title; on a submenu it is a back button (it closes this level)."""
+        back = f"{depth - 1}:{selected_index(view.panels[depth - 1])}" if depth else ""
+        return ft.Container(
+            label_text(
+                ("◀ " if depth else "") + panel.title,
+                size=self.state.px(12),
+                weight=ft.FontWeight.BOLD,
+                color=self.theme.key_label,
+            ),
+            padding=ft.Padding.symmetric(horizontal=self.state.px(4), vertical=self.state.px(2)),
+            on_click=(lambda _: self.on_action("menu_pick", back)) if back else None,
+        )
+
+    def _more(self, text: str, step: int, *, active: bool) -> ft.Control:
+        return ft.Container(
+            label_text(text, size=self.state.px(11), color=self.theme.key_label),
+            padding=ft.Padding.symmetric(horizontal=self.state.px(6)),
+            on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
+        )
+
+    def _menu_row(
+        self, depth: int, index: int, row: Row, *, wide: bool, active: bool
+    ) -> ft.Control:
+        theme, px = self.theme, self.state.px
+        on = row.selected
+        colour = "#ffffff" if on else theme.key_text
+        parts: list[ft.Control] = [
+            ft.Text(row.key, size=px(12), color=colour if on else theme.key_label, width=px(14)),
+            label_text(row.label, size=px(13), color=colour, expand=True, no_wrap=True),
+        ]
+        if wide and row.hint:
+            hint_colour = colour if on else theme.menu_hint
+            parts.append(ft.Text(row.hint, size=px(11), color=hint_colour, no_wrap=True))
+        if row.submenu:
+            parts.append(label_text("▶", size=px(10), color=colour))
+        return ft.Container(
+            ft.Row(parts, spacing=px(4)),
+            bgcolor=(theme.accent if active else theme.key) if on else None,
+            padding=ft.Padding.symmetric(horizontal=px(4), vertical=px(2)),
+            border_radius=px(3),
+            tooltip=row.hint or None,
+            ink=True,
+            on_click=lambda _: self.on_action("menu_pick", f"{depth}:{index}"),
         )
 
     def _error(self, screen: Screen) -> None:
@@ -192,53 +272,75 @@ class CalculatorView:
 
 
 class Keypad:
-    """The on-screen keys. The pending modifier lights up and shows its layer's labels."""
+    """The on-screen keys, laid out as on the handheld (FR-DEV-005). Each key shows its ctrl and
+    shift labels small above it; the pending modifier lights up and its layer's labels move onto
+    the keys."""
 
     def __init__(self, state: AppState, on_key: Callable[[str], None], theme: Theme = DARK) -> None:
         self.state = state
         self.on_key = on_key
         self.theme = theme
-        self.control = ft.Column(spacing=KEY_GAP)
+        self.control = ft.Column(spacing=KEY_GAP, tight=True)
         self.refresh()
 
     def refresh(self) -> None:
-        self.control.spacing = self.state.px(KEY_GAP)
+        gap = self.state.px(KEY_GAP)
+        self.control.spacing = gap
         self.control.controls = [
-            ft.Row(
-                [self._key(key) for key in row],
-                spacing=self.state.px(KEY_GAP),
-                alignment=ft.MainAxisAlignment.CENTER,
-            )
+            ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
             for row in self.state.profile.keypad
         ]
 
     def _key(self, key: Key) -> ft.Control:
-        pending = self.state.pending
+        state, theme = self.state, self.theme
+        width = state.px(key_span(key.width))
+        height = state.px(key_span(key.height, KEY_H))
+        if not key.name:
+            return ft.Container(width=width, height=height)
+        pending = state.pending
         layer = {"ctrl": key.ctrl, "shift": key.shift}.get(pending, "")
+        fill, text = theme.key_colours(key.style)
+        small = state.px(8 if key.width < 1 else 9)
+        labels = ft.Row(
+            [
+                label_text(key.ctrl, size=small, color=theme.key_label, no_wrap=True),
+                label_text(key.shift, size=small, color=theme.shift_label, no_wrap=True),
+            ],
+            spacing=state.px(3),
+            alignment=ft.MainAxisAlignment.CENTER,
+            tight=True,
+        )
+        main = label_text(
+            layer or key.label,
+            size=state.px(13 if key.height < 1 or key.width < 1 else 15),
+            color=text,
+            weight=ft.FontWeight.W_600,
+            no_wrap=True,
+        )
+        body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
         return ft.Container(
             ft.Column(
-                [
-                    label_text(
-                        key.ctrl or key.shift, size=self.state.px(9), color=self.theme.key_label
-                    ),
-                    label_text(
-                        layer or key.label,
-                        size=self.state.px(15),
-                        color=self.theme.key_text,
-                        weight=ft.FontWeight.W_600,
-                    ),
-                ],
+                body,
                 spacing=0,
+                tight=True,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
-            width=self.state.px(KEY_W),
-            height=self.state.px(KEY_H),
-            bgcolor=self.theme.modifier_on if pending == key.name else self.theme.key,
-            border_radius=8,
+            width=width,
+            height=height,
+            alignment=ft.Alignment.CENTER,
+            bgcolor=theme.modifier_on if pending == key.name else fill,
+            border_radius=height / 2 if key.style == "pad" else state.px(7),
             ink=True,
+            tooltip=key_tip(key),
             on_click=lambda _, name=key.name: self.on_key(name),
         )
+
+
+def key_tip(key: Key) -> str | None:
+    """What the other layers of a key do, for a mouse hover or a long press."""
+    layers = (("ctrl", key.ctrl), ("shift", key.shift))
+    return ", ".join(f"{layer}: {label}" for layer, label in layers if label) or None
 
 
 def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
@@ -474,3 +576,57 @@ def sorter_dialog(
             actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())],
         )
     )
+
+
+def selected_index(panel: Panel) -> int:
+    return next((n for n, row in enumerate(panel.rows) if row.selected), 0)
+
+
+def wizard_dialog(
+    page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
+) -> ft.AlertDialog:
+    """A command's dialog (FR-CALC-005): a box per field, OK pastes the command. A field that
+    will not do is reported in the dialog, which stays open."""
+    boxes: dict[str, ft.TextField | ft.Dropdown] = {}
+    for field in wizard.fields:
+        if field.choices:
+            boxes[field.name] = ft.Dropdown(
+                label=field.label,
+                value=field.default,
+                options=[ft.DropdownOption(key=value, text=text) for value, text in field.choices],
+                width=280,
+            )
+        else:
+            boxes[field.name] = ft.TextField(
+                label=field.label,
+                value=field.default,
+                width=280,
+                dense=True,
+                on_submit=lambda _: ok(),
+            )
+    problems = ft.Text("", color="#ff8a80", size=12)
+
+    def ok() -> None:
+        values = {name: str(box.value or "") for name, box in boxes.items()}
+        found = wizard.problems(values)
+        if found:
+            problems.value = "\n".join(found)
+            problems.update()
+            return
+        page.pop_dialog()
+        state.finish_wizard(wizard, values)
+        on_change()
+
+    first = next((box for box in boxes.values() if isinstance(box, ft.TextField)), None)
+    if first is not None:
+        first.autofocus = True
+    dialog = ft.AlertDialog(
+        title=ft.Text(wizard.title),
+        content=ft.Column([*boxes.values(), problems], tight=True, spacing=10),
+        actions=[
+            ft.TextButton("OK", on_click=lambda _: ok()),
+            ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+        ],
+    )
+    page.show_dialog(dialog)
+    return dialog

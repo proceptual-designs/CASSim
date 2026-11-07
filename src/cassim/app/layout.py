@@ -15,7 +15,7 @@ NARROW = 600  # px: a short side below this starts a first visit in Handheld (de
 MARGIN = 12  # px kept clear round the scaled calculator
 GAP = 12  # px between the screen and the keypad
 SCREEN_W, SCREEN_H = 320, 240  # the handheld's pixels
-KEY_W, KEY_H, KEY_GAP = 58, 44, 4
+KEY_W, KEY_H, KEY_GAP = 60, 40, 4  # one key unit; the keypad is 5 units across
 MIN_SCALE, MAX_SCALE = 0.4, 2.5
 BAR_H = 44  # the toolbar row above the calculator
 
@@ -27,11 +27,14 @@ def starting_mode(width: float | None, height: float | None = None) -> Mode:
     return Mode.HANDHELD if sides and min(sides) < NARROW else Mode.COMPUTER
 
 
-def keypad_size(columns: int, rows: int) -> tuple[int, int]:
-    return (
-        columns * KEY_W + (columns - 1) * KEY_GAP,
-        rows * KEY_H + (rows - 1) * KEY_GAP,
-    )
+def key_span(units: float, size: int = KEY_W) -> float:
+    """Pixels for a key `units` wide (or tall), so that keys and their gaps line up across rows:
+    two half keys and the gap between them are one key."""
+    return units * (size + KEY_GAP) - KEY_GAP
+
+
+def keypad_size(width_units: float, height_units: float) -> tuple[int, int]:
+    return round(key_span(width_units)), round(key_span(height_units, KEY_H))
 
 
 @dataclass(frozen=True)
@@ -43,10 +46,11 @@ class HandheldPlan:
 
 
 def handheld_plan(
-    viewport_w: float | None, viewport_h: float | None, columns: int, rows: int
+    viewport_w: float | None, viewport_h: float | None, width_units: float, height_units: float
 ) -> HandheldPlan:
-    """The arrangement and scale that make the calculator as large as the window allows."""
-    pad_w, pad_h = keypad_size(columns, rows)
+    """The arrangement and scale that make the calculator as large as the window allows. The
+    keypad's size is in key units (`keypad_units`)."""
+    pad_w, pad_h = keypad_size(width_units, height_units)
     portrait = (max(SCREEN_W, pad_w), SCREEN_H + GAP + pad_h)
     landscape = (SCREEN_W + GAP + pad_w, max(SCREEN_H, pad_h))
     if not viewport_w or not viewport_h:  # the window size is not known yet
@@ -61,3 +65,8 @@ def handheld_plan(
     width, height = landscape if side else portrait
     scale = max(MIN_SCALE, min(MAX_SCALE, fit(landscape if side else portrait)))
     return HandheldPlan(side, width, height, scale)
+
+
+def computer_screen_height(viewport_h: float | None) -> float:
+    """The Computer-mode screen fills the window below the toolbar (at least 300 px)."""
+    return max(300.0, (viewport_h or 800) - BAR_H - 2 * MARGIN - 8)

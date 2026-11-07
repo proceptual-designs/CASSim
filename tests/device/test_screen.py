@@ -1,7 +1,7 @@
 """The screen buffer (FR-DEV-001)."""
 
 from cassim.device.document import Document, PageKind
-from cassim.device.keys import Binding, Keyboard
+from cassim.device.keys import Binding, Keyboard, keypad_units
 from cassim.device.screen import render
 from cassim.profiles import nspire
 
@@ -40,8 +40,20 @@ def test_page_without_a_model_is_blank() -> None:
 
 
 def test_keypad_keys_resolve() -> None:
-    """Every keypad key is a modifier, has a binding, or types its own character (FR-DEV-005)."""
+    """Every keypad key is a gap, a modifier, has a binding, or types its own character; every
+    ctrl or shift label drawn on a key does something (FR-DEV-005)."""
     keyboard = Keyboard(nspire.HANDHELD, nspire.MODIFIERS)
     for row in nspire.KEYPAD:
         for key in row:
-            assert key.name in nspire.MODIFIERS or keyboard.press(key.name) is not None, key.name
+            if not key.name or key.name in nspire.MODIFIERS:
+                continue
+            assert keyboard.press(key.name) is not None, key.name
+            for layer, label in (("ctrl", key.ctrl), ("shift", key.shift)):
+                if label:
+                    assert f"{layer}+{key.name}" in nspire.HANDHELD, (layer, key.name)
+
+
+def test_keypad_rows_are_equally_wide() -> None:
+    widths = {round(sum(key.width for key in row), 6) for row in nspire.KEYPAD}
+    assert widths == {5.0}
+    assert keypad_units(nspire.KEYPAD)[0] == 5.0

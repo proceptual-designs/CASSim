@@ -10,7 +10,15 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
-from cassim.app.layout import GAP, NARROW, SCREEN_H, SCREEN_W, handheld_plan, starting_mode
+from cassim.app.layout import (
+    GAP,
+    NARROW,
+    SCREEN_H,
+    SCREEN_W,
+    computer_screen_height,
+    handheld_plan,
+    starting_mode,
+)
 from cassim.app.state import AppState, Mode, System
 from cassim.app.theme import DARK
 from cassim.app.ui import (
@@ -23,15 +31,17 @@ from cassim.app.ui import (
     settings_dialog,
     sorter_dialog,
     system_settings_dialog,
+    wizard_dialog,
 )
 from cassim.core.session import Session
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
 from cassim.device.engine import LocalEngine
-from cassim.device.keys import Binding
+from cassim.device.keys import Binding, keypad_units
 from cassim.device.runner import Runner, Status
 from cassim.device.serialize import DocumentFileError, dumps, loads, parse
 from cassim.device.share import LinkTooLongError, encode, unpack
+from cassim.device.wizard import Wizard
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
@@ -78,6 +88,8 @@ class App:
         self.layout = ft.Container(expand=True)
         self.clipboard = connect_clipboard(page, state)
         state.show_dialog = self.show_dialog
+        state.show_wizard = self.show_wizard
+        self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
         self.files = ft.FilePicker()
         page.services.append(self.files)
         self.prefs = ft.SharedPreferences()
@@ -229,8 +241,13 @@ class App:
         if "shift" in key.lower():
             self.shift = down
 
+    def show_wizard(self, wizard: Wizard) -> None:
+        self.typing_dialog = wizard_dialog(self.page, self.state, wizard, self.refresh)
+
     async def on_key(self, e: ft.KeyboardEvent) -> None:
         state = self.state
+        if self.typing_dialog is not None and self.typing_dialog.open:
+            return  # keys typed into a dialog's boxes are not calculator keys
         self.shift = e.shift
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
@@ -316,6 +333,13 @@ class App:
             actions.append(("Fullscreen", self.go_fullscreen))
         return actions
 
+    def toggle_keypad(self) -> None:
+        """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
+        system = self.state.system
+        system.computer_keypad = not system.computer_keypad
+        self.arrange()
+        self.on_system_change()
+
     def set_mode(self, mode: Mode) -> None:
         self.first_visit = False
         self.state.mode = mode
@@ -332,6 +356,11 @@ class App:
         return [
             chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
             chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
+            *(
+                [chip("Keypad", self.toggle_keypad, theme, on=self.state.system.computer_keypad)]
+                if mode is Mode.COMPUTER
+                else []
+            ),
             chip("◀ page", lambda: self.act("prev_page"), theme),
             chip("page ▶", lambda: self.act("next_page"), theme),
             chip("+ page", lambda: self.act("add_page"), theme),
@@ -448,9 +477,8 @@ class App:
         view = self.view.control
         state = self.state
         if state.mode is Mode.HANDHELD:
-            keypad = state.profile.keypad
             plan = handheld_plan(
-                self.page.width, self.page.height, max(len(row) for row in keypad), len(keypad)
+                self.page.width, self.page.height, *keypad_units(state.profile.keypad)
             )
             state.scale = plan.scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
@@ -471,12 +499,19 @@ class App:
         else:
             state.scale = 1.0
             self.layout.alignment = None
-            view.width = view.height = None
+            view.width = None
             view.expand = True
+            # A fixed height from the window: the screen otherwise shrinks to its lines, and a
+            # menu drawn on it would be clipped.
+            view.height = computer_screen_height(self.page.height)
+            parts: list[ft.Control] = [
+                ft.Container(self.sidebar.control, width=170, padding=8),
+                view,
+            ]
+            if state.system.computer_keypad:
+                parts.append(ft.Column([self.keypad.control], scroll=ft.ScrollMode.AUTO))
             self.layout.content = ft.Row(
-                [ft.Container(self.sidebar.control, width=170, padding=8), view],
-                expand=True,
-                spacing=12,
+                parts, expand=True, spacing=12, vertical_alignment=ft.CrossAxisAlignment.START
             )
 
 
