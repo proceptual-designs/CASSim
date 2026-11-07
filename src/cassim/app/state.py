@@ -12,7 +12,7 @@ from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.document import Document, PageKind
 from cassim.device.engine import RemoteSession
-from cassim.device.keys import Binding, Keyboard
+from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.screen import Screen, render
 from cassim.device.wizard import Wizard
@@ -33,6 +33,7 @@ class System:
     start_mode: Mode = Mode.COMPUTER
     math_size: int = 20  # LaTeX size in the entry and history
     computer_keypad: bool = False  # Computer mode shows the keypad beside the screen
+    letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
 
     def dumps(self) -> str:
         return json.dumps(asdict(self))
@@ -47,6 +48,8 @@ class System:
             size = data["math_size"]
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
             system.computer_keypad = data.get("computer_keypad") is True
+            letters = data.get("letters", "")
+            system.letters = letters if isinstance(letters, str) else ""
         except ValueError, KeyError, TypeError:
             return cls()
         return system
@@ -87,6 +90,11 @@ class AppState:
     def px(self, size: float) -> float:
         """A length in the handheld's pixels, drawn at the current scale."""
         return size * self.scale
+
+    @property
+    def keypad(self) -> Keypad:
+        """The keypad in the chosen letter layout; an unknown choice gives the profile's own."""
+        return self.profile.keypads.get(self.system.letters, self.profile.keypad)
 
     @property
     def pending(self) -> str:

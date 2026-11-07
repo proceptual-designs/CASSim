@@ -18,6 +18,11 @@ gap. A key `w` units wide is `w·(KEY_W+gap) − gap` pixels, so half keys and l
 digit columns (`app/layout.py` `key_span`). Each key shows its ctrl label (blue) and shift label (amber)
 above the main label; a tooltip lists them for mouse and long press.
 
+System Settings > Keypad letters chooses the letter block: ABC (the CX II's alphabetical
+block, the default) or QWERTY (ten keys across, with EE, `,`, ?!▸, π▸, ⏎ and space round it). The
+profile supplies both keypads (`Profile.keypads`), so the app holds no layout of its own; an unknown
+saved name falls back to ABC.
+
 New handheld bindings, from the key labels and `docs/design/shortcuts.md`: ctrl+esc undo, ctrl+doc
 add page, ctrl+▲ page sorter, ctrl+◀/▶ previous/next page, var (variables menu), ctrl+var `→`, ctrl+del
 clear the entry line, ctrl+= relations menu, trig menu, templates menu, ctrl+templates `:=`, catalog,

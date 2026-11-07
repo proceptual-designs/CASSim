@@ -43,7 +43,7 @@ def test_keypad_keys_resolve() -> None:
     """Every keypad key is a gap, a modifier, has a binding, or types its own character; every
     ctrl or shift label drawn on a key does something (FR-DEV-005)."""
     keyboard = Keyboard(nspire.HANDHELD, nspire.MODIFIERS)
-    for row in nspire.KEYPAD:
+    for row in (row for keypad in nspire.KEYPADS.values() for row in keypad):
         for key in row:
             if not key.name or key.name in nspire.MODIFIERS:
                 continue
@@ -54,6 +54,15 @@ def test_keypad_keys_resolve() -> None:
 
 
 def test_keypad_rows_are_equally_wide() -> None:
-    widths = {round(sum(key.width for key in row), 6) for row in nspire.KEYPAD}
-    assert widths == {5.0}
+    for keypad in nspire.KEYPADS.values():
+        assert {round(sum(key.width for key in row), 6) for row in keypad} == {5.0}
     assert keypad_units(nspire.KEYPAD)[0] == 5.0
+
+
+def test_both_letter_layouts_have_every_letter_once() -> None:
+    for keypad in nspire.KEYPADS.values():
+        names = [key.name for row in keypad for key in row if key.name]
+        assert sorted(name for name in names if len(name) == 1 and name.isalpha()) == list(
+            "abcdefghijklmnopqrstuvwxyz"
+        )
+        assert len(names) == len(set(names))

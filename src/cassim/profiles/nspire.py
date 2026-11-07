@@ -139,8 +139,8 @@ def _digit(name: str, ctrl: str = "") -> Key:
     return Key(name, name, ctrl=ctrl, style="digit")
 
 
-def _alpha(name: str, label: str = "", ctrl: str = "") -> Key:
-    return Key(name, label or name, ctrl=ctrl, width=_ALPHA, height=0.75, style="alpha")
+def _alpha(name: str, label: str = "", ctrl: str = "", width: float = 0.0) -> Key:
+    return Key(name, label or name, ctrl=ctrl, width=width or _ALPHA, height=0.75, style="alpha")
 
 
 def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
@@ -154,7 +154,7 @@ _PAD = 1.0  # each touchpad cell
 # The handheld's key layout and secondary labels (FR-DEV-005), in CASSim's own drawing: no TI
 # artwork. Units: a digit key is 1 wide; the keypad is 5 units across. Scratchpad, home and the
 # flag key have nothing to do yet, so they are gaps.
-KEYPAD: Keypad = (
+_MAIN: Keypad = (
     (
         _nav("esc", "esc", ctrl="undo"),
         gap(),
@@ -218,6 +218,10 @@ KEYPAD: Keypad = (
         Key("neg", "(−)", ctrl="ans", style="digit"),
         Key("enter", "enter", ctrl="≈", style="enter"),
     ),
+)
+
+# The letter block, alphabetical as on the CX II, or QWERTY (ten keys across) as a System Setting.
+_ABC: Keypad = (
     tuple(
         _alpha(n, label)
         for n, label in (("EE", "EE"), *((c, c) for c in "abcdefg"), ("punct", "?!▸"))
@@ -233,6 +237,27 @@ KEYPAD: Keypad = (
         gap(_ALPHA * 2),
     ),
 )
+_Q = 0.5  # ten QWERTY keys across
+_QWERTY: Keypad = (
+    tuple(_alpha(c, width=_Q) for c in "qwertyuiop"),
+    (*(_alpha(c, width=_Q) for c in "asdfghjkl"), _alpha("return", "⏎", width=_Q)),
+    (
+        _alpha("EE", "EE", width=_Q),
+        *(_alpha(c, width=_Q) for c in "zxcvbnm"),
+        _alpha(",", ",", width=_Q),
+        _alpha("punct", "?!▸", width=_Q),
+    ),
+    (
+        gap(_Q),
+        _alpha("pi", "π▸", width=_Q),
+        _alpha("space", "␣", ctrl="_", width=_Q * 6),
+        gap(_Q * 2),
+    ),
+)
+KEYPAD: Keypad = (*_MAIN, *_ABC)
+KEYPAD_QWERTY: Keypad = (*_MAIN, *_QWERTY)
+KEYPADS = {"ABC": KEYPAD, "QWERTY": KEYPAD_QWERTY}  # the letter layouts, by setting name
+
 PROFILE = Profile(
     "TI-Nspire CX CAS",
     HANDHELD,
@@ -242,4 +267,5 @@ PROFILE = Profile(
     status_line,
     MENUS,
     WIZARDS,
+    KEYPADS,
 )

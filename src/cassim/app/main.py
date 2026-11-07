@@ -468,6 +468,7 @@ class App:
 
     def on_system_change(self) -> None:
         self.page.run_task(self.prefs.set, SYSTEM_KEY, self.state.system.dumps())
+        self.arrange()  # the letter layout changes the keypad's size
         self.refresh()
 
     def open_settings(self) -> None:
@@ -477,9 +478,7 @@ class App:
         view = self.view.control
         state = self.state
         if state.mode is Mode.HANDHELD:
-            plan = handheld_plan(
-                self.page.width, self.page.height, *keypad_units(state.profile.keypad)
-            )
+            plan = handheld_plan(self.page.width, self.page.height, *keypad_units(state.keypad))
             state.scale = plan.scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False

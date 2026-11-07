@@ -1,6 +1,7 @@
 """The app state drives the document from keypad and physical keys (FR-DEV-004, FR-DEV-006)."""
 
 from cassim.app.state import AppState, Mode, System
+from cassim.profiles import nspire
 
 
 def entry_latex(state: AppState) -> str:
@@ -55,3 +56,15 @@ def test_the_computer_keypad_choice_is_kept() -> None:
     system = System(computer_keypad=True)
     assert System.loads(system.dumps()).computer_keypad
     assert not System.loads('{"start_mode": "computer", "math_size": 20}').computer_keypad
+
+
+def test_the_letter_layout_is_a_system_setting() -> None:
+    """ABC (as on the CX II) or QWERTY letters; an unknown name falls back to the default."""
+    state = AppState()
+    assert state.keypad is nspire.KEYPAD
+    state.system.letters = "QWERTY"
+    assert state.keypad is nspire.KEYPAD_QWERTY
+    assert System.loads(state.system.dumps()).letters == "QWERTY"
+    state.system.letters = "Dvorak"
+    assert state.keypad is nspire.KEYPAD
+    assert System.loads('{"start_mode": "computer", "math_size": 20, "letters": 3}').letters == ""

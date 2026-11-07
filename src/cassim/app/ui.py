@@ -288,7 +288,7 @@ class Keypad:
         self.control.spacing = gap
         self.control.controls = [
             ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
-            for row in self.state.profile.keypad
+            for row in self.state.keypad
         ]
 
     def _key(self, key: Key) -> ft.Control:
@@ -481,8 +481,18 @@ def system_settings_dialog(
         width=240,
     )
 
+    layouts = list(state.profile.keypads)
+    letters = ft.Dropdown(
+        label="Keypad letters",
+        value=system.letters if system.letters in layouts else (layouts or [""])[0],
+        options=[ft.DropdownOption(key=name, text=name) for name in layouts],
+        width=240,
+        visible=bool(layouts),
+    )
+
     def apply() -> None:
         system.start_mode = Mode(start.value or system.start_mode)
+        system.letters = letters.value or system.letters
         system.math_size = MATH_SIZES.get(size.value or "", system.math_size)
         page.pop_dialog()
         on_change()
@@ -490,7 +500,7 @@ def system_settings_dialog(
     page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("System Settings"),
-            content=ft.Column([start, size], tight=True, spacing=12),
+            content=ft.Column([start, size, letters], tight=True, spacing=12),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),
