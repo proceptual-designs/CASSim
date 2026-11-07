@@ -18,6 +18,34 @@ from cassim.device.menu import MenuView
 from cassim.device.screen import Line, Screen, thumbnail
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240  # the handheld's pixels (FR-DEV-004)
+# Arrows and shapes are not in the default font, and the browser's fallback font comes from a
+# Google server, which the offline build cannot reach (FR-PWA-002). They are set in a vendored font.
+SYMBOL_FONT = "Symbols"
+SYMBOL_FONT_FILE = "fonts/NotoSansSymbols2-Regular.ttf"
+SYMBOLS = frozenset("◀▶▲▼")
+
+
+def label_text(text: str, **style: object) -> ft.Text:
+    """Text whose arrow glyphs use the vendored symbols font; `style` is `ft.Text` keywords."""
+    if not SYMBOLS.intersection(text):
+        return ft.Text(text, **style)  # ty: ignore[invalid-argument-type]
+    spans: list[ft.TextSpan] = []
+    run = ""
+    for ch in text:
+        if (ch in SYMBOLS) == (run[:1] in SYMBOLS) or not run:
+            run += ch
+            continue
+        spans.append(_span(run))
+        run = ch
+    spans.append(_span(run))
+    return ft.Text(spans=spans, **style)  # ty: ignore[invalid-argument-type]
+
+
+def _span(run: str) -> ft.TextSpan:
+    style = ft.TextStyle(font_family=SYMBOL_FONT) if run[0] in SYMBOLS else None
+    return ft.TextSpan(run, style=style)
+
+
 ENTRY_ROOM = 28  # the blank line kept below the entry
 
 
@@ -182,8 +210,8 @@ class Keypad:
         return ft.Container(
             ft.Column(
                 [
-                    ft.Text(key.ctrl or key.shift, size=9, color=self.theme.key_label),
-                    ft.Text(
+                    label_text(key.ctrl or key.shift, size=9, color=self.theme.key_label),
+                    label_text(
                         layer or key.label,
                         size=15,
                         color=self.theme.key_text,
@@ -203,10 +231,10 @@ class Keypad:
         )
 
 
-def chip(label: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
+def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
     """A small text button for toolbars."""
     return ft.Container(
-        ft.Text(label, color="#ffffff" if on else theme.key_text, size=13),
+        label_text(text, color="#ffffff" if on else theme.key_text, size=13),
         bgcolor=theme.accent if on else theme.key,
         padding=ft.Padding.symmetric(horizontal=10, vertical=5),
         border_radius=6,
@@ -236,8 +264,8 @@ class Sidebar:
                     for label, action, arg in (
                         ("▲", "move_page", "-1"),
                         ("▼", "move_page", "1"),
-                        ("↶", "undo_pages", ""),
-                        ("↷", "redo_pages", ""),
+                        ("undo", "undo_pages", ""),
+                        ("redo", "redo_pages", ""),
                     )
                 ],
                 spacing=4,
@@ -247,7 +275,7 @@ class Sidebar:
         for problem, page, kind in document.sorter():
             rows.append(
                 ft.Container(
-                    ft.Text(
+                    label_text(
                         f"{problem + 1}.{page + 1}  {kind}",
                         color=theme.accent if (problem, page) == here else theme.key_text,
                     ),
@@ -416,8 +444,8 @@ def sorter_dialog(
         ("◀ earlier", "move_page", "-1"),
         ("later ▶", "move_page", "1"),
         ("delete", "delete_page", ""),
-        ("↶ undo", "undo_pages", ""),
-        ("↷ redo", "redo_pages", ""),
+        ("undo", "undo_pages", ""),
+        ("redo", "redo_pages", ""),
     ]
     page.show_dialog(
         ft.AlertDialog(

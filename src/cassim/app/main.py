@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import flet as ft
 
 from cassim.app.state import AppState, Mode, System
@@ -9,6 +11,8 @@ from cassim.app.theme import DARK
 from cassim.app.ui import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
+    SYMBOL_FONT,
+    SYMBOL_FONT_FILE,
     CalculatorView,
     Keypad,
     Sidebar,
@@ -25,6 +29,7 @@ from cassim.device.share import LinkTooLongError, decode, encode
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
+ASSETS = Path(__file__).parent / "assets"
 AUTOSAVE_KEY = "cassim.autosave"
 SYSTEM_KEY = "cassim.system"
 
@@ -65,6 +70,7 @@ class App:
     async def start(self) -> None:
         page = self.page
         page.title = "CASSim"
+        page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
         page.theme_mode = ft.ThemeMode.DARK
         page.bgcolor = self.theme.background
         page.padding = 12
@@ -289,4 +295,4 @@ async def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH)
+    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH, assets_dir=str(ASSETS))
