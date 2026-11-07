@@ -6,7 +6,7 @@ from cassim.app.state import AppState
 from cassim.device.calculator import Calculator
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.wizard import CURSOR, Field, Wizard
-from cassim.profiles.nspire_menus import SOLVED, WIZARDS, polynomial
+from cassim.profiles.nspire_menus import WIZARDS, polynomial
 
 
 def _calculator(state: AppState) -> Calculator:
@@ -27,6 +27,14 @@ def test_normal_cdf_pastes_and_runs() -> None:
     entry = _calculator(state).history[-1]
     assert entry.text == "normCdf(-1,1,0,1)"
     assert entry.result.text == "0.68268949"
+
+
+def test_normal_cdf_starts_from_minus_infinity() -> None:
+    """The device's Lower Bound default is the symbol −∞; Upper Bound starts blank."""
+    state = _finish("normCdf", upper="1.96")
+    entry = _calculator(state).history[-1]
+    assert entry.text == "normCdf(-∞,1.96,0,1)"
+    assert entry.result.text == "0.9750021"
 
 
 def test_empty_trailing_arguments_are_dropped() -> None:
@@ -61,9 +69,13 @@ def test_solve_system_has_a_slot_per_equation() -> None:
     assert calculator.editor.pos == len("solve({")
 
 
-def test_find_roots_of_polynomial() -> None:
+def test_find_roots_of_polynomial_pastes_without_running() -> None:
+    """As on the device: the command is pasted, the cursor at its end; Enter runs it."""
     state = _finish("poly_roots", coeffs="1,-3,2")
-    assert _calculator(state).history[-1].result.text == "{1,2}"
+    calculator = _calculator(state)
+    assert calculator.history == []
+    state.run_action("enter")
+    assert calculator.history[-1].result.text == "{1,2}"
 
 
 @pytest.mark.parametrize(
@@ -89,7 +101,6 @@ def test_finance_solver_works_out_the_box_it_is_asked_for() -> None:
     assert wizard.calculate is not None
     values = wizard.calculate({**wizard.defaults(), **_LOAN}, "fv")
     assert values["fv"] == "162.889463"
-    assert values[SOLVED] == "fv"
     assert wizard.calculate({**values, "n": ""}, "n")["n"] == "10"
     rate = wizard.calculate({**values, "i": "99"}, "i")["i"]  # the box's own value is ignored
     assert float(rate) == pytest.approx(5, abs=1e-6)  # FV was rounded to 9 digits
@@ -107,17 +118,25 @@ def test_finance_solver_reports_what_is_missing() -> None:
     assert wizard.calculate({**_LOAN, "pv": "-1/2", "i": "5ᴇ0"}, "fv")["fv"] == "0.814447313"
 
 
-def test_finance_solver_ok_keeps_the_last_calculation_in_the_history() -> None:
+def test_closing_the_finance_solver_pastes_nothing() -> None:
+    """As on the device; its boxes start at 0, PpY and CpY at 1."""
     wizard = WIZARDS["finance"]
     assert wizard.calculate is not None
+    assert wizard.defaults() == {
+        "n": "0",
+        "i": "0",
+        "pv": "0",
+        "pmt": "0",
+        "fv": "0",
+        "ppy": "1",
+        "cpy": "1",
+        "pmtat": "0",
+    }
     state = AppState()
-    assert state.finish_wizard(wizard, {**wizard.defaults(), **_LOAN}) == []
-    assert _calculator(state).history == []  # nothing calculated, nothing pasted
     solved = wizard.calculate({**wizard.defaults(), **_LOAN}, "fv")
     assert state.finish_wizard(wizard, solved) == []
-    entry = _calculator(state).history[-1]
-    assert entry.text == "tvmFV(10,5,-100,0,1,1,0)"
-    assert entry.result.text == "162.88946"
+    assert _calculator(state).history == []
+    assert _calculator(state).editor.linear() == ""
 
 
 def test_stat_dialogs_show_the_results() -> None:
@@ -132,8 +151,9 @@ def test_every_dialog_builds_with_its_defaults_filled() -> None:
         values = {field.name: field.default or "1" for field in wizard.fields}
         assert wizard.problems(values) == [], name
         if wizard.calculate is not None:
-            values = wizard.calculate(values, "fv")
-        assert wizard.bindings(values), name
+            assert wizard.calculate(values, "fv")["fv"], name  # live: nothing to paste
+        else:
+            assert wizard.bindings(values), name
 
 
 def test_field_checks() -> None:

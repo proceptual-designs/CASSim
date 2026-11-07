@@ -6,6 +6,7 @@ values with a `ctrl+`, `shift+` or `alt+` prefix.
 """
 
 from cassim.core.settings import Settings
+from cassim.device.editor import MARK
 from cassim.device.keys import Binding, Key, Keymap, Keypad, gap
 from cassim.profiles import Profile
 from cassim.profiles.nspire_menus import DOC, MENU, MENUS, WIZARDS
@@ -48,13 +49,14 @@ HANDHELD: Keymap = {
     "catalog": Binding("open_menu", "catalog"),
     "ctrl+catalog": Binding("open_menu", "symbols"),
     "enter": Binding("enter"),
-    "return": Binding("enter"),
+    "return": Binding("select"),  # ⏎ does nothing on a Calculator page (results M3)
     "ctrl+enter": Binding("approximate"),
     "plus": Binding("insert", "+"),
     "shift+plus": Binding("insert", "∫("),
     "minus": Binding("insert", "-"),
     "shift+minus": Binding("insert", "derivative("),
     "times": Binding("insert", "*"),
+    "ctrl+times": Binding("insert_linear", f'"{MARK}"'),  # a pair of quotes
     "div": Binding("insert", "/"),
     "ctrl+div": Binding("template", "fraction"),
     "shift+div": Binding("insert", "\\"),
@@ -65,8 +67,8 @@ HANDHELD: Keymap = {
     "ctrl+exp": Binding("insert", "ln("),
     "10x": Binding("insert", "10^"),
     "ctrl+10x": Binding("insert", "log("),
-    "ctrl+(": Binding("insert", "["),
-    "ctrl+)": Binding("insert", "{"),
+    "ctrl+(": Binding("insert_linear", f"[{MARK}]"),  # a bracket pair, cursor inside
+    "ctrl+)": Binding("insert_linear", f"{{{MARK}}}"),
     "neg": Binding("insert", "-"),
     "ctrl+neg": Binding("insert", "Ans"),
     "space": Binding("insert", " "),
@@ -115,6 +117,7 @@ COMPUTER: Keymap = {
     "ctrl+z": Binding("undo"),
     "ctrl+y": Binding("redo"),
     "ctrl+ ": Binding("insert", "_"),
+    "ctrl+=": Binding("insert", "≠"),  # as the Teacher Software does
 }
 
 
@@ -198,7 +201,7 @@ _MAIN: Keypad = (
         _digit("4"),
         _digit("5"),
         _digit("6"),
-        _fn("times", "×"),
+        _fn("times", "×", ctrl='""'),
         _fn("div", "÷", ctrl="a/b", shift="\\"),
     ),
     (

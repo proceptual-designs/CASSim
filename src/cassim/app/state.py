@@ -188,14 +188,14 @@ class AppState:
         calculator = self.document.current.calculator
         if calculator is None:
             return None
-        rows = calculator.session.variables()
+        rows = sorted(calculator.session.variables(), key=lambda row: row.name.casefold())
         items = tuple(
             MenuItem(row.text, "insert", f"{row.name}(", hint="function")
             if row.is_function
             else MenuItem(row.name, "insert", row.name, hint=f"{row.name} = {row.text}")
             for row in rows
         )
-        return MenuItem("Variables", items=items or (MenuItem("(none)", "escape"),))
+        return MenuItem("Variables", jump=True, items=items or (MenuItem("(none)", "escape"),))
 
     def _open_wizard(self, name: str) -> None:
         wizard = self.profile.wizards.get(name)

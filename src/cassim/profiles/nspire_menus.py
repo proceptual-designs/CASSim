@@ -1,21 +1,24 @@
 """The TI-Nspire CX CAS menus and dialogs as data (FR-DEV-001, FR-DEV-007, FR-CALC-005).
 
-The Calculator Menu follows the handheld's numbering, so `menu 3 1` is Solve as on the device.
-Items the engine cannot do yet are left out; the others keep their real numbers (`key=`). The
-tree is reconstructed from the Reference Guide and the device; `docs/decisions/0022` lists what
-still needs checking on the simulator. A label ending in `…` opens a dialog (a `Wizard`).
+Checked against the Teacher Software on 2026-11-08 (`docs/testing/emulator-menus-results.md`):
+every menu lists the device's items in the device's order with its numbers, so `menu 3 1` is Solve
+and `menu 5 5 2` is Normal Cdf… as on the handheld. Items CASSim cannot do yet are greyed
+placeholders (`todo`) in their real places; a placeholder submenu still opens and shows the device's
+items, all greyed. A label ending in `…` opens a dialog (a `Wizard`).
 """
 
 from __future__ import annotations
 
 import math
-import string
 from collections.abc import Mapping
 
 from cassim.core.compat import finance as fin
+from cassim.device.editor import MARK
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import CURSOR, Field, Wizard
 from cassim.profiles.nspire_syntax import COMMANDS, CONVERSIONS, FUNCTIONS
+
+NOT_YET = "Not in CASSim yet"
 
 
 def fn(label: str, name: str, key: str = "") -> MenuItem:
@@ -45,6 +48,17 @@ def wiz(label: str, name: str, key: str = "", hint: str = "") -> MenuItem:
     return MenuItem(f"{label}…", "wizard", name, key=key, hint=hint)
 
 
+def todo(label: str, key: str = "") -> MenuItem:
+    """A greyed placeholder for a device item CASSim cannot do yet: it keeps its number so the
+    keys match the handheld."""
+    return MenuItem(label, key=key, hint=NOT_YET, enabled=False)
+
+
+def todo_sub(label: str, key: str, *labels: str) -> MenuItem:
+    """A device submenu none of whose items CASSim has yet: it opens, showing them greyed."""
+    return MenuItem(label, key=key, items=tuple(todo(name) for name in labels))
+
+
 def call(name: str, *args: str) -> str:
     """`name(a,b,c)` with empty trailing arguments dropped (they are optional)."""
     kept = list(args)
@@ -56,8 +70,8 @@ def call(name: str, *args: str) -> str:
 # ---- dialogs ----------------------------------------------------------------------------------
 
 _MU, _SIGMA = Field("mu", "μ", "0"), Field("sigma", "σ", "1")
-_LOWER = Field("lower", "Lower Bound", "-9ᴇ999")
-_UPPER = Field("upper", "Upper Bound", "9ᴇ999")
+_LOWER = Field("lower", "Lower Bound", "-∞")  # the device's default is the symbol −∞
+_UPPER = Field("upper", "Upper Bound")
 _X = Field("x", "X Value")
 _AREA = Field("area", "Area")
 _DF = Field("df", "Deg of Freedom, df")
@@ -69,29 +83,26 @@ _ORDER = Field(
     "order", "Derivative", "1", choices=(("1", "1st Derivative"), ("2", "2nd Derivative"))
 )
 _SYSTEM_FIELDS = (
-    Field("count", "Number of Equations", "2", whole=(1, 20)),
+    Field("count", "Number of equations", "2", whole=(1, 20)),
     Field("vars", "Variables", "x,y"),
 )
 
 
 def _dist(title: str, name: str, *fields: Field) -> Wizard:
-    """A distribution dialog: pastes `name(fields…)` and runs it, as the handheld does."""
+    """A distribution dialog: pastes `name(fields…)` and runs it on OK, as the handheld does."""
     names = [field.name for field in fields]
     return Wizard(title, fields, run=True, build=lambda v: call(name, *(v[n] for n in names)))
 
 
 def _derivative_at(v: Mapping[str, str]) -> str:
+    """The device pastes d/dx(□)|x=Value with the box ready; this is its linear form."""
     order = "" if v["order"] == "1" else f",{v['order']}"
     return f"derivative({CURSOR},{v['var']}{order})|{v['var']}={v['value']}"
 
 
-def _n_derivative_at(v: Mapping[str, str]) -> str:
-    order = "" if v["order"] == "1" else f",{v['order']}"
-    return f"nDerivative({CURSOR},{v['var']}={v['value']}{order})"
-
-
 def _system(v: Mapping[str, str]) -> str:
-    """The equations as a list; the cursor waits in the first one."""
+    """The equations as a list; the cursor waits in the first one. (The device pastes its
+    system template, which CASSim does not have yet.)"""
     slots = CURSOR + "," * (int(v["count"]) - 1)
     return f"solve({{{slots}}},{{{v['vars']}}})"
 
@@ -120,13 +131,13 @@ def _poly_roots(v: Mapping[str, str]) -> str:
 
 
 def _regression(title: str, command: str) -> Wizard:
-    """Stat Calculations: run the command, then show `stat.results` as the handheld does."""
+    """Stat Calculations: run the command and show `stat.results` at once, as the handheld does.
+    (The device also offers "Save RegEqn to", which needs `CopyVar`.)"""
     fields = (Field("x", "X List"), Field("y", "Y List"), _FREQ)
     return Wizard(title, fields, command + " {x},{y},{freq}: stat.results", run=True)
 
 
 _TVM_ORDER = ("n", "i", "pv", "pmt", "fv")
-_TVM_NAMES = {"n": "tvmN", "i": "tvmI", "pv": "tvmPV", "pmt": "tvmPmt", "fv": "tvmFV"}
 _TVM_LABELS = {
     "n": "N",
     "i": "I (%)",
@@ -136,17 +147,6 @@ _TVM_LABELS = {
     "ppy": "PpY",
     "cpy": "CpY",
 }
-SOLVED = "_solved"  # in the Finance Solver's values: the field calculated last
-
-
-def _finance(v: Mapping[str, str]) -> str:
-    """OK in the Finance Solver: the TVM call for the field calculated last, so the history keeps
-    it (nothing if no field was calculated)."""
-    target = v.get(SOLVED, "")
-    if target not in _TVM_NAMES:
-        return ""
-    known = [v[name] for name in _TVM_ORDER if name != target]
-    return call(_TVM_NAMES[target], *known, v["ppy"], v["cpy"], v["pmtat"])
 
 
 def _number(v: Mapping[str, str], name: str) -> float:
@@ -167,7 +167,7 @@ def _shown(number: float) -> str:
 def finance_calculate(v: Mapping[str, str], target: str) -> dict[str, str]:
     """The Finance Solver's live calculation (the handheld's: put the cursor in a box, press
     Enter): `target` is worked out from the other four values and the timing."""
-    if target not in _TVM_NAMES:
+    if target not in _TVM_ORDER:
         raise ValueError("Choose N, I (%), PV, Pmt or FV to calculate")
     known = {name: _number(v, name) for name in (*_TVM_ORDER, "ppy", "cpy") if name != target}
     pp, cp, at = known["ppy"], known["cpy"], 1 if v.get("pmtat") == "1" else 0
@@ -186,7 +186,7 @@ def finance_calculate(v: Mapping[str, str], target: str) -> dict[str, str]:
         raise ValueError(f"{_TVM_LABELS[target]}: no solution for these values") from None
     if not math.isfinite(answer):
         raise ValueError(f"{_TVM_LABELS[target]}: no solution for these values")
-    return {**v, target: _shown(answer), SOLVED: target}
+    return {**v, target: _shown(answer)}
 
 
 _REGRESSIONS = (
@@ -204,6 +204,8 @@ _REGRESSIONS = (
     ("Logistic Regression (d≠0)", "LogisticD", "E"),
 )
 
+_BOUNDS_FROM_0 = (Field("lower", "Lower Bound", "0"), Field("upper", "Upper Bound"))
+# In the device's order (Probability > 5 and Statistics > 5 are the same list); D is a placeholder.
 _DISTRIBUTIONS = (
     ("Normal Pdf", "normPdf", "1", (_X, _MU, _SIGMA)),
     ("Normal Cdf", "normCdf", "2", (_LOWER, _UPPER, _MU, _SIGMA)),
@@ -214,31 +216,21 @@ _DISTRIBUTIONS = (
     ("χ² Pdf", "χ²Pdf", "7", (_X, _DF)),
     ("χ² Cdf", "χ²Cdf", "8", (_LOWER, _UPPER, _DF)),
     ("Inverse χ²", "invχ²", "9", (_AREA, _DF)),
-    ("F Pdf", "fPdf", "A", (_X, _DFN, _DFD)),
-    ("F Cdf", "fCdf", "B", (_LOWER, _UPPER, _DFN, _DFD)),
-    ("Inverse F", "invF", "C", (_AREA, _DFN, _DFD)),
-    ("Binomial Pdf", "binomPdf", "D", (_N, _P, _X)),
-    (
-        "Binomial Cdf",
-        "binomCdf",
-        "E",
-        (_N, _P, Field("lower", "Lower Bound", "0"), Field("upper", "Upper Bound")),
-    ),
-    ("Inverse Binomial", "invBinom", "F", (Field("c", "Cumulative Prob"), _N, _P)),
-    ("Poisson Pdf", "poissPdf", "H", (_LAMBDA, _X)),
-    (
-        "Poisson Cdf",
-        "poissCdf",
-        "I",
-        (_LAMBDA, Field("lower", "Lower Bound", "0"), Field("upper", "Upper Bound")),
-    ),
-    ("Geometric Pdf", "geomPdf", "J", (_P, _X)),
+    ("Binomial Pdf", "binomPdf", "A", (_N, _P, Field("x", "X Value (optional)"))),
+    ("Binomial Cdf", "binomCdf", "B", (_N, _P, *_BOUNDS_FROM_0)),
+    ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P)),
+    ("F Pdf", "fPdf", "E", (_X, _DFN, _DFD)),
+    ("F Cdf", "fCdf", "F", (_LOWER, _UPPER, _DFN, _DFD)),
+    ("Inverse F", "invF", "G", (_AREA, _DFN, _DFD)),
+    ("Geometric Pdf", "geomPdf", "H", (_P, _X)),
     (
         "Geometric Cdf",
         "geomCdf",
-        "K",
+        "I",
         (_P, Field("lower", "Lower Bound", "1"), Field("upper", "Upper Bound")),
     ),
+    ("Poisson Pdf", "poissPdf", "J", (_LAMBDA, _X)),
+    ("Poisson Cdf", "poissCdf", "K", (_LAMBDA, *_BOUNDS_FROM_0)),
 )
 
 WIZARDS: dict[str, Wizard] = {
@@ -247,23 +239,17 @@ WIZARDS: dict[str, Wizard] = {
         (Field("var", "Variable", "x"), Field("value", "Value"), _ORDER),
         build=_derivative_at,
     ),
-    "n_derivative_at": Wizard(
-        "Numerical Derivative at a Point",
-        (Field("var", "Variable", "x"), Field("value", "Value"), _ORDER),
-        build=_n_derivative_at,
-    ),
-    "solve_system": Wizard("Solve System of Equations", _SYSTEM_FIELDS, build=_system),
+    "solve_system": Wizard("Solve a System of Equations", _SYSTEM_FIELDS, build=_system),
     "solve_linear_system": Wizard(
-        "Solve System of Linear Equations", _SYSTEM_FIELDS, build=_system
+        "Solve a System of Linear Equations", _SYSTEM_FIELDS, build=_system
     ),
-    "poly_roots": Wizard(
-        "Find Roots of Polynomial",
+    "poly_roots": Wizard(  # the device asks the degree, then the coefficients; it does not run
+        "Find Roots of a Polynomial",
         (
             Field("coeffs", "Coefficients, highest power first", "1,0,-1"),
             Field("var", "Variable", "x"),
             Field("roots", "Roots", "real", choices=(("real", "Real"), ("complex", "Complex"))),
         ),
-        run=True,
         build=_poly_roots,
     ),
     "matrix": Wizard(
@@ -286,20 +272,19 @@ WIZARDS: dict[str, Wizard] = {
         "TwoVar {x},{y},{freq}: stat.results",
         run=True,
     ),
+    # Live: Enter in a box works it out. Closing pastes nothing, as on the device.
     "finance": Wizard(
         "Finance Solver",
         (
-            Field("n", "N"),
-            Field("i", "I (%)"),
-            Field("pv", "PV"),
-            Field("pmt", "Pmt"),
-            Field("fv", "FV"),
+            Field("n", "N", "0"),
+            Field("i", "I (%)", "0"),
+            Field("pv", "PV", "0"),
+            Field("pmt", "Pmt", "0"),
+            Field("fv", "FV", "0"),
             Field("ppy", "PpY", "1"),
             Field("cpy", "CpY", "1"),
             Field("pmtat", "PmtAt", "0", choices=(("0", "END"), ("1", "BEGIN"))),
         ),
-        run=True,
-        build=_finance,
         calculate=finance_calculate,
     ),
     **{name: _dist(title, name, *fields) for title, name, _, fields in _DISTRIBUTIONS},
@@ -307,26 +292,11 @@ WIZARDS: dict[str, Wizard] = {
 }
 
 
-NOT_YET = "Not in CASSim yet"
-
-
-def todo(label: str, key: str, *, submenu: bool = False) -> MenuItem:
-    """A greyed placeholder for a device item CASSim cannot do yet: it keeps the item's number so
-    the keys match the handheld (`submenu` draws the ▶ the device shows)."""
-    items = (MenuItem(NOT_YET, enabled=False),) if submenu else ()
-    return MenuItem(label, key=key, hint=NOT_YET, enabled=False, items=items)
-
-
-def _dist_item(title: str, name: str, key: str) -> MenuItem:
-    return wiz(title, name, key, FUNCTIONS[name])
-
-
-_DIST_ITEMS = [_dist_item(title, name, key) for title, name, key, _ in _DISTRIBUTIONS]
-_DIST_ITEMS.insert(15, todo("Inverse Binomial with N…", "G"))
+_DIST_ITEMS = [wiz(title, name, key, FUNCTIONS[name]) for title, name, key, _ in _DISTRIBUTIONS]
+_DIST_ITEMS.insert(12, todo("Inverse Binomial N…", "D"))
 DISTRIBUTIONS = sub("Distributions", "5", *_DIST_ITEMS)
 
-# The Calculator's Menu (menu key, F2 on a computer). Every item of the handheld's menu is here,
-# greyed when CASSim cannot do it yet, so the numbers match the device.
+# The Calculator's Menu (menu key, F2 on a computer).
 MENU = MenuItem(
     "Menu",
     items=(
@@ -336,11 +306,19 @@ MENU = MenuItem(
             cmd("Define", "Define", "1"),
             todo("Recall Definition", "2"),
             cmd("Delete Variable", "DelVar", "3"),
-            cmd("Clear a-z", "ClearAZ", "4"),
+            cmd("Clear a-z…", "ClearAZ", "4"),
             todo("Clear History", "5"),
             todo("Insert Comment", "6"),
-            todo("Library", "7", submenu=True),
-            todo("Lock", "8", submenu=True),
+            todo_sub(
+                "Library",
+                "7",
+                "Refresh Libraries",
+                'Insert "\\" character',
+                "Create Library Shortcut",
+                "Define LibPriv",
+                "Define LibPub (Show in Catalog)",
+            ),
+            todo_sub("Lock", "8", "Lock Variable", "Unlock Variable", "Get Lock Info"),
         ),
         sub(
             "Number",
@@ -357,6 +335,7 @@ MENU = MenuItem(
                 fn("Proper Fraction", "propFrac", "1"),
                 todo("Get Numerator", "2"),
                 todo("Get Denominator", "3"),
+                fn("Common Denominator", "comDenom", "4"),
             ),
             sub(
                 "Number Tools",
@@ -365,7 +344,7 @@ MENU = MenuItem(
                 fn("Integer Part", "iPart", "2"),
                 fn("Fractional Part", "fPart", "3"),
                 fn("Sign", "sign", "4"),
-                fn("Modulo", "mod", "5"),
+                fn("Mod", "mod", "5"),
                 fn("Floor", "floor", "6"),
                 fn("Ceiling", "ceiling", "7"),
             ),
@@ -379,14 +358,6 @@ MENU = MenuItem(
                 fn("Magnitude", "abs", "5"),
                 conv("Convert to Polar", "▶Polar", "6"),
                 conv("Convert to Rectangular", "▶Rect", "7"),
-            ),
-            fn("Prime Number Test", "isPrime", "A"),
-            sub(
-                "Base",
-                "B",
-                conv("Convert to Binary", "▶Base2", "1"),
-                conv("Convert to Decimal", "▶Base10", "2"),
-                conv("Convert to Hexadecimal", "▶Base16", "3"),
             ),
         ),
         sub(
@@ -422,7 +393,7 @@ MENU = MenuItem(
                 fn("Complex Roots of Polynomial", "cZeros", "3"),
                 todo("Remainder of Polynomial", "4"),
                 todo("Quotient of Polynomial", "5"),
-                todo("GCD of Polynomials", "6"),
+                todo("Greatest Common Divisor", "6"),
                 todo("Coefficients of Polynomial", "7"),
                 todo("Degree of Polynomial", "8"),
             ),
@@ -434,7 +405,15 @@ MENU = MenuItem(
                 todo("Get Denominator", "3"),
                 fn("Common Denominator", "comDenom", "4"),
             ),
-            todo("Convert Expression", "A", submenu=True),
+            todo_sub(
+                "Convert Expression",
+                "A",
+                "Convert to ln",
+                "Convert to logbase",
+                "Convert to exp",
+                "Convert to sin",
+                "Convert to cos",
+            ),
             sub("Trigonometry", "B", fn("Expand", "tExpand", "1"), fn("Collect", "tCollect", "2")),
             sub(
                 "Complex",
@@ -466,18 +445,17 @@ MENU = MenuItem(
                 todo("Generalized Series", "2"),
                 todo("Dominant Term", "3"),
             ),
+            # The device opens a dialog here; CASSim types the command.
             fn("Differential Equation Solver", "deSolve", "D"),
             fn("Implicit Differentiation", "impDif", "E"),
             sub(
                 "Numerical Calculations",
                 "F",
-                wiz(
-                    "Numerical Derivative at a Point",
-                    "n_derivative_at",
-                    "1",
-                    FUNCTIONS["nDerivative"],
-                ),
-                fn("Numerical Integral", "nInt", "2"),
+                fn("Numerical Derivative at a Point", "nDerivative", "1"),  # no dialog
+                todo("Central Difference Quotient with Step", "2"),
+                fn("Numerical Integral", "nInt", "3"),
+                todo("Numerical Function Minimum", "4"),
+                todo("Numerical Function Maximum", "5"),
             ),
         ),
         sub(
@@ -511,6 +489,7 @@ MENU = MenuItem(
                     for title, command, key in _REGRESSIONS
                 ),
                 todo("Multiple Linear Regression…", "F"),
+                todo("Correlation Matrix", "G"),
             ),
             MenuItem("Stat Results", "insert", "stat.results", key="2", hint="stat.results"),
             sub(
@@ -522,18 +501,10 @@ MENU = MenuItem(
                 fn("Median", "median", "4"),
                 fn("Sum of Elements", "sum", "5"),
                 fn("Product of Elements", "product", "6"),
-                sub(
-                    "Standard Deviation",
-                    "7",
-                    fn("Sample Standard Deviation", "stDevSamp", "1"),
-                    fn("Population Standard Deviation", "stDevPop", "2"),
-                ),
-                sub(
-                    "Variance",
-                    "8",
-                    fn("Sample Variance", "varSamp", "1"),
-                    fn("Population Variance", "varPop", "2"),
-                ),
+                fn("Sample Standard Deviation", "stDevSamp", "7"),
+                fn("Sample Variance", "varSamp", "8"),
+                fn("Population Standard Deviation", "stDevPop", "9"),
+                fn("Population Variance", "varPop", "A"),
             ),
             sub(
                 "List Operations",
@@ -542,14 +513,45 @@ MENU = MenuItem(
                 cmd("Sort Descending", "SortD", "2"),
                 fn("Cumulative Sum List", "cumulativeSum", "3"),
                 todo("Fill", "4"),
-                todo("Difference List", "5"),
-                todo("Delete Invalid Data", "6"),
-                fn("Convert Matrix to List", "mat▶list", "7"),
+                fn("Sequence", "seq", "5"),
+                todo("Difference List", "6"),
+                fn("Augment", "augment", "7"),
                 fn("Convert List to Matrix", "list▶mat", "8"),
+                fn("Convert Matrix to List", "mat▶list", "9"),
+                fn("Left", "left", "A"),
+                todo("Mid", "B"),
+                fn("Right", "right", "C"),
             ),
             DISTRIBUTIONS,
-            todo("Confidence Intervals", "6", submenu=True),
-            todo("Stat Tests", "7", submenu=True),
+            todo_sub(
+                "Confidence Intervals",
+                "6",
+                "z Interval…",
+                "t Interval…",
+                "2-Sample z Interval…",
+                "2-Sample t Interval…",
+                "1-Prop z Interval…",
+                "2-Prop z Interval…",
+                "Linear Reg t Intervals…",
+                "Multiple Reg Intervals…",
+            ),
+            todo_sub(
+                "Stat Tests",
+                "7",
+                "z Test…",
+                "t Test…",
+                "2-Sample z Test…",
+                "2-Sample t Test…",
+                "1-Prop z Test…",
+                "2-Prop z Test…",
+                "χ² GOF…",
+                "χ² 2-way Test…",
+                "2-Sample F Test…",
+                "Linear Reg t Test…",
+                "Multiple Reg Tests…",
+                "ANOVA…",
+                "ANOVA 2-Way…",
+            ),
         ),
         sub(
             "Matrix & Vector",
@@ -560,43 +562,42 @@ MENU = MenuItem(
                 wiz("Matrix", "matrix", "1", "Rows × columns template"),
                 todo("Zero Matrix", "2"),
                 fn("Identity", "identity", "3"),
-                todo("Random", "4"),
-                todo("Diagonal", "5"),
-                todo("Construct", "6"),
-                fn("Sub-matrix", "subMat", "7"),
+                todo("Diagonal", "4"),
+                todo("Random Matrix", "5"),
+                todo("Fill", "6"),
+                fn("Submatrix", "subMat", "7"),
                 fn("Augment", "augment", "8"),
                 todo("Column Augment", "9"),
-                todo("Fill", "A"),
+                todo("Construct Matrix", "A"),
             ),
             conv("Transpose", "ᵀ", "2"),
             fn("Determinant", "det", "3"),
             todo("Row-Echelon Form", "4"),
             fn("Reduced Row-Echelon Form", "rref", "5"),
             fn("Simultaneous", "simult", "6"),
-            sub(
-                "Norms",
-                "7",
-                fn("Norm", "norm", "1"),
-                todo("Row Norm", "2"),
-                todo("Column Norm", "3"),
+            sub("Norms", "7", fn("Norm", "norm", "1"), todo("Row", "2"), todo("Column", "3")),
+            sub("Dimensions", "8", fn("Matrix", "dim", "1"), todo("Row", "2"), todo("Column", "3")),
+            todo_sub(
+                "Row Operations", "9", "Swap Rows", "Row Add", "Multiply Row", "Multiply Row & Add"
             ),
-            sub(
-                "Dimensions",
-                "8",
-                fn("Dimension", "dim", "1"),
-                todo("Row Dimension", "2"),
-                todo("Column Dimension", "3"),
+            todo_sub(
+                "Element Operations",
+                "A",
+                "Dot Add",
+                "Dot Subtract",
+                "Dot Multiply",
+                "Dot Divide",
+                "Dot Power",
             ),
-            todo("Row Operations", "9", submenu=True),
-            todo("Element Operations", "A", submenu=True),
             sub(
                 "Advanced",
                 "B",
-                todo("Characteristic Polynomial", "1"),
-                todo("Trace", "2"),
-                todo("LU Decomposition", "3"),
-                fn("Eigenvalue", "eigVl", "4"),
-                fn("Eigenvector", "eigVc", "5"),
+                todo("Trace", "1"),
+                todo("LU Decomposition", "2"),
+                todo("QR Decomposition", "3"),
+                fn("Eigenvalues", "eigVl", "4"),
+                fn("Eigenvectors", "eigVc", "5"),
+                todo("Characteristic Polynomial", "6"),
             ),
             sub(
                 "Vector",
@@ -604,13 +605,16 @@ MENU = MenuItem(
                 fn("Unit Vector", "unitV", "1"),
                 fn("Cross Product", "crossP", "2"),
                 fn("Dot Product", "dotP", "3"),
-                todo("Vector Conversions", "4", submenu=True),
+                conv("Convert to Polar", "▶Polar", "4"),
+                conv("Convert to Rectangular", "▶Rect", "5"),
+                conv("Convert to Cylindrical", "▶Cylind", "6"),
+                conv("Convert to Spherical", "▶Sphere", "7"),
             ),
         ),
         sub(
             "Finance",
             "8",
-            wiz("Finance Solver", "finance", "1", "Enter in a box works it out from the others"),
+            wiz("Finance Solver", "finance", "1", "Press Enter in a box to calculate it"),
             sub(
                 "TVM Functions",
                 "2",
@@ -628,31 +632,95 @@ MENU = MenuItem(
                 fn("Interest Paid", "ΣInt", "3"),
                 fn("Principal Paid", "ΣPrn", "4"),
             ),
-            todo("Cash Flows", "4", submenu=True),
+            todo_sub(
+                "Cash Flows",
+                "4",
+                "Net Present Value",
+                "Internal Rate of Return",
+                "Modified Internal Rate of Return",
+            ),
             sub(
                 "Interest Conversion",
                 "5",
                 fn("Nominal Interest Rate", "nom", "1"),
                 fn("Effective Interest Rate", "eff", "2"),
             ),
-            todo("Days between Dates", "6"),
+            todo_sub("Days between Dates", "6", "Month Day Format", "Day Month Format"),
         ),
-        todo("Functions & Programs", "9", submenu=True),
+        sub(
+            "Functions & Programs",
+            "9",
+            todo_sub("Program Editor", "1", "New…", "Open…", "Import…", "View…"),
+            todo("Func…EndFunc", "2"),
+            todo("Prgm…EndPrgm", "3"),
+            todo("Local", "4"),
+            todo_sub(
+                "Control",
+                "5",
+                "If",
+                "If…Then…EndIf",
+                "If…Then…Else…EndIf",
+                "ElseIf…Then",
+                "For…EndFor",
+                "While…EndWhile",
+                "Loop…EndLoop",
+                "Try…Else…EndTry",
+                "ClrErr",
+                "PassErr",
+                "errCode",
+                "warnCodes",
+                "Wait",
+            ),
+            todo_sub("Transfer", "6", "Return", "Cycle", "Exit", "Lbl", "GoTo Lbl", "Stop"),
+            todo_sub(
+                "I/O",
+                "7",
+                "Disp",
+                "DispAt",
+                "Request",
+                "RequestStr",
+                "Text",
+                "getKey",
+                "Get",
+                "GetStr",
+                "Send",
+                "RefreshProbeVars",
+            ),
+            todo_sub(
+                "Mode",
+                "8",
+                "Display Digits",
+                "Angle",
+                "Exponential Format",
+                "Real or Complex",
+                "Auto or Approx",
+                "Vector Format",
+                "Base",
+                "Unit System",
+                "Get Mode",
+                "Get Language Info",
+                "Get Platform Info",
+            ),
+            todo("Add New Line", "9"),
+        ),
     ),
 )
 
-# Doc (doc key, F4). Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status are the
-# routes used on the simulator; the other app pages are placeholders until their milestones.
+# Doc (doc key, F4), as on the device. CASSim's own extras come after the device's items.
 DOC = MenuItem(
     "Doc",
     items=(
         sub(
             "File",
             "1",
-            MenuItem("New Document", "new_document", key="1"),
-            MenuItem("Open Document…", "dialog", "open_file", key="2"),
-            MenuItem("Save As…", "dialog", "save_file", key="3"),
-            MenuItem("Copy share link", "dialog", "share_link"),
+            MenuItem("New Document", "new_document", key="1", hint="ctrl+N"),
+            MenuItem("Open Document", "dialog", "open_file", key="2", hint="ctrl+O"),
+            todo("Close", "3"),
+            MenuItem("Save", "dialog", "save_file", key="4", hint="ctrl+S"),
+            MenuItem("Save As…", "dialog", "save_file", key="5"),
+            todo("Send", "6"),
+            todo("View copyright information", "7"),
+            MenuItem("Copy share link", "dialog", "share_link", hint="CASSim"),
         ),
         sub(
             "Edit",
@@ -662,151 +730,223 @@ DOC = MenuItem(
             MenuItem("Cut", "cut", key="3", hint="ctrl+X"),
             MenuItem("Copy", "copy", key="4", hint="ctrl+C"),
             MenuItem("Paste", "paste", key="5", hint="ctrl+V"),
-            MenuItem("Delete Page", "delete_page"),
-            MenuItem("Move Page Earlier", "move_page", "-1"),
-            MenuItem("Move Page Later", "move_page", "1"),
-            MenuItem("Move Problem Earlier", "move_problem", "-1"),
-            MenuItem("Move Problem Later", "move_problem", "1"),
-            MenuItem("Undo Page Change", "undo_pages"),
-            MenuItem("Redo Page Change", "redo_pages"),
+            MenuItem("Delete", "delete", key="6"),
+            todo_sub("Color", "7", "Fill Color", "Text Color"),
+            MenuItem("Move Page Earlier", "move_page", "-1", hint="CASSim"),
+            MenuItem("Move Page Later", "move_page", "1", hint="CASSim"),
+            MenuItem("Move Problem Earlier", "move_problem", "-1", hint="CASSim"),
+            MenuItem("Move Problem Later", "move_problem", "1", hint="CASSim"),
+            MenuItem("Undo Page Change", "undo_pages", hint="CASSim"),
+            MenuItem("Redo Page Change", "redo_pages", hint="CASSim"),
         ),
         sub(
             "View",
             "3",
-            MenuItem("Page Sorter", "dialog", "page_sorter", key="1", hint="ctrl+▲"),
-            MenuItem("Next Page", "next_page", hint="ctrl+▶"),
-            MenuItem("Previous Page", "prev_page", hint="ctrl+◀"),
+            MenuItem("Back", "prev_page", key="1", hint="ctrl+◀"),
+            MenuItem("Forward", "next_page", key="2", hint="ctrl+▶"),
+            MenuItem("Page Sorter", "dialog", "page_sorter", key="3", hint="ctrl+▲"),
         ),
         sub(
             "Insert",
             "4",
             MenuItem("Problem", "add_problem", key="1"),
-            MenuItem("Calculator", "add_page", "calculator", key="3", hint="ctrl+I"),
+            MenuItem("Page", "add_page", "calculator", key="2", hint="ctrl+I"),
+            MenuItem("Calculator", "add_page", "calculator", key="3"),
             todo("Graphs", "4"),
             todo("Geometry", "5"),
             todo("Lists & Spreadsheet", "6"),
             todo("Data & Statistics", "7"),
             todo("Notes", "8"),
+            todo("Vernier DataQuest™", "9"),
+            todo("Widget", "A"),
         ),
-        todo("Page Layout", "5", submenu=True),
+        sub(
+            "Page Layout",
+            "5",
+            todo("Custom Split", "1"),
+            todo_sub("Select Layout", "2", "Layout 1", "Layout 2", "Layout 3"),
+            todo("Select App", "3"),
+            todo("Swap Applications", "4"),
+            todo("Delete Application", "5"),
+            MenuItem("Delete Page", "delete_page", key="6"),
+            todo("Group", "7"),
+            todo("Ungroup", "8"),
+        ),
+        todo("Refresh Libraries", "6"),
         sub(
             "Settings & Status",
             "7",
-            MenuItem("System Settings…", "dialog", "system_settings", key="1"),
+            todo("Change Language…", "1"),
             MenuItem("Document Settings…", "dialog", "document_settings", key="2"),
+            MenuItem("Handheld Setup…", "dialog", "system_settings", key="3", hint="CASSim"),
+            todo("Status…", "4"),
+            todo("Login…", "5"),
+            todo("Restore Factory Defaults…", "6"),
         ),
+        todo("Login…", "8"),
+        todo_sub("Press-to-Test", "9", "Exit Press-to-Test", "Transfer Press-to-Test", "Help"),
     ),
 )
 
 
-def _insert_items(*pairs: tuple[str, str]) -> tuple[MenuItem, ...]:
-    return tuple(MenuItem(label, "insert", text) for label, text in pairs)
+def _cells(*pairs: tuple[str, str]) -> tuple[MenuItem, ...]:
+    """Grid cells that type their text; the label is shown, the hint names it."""
+    return tuple(MenuItem(label, "insert", text, hint=text) for label, text in pairs)
 
 
 _TRIG = ("sin", "cos", "tan", "csc", "sec", "cot")
-_HYPERBOLIC = ("sinh", "cosh", "tanh", "csch", "sech", "coth")
-# The trig key's list.
+# The trig key: a 6 × 2 grid, the inverses under their functions. No hyperbolic row.
 TRIG = MenuItem(
     "Trig",
-    items=tuple(
-        fn(name, name)
-        for name in (
-            *_TRIG,
-            *(f"{name}⁻¹" for name in _TRIG),
-            *_HYPERBOLIC,
-            "sinh⁻¹",
-            "cosh⁻¹",
-            "tanh⁻¹",
-        )
-    ),
+    columns=6,
+    items=tuple(fn(name, name) for name in (*_TRIG, *(f"{name}⁻¹" for name in _TRIG))),
 )
 
-# ctrl+= on the keypad (confirmed on the simulator, shortcuts S2).
+# ctrl+= on the keypad: a 3 × 2 grid (confirmed on the simulator).
 RELATIONS = MenuItem(
     "Relations",
-    items=_insert_items(
-        (">", ">"), ("<", "<"), ("≠", "≠"), ("≥", "≥"), ("≤", "≤"), ("| (with)", "|")
-    ),
+    columns=3,
+    items=_cells((">", ">"), ("<", "<"), ("≠", "≠"), ("≥", "≥"), ("≤", "≤"), ("|", "|")),
 )
 
-# The templates key. The handheld shows a grid; here it is a list in the same spirit.
-TEMPLATES = MenuItem(
-    "Templates",
-    items=(
-        MenuItem("Fraction  □/□", "template", "fraction", hint="ctrl+÷"),
-        MenuItem("Exponent  □^□", "insert", "^", hint="^"),
-        MenuItem("Square root  √□", "template", "root", hint="ctrl+x²"),
-        MenuItem("ⅇ exponent  ⅇ^□", "insert", "ⅇ^", hint="eˣ"),
-        MenuItem("Log  log(□,□)", "insert", "log(", hint=FUNCTIONS["log"]),
-        MenuItem("Absolute value  |□|", "insert", "abs(", hint=FUNCTIONS["abs"]),
-        MenuItem("Matrix 2×2", "template", "matrix:2,2"),
-        wiz("Matrix m×n", "matrix", hint="Rows × columns template"),
-        MenuItem("Sum  Σ", "insert", "Σ(", hint=FUNCTIONS["Σ"]),
-        MenuItem("Product  Π", "insert", "Π(", hint=FUNCTIONS["Π"]),
-        MenuItem("Derivative  d/d□", "insert", "derivative(", hint=FUNCTIONS["derivative"]),
-        MenuItem("Integral  ∫", "insert", "∫(", hint=FUNCTIONS["∫"]),
-        MenuItem("Limit  lim", "insert", "limit(", hint=FUNCTIONS["limit"]),
-    ),
-)
-
-# ?!▸ and π▸ on the letter keys.
+# ?!▸: a grid 6 wide.
 PUNCTUATION = MenuItem(
     "Punctuation",
-    items=_insert_items(
+    columns=6,
+    items=_cells(
         ("?", "?"),
         ("!", "!"),
+        ("$", "$"),
         ("°", "°"),
         ("'", "'"),
-        ('"', '"'),
         ("%", "%"),
+        ('"', '"'),
         (":", ":"),
         (";", ";"),
         ("_", "_"),
         ("\\", "\\"),
-        ("→  store", "→"),
-        ("▶  convert", "▶"),
     ),
 )
+
+# π▸: a grid 5 wide (ⅈ and ⅇ are the imaginary unit and Euler's number).
 SYMBOLS = MenuItem(
     "Symbols",
-    items=(
-        *_insert_items(
-            ("π", "π"),
-            ("θ", "θ"),
-            ("∞", "∞"),
-            ("ⅇ", "ⅇ"),
-            ("ⅈ", "ⅈ"),
-            ("≤", "≤"),
-            ("≥", "≥"),
-            ("≠", "≠"),
-            ("∠", "∠"),
-            ("ᵀ", "ᵀ"),
-            ("⇒", "⇒"),
-            ("⇔", "⇔"),
-        ),
-        fn("√", "√"),
+    columns=5,
+    items=_cells(
+        ("π", "π"),
+        ("ⅈ", "ⅈ"),
+        ("∞", "∞"),
+        ("ⅇ", "ⅇ"),
+        ("θ", "θ"),
+        ("°", "°"),
+        ("ʳ", "ʳ"),
+        ("ᵍ", "ᵍ"),
+        ("'", "'"),
     ),
 )
 
 
-def _catalog() -> MenuItem:
-    """The catalog key: every command A to Z with its syntax, a submenu per first letter (the
-    letter is its key, so typing `s` jumps to S as on the handheld)."""
-    entries = [(name, fn(name, name)) for name in FUNCTIONS]
+def _linear(label: str, name: str, text: str) -> MenuItem:
+    """A template cell pasted as linear text, the cursor at `MARK`."""
+    return MenuItem(label, "insert_linear", text, hint=name)
+
+
+# The templates key: the device's 25 icons, 11 to a row, in order. Templates CASSim does not have
+# yet are greyed; the others paste the template or its linear form.
+TEMPLATES = MenuItem(
+    "Templates",
+    columns=11,
+    items=(
+        MenuItem("a/b", "template", "fraction", hint="Fraction (ctrl+÷)"),
+        MenuItem("xʸ", "insert", "^", hint="Exponent (^)"),
+        MenuItem("√", "template", "root", hint="Square root (ctrl+x²)"),
+        MenuItem("ⁿ√", hint="Nth root: " + NOT_YET, enabled=False),
+        MenuItem("eˣ", "insert", "ⅇ^", hint="e exponent (eˣ)"),
+        _linear("log", "Log with base", f"log({MARK},)"),
+        MenuItem("{2", hint="Piecewise, 2 pieces: " + NOT_YET, enabled=False),
+        MenuItem("{n", hint="Piecewise, N pieces: " + NOT_YET, enabled=False),
+        _linear("{=", "System of 2 equations", f"{{{MARK},}}"),
+        MenuItem("{n=", hint="System of N equations: " + NOT_YET, enabled=False),
+        _linear("|x|", "Absolute value", f"abs({MARK})"),
+        MenuItem("°'\"", hint="Degrees, minutes, seconds: " + NOT_YET, enabled=False),
+        MenuItem("2×2", "template", "matrix:2,2", hint="2 × 2 matrix"),
+        MenuItem("1×2", "template", "matrix:1,2", hint="1 × 2 matrix"),
+        MenuItem("2×1", "template", "matrix:2,1", hint="2 × 1 matrix"),
+        MenuItem("m×n", "wizard", "matrix", hint="m × n matrix…"),
+        _linear("Σ", "Sum", f"Σ({MARK},)"),
+        _linear("Π", "Product", f"Π({MARK},)"),
+        _linear("d/d", "First derivative", f"derivative({MARK},x)"),
+        _linear("d²", "Second derivative", f"derivative({MARK},x,2)"),
+        MenuItem("dⁿ", hint="Nth derivative: " + NOT_YET, enabled=False),
+        _linear("∫ₐᵇ", "Definite integral", f"∫({MARK},x,,)"),
+        _linear("∫", "Indefinite integral", f"∫({MARK},x)"),
+        _linear("lim", "Limit", f"limit({MARK},x,)"),
+        MenuItem("x₁", hint="Subscript: " + NOT_YET, enabled=False),
+    ),
+)
+
+# The first rows of the Catalog's Symbols tab (the device's grid, 11 wide). Further rows (arrows,
+# shapes, currency, set and logic symbols, letters) are left out for now.
+_SYMBOL_ROWS = (
+    "π ⅇ ⅈ ᴇ ∞ θ → _ ▶ ° ʳ",
+    "ᵍ ' ∠ = ≠ < ≤ > ≥ (−) +",
+    "− * · × / ÷ ^ ± ᵀ √ ∏",
+    "∑ d ∫ ! © @ # $ % & |",
+    '" : ; , . ? ( ) { } [',
+    "] x̄ ȳ Σ μ σ F χ ² ⁻¹ ₁",
+    "₂ ₃ p̂ ŷ c n Δ µ Ω",
+)
+# Then the Greek capitals and small letters, in Unicode order (no final sigma), 11 to a row.
+_GREEK = [chr(c) for c in (*range(0x391, 0x3AA), *range(0x3B1, 0x3CA)) if c not in (0x3A2, 0x3C2)]
+_SPECIAL = {"(−)": "-", "−": "-", "^": "^", "√": "√"}
+
+
+def _symbol_cell(symbol: str) -> MenuItem:
+    if symbol == "√":
+        return MenuItem("√", "template", "root", hint="Square root")
+    return MenuItem(symbol, "insert", _SPECIAL.get(symbol, symbol), hint=symbol)
+
+
+CATALOG_SYMBOLS = MenuItem(
+    "Symbols",
+    key="4",
+    columns=11,
+    items=tuple(_symbol_cell(symbol) for symbol in (*" ".join(_SYMBOL_ROWS).split(), *_GREEK)),
+)
+
+
+def _catalog_entry(name: str) -> MenuItem:
+    """A Catalog function, listed as the device lists it: `abs(`."""
+    item = fn(name, name)
+    return MenuItem(f"{name}(", item.action, item.arg, hint=item.hint)
+
+
+def _catalog_list() -> MenuItem:
+    """Tab 1: every command A to Z in one list with its syntax; a typed letter jumps to it."""
+    entries = [(name, _catalog_entry(name)) for name in FUNCTIONS]
     entries += [(name, cmd(name, name)) for name in COMMANDS]
-    groups: dict[str, list[MenuItem]] = {}
-    for name, item in sorted(entries, key=lambda pair: pair[0].casefold()):
-        first = name[0].upper()
-        groups.setdefault(first if first in string.ascii_uppercase else "", []).append(item)
-    letters = tuple(
-        sub(letter, letter, *groups[letter])
-        for letter in string.ascii_uppercase
-        if letter in groups
-    )
-    return MenuItem("Catalog", items=(*letters, sub("Σ ∫ χ² √", "1", *groups[""])))
+    entries.sort(key=lambda pair: pair[0].casefold())
+    return MenuItem("Catalog", key="1", jump=True, items=tuple(item for _, item in entries))
 
 
-CATALOG = _catalog()
+def _tab(item: MenuItem) -> MenuItem:
+    """A Catalog tab: no keys of its own, so a digit switches tab as on the device."""
+    return MenuItem(item.label, key=item.key, items=item.items, jump=True)
+
+
+# The catalog key: six tabs, opening on the alphabetical list. Pressing 1 to 6 switches tab.
+CATALOG = MenuItem(
+    "Catalog",
+    start=(0,),
+    items=(
+        _catalog_list(),
+        _tab(todo_sub("Math Functions", "2", "Number", "Angle", "List", "Matrix", "Vector")),
+        _tab(todo_sub("Units", "3", "Conversion Assistant", "Constants", "Length", "Area")),
+        CATALOG_SYMBOLS,
+        MenuItem("Math Expression Templates", key="5", columns=11, items=TEMPLATES.items),
+        _tab(todo_sub("Library", "6", "Current Problem")),
+    ),
+)
 
 MENUS = {
     "doc": DOC,

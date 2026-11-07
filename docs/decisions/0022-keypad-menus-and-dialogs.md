@@ -1,108 +1,119 @@
 # 0022 Keypad layout, Nspire menus, syntax hints and command dialogs (M2f)
 
-Date: 2026-11-07. Status: built; the menu numbering and the dialogs need checking on the simulator.
+Date: 2026-11-07, revised 2026-11-08. Status: built and checked against the TI-Nspire CX CAS Premium
+Teacher Software (Claude Cowork run, `docs/testing/emulator-menus-results.md`, screenshots in
+`docs/testing/menu-shots/`). What is still CASSim's own choice is marked **CASSim** below.
 
 Simon asked for the keyboard and menus to mimic the Nspire closely, menus that work by touch and
-mouse, a syntax hint on menu commands, and dialogs for the multi-argument commands, as the CAS has.
+mouse, a syntax hint on menu commands, dialogs for the multi-argument commands, and greyed
+placeholders so the menu numbers match the device (muscle memory matters).
 
 ## Keypad (FR-DEV-005)
 
-`profiles/nspire.py` `KEYPAD` now follows the CX II layout in CASSim's own drawing (no TI artwork):
-esc and tab left of a touchpad (arrows round a centre click), doc and menu right of it; ctrl, shift,
-var, del; the paired function keys (`=` trig, `^` x², eˣ 10ˣ, `(` `)`) left of the digits and
+`profiles/nspire.py` `KEYPAD` follows the CX II layout in CASSim's own drawing (no TI artwork): esc
+and tab left of a touchpad (arrows round a centre click), doc and menu right of it; ctrl, shift, var,
+del; the paired function keys (`=` trig, `^` x², eˣ 10ˣ, `(` `)`) left of the digits and
 templates/catalog, × ÷, + − right of them; enter; then the letter block (EE, a to z, ?!▸, π▸, `,`, ⏎,
 space). Scratchpad, home and the flag key have nothing to do yet and are gaps.
 
-`Key` gained `width`, `height` (key units) and `style` (the theme colours it); a key with no name is a
-gap. A key `w` units wide is `w·(KEY_W+gap) − gap` pixels, so half keys and letter keys line up with the
+`Key` has `width`, `height` (key units) and `style` (the theme colours it); a key with no name is a gap.
+A key `w` units wide is `w·(KEY_W+gap) − gap` pixels, so half keys and letter keys line up with the
 digit columns (`app/layout.py` `key_span`). Each key shows its ctrl label (blue) and shift label (amber)
 above the main label; a tooltip lists them for mouse and long press.
 
-System Settings > Keypad letters chooses the letter block: ABC (the CX II's alphabetical
-block, the default) or QWERTY (ten keys across, with EE, `,`, ?!▸, π▸, ⏎ and space round it). The
-profile supplies both keypads (`Profile.keypads`), so the app holds no layout of its own; an unknown
-saved name falls back to ABC.
+System Settings > Keypad letters chooses ABC (the CX II's block, the default) or QWERTY (ten across).
+The profile supplies both (`Profile.keypads`); an unknown saved name falls back to ABC.
 
-New handheld bindings, from the key labels and `docs/design/shortcuts.md`: ctrl+esc undo, ctrl+doc
-add page, ctrl+▲ page sorter, ctrl+◀/▶ previous/next page, var (variables menu), ctrl+var `→`, ctrl+del
-clear the entry line, ctrl+= relations menu, trig menu, templates menu, ctrl+templates `:=`, catalog,
-ctrl+catalog symbols, eˣ `ⅇ^`, ctrl+eˣ `ln(`, 10ˣ `10^`, ctrl+10ˣ `log(`, ctrl+( `[`, ctrl+) `{`,
-shift+÷ `\`, shift++ `∫(`, shift+− `derivative(`, ?!▸ punctuation menu, π▸ symbols menu, ⏎ enter, and
-shift then a letter types the capital. Computer keyboard: ctrl+L variables (confirmed S2), ctrl+↑ page
-sorter.
-
-**Unsure, check on the simulator:** what ctrl+del, the touchpad centre, ⏎ and π▸ do in a Calculator
-page; the order of the trig, templates, punctuation and symbol lists. CASSim's templates key gives a list,
-not the handheld's grid. ctrl+^ (nth root), ctrl+× (string) and the log template have no engine or
-editor support yet, so those layers are unlabelled.
+Bindings, checked on the device (results part 3) unless marked: ctrl+del clears the entry line; the
+touchpad centre and ⏎ do nothing on a Calculator page (outside a menu); ctrl+× gives a pair of quotes,
+ctrl+( `[ ]` and ctrl+) `{ }`, each with the cursor inside; ctrl+esc undoes; π▸ opens the symbols grid;
+shift then a letter types the capital; ctrl+= opens the relations grid (the computer keyboard's ctrl+=
+types `≠`, as the Teacher Software does). Also ctrl+doc add page, ctrl+▲ page sorter, ctrl+◀/▶ pages,
+var, ctrl+var `→`, eˣ `ⅇ^`, ctrl+eˣ `ln(`, 10ˣ `10^`, shift+÷ `\`, shift++ `∫(`, shift+− `derivative(`.
+ctrl+^ (the nth-root template) and ctrl+10ˣ (the log-base template) are templates the editor lacks; ctrl+10ˣ
+types `log(` meanwhile and ctrl+^ is unbound.
 
 ## Menus (FR-DEV-001, FR-CALC-005)
 
-`profiles/nspire_menus.py` holds Doc, the Calculator Menu, and the trig, templates, catalog,
-relations, punctuation and symbols menus; `var` builds the variables menu from the Problem. The
-Calculator Menu keeps the handheld's numbers (`menu 3 1` is Solve, `menu 5 5 2` Normal Cdf…).
-Items the engine cannot do yet are greyed placeholders (`todo` in `nspire_menus.py`, `enabled=False`)
-in their real places, so every number matches the device and muscle memory carries over (Simon,
-2026-11-08). A placeholder can be highlighted, shows "Not in CASSim yet" as its hint, and does nothing
-when chosen (the menu stays open); a placeholder submenu shows its ▶ but does not open. When a command
-is implemented, its `todo(...)` becomes a real item with the same key. The numbering is reconstructed
-from the Reference Guide and memory of OS 5/6 and is **unverified**: Simon, please check each menu
-against the simulator, especially Number > B Base, Matrix & Vector > B Advanced and the Doc menu.
+`profiles/nspire_menus.py` holds every menu as the device shows it: the Calculator Menu (all nine
+groups to every leaf), Doc, the trig, templates, relations, punctuation and symbol keys, and the
+Catalog. `var` builds the variables menu from the Problem.
 
-Doc keeps the simulator routes (4 Insert > 1 Problem / 3 Calculator, 7 Settings & Status), with the
-other page types (4 Graphs to 8 Notes) and 5 Page Layout as placeholders. File, Edit and View are
-CASSim's own; page moves sit under Edit after the real Undo to Paste.
+Every device item is present, in order, with its number. Items CASSim cannot do yet are greyed
+placeholders (`todo`): highlighted and named, hint "Not in CASSim yet", nothing happens when chosen
+and the menu stays open. A device submenu none of whose items exists yet (`todo_sub`: Library, Lock,
+Convert Expression, Confidence Intervals, Stat Tests, Row and Element Operations, Cash Flows, Days
+between Dates, most of Functions & Programs) still opens and shows its items greyed. When a command is
+built, its `todo` becomes a real item with the same key. Tests pin the routes the device run settled.
 
-Touch and mouse: every row of every open level is clickable (`MenuState.pick`): a submenu opens, a leaf
-runs, a click on an open submenu's parent row or on a submenu's `◀` title closes that level, and a click
-outside the panels closes the menu. Long lists show a window round the highlight with clickable
-"▲ more"/"▼ more" rows (5 rows in Handheld, 16 in Computer). Submenus cascade to the right of their
-parent, overlapping it as on the handheld.
+Changes the device run made to the first reconstruction: Number has no Prime Number Test or Base (they
+stay in the Catalog); distributions run A Binomial Pdf, B Binomial Cdf, C Inverse Binomial, D Inverse
+Binomial N, E–G F, H–I Geometric, J–K Poisson; Stat Calculations adds G Correlation Matrix; List Math is
+flat (7 to A are the standard deviations and variances); List Operations is Sort×2, Cumulative Sum, Fill,
+Sequence, Difference List, Augment, List▶Matrix, Matrix▶List, Left, Mid, Right; Numerical Calculations
+has five items and Numerical Derivative at a Point is not a dialog; Matrix Create, Norms, Dimensions,
+Advanced and Vector follow the device; Doc is File, Edit, View, Insert, Page Layout, Refresh Libraries,
+Settings & Status, Login, Press-to-Test with the device's submenus. **CASSim:** Doc > View > Back and
+Forward go to the previous and next page; Settings & Status > 3 Handheld Setup… opens CASSim's System
+Settings; File > Save and Save As both download the file; CASSim's page moves and share link come after
+the device's items (hint "CASSim").
 
-The Catalog is every command with a hint, a submenu per first letter keyed by the letter (so typing `s`
-jumps to S), plus one for Σ ∫ χ² √. A test checks every hinted name is known to the engine.
+Shapes, as on the device: trig (6 × 2, no hyperbolic row), templates (25 icons, 11 wide), relations
+(3 × 2), punctuation (6 wide) and π▸ symbols (5 wide) are grids (`MenuItem.columns`): arrows move in
+two dimensions, cells have no keys, the hint names the cell. The Catalog has six tabs (keys 1 to 6) and
+opens on tab 1, one alphabetical list of every command with its hint, where a typed letter jumps to its
+first entry (`MenuItem.jump`) and a digit changes tab. Tab 4 is the device's symbol grid (11 wide; the
+first seven rows and the Greek letters, the rest left out), tab 5 the templates grid; tabs 2, 3 and 6 are
+placeholders. The variables menu is alphabetical with no keys and jumps by letter. Template cells CASSim
+has no 2D template for (nth root, piecewise, N-equation system, degrees-minutes-seconds, nth
+derivative, subscript) are greyed; the others paste the template or its linear form.
+
+Touch and mouse: every row or cell of every open level is clickable (`MenuState.pick`); a click on a
+submenu's `◀` title or its parent row closes it; a click outside closes the menu. Long lists and grids
+show a window round the highlight with clickable "▲ more"/"▼ more" (5 rows in Handheld, 16 in Computer).
+Submenus cascade to the right, except grids, which stay at the left so they fit the screen.
 
 ## Syntax hints (FR-CAT-004)
 
-`profiles/nspire_syntax.py` holds a short TI-style syntax per command (`solve(Equation, Var)`,
-`normCdf(Lower, Upper, [μ], [σ])`). Handheld mode shows the highlighted row's hint at the foot of the
-menu; Computer mode shows hints beside every row; both show it as a tooltip.
+`profiles/nspire_syntax.py` has a hint per command. Those the device run read (results part 5) are
+copied as the device writes them, first form only (`solve(Equation,Var)`,
+`normCdf(lowBound,upBound[,μ[,σ]])`); the rest follow the Reference Guide. Handheld mode shows the
+highlighted item's hint at the foot of the menu; Computer mode shows hints beside every row; both show
+it as a tooltip.
 
 ## Dialogs (wizards)
 
-`device/wizard.py` is a dialog as data: named fields (text, a drop-down of choices, or a whole number
-in a range) and either a `str.format` pattern, a `build` function or a template spec, with `run` to press
-Enter afterwards. The GUI draws it (`ui.wizard_dialog`); `AppState.finish_wizard` pastes the result, and
-a field that will not do is reported in the dialog. Built: Derivative at a Point…, Numerical Derivative
-at a Point…, Solve System of (Linear) Equations…, Find Roots of Polynomial…, Create Matrix…, One- and
-Two-Variable Statistics…, the twelve regressions…, Finance Solver…, and the nineteen distributions…
-(Normal Pdf to Geometric Cdf).
+`device/wizard.py` is a dialog as data: named fields (text, a drop-down, or a whole number in a range)
+and a `str.format` pattern, a `build` function or a template spec, with `run` to press Enter after
+pasting. The GUI draws it (`ui.wizard_dialog`); `AppState.finish_wizard` pastes the result; a field
+that will not do is reported in the dialog. Dialog output is pasted with `Editor.insert_linear`, in which
+`^` takes only its operand and a `▮` marks where the cursor is left (system-clipboard paste uses it too).
 
-Choices made without the simulator (**unsure**): the distribution, stats and Finance Solver dialogs paste
-and run at once; stats and regressions append `: stat.results` so the table shows; empty trailing
-arguments are dropped; Lower Bound defaults to `-9ᴇ999`; the system dialog pastes the list form
-`solve({eq1,eq2},{x,y})` rather than the handheld's system
-template; Find Roots asks for the coefficients in one box instead of a second dialog; regressions do not
-offer "Save RegEqn to" (`CopyVar` is not implemented).
+Matching the device: the distribution, One- and Two-Variable and regression dialogs paste and run on OK,
+and stats and regressions show `stat.results` at once; Derivative at a Point, Solve System of Equations
+and Create Matrix only paste (cursor in the first slot); Find Roots of Polynomial pastes `polyRoots(…)`
+without running it; Normal Cdf's Lower Bound starts as `-∞` and Upper Bound blank; Binomial Pdf's X Value
+is optional (blank gives the whole list).
 
-**Finance Solver is live** (Simon, 2026-11-08): put the cursor in a box (N, I (%), PV, Pmt or FV) and
-press Enter, or click Calculate, and that box is worked out from the others; it can be done again for any
-box. A `Wizard` with `calculate` is live. The calculation runs in the app with the same pure-float code
-as the `tvm*` functions (`core/compat/finance.py`), so it needs no trip to the maths worker; boxes accept
-decimals, `ᴇ` and fractions `a/b`, and answers show 9 significant digits. OK puts the TVM call for the
-box calculated last in the history and runs it (nothing if no box was calculated); Cancel closes.
-**Unsure:** whether the handheld's OK pastes anything, and whether it stores `tvm.n` and so on.
+**CASSim** differences, for now: Derivative at a Point pastes `derivative(□,x)|x=v` (the device's d/dx
+template) and has no "nth Derivative" choice; Solve System pastes `solve({□,□},{x,y})` (the device's
+system template); Find Roots asks for the coefficients in one box (the device asks the degree, then one
+box per coefficient); One-Variable Statistics skips the device's "Num of Lists" step and Category fields;
+regressions do not offer "Save RegEqn to" (`CopyVar` is not implemented); Inverse Binomial has no
+"Display Result" option; the Differential Equation Solver types `deSolve(` instead of opening the
+device's dialog.
 
-Dialog output is pasted with the new `Editor.insert_linear`, in which `^` takes only its operand
-(`x^2-3*x+2` is x² − 3x + 2, not x^(2−3x+2)) and a `▮` marks where the cursor is left. Pasting text from
-the system clipboard uses it too, which fixes the same problem there.
+**Finance Solver is live** (Simon, 2026-11-08; matches the device): boxes N, I (%), PV, Pmt, FV start at
+0, PpY and CpY at 1, PmtAt END. Put the cursor in a box and press Enter (or click Calculate) and that box
+is worked out from the others. Closing it pastes nothing, as on the device. The calculation uses the same
+pure-float code as the `tvm*` functions (`core/compat/finance.py`) in the app process; boxes accept
+decimals, `ᴇ` and `a/b`; answers show 9 significant digits. **CASSim:** the device also stores the values
+in `tvm.n`, `tvm.i`, ...; CASSim does not yet.
 
 ## Found on the way
 
-- `solve(x+y=3 and x-y=1,{x,y})` crashed (an uncaught `AttributeError`). Fixed: with several unknowns,
-  `solve` and `cSolve` split an `and` into its equations (`sympy_adapter.conjuncts`), so the Boolean form
-  and the list form `{eq1,eq2}` give the same answer.
-- The LaTeX of an approximate result shows more digits than Float 8 (`normCdf(-1,1,0,1)` draws
-  0.682689492137086; its text is 0.68268949). Simon: fine as it is (2026-11-08).
+- `solve(x+y=3 and x-y=1,{x,y})` crashed. Fixed: with several unknowns, `solve` and `cSolve` split an
+  `and` into its equations (`sympy_adapter.conjuncts`), so the Boolean and list forms agree.
+- The LaTeX of an approximate result shows more digits than Float 8. Simon: fine as it is (2026-11-08).
 - In Computer mode the screen shrank to its lines (on `main` too); it now gets a height from the window
   (`layout.computer_screen_height`), since a menu drawn on it was clipped.

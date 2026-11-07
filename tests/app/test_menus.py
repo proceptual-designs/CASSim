@@ -21,7 +21,10 @@ def test_doc_menu_opens_and_lists_rows() -> None:
         ("3", "View"),
         ("4", "Insert"),
         ("5", "Page Layout"),
+        ("6", "Refresh Libraries"),
         ("7", "Settings & Status"),
+        ("8", "Login…"),
+        ("9", "Press-to-Test"),
     ]
     assert view.rows[0].selected
     assert view.rows[0].submenu
@@ -119,7 +122,7 @@ def test_page_sorter_and_system_settings_ask_for_dialogs() -> None:
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append
-    for key in ("F4", "3", "1", "F4", "7", "1"):
+    for key in ("F4", "3", "3", "F4", "7", "3"):  # View > Page Sorter, Handheld Setup
         state.key_event(key)
     assert asked == ["page_sorter", "system_settings"]
 
@@ -171,8 +174,8 @@ def test_the_highlighted_row_shows_its_syntax() -> None:
     for key in ("F2", "3"):  # Algebra, Solve highlighted
         state.key_event(key)
     view = _menu(state)
-    assert view.hint == "solve(Equation, Var)"
-    assert view.rows[0].hint == "solve(Equation, Var)"
+    assert view.hint == "solve(Equation,Var)"
+    assert view.rows[0].hint == "solve(Equation,Var)"
 
 
 def test_menu_keys_follow_the_handheld() -> None:
@@ -205,14 +208,15 @@ def test_every_menu_leaf_is_something_the_app_can_do(name: str) -> None:
     for leaf in _leaves(root):
         if leaf.action == "wizard":
             assert leaf.arg in nspire.PROFILE.wizards, leaf.label
-            assert leaf.label.endswith("…"), leaf.label
-        if leaf.action == "insert" and leaf.arg.endswith("("):
+            assert leaf.label.endswith("…") or name in {"templates", "catalog"}, leaf.label
+        if leaf.action == "insert" and len(leaf.arg) > 1 and leaf.arg.endswith("("):
             assert registry.is_builtin(leaf.arg[:-1]), leaf.arg
             assert leaf.hint, leaf.label
 
     def check(item: MenuItem) -> None:
         keys = item_keys(item)
-        assert len(keys) == len(set(keys)), item.label
+        keyless = item.columns or item.jump  # grids and jump lists have no keys
+        assert keyless or len(keys) == len(set(keys)), item.label
         for child in item.items:
             check(child)
 
@@ -249,13 +253,49 @@ def test_every_menu_command_runs() -> None:
         assert "Error" not in calculator.history[-1].result.text, line
 
 
-def test_catalog_jumps_by_letter() -> None:
+def test_catalog_opens_on_its_list_and_letters_jump() -> None:
+    """Six tabs, opening on the A to Z list; a letter jumps, a digit changes tab (results M2)."""
     state = AppState()
     state.run_action("open_menu", "catalog")
+    view = _menu(state)
+    assert view.title == "Catalog > Catalog"
+    assert [row.key for row in view.panels[0].rows] == list("123456")
+    assert view.rows[0].label == "abs("
+    assert view.rows[0].key == ""  # the list shows no keys
     state.key_event("s")
     view = _menu(state)
-    assert view.title == "Catalog > S"
-    assert "solve" in [row.label for row in view.rows]
+    chosen = next(row for row in view.rows if row.selected)
+    assert chosen.label.startswith("s")
+    state.key_event("4")  # the Symbols tab, a grid 11 wide
+    view = _menu(state)
+    assert view.title == "Catalog > Symbols"
+    assert view.panels[-1].columns == 11
+    state.key_event("Arrow Down")  # down a row of the grid
+    assert next(n for n, row in enumerate(_menu(state).rows) if row.selected) == 11
+
+
+def test_grid_menus_move_in_two_dimensions() -> None:
+    state = AppState(mode=Mode.HANDHELD)
+    state.press_keypad("trig")
+    view = _menu(state)
+    assert [row.label for row in view.rows] == [
+        "sin",
+        "cos",
+        "tan",
+        "csc",
+        "sec",
+        "cot",
+        "sin⁻¹",
+        "cos⁻¹",
+        "tan⁻¹",
+        "csc⁻¹",
+        "sec⁻¹",
+        "cot⁻¹",
+    ]
+    for key in ("right", "down"):  # to cos⁻¹
+        state.press_keypad(key)
+    state.press_keypad("enter")
+    assert _calculator(state).editor.linear() == "cos⁻¹("
 
 
 def test_variables_menu_lists_the_problem() -> None:
@@ -297,7 +337,9 @@ def test_placeholders_keep_the_handheld_numbering() -> None:
     state = AppState()
     state.key_event("F2")
     assert [row.key for row in _menu(state).rows] == list("123456789")
-    assert not _menu(state).rows[8].enabled  # 9 Functions & Programs
+    state.key_event("9")  # Functions & Programs: it opens, every command greyed
+    assert not any(row.enabled for row in _menu(state).rows if not row.submenu)
+    state.key_event("Arrow Left")
     state.key_event("3")  # Algebra
     rows = _menu(state).rows
     assert [row.key for row in rows] == list("123456789ABCD")
@@ -316,8 +358,67 @@ def test_a_placeholder_does_nothing_when_chosen() -> None:
     assert view.hint == "Not in CASSim yet"
     state.key_event("Enter")
     state.run_action("menu_pick", "1:4")
-    state.key_event("A")  # Convert Expression, a placeholder submenu: it does not open
-    assert _menu(state).title == "Menu > Algebra"
-    state.key_event("Escape")
+    state.key_event("A")  # Convert Expression: it opens to show the device's items, greyed
+    view = _menu(state)
+    assert view.title == "Menu > Algebra > Convert Expression"
+    assert [row.label for row in view.rows][:2] == ["Convert to ln", "Convert to logbase"]
+    assert not any(row.enabled for row in view.rows)
     state.key_event("Escape")
     assert _calculator(state).editor.linear() == ""
+
+
+@pytest.mark.parametrize(
+    ("route", "typed"),
+    [
+        (("4", "F", "1"), "nDerivative("),  # no dialog on the device
+        (("4", "F", "3"), "nInt("),
+        (("6", "3", "9"), "stDevPop("),  # List Math is flat
+        (("6", "4", "5"), "seq("),
+        (("6", "4", "9"), "mat▶list("),
+        (("7", "C", "6"), "▶Cylind"),
+        (("7", "B", "4"), "eigVl("),
+        (("7", "8", "1"), "dim("),
+    ],
+)
+def test_routes_checked_on_the_simulator(route: tuple[str, ...], typed: str) -> None:
+    """Menu numbers from the Teacher Software run of 2026-11-08 (emulator-menus-results.md)."""
+    state = AppState()
+    for key in ("F2", *route):
+        state.key_event(key)
+    assert _calculator(state).editor.linear() == typed
+
+
+@pytest.mark.parametrize(
+    ("letter", "dialog"),
+    [
+        ("A", "binomPdf"),
+        ("B", "binomCdf"),
+        ("C", "invBinom"),
+        ("E", "fPdf"),
+        ("H", "geomPdf"),
+        ("K", "poissCdf"),
+    ],
+)
+def test_distribution_letters_follow_the_device(letter: str, dialog: str) -> None:
+    state = AppState()
+    shown: list[object] = []
+    state.show_wizard = shown.append
+    for key in ("F2", "6", "5", letter):  # Statistics > Distributions, same list as Probability
+        state.key_event(key)
+    assert shown == [nspire.PROFILE.wizards[dialog]]
+
+
+def test_keypad_pairs_and_the_return_key() -> None:
+    """ctrl+( and ctrl+) give a bracket pair, ctrl+× a pair of quotes, each with the cursor
+    inside; ⏎ does nothing on a Calculator page (results M3)."""
+    state = AppState(mode=Mode.HANDHELD)
+    calculator = _calculator(state)
+    for name in ("ctrl", "(", "1"):
+        state.press_keypad(name)
+    assert calculator.editor.linear() == "[1]"
+    calculator.editor.clear()
+    for name in ("ctrl", "times", "h"):
+        state.press_keypad(name)
+    assert calculator.editor.linear() == '"h"'
+    state.press_keypad("return")
+    assert calculator.history == []

@@ -49,6 +49,8 @@ def _span(run: str) -> ft.TextSpan:
 
 ENTRY_ROOM = 28  # the blank line kept below the entry
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
+GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
+SHORT_CELL = 2  # characters that fit a grid cell at full size
 MENU_ROWS, MENU_ROWS_WIDE = 5, 16  # rows shown at once; the rest follow the highlight
 
 
@@ -155,7 +157,8 @@ class CalculatorView:
         panels = [
             ft.Container(
                 self._panel(view, depth, panel, wide=wide),
-                left=px(4) + depth * step_x,
+                left=px(4)
+                + (0 if panel.columns else depth * step_x),  # a wide grid stays on screen
                 top=px(4) + depth * step_y,
             )
             for depth, panel in enumerate(view.panels)
@@ -174,18 +177,21 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         last = depth == len(view.panels) - 1
         shown = MENU_ROWS_WIDE if wide else MENU_ROWS
-        chosen = selected_index(panel)
-        start = max(0, min(chosen - shown // 2, len(panel.rows) - shown))
-        window = range(start, min(len(panel.rows), start + shown))
+        columns = panel.columns or 1
+        lines = -(-len(panel.rows) // columns)  # rows of the list or the grid
+        chosen = selected_index(panel) // columns
+        start = max(0, min(chosen - shown // 2, lines - shown))
+        window = range(start, min(lines, start + shown))
         items: list[ft.Control] = [self._header(view, depth, panel)]
         if start:
-            items.append(self._more("▲ more", -shown, active=last))
-        items.extend(
-            self._menu_row(depth, n, panel.rows[n], wide=wide, active=last) for n in window
-        )
-        if window.stop < len(panel.rows):
-            items.append(self._more("▼ more", shown, active=last))
-        if last and view.hint and not wide:
+            items.append(self._more("▲ more", -shown * columns, active=last))
+        if panel.columns:
+            items.extend(self._grid_line(depth, panel, line, active=last) for line in window)
+        else:
+            items.extend(self._menu_row(depth, panel, n, wide=wide, active=last) for n in window)
+        if window.stop < lines:
+            items.append(self._more("▼ more", shown * columns, active=last))
+        if last and view.hint and (not wide or panel.columns):
             items.append(
                 ft.Container(
                     ft.Text(view.hint, size=px(10), color=theme.menu_hint, italic=True),
@@ -198,7 +204,7 @@ class CalculatorView:
             bgcolor=theme.title_bar,
             padding=px(4),
             border_radius=px(6),
-            width=px(MENU_W_WIDE if wide else MENU_W),
+            width=None if panel.columns else px(MENU_W_WIDE if wide else MENU_W),
             shadow=ft.BoxShadow(blur_radius=8, color="#80000000"),
             on_click=lambda _: None,  # a click between rows is not a click outside the menu
         )
@@ -224,20 +230,49 @@ class CalculatorView:
             on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
         )
 
+    def _grid_line(self, depth: int, panel: Panel, line: int, *, active: bool) -> ft.Control:
+        """One row of a grid menu (trig, templates, symbols): cells without keys."""
+        first = line * panel.columns
+        cells = [
+            self._grid_cell(depth, n, panel.rows[n], active=active)
+            for n in range(first, min(first + panel.columns, len(panel.rows)))
+        ]
+        return ft.Row(cells, spacing=self.state.px(1), tight=True)
+
+    def _grid_cell(self, depth: int, index: int, row: Row, *, active: bool) -> ft.Control:
+        theme, px = self.theme, self.state.px
+        on = row.selected
+        colour = theme.menu_disabled if not row.enabled else "#ffffff" if on else theme.key_text
+        return ft.Container(
+            label_text(
+                row.label, size=px(12 if len(row.label) <= SHORT_CELL else 10), color=colour
+            ),
+            width=px(GRID_CELL),
+            height=px(GRID_CELL - 4),
+            alignment=ft.Alignment.CENTER,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            bgcolor=(theme.accent if active and row.enabled else theme.key) if on else None,
+            border_radius=px(3),
+            tooltip=row.hint or None,
+            ink=True,
+            on_click=lambda _: self.on_action("menu_pick", f"{depth}:{index}"),
+        )
+
     def _menu_row(
-        self, depth: int, index: int, row: Row, *, wide: bool, active: bool
+        self, depth: int, panel: Panel, index: int, *, wide: bool, active: bool
     ) -> ft.Control:
         theme, px = self.theme, self.state.px
+        row, keys = panel.rows[index], not panel.keyless
         on = row.selected
         colour = "#ffffff" if on else theme.key_text
         if not row.enabled:  # a placeholder keeps the device's numbering, greyed out
             colour = theme.menu_disabled
         parts: list[ft.Control] = [
             ft.Text(
-                row.key,
+                row.key if keys else "",
                 size=px(12),
                 color=colour if on or not row.enabled else theme.key_label,
-                width=px(14),
+                width=px(14) if keys else 0,
             ),
             label_text(row.label, size=px(13), color=colour, expand=True, no_wrap=True),
         ]
@@ -675,7 +710,7 @@ def wizard_dialog(
     if first is not None:
         first.autofocus = True
     hint = (
-        [ft.Text("Put the cursor in the box to work out, then press Enter.", size=12, italic=True)]
+        [ft.Text("Press ENTER in a box to calculate it.", size=12, italic=True)]
         if live is not None
         else []
     )

@@ -3,6 +3,10 @@
 A profile supplies the trees. Items are chosen with Up/Down and Enter, or by the item's key (1 to 9,
 then A to Z, as on the handheld). Right opens a submenu, Left or Escape goes back. A click or tap
 picks a row of any open level (`pick`), so the menus work by touch and mouse too.
+
+Two other shapes, as on the handheld: a *grid* (`columns`: the trig, templates and symbol keys),
+where the arrows move in two dimensions and items have no keys; and a *jump list* (`jump`: the
+Catalog, the variables), where typing a letter moves to the first item starting with it.
 """
 
 from __future__ import annotations
@@ -30,6 +34,9 @@ class MenuItem:
     key: str = ""
     hint: str = ""
     enabled: bool = True
+    columns: int = 0  # a submenu drawn as a grid this many items wide
+    jump: bool = False  # a submenu where a typed letter jumps to the first item starting with it
+    start: tuple[int, ...] = ()  # submenus opened at once (the Catalog opens on its first tab)
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,8 @@ class Panel:
 
     title: str
     rows: tuple[Row, ...]
+    columns: int = 0  # a grid, this many cells wide
+    keyless: bool = False  # no keys drawn (grids and jump lists)
 
 
 @dataclass(frozen=True)
@@ -67,10 +76,11 @@ class _Level:
 
 
 def item_keys(item: MenuItem) -> list[str]:
-    """The key of each child of `item`: its own key, else the next one not taken."""
+    """The key of each child of `item`: its own key, else the next one not taken ("" once the 35
+    are used up, as in the Catalog's long list)."""
     used = {child.key for child in item.items if child.key}
     spare = (key for key in KEYS if key not in used)
-    return [child.key or next(spare) for child in item.items]
+    return [child.key or next(spare, "") for child in item.items]
 
 
 @dataclass
@@ -83,6 +93,8 @@ class MenuState:
 
     def __post_init__(self) -> None:
         self.levels = [_Level(self.root)]
+        for index in self.root.start:
+            self._choose(index, only_submenu=True)
 
     @property
     def level(self) -> _Level:
@@ -98,7 +110,7 @@ class MenuState:
                 entry.item.label,
                 tuple(
                     Row(
-                        key,
+                        "" if entry.item.columns or entry.item.jump else key,
                         item.label,
                         bool(item.items),
                         index == entry.index,
@@ -109,6 +121,8 @@ class MenuState:
                         zip(item_keys(entry.item), entry.item.items, strict=True)
                     )
                 ),
+                entry.item.columns,
+                bool(entry.item.columns or entry.item.jump),
             )
             for entry in self.levels
         )
@@ -122,11 +136,16 @@ class MenuState:
         `insert` of an item key. Returns the binding to run when a leaf is chosen."""
         level = self.level
         count = len(level.item.items)
+        if self._move(action):
+            return None
         match action:
-            case "up" if count:
-                level.index = (level.index - 1) % count
-            case "down" if count:
-                level.index = (level.index + 1) % count
+            case "insert" if arg.isdigit() and len(self.levels) > 1 and self._keyless:
+                self.levels.pop()  # a digit in a tab of the Catalog switches tab
+                return self.press(action, arg)
+            case "insert" if level.item.jump:
+                self._jump(arg)
+            case "insert" if level.item.columns:
+                pass  # grid cells have no keys
             case "left" | "backspace":
                 self._back()
             case "escape":
@@ -145,6 +164,31 @@ class MenuState:
             case "menu_page" if count:  # a click on "more": move the highlight by a page
                 level.index = max(0, min(count - 1, level.index + int(arg)))
         return None
+
+    @property
+    def _keyless(self) -> bool:
+        return bool(self.level.item.columns or self.level.item.jump)
+
+    def _move(self, action: str) -> bool:
+        """Up and Down (by a row in a grid), and Left and Right inside a grid."""
+        level = self.level
+        count = len(level.item.items)
+        columns = level.item.columns
+        steps = {"up": -(columns or 1), "down": columns or 1}
+        if columns:
+            steps.update(left=-1, right=1)
+        if action not in steps or not count:
+            return False
+        level.index = (level.index + steps[action]) % count
+        return True
+
+    def _jump(self, letter: str) -> None:
+        """A jump list: move to the first item whose label starts with `letter`."""
+        items = self.level.item.items
+        found = (
+            n for n, item in enumerate(items) if item.label[:1].casefold() == letter.casefold()
+        )
+        self.level.index = next(found, self.level.index)
 
     def pick(self, depth: int, index: int) -> Binding | None:
         """A click on row `index` of open level `depth`: deeper levels close, then the row is
