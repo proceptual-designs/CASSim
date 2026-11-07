@@ -20,6 +20,7 @@ import sys
 import tempfile
 import tomllib
 import urllib.request
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -250,6 +251,16 @@ def vendor_pypi_wheels(dist: Path) -> None:
     lock_path.write_text(json.dumps(lock), encoding="utf-8")
 
 
+def write_engine_zip(dist: Path) -> None:
+    """`cassim.zip`: the pure-Python package for the engine worker, which boots its own Pyodide."""
+    source = ROOT / "src"
+    with zipfile.ZipFile(dist / "cassim.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        for file in sorted((source / "cassim").rglob("*.py")):
+            relative = file.relative_to(source)
+            if relative.parts[1] != "app":  # the UI stays in Flet's worker
+                archive.write(file, relative.as_posix())
+
+
 def write_icons(dist: Path) -> None:
     """Plain generated icons (no TI artwork): a rounded square with a stylised sigma."""
     from PIL import Image, ImageDraw, ImageFont
@@ -369,6 +380,7 @@ def build(dist: Path, base_url: str, *, cdn: bool = False) -> None:
     if not cdn:
         vendor_pyodide(dist)
         vendor_pypi_wheels(dist)
+    write_engine_zip(dist)
     write_icons(dist)
     write_manifest(dist)
     count = add_offline_cache(dist, version)

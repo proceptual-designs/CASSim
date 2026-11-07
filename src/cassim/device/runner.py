@@ -41,6 +41,11 @@ class Runner:
         self.sessions.append(session)
         return session
 
+    def retain(self, document: Document) -> None:
+        """Forget the sessions of Problems that were closed, so a rebuild replays only live ones."""
+        live = {id(p.session) for p in document.problems}
+        self.sessions = [s for s in self.sessions if id(s) in live]
+
     @property
     def idle(self) -> bool:
         return self.status is Status.IDLE

@@ -8,7 +8,10 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 
 from cassim.app.keyboard import key_name
+from cassim.core.session import Session
+from cassim.core.settings import Settings
 from cassim.device.document import Document, PageKind
+from cassim.device.engine import RemoteSession
 from cassim.device.keys import Binding, Keyboard
 from cassim.device.menu import MenuState
 from cassim.device.screen import Screen, render
@@ -56,8 +59,10 @@ class AppState:
         *,
         mode: Mode = Mode.COMPUTER,
         profile: Profile = nspire.PROFILE,
+        sessions: Callable[[Settings], Session | RemoteSession] = Session,
     ) -> None:
-        self.document = document if document is not None else Document()
+        self.sessions = sessions  # RemoteSessions when the maths runs in another worker
+        self.document = document if document is not None else Document(sessions=sessions)
         self.mode = mode
         self.profile = profile
         self.keypad_keys = Keyboard(profile.handheld, profile.modifiers)
@@ -80,7 +85,7 @@ class AppState:
 
     def new_document(self) -> None:
         """A blank document with the current Document Settings."""
-        self.replace_document(Document(settings=self.document.settings))
+        self.replace_document(Document(settings=self.document.settings, sessions=self.sessions))
 
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None

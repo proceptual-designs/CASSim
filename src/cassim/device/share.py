@@ -29,9 +29,10 @@ def encode(document: Document) -> str:
     return fragment
 
 
-def decode(fragment: str) -> Document | None:
-    """The document in a fragment, or None when the fragment is not a share link. Loading replays
-    entries through the engine but never runs Python or programs (NFR-SEC-001)."""
+def unpack(fragment: str) -> str | None:
+    """The document text in a fragment, or None when the fragment is not a share link. Nothing is
+    run: loading replays entries through the engine but never runs Python or programs
+    (NFR-SEC-001)."""
     fragment = fragment.lstrip("#")
     if not fragment.startswith(PREFIX):
         return None
@@ -43,9 +44,15 @@ def decode(fragment: str) -> Document | None:
         if expander.unconsumed_tail:
             msg = "the link holds too much data"
             raise DocumentFileError(msg)
-        return loads(raw.decode("utf-8"))
+        return raw.decode("utf-8")
     except (ValueError, zlib.error) as error:
         if isinstance(error, DocumentFileError):
             raise
         msg = f"the link is damaged: {error}"
         raise DocumentFileError(msg) from error
+
+
+def decode(fragment: str) -> Document | None:
+    """The document in a fragment, loaded in this process, or None for a non-link."""
+    text = unpack(fragment)
+    return None if text is None else loads(text)

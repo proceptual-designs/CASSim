@@ -136,3 +136,51 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     assert version.startswith(publish.project_version())
     assert f'"cassim-{version}"' in (dist / "flutter_service_worker.js").read_text(encoding="utf-8")
     assert "cassim-update" in (dist / "index.html").read_text(encoding="utf-8")
+
+
+def test_cancel_ends_a_long_calculation_and_keeps_variables(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """The engine runs in its own worker: Esc terminates it and the state is rebuilt
+    (decisions 0005 and 0016, NFR-PERF-004)."""
+    _, url = site
+    page = browser.new_page(viewport={"width": 1100, "height": 700})
+    logs: list[str] = []
+    page.on("console", lambda m: logs.append(m.text) if m.text.startswith("CASSIM:") else None)
+
+    def count(word: str) -> int:
+        return sum(word in line for line in logs)
+
+    def wait(word: str, n: int = 1, seconds: float = 150) -> None:
+        end = time.monotonic() + seconds
+        while count(word) < n and time.monotonic() < end:
+            page.wait_for_timeout(200)
+        assert count(word) >= n, f"no {word!r} in {logs}"
+
+    def enter(text: str) -> None:
+        shifted = {"(": "Shift+9", ")": "Shift+0"}
+        for char in text:
+            if char in shifted:
+                page.keyboard.press(shifted[char])
+            else:
+                page.keyboard.type(char)
+        page.keyboard.press("Enter")
+
+    page.goto(url + "#/debug", wait_until="load")
+    wait("READY")
+    page.mouse.click(600, 120)
+    enter("a:=5")
+    wait("RESULT", 1)
+    enter("seq(k,k,1,99999999)")  # far too big to finish
+    page.wait_for_timeout(2500)
+    started = time.monotonic()
+    page.keyboard.press("Escape")
+    wait("CANCELLED", 1, 5)
+    assert time.monotonic() - started < 1.5  # the run stops at once
+    wait("RESTARTED", 1)
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    enter("a+1")
+    wait("RESULT", 2, 60)
+    assert logs[-1] == "CASSIM: RESULT 6"  # the variable survived the engine's replacement
+    page.close()
