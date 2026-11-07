@@ -6,6 +6,7 @@ import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import flet as ft
 
@@ -36,6 +37,9 @@ from cassim.device.share import LinkTooLongError, encode, unpack
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
+if TYPE_CHECKING:
+    from cassim.app.web import Bridge
+
 ASSETS = Path(__file__).parent / "assets"
 AUTOSAVE_KEY = "cassim.autosave"
 SYSTEM_KEY = "cassim.system"
@@ -59,6 +63,7 @@ class App:
     def __init__(self, page: ft.Page, state: AppState, runner: Runner | None = None) -> None:
         self.page = page
         self.state = state
+        self.bridge = make_bridge(self.refresh)  # the page, from the browser's worker
         self.runner = runner  # None: the maths runs in this process, synchronously
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
@@ -258,11 +263,18 @@ class App:
         sides = [side for side in (self.page.width, self.page.height) if side]
         return self.state.mode is Mode.HANDHELD and bool(sides) and min(sides) < NARROW
 
-    def go_fullscreen(self) -> None:
-        if sys.platform == "emscripten":
-            import js  # noqa: PLC0415  # ty: ignore[unresolved-import]
+    @property
+    def installable(self) -> bool:
+        """The browser has offered to install CASSim and it is not installed yet."""
+        return self.bridge is not None and self.bridge.installable
 
-            js.document.documentElement.requestFullscreen()
+    def install(self) -> None:
+        if self.bridge is not None:
+            self.bridge.install()
+
+    def go_fullscreen(self) -> None:
+        if self.bridge is not None:
+            self.bridge.fullscreen()
 
     def tools_dialog(self) -> None:
         def then(action: Callable[[], None]) -> Callable[[], None]:
@@ -298,7 +310,9 @@ class App:
             ("Sorter", lambda: self.show_dialog("page_sorter")),
             ("settings", self.open_settings),
         ]
-        if self.page.web:
+        if self.installable:
+            actions.append(("Install", self.install))
+        if self.bridge is not None:
             actions.append(("Fullscreen", self.go_fullscreen))
         return actions
 
@@ -327,6 +341,7 @@ class App:
             chip("Menu", lambda: self.act("open_menu", "menu"), theme),
             chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
             chip("settings", self.open_settings, theme),
+            *([chip("Install", self.install, theme)] if self.installable else []),
         ]
 
     def show_dialog(self, name: str) -> None:
@@ -463,6 +478,15 @@ class App:
                 expand=True,
                 spacing=12,
             )
+
+
+def make_bridge(changed: Callable[[], None]) -> Bridge | None:
+    """The channel to the page, in the browser only."""
+    if sys.platform != "emscripten":
+        return None
+    from cassim.app.web import Bridge  # noqa: PLC0415
+
+    return Bridge(changed)
 
 
 def make_runner() -> Runner | None:

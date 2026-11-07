@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from typing import Any
 
 import js  # ty: ignore[unresolved-import]
@@ -146,3 +147,30 @@ class WorkerEngine:
         self._active = self._spare if self._spare is not None else _Worker()
         self._spare = None
         return True
+
+
+class Bridge:
+    """Talks to the page over a BroadcastChannel: this code runs in a Web Worker and has no DOM
+    (see `BODY_TAGS` in tools/publish.py for the page's side)."""
+
+    def __init__(self, changed: Callable[[], None]) -> None:
+        self.installable = False
+        self._changed = changed
+        self._channel = js.BroadcastChannel.new("cassim")
+        self._callback = create_proxy(self._on_message)
+        self._channel.onmessage = self._callback
+        self._send("hello")  # the page answers with what the browser offers
+
+    def _on_message(self, event: js.MessageEvent) -> None:
+        if str(event.data.op) == "installable":
+            self.installable = bool(event.data.value)
+            self._changed()
+
+    def _send(self, op: str) -> None:
+        self._channel.postMessage(to_js({"op": op}, dict_converter=js.Object.fromEntries))
+
+    def install(self) -> None:
+        self._send("install")
+
+    def fullscreen(self) -> None:
+        self._send("fullscreen")

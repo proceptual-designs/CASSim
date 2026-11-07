@@ -184,3 +184,55 @@ def test_cancel_ends_a_long_calculation_and_keeps_variables(
     wait("RESULT", 2, 60)
     assert logs[-1] == "CASSIM: RESULT 6"  # the variable survived the engine's replacement
     page.close()
+
+
+def test_install_and_fullscreen_go_through_the_page(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-PWA-001: the app runs in a worker, so the page holds the install prompt and answers the
+    app's requests over a BroadcastChannel."""
+    _, url = site
+    page = browser.new_page()
+    page.goto(url, wait_until="load")
+    result = page.evaluate(
+        """async () => {
+          const app = new BroadcastChannel('cassim');   // stands in for the Python worker
+          const heard = [];
+          app.onmessage = (m) => heard.push(m.data);
+          const wait = () => new Promise((r) => setTimeout(r, 200));
+          app.postMessage({op: 'hello'});
+          await wait();
+          let prompted = 0;
+          const e = new Event('beforeinstallprompt', {cancelable: true});
+          e.prompt = () => { prompted++; };
+          window.dispatchEvent(e);
+          await wait();
+          const held = e.defaultPrevented;
+          app.postMessage({op: 'install'});
+          await wait();
+          return {heard, held, prompted};
+        }"""
+    )
+    assert result["held"]
+    assert result["prompted"] == 1
+    values = [m["value"] for m in result["heard"] if m["op"] == "installable"]
+    assert values == [False, True, False]  # nothing offered, offered, used
+    page.close()
+
+
+@pytest.mark.parametrize("size", [(1280, 720), (390, 844), (844, 390)])
+def test_no_view_needs_the_network_for_fonts(
+    browser: Browser, site: tuple[Path, str], size: tuple[int, int]
+) -> None:
+    """FR-PWA-002: every glyph on the Computer and Handheld views comes from a vendored font, so
+    nothing is fetched (and nothing 404s) while offline."""
+    _, url = site
+    context = browser.new_context(viewport={"width": size[0], "height": size[1]})
+    page = context.new_page()
+    missing: list[str] = []
+    page.on("response", lambda r: missing.append(r.url) if r.status == 404 else None)
+    page.goto(url, wait_until="load")
+    assert wait_for(page, "!document.getElementById('cassim-splash')")
+    page.wait_for_timeout(15000)
+    assert not [m for m in missing if "rive" not in m], missing
+    context.close()
