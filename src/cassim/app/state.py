@@ -71,6 +71,16 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.menu: MenuState | None = None
         self.system = System(mode)
+        self.scale = 1.0  # Handheld mode draws everything this many times larger (FR-DEV-004)
+
+    @property
+    def math_size(self) -> float:
+        """The LaTeX size in the entry and history, at the current Handheld scale."""
+        return self.system.math_size * self.scale
+
+    def px(self, size: float) -> float:
+        """A length in the handheld's pixels, drawn at the current scale."""
+        return size * self.scale
 
     @property
     def pending(self) -> str:

@@ -138,6 +138,29 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
     document.getElementById("cassim-version").textContent = "v" + v.version;
     window.cassimVersion = v.version;
   }).catch(function () {});
+  // The Python app runs in a Web Worker and cannot touch the page, so install and fullscreen go
+  // through a BroadcastChannel: the app asks, the page does it and reports what the browser offers.
+  var bus = new BroadcastChannel("cassim");
+  function tell() { bus.postMessage({op: "installable", value: !!window.cassimInstallEvent}); }
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    window.cassimInstallEvent = e;
+    tell();
+  });
+  window.addEventListener("appinstalled", function () {
+    window.cassimInstallEvent = null;
+    tell();
+  });
+  bus.onmessage = function (m) {
+    var op = m.data && m.data.op;
+    if (op === "hello") tell();
+    else if (op === "install" && window.cassimInstallEvent) {
+      var e = window.cassimInstallEvent;
+      window.cassimInstallEvent = null;
+      e.prompt();
+      tell();
+    } else if (op === "fullscreen") document.documentElement.requestFullscreen();
+  };
   if (!("serviceWorker" in navigator)) return;
   var reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", function () {
@@ -251,6 +274,24 @@ def vendor_pypi_wheels(dist: Path) -> None:
     lock_path.write_text(json.dumps(lock), encoding="utf-8")
 
 
+# Fonts Flutter fetches for glyphs the bundled ones lack, found by the offline e2e test (it fails on
+# any other 404). They are served from `assets/fonts/` + the path Google's server uses.
+FALLBACK_FONTS = [
+    "notosanssymbols2/v24/I_uyMoGduATTei9eI8daxVHDyfisHr71-vrgfE71.woff2",
+    "notosansmath/v15/7Aump_cpkSecTWaHRlH2hyV5UHkD-V048PW0.woff2",
+    "notosanssc/v37/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_FnYkldv7JjxkkgFsFSSOPMOkySAZ73y9ViAt3acb8NexQ2w.119.woff2",
+]
+
+
+def vendor_fallback_fonts(dist: Path) -> None:
+    for path in FALLBACK_FONTS:
+        target = dist / "assets" / "fonts" / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists():
+            url = "https://fonts.gstatic.com/s/" + path
+            target.write_bytes(urllib.request.urlopen(url).read())
+
+
 def write_engine_zip(dist: Path) -> None:
     """`cassim.zip`: the pure-Python package for the engine worker, which boots its own Pyodide."""
     source = ROOT / "src"
@@ -295,6 +336,7 @@ def write_manifest(dist: Path) -> None:
         "start_url": "./",
         "scope": "./",
         "display": "standalone",
+        "display_override": ["fullscreen", "standalone"],  # a phone hides its status bar too
         "background_color": THEME,
         "theme_color": THEME,
         "icons": [
@@ -380,6 +422,7 @@ def build(dist: Path, base_url: str, *, cdn: bool = False) -> None:
     if not cdn:
         vendor_pyodide(dist)
         vendor_pypi_wheels(dist)
+        vendor_fallback_fonts(dist)
     write_engine_zip(dist)
     write_icons(dist)
     write_manifest(dist)

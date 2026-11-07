@@ -41,7 +41,7 @@ class EntryLine:
     def __init__(
         self,
         theme: Theme,
-        size: int,
+        size: float,
         click: Click,
         is_function: Callable[[str], bool] = lambda _: False,
     ) -> None:
