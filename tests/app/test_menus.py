@@ -11,6 +11,7 @@ def test_doc_menu_opens_and_lists_rows() -> None:
     assert view is not None
     assert view.title == "Doc"
     assert [(row.key, row.label) for row in view.rows] == [
+        ("1", "File"),
         ("2", "Page"),
         ("3", "Page Sorter"),
         ("4", "Insert"),
@@ -39,6 +40,7 @@ def test_doc_insert_calculator_adds_a_page_in_the_problem() -> None:
 def test_arrows_and_enter_choose() -> None:
     state = AppState()
     state.key_event("F4")
+    state.key_event("Arrow Down")  # Page
     state.key_event("Arrow Down")  # Page Sorter
     state.key_event("Arrow Down")  # Insert
     state.key_event("Enter")  # open it

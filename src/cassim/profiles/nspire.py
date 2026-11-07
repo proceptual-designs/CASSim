@@ -139,6 +139,15 @@ DOC = MenuItem(
     "Doc",
     items=(
         MenuItem(
+            "File",
+            key="1",
+            items=(
+                MenuItem("New", "new_document"),
+                MenuItem("Open file…", "dialog", "open_file"),
+                MenuItem("Save to file…", "dialog", "save_file"),
+            ),
+        ),
+        MenuItem(
             "Page",
             key="2",
             items=(

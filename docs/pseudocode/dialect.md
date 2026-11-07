@@ -204,3 +204,10 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 - **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a`, `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
 - **π is the built-in constant** (`π` or `pi`) wherever a program needs it; a program may instead define its own decimal approximation (a name it assigns shadows the constant). The book's `sine` therefore uses `π`, not 355 ÷ 113 (its printed error table is what true π gives).
 - **Extended Euclid** (Bezout coefficients) is in the corpus as a Specialist example.
+
+## 14. Decisions of 2026-11-07 (second batch: the author's own code examples)
+
+- **Expression arguments.** The pseudocode for the expression-argument cases (`define riemannRight(f(x), x, a, b, n)` called as `riemannRight(x^2-x, x, 1, 5, 4)`) stays as written. The reference Python stays on SymPy (`Symbol`, `.subs`) for now. Idea to revisit: the Python Code view could emit different Python by mode, SymPy-based in Exact mode (exact rationals, symbolic results) and a plain `lambda` / floats in Approx mode.
+- **No string manipulation in the first version.** Examples that iterate over strings, concatenate, index a string or need `ord`/`chr` (Caesar cipher, disemvowel, palindrome) are not in the corpus. Printing string literals (`print "steps", n`) is unchanged.
+- **Lists are values, not passed by reference.** A function receives its own copy of a list argument; changing it inside the function does not change the caller's list. A function that sorts or updates a list RETURNS the new list, and the caller assigns it (`a ← quicksort(a)`). The in-place quicksort is therefore out; the not-in-place `quicksort` that returns a list stays. Recursive algorithms are included only in this return-the-list form.
+- **Booleans.** `true` / `false` are values, and the syntax accepts any case (`true`, `TRUE`, `True`). A printed boolean is UPPERCASE, `TRUE` / `FALSE`, so test output is the same everywhere.

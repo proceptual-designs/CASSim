@@ -18,9 +18,13 @@ from cassim.app.ui import (
     system_settings_dialog,
 )
 from cassim.device.keys import Binding
+from cassim.device.serialize import DocumentFileError, dumps, loads
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
+
+
+AUTOSAVE_KEY = "cassim.autosave"
 
 
 def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
@@ -49,8 +53,13 @@ class App:
         self.layout = ft.Container(expand=True)
         self.clipboard = connect_clipboard(page, state)
         state.show_dialog = self.show_dialog
+        self.files = ft.FilePicker()
+        page.services.append(self.files)
+        self.prefs = ft.SharedPreferences()
+        page.services.append(self.prefs)
+        self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
 
-    def start(self) -> None:
+    async def start(self) -> None:
         page = self.page
         page.title = "CASSim"
         page.theme_mode = ft.ThemeMode.DARK
@@ -59,10 +68,30 @@ class App:
         page.on_keyboard_event = self.on_key
         self.arrange()
         page.add(ft.Column([self.toolbar, self.layout], expand=True))
+        await self.recover()
         self.refresh()
         print("CASSIM: READY", flush=True)
 
+    def autosave(self) -> None:
+        """Keep the document in browser storage so a reload or crash loses nothing (FR-DOC-003)."""
+        text = dumps(self.state.document)
+        if text != self.saved:
+            self.saved = text
+            self.page.run_task(self.prefs.set, AUTOSAVE_KEY, text)
+
+    async def recover(self) -> None:
+        """Reopen the autosaved document, if there is a readable one."""
+        text = await self.prefs.get(AUTOSAVE_KEY)
+        if not isinstance(text, str):
+            return
+        try:
+            self.state.replace_document(loads(text))
+            self.saved = text
+        except DocumentFileError:
+            return  # a damaged autosave is ignored, and overwritten by the next change
+
     def refresh(self) -> None:
+        self.autosave()
         self.view.refresh()
         self.keypad.refresh()
         self.sidebar.refresh()
@@ -109,12 +138,49 @@ class App:
         ]
 
     def show_dialog(self, name: str) -> None:
-        if name == "document_settings":
+        if name == "save_file":
+            self.page.run_task(self.save_file)
+        elif name == "open_file":
+            self.page.run_task(self.open_file)
+        elif name == "document_settings":
             self.open_settings()
         elif name == "system_settings":
             system_settings_dialog(self.page, self.state, self.on_system_change, self.theme)
         elif name == "page_sorter":
             sorter_dialog(self.page, self.state, self.refresh, self.theme)
+
+    async def save_file(self) -> None:
+        """Download the document as `.cassim.json` (FR-DOC-004)."""
+        document = self.state.document
+        await self.files.save_file(
+            dialog_title="Save document",
+            file_name=f"{document.name}.cassim.json",
+            src_bytes=dumps(document).encode("utf-8"),
+        )
+
+    async def open_file(self) -> None:
+        picked = await self.files.pick_files(
+            dialog_title="Open document",
+            file_type=ft.FilePickerFileType.CUSTOM,
+            allowed_extensions=["json"],
+            with_data=True,
+        )
+        if not picked or picked[0].bytes is None:
+            return
+        try:
+            self.state.replace_document(loads(picked[0].bytes.decode("utf-8")))
+        except (DocumentFileError, UnicodeDecodeError) as error:
+            self.notice("Cannot open that file", str(error))
+        self.refresh()
+
+    def notice(self, title: str, message: str) -> None:
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text(title),
+                content=ft.Text(message),
+                actions=[ft.TextButton("OK", on_click=lambda _: self.page.pop_dialog())],
+            )
+        )
 
     def on_system_change(self) -> None:
         self.refresh()
@@ -143,8 +209,8 @@ class App:
             )
 
 
-def main(page: ft.Page) -> None:
-    App(page, AppState()).start()
+async def main(page: ft.Page) -> None:
+    await App(page, AppState()).start()
 
 
 if __name__ == "__main__":

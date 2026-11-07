@@ -191,6 +191,11 @@ class Document:
         self.problems[:] = [problem for problem, _ in layout.problems]
         self.problem, self.page = layout.problem, layout.page
 
+    def forget_history(self) -> None:
+        """Drop the page-change undo history (after loading a document)."""
+        self._undo.clear()
+        self._redo.clear()
+
     def undo(self) -> bool:
         """Undo the last add, delete or move of a page or Problem. False when there is none."""
         return self._step(self._undo, self._redo)

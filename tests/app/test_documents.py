@@ -109,3 +109,30 @@ def test_system_settings_start_in_the_state_mode() -> None:
     state = AppState(mode=Mode.HANDHELD)
     assert state.system.start_mode is Mode.HANDHELD
     assert state.system.math_size == MATH_SIZES["Normal"]
+
+
+def test_new_document_and_replace_document() -> None:
+    state = AppState()
+    enter(state, "a:=5")
+    state.run_action("new_document")
+    assert state.document.current.calculator is not None
+    assert state.document.current.calculator.history == []
+    assert state.screen().menu is None
+
+
+def test_file_menu_new_by_keys() -> None:
+    state = AppState()
+    enter(state, "1+1")
+    for key in ("F4", "1", "1"):  # Doc > File > New
+        state.key_event(key)
+    assert state.document.current.calculator is not None
+    assert state.document.current.calculator.history == []
+
+
+def test_file_menu_asks_for_the_file_dialogs() -> None:
+    state = AppState()
+    asked: list[str] = []
+    state.show_dialog = asked.append
+    for key in ("F4", "1", "2", "F4", "1", "3"):
+        state.key_event(key)
+    assert asked == ["open_file", "save_file"]

@@ -55,6 +55,16 @@ class AppState:
         """The keypad modifier waiting for the next key ("ctrl", "shift" or "")."""
         return self.keypad_keys.pending
 
+    def replace_document(self, document: Document) -> None:
+        """Open another document (a new one, a file or the autosave) and close any menu."""
+        self.document = document
+        self.menu = None
+        self.keypad_keys.pending = ""
+
+    def new_document(self) -> None:
+        """A blank document with the current Document Settings."""
+        self.replace_document(Document(settings=self.document.settings))
+
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None
         return render(self.document, self.profile.status(self.document.settings), view)
@@ -152,6 +162,7 @@ class AppState:
             "undo_pages": document.undo,
             "redo_pages": document.redo,
             "dialog": lambda: self.show_dialog and self.show_dialog(binding.arg),
+            "new_document": self.new_document,
         }
         action = actions.get(binding.action)
         if action is None:
