@@ -1,0 +1,148 @@
+"""The browser engine: `cassim.device.engine.EngineCore` in its own Pyodide worker (decision 0005).
+
+Flet runs the UI, the document model and its event handlers in one Pyodide worker, so a long
+calculation there would freeze Cancel too. The engine therefore gets a second worker, spawned from
+a Blob URL. Cancel is `worker.terminate()` (under 2 ms, decision 0016); a spare engine is kept
+booted so the swap is immediate, and the Runner rebuilds the new engine from the journals.
+
+Imported only where `sys.platform == "emscripten"`: `js` and `pyodide` exist only there.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Any
+
+import js  # ty: ignore[unresolved-import]
+from pyodide.ffi import create_proxy, to_js  # ty: ignore[unresolved-import]
+
+from cassim.device.engine import EngineError, Op, Reply
+
+ENGINE_JS = """
+let py = null;
+self.onmessage = async (e) => {
+  const m = e.data;
+  try {
+    if (m.op === "boot") {
+      const mod = await import(m.pyodideUrl);
+      py = await mod.loadPyodide();
+      await py.loadPackage(["sympy", "pyyaml"]);
+      const buf = await (await fetch(m.zipUrl)).arrayBuffer();
+      py.unpackArchive(buf, "zip", {extractDir: "/cassim_lib"});
+      py.runPython(`
+import sys, json
+sys.path.insert(0, "/cassim_lib")
+from cassim.device.engine import EngineCore
+core = EngineCore()
+def handle(message):
+    m = json.loads(message)
+    if m["op"] == "run":
+        return json.dumps(core.apply(int(m["problem"]), m["ops"]))
+    core.reset({int(k): v for k, v in m["journals"].items()})
+    return "{}"
+`);
+      postMessage({id: m.id, ok: true, value: "{}"});
+    } else {
+      postMessage({id: m.id, ok: true, value: py.globals.get("handle")(m.message)});
+    }
+  } catch (err) {
+    postMessage({id: m.id, ok: false, value: String(err)});
+  }
+};
+"""
+
+
+def _absolute(path: str) -> str:
+    return str(js.URL.new(path, js.location.href).href)
+
+
+class _Worker:
+    """One engine worker and the requests waiting on it."""
+
+    def __init__(self) -> None:
+        blob = js.Blob.new(
+            [ENGINE_JS], to_js({"type": "text/javascript"}, dict_converter=js.Object.fromEntries)
+        )
+        self._url = js.URL.createObjectURL(blob)
+        self._worker = js.Worker.new(
+            self._url, to_js({"type": "module"}, dict_converter=js.Object.fromEntries)
+        )
+        self._pending: dict[int, asyncio.Future[str]] = {}
+        self._next = 0
+        self._callback = create_proxy(self._on_message)
+        self._worker.onmessage = self._callback
+        self.ready: asyncio.Future[None] = asyncio.ensure_future(self._boot())
+
+    def _on_message(self, event: js.MessageEvent) -> None:
+        data = event.data
+        future = self._pending.pop(int(data.id), None)
+        if future is None or future.done():
+            return
+        if data.ok:
+            future.set_result(str(data.value))
+        else:
+            future.set_exception(EngineError(str(data.value)))
+
+    def _call(self, **message: object) -> asyncio.Future[str]:
+        self._next += 1
+        future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        self._pending[self._next] = future
+        self._worker.postMessage(
+            to_js({"id": self._next, **message}, dict_converter=js.Object.fromEntries)
+        )
+        return future
+
+    async def _boot(self) -> None:
+        await self._call(
+            op="boot",
+            pyodideUrl=_absolute(str(js.pyodideUrl)),
+            zipUrl=_absolute("cassim.zip"),
+        )
+
+    async def send(self, message: dict[str, Any]) -> dict[str, Any]:
+        await self.ready
+        return json.loads(await self._call(op="message", message=json.dumps(message)))
+
+    def terminate(self) -> None:
+        self._worker.terminate()
+        js.URL.revokeObjectURL(self._url)
+        self._callback.destroy()
+        for future in self._pending.values():
+            future.cancel()
+        self._pending.clear()
+        self.ready.cancel()
+
+
+class WorkerEngine:
+    """The `Engine` for the browser: an active worker and, once that has booted, a spare."""
+
+    def __init__(self) -> None:
+        self._active = _Worker()
+        self._spare: _Worker | None = None
+        self._spare_task: asyncio.Future[None]  # kept so the task is not collected
+        self._spare_task = asyncio.ensure_future(self._start_spare())
+
+    async def _start_spare(self) -> None:
+        """Boot the spare after the active engine, so the first calculator is not slowed."""
+        active = self._active
+        try:
+            await active.ready
+        except asyncio.CancelledError, EngineError:
+            return
+        if self._active is active and self._spare is None:
+            self._spare = _Worker()
+
+    async def run(self, problem: int, ops: list[Op]) -> Reply:
+        return await self._active.send({"op": "run", "problem": problem, "ops": ops})
+
+    async def reset(self, journals: dict[int, list[Op]]) -> None:
+        await self._active.send({"op": "reset", "journals": journals})
+        self._spare_task = asyncio.ensure_future(self._start_spare())
+
+    def cancel(self) -> bool:
+        """End the busy worker at once and make the spare the active engine."""
+        self._active.terminate()
+        self._active = self._spare if self._spare is not None else _Worker()
+        self._spare = None
+        return True

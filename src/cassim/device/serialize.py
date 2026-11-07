@@ -8,12 +8,16 @@ engine and a file can never hold a stale answer. Random results therefore differ
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Generator
 from dataclasses import asdict
 from typing import Any
 
+from cassim.core.session import Session
 from cassim.core.settings import Settings
+from cassim.device.calculator import Calculator
 from cassim.device.document import Document, Page, PageKind
 from cassim.device.editor import Kind, Node, Row, Template
+from cassim.device.engine import RemoteSession
 from cassim.device.keys import Binding
 
 SCHEMA = 1
@@ -112,12 +116,27 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def from_dict(data: dict[str, Any]) -> Document:
-    """Rebuild a document, replaying every entry through the engine."""
+def from_dict(
+    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession] = Session
+) -> Document:
+    """Rebuild a document, replaying every entry through the engine (all in this process)."""
+    steps = _steps(data, sessions)
+    while True:
+        try:
+            next(steps)  # a deferred session would yield here; `Session` never does
+        except StopIteration as done:
+            return done.value
+
+
+def _steps(
+    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession]
+) -> Generator[Calculator, None, Document]:
+    """The replay as a generator: each time an entry waits for a remote engine it yields its
+    Calculator, and the driver evaluates it (`Runner.evaluate`) before resuming."""
     data = migrate(data)
     try:
         settings = Settings(**data.get("settings", {}))
-        document = Document(str(data.get("name", "Untitled")), settings)
+        document = Document(str(data.get("name", "Untitled")), settings, sessions)
         document.problems.clear()
         for saved in data["problems"]:
             document.problem = len(document.problems) - 1
@@ -125,7 +144,7 @@ def from_dict(data: dict[str, Any]) -> Document:
             problem = document.problems[document.problem]
             problem.pages.clear()
             for page_data in saved["pages"]:
-                problem.pages.append(_load_page(document, page_data))
+                problem.pages.append((yield from _load_page(document, page_data)))
         document.go(
             min(int(data.get("problem", 0)), len(document.problems) - 1),
             0,
@@ -140,7 +159,7 @@ def from_dict(data: dict[str, Any]) -> Document:
     return document
 
 
-def _load_page(document: Document, data: dict[str, Any]) -> Page:
+def _load_page(document: Document, data: dict[str, Any]) -> Generator[Calculator, None, Page]:
     problem = document.problems[document.problem]
     page = problem.new_page(PageKind(data["kind"]))
     calculator = page.calculator
@@ -151,6 +170,8 @@ def _load_page(document: Document, data: dict[str, Any]) -> Page:
         calculator.editor.root = _load_nodes(entry["nodes"])
         calculator.editor.pos = len(calculator.editor.root)
         calculator.perform(Binding("approximate" if entry.get("approximate") else "enter"))
+        if calculator.pending is not None:
+            yield calculator
         calculator.error = None  # an entry that fails now was kept as typed; drop its dialog
     calculator.editor.clear()
     calculator.editor.root = _load_nodes(data.get("entry", []))
@@ -158,7 +179,8 @@ def _load_page(document: Document, data: dict[str, Any]) -> Page:
     return page
 
 
-def loads(text: str) -> Document:
+def parse(text: str) -> dict[str, Any]:
+    """The JSON of a document file, checked to be an object."""
     try:
         data = json.loads(text)
     except json.JSONDecodeError as error:
@@ -167,4 +189,8 @@ def loads(text: str) -> Document:
     if not isinstance(data, dict):
         msg = "this is not a CASSim document"
         raise DocumentFileError(msg)
-    return from_dict(data)
+    return data
+
+
+def loads(text: str) -> Document:
+    return from_dict(parse(text))

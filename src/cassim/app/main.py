@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
 import flet as ft
 
-from cassim.app.state import AppState, Mode
+from cassim.app.state import AppState, Mode, System
 from cassim.app.theme import DARK
 from cassim.app.ui import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
+    SYMBOL_FONT,
+    SYMBOL_FONT_FILE,
     CalculatorView,
     Keypad,
     Sidebar,
@@ -17,14 +23,22 @@ from cassim.app.ui import (
     sorter_dialog,
     system_settings_dialog,
 )
+from cassim.core.session import Session
+from cassim.device.calculator import Calculator
+from cassim.device.document import Document
+from cassim.device.engine import LocalEngine
 from cassim.device.keys import Binding
-from cassim.device.serialize import DocumentFileError, dumps, loads
+from cassim.device.runner import Runner, Status
+from cassim.device.serialize import DocumentFileError, dumps, loads, parse
+from cassim.device.share import LinkTooLongError, encode, unpack
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
+ASSETS = Path(__file__).parent / "assets"
 AUTOSAVE_KEY = "cassim.autosave"
+SYSTEM_KEY = "cassim.system"
 
 
 def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
@@ -42,9 +56,13 @@ def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
 class App:
     """Wires the state to the views: the top bar, the screen, the keypad and the sidebar."""
 
-    def __init__(self, page: ft.Page, state: AppState) -> None:
+    def __init__(self, page: ft.Page, state: AppState, runner: Runner | None = None) -> None:
         self.page = page
         self.state = state
+        self.runner = runner  # None: the maths runs in this process, synchronously
+        self.status = ft.Text("", size=13, color="#ffd479")
+        self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
+        self.starting = False  # loading the autosave through a remote engine
         self.theme = DARK
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
         self.view = CalculatorView(state, self.theme, self.act, lambda: self.shift)
@@ -63,6 +81,7 @@ class App:
     async def start(self) -> None:
         page = self.page
         page.title = "CASSim"
+        page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
         page.theme_mode = ft.ThemeMode.DARK
         page.bgcolor = self.theme.background
         page.padding = 12
@@ -80,8 +99,16 @@ class App:
                 on_key_up=lambda e: self.track_shift(e.key, down=False),
             )
         )
-        await self.recover()
+        if self.runner is not None:
+            self.starting = True
+            self.status.value = "Starting the calculator engine..."
+        try:
+            await self.recover()
+        finally:
+            self.starting = False
+            self.status.value = ""
         self.refresh()
+        self.offer_shared(self.page.route)
         print("CASSIM: READY", flush=True)
 
     def autosave(self) -> None:
@@ -92,12 +119,17 @@ class App:
             self.page.run_task(self.prefs.set, AUTOSAVE_KEY, text)
 
     async def recover(self) -> None:
-        """Reopen the autosaved document, if there is a readable one."""
+        """Reopen the saved System Settings and the autosaved document, if they are readable."""
+        saved = await self.prefs.get(SYSTEM_KEY)
+        if isinstance(saved, str):
+            self.state.system = System.loads(saved)
+            self.state.mode = self.state.system.start_mode
+            self.arrange()
         text = await self.prefs.get(AUTOSAVE_KEY)
         if not isinstance(text, str):
             return
         try:
-            self.state.replace_document(loads(text))
+            self.replace(await self.read(text))
             self.saved = text
         except DocumentFileError:
             return  # a damaged autosave is ignored, and overwritten by the next change
@@ -107,10 +139,73 @@ class App:
         self.view.refresh()
         self.keypad.refresh()
         self.sidebar.refresh()
-        self.toolbar.controls = self.toolbar_controls()
+        self.toolbar.controls = [*self.toolbar_controls(), self.status]
         self.page.update()
+        self.kick()
+
+    # ---- the engine -------------------------------------------------------------------------
+
+    @property
+    def busy(self) -> bool:
+        return self.starting or (self.runner is not None and not self.runner.idle)
+
+    @property
+    def running(self) -> bool:
+        """An entry is being calculated, so Esc can cancel it."""
+        return self.runner is not None and self.runner.status is Status.BUSY
+
+    async def read(self, text: str) -> Document:
+        """A document from its text, replayed by whichever engine this app uses."""
+        return loads(text) if self.runner is None else await self.runner.load(text)
+
+    def replace(self, document: Document) -> None:
+        self.state.replace_document(document)
+        if self.runner is not None:
+            self.runner.retain(document)
+
+    def kick(self) -> None:
+        """Start whatever the engine owes the screen: a queued entry, or queued settings."""
+        runner = self.runner
+        if runner is None or not runner.idle:
+            return
+        calculator = self.state.document.current.calculator
+        if calculator is not None and calculator.pending is not None:
+            self.page.run_task(self.run_pending, calculator)
+        elif runner.dirty(self.state.document):
+            self.page.run_task(self.run_sync)
+
+    async def run_pending(self, calculator: Calculator) -> None:
+        assert self.runner is not None
+        self.status.value = "Calculating... press Esc to cancel"
+        self.status.update()
+        finished = await self.runner.evaluate(calculator)
+        if self.debug:  # the end-to-end tests read the canvas app through the console
+            history = calculator.history
+            shown = history[-1].result.text if finished and history else ""
+            print("CASSIM: RESULT " + shown if finished else "CASSIM: CANCELLED", flush=True)
+        self.status.value = "" if finished else "Cancelled"
+        self.refresh()
+
+    async def run_sync(self) -> None:
+        assert self.runner is not None
+        await self.runner.sync(self.state.document)
+        self.refresh()
+
+    async def cancel(self) -> None:
+        assert self.runner is not None
+        self.status.value = "Cancelling... restarting the calculator"
+        self.status.update()
+        await self.runner.cancel()
+        self.status.value = ""
+        if self.debug:
+            print("CASSIM: RESTARTED", flush=True)
+        self.refresh()
 
     def press(self, name: str) -> None:
+        if self.busy:
+            if name == "esc" and self.running:
+                self.page.run_task(self.cancel)
+            return
         self.state.press_keypad(name)
         self.refresh()
 
@@ -129,12 +224,18 @@ class App:
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return
+        if self.busy:  # only Esc gets through: it cancels the run
+            if binding.action == "escape" and self.running:
+                await self.cancel()
+            return
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.clipboard.get() or "")
         state.run(binding)
         self.refresh()
 
     def act(self, action: str, arg: str = "") -> None:
+        if self.busy:
+            return
         self.state.run_action(action, arg)
         self.refresh()
 
@@ -164,6 +265,8 @@ class App:
             self.page.run_task(self.save_file)
         elif name == "open_file":
             self.page.run_task(self.open_file)
+        elif name == "share_link":
+            self.share_link()
         elif name == "document_settings":
             self.open_settings()
         elif name == "system_settings":
@@ -190,10 +293,56 @@ class App:
         if not picked or picked[0].bytes is None:
             return
         try:
-            self.state.replace_document(loads(picked[0].bytes.decode("utf-8")))
+            self.replace(await self.read(picked[0].bytes.decode("utf-8")))
         except (DocumentFileError, UnicodeDecodeError) as error:
             self.notice("Cannot open that file", str(error))
         self.refresh()
+
+    def share_link(self) -> None:
+        """Copy a link that holds the document in its fragment (FR-DOC-007)."""
+        try:
+            fragment = encode(self.state.document)
+        except LinkTooLongError as error:
+            self.notice("Too big for a link", f"{error}. Use Doc > File > Save to file instead.")
+            return
+        # the dev server reports a socket URL
+        base = (self.page.url or "").partition("#")[0].replace("ws", "http", 1)
+        self.page.run_task(self.clipboard.set, f"{base.rstrip('/')}/#/{fragment}")
+        self.notice("Link copied", "Anyone with the link can open this document. Nothing is sent.")
+
+    def offer_shared(self, fragment: str) -> None:
+        """A page opened from a share link asks before replacing the document (FR-DOC-007). The
+        hash URL strategy makes the fragment `/doc=...` the page's route."""
+        try:
+            text = unpack(fragment.lstrip("/"))
+            name = "Untitled" if text is None else str(parse(text).get("name", "Untitled"))
+        except DocumentFileError as error:
+            self.notice("Cannot open that link", str(error))
+            return
+        if text is None:
+            return
+
+        async def accept() -> None:
+            self.page.pop_dialog()
+            try:
+                self.replace(await self.read(text))
+            except DocumentFileError as error:
+                self.notice("Cannot open that link", str(error))
+            self.refresh()
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Open shared document?"),
+                content=ft.Text(
+                    f"“{name}” came from a link. It replaces what is open now; "
+                    "nothing in it runs until you run it."
+                ),
+                actions=[
+                    ft.TextButton("Open", on_click=lambda _: self.page.run_task(accept)),
+                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                ],
+            )
+        )
 
     def notice(self, title: str, message: str) -> None:
         self.page.show_dialog(
@@ -205,6 +354,7 @@ class App:
         )
 
     def on_system_change(self) -> None:
+        self.page.run_task(self.prefs.set, SYSTEM_KEY, self.state.system.dumps())
         self.refresh()
 
     def open_settings(self) -> None:
@@ -231,9 +381,23 @@ class App:
             )
 
 
+def make_runner() -> Runner | None:
+    """The browser runs the maths in its own worker (so Cancel can end it); on the desktop it
+    stays in this process unless `CASSIM_ENGINE=remote` asks for the same code path."""
+    if sys.platform == "emscripten":
+        from cassim.app.web import WorkerEngine  # noqa: PLC0415
+
+        return Runner(WorkerEngine())
+    if os.environ.get("CASSIM_ENGINE") == "remote":
+        return Runner(LocalEngine())
+    return None
+
+
 async def main(page: ft.Page) -> None:
-    await App(page, AppState()).start()
+    runner = make_runner()
+    state = AppState(sessions=Session if runner is None else runner.new_session)
+    await App(page, state, runner).start()
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH, assets_dir=str(ASSETS))
