@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.layout import (
-    DEFAULT_RATIO,
+    BAR_H,
     GAP,
     NARROW,
     SCREEN_H,
@@ -19,7 +19,7 @@ from cassim.app.layout import (
     SPLITTER,
     HandheldPlan,
     Sizing,
-    clamp_ratio,
+    clamp_share,
     computer_screen_height,
     handheld_plan,
     keypad_size,
@@ -83,6 +83,9 @@ class App:
         self.runner = runner  # None: the maths runs in this process, synchronously
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
+        self.plan: HandheldPlan | None = None  # the last Handheld arrangement
+        self.shape: tuple[Mode, bool, bool, bool] | None = None  # what the layout is built from
+        self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
         self.first_visit = False  # nothing saved yet: the window size picks the mode
         self.starting = False  # loading the autosave through a remote engine
         self.theme = DARK
@@ -281,10 +284,15 @@ class App:
         self.refresh()
 
     @property
-    def compact(self) -> bool:
-        """A narrow window in Handheld mode: the calculator gets the room, tools go in a dialog."""
+    def phone(self) -> bool:
+        """A phone-sized window (its short side is narrow): only Handheld mode is usable there."""
         sides = [side for side in (self.page.width, self.page.height) if side]
-        return self.state.mode is Mode.HANDHELD and bool(sides) and min(sides) < NARROW
+        return bool(sides) and min(sides) < NARROW
+
+    @property
+    def compact(self) -> bool:
+        """A phone: the calculator gets the room and the toolbar is nearly empty."""
+        return self.phone and self.state.mode is Mode.HANDHELD
 
     @property
     def installable(self) -> bool:
@@ -298,46 +306,6 @@ class App:
     def go_fullscreen(self) -> None:
         if self.bridge is not None:
             self.bridge.fullscreen()
-
-    def tools_dialog(self) -> None:
-        def then(action: Callable[[], None]) -> Callable[[], None]:
-            def run() -> None:
-                self.page.pop_dialog()
-                action()
-
-            return run
-
-        theme = self.theme
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Tools"),
-                content=ft.Row(
-                    [chip(label, then(action), theme) for label, action in self.tool_actions()],
-                    wrap=True,
-                    spacing=6,
-                    run_spacing=6,
-                ),
-                actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
-            )
-        )
-
-    def tool_actions(self) -> list[tuple[str, Callable[[], None]]]:
-        actions: list[tuple[str, Callable[[], None]]] = [
-            ("◀ page", lambda: self.act("prev_page")),
-            ("page ▶", lambda: self.act("next_page")),
-            ("+ page", lambda: self.act("add_page")),
-            ("+ problem", lambda: self.act("add_problem")),
-            ("delete page", lambda: self.act("delete_page")),
-            ("Doc", lambda: self.act("open_menu", "doc")),
-            ("Menu", lambda: self.act("open_menu", "menu")),
-            ("Sorter", lambda: self.show_dialog("page_sorter")),
-            ("settings", self.open_settings),
-        ]
-        if self.installable:
-            actions.append(("Install", self.install))
-        if self.bridge is not None:
-            actions.append(("Fullscreen", self.go_fullscreen))
-        return actions
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -355,9 +323,11 @@ class App:
     def toolbar_controls(self) -> list[ft.Control]:
         theme, mode = self.theme, self.state.mode
         if self.compact:
+            # Everything else is on the keypad's Doc and Menu keys; only the browser's own
+            # install and fullscreen buttons remain, and only when the browser offers them.
             return [
-                chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme),
-                chip("Tools", self.tools_dialog, theme),
+                *([chip("Install", self.install, theme)] if self.installable else []),
+                *([chip("Fullscreen", self.go_fullscreen, theme)] if self.bridge else []),
             ]
         return [
             chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
@@ -484,18 +454,35 @@ class App:
         view = self.view.control
         state = self.state
         system = state.system
+        if self.phone:
+            state.mode = Mode.HANDHELD  # Computer mode is not usable on a phone
         if state.mode is Mode.HANDHELD:
+            share = system.keypad_share or None  # 0 is auto; a phone always uses it
             plan = handheld_plan(
                 self.page.width,
                 self.page.height,
                 *keypad_units(state.keypad),
-                Sizing(system.keypad_ratio, system.zoom),
+                Sizing(
+                    None if self.phone else share,
+                    system.zoom,
+                    0 if self.phone and not self.toolbar.controls else BAR_H,
+                ),
             )
+            self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False
-            parts: list[ft.Control] = [view, self.splitter(plan), self.keypad.control]
-            gap = state.px(GAP) / 2
+            shape = (Mode.HANDHELD, plan.side_by_side, self.phone, system.zoom > 1)
+            if shape == self.shape:
+                # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
+                # the drag, which is why it used to stop after a few pixels.
+                self.size_splitter(plan)
+                return
+            self.shape = shape
+            parts: list[ft.Control] = [view, self.keypad.control]
+            if not self.phone:  # the splitter is for a tablet or a projected window
+                parts.insert(1, self.splitter(plan))
+            gap = GAP / 2
             self.layout.alignment = ft.Alignment.CENTER
             self.layout.content = (
                 ft.Row(parts, spacing=gap, alignment=ft.MainAxisAlignment.CENTER)
@@ -513,6 +500,7 @@ class App:
                     scroll=ft.ScrollMode.AUTO,
                 )
         else:
+            self.shape = None
             state.scale = state.pad_scale = system.zoom
             self.layout.alignment = None
             view.width = None
@@ -543,21 +531,18 @@ class App:
         )
 
         def drag(e: ft.DragUpdateEvent) -> None:
-            units_w, units_h = keypad_units(self.state.keypad)
-            base = keypad_size(units_w, units_h)[0 if side else 1]
-            if e.local_delta is None:
+            if e.global_delta is None or self.plan is None:
                 return
-            delta = e.local_delta.x if side else e.local_delta.y
+            delta = e.global_delta.x if self.plan.side_by_side else e.global_delta.y
             # The keypad is on the right or at the bottom, so dragging towards the screen grows it.
-            current = self.state.system.keypad_ratio
-            self.state.system.keypad_ratio = clamp_ratio(
-                current - delta / (base * max(self.state.scale, 0.01))
-            )
+            room = self.plan.extent * max(self.state.system.zoom, 0.01)
+            current = self.state.system.keypad_share or self.plan.share
+            self.state.system.keypad_share = clamp_share(current - delta / room)
             self.arrange()
             self.refresh()
 
         def reset(_: object) -> None:
-            self.state.system.keypad_ratio = DEFAULT_RATIO
+            self.state.system.keypad_share = 0.0
             self.on_system_change()
 
         def done(_: object) -> None:
@@ -566,8 +551,8 @@ class App:
         bar = ft.Container(
             grip,
             alignment=ft.Alignment.CENTER,
-            width=SPLITTER * self.state.scale if side else None,
-            height=None if side else SPLITTER * self.state.scale,
+            width=SPLITTER if side else None,
+            height=None if side else SPLITTER,
             tooltip="Drag to resize the keypad; double-click to reset",
         )
         detector = ft.GestureDetector(
@@ -583,9 +568,16 @@ class App:
             on_vertical_drag_end=None if side else done,
         )
         if side:
+            self.holder = None
             return detector
-        across = keypad_size(*keypad_units(self.state.keypad))[0] * self.state.pad_scale
-        return ft.Container(detector, width=across)  # a column would shrink the bar to its grip
+        self.holder = ft.Container(detector)  # a column would shrink the bar to its grip
+        self.size_splitter(plan)
+        return self.holder
+
+    def size_splitter(self, plan: HandheldPlan) -> None:
+        if self.holder is not None:
+            across = keypad_size(*keypad_units(self.state.keypad))[0] * self.state.pad_scale
+            self.holder.width = across
 
 
 def make_bridge(changed: Callable[[], None]) -> Bridge | None:

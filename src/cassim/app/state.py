@@ -33,7 +33,7 @@ class System:
     start_mode: Mode = Mode.COMPUTER
     math_size: int = 20  # LaTeX size in the entry and history
     computer_keypad: bool = False  # Computer mode shows the keypad beside the screen
-    keypad_ratio: float = 0.8  # Handheld: the keypad's size relative to the screen's (splitter)
+    keypad_share: float = 0.0  # Handheld: the keypad's share of the room (splitter); 0 is auto
     zoom: float = 1.0  # everything larger or smaller than the fitted size
     letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
 
@@ -50,7 +50,7 @@ class System:
             size = data["math_size"]
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
             system.computer_keypad = data.get("computer_keypad") is True
-            for name, low, high in (("keypad_ratio", 0.4, 1.5), ("zoom", 0.5, 2.0)):
+            for name, low, high in (("keypad_share", 0.0, 0.8), ("zoom", 0.5, 2.0)):
                 value = data.get(name)
                 ok = isinstance(value, int | float) and not isinstance(value, bool)
                 if ok and low <= value <= high:

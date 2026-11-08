@@ -210,6 +210,8 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 5. Install on a phone (Simon). The exam-style flows are done (decision 0025). A one-off review of FR-DEV-007 is still open: `app/state.py` imports `profiles.nspire` directly as its default profile, which is acceptable only if everything else comes through the `Profile` object.
 6. The documentation gaps in section 11 that are Must or that the M2 exit relies on (traceability, accessibility notes, the SDDs for the built areas).
 
+> **To review later (2026-11-08):** dragging the Handheld keypad splitter feels slow (each drag step rebuilds the screen and all keys). Profile it and throttle or scale the existing controls instead of rebuilding them.
+
 - Keys to carry over from the handheld: **Ctrl+Enter** gives the answer as a decimal, the same as wrapping the entry in `approx(...)`. The engine already has it as `Session.eval(line, approximate=True)`; the REPL uses `:approx` and Alt+Enter (see `docs/user/repl.md`).
 - **Guard for the profile work in M8 (no extra scope):** framework code in `device/` and `cassim.app` holds no Nspire-specific constants. Key layers, menu trees, page types, skin and theme values come from data or registries that the Nspire profile supplies, and page types are registered, not hard-coded in a switch. This costs almost nothing now and avoids a rewrite later (section 3.2; SRS FR-DEV-007).
 - Decisions and the four spikes that precede 2b to 2e are in `docs/decisions/0013-m2-planning.md` (2D rendering, MathLive, GitHub Pages publish, cancel and restore). The skin is driven by a config file; the display mode is remembered, with a media query on a first visit; Document Settings gain `case` and `ascii`.

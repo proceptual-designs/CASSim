@@ -168,15 +168,15 @@ _MAIN: Keypad = (
     (
         _nav("esc", "esc", ctrl="undo"),
         gap(),
-        Key("up", "▲", width=_PAD, style="pad"),
+        Key("up", "▲", ctrl="sorter", width=_PAD, style="pad"),
         gap(),
         gap(_SIDE),
     ),
     (
         gap(_SIDE),
-        Key("left", "◀", width=_PAD, style="pad"),
+        Key("left", "◀", ctrl="◀ page", width=_PAD, style="pad"),
         Key("click", "●", width=_PAD, style="pad"),
-        Key("right", "▶", width=_PAD, style="pad"),
+        Key("right", "▶", ctrl="page ▶", width=_PAD, style="pad"),
         _nav("doc", "doc", ctrl="+page"),
     ),
     (

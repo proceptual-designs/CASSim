@@ -5,11 +5,11 @@ import pytest
 from cassim.app.layout import (
     DEFAULT_RATIO,
     KEY_GAP,
-    MAX_RATIO,
     MAX_SCALE,
+    MAX_SHARE,
     MAX_ZOOM,
-    MIN_RATIO,
     MIN_SCALE,
+    MIN_SHARE,
     MIN_ZOOM,
     NARROW,
     Sizing,
@@ -51,15 +51,15 @@ def test_a_phone_in_landscape_starts_in_handheld_too() -> None:
 def test_a_phone_in_portrait_stacks_the_keypad_under_the_screen() -> None:
     plan = handheld_plan(390, 844, *UNITS)
     assert not plan.side_by_side
-    assert plan.width * plan.scale <= 390  # fits across
-    assert plan.height * plan.scale <= 844  # and down
+    assert max(320 * plan.scale, PAD[0] * plan.pad_scale) <= 390  # fits across
+    assert plan.scale * 240 + PAD[1] * plan.pad_scale <= 844  # and down
 
 
 def test_a_phone_in_landscape_puts_the_keypad_beside_the_screen() -> None:
     plan = handheld_plan(844, 390, *UNITS)
     assert plan.side_by_side
-    assert plan.width * plan.scale <= 844
-    assert plan.height * plan.scale <= 390
+    assert plan.scale * 320 + PAD[0] * plan.pad_scale <= 844
+    assert max(240 * plan.scale, PAD[1] * plan.pad_scale) <= 390
 
 
 def test_the_scale_is_clamped() -> None:
@@ -101,24 +101,40 @@ def test_the_keypad_is_drawn_smaller_than_the_screen_by_default() -> None:
     assert plan.pad_scale == pytest.approx(plan.scale * DEFAULT_RATIO)
 
 
-def test_a_larger_ratio_gives_the_keypad_more_and_the_screen_less() -> None:
-    small = handheld_plan(390, 844, *UNITS, Sizing(MIN_RATIO))
-    large = handheld_plan(390, 844, *UNITS, Sizing(MAX_RATIO))
-    assert large.scale <= small.scale
-    assert large.pad_scale > small.pad_scale
+def test_the_splitter_can_take_the_keypad_from_small_to_large() -> None:
+    """A dragged share moves each part over a wide range, not a few pixels (the splitter bug)."""
+    small = handheld_plan(1000, 600, *UNITS, Sizing(MIN_SHARE))
+    large = handheld_plan(1000, 600, *UNITS, Sizing(MAX_SHARE))
+    assert small.side_by_side == large.side_by_side
+    assert large.pad_scale > 2 * small.pad_scale
+    assert small.scale > large.scale
 
 
-def test_the_ratio_and_zoom_are_clamped() -> None:
-    assert handheld_plan(844, 390, *UNITS, Sizing(99)).pad_scale == pytest.approx(
-        handheld_plan(844, 390, *UNITS, Sizing(MAX_RATIO)).pad_scale
-    )
+def test_a_share_fills_the_room_along_the_split() -> None:
+    plan = handheld_plan(1000, 600, *UNITS, Sizing(0.4))
+    assert plan.share == pytest.approx(0.4)
+    assert plan.side_by_side
+    pad_w, _ = PAD
+    screen = plan.scale * 320
+    assert screen + plan.pad_scale * pad_w <= plan.extent + 1
+
+
+def test_the_splitter_starts_from_the_share_drawn() -> None:
+    auto = handheld_plan(1000, 600, *UNITS)
+    again = handheld_plan(1000, 600, *UNITS, Sizing(auto.share))
+    assert again.pad_scale == pytest.approx(auto.pad_scale, rel=0.02)
+
+
+def test_the_share_and_zoom_are_clamped() -> None:
+    assert handheld_plan(844, 390, *UNITS, Sizing(9)).share == MAX_SHARE
+    assert handheld_plan(844, 390, *UNITS, Sizing(0.001)).share == MIN_SHARE
     fit = handheld_plan(844, 390, *UNITS).scale
     assert handheld_plan(844, 390, *UNITS, Sizing(zoom=9)).scale == pytest.approx(fit * MAX_ZOOM)
     assert handheld_plan(844, 390, *UNITS, Sizing(zoom=0.1)).scale == pytest.approx(fit * MIN_ZOOM)
 
 
 def test_the_sizes_are_kept_with_the_system_settings() -> None:
-    system = System(keypad_ratio=0.6, zoom=1.25)
+    system = System(keypad_share=0.6, zoom=1.25)
     assert System.loads(system.dumps()).zoom == 1.25
-    assert System.loads(system.dumps()).keypad_ratio == 0.6
+    assert System.loads(system.dumps()).keypad_share == 0.6
     assert System.loads('{"start_mode": "handheld", "math_size": 20, "zoom": 99}').zoom == 1.0

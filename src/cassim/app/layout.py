@@ -37,30 +37,33 @@ def keypad_size(width_units: float, height_units: float) -> tuple[int, int]:
     return round(key_span(width_units)), round(key_span(height_units, KEY_H))
 
 
-MIN_RATIO, MAX_RATIO, DEFAULT_RATIO = 0.4, 1.5, 0.8  # keypad size relative to the screen's
+DEFAULT_RATIO = 0.8  # the keypad's scale relative to the screen's until the splitter is used
+MIN_SHARE, MAX_SHARE = 0.15, 0.8  # the splitter's range: the keypad's share of the room
 MIN_ZOOM, MAX_ZOOM = 0.5, 2.0
 SPLITTER = 10  # px: the draggable bar between the screen and the keypad
+MIN_PART_SCALE = 0.2
 
 
 @dataclass(frozen=True)
 class Sizing:
-    """The user's choices: the keypad's size relative to the screen's, and an overall zoom."""
+    """The user's choices: the keypad's share of the room (None: the default ratio) and a zoom."""
 
-    ratio: float = DEFAULT_RATIO
+    share: float | None = None
     zoom: float = 1.0
+    bar: float = BAR_H  # the toolbar's height above the calculator (0 when it is empty)
 
 
 @dataclass(frozen=True)
 class HandheldPlan:
     side_by_side: bool  # keypad beside the screen (landscape) instead of under it
-    width: int  # the arranged calculator's size at scale 1, the keypad already at its ratio
-    height: int
     scale: float  # of the screen
-    pad_scale: float  # of the keypad: the screen's scale times the ratio
+    pad_scale: float  # of the keypad
+    share: float  # the keypad's share of the room along the split, as drawn
+    extent: float  # the room along the split in px, for turning a drag into a share
 
 
-def clamp_ratio(ratio: float) -> float:
-    return max(MIN_RATIO, min(MAX_RATIO, ratio))
+def clamp_share(share: float) -> float:
+    return max(MIN_SHARE, min(MAX_SHARE, share))
 
 
 def handheld_plan(
@@ -70,27 +73,51 @@ def handheld_plan(
     height_units: float,
     sizing: Sizing = Sizing(),  # noqa: B008 - frozen, so one shared default is safe
 ) -> HandheldPlan:
-    """The arrangement and scale that make the calculator as large as the window allows. The
-    keypad's size is in key units (`keypad_units`). The screen matters more than the keys, so the
-    keypad is drawn at `ratio` times the screen's scale (the splitter changes it); `zoom` then
-    enlarges or shrinks the result, which may no longer fit the window."""
-    ratio, zoom = clamp_ratio(sizing.ratio), max(MIN_ZOOM, min(MAX_ZOOM, sizing.zoom))
-    pad_w, pad_h = (round(side * ratio) for side in keypad_size(width_units, height_units))
+    """The arrangement and scales for the window. The screen matters more than the keys, so by
+    default the keypad is drawn at `DEFAULT_RATIO` of the screen's scale, the pair as large as the
+    window allows. Once the splitter is used the keypad has a fixed share of the room instead, and
+    each part scales to its own space. `zoom` then enlarges or shrinks both, so they may no longer
+    fit the window."""
+    zoom = max(MIN_ZOOM, min(MAX_ZOOM, sizing.zoom))
+    pad_w0, pad_h0 = keypad_size(width_units, height_units)
+    ratio = DEFAULT_RATIO
+    pad_w, pad_h = round(pad_w0 * ratio), round(pad_h0 * ratio)
     portrait = (max(SCREEN_W, pad_w), SCREEN_H + GAP + SPLITTER + pad_h)
     landscape = (SCREEN_W + GAP + SPLITTER + pad_w, max(SCREEN_H, pad_h))
     if not viewport_w or not viewport_h:  # the window size is not known yet
-        return HandheldPlan(False, *portrait, zoom, zoom * ratio)
+        return HandheldPlan(False, zoom, zoom * ratio, 0.5, 1.0)
     room_w = max(viewport_w - 2 * MARGIN, 1)
-    room_h = max(viewport_h - 2 * MARGIN - BAR_H, 1)
+    room_h = max(viewport_h - 2 * MARGIN - sizing.bar, 1)
 
     def fit(size: tuple[int, int]) -> float:
         return min(room_w / size[0], room_h / size[1])
 
     side = fit(landscape) > fit(portrait)
-    width, height = landscape if side else portrait
-    fitted = max(MIN_SCALE, min(MAX_SCALE, fit(landscape if side else portrait)))
-    scale = fitted * zoom
-    return HandheldPlan(side, width, height, scale, scale * ratio)
+    if side:
+        extent, pad0, screen0, across, pad_across, screen_across = (
+            room_w - GAP - SPLITTER, pad_w0, SCREEN_W, room_h, pad_h0, SCREEN_H,
+        )  # fmt: skip
+    else:
+        extent, pad0, screen0, across, pad_across, screen_across = (
+            room_h - GAP - SPLITTER, pad_h0, SCREEN_H, room_w, pad_w0, SCREEN_W,
+        )  # fmt: skip
+    extent = max(extent, 1)
+    if sizing.share is None:
+        fitted = max(MIN_SCALE, min(MAX_SCALE, fit(landscape if side else portrait)))
+        share = pad0 * fitted * ratio / extent
+        return HandheldPlan(side, fitted * zoom, fitted * ratio * zoom, share, extent)
+    share = clamp_share(sizing.share)
+    pad_px = share * extent
+    scale = min((extent - pad_px) / screen0, across / screen_across)
+    pad_scale = min(pad_px / pad0, across / pad_across)
+    top = MAX_SCALE
+    return HandheldPlan(
+        side,
+        max(MIN_PART_SCALE, min(top, scale)) * zoom,
+        max(MIN_PART_SCALE, min(top, pad_scale)) * zoom,
+        share,
+        extent,
+    )
 
 
 def computer_screen_height(viewport_h: float | None) -> float:
