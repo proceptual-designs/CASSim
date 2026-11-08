@@ -26,8 +26,9 @@ class Keyboard:
     """Turns key presses into bindings.
 
     A modifier key (the on-screen ctrl and shift of a keypad) applies to the next key only, and
-    pressing it again cancels it. A computer keyboard sends `ctrl+Enter` as one name, so it never
-    uses the modifier state. A printable character with no binding of its own is typed.
+    pressing it again cancels it, unless the pair is bound (ctrl then shift). A computer keyboard
+    sends `ctrl+Enter` as one name, so it never uses the modifier state. A printable character
+    with no binding of its own is typed.
     """
 
     def __init__(self, keymap: Keymap, modifiers: tuple[str, ...] = ()) -> None:
@@ -36,7 +37,9 @@ class Keyboard:
         self.pending = ""
 
     def press(self, key: str) -> Binding | None:
-        if key in self.modifiers:
+        # a modifier pressed after another can be a key of its own (ctrl then shift is caps lock)
+        combo = f"{self.pending}+{key}"
+        if key in self.modifiers and not (self.pending and combo in self.keymap):
             self.pending = "" if self.pending == key else key
             return None
         name = f"{self.pending}+{key}" if self.pending else key

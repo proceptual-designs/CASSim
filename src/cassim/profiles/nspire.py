@@ -39,6 +39,7 @@ HANDHELD: Keymap = {
     "shift+right": Binding("select_right"),
     "var": Binding("open_menu", "variables"),
     "ctrl+var": Binding("insert", "→"),
+    "ctrl+shift": Binding("caps"),  # the shift key's ctrl layer, CAPS
     "del": Binding("backspace"),
     "ctrl+del": Binding("clear"),
     "=": Binding("insert", "="),
@@ -89,6 +90,7 @@ COMPUTER: Keymap = {
     "Home": Binding("home"),
     "End": Binding("end"),
     "Escape": Binding("escape"),
+    "CapsLock": Binding("caps"),  # the same lock as the keypad's ctrl+shift
     "F2": Binding("open_menu", "menu"),
     "F4": Binding("open_menu", "doc"),
     "Tab": Binding("tab"),

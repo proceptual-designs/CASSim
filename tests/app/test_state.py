@@ -68,3 +68,65 @@ def test_the_letter_layout_is_a_system_setting() -> None:
     state.system.letters = "Dvorak"
     assert state.keypad is nspire.KEYPAD
     assert System.loads('{"start_mode": "computer", "math_size": 20, "letters": 3}').letters == ""
+
+
+# ---- caps lock: the Caps Lock key and the keypad's ctrl then shift (decision 0024) ----------
+
+
+def typed(state: AppState) -> str:
+    calculator = state.document.current.calculator
+    assert calculator is not None
+    return calculator.editor.linear()
+
+
+def test_the_caps_lock_key_turns_typed_letters_into_capitals() -> None:
+    state = AppState()
+    state.key_event("A")  # no Shift, no lock: a small letter
+    state.key_event("Caps Lock")
+    assert state.caps
+    assert "CAPS" in state.screen().status
+    state.key_event("A")  # the browser reports the key, not the case
+    state.key_event("n")
+    assert typed(state) == "aAN"
+    state.key_event("A", shift=True)  # Shift with the lock on gives a small letter
+    assert typed(state) == "aANa"
+    state.key_event("Caps Lock")
+    assert not state.caps
+    assert "CAPS" not in state.screen().status
+
+
+def test_caps_lock_leaves_digits_symbols_and_shortcuts_alone() -> None:
+    state = AppState()
+    state.key_event("Caps Lock")
+    state.key_event("2")
+    state.key_event("6", shift=True)  # ^
+    state.key_event("3")
+    state.key_event("A", ctrl=True)  # select all, not a typed letter
+    assert typed(state) == "2^(3)"
+    state.key_event("Enter")
+    assert state.screen().lines[1].text == "8"
+
+
+def test_keypad_ctrl_then_shift_is_caps_lock() -> None:
+    state = AppState(mode=Mode.HANDHELD)
+    state.press_keypad("a")
+    state.press_keypad("ctrl")
+    state.press_keypad("shift")
+    assert state.caps
+    assert state.pending == ""  # the pair is used up, not left waiting
+    state.press_keypad("b")
+    state.press_keypad("shift")  # a lone shift is still a modifier for the next key
+    assert state.pending == "shift"
+    state.press_keypad("c")  # shift then a letter with the lock on: small, as on a PC
+    assert typed(state) == "aBc"
+    state.press_keypad("ctrl")
+    state.press_keypad("shift")
+    assert not state.caps
+
+
+def test_the_physical_and_keypad_locks_are_one_lock() -> None:
+    state = AppState()
+    state.key_event("Caps Lock")
+    state.press_keypad("ctrl")
+    state.press_keypad("shift")
+    assert not state.caps

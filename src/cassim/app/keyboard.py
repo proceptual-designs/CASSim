@@ -20,6 +20,7 @@ _NAMED = {
     "Tab": "Tab",
     "Home": "Home",
     "Escape": "Escape",
+    "Caps Lock": "CapsLock",
     "F2": "F2",
     "F4": "F4",
     "End": "End",
@@ -76,7 +77,7 @@ def key_name(
             return base
         return ("ctrl+" if command else "") + ("alt+" if alt else "") + base
     if base not in _NAMED.values():
-        return None  # bare modifiers, other F-keys, Caps Lock...
+        return None  # bare modifiers, other F-keys...
     return (
         ("ctrl+" if command else "") + ("alt+" if alt else "") + ("shift+" if shift else "") + base
     )

@@ -86,6 +86,9 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        # Caps lock, set by the Caps Lock key or the keypad's ctrl+shift. Flet's key events do not
+        # say whether the lock is on, so it is tracked here from its own key presses.
+        self.caps = False
         self.system = System(mode)
         self.pad_scale = 1.0  # the keypad's own scale: the screen's times the splitter's ratio
         self.scale = 1.0  # Handheld mode draws everything this many times larger (FR-DEV-004)
@@ -129,7 +132,8 @@ class AppState:
 
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None
-        return render(self.document, self.profile.status(self.document.settings), view)
+        status = self.profile.status(self.document.settings)
+        return render(self.document, f"{status} CAPS" if self.caps else status, view)
 
     def press_keypad(self, name: str) -> None:
         self._perform(self.keypad_keys, name)
@@ -162,7 +166,14 @@ class AppState:
         """What a physical key does, without doing it (the GUI fetches the system clipboard
         before a paste)."""
         name = key_name(key, shift=shift, ctrl=ctrl, alt=alt, meta=meta)
-        return None if name is None else self.computer_keys.press(name)
+        return None if name is None else self._cased(self.computer_keys.press(name))
+
+    def _cased(self, binding: Binding | None) -> Binding | None:
+        """With caps lock on, a typed letter swaps case (so Shift still gives a small letter)."""
+        letter = binding is not None and binding.action == "insert" and binding.arg.isalpha()
+        if self.caps and binding is not None and letter and len(binding.arg) == 1:
+            return Binding("insert", binding.arg.swapcase())
+        return binding
 
     def run_action(self, action: str, arg: str = "") -> None:
         """Do an action by name, for GUI buttons and menus."""
@@ -174,18 +185,7 @@ class AppState:
 
     def run(self, binding: Binding) -> None:
         """Do a binding: document actions here, everything else on the current page."""
-        if self.menu is not None and self.menu.open:
-            self._menu_key(binding)
-            return
-        if binding.action == "open_menu":
-            self._open_menu(binding.arg)
-            return
-        if binding.action in _MENU_ONLY:
-            return  # a menu click or the touchpad's centre with no menu open
-        if binding.action == "wizard":
-            self._open_wizard(binding.arg)
-            return
-        if self._document_action(binding):
+        if self._shell_action(binding) or self._document_action(binding):
             return
         calculator = self.document.current.calculator
         if calculator is None:
@@ -193,6 +193,20 @@ class AppState:
         calculator.perform(binding)
         if binding.action in ("copy", "cut") and self.clipboard_out is not None:
             self.clipboard_out(self.document.clipboard.text)
+
+    def _shell_action(self, binding: Binding) -> bool:
+        """Caps lock, menus and dialogs, which belong to the shell and not to a page."""
+        if binding.action == "caps":
+            self.caps = not self.caps
+        elif self.menu is not None and self.menu.open:
+            self._menu_key(binding)
+        elif binding.action == "open_menu":
+            self._open_menu(binding.arg)
+        elif binding.action == "wizard":
+            self._open_wizard(binding.arg)
+        else:
+            return binding.action in _MENU_ONLY  # a menu click with no menu open does nothing
+        return True
 
     def _open_menu(self, name: str) -> None:
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
@@ -268,5 +282,7 @@ class AppState:
         binding = keyboard.press(name)
         if binding is None:
             return False
-        self.run(binding)
+        cased = self._cased(binding) if keyboard is self.keypad_keys else binding
+        assert cased is not None
+        self.run(cased)
         return True

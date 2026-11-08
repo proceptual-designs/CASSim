@@ -42,3 +42,21 @@ follows it. It is an estimate, not a measured layout, so a very unusual radicand
   The race between the DOM event and Flutter's own is the thing to test on real hardware.
 - No stretching for brackets, absolute-value bars or the derivative and limit templates.
 - No handles for selecting a row or column by touch; the keys are the only way.
+
+## Caps Lock (added 2026-11-08, branch `keyboard-caps-lock`)
+
+Flet's key event has no Caps Lock state, so with the lock on a typed letter came out small (`ans`,
+not `Ans`). Fixed by tracking the lock in the app rather than reading it: `AppState.caps` is toggled
+by the Caps Lock key (Flet reports it as `Caps Lock`) and by the keypad's ctrl then shift (the
+handheld's CAPS, `ctrl+shift` in the keymap; `Keyboard.press` now lets a bound modifier pair through
+instead of replacing the pending modifier). With the lock on, a typed letter swaps case, so Shift
+still gives a small letter as on a PC. The title bar shows `CAPS`. Checked in the browser (key press
+on, `aNS`, key press off, `b`) and by `tests/app/test_state.py` and the `methods-caps-lock` flow.
+
+Limits: the lock is tracked from its own key presses, so it is wrong if it was already on when the
+page loaded, or was toggled while the window was not focused. The page could read the real state
+(`getModifierState("CapsLock")` on any key event) and send it over the BroadcastChannel; that fits
+with the typed-character work below. On a Mac the browser sends the Caps Lock key down only when it
+turns on and key up only when it turns off; the Flet event is a key down, so turning it off may be
+missed there (not tested).
+

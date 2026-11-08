@@ -74,6 +74,16 @@ flows:
   - {type: "4", enter: false, entry: "((1)/(3))+((1)/(4))"}
   - {keys: "Enter", expect: 7/12}
 
+- id: methods-caps-lock
+  course: methods
+  title: Caps Lock, as the browser reports it (the key press, never the case)
+  steps:
+  - {type: "x:=3", expect: '3'}
+  - {keys: "CapsLock"}
+  - {keys: "X", entry: X, note: "Flutter reports the key X with no Shift: the lock makes it a capital"}
+  - {keys: "Backspace CapsLock"}
+  - {type: "x+1", expect: '4', note: "back to small letters"}
+
 - id: methods-fix-a-typo
   course: methods
   title: Undo and Backspace in the entry line before running it
