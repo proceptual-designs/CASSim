@@ -125,11 +125,20 @@ class CalculatorView:
             self.state.math_size,
             self._click,
             calculator.session.is_function,
+            self._hold,
         ).build(calculator.editor)
 
     def _click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
-        """A click in the entry: place the cursor, or extend the selection with shift held."""
-        self.on_action("extend" if self.shift() else "place", format_target(path, pos))
+        """A click in the entry: place the cursor, or extend the selection with shift held (the
+        keyboard's Shift, or the keypad's shift key waiting for its next key)."""
+        extend = self.shift() or self.state.pending == "shift"
+        if extend:
+            self.state.clear_pending()
+        self.on_action("extend" if extend else "place", format_target(path, pos))
+
+    def _hold(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A long press: the touch screen's shift+click."""
+        self.on_action("extend", format_target(path, pos))
 
     def _line(self, line: Line, number: int) -> ft.Control:
         right = line.kind == "result"

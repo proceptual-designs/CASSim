@@ -101,6 +101,10 @@ class AppState:
         """The keypad modifier waiting for the next key ("ctrl", "shift" or "")."""
         return self.keypad_keys.pending
 
+    def clear_pending(self) -> None:
+        """Drop a keypad modifier that has done its job (a shift used for a tap in the entry)."""
+        self.keypad_keys.pending = ""
+
     def replace_document(self, document: Document) -> None:
         """Open another document (a new one, a file or the autosave) and close any menu."""
         self.document = document

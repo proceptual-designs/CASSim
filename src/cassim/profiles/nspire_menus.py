@@ -979,6 +979,8 @@ TEMPLATES = MenuItem(
         _cell("∫", "Indefinite integral", "antiderivative"),
         _cell("lim", "Limit", "limit"),
         MenuItem("x₁", hint="Subscript: " + NOT_YET, enabled=False),
+        # Not on the device (its lists are typed as {1,2,3}); a comma starts the next element.
+        _cell("{ }", "List template (CASSim)", "list:3"),
     ),
 )
 
