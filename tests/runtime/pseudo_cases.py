@@ -37,6 +37,8 @@ HORIZONTAL_LATER = {
     "author.stats.four-means",
     "author.list.all-max-positions",
     "author.random.randint-from-rand",
+    "book.u1.dice.best-of-two-average",
+    "proposed.simulation.monte-carlo-pi",
 }
 
 
