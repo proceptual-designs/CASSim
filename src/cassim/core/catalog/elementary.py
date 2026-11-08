@@ -126,6 +126,18 @@ def _pair(function: Callable[[Raw, Raw], Raw]) -> Callable[[Host, list[Value]], 
 
 
 eager("remain", 2)(_pair(cas.remainder))
+
+
+@eager("root", 2)
+def root(host: Host, args: list[Value]) -> Value:
+    """The nth-root template, `root(radicand, index)`. In Real mode an even root of a negative
+    number is an error, as on the device (²√-4 gives "Non-real result")."""
+    result = cas.nth_root(as_expr(args[0]).raw, as_expr(args[1]).raw)
+    if host.settings.domain == "real" and cas.is_non_real_number(result):
+        raise TIError(errors.NON_REAL)
+    return Expr(result)
+
+
 eager("nPr", 2)(_pair(cas.permutations))
 eager("nCr", 2)(_pair(cas.combinations))
 eager("gcd", 2)(_pair(cas.gcd))

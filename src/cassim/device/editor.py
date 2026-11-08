@@ -23,13 +23,48 @@ type Node = str | Template
 
 
 class Kind(StrEnum):
+    """Template kinds; the comment lists the slots in Tab order (the device's, decision 0023)."""
+
     FRACTION = "fraction"  # numerator, denominator
     POWER = "power"  # exponent, attached to the term before it
     ROOT = "root"  # radicand
     MATRIX = "matrix"  # rows x columns of cells, row by row
+    NTH_ROOT = "nth_root"  # index, radicand
+    LOG = "log"  # base, argument
+    ABS = "abs"  # argument
+    PIECEWISE = "piecewise"  # rows of (value, condition)
+    SYSTEM = "system"  # rows of one equation
+    DERIVATIVE = "derivative"  # variable, expression
+    DERIVATIVE2 = "derivative2"  # variable, expression
+    DERIVATIVE_N = "derivative_n"  # order, variable, expression
+    DMS = "dms"  # degrees, minutes, seconds
+    INTEGRAL = "integral"  # lower, upper, integrand, variable
+    ANTIDERIVATIVE = "antiderivative"  # integrand, variable
+    SUM = "sum"  # variable, lower, upper, expression
+    PRODUCT = "product"  # variable, lower, upper, expression
+    LIMIT = "limit"  # variable, point, direction (+ or -, may be empty), expression
 
 
-_SLOTS = {Kind.FRACTION: 2, Kind.POWER: 1, Kind.ROOT: 1}
+_SLOTS = {
+    Kind.FRACTION: 2,
+    Kind.POWER: 1,
+    Kind.ROOT: 1,
+    Kind.NTH_ROOT: 2,
+    Kind.LOG: 2,
+    Kind.ABS: 1,
+    Kind.DERIVATIVE: 2,
+    Kind.DERIVATIVE2: 2,
+    Kind.DERIVATIVE_N: 3,
+    Kind.DMS: 3,
+    Kind.INTEGRAL: 4,
+    Kind.ANTIDERIVATIVE: 2,
+    Kind.SUM: 4,
+    Kind.PRODUCT: 4,
+    Kind.LIMIT: 4,
+}
+# Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
+# The second number is the fixed width (0: chosen when the template is made).
+GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1}
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
@@ -41,12 +76,15 @@ _ANS_OPERATORS = frozenset("+-*/^")
 class Template:
     kind: Kind
     slots: list[Row] = field(default_factory=list)
-    cols: int = 0  # a matrix's columns; its rows are len(slots) // cols
+    cols: int = 0  # a grid's columns (matrix, piecewise, system); its rows are len(slots) // cols
 
     @classmethod
     def empty(cls, kind: Kind, shape: tuple[int, int] = (1, 1)) -> Template:
-        if kind is Kind.MATRIX:
+        """Empty slots. `shape` is (rows, columns) for a grid; piecewise and system templates
+        have fixed columns, so only the rows count."""
+        if kind in GRIDS:
             rows, cols = shape
+            cols = GRIDS[kind] or cols
             return cls(kind, [[] for _ in range(rows * cols)], cols)
         return cls(kind, [[] for _ in range(_SLOTS[kind])])
 
@@ -351,7 +389,7 @@ class Editor:
         it when it is empty.
         """
         template = self._parent()
-        if template.kind is Kind.MATRIX and self.path[-1][1] > 0:  # cells do not merge: step back
+        if template.kind in GRIDS and self.path[-1][1] > 0:  # cells do not merge: step back
             index, slot = self.path[-1]
             self.path[-1] = (index, slot - 1)
             self.pos = len(self.row())
@@ -448,7 +486,7 @@ class Editor:
         target = slot
         if parent.kind is Kind.FRACTION and slot == from_slot:
             target = 1 - from_slot
-        elif parent.kind is Kind.MATRIX and 0 <= slot + step * parent.cols < len(parent.slots):
+        elif parent.kind in GRIDS and 0 <= slot + step * parent.cols < len(parent.slots):
             target = slot + step * parent.cols
         if target != slot:
             self.path[-1] = (index, target)
@@ -612,11 +650,46 @@ def _matching_open(row: Row, close: int) -> int:
     return 0
 
 
+# The text the parser reads for the function-like templates, from their slots in Tab order.
+_CALLS: dict[Kind, Callable[[list[str]], str]] = {
+    Kind.NTH_ROOT: lambda s: f"root({s[1]},{s[0]})",
+    Kind.LOG: lambda s: f"log({s[1]},{s[0]})",
+    Kind.ABS: lambda s: f"abs({s[0]})",
+    Kind.PIECEWISE: lambda s: "piecewise(" + ",".join(s) + ")",
+    Kind.SYSTEM: lambda s: "{" + ",".join(s) + "}",
+    Kind.DERIVATIVE: lambda s: f"derivative({s[1]},{s[0]})",
+    Kind.DERIVATIVE2: lambda s: f"derivative({s[1]},{s[0]},2)",
+    Kind.DERIVATIVE_N: lambda s: f"derivative({s[2]},{s[1]},{s[0]})",
+    Kind.DMS: lambda s: f"({s[0]}°{s[1]}'{s[2]}\")",
+    Kind.INTEGRAL: lambda s: f"∫({s[2]},{s[3]},{s[0]},{s[1]})",
+    Kind.ANTIDERIVATIVE: lambda s: f"∫({s[0]},{s[1]})",
+    Kind.SUM: lambda s: f"Σ({s[3]},{s[0]},{s[1]},{s[2]})",
+    Kind.PRODUCT: lambda s: f"Π({s[3]},{s[0]},{s[1]},{s[2]})",
+    Kind.LIMIT: lambda s: f"limit({s[3]},{s[0]},{s[1]}{_direction(s[2])})",
+}
+
+
+def _direction(slot: str) -> str:
+    """The limit template's direction slot as `limit`'s fourth argument: + is from the right."""
+    text = slot.strip().replace("−", "-")
+    if not text:
+        return ""
+    return "," + {"+": "1", "-": "-1"}.get(text, text)
+
+
+# After one of these a function-like template needs an explicit `*`: `x` then |□| would
+# otherwise read as `xabs(`, and `2` then a system as `2{`.
+_JOINS = _TERM_CHARS | {")", "]", "}"}
+
+
 def _linear(row: Row) -> str:
     out: list[str] = []
     for node in row:
         if isinstance(node, str):
             out.append(node)
+        elif node.kind in _CALLS:
+            text = _CALLS[node.kind]([_linear(slot) for slot in node.slots])
+            out.append(("*" if out and out[-1][-1:] in _JOINS else "") + text)
         elif node.kind is Kind.FRACTION:
             out.append(f"(({_linear(node.slots[0])})/({_linear(node.slots[1])}))")
         elif node.kind is Kind.POWER:
@@ -664,6 +737,31 @@ _SYMBOLS = {
 }
 
 
+def _rows(slots: list[str], cols: int, joint: str) -> str:
+    return r" \\ ".join(joint.join(slots[i : i + cols]) for i in range(0, len(slots), cols))
+
+
+# LaTeX for the function-like templates, from their slots' LaTeX in Tab order.
+_LATEX: dict[Kind, Callable[[list[str], int], str]] = {
+    Kind.NTH_ROOT: lambda s, _: rf"\sqrt[{s[0]}]{{{s[1]}}}",
+    Kind.LOG: lambda s, _: rf"\log_{{{s[0]}}}\left({s[1]}\right)",
+    Kind.ABS: lambda s, _: rf"\left|{s[0]}\right|",
+    Kind.PIECEWISE: lambda s, c: rf"\begin{{cases}}{_rows(s, c, ', & ')}\end{{cases}}",
+    Kind.SYSTEM: lambda s, c: rf"\begin{{cases}}{_rows(s, c, '')}\end{{cases}}",
+    Kind.DERIVATIVE: lambda s, _: rf"\frac{{d}}{{d{s[0]}}}\left({s[1]}\right)",
+    Kind.DERIVATIVE2: lambda s, _: rf"\frac{{d^{{2}}}}{{d{s[0]}^{{2}}}}\left({s[1]}\right)",
+    Kind.DERIVATIVE_N: lambda s, _: (
+        rf"\frac{{d^{{{s[0]}}}}}{{d{s[1]}^{{{s[0]}}}}}\left({s[2]}\right)"
+    ),
+    Kind.DMS: lambda s, _: rf"{s[0]}^\circ {s[1]}' {s[2]}''",
+    Kind.INTEGRAL: lambda s, _: rf"\int_{{{s[0]}}}^{{{s[1]}}}{s[2]}\,d{s[3]}",
+    Kind.ANTIDERIVATIVE: lambda s, _: rf"\int {s[0]}\,d{s[1]}",
+    Kind.SUM: lambda s, _: rf"\sum_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
+    Kind.PRODUCT: lambda s, _: rf"\prod_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
+    Kind.LIMIT: lambda s, _: rf"\lim_{{{s[0]}\to {s[1]}^{{{s[2]}}}}}{s[3]}",
+}
+
+
 def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
     """Indices of letters that spell a defined function followed by `(`, such as `sin` in
     `sin(x)` or a user's `f` in `f(x)`. A name nothing defines stays plain."""
@@ -702,7 +800,9 @@ def _latex(
         slots = [
             _latex(slot, place, [*here, (i, s)], is_function) for s, slot in enumerate(node.slots)
         ]
-        if node.kind is Kind.FRACTION:
+        if node.kind in _LATEX:
+            pieces.append(_LATEX[node.kind](slots, node.cols))
+        elif node.kind is Kind.FRACTION:
             pieces.append(rf"\frac{{{slots[0]}}}{{{slots[1]}}}")
         elif node.kind is Kind.MATRIX:
             rows = [slots[i : i + node.cols] for i in range(0, len(slots), node.cols)]

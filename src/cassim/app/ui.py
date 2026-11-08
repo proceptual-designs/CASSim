@@ -17,7 +17,7 @@ from cassim.device.editor import format_target
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.screen import Line, Screen, thumbnail
-from cassim.device.wizard import Wizard
+from cassim.device.wizard import Field, Wizard
 
 # Arrows and shapes are not in the default font, and the browser's fallback font comes from a
 # Google server, which the offline build cannot reach (FR-PWA-002). They are set in a vendored font.
@@ -634,6 +634,31 @@ def selected_index(panel: Panel) -> int:
     return next((n for n, row in enumerate(panel.rows) if row.selected), 0)
 
 
+type TextHandler = Callable[[ft.Event[ft.TextField]], None]
+
+
+def field_box(
+    field: Field, on_focus: TextHandler, on_submit: TextHandler, on_change: TextHandler | None
+) -> ft.TextField | ft.Dropdown:
+    """One box of a command dialog: a drop-down for a choice, else a text box."""
+    if field.choices:
+        return ft.Dropdown(
+            label=field.label,
+            value=field.default,
+            options=[ft.DropdownOption(key=value, text=text) for value, text in field.choices],
+            width=280,
+        )
+    return ft.TextField(
+        label=field.label,
+        value=field.default,
+        width=280,
+        dense=True,
+        on_focus=on_focus,
+        on_submit=on_submit,
+        on_change=on_change,
+    )
+
+
 def wizard_dialog(
     page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
 ) -> ft.AlertDialog:
@@ -653,26 +678,26 @@ def wizard_dialog(
 
         return focus
 
+    copies = dict(wizard.copies)  # PpY sets CpY in the Finance Solver
+
+    def copier(name: str) -> Callable[[ft.Event[ft.TextField]], None] | None:
+        target = copies.get(name)
+        if target is None:
+            return None
+
+        def copy(event: ft.Event[ft.TextField]) -> None:
+            boxes[target].value = event.control.value
+            boxes[target].update()
+
+        return copy
+
     def on_submit(name: str) -> Callable[[ft.Event[ft.TextField]], None]:
         return lambda _: calculate(name) if live is not None else ok()
 
     for field in wizard.fields:
-        if field.choices:
-            boxes[field.name] = ft.Dropdown(
-                label=field.label,
-                value=field.default,
-                options=[ft.DropdownOption(key=value, text=text) for value, text in field.choices],
-                width=280,
-            )
-        else:
-            boxes[field.name] = ft.TextField(
-                label=field.label,
-                value=field.default,
-                width=280,
-                dense=True,
-                on_focus=on_focus(field.name),
-                on_submit=on_submit(field.name),
-            )
+        boxes[field.name] = field_box(
+            field, on_focus(field.name), on_submit(field.name), copier(field.name)
+        )
     problems = ft.Text("", color="#ff8a80", size=12)
 
     def values() -> dict[str, str]:

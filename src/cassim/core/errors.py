@@ -27,6 +27,7 @@ SINGULAR = -6
 VARIABLE_NAME_NEEDED = -7
 USE_DERIVATIVE_AT_POINT = -8
 NO_SOLUTION = -9
+NON_REAL = 800  # TI's number for a non-real result in Real mode
 
 _MESSAGES = {
     SYNTAX: "Syntax error",
@@ -49,6 +50,7 @@ _MESSAGES = {
     VARIABLE_NAME_NEEDED: "Argument must be a variable name",
     USE_DERIVATIVE_AT_POINT: "Use Derivative at a Point",
     NO_SOLUTION: "No solution found",
+    NON_REAL: "Non-real result",
 }
 
 

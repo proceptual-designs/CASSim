@@ -52,21 +52,22 @@ HANDHELD: Keymap = {
     "return": Binding("select"),  # ⏎ does nothing on a Calculator page (results M3)
     "ctrl+enter": Binding("approximate"),
     "plus": Binding("insert", "+"),
-    "shift+plus": Binding("insert", "∫("),
+    "shift+plus": Binding("template", "integral"),
     "minus": Binding("insert", "-"),
-    "shift+minus": Binding("insert", "derivative("),
+    "shift+minus": Binding("template", "derivative"),
     "times": Binding("insert", "*"),
     "ctrl+times": Binding("insert_linear", f'"{MARK}"'),  # a pair of quotes
     "div": Binding("insert", "/"),
     "ctrl+div": Binding("template", "fraction"),
     "shift+div": Binding("insert", "\\"),
     "pow": Binding("insert", "^"),
+    "ctrl+pow": Binding("template", "nth_root"),
     "square": Binding("power", "2"),
     "ctrl+square": Binding("template", "root"),
     "exp": Binding("insert", "ⅇ^"),
     "ctrl+exp": Binding("insert", "ln("),
     "10x": Binding("insert", "10^"),
-    "ctrl+10x": Binding("insert", "log("),
+    "ctrl+10x": Binding("template", "log"),  # log with a base slot first
     "ctrl+(": Binding("insert_linear", f"[{MARK}]"),  # a bracket pair, cursor inside
     "ctrl+)": Binding("insert_linear", f"{{{MARK}}}"),
     "neg": Binding("insert", "-"),
@@ -196,7 +197,7 @@ _MAIN: Keypad = (
         _fn("catalog", "cat", ctrl="∞β°"),
     ),
     (
-        _fn("pow", "^"),
+        _fn("pow", "^", ctrl="ⁿ√"),
         _fn("square", "x²", ctrl="√"),
         _digit("4"),
         _digit("5"),

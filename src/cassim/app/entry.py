@@ -20,6 +20,8 @@ import flet as ft
 from cassim.app.theme import Theme
 from cassim.device.editor import Editor, Kind, Row, Template, function_names
 
+_SMALL = 0.6  # limits, indices and bounds are set smaller, as in TeX
+
 Path = Sequence[tuple[int, int]]
 type Click = Callable[[Path, int], None]  # a click at (row path, position in that row)
 type Chrome = Callable[[ft.Control], ft.Control]
@@ -167,6 +169,9 @@ class EntryLine:
     # ---- templates --------------------------------------------------------------------------
 
     def _template(self, node: Template, here: list[tuple[int, int]], index: int) -> ft.Control:
+        if node.kind in _DRAWN:
+            body = _DRAWN[node.kind](_Parts(self, node, here, index))
+            return ft.Stack([self._halves(here, index), body])
         size = self.size
         if node.kind is Kind.POWER:
             self.size = size * 0.7  # an exponent is set smaller
@@ -285,3 +290,174 @@ class EntryLine:
             intrinsic_height=True,
             vertical_alignment=ft.CrossAxisAlignment.STRETCH,
         )
+
+
+class _Parts:
+    """What a template drawing is made of: its slots at a size, and drawn signs that click to the
+    template as a whole (beside it, as for a fraction bar)."""
+
+    def __init__(
+        self, line: EntryLine, node: Template, here: list[tuple[int, int]], index: int
+    ) -> None:
+        self.line, self.node, self.here, self.index = line, node, here, index
+
+    @property
+    def size(self) -> float:
+        return self.line.size
+
+    def slot(self, number: int, scale: float = 1.0, *, center: bool = False) -> ft.Control:
+        line = self.line
+        size = line.size
+        line.size = size * scale
+        try:
+            return line._row(
+                self.node.slots[number], [*self.here, (self.index, number)], center=center
+            )
+        finally:
+            line.size = size
+
+    def sign(self, text: str, scale: float = 1.0) -> ft.Control:
+        line = self.line
+        drawn = ft.Text(
+            text,
+            size=line.size * scale,
+            color=line.theme.screen_text,
+            font_family=_MAIN_FONT,
+            no_wrap=True,
+        )
+        return ft.Stack([drawn, line._halves(self.here, self.index)])
+
+    def bar(self, *, across: bool) -> ft.Control:
+        """A fraction-style rule (`across`) or an absolute-value bar."""
+        colour = self.line.theme.screen_text
+        rule = (
+            ft.Container(
+                ft.Container(height=1.5, bgcolor=colour), padding=ft.Padding.symmetric(vertical=2)
+            )
+            if across
+            else ft.Container(width=1.5, bgcolor=colour, margin=ft.Margin.symmetric(horizontal=2))
+        )
+        return ft.Stack([rule, self.line._halves(self.here, self.index)])
+
+    def gap(self, height: float) -> ft.Control:
+        return ft.Container(height=self.size * height)
+
+
+def _row(*parts: ft.Control, stretch: bool = False) -> ft.Control:
+    return ft.Row(
+        list(parts),
+        spacing=0,
+        tight=True,
+        intrinsic_height=stretch,
+        vertical_alignment=ft.CrossAxisAlignment.STRETCH
+        if stretch
+        else ft.CrossAxisAlignment.CENTER,
+    )
+
+
+def _column(*parts: ft.Control) -> ft.Control:
+    return ft.Column(
+        list(parts),
+        spacing=0,
+        tight=True,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+
+def _nth_root(p: _Parts) -> ft.Control:
+    index = _column(p.slot(0, _SMALL), p.gap(0.55))
+    radicand = p.line._root(p.slot(1), lambda piece: piece)
+    return _row(index, radicand)
+
+
+def _log(p: _Parts) -> ft.Control:
+    base = _column(p.gap(0.55), p.slot(0, _SMALL))
+    return _row(p.sign("log"), base, p.sign("("), p.slot(1), p.sign(")"))
+
+
+def _abs(p: _Parts) -> ft.Control:
+    return _row(p.bar(across=False), p.slot(0), p.bar(across=False), stretch=True)
+
+
+def _grid(p: _Parts, joint: str) -> ft.Control:
+    cols = p.node.cols
+    rows = len(p.node.slots) // cols
+    lines = []
+    for r in range(rows):
+        cells: list[ft.Control] = []
+        for c in range(cols):
+            if c:
+                cells.append(p.sign(joint))
+            cells.append(p.slot(r * cols + c))
+        lines.append(_row(*cells))
+    body = ft.Column(lines, spacing=2, tight=True)
+    return _row(p.sign("{", 1.1 * rows), body)
+
+
+def _derivative(p: _Parts, *, second: bool) -> ft.Control:
+    power = "²" if second else ""
+    top = p.sign("d" + power, 0.8)
+    bottom = _row(p.sign("d", 0.8), p.slot(0, 0.8), *([p.sign("²", 0.6)] if second else []))
+    fraction = ft.Column(
+        [top, p.bar(across=True), bottom],
+        spacing=0,
+        tight=True,
+        intrinsic_width=True,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    return _row(fraction, p.sign("("), p.slot(1), p.sign(")"))
+
+
+def _nth_derivative(p: _Parts) -> ft.Control:
+    top = _row(p.sign("d", 0.8), _column(p.slot(0, _SMALL), p.gap(0.4)))
+    fraction = ft.Column(
+        [top, p.bar(across=True), _row(p.sign("d", 0.8), p.slot(1, 0.8))],
+        spacing=0,
+        tight=True,
+        intrinsic_width=True,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    return _row(fraction, p.sign("("), p.slot(2), p.sign(")"))
+
+
+def _dms(p: _Parts) -> ft.Control:
+    return _row(p.slot(0), p.sign("°"), p.slot(1), p.sign("'"), p.slot(2), p.sign('"'))
+
+
+def _integral(p: _Parts) -> ft.Control:
+    sign = _column(p.slot(1, _SMALL), p.sign("∫", 1.5), p.slot(0, _SMALL))
+    return _row(sign, p.slot(2), p.sign(" d"), p.slot(3))
+
+
+def _antiderivative(p: _Parts) -> ft.Control:
+    return _row(p.sign("∫", 1.5), p.slot(0), p.sign(" d"), p.slot(1))
+
+
+def _big_operator(p: _Parts, symbol: str) -> ft.Control:
+    below = _row(p.slot(0, _SMALL), p.sign("=", _SMALL), p.slot(1, _SMALL))
+    return _row(_column(p.slot(2, _SMALL), p.sign(symbol, 1.4), below), p.slot(3))
+
+
+def _limit(p: _Parts) -> ft.Control:
+    direction = _column(p.slot(2, 0.45), p.gap(0.3))  # a small + or − after the point
+    below = _row(p.slot(0, _SMALL), p.sign("→", _SMALL), p.slot(1, _SMALL), direction)
+    return _row(_column(p.sign("lim"), below), p.sign(" "), p.slot(3))
+
+
+# How each function-like template is drawn (the older kinds are drawn by `EntryLine` itself).
+_DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
+    Kind.NTH_ROOT: _nth_root,
+    Kind.LOG: _log,
+    Kind.ABS: _abs,
+    Kind.PIECEWISE: lambda p: _grid(p, ", "),
+    Kind.SYSTEM: lambda p: _grid(p, ""),
+    Kind.DERIVATIVE: lambda p: _derivative(p, second=False),
+    Kind.DERIVATIVE2: lambda p: _derivative(p, second=True),
+    Kind.DERIVATIVE_N: _nth_derivative,
+    Kind.DMS: _dms,
+    Kind.INTEGRAL: _integral,
+    Kind.ANTIDERIVATIVE: _antiderivative,
+    Kind.SUM: lambda p: _big_operator(p, "Σ"),
+    Kind.PRODUCT: lambda p: _big_operator(p, "Π"),
+    Kind.LIMIT: _limit,
+}

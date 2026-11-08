@@ -44,8 +44,9 @@ class Field:
 class Wizard:
     """A dialog that pastes `text` (a `str.format` pattern over the field names) or, if `build`
     is given, what it returns; a `CURSOR` in it is where the cursor is left. `template` pastes a
-    2D template instead (`matrix:{rows},{cols}`). `run` presses Enter afterwards, as the
-    handheld does for the distribution dialogs.
+    2D template instead (`matrix:{rows},{cols}`); `steps` replays key actions, for a template
+    with text round it. `run` presses Enter afterwards, as the handheld does for the
+    distribution dialogs.
 
     A *live* dialog (Finance Solver) also has `calculate(values, field)`, which returns the values
     with `field` worked out from the others (or raises `ValueError` with a message for the user).
@@ -58,7 +59,9 @@ class Wizard:
     template: str = ""
     run: bool = False
     build: Callable[[Mapping[str, str]], str] | None = None
+    steps: Callable[[Mapping[str, str]], list[Binding]] | None = None  # key actions to replay
     calculate: Callable[[Mapping[str, str], str], dict[str, str]] | None = None
+    copies: tuple[tuple[str, str], ...] = ()  # (source, target): typing in source sets target
 
     def defaults(self) -> dict[str, str]:
         return {field.name: field.default for field in self.fields}
@@ -73,6 +76,8 @@ class Wizard:
         filled.update((name, value.strip()) for name, value in values.items())
         if self.template:
             return [Binding("template", self.template.format_map(filled))]
+        if self.steps is not None:
+            return [*self.steps(filled), *([Binding("enter")] if self.run else [])]
         text = self.build(filled) if self.build is not None else self.text.format_map(filled)
         if not text:
             return []  # nothing to paste (a live dialog closed before any calculation)
