@@ -23,7 +23,7 @@ def test_privacy_and_licence_statements() -> None:
 def test_notices_cover_the_shipped_third_party_parts() -> None:
     """NFR-LEG-003: Flet, Pyodide, SymPy, SciPy and the vendored font are named with a licence."""
     names = {notice.name for notice in about.NOTICES}
-    assert {"Flet", "Pyodide", "SymPy", "SciPy", "Noto Sans Symbols 2"} <= names
+    assert {"Flet", "Pyodide", "SymPy", "SciPy", "Noto Sans, Math, Symbols 2 and SC"} <= names
     assert all(notice.licence for notice in about.NOTICES)
 
 

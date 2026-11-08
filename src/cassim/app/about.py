@@ -40,7 +40,7 @@ NOTICES = (
     Notice("SymPy", "BSD-3-Clause", "computer algebra"),
     Notice("SciPy", "BSD-3-Clause", "numerical methods"),
     Notice("NumPy", "BSD-3-Clause", "numerical arrays"),
-    Notice("Noto Sans Symbols 2", "SIL OFL 1.1", "arrow and shape glyphs"),
+    Notice("Noto Sans, Math, Symbols 2 and SC", "SIL OFL 1.1", "glyphs the browser lacks"),
 )
 
 

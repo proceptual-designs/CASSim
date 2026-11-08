@@ -274,22 +274,15 @@ def vendor_pypi_wheels(dist: Path) -> None:
     lock_path.write_text(json.dumps(lock), encoding="utf-8")
 
 
-# Fonts Flutter fetches for glyphs the bundled ones lack, found by the offline e2e test (it fails on
-# any other 404). They are served from `assets/fonts/` + the path Google's server uses.
-FALLBACK_FONTS = [
-    "notosanssymbols2/v24/I_uyMoGduATTei9eI8daxVHDyfisHr71-vrgfE71.woff2",
-    "notosansmath/v15/7Aump_cpkSecTWaHRlH2hyV5UHkD-V048PW0.woff2",
-    "notosanssc/v37/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_FnYkldv7JjxkkgFsFSSOPMOkySAZ73y9ViAt3acb8NexQ2w.119.woff2",
-]
+# Fonts Flutter fetches for glyphs the bundled ones lack. They are committed under
+# `tools/fallback_fonts/`, in the path Google's server uses, so a build needs no network for them.
+# The offline e2e test fails on any other 404: if it names a new font, download it from
+# https://fonts.gstatic.com/s/<path> into that folder. All are Noto fonts, SIL OFL 1.1.
+FALLBACK_FONTS = ROOT / "tools" / "fallback_fonts"
 
 
 def vendor_fallback_fonts(dist: Path) -> None:
-    for path in FALLBACK_FONTS:
-        target = dist / "assets" / "fonts" / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.exists():
-            url = "https://fonts.gstatic.com/s/" + path
-            target.write_bytes(urllib.request.urlopen(url).read())
+    shutil.copytree(FALLBACK_FONTS, dist / "assets" / "fonts", dirs_exist_ok=True)
 
 
 def write_engine_zip(dist: Path) -> None:

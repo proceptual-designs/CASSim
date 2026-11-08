@@ -252,9 +252,13 @@ def interactive(session: Session, *, ascii_output: bool = False) -> int:
             print(output.text)
 
 
-def new_session(course: str | None, assignments: Iterable[str]) -> Session:
+def build_settings(course: str | None, assignments: Iterable[str]) -> Settings:
     base = PRESETS[course] if course else Settings()
-    return Session(parse_settings(base, assignments))
+    return parse_settings(base, assignments)
+
+
+def new_session(course: str | None, assignments: Iterable[str]) -> Session:
+    return Session(build_settings(course, assignments))
 
 
 def read_script(path: str) -> list[str]:
@@ -266,7 +270,17 @@ def read_script(path: str) -> list[str]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cassim",
-        description="A simulation of the TI-Nspire CX CAS. With no arguments, starts a REPL.",
+        description=(
+            "A simulation of the TI-Nspire CX CAS. Starts the graphical app; with --text, -c, "
+            "--ascii or run, the text interface."
+        ),
+    )
+    parser.add_argument("--text", action="store_true", help="start the text REPL, not the app")
+    parser.add_argument(
+        "--web", action="store_true", help="open the graphical app in the browser, not a window"
+    )
+    parser.add_argument(
+        "--view", choices=("handheld", "computer"), help="the app's view (default: as last used)"
     )
     parser.add_argument("--course", choices=sorted(PRESETS), help="start from a course preset")
     parser.add_argument(
@@ -294,12 +308,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Entry point of the `cassim` command. Returns the exit status."""
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8")
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
+    text = args.text or args.ascii or args.expression is not None or args.command == "run"
+    if text and (args.web or args.view):
+        parser.error("--web and --view are for the graphical app, not the text interface")
     try:
-        session = new_session(args.course, args.set)
+        settings = build_settings(args.course, args.set)
     except ValueError as error:
         print(f"cassim: {error}", file=sys.stderr)
         return 2
+    if not text:
+        from cassim.app.main import run  # noqa: PLC0415  (Flet is loaded only for the app)
+        from cassim.app.state import Mode  # noqa: PLC0415
+
+        view = Mode(args.view) if args.view else None
+        # --course and --set change the settings; with neither, the app keeps its own
+        run(web=args.web, view=view, settings=settings if args.course or args.set else None)
+        return 0
+    session = Session(settings)
     if args.command == "run":
         try:
             lines = read_script(args.file)

@@ -379,6 +379,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - NFR-PORT-001 (M) **Primary** test targets: Chromebooks (ChromeOS), Chrome, Safari (macOS, iOS, iPadOS). Every release is tested on these. **Secondary** (best effort, smoke-tested): Edge, Firefox.
 - NFR-PORT-002 (M) Touch, mouse and hardware keyboard.
 - NFR-PORT-003 (S) Handheld mode usable at 360 px wide and in both orientations.
+- NFR-PORT-004 (W) Native builds of the same app with `flet build`: Windows, macOS and Linux desktop, and Android (APK, AAB) and iOS. The static web site is the only release target until M6 is done; see PLAN.md section 13 for what each build needs.
 
 ### 5.6 Maintainability and quality
 - NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.

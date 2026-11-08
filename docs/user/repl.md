@@ -9,8 +9,10 @@ You do not need to know Python to use it.
 Open a terminal in the CASSim folder (`C:\dev\CASSim`) and run:
 
 ```powershell
-uv run cassim
+uv run cassim --text
 ```
+
+`uv run cassim` on its own opens the graphical app instead. `--text`, `-c`, `--ascii` and `run` start the text interface. `--course` and `--set` work in both: in the app they set the Document Settings, and `--view handheld` or `--view computer` picks the app's view.
 
 You will see a short banner and a `cassim>` prompt. Type entries as you would on the handheld. Type `:quit` to leave (Ctrl-D also works; in a plain console without completion it is Ctrl-Z then Enter).
 
@@ -27,8 +29,8 @@ Other ways to start it:
 
 | Command | What it does |
 |---|---|
-| `uv run cassim --course methods` | Start with the settings of a course: `general` (Degree, Approximate), `methods` (Radian, Auto), `specialist` (Radian, Auto, Rectangular) or `none` (the defaults). |
-| `uv run cassim --set angle=degree` | Change a setting at the start. Repeat `--set` for more. |
+| `uv run cassim --text --course methods` | Start with the settings of a course: `general` (Degree, Approximate), `methods` (Radian, Auto), `specialist` (Radian, Auto, Rectangular) or `none` (the defaults). |
+| `uv run cassim --text --set angle=degree` | Change a setting at the start. Repeat `--set` for more. |
 | `uv run cassim -c "solve(x^2=2,x)"` | Work out one entry, print the result and exit. |
 | `uv run cassim run lesson.tib` | Run the entries in a file (see [Scripts](#scripts)). |
 | `uv run cassim --ascii` | Print results in plain keyboard spelling (see [Spellings](#typing-the-special-symbols)). |

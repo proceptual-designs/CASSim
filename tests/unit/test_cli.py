@@ -232,7 +232,7 @@ def test_main_runs_a_script_from_standard_input(monkeypatch, capsys):
 
 def test_the_repl_reads_entries_until_the_end_of_input(monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", io.StringIO("a:=2\na^10\n:set angle=degree\nsin(30)\n"))
-    assert main([]) == 0
+    assert main(["--text"]) == 0
     shown = capsys.readouterr().out.splitlines()
     assert shown[:2] == ["2", "1024"]
     assert shown[-1] == "1/2"
@@ -240,7 +240,7 @@ def test_the_repl_reads_entries_until_the_end_of_input(monkeypatch, capsys):
 
 def test_the_repl_stops_at_quit(monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", io.StringIO("1\n:quit\n2\n"))
-    assert main([]) == 0
+    assert main(["--text"]) == 0
     assert capsys.readouterr().out.splitlines() == ["1"]
 
 
@@ -333,3 +333,39 @@ def test_prompt_keys_put_approx_in_front_of_the_entry():
             pipe.send_text(keys)
             reader = make_reader(session, input=pipe, output=DummyOutput())
             assert reader.prompt("") == expected
+
+
+def test_the_app_is_the_default_and_takes_view_and_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`cassim` opens the app; --web, --view, --course and --set go to it; --text is the REPL."""
+    import cassim.app.main as app  # noqa: PLC0415
+    from cassim.app.state import Mode  # noqa: PLC0415
+
+    started: list[tuple[bool, Mode | None, Settings | None]] = []
+    monkeypatch.setattr(
+        app,
+        "run",
+        lambda *, web=False, view=None, settings=None: started.append((web, view, settings)),
+    )
+    monkeypatch.setattr(repl, "interactive", lambda session, ascii_output: 0)
+    assert main([]) == 0
+    assert main(["--web"]) == 0
+    assert main(["--view", "handheld", "--course", "methods"]) == 0
+    assert main(["--set", "angle=degree"]) == 0
+    assert started == [
+        (False, None, None),
+        (True, None, None),
+        (False, Mode.HANDHELD, PRESETS["methods"]),
+        (False, None, Settings(angle=Angle.DEGREE)),
+    ]
+    assert main(["--text"]) == 0
+    assert main(["--text", "--course", "methods"]) == 0
+    assert len(started) == 4
+
+
+def test_app_options_are_refused_with_the_text_interface() -> None:
+    with pytest.raises(SystemExit):
+        main(["--text", "--web"])
+    with pytest.raises(SystemExit):
+        main(["-c", "1", "--view", "handheld"])

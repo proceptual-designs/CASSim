@@ -41,7 +41,7 @@ from cassim.app.ui import (
     wizard_dialog,
 )
 from cassim.core.session import Session
-from cassim.core.settings import next_choice
+from cassim.core.settings import Settings, next_choice
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
 from cassim.device.engine import LocalEngine
@@ -109,7 +109,9 @@ class App:
         page.services.append(self.prefs)
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
 
-    async def start(self) -> None:
+    async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
+        """Open the app. `view` and `settings` (from the command line) override the saved view and
+        the settings of the recovered document."""
         page = self.page
         page.title = "CASSim"
         page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
@@ -139,6 +141,11 @@ class App:
         finally:
             self.starting = False
             self.status.value = ""
+        if view is not None:
+            self.state.mode = view
+            self.arrange()
+        if settings is not None:
+            self.state.document.use(settings)
         self.refresh()
         self.offer_shared(self.page.route)
         print("CASSIM: READY", flush=True)
@@ -615,11 +622,26 @@ def make_runner() -> Runner | None:
     return None
 
 
-async def main(page: ft.Page) -> None:
+async def main(page: ft.Page, view: Mode | None = None, settings: Settings | None = None) -> None:
     runner = make_runner()
     state = AppState(sessions=Session if runner is None else runner.new_session)
-    await App(page, state, runner).start()
+    await App(page, state, runner).start(view, settings)
+
+
+def run(*, web: bool = False, view: Mode | None = None, settings: Settings | None = None) -> None:
+    """Start the app in its own window, or in the default browser with `web` (`cassim --web`).
+    `view` and `settings` come from `--view`, `--course` and `--set`."""
+
+    async def start(page: ft.Page) -> None:
+        await main(page, view, settings)
+
+    ft.run(
+        start,
+        view=ft.AppView.WEB_BROWSER if web else ft.AppView.FLET_APP,
+        route_url_strategy=ft.RouteUrlStrategy.HASH,
+        assets_dir=str(ASSETS),
+    )
 
 
 if __name__ == "__main__":
-    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH, assets_dir=str(ASSETS))
+    run()

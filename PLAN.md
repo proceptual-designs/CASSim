@@ -332,3 +332,14 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 | A5 | Extend `tests/test_architecture.py` with new dependency rules as packages gain code (for example `sheet`, `graph`, `stats` must not import `device` or `app`). | Whenever a placeholder package gets its first module. | Also remove its `[placeholder]` tag in section 3. |
 
 **Keeping the map in sync.** `tests/test_architecture.py` fails if a package under `src/cassim/` is missing from the map in section 3, or still tagged `[placeholder]` after it has code. CLAUDE.md tells Claude to update the map in the same commit as any package move. Review the table above when a trigger is met and delete the row when done.
+
+## 13. Future: native builds (Would, NFR-PORT-004)
+
+Only the static web site is built and tested today (`python -m tools.publish`, output `build/web`). `flet build` can also make `windows`, `macos`, `linux`, `apk`, `aab`, `ipa` and `ios-simulator` packages from the same code. None has been tried. What each needs, so the work can be picked up later:
+
+1. **Project setup.** A `[tool.flet]` section in `pyproject.toml` and a thin `src/main.py` that calls `cassim.app.main.run`; today only `tools/publish.py` stages a web entry point. Run `flet build` with `PYTHONUTF8=1` on Windows (decision 0018).
+2. **Cancel.** `make_runner()` uses the worker engine only in the browser; native builds run the engine in-process, where `LocalEngine.cancel()` returns False. Cancel within 1 s (SRS) needs the engine in a subprocess or isolate.
+3. **Dependencies.** The core needs only SymPy and PyYAML (pure Python). SciPy and NumPy (the `stats` extra) may have no wheels for Android or iOS: check Flet's package index before M4 and M6 rely on them.
+4. **Browser-only code.** The service worker, install prompt, share-link base URL and the engine worker assume a browser. File open and save, storage and the clipboard need a native check.
+5. **Toolchains.** Flutter (the Flet CLI installs it). Windows needs Visual Studio with the C++ workload; Android needs the Android SDK and a JDK; macOS and iOS need a Mac with Xcode, and an Apple developer account beyond the simulator; Linux needs Linux. CI would need a runner per platform.
+6. **Release.** Signing, store listings and updates are out of scope until a target is chosen.
