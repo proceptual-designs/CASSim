@@ -5,6 +5,7 @@ import json
 import pytest
 
 from cassim.core.settings import Angle
+from cassim.device import runner, serialize
 from cassim.device.document import Document, PageKind
 from cassim.device.keys import Binding
 from cassim.device.serialize import SCHEMA, DocumentFileError, dumps, loads, migrate, to_dict
@@ -100,3 +101,10 @@ def test_a_newer_schema_says_so() -> None:
 
 def test_loading_does_not_leave_undo_history() -> None:
     assert not loads(dumps(sample())).undo()
+
+
+def test_replay_steps_is_the_public_replay_interface() -> None:
+    """Both loaders (`from_dict` here, `Runner.load` for a worker) drive `replay_steps`."""
+    assert callable(serialize.replay_steps)
+    assert not hasattr(serialize, "_steps")
+    assert runner.replay_steps is serialize.replay_steps
