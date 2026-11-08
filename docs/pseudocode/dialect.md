@@ -45,7 +45,7 @@ Every spelling in this section and in section 4 is the default of the user's syn
 - **Implicit multiplication**: `2a`, `2t`, `2e^x`, `(a+b)(c+d)`. A name followed by `(` is a call if it is a defined function or a function parameter, otherwise it is a product.
 - **Comparison**: `=` (equality in an expression; `==` also accepted), `≠ <> !=`, `< >`, `≤ <= ⩽`, `≥ >= ⩾`. **Chained comparisons** are allowed with Python meaning: `-0.01 < cos(x) - x < 0.01`.
 - **Logic**: `and or not`, and `∧ ∨ ¬` (Specialist).
-- **Absolute value** bars `|R - L|`; **grouping** with `( )` only (decided 2026-11-06); `[ ]` always makes a list, so `[x]` is a one-item list.
+- **Absolute value** bars `|R - L|`; **grouping** with `( )` and, because exam text uses it, `[ ]`.
 - **Numbers**: `12`, `0.5`, `.5`, and scientific notation as `1E-3` or `1ᴇ-3` only (lowercase `e` is never an exponent marker, so `2e3` is `2 × e3`).
 - **Strings**: double quotes, straight or curly. Concatenation with `+`.
 - **Constants and functions**: section 7.
@@ -117,7 +117,7 @@ bisection(2x-3, 0, 2, 0.1)
 
 ## 7 Built-ins and constants
 
-Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default on; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
+Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default off; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
 
 ## 8 Numbers and settings
 
@@ -130,12 +130,12 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 | Display precision (… menu) | default **6 significant digits** (Mathematica style); also Fix n and Full | Reals print to the chosen precision, trailing zeros dropped (`1.2000000000000002` shows as `1.2`, `1/3` as `0.333333`). Integers and rationals always print exactly. The stored value never changes. Applies to output and to trace cells. | none: Python prints its own repr |
 | Domain (… menu, Could) | Real / Complex | Real: `sqrt(-4)` is an error; Complex: gives `2ⅈ` | complex-aware functions (`cmath`) |
 | Gradian, random seed (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
-| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default on) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
-| Run limits (… menu, Should; FR-SET-009) | max passes of any one loop run (default 1,000), max recorded trace steps (default 20,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
+| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default off) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
+| Run limits (… menu, Should; FR-SET-009) | max loop iterations (default 10,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
 
-Exact values (Q41, revised 2026-11-07; FR-PSE-012, Should): today `sqrt(2)`, `π` and similar are reals in every mode, because only Approx is built. Planned: the Number mode control behaves as on the CAS. Exact keeps `π`, `ⅇ`, surds and fractions unevaluated (`√2`, `π/6`, `7/2`); Auto stays exact until a decimal enters; Approx is numeric. Loop and `if` tests compare numerically.
+Exact values (Q41, decided 2026-11-04): in the first release `sqrt(2)`, `π` and similar are reals in every mode. Exact surd and index forms through the CAS engine, in Auto and Exact modes on CAS pages, are a Could (FR-PSE-012).
 
 ## 9 Diagnostics
 
@@ -207,7 +207,12 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 
 ## 14. Decisions of 2026-11-07 (second batch: the author's own code examples)
 
-- **Expression arguments.** The pseudocode for the expression-argument cases (`define riemannRight(f(x), x, a, b, n)` called as `riemannRight(x^2-x, x, 1, 5, 4)`) stays as written. The reference Python stays on SymPy (`Symbol`, `.subs`) for now. Idea to revisit: the Python Code view could emit different Python by mode, SymPy-based in Exact mode (exact rationals, symbolic results) and a plain `lambda` / floats in Approx mode.
+- **Expression arguments.** The pseudocode for the expression-argument cases (`define riemann_right(f(x), x, a, b, n)` called as `riemann_right(x^2-x, x, 1, 5, 4)`) stays as written. The reference Python stays on SymPy (`Symbol`, `.subs`) for now. Idea to revisit: the Python Code view could emit different Python by mode, SymPy-based in Exact mode (exact rationals, symbolic results) and a plain `lambda` / floats in Approx mode.
 - **No string manipulation in the first version.** Examples that iterate over strings, concatenate, index a string or need `ord`/`chr` (Caesar cipher, disemvowel, palindrome) are not in the corpus. Printing string literals (`print "steps", n`) is unchanged.
 - **Lists are values, not passed by reference.** A function receives its own copy of a list argument; changing it inside the function does not change the caller's list. A function that sorts or updates a list RETURNS the new list, and the caller assigns it (`a ← quicksort(a)`). The in-place quicksort is therefore out; the not-in-place `quicksort` that returns a list stays. Recursive algorithms are included only in this return-the-list form.
 - **Booleans.** `true` / `false` are values, and the syntax accepts any case (`true`, `TRUE`, `True`). A printed boolean is UPPERCASE, `TRUE` / `FALSE`, so test output is the same everywhere.
+- **Python indexing.** The Python the student sees is idiomatic and zero-based; it does not contain `a[i-1]` shifts. Where a loop variable is used only as an index, the loop is rebased (`for i in range(n)`); where a position is also a value (printed or returned), it is made with `enumerate(a, start=1)` or `+ 1` at the point of output; some programs use a different, equally idiomatic structure (a sieve with N + 1 flags, a dictionary tally). The expected output is the same as the pseudocode's (positions count from 1 there), so each case's Python and pseudocode are compared by output. The translator (M7) is not required to reproduce this text mechanically; its golden tests compare output. When the index-base setting is 0 the pseudocode and the Python index identically.
+- **Printing a list.** `print a` shows the list as Python does: `[2, 3, 5, 7]`. Strings inside a printed list are in single quotes (`['F', 'F']`) and booleans are uppercase (`[TRUE, FALSE]`), as for a single printed boolean. A sentence can mix text and a list in one `print` (`print "Max value is", m, "and occurs at position(s)", positions`); the brackets stay, a version without them would need a `join` function. To be confirmed.
+- **String literals in lists.** A list of one-letter string literals indexed by a number (`chars[d + 1]`) is allowed, because it needs no string handling; it is how the base-conversion case shows the hexadecimal digits A to F.
+- **Cases removed at the second review (2026-11-07):** the fraction add/simplify, Euclid's prime sequence and the simple (not in-place) quicksort were dropped; the max-position part of the four-means case was removed.
+- **Naming (PEP 8).** Variables and functions in the Python follow PEP 8: `lowercase_with_underscores` (`riemann_right`, `old_base`, `max_idx`), and the pseudocode examples use the same names so that the two read alike. Constants that are never reassigned may be UPPER_CASE (`N`), and single capital letters stay for matrices (`A`, `B`, `C`); other single capitals are not used inside functions (`lo`, `hi`, `mid`, not `L`, `R`, `M`). Names that have to match a source are exempt: text quoted from the author's book or from VCAA papers keeps its original spelling (including the slips listed in section 12), and `seed.yaml`'s existing cases are unchanged. The parser stays case-sensitive for user names and accepts any spelling; this is a convention for the corpus (and for the Python the translator writes), not a restriction on what students may type.

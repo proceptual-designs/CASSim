@@ -643,11 +643,12 @@ class Parser:
             if tok.kind == "OP" and tok.text in ("*", "/", "÷", "%"):
                 self.take()
                 op = "mod" if tok.text == "%" else tok.text
-                left = Binary(op, left, self.parse_unary(), tok.line)
+                right = self.parse_tight_operand() if op == "mod" else self.parse_unary()
+                left = Binary(op, left, right, tok.line)
             elif tok.kind == "NAME" and self.kw(tok.text) in ("div", "mod"):
                 self.take()
                 self.note(self.syn.word_mode(tok.text), tok.line, f"'{tok.text}'")
-                left = Binary(tok.text.lower(), left, self.parse_unary(), tok.line)
+                left = Binary(tok.text.lower(), left, self.parse_tight_operand(), tok.line)
             elif self._starts_factor() and not isinstance(left, Str):
                 if isinstance(left, Num) and tok.kind == "NUMBER":
                     break
@@ -655,6 +656,24 @@ class Parser:
             else:
                 break
         return left
+
+    def parse_tight_operand(self) -> Expr:
+        """The right side of `mod` and `div`: `angle mod 2π` takes the whole of `2π`.
+
+        Factors written hard against each other (no space) are one product; with a space the
+        usual left-to-right reading applies, so `a mod 2 π` is (a mod 2) × π.
+        """
+        operand = self.parse_unary()
+        while (
+            self.i > 0
+            and (tok := self.peek()) is not None
+            and tok.col == self.t[self.i - 1].end
+            and self._starts_factor()
+            and not (isinstance(operand, Num) and tok.kind == "NUMBER")
+            and not isinstance(operand, Str)
+        ):
+            operand = Binary("*", operand, self.parse_unary(), tok.line, implicit=True)
+        return operand
 
     def parse_unary(self) -> Expr:
         tok = self.peek()

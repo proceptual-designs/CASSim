@@ -220,11 +220,14 @@ def format_float(x: float, display: int | str) -> str:
 def format_value(v: object, settings: Settings, *, minus: str = "-") -> str:
     """`v` as text. `minus` is the sign written on numbers (text is never altered)."""
     if isinstance(v, bool):
-        return "true" if v else "false"
+        return "TRUE" if v else "FALSE"
     if isinstance(v, str):
         return v
-    if isinstance(v, list):
-        return "[" + ", ".join(format_value(x, settings, minus=minus) for x in v) + "]"
+    if isinstance(v, list):  # as Python shows a list: strings in single quotes
+        items = (
+            f"'{x}'" if isinstance(x, str) else format_value(x, settings, minus=minus) for x in v
+        )
+        return "[" + ", ".join(items) + "]"
     if isinstance(v, int):
         text = str(v)
     elif isinstance(v, Fraction):

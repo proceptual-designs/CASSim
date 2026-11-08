@@ -5,11 +5,10 @@ in that file's style and parsing it again gives the same tree; every golden prog
 restyling under every built-in preset.
 """
 
-from pathlib import Path
 from typing import Any
 
+import pseudo_cases
 import pytest
-import yaml
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -55,8 +54,8 @@ from cassim.runtime.pseudocode.tree import (
     While,
 )
 
-SEED = Path(__file__).parents[2] / "corpus" / "pseudocode" / "seed.yaml"
-CASES: list[dict[str, Any]] = yaml.safe_load(SEED.read_text(encoding="utf-8"))["cases"]
+# The tuple case does not parse yet (FR-PSE-008, Could); the printer cannot be tested on it.
+CASES = [c for c in pseudo_cases.CASES if c["id"] not in pseudo_cases.NOT_YET]
 CASE_IDS = [c["id"] for c in CASES]
 PRESET_NAMES = list(PRESETS)
 

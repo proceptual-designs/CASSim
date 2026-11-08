@@ -284,7 +284,10 @@ class Printer:
         if op in ("/", "÷"):
             return f"{left} {self.divide()} {self.sub(e.right, _UNARY)}"
         if op in ("mod", "div"):
-            return f"{left} {self.word(op)} {self.sub(e.right, _UNARY)}"
+            right = self.expr(e.right)
+            if not (isinstance(e.right, Binary) and e.right.implicit and " " not in right):
+                right = self.sub(e.right, _UNARY)  # `a mod 2π` needs no brackets around 2π
+            return f"{left} {self.word(op)} {right}"
         raise PrintError(f"cannot print the operator {op!r}")
 
     def implicit(self, e: Binary, left: str) -> str:
@@ -298,6 +301,8 @@ class Printer:
             right.startswith("(") and isinstance(e.left, Num | Paren | Call | Index)
         )
         tight = tight or (left.endswith(")") and (right[:1].isalpha() or right.startswith("(")))
+        if isinstance(e.left, Binary) and e.left.op in ("mod", "div"):
+            tight = False  # `a mod 2π` would absorb the π; a space keeps (a mod 2) × π
         join = "" if tight else " "
         return f"{left}{join}{right}"
 

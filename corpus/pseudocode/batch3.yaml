@@ -1,0 +1,3653 @@
+# Pseudocode / Python golden programs, batch 3 (draft schema v0): PROPOSED, NOT YET REVIEWED.
+# Written 2026-11-06 in response to the corpus review (gaps: mod/div, lists, random, floor, break, complex, recursion; more numerical methods; Specialist items).
+# Same schema as seed.yaml, plus two fields: `review: unreviewed` (Simon has not approved the case) and `requires: [...]` (dialect features the case needs that are Should/Could and not yet implemented: lists, random, tuples, complex, recursion, mod, div, break, floor, short-circuit, negative-step, nested-lists, rational).
+# Expected output was produced by RUNNING the reference Python (floats to 12 significant figures, as in seed.yaml) and, where the author published a result (book LCG, dice tallies, sine table, Newton iterates, forward/central difference table, middle-square sequence) or a closed form exists, asserted equal to it by the generator. The pseudocode is NOT executed by anything yet (no interpreter until M7): it was translated by hand, so read it against the Python.
+# ids: `book.*` follows the author's book/slides closely, `author.*` is the author's text adapted, `proposed.*` is Claude's. Approved cases are to be moved into seed.yaml with `review` removed.
+schema_version: 0
+cases:
+
+- id: proposed.gcd.euclid-loop
+  tags: [while, function, mod, integer]
+  source: "Proposed by Claude: Euclid's algorithm (classic). gcd(1071, 462) = 21 is the standard worked example."
+  third_party: false
+  pseudocode: |
+    define gcd(a, b)
+      while b ≠ 0 do
+        r ← a MOD b
+        a ← b
+        b ← r
+      end while
+      return a
+    end
+
+    print gcd(1071, 462)
+    print gcd(17, 5)
+    print gcd(0, 9)
+  python: |
+    def gcd(a, b):
+        while b != 0:
+            r = a % b
+            a = b
+            b = r
+        return a
+
+    print(gcd(1071, 462))
+    print(gcd(17, 5))
+    print(gcd(0, 9))
+  expect:
+    output: ["21", "1", "9"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "First use of MOD in the corpus. Integers only, so identical in Approx, Auto and Exact. gcd(0, 9) checks that a zero first argument works (one pass swaps it). Same algorithm as the gcd in the author's rationals.py (`while b: a, b = b, a % b`, which his code misnames _lcm)."
+  requires: [mod]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.lcm.from-gcd
+  tags: [while, function, function-calls-function, mod, div]
+  source: "Proposed by Claude: lcm(a, b) = a×b DIV gcd(a, b)."
+  third_party: false
+  pseudocode: |
+    define gcd(a, b)
+      while b ≠ 0 do
+        r ← a MOD b
+        a ← b
+        b ← r
+      end while
+      return a
+    end
+
+    define lcm(a, b)
+      return a × b DIV gcd(a, b)
+    end
+
+    print lcm(4, 6)
+    print lcm(21, 6)
+    print lcm(8, 9)
+  python: |
+    def gcd(a, b):
+        while b != 0:
+            r = a % b
+            a = b
+            b = r
+        return a
+
+    def lcm(a, b):
+        return a * b // gcd(a, b)
+
+    print(lcm(4, 6))
+    print(lcm(21, 6))
+    print(lcm(8, 9))
+  expect:
+    output: ["12", "42", "72"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Uses DIV. `a × b DIV gcd(a, b)` relies on × and DIV having the same precedence, left to right, as in Python (* and //): (a×b) DIV g. Decided 2026-11-07: operator precedence copies Python's (so MOD is the same level as × too). The author's own LCM (Code Examples/Python 2016-2017/LCM.py) steps two multiples instead; see author.lcm.search."
+  requires: [mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.gcd.recursive
+  tags: [recursion, function, if-else, mod]
+  source: "Proposed by Claude: recursive Euclid."
+  third_party: false
+  pseudocode: |
+    define gcd(a, b)
+      if b = 0 then
+        return a
+      else
+        return gcd(b, a MOD b)
+      end if
+    end
+
+    print gcd(1071, 462)
+    print gcd(48, 18)
+  python: |
+    def gcd(a, b):
+        if b == 0:
+            return a
+        else:
+            return gcd(b, a % b)
+
+    print(gcd(1071, 462))
+    print(gcd(48, 18))
+  expect:
+    output: ["21", "6"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Recursion (dialect section 6: recursion allowed, default depth limit 100). Depth here is at most 4. Trace table shows nested call and return rows."
+  requires: [recursion, mod]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.digits.sum-and-reverse
+  tags: [while, function, mod, div]
+  source: "Proposed by Claude: digit extraction with MOD 10 and DIV 10 (classic)."
+  third_party: false
+  pseudocode: |
+    define digit_sum(n)
+      total ← 0
+      while n > 0 do
+        total ← total + (n MOD 10)
+        n ← n DIV 10
+      end while
+      return total
+    end
+
+    define reverse(n)
+      r ← 0
+      while n > 0 do
+        r ← 10×r + (n MOD 10)
+        n ← n DIV 10
+      end while
+      return r
+    end
+
+    print digit_sum(98765)
+    print reverse(12345)
+    print reverse(1200)
+  python: |
+    def digit_sum(n):
+        total = 0
+        while n > 0:
+            total = total + (n % 10)
+            n = n // 10
+        return total
+
+    def reverse(n):
+        r = 0
+        while n > 0:
+            r = 10*r + (n % 10)
+            n = n // 10
+        return r
+
+    print(digit_sum(98765))
+    print(reverse(12345))
+    print(reverse(1200))
+  expect:
+    output: ["35", "54321", "21"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "reverse(1200) is 21 (leading zeros vanish), a common student surprise. MOD is parenthesised so the case does not depend on MOD precedence."
+  requires: [mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.binary.from-decimal
+  tags: [while, function, mod, div, accumulator]
+  source: "Proposed by Claude: decimal to binary by repeated division by 2, built as a base-10 number of 0s and 1s so only numeric values are needed."
+  third_party: false
+  pseudocode: |
+    define to_binary(n)
+      bits ← 0
+      place ← 1
+      while n > 0 do
+        bits ← bits + (n MOD 2) × place
+        place ← place × 10
+        n ← n DIV 2
+      end while
+      return bits
+    end
+
+    print to_binary(37)
+    print to_binary(255)
+    print to_binary(0)
+  python: |
+    def to_binary(n):
+        bits = 0
+        place = 1
+        while n > 0:
+            bits = bits + (n % 2) * place
+            place = place * 10
+            n = n // 2
+        return bits
+
+    print(to_binary(37))
+    print(to_binary(255))
+    print(to_binary(0))
+  expect:
+    output: ["100101", "11111111", "0"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Result is the integer 100101 (not a string): the dialect has no number formatting or base conversion, so this stays numeric. to_binary(0) returns 0 without entering the loop. Special case of the author's int2base (Code Examples/Python 2016-2017/int2base and base2int.py); see author.base.digits-and-back for any base."
+  requires: [mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.prime.trial-division-break
+  tags: [for, break, function, mod, floor, sqrt, boolean, empty-loop]
+  source: "Proposed by Claude: primality by trial division up to floor(sqrt(n)), with an early exit."
+  third_party: false
+  pseudocode: |
+    define is_prime(n)
+      if n < 2 then
+        return false
+      end if
+      prime ← true
+      for k from 2 to floor(sqrt(n))
+        if n MOD k = 0 then
+          prime ← false
+          break
+        end if
+      end for
+      return prime
+    end
+
+    for n from 1 to 50
+      if is_prime(n) then
+        print n
+      end if
+    end for
+  python: |
+    from math import floor, sqrt
+
+    def is_prime(n):
+        if n < 2:
+            return False
+        prime = True
+        for k in range(2, floor(sqrt(n))+1):
+            if n % k == 0:
+                prime = False
+                break
+        return prime
+
+    for n in range(1, 50+1):
+        if is_prime(n):
+            print(n)
+  expect:
+    output: ["2", "3", "5", "7", "11", "13", "17", "19", "23", "29", "31", "37", "41", "43", "47"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "First case with `break`, `floor`, and function-returned booleans used as conditions. For n = 2 and 3, `for k from 2 to 1` must run zero times (empty range, as Python range(2, 2)). Booleans are never printed here (a printed boolean is uppercase, TRUE/FALSE, decided 2026-11-07; the syntax accepts true/false in any case)."
+  requires: [mod, break, floor]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.prime.factorise
+  tags: [while, if-else, function, mod, div, print-in-loop]
+  source: "Proposed by Claude: prime factorisation by repeated division. Pairs with the Rational Root Finder (factors of the constant and leading coefficients)."
+  third_party: false
+  pseudocode: |
+    define factorise(n)
+      k ← 2
+      while n > 1 do
+        if n MOD k = 0 then
+          print k
+          n ← n DIV k
+        else
+          k ← k + 1
+        end if
+      end while
+    end
+
+    factorise(360)
+    factorise(97)
+  python: |
+    def factorise(n):
+        k = 2
+        while n > 1:
+            if n % k == 0:
+                print(k)
+                n = n // k
+            else:
+                k = k + 1
+
+    factorise(360)
+    factorise(97)
+  expect:
+    output: ["2", "2", "2", "3", "3", "5", "97"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "360 = 2^3 × 3^2 × 5. 97 is prime, so k runs all the way to 97 (a long trace: use it to test the step limit display, not the vertical layout)."
+  requires: [mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.prime.sieve
+  tags: [lists, for, step, nested, boolean, not, append, print-list]
+  source: "Proposed by Claude: sieve of Eratosthenes (one pass: a number not yet crossed out is prime, then its multiples are crossed out)."
+  third_party: false
+  pseudocode: |
+    N ← 50
+    composite ← []
+    for i from 1 to N
+      Append false to composite
+    end for
+    primes ← []
+    for i from 2 to N
+      if not composite[i] then
+        Append i to primes
+        for j from i×i to N step i
+          composite[j] ← true
+        end for
+      end if
+    end for
+    print primes
+  python: |
+    N = 50
+    composite = [False for i in range(N + 1)]
+    primes = []
+    for i in range(2, N + 1):
+        if not composite[i]:
+            primes.append(i)
+            for j in range(i*i, N + 1, i):
+                composite[j] = True
+    print(primes)
+  expect:
+    output: ["[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Restructured at the author's review (2026-11-07): the list that is printed is now the list of primes, `primes`, built in the same pass (the flags are called `composite`; the first version had a list of flags called is_prime/primes which was then walked to print the primes). Each number i from 2 is tested once: if it has not been crossed out it is prime, and its multiples from i x i upwards are crossed out. The Python is zero-based and initialised with a list comprehension: it keeps N + 1 flags so that the number itself is the index (composite[7] is the flag for 7, composite[0] is unused); the pseudocode list has N flags with the number k at position k. A printed list shows [2, 3, 5, ...] as in Python (dialect section 14). Lists are 1-based by default (dialect section 12); `Append x to list` is the spelling in the author's sources (dialect section 10); `not` negates a boolean."
+  requires: [lists, list-print, boolean]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.collatz.sequence
+  tags: [while, if-else, mod, div, print-in-loop, implicit-multiplication, string]
+  source: "Adapted from the author's MAV Webinar 3 example (a WHILE loop that is hard to write as a FOR loop; the webinar starts at n = 10, n = 6 is used here for a shorter trace) and his own Collatz.py (collatz: the orbit of n)."
+  third_party: false
+  pseudocode: |
+    n ← 6
+    steps ← 0
+    print n
+    while n ≠ 1 do
+      if n MOD 2 = 0 then
+        n ← n DIV 2
+      else
+        n ← 3n + 1
+      end if
+      print n
+      steps ← steps + 1
+    end while
+    print "steps", steps
+  python: |
+    n = 6
+    steps = 0
+    print(n)
+    while n != 1:
+        if n % 2 == 0:
+            n = n // 2
+        else:
+            n = 3*n + 1
+        print(n)
+        steps = steps + 1
+    print("steps", steps)
+  expect:
+    output: ["6", "3", "10", "5", "16", "8", "4", "2", "1", "steps 8"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 8
+  notes: "Webinar writes `n ← n / 2`; DIV keeps the values integers (n / 2 would print reals in Approx mode: 3. 10. 5. ...). Single while loop, one if inside: horizontal desk-check eligible only if the if/else inside a loop is allowed in that layout (trace-tables.md section 3)."
+  requires: [mod, div]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.collatz.peak-27
+  tags: [while, if, mod, div, implicit-multiplication, long-trace]
+  source: "Proposed by Claude: the classic n = 27 Collatz trajectory (111 steps, peak 9232)."
+  third_party: false
+  pseudocode: |
+    n ← 27
+    steps ← 0
+    peak ← n
+    while n ≠ 1 do
+      if n MOD 2 = 0 then
+        n ← n DIV 2
+      else
+        n ← 3n + 1
+      end if
+      if n > peak then
+        peak ← n
+      end if
+      steps ← steps + 1
+    end while
+    print steps, peak
+  python: |
+    n = 27
+    steps = 0
+    peak = n
+    while n != 1:
+        if n % 2 == 0:
+            n = n // 2
+        else:
+            n = 3*n + 1
+        if n > peak:
+            peak = n
+        steps = steps + 1
+    print(steps, peak)
+  expect:
+    output: ["111 9232"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 111
+  notes: "111 iterations: a good length for scrolling and for the default step limit (10,000) not to trigger."
+  requires: [mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.factorial.loop-20
+  tags: [for, accumulator, big-integer]
+  source: "S. Tyler, MAV Webinar 3 - Pseudocoding (2024), slides (own work); variables walk-through (n, i, factorial) also in MAV Webinar 4. Adapted: 20! as in the slides."
+  third_party: false
+  pseudocode: |
+    n ← 20
+    factorial ← 1
+    for i from 2 to n
+      factorial ← factorial × i
+    end for
+    print factorial
+  python: |
+    n = 20
+    factorial = 1
+    for i in range(2, n+1):
+        factorial = factorial * i
+    print(factorial)
+  expect:
+    output: ["2432902008176640000"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 19
+  notes: "20! = 2432902008176640000 exceeds 2^53, so it tests that integers stay exact (never converted to a real, even in Approx mode). Variable named `factorial` as in the slides."
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.factorial.recursive
+  tags: [recursion, function, if-else]
+  source: "Adapted from the author's own code, Archive/2020-2024/Code Examples/Python 2016-2017/factorial.py (factR: if n <= 1 return 1, else n * factR(n-1)); the VCAA pseudocode page uses the same example."
+  third_party: false
+  pseudocode: |
+    define factorial(n)
+      if n ≤ 1 then
+        return 1
+      else
+        return n × factorial(n - 1)
+      end if
+    end
+
+    print factorial(10)
+    print factorial(0)
+  python: |
+    def factorial(n):
+        if n <= 1:
+            return 1
+        else:
+            return n * factorial(n - 1)
+
+    print(factorial(10))
+    print(factorial(0))
+  expect:
+    output: ["3628800", "1"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Depth 10 (default limit 100). Also covers a function named the same as the iterative case's variable, separate programs."
+  requires: [recursion]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.fibonacci.iterative-ratio
+  tags: [for, accumulator, swap-variables, golden-ratio]
+  source: "Proposed by Claude: ratio of consecutive Fibonacci numbers tends to the golden ratio (compare author.newton.golden-ratio)."
+  third_party: false
+  pseudocode: |
+    a ← 1
+    b ← 1
+    for k from 3 to 20
+      c ← a + b
+      a ← b
+      b ← c
+    end for
+    print b
+    print b ÷ a
+  python: |
+    a = 1
+    b = 1
+    for k in range(3, 20+1):
+        c = a + b
+        a = b
+        b = c
+    print(b)
+    print(b / a)
+  expect:
+    output: ["6765", "1.61803396317"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 18
+  notes: "F20 = 6765 and F20/F19 = 6765/4181 = 1.61803396... In Auto and Exact modes b ÷ a is the exact rational 6765/4181, in Approx a real; golden values are for Approx (the default)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.fibonacci.recursive
+  tags: [recursion, function, if-else, many-calls]
+  source: "Proposed by Claude: naive recursive Fibonacci."
+  third_party: false
+  pseudocode: |
+    define fib(n)
+      if n ≤ 2 then
+        return 1
+      else
+        return fib(n - 1) + fib(n - 2)
+      end if
+    end
+
+    print fib(10)
+    print fib(15)
+  python: |
+    def fib(n):
+        if n <= 2:
+            return 1
+        else:
+            return fib(n - 1) + fib(n - 2)
+
+    print(fib(10))
+    print(fib(15))
+  expect:
+    output: ["55", "610"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "fib(15) makes 1973 calls and 1973 return events: the trace table must cope (cap on recorded events, FR-TRC) and the run must stay inside the step limit. Recursion depth only 14."
+  requires: [recursion]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.list.mean-max-min
+  tags: [lists, for-each, if, accumulator, len]
+  source: "Proposed by Claude: the basic list statistics."
+  third_party: false
+  pseudocode: |
+    data ← [4, 8, 15, 16, 23, 42]
+    total ← 0
+    largest ← data[1]
+    smallest ← data[1]
+    for each x in data
+      total ← total + x
+      if x > largest then
+        largest ← x
+      end if
+      if x < smallest then
+        smallest ← x
+      end if
+    end for
+    print total, total ÷ len(data), largest, smallest
+  python: |
+    data = [4, 8, 15, 16, 23, 42]
+    total = 0
+    largest = data[0]
+    smallest = data[0]
+    for x in data:
+        total = total + x
+        if x > largest:
+            largest = x
+        if x < smallest:
+            smallest = x
+    print(total, total / len(data), largest, smallest)
+  expect:
+    output: ["108 18 42 4"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "`for each x in data` and `len(...)` per dialect section 10. Mean 18 prints as `18.` in Approx mode, 18 in Auto. Single-pass combination of the author's max_num, total and mean in Code Examples/Python 2020-2021/Array Algorithms.py."
+  requires: [lists]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.search.linear
+  tags: [lists, for, return-in-loop, function, index-base]
+  source: "Adapted from the author's own code, Code Examples/searching.py (linear_search); same algorithm, 1-based positions."
+  third_party: false
+  pseudocode: |
+    define find(a, target)
+      for i from 1 to len(a)
+        if a[i] = target then
+          return i
+        end if
+      end for
+      return 0
+    end
+
+    data ← [4, 8, 15, 16, 23, 42]
+    print find(data, 23)
+    print find(data, 99)
+  python: |
+    def find(a, target):
+        for position, x in enumerate(a, start=1):
+            if x == target:
+                return position
+        return 0
+
+    data = [4, 8, 15, 16, 23, 42]
+    print(find(data, 23))
+    print(find(data, 99))
+  expect:
+    output: ["5", "0"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "The printed position (5) is the 1-based position. With the index-base toggle set to 0 the program as written would be wrong (`0` would then be a valid index, and `for i from 1` would skip the first element), so this case only runs with the default 1-based setting; a 0-based twin is a separate case if wanted. The Python returns the position counting from 1 (enumerate(a, start=1)) so that the output matches the pseudocode, whose positions are 1-based."
+  requires: [lists]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.sort.bubble
+  tags: [lists, for, nested, swap, if, for-each]
+  source: "Proposed by Claude: bubble sort with a swap counter."
+  third_party: false
+  pseudocode: |
+    a ← [5, 2, 9, 1, 7]
+    n ← len(a)
+    swaps ← 0
+    for k from 1 to n - 1
+      for i from 1 to n - k
+        if a[i] > a[i + 1] then
+          t ← a[i]
+          a[i] ← a[i + 1]
+          a[i + 1] ← t
+          swaps ← swaps + 1
+        end if
+      end for
+    end for
+    for each x in a
+      print x
+    end for
+    print "swaps", swaps
+  python: |
+    a = [5, 2, 9, 1, 7]
+    n = len(a)
+    swaps = 0
+    for k in range(1, n):
+        for i in range(n - k):
+            if a[i] > a[i + 1]:
+                a[i], a[i + 1] = a[i + 1], a[i]
+                swaps = swaps + 1
+    for x in a:
+        print(x)
+    print("swaps", swaps)
+  expect:
+    output: ["1", "2", "5", "7", "9", "swaps 5"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Indexed assignment `a[i] ← ...`. The outer loop variable is `k`, not `pass`, which is a keyword in Python (the translator would otherwise need to rename it). 5 elements, 5 swaps (the number of inversions). The author's own bubble sort uses a swapped flag and counts comparisons; see author.sort.bubble-flag."
+  requires: [lists]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.sort.insertion
+  tags: [lists, for, while, short-circuit, and]
+  source: "Proposed by Claude: insertion sort; the data is the textbook example 31 41 59 26 41 58."
+  third_party: false
+  pseudocode: |
+    a ← [31, 41, 59, 26, 41, 58]
+    for j from 2 to len(a)
+      key ← a[j]
+      i ← j - 1
+      while i ≥ 1 and a[i] > key do
+        a[i + 1] ← a[i]
+        i ← i - 1
+      end while
+      a[i + 1] ← key
+    end for
+    print a
+  python: |
+    a = [31, 41, 59, 26, 41, 58]
+    for j in range(1, len(a)):
+        key = a[j]
+        i = j - 1
+        while i >= 0 and a[i] > key:
+            a[i + 1] = a[i]
+            i = i - 1
+        a[i + 1] = key
+    print(a)
+  expect:
+    output: ["[26, 31, 41, 41, 58, 59]"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "The sorted list is printed at the end as a list (changed at the author's review, 2026-11-07). Needs SHORT-CIRCUIT `and` (decided 2026-11-07, as in Python): when i reaches 0 the test `a[i] > key` must not be evaluated (a[0] is out of range in 1-based lists). The same goes for `or`. The data has a repeated 41, so the sort should be stable (the first 41 stays first, not observable in the output)."
+  requires: [lists, short-circuit, list-print]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.stats.five-number-summary
+  tags: [lists, function, div, mod, median, ti-convention]
+  source: "Proposed by Claude: five-number summary with the school/TI quartile convention (median of the lower and upper halves, median excluded when n is odd), as required for CASSim statistics (CLAUDE.md)."
+  third_party: false
+  pseudocode: |
+    define median(a, lo, hi)
+      n ← hi - lo + 1
+      mid ← lo + (n - 1) DIV 2
+      if n MOD 2 = 1 then
+        return a[mid]
+      else
+        return (a[mid] + a[mid + 1]) ÷ 2
+      end if
+    end
+
+    define five_number(a)
+      n ← len(a)
+      half ← n DIV 2
+      if n MOD 2 = 1 then
+        upper_start ← half + 2
+      else
+        upper_start ← half + 1
+      end if
+      print a[1], median(a, 1, half), median(a, 1, n), median(a, upper_start, n), a[n]
+    end
+
+    five_number([1, 4, 9, 16, 25, 36, 49, 64])
+    five_number([1, 3, 5, 7, 9, 11, 13])
+  python: |
+    def median(a, lo, hi):
+        n = hi - lo + 1
+        mid = lo + (n - 1) // 2
+        if n % 2 == 1:
+            return a[mid]
+        else:
+            return (a[mid] + a[mid + 1]) / 2
+
+    def five_number(a):
+        n = len(a)
+        half = n // 2
+        if n % 2 == 1:
+            upper_start = half + 1
+        else:
+            upper_start = half
+        print(a[0], median(a, 0, half - 1), median(a, 0, n - 1), median(a, upper_start, n - 1), a[-1])
+
+    five_number([1, 4, 9, 16, 25, 36, 49, 64])
+    five_number([1, 3, 5, 7, 9, 11, 13])
+  expect:
+    output: ["1 6.5 20.5 42.5 64", "1 3 7 11 13"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "n = 8: Q1 = 6.5, median 20.5, Q3 = 42.5 (numpy's default percentile gives 7.75 and 39.25; this is the CASSim/TI rule). n = 7: lower half {1,3,5}, upper half {9,11,13}, median excluded: Q1 = 3, Q3 = 11. Sample list passed as a literal argument. Tests the list literal as a call argument. In the Python, lo and hi count from 0 (the pseudocode counts from 1), so the upper half starts at half + 1 (odd length) or half (even length)."
+  requires: [lists, mod, div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: book.u2.poly-evaluate-and-derivative
+  tags: [lists, function-keyword, end-function, for, next, accumulator, append-lowercase, power-expression]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit Two (Apr 2024), p.120 (own work), Area of Study 3"
+  third_party: false
+  pseudocode: |
+    function evaluate_poly(coeffs, x)
+      total ← 0
+      for i from 1 to len(coeffs) // 1,...,n+1
+        term ← coeffs[i]*x^(i-1)
+        total ← total + term
+      next i
+      return total
+    end function
+
+    function deriv_poly(coeffs)
+      deriv ← []
+      for i from 2 to len(coeffs)
+        append (i-1)*coeffs[i] to deriv
+      next i
+      return deriv
+    end function
+
+    print evaluate_poly([2, -4, 1], -2)
+    print evaluate_poly(deriv_poly([2, -4, 1]), -2)
+  python: |
+    def evaluate_poly(coeffs, x):
+        total = 0
+        for n, c in enumerate(coeffs):
+            term = c * x**n
+            total += term
+        return total
+
+    def deriv_poly(coeffs):
+        deriv = []
+        for n in range(1, len(coeffs)):
+            deriv.append(n*coeffs[n])
+        return deriv
+
+    print(evaluate_poly([2, -4, 1], -2))
+    print(evaluate_poly(deriv_poly([2, -4, 1]), -2))
+  expect:
+    output: ["14", "-8"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "The author's trace: total 0, 2, 10, 14 (terms 2, 8, 4); check 2 - 4x + x^2 at x = -2 is 14; its derivative -4 + 2x at -2 is -8. Reproduced as the book prints it: lowercase `append ... to`, `next i`, `function ... end function`, the `//` comment after the for header, and the 0-based Python from the book (`enumerate`). Polynomial coefficient lists run low to high power."
+  requires: [lists]
+  provenance: {"source": "author-document", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.poly.horner
+  tags: [lists, for, negative-step, function, accumulator]
+  source: "Proposed by Claude: Horner's rule on the book's coefficient lists (low power first), loop running from the highest coefficient down. Same check as book.u2.poly-evaluate-and-derivative."
+  third_party: false
+  pseudocode: |
+    define horner(coeffs, x)
+      total ← 0
+      for i from len(coeffs) to 1 step -1
+        total ← total × x + coeffs[i]
+      end for
+      return total
+    end
+
+    print horner([2, -4, 1], -2)
+    print horner([6, -11, -3, 2], 3)
+    print horner([6, -11, -3, 2], 0.5)
+  python: |
+    def horner(coeffs, x):
+        total = 0
+        for c in reversed(coeffs):
+            total = total * x + c
+        return total
+
+    print(horner([2, -4, 1], -2))
+    print(horner([6, -11, -3, 2], 3))
+    print(horner([6, -11, -3, 2], 0.5))
+  expect:
+    output: ["14", "0", "0"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Negative step (`for ... step -1`, range stop is b-1 in Python). 2x^3 - 3x^2 - 11x + 6 has roots 1/2, 3 and -2 (see proposed.rational-roots.list), so the second and third prints are 0."
+  requires: [lists, negative-step]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: book.u2.newton-poly
+  tags: [lists, function-keyword, end-function, for-do, next, print-in-loop, newton, call-in-function]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit Two (Apr 2024), p.118-121 (own work): newton3 example output (p.119) and newton_poly (p.121)"
+  third_party: false
+  pseudocode: |
+    function evaluate_poly(coeffs, x)
+      total ← 0
+      for i from 1 to len(coeffs)
+        term ← coeffs[i]*x^(i-1)
+        total ← total + term
+      next i
+      return total
+    end function
+
+    function deriv_poly(coeffs)
+      deriv ← []
+      for i from 2 to len(coeffs)
+        append (i-1)*coeffs[i] to deriv
+      next i
+      return deriv
+    end function
+
+    function newton_poly(coeffs, x0, steps)
+      p ← coeffs
+      dp ← deriv_poly(coeffs)
+      x ← x0
+      for i from 1 to steps do
+        px ← evaluate_poly(p, x)
+        dpx ← evaluate_poly(dp, x)
+        x ← x - px ÷ dpx
+        print x // for debugging/tracing
+      next i
+      return x
+    end function
+
+    approx ← newton_poly([2, -2, -1, 1], 2, 8)
+    print "zero at approximately x =", approx
+  python: |
+    def evaluate_poly(coeffs, x):
+        total = 0
+        for n, c in enumerate(coeffs):
+            term = c * x**n
+            total += term
+        return total
+
+    def deriv_poly(coeffs):
+        deriv = []
+        for n in range(1, len(coeffs)):
+            deriv.append(n*coeffs[n])
+        return deriv
+
+    def newton_poly(coeffs, x0, steps):
+        p = coeffs
+        dp = deriv_poly(coeffs)
+        x = x0
+        for i in range(steps):
+            px = evaluate_poly(p, x)
+            dpx = evaluate_poly(dp, x)
+            x = x - px / dpx
+            print(x)
+        return x
+
+    approx = newton_poly([2, -2, -1, 1], 2, 8)
+    print("zero at approximately x =", approx)
+  expect:
+    output: ["1.66666666667", "1.49382716049", "1.42684587138", "1.41462942111", "1.41421404005", "1.41421356237", "1.41421356237", "1.41421356237", "zero at approximately x = 1.41421356237"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "x^3 - x^2 - 2x + 2 = (x - 1)(x^2 - 2): the author's newton3(1, -1, -2, 2, 2, 10) example, whose printed iterates are 1.6666666666666667, 1.4938271604938271, 1.426845871379609, 1.414629421111060, 1.4142140400494814, 1.4142135623737264, 1.414213562373095. Same starting value 2 and eight steps here. The return value is stored in `approx` and printed after the iterates (changed at the author's review, 2026-11-07; the book's call discards it). Reference values are the book's."
+  requires: [lists]
+  provenance: {"source": "author-document", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: book.u2.derivative.forward-vs-central
+  tags: [function-by-assignment, for, step, print-multiple, numerical-derivative]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit Two (Apr 2024), p.121 (own work), Area of Study 3 (error of the forward and central difference for a cubic)"
+  third_party: false
+  pseudocode: |
+    f(x) ← 0.04x³ - 0.04x² - x + 1
+    df(x) ← 0.12x² - 0.08x - 1
+    h ← 0.5
+
+    print "x", "forward_err", "central_err"
+    for x from -5 to 5 step 1
+      f_diff ← (f(x+h) - f(x)) ÷ h
+      c_diff ← (f(x+h) - f(x-h)) ÷ (2*h)
+      print x, df(x) - f_diff, df(x) - c_diff
+    end for
+  python: |
+    def f(x):
+        return 0.04*x**3 - 0.04*x**2 - x + 1
+
+    def df(x):
+        return 0.12*x**2 - 0.08*x - 1
+
+    h = 0.5
+
+    print("x", "forward_err", "central_err")
+    for x in range(-5, 5+1):
+        f_diff = (f(x+h) - f(x))/h
+        c_diff = (f(x+h) - f(x-h))/(2*h)
+        print(x, df(x) - f_diff, df(x) - c_diff)
+  expect:
+    output: ["x forward_err central_err", "-5 0.31 -0.01", "-4 0.25 -0.01", "-3 0.19 -0.01", "-2 0.13 -0.01", "-1 0.07 -0.01", "0 0.01 -0.01", "1 -0.05 -0.01", "2 -0.11 -0.01", "3 -0.17 -0.01", "4 -0.23 -0.01", "5 -0.29 -0.01"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "A header row `x forward_err central_err` is printed before the loop (added at the author's review, 2026-11-07). The author's printed table (2 d.p.): forward errors 0.31, 0.25, 0.19, 0.13, 0.07, 0.01, -0.05, -0.11, -0.17, -0.23, -0.29 for x = -5..5 and central error -0.01 throughout (h^2 f'''/6 = 0.25 x 0.24 / 6 = 0.01, constant for a cubic). Functions are defined by assignment on the left of ←. The central error is the difference of two nearly equal numbers, so the numeric comparison needs a relaxed tolerance (1e-6 relative)."
+  provenance: {"source": "author-document", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: book.u1.lcg.turbo-pascal
+  tags: [for, if, mod, big-integer, comment]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit One (Apr 2024), p.110 (own work), Linear Congruential Generator with Turbo Pascal's parameters"
+  third_party: false
+  pseudocode: |
+    m ← 2^32 // Modulus
+    a ← 134775813 // Multiplier
+    c ← 1 // Increment
+    s ← 5454151254 // Seed
+
+    x ← s
+    for k from 1 to 1000
+      x ← (a × x + c) MOD m
+      if k ≤ 4 then
+        print "Random number", k, ":", x
+      end if
+    end for
+    print "..."
+    print "Random number", 1000, ":", x
+  python: |
+    m = 2**32       # Modulus
+    a = 134775813   # Multiplier
+    c = 1           # Increment
+    s = 5454151254  # Seed
+
+    x = s
+    for k in range(1, 1000+1):
+        x = (a*x + c) % m
+        if k <= 4:
+            print("Random number", k, ":", x)
+    print("...")
+    print("Random number", 1000, ":", x)
+  expect:
+    output: ["Random number 1 : 977997743", "Random number 2 : 3439692396", "Random number 3 : 2413519901", "Random number 4 : 4157597842", "...", "Random number 1000 : 785669166"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Changed at the author's review (2026-11-07): each number is printed as `Random number k : x`, then `...` and `Random number 1000 : x` after the loop. To make the label k match the k-th generated number, x is now updated BEFORE it is printed, so the seed (5454151254, the first line in the book's listing) is no longer printed and the lines are the next numbers: 977997743, 3439692396, 2413519901, 4157597842, ..., 785669166 as the 1000th (the book's 'Final number is 785669166'; the reference Python reproduces all of these). The old order printed the seed first, which would make the label on every line one too high. The book's loop is `repeat ... until no more numbers required` with a Python `seen` set; here it is a counted loop of 1000 steps and the set is dropped (sets are Could). The seed is larger than the modulus, as in the book, so the first printed value is not in [0, m). Products reach about 5.8e17, above 2^53 = 9.007e15: integer arithmetic must stay exact (a real would round and give a different sequence)."
+  requires: [mod]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: book.u1.dice.d6-tally
+  tags: [lists, random, seed, function, for, floor, slow]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit One (Apr 2024), p.110 (own work), Simulating Dice Rolls (100000 rolls of a D6, seed 42)"
+  third_party: false
+  pseudocode: |
+    function roll_dice(num_sides)
+      r ← rand() // [0, 1)
+      r ← r × num_sides // [0, num_sides)
+      r ← r + 1 // [1, num_sides+1)
+      r ← floor(r) // integer part of r
+      return r // {1, ..., num_sides}
+    end function
+
+    seed(42)
+    tally ← [0, 0, 0, 0, 0, 0]
+    for i from 1 to 100000
+      roll ← roll_dice(6)
+      tally[roll] ← tally[roll] + 1
+    end for
+    for each n in tally
+      print n
+    end for
+  python: |
+    from random import random, seed
+
+    def roll_dice(num_sides):
+        r = num_sides*random() + 1
+        return int(r)
+
+    seed(42)
+    tally = {face: 0 for face in range(1, 7)}
+    for i in range(100000):
+        roll = roll_dice(6)
+        tally[roll] = tally[roll] + 1
+    for n in tally.values():
+        print(n)
+  expect:
+    output: ["16835", "16509", "16590", "16692", "16746", "16628"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Book output: {1: 16835, 2: 16509, 3: 16590, 4: 16692, 5: 16746, 6: 16628} (a Python dict); here a 1-based list of six counts printed one per line. Reproduces exactly only if the interpreter reproduces CPython's seeded `random()` (MT19937 and seeding, decided 2026-11-04). The book's pseudocode says `integer part of r`, written `floor(r)` here (equal for r > 0). The book's own `function ... end function` spelling is kept. 100000 iterations: tagged `slow`; trace recording must be off or capped for it. The Python keeps the tally in a dictionary keyed by the face (1 to 6), which avoids tally[roll - 1]; the pseudocode uses a list of six zeros indexed by the roll."
+  requires: [lists, random, floor]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: book.u1.dice.best-of-two-average
+  tags: [random, seed, for, next, max, accumulator, slow]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit One (Apr 2024), p.111 (own work), Simulating 'best of' dice rolls, m = 2 (seed 42, 1,000,000 trials)"
+  third_party: false
+  pseudocode: |
+    seed(42)
+    num_trials ← 1000000
+    total ← 0
+    for i from 1 to num_trials
+      roll1 ← randint(1, 6)
+      roll2 ← randint(1, 6)
+      total ← total + max(roll1, roll2)
+    next i
+    print total ÷ num_trials
+  python: |
+    from random import randint, seed
+
+    seed(42)
+    num_trials = 1_000_000
+    total = 0
+    for i in range(num_trials):
+        roll1 = randint(1, 6)
+        roll2 = randint(1, 6)
+        total += max(roll1, roll2)
+    print(total / num_trials)
+  expect:
+    output: ["4.473437"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Book output 4.473437, which the book says matches the theoretical value 161/36 = 4.4722 to three significant figures (the reference Python reproduces 4.473437 exactly). The book's pseudocode calls its own roll_dice(6); here randint(1, 6) is used, as in the book's Python, because randint(1, 6) is NOT the same stream as floor(6 × rand()) + 1 in CPython (randint uses getrandbits), and only randint reproduces the printed value. 1,000,000 iterations: tagged slow and useful as an interpreter benchmark (report the time)."
+  requires: [random]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: book.u1.middle-square
+  tags: [lists, while, function, mod, div, random, not]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit One (Apr 2024), p.109 (own work), the middle square method (the book gives structured English and a Python set; this is the list version)"
+  third_party: false
+  pseudocode: |
+    define contains(a, v)
+      for each x in a
+        if x = v then
+          return true
+        end if
+      end for
+      return false
+    end
+
+    num ← 8272
+    seen ← []
+    while not contains(seen, num) do
+      Append num to seen
+      if len(seen) ≤ 10 then
+        print num
+      end if
+      num ← ((num × num) DIV 100) MOD 10000
+    end while
+    print len(seen), num
+  python: |
+    def contains(a, v):
+        for x in a:
+            if x == v:
+                return True
+        return False
+
+    num = 8272
+    seen = []
+    while not contains(seen, num):
+        seen.append(num)
+        if len(seen) <= 10:
+            print(num)
+        num = ((num * num) // 100) % 10000
+    print(len(seen), num)
+  expect:
+    output: ["8272", "4259", "1390", "9321", "8810", "6161", "9579", "7572", "3351", "2292", "59 9600"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Book output: 8272, 4259, 1390, 9321, 8810, 6161, 9579, 7572, 3351, 2292, ... and 'Got 59 random numbers before the first repeat: 9600'. The book's seed is not in the text; 8272 is the first printed number and generates the rest (8272^2 = 68425984, middle four digits 4259). The book uses a set to remember numbers seen (sets are Could); a list and a helper function give the same result. Takes the 'middle four digits' of an 8-digit square (digits 3 to 6) as (n^2 DIV 100) MOD 10000, which is right while the square has 8 digits (with fewer, leading zeros are implicit)."
+  requires: [lists, mod, div]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.simulation.monte-carlo-pi
+  tags: [random, seed, for, if, accumulator, slow]
+  source: "Proposed by Claude: Monte Carlo estimate of pi (points in the unit square that fall inside the quarter circle)."
+  third_party: false
+  pseudocode: |
+    seed(1)
+    n ← 100000
+    inside ← 0
+    for i from 1 to n
+      x ← rand()
+      y ← rand()
+      if x^2 + y^2 ≤ 1 then
+        inside ← inside + 1
+      end if
+    end for
+    print 4 × inside ÷ n
+  python: |
+    from random import random, seed
+
+    seed(1)
+    n = 100000
+    inside = 0
+    for i in range(n):
+        x = random()
+        y = random()
+        if x**2 + y**2 <= 1:
+            inside = inside + 1
+    print(4 * inside / n)
+  expect:
+    output: ["3.13784"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Seeded, so the printed estimate is reproducible (needs the CPython-exact `random()`). Error is about 1/sqrt(n) (roughly 0.005), so the value is within 0.01 of pi but is NOT pi. `4 × inside ÷ n` is read left to right: (4×inside) ÷ n."
+  requires: [random]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.simulation.sample-proportion
+  tags: [lists, random, seed, for, nested, append, if]
+  source: "Proposed by Claude, following the sample-proportion simulation described in the author's sources (`counts ← []`, `Append count to counts`; dialect.md section 10). Population proportion 0.3, samples of 50, 20 samples."
+  third_party: false
+  pseudocode: |
+    seed(7)
+    p ← 0.3
+    n ← 50
+    proportions ← []
+    for s from 1 to 20
+      count ← 0
+      for i from 1 to n
+        if rand() < p then
+          count ← count + 1
+        end if
+      end for
+      Append count ÷ n to proportions
+    end for
+    total ← 0
+    for each q in proportions
+      print q
+      total ← total + q
+    end for
+    print "mean", total ÷ len(proportions)
+  python: |
+    from random import random, seed
+
+    seed(7)
+    p = 0.3
+    n = 50
+    proportions = []
+    for s in range(1, 20+1):
+        count = 0
+        for i in range(1, n+1):
+            if random() < p:
+                count = count + 1
+        proportions.append(count / n)
+    total = 0
+    for q in proportions:
+        print(q)
+        total = total + q
+    print("mean", total / len(proportions))
+  expect:
+    output: ["0.38", "0.28", "0.44", "0.32", "0.28", "0.26", "0.36", "0.36", "0.4", "0.28", "0.34", "0.3", "0.38", "0.34", "0.36", "0.32", "0.32", "0.4", "0.28", "0.32", "mean 0.336"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Each sample proportion is count/50, so every printed value is a multiple of 0.02. The mean of 20 sample proportions should be near 0.3 (checked within 0.05). `Append count ÷ n to proportions`: the appended value is the whole expression."
+  requires: [lists, random]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.simulation.geometric-first-six
+  tags: [random, seed, repeat-until, nested, accumulator, slow]
+  source: "Proposed by Claude, from the author's Unit 1 investigation 'Number of rolls expected to get N sixes' (book p.114): the mean number of rolls to get one six is 6."
+  third_party: false
+  pseudocode: |
+    seed(42)
+    trials ← 10000
+    total ← 0
+    for t from 1 to trials
+      rolls ← 0
+      repeat
+        rolls ← rolls + 1
+      until randint(1, 6) = 6
+      total ← total + rolls
+    end for
+    print total ÷ trials
+  python: |
+    from random import randint, seed
+
+    seed(42)
+    trials = 10000
+    total = 0
+    for t in range(1, trials+1):
+        rolls = 0
+        while True:
+            rolls = rolls + 1
+            if randint(1, 6) == 6: break
+        total = total + rolls
+    print(total / trials)
+  expect:
+    output: ["5.9464"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Theory: mean 6 (geometric distribution with p = 1/6), variance 30. A function call (randint) inside the `until` condition: the trace must record the call. Estimate checked within 0.3 of 6. Cf. the author's ConseqHeads.py; see author.simulation.consecutive-heads."
+  requires: [random]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.riemann.right.x2-x
+  tags: [for, expression-arg]
+  source: "Proposed by Claude: right-endpoint rule for the same integral as author.riemann.left.x2-x (f = x^2 - x on [1, 5], n = 4)."
+  third_party: false
+  pseudocode: |
+    define riemann_right(f(x), x, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 1 to n
+        x ← a + k×h
+        A ← h×f(x)
+        area ← area + A
+      next k
+      return area
+    end
+
+    print riemann_right(x^2-x, x, 1, 5, 4)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def riemann_right(f, x, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(1, n+1):
+            x_ = a + k*h
+            A = h*f.subs(x, x_)
+            area = area + A
+        return area
+
+    print(riemann_right(x**2-x, x, 1, 5, 4))
+  expect:
+    output: ["40"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Right sum 40 (f at 2, 3, 4, 5 = 2, 6, 12, 20); left sum is 20 (author.riemann.left.x2-x), trapezium 30, exact 29.3333. The loop runs k = 1..n instead of 0..n-1. Expression form (CAS style); first-class twin: proposed.riemann.right.x2-x.fn."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.riemann.right.x2-x.fn
+  tags: [for, first-class-function]
+  source: "Proposed by Claude: first-class twin of proposed.riemann.right.x2-x."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2 - x
+    end
+
+    define riemann_right(f, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 1 to n
+        x ← a + k×h
+        A ← h×f(x)
+        area ← area + A
+      next k
+      return area
+    end
+
+    print riemann_right(f, 1, 5, 4)
+  python: |
+    def f(x):
+        return x**2 - x
+
+    def riemann_right(f, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(1, n+1):
+            x = a + k*h
+            A = h*f(x)
+            area = area + A
+        return area
+
+    print(riemann_right(f, 1, 5, 4))
+  expect:
+    output: ["40"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Function passed by name (no lambda)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.riemann.midpoint.x2-x
+  tags: [for, expression-arg]
+  source: "Proposed by Claude: midpoint rule for the same integral (f = x^2 - x on [1, 5], n = 4)."
+  third_party: false
+  pseudocode: |
+    define riemann_mid(f(x), x, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        x ← a + (k + 0.5)×h
+        strip ← h×f(x)
+        area ← area + strip
+      next k
+      return area
+    end
+
+    print riemann_mid(x^2-x, x, 1, 5, 4)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def riemann_mid(f, x, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            x_ = a + (k + 0.5)*h
+            strip = h*f.subs(x, x_)
+            area = area + strip
+        return area
+
+    print(riemann_mid(x**2-x, x, 1, 5, 4))
+  expect:
+    output: ["29"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Midpoints 1.5, 2.5, 3.5, 4.5 give f = 0.75, 3.75, 8.75, 15.75: sum 29 (exact integral 29.3333, so the midpoint rule beats left (20), right (40) and trapezium (30)). Expression form; twin: proposed.riemann.midpoint.x2-x.fn."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.riemann.midpoint.x2-x.fn
+  tags: [for, first-class-function]
+  source: "Proposed by Claude: first-class twin of proposed.riemann.midpoint.x2-x."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2 - x
+    end
+
+    define riemann_mid(f, a, b, n)
+      h ← (b - a) ÷ n
+      area ← 0
+      for k from 0 to n-1
+        x ← a + (k + 0.5)×h
+        strip ← h×f(x)
+        area ← area + strip
+      next k
+      return area
+    end
+
+    print riemann_mid(f, 1, 5, 4)
+  python: |
+    def f(x):
+        return x**2 - x
+
+    def riemann_mid(f, a, b, n):
+        h = (b - a)/n
+        area = 0
+        for k in range(0, n-1+1):
+            x = a + (k + 0.5)*h
+            strip = h*f(x)
+            area = area + strip
+        return area
+
+    print(riemann_mid(f, 1, 5, 4))
+  expect:
+    output: ["29"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Function passed by name."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.simpson.4-(x-1)^2
+  tags: [for, if-else, mod, expression-arg]
+  source: "Proposed by Claude: Simpson's rule on the author's trapezium example (author.trapezium.slides.4-(x-1)^2: f = 4 - (x-1)^2 on [0, 3], n = 6, trapezium gives 8.875)."
+  third_party: false
+  pseudocode: |
+    define simpson(f(x), x, a, b, n)
+      h ← (b - a) ÷ n
+      total ← f(a) + f(b)
+      for k from 1 to n-1
+        if k MOD 2 = 1 then
+          total ← total + 4×f(a + k×h)
+        else
+          total ← total + 2×f(a + k×h)
+        end if
+      next k
+      return (h ÷ 3) × total
+    end
+
+    print simpson(4-(x-1)^2, x, 0, 3, 6)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def simpson(f, x, a, b, n):
+        h = (b - a)/n
+        total = f.subs(x, a) + f.subs(x, b)
+        for k in range(1, n-1+1):
+            if k % 2 == 1:
+                total = total + 4*f.subs(x, a + k*h)
+            else:
+                total = total + 2*f.subs(x, a + k*h)
+        return (h/3) * total
+
+    print(simpson(4-(x-1)**2, x, 0, 3, 6))
+  expect:
+    output: ["9"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Exact for quadratics, so the result is the exact integral 9 (trapezium 8.875, left 9.625, right 8.125). n must be even. Expression form; twin: proposed.simpson.4-(x-1)^2.fn. The float result may be 9.000000000000002 or similar: compare is numeric."
+  requires: [mod]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.simpson.4-(x-1)^2.fn
+  tags: [for, if-else, mod, first-class-function]
+  source: "Proposed by Claude: first-class twin of proposed.simpson.4-(x-1)^2."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return 4 - (x-1)^2
+    end
+
+    define simpson(f, a, b, n)
+      h ← (b - a) ÷ n
+      total ← f(a) + f(b)
+      for k from 1 to n-1
+        if k MOD 2 = 1 then
+          total ← total + 4×f(a + k×h)
+        else
+          total ← total + 2×f(a + k×h)
+        end if
+      next k
+      return (h ÷ 3) × total
+    end
+
+    print simpson(f, 0, 3, 6)
+  python: |
+    def f(x):
+        return 4 - (x-1)**2
+
+    def simpson(f, a, b, n):
+        h = (b - a)/n
+        total = f(a) + f(b)
+        for k in range(1, n-1+1):
+            if k % 2 == 1:
+                total = total + 4*f(a + k*h)
+            else:
+                total = total + 2*f(a + k*h)
+        return (h/3) * total
+
+    print(simpson(f, 0, 3, 6))
+  expect:
+    output: ["9"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Function passed by name."
+  requires: [mod]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.derivative.central-difference
+  tags: [function, expression-arg, print-multiple, numerical-derivative]
+  source: "Proposed by Claude: central difference as a function of h; f = x^3 at x = 2 (f'(2) = 12)."
+  third_party: false
+  pseudocode: |
+    define central(f(x), x, a, h)
+      return (f(a + h) - f(a - h)) ÷ (2*h)
+    end
+
+    print central(x^3, x, 2, 0.5)
+    print central(x^3, x, 2, 0.1)
+    print central(x^3, x, 2, 0.01)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def central(f, x, a, h):
+        return (f.subs(x, a + h) - f.subs(x, a - h)) / (2*h)
+
+    print(central(x**3, x, 2, 0.5))
+    print(central(x**3, x, 2, 0.1))
+    print(central(x**3, x, 2, 0.01))
+  expect:
+    output: ["12.25", "12.01", "12.0001"]
+    compare: numeric(1e-6)
+  trace:
+    horizontal_eligible: false
+  notes: "For a cubic the central difference error is exactly h^2 f'''/6 = h^2: 12.25, 12.01, 12.0001. Matches the constant error seen in book.u2.derivative.forward-vs-central. Rounding makes the h = 0.01 value differ from 12.0001 by about 1e-12, so the tolerance is relaxed. Expression form; twin: proposed.derivative.central-difference.fn."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.derivative.central-difference.fn
+  tags: [function, first-class-function, print-multiple, numerical-derivative]
+  source: "Proposed by Claude: first-class twin of proposed.derivative.central-difference."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^3
+    end
+
+    define central(f, a, h)
+      return (f(a + h) - f(a - h)) ÷ (2*h)
+    end
+
+    print central(f, 2, 0.5)
+    print central(f, 2, 0.1)
+    print central(f, 2, 0.01)
+  python: |
+    def f(x):
+        return x**3
+
+    def central(f, a, h):
+        return (f(a + h) - f(a - h)) / (2*h)
+
+    print(central(f, 2, 0.5))
+    print(central(f, 2, 0.1))
+    print(central(f, 2, 0.01))
+  expect:
+    output: ["12.25", "12.01", "12.0001"]
+    compare: numeric(1e-6)
+  trace:
+    horizontal_eligible: false
+  notes: "Function passed by name."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.heron.sqrt-2
+  tags: [repeat-until, abs-bars, print-in-loop, newton]
+  source: "Proposed by Claude: Heron's (Babylonian) square root, which is Newton's method for x^2 - n."
+  third_party: false
+  pseudocode: |
+    n ← 2
+    x ← 1
+    repeat
+      x ← (x + n ÷ x) ÷ 2
+      print x
+    until |x × x - n| < 1E-10
+  python: |
+    n = 2
+    x = 1
+    while True:
+        x = (x + n / x) / 2
+        print(x)
+        if abs(x * x - n) < 1E-10: break
+  expect:
+    output: ["1.5", "1.41666666667", "1.41421568627", "1.41421356237"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 4
+  notes: "Iterates 1.5, 1.41666..., 1.414215686..., 1.41421356237469 (4 passes). In Auto and Exact modes the first three iterates are exact rationals (3/2, 17/12, 577/408) because only integers and fractions are involved: the same program prints fractions, which is a good Auto-mode demonstration (a Auto/Exact expectation is not recorded here). The same iteration is in the author's temp.py and SquareRoot.py (`guess = (guess + num/guess)/2`, started at num/2, in a while loop with a 1e-14 tolerance); this case is the repeat-until form."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.secant.x2-x-1
+  tags: [repeat-until, abs-bars, return, expression-arg, root-finding]
+  source: "Proposed by Claude, with the author's root-finding spreadsheet (f(x) = x^2 - x - 1, secant starting at 0 and 2; root phi = 1.618...)."
+  third_party: false
+  pseudocode: |
+    define secant(f(x), x, x0, x1, tol)
+      repeat
+        x2 ← x1 - f(x1) × (x1 - x0) ÷ (f(x1) - f(x0))
+        x0 ← x1
+        x1 ← x2
+      until |x1 - x0| < tol
+      return x1
+    end
+
+    print secant(x^2-x-1, x, 0, 2, 1E-9)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def secant(f, x, x0, x1, tol):
+        while True:
+            x2 = x1 - f.subs(x, x1) * (x1 - x0) / (f.subs(x, x1) - f.subs(x, x0))
+            x0 = x1
+            x1 = x2
+            if abs(x1 - x0) < tol: break
+        return x1
+
+    print(secant(x**2-x-1, x, 0, 2, 1E-9))
+  expect:
+    output: ["1.61803398875"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 8
+  notes: "Secant with x0 = 0, x1 = 2 (the spreadsheet's start) gives 1, 1.5, 1.6667, 1.61538, 1.617978, 1.6180341, 1.61803398875 (8 passes to |x1 - x0| < 1E-9: superlinear convergence to phi). Two points tracked instead of bracket ends, so no sign test. Expression form; twin: proposed.secant.x2-x-1.fn."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.secant.x2-x-1.fn
+  tags: [repeat-until, abs-bars, return, first-class-function, root-finding]
+  source: "Proposed by Claude: first-class twin of proposed.secant.x2-x-1."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2 - x - 1
+    end
+
+    define secant(f, x0, x1, tol)
+      repeat
+        x2 ← x1 - f(x1) × (x1 - x0) ÷ (f(x1) - f(x0))
+        x0 ← x1
+        x1 ← x2
+      until |x1 - x0| < tol
+      return x1
+    end
+
+    print secant(f, 0, 2, 1E-9)
+  python: |
+    def f(x):
+        return x**2 - x - 1
+
+    def secant(f, x0, x1, tol):
+        while True:
+            x2 = x1 - f(x1) * (x1 - x0) / (f(x1) - f(x0))
+            x0 = x1
+            x1 = x2
+            if abs(x1 - x0) < tol: break
+        return x1
+
+    print(secant(f, 0, 2, 1E-9))
+  expect:
+    output: ["1.61803398875"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 8
+  notes: "Function passed by name."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.false-position.x2-x-1
+  tags: [repeat-until, if-else, abs-bars, return, expression-arg, root-finding]
+  source: "Proposed by Claude: method of false position (the 'chordal' method of the author's spreadsheet) on [0, 2] for f(x) = x^2 - x - 1."
+  third_party: false
+  pseudocode: |
+    define false_position(f(x), x, lo, hi, tol)
+      repeat
+        c ← hi - f(hi) × (hi - lo) ÷ (f(hi) - f(lo))
+        if f(c) × f(lo) < 0 then
+          hi ← c
+        else
+          lo ← c
+        end if
+      until |f(c)| < tol
+      return c
+    end
+
+    print false_position(x^2-x-1, x, 0, 2, 1E-9)
+  python: |
+    from sympy import Symbol
+
+    x = Symbol('x')
+
+    def false_position(f, x, lo, hi, tol):
+        while True:
+            c = hi - f.subs(x, hi) * (hi - lo) / (f.subs(x, hi) - f.subs(x, lo))
+            if f.subs(x, c) * f.subs(x, lo) < 0:
+                hi = c
+            else:
+                lo = c
+            if abs(f.subs(x, c)) < tol: break
+        return c
+
+    print(false_position(x**2-x-1, x, 0, 2, 1E-9))
+  expect:
+    output: ["1.61803398867"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 13
+  notes: "The author notes that false position often moves only one end of the bracket, so the width hi - lo cannot be the stopping test; this stops on |f(c)| < tol. Here the left end moves and hi stays at 2 (the curve is convex). The root is phi = 1.6180339887, accurate to about 1e-9 / f'(phi) = 3e-10. Expression form; twin: proposed.false-position.x2-x-1.fn."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.false-position.x2-x-1.fn
+  tags: [repeat-until, if-else, abs-bars, return, first-class-function, root-finding]
+  source: "Proposed by Claude: first-class twin of proposed.false-position.x2-x-1."
+  third_party: false
+  pseudocode: |
+    define f(x)
+      return x^2 - x - 1
+    end
+
+    define false_position(f, lo, hi, tol)
+      repeat
+        c ← hi - f(hi) × (hi - lo) ÷ (f(hi) - f(lo))
+        if f(c) × f(lo) < 0 then
+          hi ← c
+        else
+          lo ← c
+        end if
+      until |f(c)| < tol
+      return c
+    end
+
+    print false_position(f, 0, 2, 1E-9)
+  python: |
+    def f(x):
+        return x**2 - x - 1
+
+    def false_position(f, lo, hi, tol):
+        while True:
+            c = hi - f(hi) * (hi - lo) / (f(hi) - f(lo))
+            if f(c) * f(lo) < 0:
+                hi = c
+            else:
+                lo = c
+            if abs(f(c)) < tol: break
+        return c
+
+    print(false_position(f, 0, 2, 1E-9))
+  expect:
+    output: ["1.61803398867"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 13
+  notes: "Function passed by name."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.fixed-point.converging
+  tags: [repeat-until, function, first-class-function, abs-bars, return, print-multiple]
+  source: "Proposed by Claude, with the author's root-finding spreadsheet: x = 1 + 1/x and x = sqrt(1 + x) both have fixed point phi = 1.618... (the roots of x^2 - x - 1)."
+  third_party: false
+  pseudocode: |
+    define g1(x)
+      return 1 + 1 ÷ x
+    end
+
+    define g2(x)
+      return sqrt(1 + x)
+    end
+
+    define fixed_point(g, x0, tol)
+      x ← x0
+      n ← 0
+      repeat
+        old ← x
+        x ← g(x)
+        n ← n + 1
+      until |x - old| < tol
+      print n
+      return x
+    end
+
+    print fixed_point(g1, 1, 1E-9)
+    print fixed_point(g2, 1, 1E-9)
+  python: |
+    from math import sqrt
+
+    def g1(x):
+        return 1 + 1 / x
+
+    def g2(x):
+        return sqrt(1 + x)
+
+    def fixed_point(g, x0, tol):
+        x = x0
+        n = 0
+        while True:
+            old = x
+            x = g(x)
+            n = n + 1
+            if abs(x - old) < tol: break
+        print(n)
+        return x
+
+    print(fixed_point(g1, 1, 1E-9))
+    print(fixed_point(g2, 1, 1E-9))
+  expect:
+    output: ["23", "1.61803398896", "19", "1.61803398861"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "g1 needs 23 iterations and g2 needs 19 (|g'(phi)| = 0.382 for g1 and 0.309 for g2: both converge linearly, g2 faster). Both print the count, then the fixed point 1.6180339887. A function that prints and returns, called inside `print`: the printed count comes BEFORE the result line. Starts from 1 so g1 has no division by zero."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.fixed-point.two-cycle
+  tags: [for, function, print-in-loop, convergence]
+  source: "Proposed by Claude, with the author's spreadsheet, whose column x = x^2 - 1 is unstable: both its fixed points (phi and -1/phi) repel, and starting at 1 the iteration is trapped in the 2-cycle 0, -1, 0, -1, ..."
+  third_party: false
+  pseudocode: |
+    define g(x)
+      return x^2 - 1
+    end
+
+    x ← 1
+    for k from 1 to 6
+      x ← g(x)
+      print x
+    end for
+  python: |
+    def g(x):
+        return x**2 - 1
+
+    x = 1
+    for k in range(1, 6+1):
+        x = g(x)
+        print(x)
+  expect:
+    output: ["0", "-1", "0", "-1", "0", "-1"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 6
+  notes: "Integers throughout: 0, -1, 0, -1, 0, -1. A `repeat ... until |x - old| < tol` version never stops, so it needs the step limit (compare author.linear.1+x.infinite); this fixed-length loop is the safe teaching version."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.series.exp-tolerance
+  tags: [while, abs-bars, accumulator, series]
+  source: "Proposed by Claude: Maclaurin series for e^x at x = 1, adding terms until a term is smaller than 1E-10. Each term comes from the previous one (term × x ÷ n), so no factorials or powers are computed."
+  third_party: false
+  pseudocode: |
+    x ← 1
+    term ← 1
+    total ← 1
+    n ← 0
+    while |term| ≥ 1E-10 do
+      n ← n + 1
+      term ← term × x ÷ n
+      total ← total + term
+    end while
+    print n, total
+  python: |
+    x = 1
+    term = 1
+    total = 1
+    n = 0
+    while abs(term) >= 1E-10:
+        n = n + 1
+        term = term * x / n
+        total = total + term
+    print(n, total)
+  expect:
+    output: ["14 2.71828182846"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 14
+  notes: "1/14! = 1.1E-11 is the first term under 1E-10, so n = 14 and total = 2.71828182846 (e = 2.718281828459045). Auto-mode note: with integer x everything is an exact rational (term = 1/n!), which makes a good test of rational arithmetic, but the 1E-10 literal makes the comparison real; golden values are for Approx."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.series.sin-maclaurin
+  tags: [while, abs-bars, accumulator, series]
+  source: "Proposed by Claude: Maclaurin series for sin(1) from the recurrence term_n = -term_(n-1) × x^2 ÷ ((2n)(2n+1)). Compare the author's seven-term Horner form in the Unit 2 book (p.116-117)."
+  third_party: false
+  pseudocode: |
+    x ← 1
+    term ← x
+    total ← x
+    n ← 0
+    while |term| ≥ 1E-12 do
+      n ← n + 1
+      term ← -term × x^2 ÷ (2n × (2n + 1))
+      total ← total + term
+    end while
+    print n, total
+  python: |
+    x = 1
+    term = x
+    total = x
+    n = 0
+    while abs(term) >= 1E-12:
+        n = n + 1
+        term = -term * x**2 / (2*n * (2*n + 1))
+        total = total + term
+    print(n, total)
+  expect:
+    output: ["7 0.841470984808"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 7
+  notes: "Unary minus on a variable (`-term`) followed by × and ^: -term × x^2 is (-term) × (x^2). sin(1) = 0.841470984808 (the series is exact to 1E-12). The radian/degree setting does not matter: the series assumes radians."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.series.leibniz-pi
+  tags: [while, accumulator, series, alternating]
+  source: "Proposed by Claude: Leibniz series pi/4 = 1 - 1/3 + 1/5 - ..., adding terms while 1/(2k+1) is at least 0.001."
+  third_party: false
+  pseudocode: |
+    total ← 0
+    sign ← 1
+    k ← 0
+    while 1 ÷ (2k + 1) ≥ 0.001 do
+      total ← total + sign ÷ (2k + 1)
+      sign ← -sign
+      k ← k + 1
+    end while
+    print k, 4 × total
+  python: |
+    total = 0
+    sign = 1
+    k = 0
+    while 1 / (2*k + 1) >= 0.001:
+        total = total + sign / (2*k + 1)
+        sign = -sign
+        k = k + 1
+    print(k, 4 * total)
+  expect:
+    output: ["500 3.13959265559"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 500
+  notes: "500 terms (2k + 1 <= 1000 means k <= 499) and 4 × total = 3.13959266, which is 0.002 below pi (the error of an alternating series is smaller than the first omitted term, here 4/1001 = 0.004). Slow convergence is the point."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.sequence.geometric-sum-threshold
+  tags: [while, accumulator, sequence]
+  source: "Proposed by Claude: how many terms of 1 + 2 + 4 + ... are needed for the sum to exceed one million?"
+  third_party: false
+  pseudocode: |
+    term ← 1
+    total ← 0
+    n ← 0
+    while total ≤ 1000000 do
+      total ← total + term
+      term ← 2 × term
+      n ← n + 1
+    end while
+    print n, total
+  python: |
+    term = 1
+    total = 0
+    n = 0
+    while total <= 1000000:
+        total = total + term
+        term = 2 * term
+        n = n + 1
+    print(n, total)
+  expect:
+    output: ["20 1048575"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 20
+  notes: "S_n = 2^n - 1 > 10^6 needs n = 20 (S_19 = 524287, S_20 = 1048575)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.sequence.arithmetic-sum-threshold
+  tags: [while, accumulator, sequence]
+  source: "Proposed by Claude: 5 + 8 + 11 + ...: the first n for which the sum exceeds 500."
+  third_party: false
+  pseudocode: |
+    term ← 5
+    total ← 0
+    n ← 0
+    while total ≤ 500 do
+      total ← total + term
+      term ← term + 3
+      n ← n + 1
+    end while
+    print n, total
+  python: |
+    term = 5
+    total = 0
+    n = 0
+    while total <= 500:
+        total = total + term
+        term = term + 3
+        n = n + 1
+    print(n, total)
+  expect:
+    output: ["18 549"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 18
+  notes: "S_n = n(3n + 7)/2: S_17 = 493 and S_18 = 549, so n = 18 (checks the formula route)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.sequence.logistic-recurrence
+  tags: [function, for, recurrence, chaos-free]
+  source: "Proposed by Claude: the logistic recurrence x_(n+1) = r x_n (1 - x_n): converges to 1 - 1/r for r = 2.5, and settles into a 2-cycle for r = 3.2."
+  third_party: false
+  pseudocode: |
+    define logistic(r, x0, n)
+      x ← x0
+      for k from 1 to n
+        x ← r × x × (1 - x)
+      end for
+      return x
+    end
+
+    print logistic(2.5, 0.2, 100)
+    print logistic(3.2, 0.2, 100), logistic(3.2, 0.2, 101)
+  python: |
+    def logistic(r, x0, n):
+        x = x0
+        for k in range(1, n+1):
+            x = r * x * (1 - x)
+        return x
+
+    print(logistic(2.5, 0.2, 100))
+    print(logistic(3.2, 0.2, 100), logistic(3.2, 0.2, 101))
+  expect:
+    output: ["0.6", "0.799455490467 0.513044509533"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "r = 2.5: fixed point 1 - 1/2.5 = 0.6. r = 3.2: the stable 2-cycle 0.513045 and 0.799455: x_100 is the upper value and x_101 the lower (consecutive terms alternate). Both regimes are attracting, so the result does not depend on rounding noise (r near 3.57 and above would)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.heun.x-t
+  tags: [for, function-by-name, two-arg-function, print]
+  source: "Proposed by Claude: improved Euler (Heun) for the same ODE as author.euler.x-t (dx/dt = x - t, x(0) = 0.5), step 0.5, to compare with plain Euler."
+  third_party: false
+  pseudocode: |
+    define f(x, t)
+      return x - t
+    end
+
+    define heun(f, t0, x0, dt, n)
+      t ← t0
+      x ← x0
+      print t, x
+      for k from 1 to n
+        k1 ← f(x, t)
+        k2 ← f(x + dt × k1, t + dt)
+        x ← x + dt × (k1 + k2) ÷ 2
+        t ← t + dt
+        print t, x
+      next k
+    end
+
+    heun(f, 0, 0.5, 0.5, 4)
+  python: |
+    def f(x, t):
+        return x - t
+
+    def heun(f, t0, x0, dt, n):
+        t = t0
+        x = x0
+        print(t, x)
+        for k in range(1, n+1):
+            k1 = f(x, t)
+            k2 = f(x + dt*k1, t + dt)
+            x = x + dt*(k1 + k2)/2
+            t = t + dt
+            print(t, x)
+
+    heun(f, 0, 0.5, 0.5, 4)
+  expect:
+    output: ["0 0.5", "0.5 0.6875", "1 0.6796875", "1.5 0.3544921875", "2 -0.486450195312"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Exact solution x = t + 1 - e^t/2 gives x(2) = -0.6945; plain Euler with step 0.5 (author.euler.x-t) gives 0.46875 (error 1.16) and Heun gives -0.4865 (error 0.21). Both checked by the generator. `x + dt × (k1 + k2) ÷ 2` reads (dt × (k1 + k2)) ÷ 2."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.projectile.time-stepping
+  tags: [while, accumulator, physics, euler]
+  source: "Proposed by Claude: projectile motion by Euler time-stepping with g = 9.8 and launch velocity (10, 10); stops at the first step with y below the ground."
+  third_party: false
+  pseudocode: |
+    g ← 9.8
+    vx ← 10
+    vy ← 10
+    dt ← 0.1
+    t ← 0
+    x ← 0
+    y ← 0
+    while y ≥ 0 do
+      x ← x + vx × dt
+      y ← y + vy × dt
+      vy ← vy - g × dt
+      t ← t + dt
+    end while
+    print t, x
+  python: |
+    g = 9.8
+    vx = 10
+    vy = 10
+    dt = 0.1
+    t = 0
+    x = 0
+    y = 0
+    while y >= 0:
+        x = x + vx * dt
+        y = y + vy * dt
+        vy = vy - g * dt
+        t = t + dt
+    print(t, x)
+  expect:
+    output: ["2.2 22"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 22
+  notes: "Exact flight time 2 vy/g = 2.0408 s and range 20.408 m; the step size overshoots and prints t = 2.2, x = 22 (first step with y < 0). Parameters chosen so y is never exactly 0 at a step (with g = 10 it would be, and the loop end would depend on rounding). t accumulates 0.1 22 times: 2.2000000000000006 in binary, so compare is numeric."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.finance.compound-doubling
+  tags: [while, accumulator, finance]
+  source: "Proposed by Claude: years for an investment compounding annually at 5% to double."
+  third_party: false
+  pseudocode: |
+    principal ← 10000
+    r ← 0.05
+    balance ← principal
+    years ← 0
+    while balance < 2 × principal do
+      balance ← balance × (1 + r)
+      years ← years + 1
+    end while
+    print years, balance
+  python: |
+    principal = 10000
+    r = 0.05
+    balance = principal
+    years = 0
+    while balance < 2 * principal:
+        balance = balance * (1 + r)
+        years = years + 1
+    print(years, balance)
+  expect:
+    output: ["15 20789.2817941"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 15
+  notes: "15 years, balance 20789.28 (10000 × 1.05^15). The answer is the same as n = ln 2 / ln 1.05 = 14.2 rounded up. Matches the TI finance solver's N for I% = 5, PV = -10000, FV = 20000 only after rounding up (the solver returns 14.2067)."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.finance.loan-amortisation
+  tags: [while, accumulator, finance]
+  source: "Proposed by Claude: months to repay a $20000 loan at 6% p.a. (0.5% per month) with $500 monthly repayments, and the total interest."
+  third_party: false
+  pseudocode: |
+    balance ← 20000
+    rate ← 0.06 ÷ 12
+    payment ← 500
+    months ← 0
+    total_interest ← 0
+    while balance > 0 do
+      interest ← balance × rate
+      total_interest ← total_interest + interest
+      balance ← balance + interest - payment
+      months ← months + 1
+    end while
+    print months, total_interest
+  python: |
+    balance = 20000
+    rate = 0.06 / 12
+    payment = 500
+    months = 0
+    total_interest = 0
+    while balance > 0:
+        interest = balance * rate
+        total_interest = total_interest + interest
+        balance = balance + interest - payment
+        months = months + 1
+    print(months, total_interest)
+  expect:
+    output: ["45 2370.33433843"]
+    compare: numeric
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 45
+  notes: "n = -ln(1 - rB/PMT)/ln(1 + r) = 44.7, so 45 months. The 45th payment overpays (the balance ends negative), so `total_interest` is the interest charged over the 45 months and the true total paid is 44 × 500 plus a smaller last payment. A teaching case about the stopping condition."
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: book.u2.sine-range-reduction
+  tags: [function-keyword, end-function, if, mod, lists, for-each, sqrt, pi, horner, print-multiple]
+  source: "S. Tyler, Algorithms and Mathematics: Methods Unit Two (Apr 2024), p.117 (own work): `sine` by range reduction and a 7th-degree Taylor polynomial in Horner form"
+  third_party: false
+  pseudocode: |
+    function sine(angle)
+      sign ← 1
+      // reduce the domain to 1st quadrant
+      x ← angle mod 2π
+      if x > π then
+        sign ← -1
+        x ← x - π
+      end if
+      if x > π÷2 then
+        x ← π - x
+      end if
+      // calculate the estimate of sine
+      poly ← x*(1-x²/6*(1-x²/20*(1-x²/42)))
+      return sign*poly // reconstruct
+    end function
+
+    angles ← [0, 18, 30, 45, 54, 60, 75, 90]
+    for each angle in angles
+      print angle, sine(angle×π÷180)
+    end for
+  python: |
+    from math import pi
+
+    def sine(angle):
+        sign = 1
+        # reduce the domain to 1st quadrant
+        x = angle % (2*pi)  # [0, 2pi)
+        if x > pi:
+            sign = -1
+            x = x - pi      # [0, pi)
+        if x > pi/2:
+            x = pi - x      # [0, pi/2)
+        # calculate the estimate of sine
+        x2 = x**2
+        poly = x*(1-x2/6*(1-x2/20*(1-x2/42)))
+        # reconstruct the function value
+        return sign*poly
+
+    angles = [0, 18, 30, 45, 54, 60, 75, 90]
+    for angle in angles:
+        print(angle, sine(angle*pi/180))
+  expect:
+    output: ["0 0", "18 0.309016994293", "30 0.499999991869", "45 0.707106469575", "54 0.80901539048", "60 0.866021271656", "75 0.965895210797", "90 0.999843101399"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Decided 2026-11-07: pi is the built-in constant (`π`/`pi`) in both the pseudocode and the Python (a program may instead define pi as a decimal). The book's code shows pi = 355/113 inside `sine` (marked 'can use better approx.'), but its printed table is reproduced exactly by the true pi: sine values 0.30902, 0.50000, 0.70711, 0.80902, 0.86602, 0.96590, 0.99984 and errors -8.207229e-11, -8.130977e-09, -3.116114e-07, -1.603895e-06, -4.132128e-06, -3.061549e-05, -0.0001568986 for 18, 30, 45, 54, 60, 75, 90 degrees (computed from unrounded values they agree with the book to all its printed digits; the generator checks the printed 12-digit values to within 1e-12). So the 355/113 in the book's listing does not affect its printed output; it would shift the 18 degree error by orders of magnitude. `mod` is the infix operator on reals with floor semantics (x ← angle mod 2π). `x²` and `x²/6*(...)` follow the book's superscript spelling, which the dialect accepts. By Python precedence x²/6*(...) is ((x^2)/6)*(...), the same as the book."
+  requires: [lists, mod, pi]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.mandelbrot.escape-time
+  tags: [function, complex, for, if, return-in-loop, abs-bars, specialist]
+  source: "Proposed by Claude: Mandelbrot escape-time iteration z ← z^2 + c, starting at z = 0 (Specialist: complex numbers)."
+  third_party: false
+  pseudocode: |
+    define escape(c, max_iter)
+      z ← 0
+      for k from 1 to max_iter
+        z ← z^2 + c
+        if |z| > 2 then
+          return k
+        end if
+      end for
+      return max_iter
+    end
+
+    print escape(complex(0, 0), 30)
+    print escape(complex(1, 0), 30)
+    print escape(complex(-1, 0), 30)
+    print escape(complex(0, 1), 30)
+    print escape(complex(2, 0), 30)
+    print escape(complex(0.4, 0.4), 30)
+  python: |
+    def escape(c, max_iter):
+        z = 0
+        for k in range(1, max_iter+1):
+            z = z**2 + c
+            if abs(z) > 2:
+                return k
+        return max_iter
+
+    print(escape(complex(0, 0), 30))
+    print(escape(complex(1, 0), 30))
+    print(escape(complex(-1, 0), 30))
+    print(escape(complex(0, 1), 30))
+    print(escape(complex(2, 0), 30))
+    print(escape(complex(0.4, 0.4), 30))
+  expect:
+    output: ["30", "3", "30", "30", "2", "9"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "First case using the complex type. c = 0, -1 and i never escape (orbits 0; -1, 0; i, -1+i, -i, -1+i, ...), so they return max_iter = 30. c = 1: z = 1, 2, 5, escapes at k = 3 (|2| > 2 is false, |5| > 2 true). c = 2 escapes at k = 2 (z = 2, 6). `|z|` is the modulus for complex z (absolute value bars on a complex number). Integer-valued complex numbers are computed exactly; c = 0.4 + 0.4i is floating point and the escape count is stable (not near the boundary). Domain: complex values are allowed in the Real domain when entered as complex(...) (decided 2026-11-04)."
+  requires: [complex]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.mandelbrot.ascii
+  tags: [function, complex, for, nested, string, return-in-loop, specialist, slow]
+  source: "Proposed by Claude: a 31 × 11 character picture of the Mandelbrot set built with string concatenation (# = did not escape in 30 steps)."
+  third_party: false
+  pseudocode: |
+    define escape(c, max_iter)
+      z ← 0
+      for k from 1 to max_iter
+        z ← z^2 + c
+        if |z| > 2 then
+          return k
+        end if
+      end for
+      return max_iter
+    end
+
+    for row from 5 to -5 step -1
+      line ← ""
+      for col from -20 to 10
+        if escape(complex(col ÷ 10, row ÷ 5), 30) = 30 then
+          line ← line + "#"
+        else
+          line ← line + "."
+        end if
+      end for
+      print line
+    end for
+  python: |
+    def escape(c, max_iter):
+        z = 0
+        for k in range(1, max_iter+1):
+            z = z**2 + c
+            if abs(z) > 2:
+                return k
+        return max_iter
+
+    for row in range(5, -5-1, -1):
+        line = ""
+        for col in range(-20, 10+1):
+            if escape(complex(col / 10, row / 5), 30) == 30:
+                line = line + "#"
+            else:
+                line = line + "."
+        print(line)
+  expect:
+    output: ["....................#..........", "..................##...........", "...............#.#####.........", "..............##########.......", ".........###.############......", "#######################........", ".........###.############......", "..............##########.......", "...............#.#####.........", "..................##...........", "....................#.........."]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "Sample points x = col/10 in [-2, 1], y = row/5 in [-1, 1]. Real axis points at the set's edge (x = -2, x = 0.25 region) are decided by exact arithmetic on binary floats; the interpreter must use IEEE doubles and complex multiplication exactly as CPython does, or boundary pixels may flip. Output is 11 lines of 31 characters: a stress test of nested loops (341 calls, up to 30 iterations each) and string building. Tagged slow for the trace: tracing must be capped."
+  requires: [complex, negative-step]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.rational-roots.list
+  tags: [lists, function, nested, gcd, rational, exact, if, specialist]
+  source: "Proposed by Claude: Rational Root Theorem for 2x^3 - 3x^2 - 11x + 6 using lists. The author's version (in his sources, 'Rational Root Finder') uses sets: `A ← {factors of cn}` and `for each m ∈ A`: see requires."
+  third_party: false
+  pseudocode: |
+    define gcd(a, b)
+      while b ≠ 0 do
+        r ← a MOD b
+        a ← b
+        b ← r
+      end while
+      return a
+    end
+
+    define factors(n)
+      result ← []
+      for k from 1 to n
+        if n MOD k = 0 then
+          Append k to result
+        end if
+      end for
+      return result
+    end
+
+    define evaluate(coeffs, x)
+      total ← 0
+      for i from len(coeffs) to 1 step -1
+        total ← total × x + coeffs[i]
+      end for
+      return total
+    end
+
+    coeffs ← [6, -11, -3, 2]
+    for each p in factors(6)
+      for each q in factors(2)
+        if gcd(p, q) = 1 then
+          for each sign in [1, -1]
+            candidate ← sign × p ÷ q
+            if evaluate(coeffs, candidate) = 0 then
+              print candidate
+            end if
+          end for
+        end if
+      end for
+    end for
+  python: |
+    from fractions import Fraction
+
+    def gcd(a, b):
+        while b != 0:
+            r = a % b
+            a = b
+            b = r
+        return a
+
+    def factors(n):
+        result = []
+        for k in range(1, n+1):
+            if n % k == 0:
+                result.append(k)
+        return result
+
+    def evaluate(coeffs, x):
+        total = 0
+        for c in reversed(coeffs):
+            total = total * x + c
+        return total
+
+    coeffs = [6, -11, -3, 2]
+    for p in factors(6):
+        for q in factors(2):
+            if gcd(p, q) == 1:
+                for sign in [1, -1]:
+                    candidate = Fraction(sign * p, q)
+                    if evaluate(coeffs, candidate) == 0:
+                        print(candidate)
+  settings: {"number": "auto"}
+  expect_by_settings:
+    - {"settings": {"number": "auto"}, "output": ["1/2", "-2", "3"], "compare": "exact"}
+    - {"settings": {"number": "approx"}, "output": ["0.5", "-2", "3"], "compare": "numeric"}
+  trace:
+    horizontal_eligible: false
+  notes: "Roots are 1/2, -2 and 3 (2x^3 - 3x^2 - 11x + 6 = (2x - 1)(x + 2)(x - 3)), printed in the order found: p ascending, q ascending, sign + then -. The gcd test skips non-reduced candidates (2/2 would repeat 1/1). In Auto and Exact modes `sign × p ÷ q` is an exact rational so `= 0` is an exact test; in Approx it is a real, and the test happens to be exact for these candidates (all roots are dyadic: 0.5, 2, 3), but would not be in general. A `for each sign in [1, -1]` over a list literal. Set version (`{...}`, `∈`) is Could; this is the list version."
+  requires: [lists, mod, negative-step, rational]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.matrix.dot-and-multiply
+  tags: [lists, nested-lists, for, nested, append, print-multiple, specialist]
+  source: "Proposed by Claude: dot product and a 2×3 by 3×2 matrix product on nested lists."
+  third_party: false
+  pseudocode: |
+    define dot(u, v)
+      total ← 0
+      for i from 1 to len(u)
+        total ← total + u[i] × v[i]
+      end for
+      return total
+    end
+
+    print dot([1, 2, 3], [4, -5, 6])
+
+    A ← [[1, 2, 3], [4, 5, 6]]
+    B ← [[7, 8], [9, 10], [11, 12]]
+    C ← []
+    for i from 1 to 2
+      row ← []
+      for j from 1 to 2
+        s ← 0
+        for k from 1 to 3
+          s ← s + A[i][k] × B[k][j]
+        end for
+        Append s to row
+      end for
+      Append row to C
+    end for
+    for i from 1 to 2
+      print C[i][1], C[i][2]
+    end for
+  python: |
+    def dot(u, v):
+        total = 0
+        for ui, vi in zip(u, v):
+            total = total + ui * vi
+        return total
+
+    print(dot([1, 2, 3], [4, -5, 6]))
+
+    A = [[1, 2, 3], [4, 5, 6]]
+    B = [[7, 8], [9, 10], [11, 12]]
+    C = []
+    for i in range(2):
+        row = []
+        for j in range(2):
+            s = 0
+            for k in range(3):
+                s = s + A[i][k] * B[k][j]
+            row.append(s)
+        C.append(row)
+    for row in C:
+        print(row[0], row[1])
+  expect:
+    output: ["12", "58 64", "139 154"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "dot = 1×4 + 2×(-5) + 3×6 = 12. Product [[58, 64], [139, 154]]. A variable named `C` (case-sensitive; no clash with the Python helper names). Nested lists (dialect section 2) and double indexing `A[i][k]`. Three nested loops: vertical layout only. The product loop is the matrix_mult of the author's matrices.py (rows of the first times columns of the second); his file also has add, scalar multiple and the 2x2 determinant."
+  requires: [lists, nested-lists]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: proposed.euclid.extended
+  tags: [while, function, div, mod, print-multiple, specialist]
+  source: "Proposed by Claude: extended Euclidean algorithm giving g = gcd(a, b) and integers x, y with a x + b y = g (Bezout). Included at Simon's request (2026-11-07) as a good Specialist example."
+  third_party: false
+  pseudocode: |
+    define extended_euclid(a, b)
+      r_old ← a
+      r ← b
+      s_old ← 1
+      s ← 0
+      t_old ← 0
+      t ← 1
+      while r ≠ 0 do
+        q ← r_old DIV r
+        temp ← r
+        r ← r_old - q × r
+        r_old ← temp
+        temp ← s
+        s ← s_old - q × s
+        s_old ← temp
+        temp ← t
+        t ← t_old - q × t
+        t_old ← temp
+      end while
+      print r_old, s_old, t_old
+    end
+
+    extended_euclid(240, 46)
+    extended_euclid(17, 5)
+  python: |
+    def extended_euclid(a, b):
+        r_old = a
+        r = b
+        s_old = 1
+        s = 0
+        t_old = 0
+        t = 1
+        while r != 0:
+            q = r_old // r
+            temp = r
+            r = r_old - q * r
+            r_old = temp
+            temp = s
+            s = s_old - q * s
+            s_old = temp
+            temp = t
+            t = t_old - q * t
+            t_old = temp
+        print(r_old, s_old, t_old)
+
+    extended_euclid(240, 46)
+    extended_euclid(17, 5)
+  expect:
+    output: ["2 -9 47", "1 -2 7"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "240 × (-9) + 46 × 47 = 2 = gcd; 17 × (-2) + 5 × 7 = 1. The generator checks a x + b y = g for both. Names r_old, s_old, t_old (renamed from oldR, oldS, oldT at the author's review, 2026-11-07). Three swap temporaries instead of tuple assignment (tuples are Could)."
+  requires: [div]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: proposed.tuple-return.box-volume
+  tags: [function, while, tuple, return-tuple, optimisation, specialist]
+  source: "Proposed by Claude: an original problem with the SHAPE of VCAA's `maximum_SA` question (a function that searches a table of values and returns (best_x, best_y)); the VCAA text itself is not reproduced. Open-top box from a 12 × 12 sheet: volume(x) = x(12 - 2x)^2 for cut size x."
+  third_party: false
+  pseudocode: |
+    define box_max(side, h)
+      x ← h
+      best_x ← 0
+      best_volume ← 0
+      while x < side ÷ 2 do
+        volume ← x × (side - 2x)^2
+        if volume > best_volume then
+          best_x ← x
+          best_volume ← volume
+        end if
+        x ← x + h
+      end while
+      return (best_x, best_volume)
+    end
+
+    (x, volume) ← box_max(12, 0.5)
+    print x, volume
+  python: |
+    def box_max(side, h):
+        x = h
+        best_x = 0
+        best_volume = 0
+        while x < side / 2:
+            volume = x * (side - 2*x)**2
+            if volume > best_volume:
+                best_x = x
+                best_volume = volume
+            x = x + h
+        return (best_x, best_volume)
+
+    (x, volume) = box_max(12, 0.5)
+    print(x, volume)
+  expect:
+    output: ["2 128"]
+    compare: numeric
+  trace:
+    horizontal_eligible: false
+  notes: "PENDING FEATURE: tuple return and tuple assignment `(x, volume) ← f(...)` are Could (FR-PSE-008 to -010; dialect section 10); the syntax shown is a proposal, not decided. Maximum volume is at x = 2 (volume = 128) and the table of values with step 0.5 hits it exactly (x = 2 is a multiple of 0.5, and 0.5 is exact in binary). Step 0.5 accumulation is exact in floating point."
+  requires: [tuples]
+  provenance: {"source": "claude-proposed", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.search.binary
+  tags: [lists, while, function, return-in-loop, div, index-base, binary-search]
+  source: "Adapted from the author's own code, Code Examples/searching.py (binary_search, half-open interval [lo, hi))"
+  third_party: false
+  pseudocode: |
+    define binary_search(data, item)
+      lo ← 1
+      hi ← len(data) + 1
+      while lo < hi do
+        mid ← (lo + hi) DIV 2
+        if data[mid] = item then
+          return mid
+        else if data[mid] < item then
+          lo ← mid + 1
+        else
+          hi ← mid
+        end if
+      end while
+      return 0
+    end
+
+    data ← [2, 4, 5, 5, 9, 10, 11]
+    print binary_search(data, 5)
+    print binary_search(data, 6)
+    data ← [2, 4, 6, 34, 78, 88, 92, 102]
+    print binary_search(data, 78)
+    print binary_search(data, 79)
+    print binary_search(data, 88)
+  python: |
+    def binary_search(data, item):
+        lo = 0
+        hi = len(data)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if data[mid] == item:
+                return mid + 1
+            elif data[mid] < item:
+                lo = mid + 1
+            else:
+                hi = mid
+        return 0
+
+    data = [2, 4, 5, 5, 9, 10, 11]
+    print(binary_search(data, 5))
+    print(binary_search(data, 6))
+    data = [2, 4, 6, 34, 78, 88, 92, 102]
+    print(binary_search(data, 78))
+    print(binary_search(data, 79))
+    print(binary_search(data, 88))
+  expect:
+    output: ["4", "0", "5", "0", "6"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His test values from searching.py. His version is 0-based and returns -1 when absent; here positions are 1-based (dialect default) and 0 means 'not found', so his 3, -1, 4, -1, 5 become 4, 0, 5, 0, 6 (checked against his original). The interval is half-open [lo, hi): hi starts at len + 1, and the loop ends when lo = hi. With the repeated 5 the search finds position 4 (the second 5), the first midpoint; another valid answer would be 3, so this case also shows that binary search does not promise the first match. `else if` is the elsif form; accepted under the tolerant-keyword rule. The Python is the author's own zero-based code, except that it returns the position counting from 1 (M + 1) and 0 for 'not found', so that the output matches the pseudocode."
+  requires: [lists, mod, div]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.search.binary-recursive
+  tags: [lists, recursion, function, div, index-base, binary-search]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/binary_search - recursive.py (binary_search_r, 2017)"
+  third_party: false
+  pseudocode: |
+    define search(data, item, lo, hi)
+      if lo = hi then
+        return 0
+      end if
+      mid ← (lo + hi) DIV 2
+      if data[mid] = item then
+        return mid
+      else if data[mid] > item then
+        return search(data, item, lo, mid)
+      else
+        return search(data, item, mid + 1, hi)
+      end if
+    end
+
+    data ← [1, 2, 6, 34, 78, 88, 92, 102]
+    print search(data, 6, 1, len(data) + 1)
+    print search(data, 90, 1, len(data) + 1)
+    nums ← [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    print search(nums, 6, 1, 19)
+    print search(nums, 7, 1, 19)
+    print search(nums, 18, 1, 19)
+  python: |
+    def search(data, item, lo, hi):
+        if lo == hi:
+            return 0
+        mid = (lo + hi) // 2
+        if data[mid] == item:
+            return mid + 1
+        elif data[mid] > item:
+            return search(data, item, lo, mid)
+        else:
+            return search(data, item, mid + 1, hi)
+
+    data = [1, 2, 6, 34, 78, 88, 92, 102]
+    print(search(data, 6, 0, len(data)))
+    print(search(data, 90, 0, len(data)))
+    nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    print(search(nums, 6, 0, 18))
+    print(search(nums, 7, 0, 18))
+    print(search(nums, 18, 0, 18))
+  expect:
+    output: ["3", "0", "7", "8", "0"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His test data from the 2017 file (his `range(18)` is written as a list literal because ranges are not list values in the dialect). His default arguments (lo=None, hi=None) and the `debug` printing are dropped: the first call passes the whole interval. Positions are 1-based, 0 = not found. Recursion depth at most 5. The list is passed to every recursive call without slicing and is never changed (lists are values in the dialect, decided 2026-11-07, so a function cannot change its caller's list). In the Python the interval [L, R) counts from 0 (the first call is 0 and len(data)) and the position is returned counting from 1 (mid + 1)."
+  requires: [lists, recursion, mod, div]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.sort.selection
+  tags: [lists, for, negative-step, nested, swap, if, for-each]
+  source: "Adapted from the author's own code, Code Examples/sorting.py (selection_sort, with find_max_idx inlined)"
+  third_party: false
+  pseudocode: |
+    a ← [10, 5, 4, 2, 2, 11, 5, 9]
+    for wall from len(a) to 2 step -1
+      max_idx ← 1
+      for i from 2 to wall
+        if a[i] > a[max_idx] then
+          max_idx ← i
+        end if
+      end for
+      t ← a[max_idx]
+      a[max_idx] ← a[wall]
+      a[wall] ← t
+    end for
+    for each x in a
+      print x
+    end for
+  python: |
+    a = [10, 5, 4, 2, 2, 11, 5, 9]
+    for wall in range(len(a) - 1, 0, -1):
+        max_idx = 0
+        for i in range(1, wall + 1):
+            if a[i] > a[max_idx]:
+                max_idx = i
+        a[max_idx], a[wall] = a[wall], a[max_idx]
+    for x in a:
+        print(x)
+  expect:
+    output: ["2", "2", "4", "5", "5", "9", "10", "11"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His selection sort builds the sorted part from the right: the 'wall' moves from the end down, and each pass swaps the largest remaining item into place. His helper functions find_max_idx and swap are written inline here (the case then needs no function-with-default-argument feature: his `find_max_idx(data, L=0, R=None)` uses default arguments and `R = R or len(data)`). His test list [10, 5, 4, 2, 2, 11, 5, 9] -> 2 2 4 5 5 9 10 11 (his own check). Uses `step -1` in a for loop; the bound `wall` is not 1 because a one-element part is already sorted."
+  requires: [lists, negative-step]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.sort.bubble-flag
+  tags: [lists, while, for, nested, swap, if, counter, boolean]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/Sorting/Sorts - Basic Implementations.py (bubble_sort with steps and swaps counters, 'swapped' flag)"
+  third_party: false
+  pseudocode: |
+    a ← [5, 2, 9, 1, 7]
+    n ← len(a)
+    swapped ← true
+    steps ← 0
+    swaps ← 0
+    while swapped do
+      swapped ← false
+      for i from 1 to n - 1
+        steps ← steps + 1
+        if a[i] > a[i + 1] then
+          t ← a[i]
+          a[i] ← a[i + 1]
+          a[i + 1] ← t
+          swapped ← true
+          swaps ← swaps + 1
+        end if
+      end for
+    end while
+    for each x in a
+      print x
+    end for
+    print "steps", steps, "swaps", swaps
+  python: |
+    a = [5, 2, 9, 1, 7]
+    n = len(a)
+    swapped = True
+    steps = 0
+    swaps = 0
+    while swapped:
+        swapped = False
+        for i in range(n - 1):
+            steps = steps + 1
+            if a[i] > a[i + 1]:
+                a[i], a[i + 1] = a[i + 1], a[i]
+                swapped = True
+                swaps = swaps + 1
+    for x in a:
+        print(x)
+    print("steps", steps, "swaps", swaps)
+  expect:
+    output: ["1", "2", "5", "7", "9", "steps 16 swaps 5"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "Booleans: `true`/`false` (any case, `TRUE`, `True`) are accepted in the syntax; a printed boolean is uppercase, TRUE/FALSE (decided 2026-11-07); this program does not print one. His bubble_sort: repeat passes until a whole pass makes no swap (the `swapped` flag), counting comparisons (`steps`) and swaps; he uses the two counters to compare sorting algorithms. The same data as proposed.sort.bubble (5 2 9 1 7): 5 swaps as there, but 16 comparisons here: three passes that swap (3, 1 and 1 swaps) plus a final pass with no swap, 4 passes of 4 comparisons (his version never shortens the pass). A `while` around a `for`: vertical trace only. The tuple he returns, `(steps, swaps)`, becomes a final print."
+  requires: [lists, boolean]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.lcm.search
+  tags: [while, function, if-else, integer, trace-table]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/LCM.py (a trace-table practice question)"
+  third_party: false
+  pseudocode: |
+    define lcm(x, y)
+      a ← 1
+      b ← 1
+      comp ← a × x - b × y
+      while comp ≠ 0 do
+        if comp > 0 then
+          b ← b + 1
+        else
+          a ← a + 1
+        end if
+        comp ← a × x - b × y
+      end while
+      return a × x
+    end
+
+    print lcm(15, 35)
+    print lcm(4, 6)
+  python: |
+    def lcm(x, y):
+        a = 1
+        b = 1
+        comp = a * x - b * y
+        while comp != 0:
+            if comp > 0:
+                b = b + 1
+            else:
+                a = a + 1
+            comp = a * x - b * y
+        return a * x
+
+    print(lcm(15, 35))
+    print(lcm(4, 6))
+  expect:
+    output: ["105", "12"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His LCM by 'keep adding the smaller multiple': a×x and b×y are the multiples of x and y; always step whichever is smaller until they are equal (then that common value is the lowest common multiple). No gcd needed. He used it as a trace-table question (the pythontutor link in the file); lcm(15, 35) = 105 takes 8 passes of the loop (a: 1 to 7, b: 1 to 3). Compare proposed.lcm.from-gcd, the gcd route."
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.integer.division-by-subtraction
+  tags: [while, integer, trace-table, print-multiple]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/2017 Homework/2017 - Homework2 - Division.py (2017 homework 'Outputs ???')"
+  third_party: false
+  pseudocode: |
+    a ← 20
+    b ← 7
+    count ← 0
+    while a > b do
+      count ← count + 1
+      a ← a - b
+    end while
+    print count, a
+  python: |
+    a = 20
+    b = 7
+    count = 0
+    while a > b:
+        count = count + 1
+        a = a - b
+    print(count, a)
+  expect:
+    output: ["2 6"]
+    compare: exact
+  trace:
+    horizontal_eligible: true
+    loop_iterations: 2
+  notes: "Integer division by repeated subtraction: 20 -> 13 -> 6, so `2 6` (quotient and remainder). His homework asked students to say what it outputs. Note the loop condition is `a > b`, not `a ≥ b`: with a = 14, b = 7 it stops at count 1, a = 7 (a remainder equal to the divisor), which is a nice trace-table bug-hunt, but 20 and 7 give the correct 2 and 6. One while loop, three variables: a classic horizontal desk-check."
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.digits.frequency-1-to-100
+  tags: [lists, for, while, nested, mod, div, counting, index-base]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/NumberOfDigits1to100.py (how often each digit appears when writing 1 to 100)"
+  third_party: false
+  pseudocode: |
+    count ← [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for n from 1 to 100
+      m ← n
+      while m > 0 do
+        d ← m MOD 10
+        count[d + 1] ← count[d + 1] + 1
+        m ← m DIV 10
+      end while
+    end for
+    for d from 0 to 9
+      print d, count[d + 1]
+    end for
+  python: |
+    count = [0] * 10
+    for n in range(1, 101):
+        m = n
+        while m > 0:
+            d = m % 10
+            count[d] = count[d] + 1
+            m = m // 10
+    for d in range(10):
+        print(d, count[d])
+  expect:
+    output: ["0 11", "1 21", "2 20", "3 20", "4 20", "5 20", "6 20", "7 20", "8 20", "9 20"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His file counts the characters of str(i) for i = 1..100 three ways (dictionary, dictionary of zeros, string `count`). Here the digits are taken numerically (MOD 10 and DIV 10), so the dialect needs neither strings nor dictionaries; the counts live in a list of ten zeros. The digit d is stored at position d + 1 (the 1-based list): the usual wrinkle, and a good question for students. Result: 0 appears 11 times, 1 appears 21 times (20 in the numbers 1 to 99, plus the 100), every other digit 20 times. 192 digits in total (9 + 180 + 3). In the Python the digit d is stored at index d; in the pseudocode (1-based) at position d + 1."
+  requires: [lists, mod, div]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.base.digits-and-back
+  tags: [lists, while, for, function, mod, div, append, negative-step, horner, print-list, string-literals]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/int2base and base2int.py (int2base / base2int: convert between bases, tests print old_base -> new_base)"
+  third_party: false
+  pseudocode: |
+    define to_base(n, base)
+      digits ← []
+      while n > 0 do
+        Append n MOD base to digits
+        n ← n DIV base
+      end while
+      result ← []
+      for i from len(digits) to 1 step -1
+        Append digits[i] to result
+      end for
+      return result
+    end
+
+    define from_base(digits, base)
+      total ← 0
+      for each d in digits
+        total ← total × base + d
+      end for
+      return total
+    end
+
+    define symbols(digits)
+      chars ← ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]
+      result ← []
+      for each d in digits
+        Append chars[d + 1] to result
+      end for
+      return result
+    end
+
+    define convert(digits, old_base, new_base)
+      print old_base, "->", new_base, ":", symbols(to_base(from_base(digits, old_base), new_base))
+    end
+
+    convert([2, 5, 5], 10, 16)
+    convert([1, 0, 0, 1, 0, 1], 2, 10)
+    convert([1, 0, 0, 0], 10, 8)
+    convert([15, 15], 16, 2)
+    convert([1, 2, 3], 10, 16)
+  python: |
+    def to_base(n, base):
+        digits = []
+        while n > 0:
+            digits.append(n % base)
+            n = n // base
+        return digits[::-1]
+
+    def from_base(digits, base):
+        total = 0
+        for d in digits:
+            total = total * base + d
+        return total
+
+    def symbols(digits):
+        chars = "0123456789ABCDEF"
+        return [chars[d] for d in digits]
+
+    def convert(digits, old_base, new_base):
+        print(old_base, "->", new_base, ":", symbols(to_base(from_base(digits, old_base), new_base)))
+
+    convert([2, 5, 5], 10, 16)
+    convert([1, 0, 0, 1, 0, 1], 2, 10)
+    convert([1, 0, 0, 0], 10, 8)
+    convert([15, 15], 16, 2)
+    convert([1, 2, 3], 10, 16)
+  expect:
+    output: ["10 -> 16 : ['F', 'F']", "2 -> 10 : ['3', '7']", "10 -> 8 : ['1', '7', '5', '0']", "16 -> 2 : ['1', '1', '1', '1', '1', '1', '1', '1']", "10 -> 16 : ['7', 'B']"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His int2base takes remainders by divmod and reverses at the end; base2int adds the digit values times powers of the base (here Horner's rule, left to right). Reworked at the author's review (2026-11-07): each test prints `old_base -> new_base : digits`, and hexadecimal digits are shown with the letters A to F. The digits go in and out as lists of NUMBERS (15 for F), and the letters come from a list of one-letter string literals indexed by the digit value (chars[d + 1]): no string handling beyond printing a list of strings. A printed list shows its items as Python does, strings in single quotes: ['F', 'F'] (decision to confirm, dialect section 14). Checks: 255 = FF in base 16 (10 -> 16), 100101 in base 2 is 37, 1000 is 1750 in base 8, 11111111 is 255 and 123 is 7B. His negative-number handling and the base limit of 64 are dropped."
+  requires: [lists, mod, div, negative-step, list-return, list-print, string-literals]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.stats.four-means
+  tags: [lists, for-each, accumulator, len, sqrt, power, print-multiple]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2020-2021/Array Algorithms.py (arithmetic, RMS, harmonic and geometric means)"
+  third_party: false
+  pseudocode: |
+    data ← [5, 7, 10, 1, 10, 8]
+    n ← len(data)
+    s ← 0
+    sq ← 0
+    inv ← 0
+    prod ← 1
+    for each x in data
+      s ← s + x
+      sq ← sq + x^2
+      inv ← inv + 1 ÷ x
+      prod ← prod × x^(1 ÷ n)
+    end for
+    print "arithmetic", s ÷ n
+    print "RMS", sqrt(sq ÷ n)
+    print "harmonic", n ÷ inv
+    print "geometric", prod
+  python: |
+    from math import sqrt
+
+    data = [5, 7, 10, 1, 10, 8]
+    n = len(data)
+    s = 0
+    sq = 0
+    inv = 0
+    prod = 1
+    for x in data:
+        s = s + x
+        sq = sq + x**2
+        inv = inv + 1 / x
+        prod = prod * x**(1 / n)
+    print("arithmetic", s / n)
+    print("RMS", sqrt(sq / n))
+    print("harmonic", n / inv)
+    print("geometric", prod)
+  expect:
+    output: ["arithmetic 6.83333333333", "RMS 7.51664818919", "harmonic 3.59743040685", "geometric 5.51052535778"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "His Array Algorithms.py defines total, mean, RMS, harmonic and geometric means for a list; his commented test list is [5, 7, 10, 1, 10, 8]. The four means: arithmetic 6.83333 (= 41/6), quadratic (RMS) 7.51665, harmonic 3.59743, geometric 5.51053: always harmonic <= geometric <= arithmetic <= RMS. The geometric mean multiplies x^(1/n) term by term, as he does (rather than taking the n-th root of the product). His max-with-position function is not part of this case (removed at the author's review, 2026-11-07). In Auto/Exact mode the arithmetic mean prints as the fraction 41/6 and the other means as exact forms or decimals (dialect section 6); this case records the Approx output only."
+  requires: [lists]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.list.all-max-positions
+  tags: [lists, for, if-elif, append, print-list, index-base]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2020-2021/find_all_max_pos.py (find_all_max_pos)"
+  third_party: false
+  pseudocode: |
+    data ← [2, 6, 8, 2, 4, 8, 8, 5]
+    biggest ← data[1]
+    positions ← [1]
+    for i from 2 to len(data)
+      if data[i] > biggest then
+        biggest ← data[i]
+        positions ← [i]
+      else if data[i] = biggest then
+        Append i to positions
+      end if
+    end for
+    print "Max value is", biggest, "and occurs at position(s)", positions
+  python: |
+    data = [2, 6, 8, 2, 4, 8, 8, 5]
+    biggest = data[0]
+    positions = [1]
+    for i, x in enumerate(data[1:], start=2):
+        if x > biggest:
+            biggest = x
+            positions = [i]
+        elif x == biggest:
+            positions.append(i)
+    print("Max value is", biggest, "and occurs at position(s)", positions)
+  expect:
+    output: ["Max value is 8 and occurs at position(s) [3, 6, 7]"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His find_all_max_pos returns a tuple (the maximum, the list of all its positions); here the result is printed in a sentence (output format changed at the author's review, 2026-11-07). His test list [2, 6, 8, 2, 4, 8, 8, 5]: maximum 8 at positions 3, 6, 7 (his 0-based output is [2, 5, 6]). Positions count from 1 in the output, in both versions. The list is printed as a list, [3, 6, 7], with the brackets (dialect section 14); a version without brackets would need a join function. Re-assigning a one-element list literal (`positions ← [i]`) throws the earlier positions away. His test comments list the test categories (Normal [2, 6, 5], Abnormal [-2, -6, -5] all negative, Extreme [] empty): a good source of further cases once errors are specified."
+  requires: [lists, list-print]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: unreviewed
+
+
+
+- id: author.isbn.check-13
+  tags: [lists, for, mod, accumulator, if-else, function, check-digit, print-in-function]
+  source: "Adapted from the author's own code, Code Examples/Book Database/check_isbn.py (is_valid_isbn13; companion worksheet 'ISBN check digits - Algorithms and Worksheets.pdf')"
+  third_party: false
+  pseudocode: |
+    define check_isbn13(d)
+      total ← 0
+      for i from 1 to 13
+        if i MOD 2 = 1 then
+          total ← total + d[i]
+        else
+          total ← total + 3 × d[i]
+        end if
+      end for
+      if total MOD 10 = 0 then
+        print "valid"
+      else
+        print "invalid"
+      end if
+    end
+
+    // 978-3-16-148410-0
+    check_isbn13([9, 7, 8, 3, 1, 6, 1, 4, 8, 4, 1, 0, 0])
+    // 9783161484101 (last digit changed)
+    check_isbn13([9, 7, 8, 3, 1, 6, 1, 4, 8, 4, 1, 0, 1])
+  python: |
+    def check_isbn13(d):
+        total = 0
+        for i, digit in enumerate(d):
+            total = total + digit * (3 if i % 2 == 1 else 1)
+        if total % 10 == 0:
+            print("valid")
+        else:
+            print("invalid")
+
+    check_isbn13([9, 7, 8, 3, 1, 6, 1, 4, 8, 4, 1, 0, 0])
+    check_isbn13([9, 7, 8, 3, 1, 6, 1, 4, 8, 4, 1, 0, 1])
+  expect:
+    output: ["valid", "invalid"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "ISBN-13 check, now one function that takes the list of 13 digits and prints valid or invalid (restructured at the author's review, 2026-11-07). Weights 1, 3, 1, 3, ... on the 13 digits (the last digit is the check digit); valid when the weighted sum is a multiple of 10. His code, with 0-based `enumerate(isbn)`, writes `3 if i % 2 else 1`, i.e. weight 3 for the odd 0-based index; with the 1-based loop in the pseudocode the weight 3 goes on the EVEN positions. His test pair: 978-3-16-148410-0 is valid (weighted sum 100) and 9783161484101 invalid (sum 101). The hyphens and `isdigit` checks of his string version are dropped: the digits arrive as a list of numbers."
+  requires: [lists, mod]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.isbn.check-10
+  tags: [lists, for, mod, accumulator, if-else, function, check-digit, print-in-function]
+  source: "Adapted from the author's own code, Code Examples/Book Database/check_isbn.py (is_valid_isbn10; 'X' is the check digit 10; also his Archive/2020-2024 isbn.py)"
+  third_party: false
+  pseudocode: |
+    define check_isbn10(d)
+      total ← 0
+      for i from 1 to 10
+        total ← total + (11 - i) × d[i]
+      end for
+      if total MOD 11 = 0 then
+        print "valid"
+      else
+        print "invalid"
+      end if
+    end
+
+    // 0-306-40615-2
+    check_isbn10([0, 3, 0, 6, 4, 0, 6, 1, 5, 2])
+    // 123456789X (the X counts as 10)
+    check_isbn10([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    // 1234567890
+    check_isbn10([1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+  python: |
+    def check_isbn10(d):
+        total = 0
+        for weight, digit in zip(range(10, 0, -1), d):
+            total = total + weight * digit
+        if total % 11 == 0:
+            print("valid")
+        else:
+            print("invalid")
+
+    check_isbn10([0, 3, 0, 6, 4, 0, 6, 1, 5, 2])
+    check_isbn10([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    check_isbn10([1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+  expect:
+    output: ["valid", "valid", "invalid"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "ISBN-10 check, now one function that takes the list of 10 digits and prints valid or invalid (restructured at the author's review, 2026-11-07). Weights 10, 9, ..., 1 on the ten digits; valid when the weighted sum is a multiple of 11. The check digit X means 10, which is why the digits are numbers. His test cases: 0-306-40615-2 valid (weighted sum 132 = 11 x 12), 123456789X valid (sum 220 = 11 x 20) and 1234567890 invalid (sum 210, remainder 1). The weight is 11 - i (his 0-based `10 - i`)."
+  requires: [lists, mod]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.random.randint-from-rand
+  tags: [random, seed, function, for, floor, print-in-loop]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2020-2021/custom_random_functions.py (randint built from random(): int((b - a + 1) × random()) + a)"
+  third_party: false
+  pseudocode: |
+    define my_randint(a, b)
+      return floor((b - a + 1) × rand()) + a
+    end
+
+    seed(2021)
+    for i from 1 to 12
+      print my_randint(1, 6)
+    end for
+  python: |
+    from math import floor
+    from random import random as rand, seed
+
+    def my_randint(a, b):
+        return floor((b - a + 1) * rand()) + a
+
+    seed(2021)
+    for i in range(1, 12+1):
+        print(my_randint(1, 6))
+  expect:
+    output: ["6", "6", "4", "2", "4", "6", "3", "1", "2", "3", "6", "1"]
+    compare: exact
+  trace:
+    horizontal_eligible: false
+  notes: "His own `randint(a, b)` built from the basic random() (the demonstration that a uniform integer on a..b is the floor of (b - a + 1) × r, plus a). His text uses int(...), which truncates; floor gives the same for positive arguments, and the book (dice case) writes `integer part of`. Seeded so the output is fixed: it reproduces exactly only if the interpreter reproduces CPython's seeded random() (decided 2026-11-04). His randomchar(text) is not included (strings)."
+  requires: [random, floor]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.simulation.consecutive-heads
+  tags: [random, seed, for, while, nested, accumulator, print-multiple, sqrt, lists]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/ConseqHeads.py (test_head_seq: tosses needed to get n heads in a row; mean and standard deviation of 100 trials)"
+  third_party: false
+  pseudocode: |
+    seed(7)
+    n ← 3
+    trials ← 100
+    results ← []
+    for t from 1 to trials
+      rolls ← 0
+      heads ← 0
+      while heads < n do
+        rolls ← rolls + 1
+        if randint(0, 1) = 1 then
+          heads ← heads + 1
+        else
+          heads ← 0
+        end if
+      end while
+      Append rolls to results
+    end for
+    total ← 0
+    for each v in results
+      total ← total + v
+    end for
+    m ← total ÷ trials
+    ss ← 0
+    for each v in results
+      ss ← ss + (v - m)^2
+    end for
+    print "mean", m
+    print "sd", sqrt(ss ÷ trials)
+  python: |
+    from math import sqrt
+    from random import randint, seed
+
+    seed(7)
+    n = 3
+    trials = 100
+    results = []
+    for t in range(1, trials+1):
+        rolls = 0
+        heads = 0
+        while heads < n:
+            rolls = rolls + 1
+            if randint(0, 1) == 1:
+                heads = heads + 1
+            else:
+                heads = 0
+        results.append(rolls)
+    total = 0
+    for v in results:
+        total = total + v
+    m = total / trials
+    ss = 0
+    for v in results:
+        ss = ss + (v - m)**2
+    print("mean", m)
+    print("sd", sqrt(ss / trials))
+  expect:
+    output: ["mean 15.45", "sd 11.9911425644"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "His simulation of 'tosses until n heads in a row', n = 3: theory says the mean is 2^(n+1) - 2 = 14 (and the standard deviation is about 12); the 100-trial estimate depends on the seed and is only checked to lie within the sample error. His mean and std helpers (`sum(values)/len(values)`, population standard deviation) are written as loops; his safety cap `max_rolls = 2**(2n)` is dropped (the loop ends with probability 1). Reproduces exactly only with CPython's seeded randint (MT19937). His other test, test_head_num, counts tosses to get n heads in total (any order): negative binomial with mean 2n."
+  requires: [random, lists]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
+
+
+- id: author.simulation.mean-of-uniforms
+  tags: [random, seed, for, nested, accumulator, sqrt, print-multiple, slow, statistics]
+  source: "Adapted from the author's own code, Code Examples/Archive/2020-2024/Code Examples/Python 2016-2017/Distribution of averages of uniform random numbers.py (the histogram is dropped; keeps the mean and spread of the 1000 averages)"
+  third_party: false
+  pseudocode: |
+    seed(1)
+    count ← 1000
+    size ← 100
+    sum_avg ← 0
+    sum_sq ← 0
+    for a from 1 to count
+      total ← 0
+      for i from 1 to size
+        total ← total + rand()
+      end for
+      avg ← total ÷ size
+      sum_avg ← sum_avg + avg
+      sum_sq ← sum_sq + avg^2
+    end for
+    m ← sum_avg ÷ count
+    sd ← sqrt(sum_sq ÷ count - m^2)
+    print "mean", m
+    print "sd", sd
+  python: |
+    from math import sqrt
+    from random import random as rand, seed
+
+    seed(1)
+    count = 1000
+    size = 100
+    sum_avg = 0
+    sum_sq = 0
+    for a in range(1, count+1):
+        total = 0
+        for i in range(1, size+1):
+            total = total + rand()
+        avg = total / size
+        sum_avg = sum_avg + avg
+        sum_sq = sum_sq + avg**2
+    m = sum_avg / count
+    sd = sqrt(sum_sq / count - m**2)
+    print("mean", m)
+    print("sd", sd)
+  expect:
+    output: ["mean 0.50018362226", "sd 0.0299250974223"]
+    compare: tokens-numeric
+  trace:
+    horizontal_eligible: false
+  notes: "His investigation of the central limit theorem: average 100 uniform(0, 1) numbers, 1000 times, and plot the histogram (matplotlib there; the dialect has no plotting). Theory: each average has mean 1/2 and standard deviation sqrt(1/12)/sqrt(100) = 0.02887, and the averages are close to normally distributed. The sd is computed from the sums of squares (population form). 100000 calls of rand(): tagged `slow`; trace recording must be off or capped."
+  requires: [random]
+  provenance: {"source": "author-document-adapted", "extracted": "2026-11-06", "reference_python_run": true}
+  status: hand-verified
+  review: approved
+
