@@ -14,7 +14,6 @@ from cassim.core.values import Bool, Expr, Raw, Shown, Value
 _FORWARD_TRIG = frozenset({"sin", "cos", "tan", "sec", "csc", "cot"})
 _INVERSE_TRIG = frozenset({"arcsin", "arccos", "arctan", "arcsec", "arccsc", "arccot"})
 _HYPERBOLIC = frozenset({"sinh", "cosh", "tanh", "sech", "csch", "coth"})
-_SQUARE_ROOT = frozenset({"sqrt", "√"})
 _INVERSE_HYPERBOLIC = frozenset({"arcsinh", "arccosh", "arctanh"})
 
 
@@ -45,6 +44,13 @@ def _kept_as_typed(name: str, raw: Raw, result: Raw, angle: Angle) -> bool:
     )
 
 
+def _note_non_real(host: Host, raw: Raw, result: Raw) -> None:
+    """In Real mode a real number that gives a complex result (√-1, ln(-1), sin⁻¹(2)) is an error
+    unless the final value is real, as in √(-1)·√(-1) (device: -1 with a warning triangle)."""
+    if host.settings.domain == "real" and raw.is_real is True and cas.is_non_real_number(result):
+        host.note_non_real()
+
+
 def _unary(name: str) -> Callable[[Host, list[Value]], Value]:
     def run(host: Host, args: list[Value]) -> Value:
         settings = host.settings
@@ -52,13 +58,7 @@ def _unary(name: str) -> Callable[[Host, list[Value]], Value]:
         def one(value: Value) -> Value:
             raw = raw_of(value)
             result = _compute(name, raw, settings.angle)
-            # In Real mode the square root of a negative number is an error, as on the device.
-            if (
-                name in _SQUARE_ROOT
-                and settings.domain == "real"
-                and cas.is_non_real_number(result)
-            ):
-                raise TIError(errors.NON_REAL)
+            _note_non_real(host, raw, result)
             if _kept_as_typed(name, raw, result, settings.angle):
                 return Shown(Expr(result), f"{name}({to_text(Expr(raw), settings)})")
             return Expr(result)
@@ -94,7 +94,14 @@ def is_prime(host: Host, args: list[Value]) -> Value:
 @eager("log", 1, 2)
 def log(host: Host, args: list[Value]) -> Value:
     base = raw_of(args[1]) if len(args) > 1 else None
-    return map_value(lambda value: Expr(cas.log(raw_of(value), base)), args[0])
+
+    def one(value: Value) -> Value:
+        raw = raw_of(value)
+        result = cas.log(raw, base)
+        _note_non_real(host, raw, result)
+        return Expr(result)
+
+    return map_value(one, args[0])
 
 
 @eager("iPart", 1)
@@ -140,9 +147,9 @@ eager("remain", 2)(_pair(cas.remainder))
 def root(host: Host, args: list[Value]) -> Value:
     """The nth-root template, `root(radicand, index)`. In Real mode an even root of a negative
     number is an error, as on the device (²√-4 gives "Non-real result")."""
-    result = cas.nth_root(as_expr(args[0]).raw, as_expr(args[1]).raw)
-    if host.settings.domain == "real" and cas.is_non_real_number(result):
-        raise TIError(errors.NON_REAL)
+    radicand = as_expr(args[0]).raw
+    result = cas.nth_root(radicand, as_expr(args[1]).raw)
+    _note_non_real(host, radicand, result)
     return Expr(result)
 
 

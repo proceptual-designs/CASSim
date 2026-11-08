@@ -33,6 +33,11 @@ class Host(Protocol):
 
     def expr(self, node: ast.Expr) -> Value: ...
 
+    def note_non_real(self) -> None:
+        """A real-only function was given a real value outside its real domain, so the result
+        is complex. In Real mode that is an error unless the final value turns out real."""
+        ...
+
     def lookup(self, name: str) -> Value | None:
         """The value a variable has now (a binding, then the Problem), if it has one."""
         ...

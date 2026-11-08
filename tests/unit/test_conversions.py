@@ -50,9 +50,9 @@ def test_every_spelling_of_an_inverse_is_the_same_function(name):
     argument = "1/2" if name in ("sin", "cos") else "3/4"
     argument = (
         "2"
-        if name in ("sec", "csc") or (name.endswith("h") and name[:-1] in ("sec", "csc"))
+        if name in ("sec", "csc", "cosh") or (name.endswith("h") and name[:-1] in ("sec", "csc"))
         else argument
-    )
+    )  # arccosh needs an argument of 1 or more to be real
     arc = run(f"arc{name}({argument})")
     assert arc.error is None
     for spelling in (f"{name}⁻¹({argument})", f"{name}^-1({argument})", f"{name}^(-1)({argument})"):
@@ -157,7 +157,7 @@ def test_unknown_conversions_say_so():
 
 
 def test_polar_and_rectangular_forms():
-    assert text("(1+@i)@>Polar") == "√(2)*ⅇ^(ⅈ*π/4)"
+    assert text("(1+@i)@>Polar") == "ⅇ^(ⅈ*π/4)*√(2)"
     assert text("(1+@i)@>Polar", settings=DEGREE) == "(√(2)∠45)"
     same("5*exp(@i*pi/3)@>Rect", "5/2+5*√(3)/2*ⅈ")
     assert text("3@>Polar") == "3"  # a real number has no polar form
@@ -169,11 +169,13 @@ def test_polar_form_is_the_same_number():
 
 
 def test_polar_domain_setting_writes_complex_results_in_polar_form():
-    assert text("(1+@i)^2", settings=POLAR) == "2*ⅇ^(ⅈ*π/2)"
-    assert text("sqrt(-4)", settings=POLAR) == "2*ⅇ^(ⅈ*π/2)"
+    assert text("(1+@i)^2", settings=POLAR) == "ⅇ^(ⅈ*π/2)*2"
+    assert text("sqrt(-4)", settings=POLAR) == "ⅇ^(ⅈ*π/2)*2"
     assert text("(1+@i)*(1-@i)", settings=POLAR) == "2"
     assert text("exp(@i*pi)", settings=POLAR) == "-1"
-    assert text("3+4*@i", settings=POLAR).startswith("5*ⅇ^(ⅈ*")
+    polar = text("3+4*@i", settings=POLAR)
+    assert polar.startswith("ⅇ^(ⅈ*")
+    assert polar.endswith(")*5")
 
 
 def test_cylindrical_and_spherical_vectors():
