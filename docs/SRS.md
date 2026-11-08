@@ -485,7 +485,7 @@ A summary, not a substitute for the traceability table (NFR-MAINT-006), which do
 |---|---|---|
 | Language, evaluation, scope | 4.1 | Built (M1). |
 | Command catalogue | 4.2 | Tier 1 built; Tier 2 per the matrix; FR-CAT-005 matrix published (`docs/command_matrix.md`). |
-| Calculator page, device model | 4.3, 4.9 | Built through 2g; Tablet mode (FR-DEV-003) not started; editor leftovers open (PLAN.md, 2d). |
+| Calculator page, device model | 4.3, 4.9 | Built through 2h; Tablet mode (FR-DEV-003) not started; typed-character capture on non-US layouts open (decision 0024). Exam-style flows pass headless and in the browser (decision 0025). |
 | Documents, files, share links | 4.4 | Built (autosave, `.cassim.json`, share links, Page Sorter). Multiple documents in one session (FR-DOC-001) not checked. |
 | PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; real GitHub Pages and Safari, iOS and Chromebook not yet run. |
 | Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6 | Engine commands exist; pages not started (M3). |
