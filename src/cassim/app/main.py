@@ -33,6 +33,7 @@ from cassim.app.ui import (
     CalculatorView,
     Keypad,
     Sidebar,
+    about_dialog,
     chip,
     settings_dialog,
     sorter_dialog,
@@ -346,6 +347,7 @@ class App:
             chip("Menu", lambda: self.act("open_menu", "menu"), theme),
             chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
             chip("settings", self.open_settings, theme),
+            chip("About", lambda: self.show_dialog("about"), theme),
             *([chip("Install", self.install, theme)] if self.installable else []),
         ]
 
@@ -360,6 +362,8 @@ class App:
             self.open_settings()
         elif name == "system_settings":
             system_settings_dialog(self.page, self.state, self.on_system_change, self.theme)
+        elif name == "about":
+            about_dialog(self.page)
         elif name == "page_sorter":
             sorter_dialog(self.page, self.state, self.refresh, self.theme)
 

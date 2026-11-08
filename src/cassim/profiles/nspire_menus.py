@@ -879,6 +879,7 @@ DOC = MenuItem(
             todo("Status…", "4"),
             todo("Login…", "5"),
             todo("Restore Factory Defaults…", "6"),
+            MenuItem("About CASSim…", "dialog", "about", key="7", hint="CASSim"),
         ),
         todo("Login…", "8"),
         todo_sub("Press-to-Test", "9", "Exit Press-to-Test", "Transfer Press-to-Test", "Help"),

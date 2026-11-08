@@ -207,7 +207,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 1. A real GitHub Pages publish, loaded and then taken offline (decision 0016 covered only a local serve under `/CASSim/`).
 2. Runs on Safari (macOS and iOS) and a Chromebook, which are primary targets (NFR-PORT-001). Only Chromium has been driven so far.
 3. The stub pages (Graphs, Lists & Spreadsheet, Data & Statistics, Notes): `PageKind` has them, but the app only adds Calculator pages (decision 0013 item 6). Tablet mode (FR-DEV-003, Should) has no code yet.
-3a. A visible disclaimer (NFR-LEG-002, Must): not affiliated with TI, not an approved exam calculator. Nothing in `src/` shows one yet.
+3a. ~~Disclaimer (NFR-LEG-002)~~ done: About CASSim dialog (Menu > Settings & Status > About, and an About chip in Computer mode) holds the disclaimer, privacy, licence, third-party notices (NFR-LEG-003) and versions; no footer line, by choice (2026-11-08). The repo link is private until the repo is public.
 4. Typed-character capture on non-US keyboard layouts (2d, decision 0024), and the 2f/2g items still to check on the simulator (0022, 0023; `docs/testing/emulator-templates-results.md`).
 5. Install on a phone (Simon). The exam-style flows are done (decision 0025). A one-off review of FR-DEV-007 is still open: `app/state.py` imports `profiles.nspire` directly as its default profile, which is acceptable only if everything else comes through the `Profile` object.
 6. The documentation gaps in section 11 that are Must or that the M2 exit relies on (traceability, accessibility notes, the SDDs for the built areas).
