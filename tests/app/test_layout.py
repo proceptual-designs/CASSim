@@ -3,17 +3,23 @@
 import pytest
 
 from cassim.app.layout import (
+    DEFAULT_RATIO,
     KEY_GAP,
+    MAX_RATIO,
     MAX_SCALE,
+    MAX_ZOOM,
+    MIN_RATIO,
     MIN_SCALE,
+    MIN_ZOOM,
     NARROW,
+    Sizing,
     computer_screen_height,
     handheld_plan,
     key_span,
     keypad_size,
     starting_mode,
 )
-from cassim.app.state import AppState, Mode
+from cassim.app.state import AppState, Mode, System
 from cassim.device.keys import keypad_units
 from cassim.profiles import nspire
 
@@ -88,3 +94,31 @@ def test_the_computer_screen_fills_the_window_height() -> None:
     assert computer_screen_height(900) > computer_screen_height(700) >= 300
     assert computer_screen_height(None) > 300
     assert computer_screen_height(200) == 300
+
+
+def test_the_keypad_is_drawn_smaller_than_the_screen_by_default() -> None:
+    plan = handheld_plan(844, 390, *UNITS)
+    assert plan.pad_scale == pytest.approx(plan.scale * DEFAULT_RATIO)
+
+
+def test_a_larger_ratio_gives_the_keypad_more_and_the_screen_less() -> None:
+    small = handheld_plan(390, 844, *UNITS, Sizing(MIN_RATIO))
+    large = handheld_plan(390, 844, *UNITS, Sizing(MAX_RATIO))
+    assert large.scale <= small.scale
+    assert large.pad_scale > small.pad_scale
+
+
+def test_the_ratio_and_zoom_are_clamped() -> None:
+    assert handheld_plan(844, 390, *UNITS, Sizing(99)).pad_scale == pytest.approx(
+        handheld_plan(844, 390, *UNITS, Sizing(MAX_RATIO)).pad_scale
+    )
+    fit = handheld_plan(844, 390, *UNITS).scale
+    assert handheld_plan(844, 390, *UNITS, Sizing(zoom=9)).scale == pytest.approx(fit * MAX_ZOOM)
+    assert handheld_plan(844, 390, *UNITS, Sizing(zoom=0.1)).scale == pytest.approx(fit * MIN_ZOOM)
+
+
+def test_the_sizes_are_kept_with_the_system_settings() -> None:
+    system = System(keypad_ratio=0.6, zoom=1.25)
+    assert System.loads(system.dumps()).zoom == 1.25
+    assert System.loads(system.dumps()).keypad_ratio == 0.6
+    assert System.loads('{"start_mode": "handheld", "math_size": 20, "zoom": 99}').zoom == 1.0
