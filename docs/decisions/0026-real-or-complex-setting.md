@@ -18,4 +18,4 @@ Status: accepted 2026-11-08. Evidence: `docs/testing/emulator-domain-results.md`
 - `fMax(x^2+1,x)` should give `x=-∞ or x=∞` and `fMin(x^2+1,x)` gives `x=0`; the engine leaves `fMax` unevaluated.
 - `angle(3+4ⅈ)` prints `tan⁻¹(4/3)`; the device prints `π/2-tan⁻¹(3/4)` (equal in value).
 - Not captured by Cowork: `zeros` in Polar, a few wide Polar results, and Real/Rectangular with Degree.
-- No corpus cases yet: the run kept one screenshot per group, so promoting rows to `corpus/` needs a human review (decision 0012 rules). The behaviour is covered by `tests/unit/test_real_complex_setting.py`.
+- Corpus cases: `corpus/seed/034_real_complex_setting.yaml` (human reviewed 2026-11-08). Cowork kept one screenshot per group of inputs, so evidence lists the group shots.
