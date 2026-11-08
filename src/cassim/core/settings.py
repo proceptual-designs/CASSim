@@ -72,6 +72,21 @@ PRESETS = {
 }
 
 
+# What a click on the title-bar status cycles through; Grad and Exact stay in the settings dialog.
+_CYCLES: dict[str, tuple[str, ...]] = {
+    "angle": (Angle.RADIAN, Angle.DEGREE),
+    "calc": (Calc.AUTO, Calc.APPROXIMATE),
+    "domain": (Domain.REAL, Domain.RECTANGULAR, Domain.POLAR),
+}
+
+
+def next_choice(settings: Settings, name: str) -> str:
+    """The value a click on `name` (angle, calc or domain) switches to; others go to the first."""
+    cycle = _CYCLES[name]
+    current = getattr(settings, name)
+    return cycle[(cycle.index(current) + 1) % len(cycle)] if current in cycle else cycle[0]
+
+
 def updated(settings: Settings, changes: dict[str, str]) -> Settings:
     """Apply changes spelled as in the corpus `settings` block."""
     return Settings(
