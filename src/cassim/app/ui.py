@@ -7,6 +7,7 @@ from enum import StrEnum
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.entry import EntryLine
 from cassim.app.layout import KEY_GAP, KEY_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
@@ -510,6 +511,40 @@ def settings_dialog(
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),
             ],
+        )
+    )
+
+
+def about_dialog(page: ft.Page) -> None:
+    """About CASSim: disclaimer, privacy, licence, notices and versions (NFR-LEG-002, -003)."""
+
+    def heading(text: str) -> ft.Text:
+        return ft.Text(text, weight=ft.FontWeight.BOLD)
+
+    notices = [ft.Text(f"{n.name}: {n.licence}, {n.use}", size=12) for n in about.NOTICES]
+    body = ft.Column(
+        [
+            ft.Text(about.DISCLAIMER),
+            heading("Privacy"),
+            ft.Text(about.PRIVACY),
+            heading("Licence"),
+            ft.Text(about.LICENCE),
+            ft.Text(about.SOURCE_URL, selectable=True),
+            heading("Third-party notices"),
+            *notices,
+            heading("Version"),
+            ft.Text(about.build_info(), selectable=True, size=12),
+        ],
+        tight=True,
+        spacing=8,
+        scroll=ft.ScrollMode.AUTO,
+        width=420,
+    )
+    page.show_dialog(
+        ft.AlertDialog(
+            title=ft.Text("About CASSim"),
+            content=body,
+            actions=[ft.TextButton("OK", on_click=lambda _: page.pop_dialog())],
         )
     )
 
