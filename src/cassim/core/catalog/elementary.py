@@ -14,6 +14,7 @@ from cassim.core.values import Bool, Expr, Raw, Shown, Value
 _FORWARD_TRIG = frozenset({"sin", "cos", "tan", "sec", "csc", "cot"})
 _INVERSE_TRIG = frozenset({"arcsin", "arccos", "arctan", "arcsec", "arccsc", "arccot"})
 _HYPERBOLIC = frozenset({"sinh", "cosh", "tanh", "sech", "csch", "coth"})
+_SQUARE_ROOT = frozenset({"sqrt", "√"})
 _INVERSE_HYPERBOLIC = frozenset({"arcsinh", "arccosh", "arctanh"})
 
 
@@ -51,6 +52,13 @@ def _unary(name: str) -> Callable[[Host, list[Value]], Value]:
         def one(value: Value) -> Value:
             raw = raw_of(value)
             result = _compute(name, raw, settings.angle)
+            # In Real mode the square root of a negative number is an error, as on the device.
+            if (
+                name in _SQUARE_ROOT
+                and settings.domain == "real"
+                and cas.is_non_real_number(result)
+            ):
+                raise TIError(errors.NON_REAL)
             if _kept_as_typed(name, raw, result, settings.angle):
                 return Shown(Expr(result), f"{name}({to_text(Expr(raw), settings)})")
             return Expr(result)
