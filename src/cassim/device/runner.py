@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from cassim.core.session import Result
 from cassim.core.settings import Settings
 from cassim.device.engine import Engine, EngineError, RemoteSession, Reply, eval_op
-from cassim.device.serialize import _steps, parse
+from cassim.device.serialize import parse, replay_steps
 
 if TYPE_CHECKING:
     from cassim.device.calculator import Calculator
@@ -115,7 +115,7 @@ class Runner:
 
     async def load(self, text: str) -> Document:
         """`loads` for a remote engine: replay the document's entries through it."""
-        steps = _steps(parse(text), self.new_session)
+        steps = replay_steps(parse(text), self.new_session)
         while True:
             try:
                 calculator = next(steps)

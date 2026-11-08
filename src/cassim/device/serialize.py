@@ -120,7 +120,7 @@ def from_dict(
     data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession] = Session
 ) -> Document:
     """Rebuild a document, replaying every entry through the engine (all in this process)."""
-    steps = _steps(data, sessions)
+    steps = replay_steps(data, sessions)
     while True:
         try:
             next(steps)  # a deferred session would yield here; `Session` never does
@@ -128,11 +128,15 @@ def from_dict(
             return done.value
 
 
-def _steps(
+def replay_steps(
     data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession]
 ) -> Generator[Calculator, None, Document]:
-    """The replay as a generator: each time an entry waits for a remote engine it yields its
-    Calculator, and the driver evaluates it (`Runner.evaluate`) before resuming."""
+    """Replay a document's entries: the public interface for loading, shared by `from_dict` (all in
+    this process) and `Runner.load` (through a worker).
+
+    A generator: each time an entry waits for a remote engine it yields its Calculator, the driver
+    evaluates it (`Runner.evaluate`) and resumes; the finished Document is the return value
+    (`StopIteration.value`). Sessions that never yield run straight through."""
     data = migrate(data)
     try:
         settings = Settings(**data.get("settings", {}))

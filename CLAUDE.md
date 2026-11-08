@@ -39,6 +39,7 @@ The 2D editor is CASSim's own template editor (decisions 0015, 0018); MathLive i
 ## Conventions
 - Small commits, conventional commit messages. Every behaviour change ships with a test; cite the SRS requirement ID in the test where one applies. Design docs go in `docs/design/` (SDD set listed in SRS appendix A). Fix lint and type errors rather than suppressing them.
 - Known failing corpus cases are `xfail(strict=True)` with a reason.
+- Keep the docs and code in step. When you add, move or remove a package under `src/cassim/`, update the architecture map in `PLAN.md` section 3 in the same commit (`tests/test_architecture.py` checks it, and the `[placeholder]` tags). When you touch code listed in the PLAN.md section 12 follow-up table and its trigger is met, do that cleanup then and delete the row.
 - Never use TI logos, artwork or ROM content. The product name is CASSim.
 - Reference material is in `references/` (Reference Guide, shortcuts, VCE teacher resource books, LazyMath UDF guides and libraries). Do not edit it.
 

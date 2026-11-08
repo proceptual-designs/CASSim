@@ -48,18 +48,20 @@ cassim/
                                     @n1, cSolve, domain constraints, simplification/format differences)
       format.py                     Value -> TI linear text AND a 2D layout tree (fraction, sqrt, power, matrix)
       errors.py                     TI error codes/messages
-    basic/                  TI-Basic lexer/parser/interpreter (Prgm, Func, control flow, Disp/Request/Text, Try)
-    pylib/                  Python-script bridge + sandbox API (see 5.4)
-    libs/                   native Python ports of mm_/sm_/gm_ style libraries, registered as lib\fn
-    sheet/                  Lists & Spreadsheet engine (cells, named columns = lists, formula columns, deps graph)
-    stats/                  OneVar/TwoVar, regressions, tests/intervals, distributions (SciPy loaded lazily)
-    graph/                  function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
+    basic/                  [placeholder] TI-Basic lexer/parser/interpreter (Prgm, Func, control flow, Disp/Request/Text, Try)
+    pylib/                  [placeholder] Python-script bridge + sandbox API (see 5.4)
+    libs/                   [placeholder] native Python ports of mm_/sm_/gm_ style libraries, registered as lib\fn
+    sheet/                  [placeholder] Lists & Spreadsheet engine (cells, named columns = lists, formula columns, deps graph)
+    stats/                  [placeholder] OneVar/TwoVar, regressions, tests/intervals, distributions (SciPy loaded lazily)
+    graph/                  [placeholder] function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
                             emits a backend-neutral scene (paths, points, labels)
-    doc/                    Document model (Problems, Pages), JSON schema + versioned (de)serialiser, migrations
-    device/                 headless device model: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven),
+    doc/                    [placeholder, empty] Document ownership lives in device/ for now (document.py, serialize.py);
+                            decide where it belongs before Graphs or Spreadsheet get models (section 12)
+    device/                 headless device model, document model and JSON serialiser (versioned, migrations, replay_steps): key layers (shift/ctrl/var/menu/doc), menu tree (data-driven),
                             input editor, page controllers, screen buffer
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
-  src/cassim/app/            FLET (thin): layouts, keyboard widget, screen renderer, file pickers, storage, PWA bits
+  src/cassim/app/            FLET: App orchestration (main.py), views and dialogs (ui.py), layouts, keypad, storage, share links, PWA bits.
+                            (Earlier drafts called this cassim_app.) Not thin yet: see section 12
   src/cassim/profiles/       the Nspire profile as data: keymap, menus, syntax hints (the M2 guard; see 3.2)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M7b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -314,3 +316,17 @@ These came out of a review of PLAN.md, the SRS, CLAUDE.md and `docs/` against th
 7. **Number the open "to check on the simulator" items in one place.** They are scattered across decisions 0007 to 0010, 0022 and the emulator results files. Collect them in `docs/testing/simulator-todo.md` so the next capture session has a single list.
 8. **Sequencing.** After M2 closes, take M3 (data pages) then M4 (graphs); both are Must for VCE use. M5 is mostly Could (TI-Basic, library ports); consider doing only the `mm_`/`sm_`/`gm_` ports Simon actually uses and leaving the TI-Basic interpreter until after M7c to M7f, since the program tree built for pseudocode may be reusable.
 9. **Public release gate.** NFR-LEG-007 (VCAA question text in the corpus) and the third-party notices (NFR-LEG-003) have no owner or milestone. Add them to the M6 exit.
+
+## 12. Architecture follow-ups (from a structural review, 2026-11-08)
+
+Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay_steps`, used by `from_dict` and `Runner.load`), the architecture map above matches the code, and `tests/test_architecture.py` enforces the import rules and checks that this map lists every package. The rest is deliberately deferred and **tied to a trigger**: do it when the trigger happens, not before.
+
+| # | Change | Trigger | Notes |
+|---|--------|---------|-------|
+| A1 | Typed action names (`keys.py` string pairs) and typed worker messages (`engine.py` `dict[str, Any]` to `TypedDict`s, validated at the worker boundary). | The next change to the worker protocol or the menu data. | First step needs no refactor: a test that every enabled menu or profile action resolves to a handler, not only that wizard names exist. Add that test with the next menu work. |
+| A2 | Separate orchestration from browser services in `app/main.py` (about 620 lines: rendering, keyboard, worker, autosave, files, sharing, dialogs). Extract storage/file operations and engine coordination behind small interfaces; `App` only connects them. | The next feature or bug touching autosave, files, sharing or the worker in `main.py`. | Behaviour-preserving. Benefit is headless tests of failure handling. Do not refactor speculatively. |
+| A3 | Split `app/ui.py` (about 770 lines: calculator view, keypad, sidebar, several dialogs) into cohesive modules; derive the compact tools menu and the toolbar from one shared action list (currently duplicated in `main.py`). | Move code as each part is next touched; do the shared action list the next time either menu changes. | Duplicated lists drift, so the shared list matters more than the file split. |
+| A4 | Decide document ownership (`doc/` or `device/`) and introduce a page-model boundary; `Document` knows about calculator pages specifically. | When the second real page type (Graphs or Lists & Spreadsheet, M3/M4) gets a model. | Avoid a generic plugin framework before then. FR-DEV-007 already asks for registered page types. |
+| A5 | Extend `tests/test_architecture.py` with new dependency rules as packages gain code (for example `sheet`, `graph`, `stats` must not import `device` or `app`). | Whenever a placeholder package gets its first module. | Also remove its `[placeholder]` tag in section 3. |
+
+**Keeping the map in sync.** `tests/test_architecture.py` fails if a package under `src/cassim/` is missing from the map in section 3, or still tagged `[placeholder]` after it has code. CLAUDE.md tells Claude to update the map in the same commit as any package move. Review the table above when a trigger is met and delete the row when done.
