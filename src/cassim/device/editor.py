@@ -43,6 +43,7 @@ class Kind(StrEnum):
     SUM = "sum"  # variable, lower, upper, expression
     PRODUCT = "product"  # variable, lower, upper, expression
     LIMIT = "limit"  # variable, point, direction (+ or -, may be empty), expression
+    LIST = "list"  # the elements of {a, b, c}; typing a comma starts the next one
 
 
 _SLOTS = {
@@ -64,7 +65,7 @@ _SLOTS = {
 }
 # Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
 # The second number is the fixed width (0: chosen when the template is made).
-GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1}
+GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1, Kind.LIST: 0}
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
@@ -98,6 +99,9 @@ class Editor:
         self.pos = 0
         self.selected = False  # the template just before the cursor is highlighted
         self.anchor: int | None = None  # the far end of a shift-arrow selection in this row
+        # Whole rows or columns of the matrix the cursor is in: (axis, anchor, free) with axis
+        # "row" or "col" and the two ends as indices of that axis.
+        self.cell_sel: tuple[str, int, int] | None = None
         self.insert_text(text)
 
     # ---- state ------------------------------------------------------------------------------
@@ -112,6 +116,7 @@ class Editor:
         self.pos = 0
         self.selected = False
         self.anchor = None
+        self.cell_sel = None
 
     def row(self) -> Row:
         """The row the cursor is in."""
@@ -171,6 +176,9 @@ class Editor:
         The fraction is stacked only after Return or from the palette (`insert_template`).
         """
         self._unselect(replace=True)
+        if char == "," and self.path and self._parent().kind is Kind.LIST:
+            self._split_list_cell()
+            return
         if char in _ANS_OPERATORS and not self.root:
             self.root.extend("Ans")
             self.pos = 3
@@ -198,6 +206,18 @@ class Editor:
             self.row().insert(self.pos, Template.empty(kind, shape))
             self._enter(self.pos, 0)
 
+    def _split_list_cell(self) -> None:
+        """A comma in a list element ends it: what follows the cursor starts the next element."""
+        index, slot = self.path[-1]
+        template = self._parent()
+        row = self.row()
+        tail = row[self.pos :]
+        del row[self.pos :]
+        template.slots.insert(slot + 1, tail)
+        template.cols += 1
+        self.path[-1] = (index, slot + 1)
+        self.pos = 0
+
     def _fraction(self, selection: tuple[int, int] | None = None) -> None:
         row = self.row()
         if selection is not None:
@@ -218,6 +238,10 @@ class Editor:
 
     def _unselect(self, *, replace: bool = False) -> None:
         """Drop the highlight; typing over it deletes the highlighted template or selection."""
+        if self.cell_sel is not None:
+            if replace:
+                self._clear_cells()
+            self.cell_sel = None
         if self.anchor is not None:
             low, high = self.span
             if replace:
@@ -266,6 +290,7 @@ class Editor:
         """Move the free end of the selection. Running off the end of a slot selects the whole
         template in the row outside it, and the selection carries on from there."""
         self.selected = False
+        self.cell_sel = None
         if self.anchor is None:
             self.anchor = self.pos
         if (pos < 0 or pos > len(self.row())) and self.path:
@@ -282,6 +307,7 @@ class Editor:
         self.pos = self._word_edge(-1)
 
     def word_right(self) -> None:
+        self.cell_sel = None
         if self.anchor is not None:
             self.pos = self.span[1]
             self.anchor = None
@@ -322,10 +348,92 @@ class Editor:
             pos -= 1
         return pos
 
+    # ---- selecting rows and columns of a matrix ----------------------------------------------
+
+    def select_cells(self, axis: str, step: int = 0) -> None:
+        """Shift+Up/Down (`axis` "row") or Alt+Shift+Left/Right ("col") in a matrix. The first
+        press selects the row or column the cursor is in; each press after it moves the free end
+        by `step`, so the selection grows (or shrinks back) a line at a time."""
+        grid = self._grid()
+        if grid is None:
+            return
+        self.anchor = None
+        self.selected = False
+        slot = self.path[-1][1]
+        here = slot // grid.cols if axis == "row" else slot % grid.cols
+        if self.cell_sel is None or self.cell_sel[0] != axis:
+            self.cell_sel = (axis, here, here)
+            return
+        count = len(grid.slots) // grid.cols if axis == "row" else grid.cols
+        _, anchor, free = self.cell_sel
+        self.cell_sel = (axis, anchor, max(0, min(count - 1, free + step)))
+
+    def selected_cells(self) -> list[int]:
+        """Slot numbers of the selected rows or columns, in reading order (empty if none)."""
+        grid = self._grid()
+        if self.cell_sel is None or grid is None:
+            return []
+        axis, anchor, free = self.cell_sel
+        low, high = min(anchor, free), max(anchor, free)
+        return [
+            i
+            for i in range(len(grid.slots))
+            if low <= (i // grid.cols if axis == "row" else i % grid.cols) <= high
+        ]
+
+    def _grid(self) -> Template | None:
+        """The matrix whose cell the cursor is in, if it is in one."""
+        if not self.path:
+            return None
+        parent = self._parent()
+        return parent if parent.kind is Kind.MATRIX else None
+
+    def _clear_cells(self) -> None:
+        """Empty the selected cells and put the cursor in the first of them."""
+        grid = self._grid()
+        cells = self.selected_cells()
+        if grid is None or not cells:
+            return
+        for i in cells:
+            grid.slots[i] = []
+        self.path[-1] = (self.path[-1][0], cells[0])
+        self.pos = 0
+
+    def _remove_cells(self) -> None:
+        """Backspace or Delete on selected rows or columns takes them out of the matrix. If that
+        would leave nothing, the cells are only emptied."""
+        grid = self._grid()
+        assert grid is not None
+        assert self.cell_sel is not None
+        by_row = self.cell_sel[0] == "row"
+        cells = self.selected_cells()
+        rows = len(grid.slots) // grid.cols
+        lines = sorted({i // grid.cols if by_row else i % grid.cols for i in cells})
+        self.cell_sel = None
+        if len(lines) >= (rows if by_row else grid.cols):
+            for i in cells:
+                grid.slots[i] = []
+            self.path[-1] = (self.path[-1][0], cells[0])
+            self.pos = 0
+            return
+        here_row, here_col = divmod(self.path[-1][1], grid.cols)
+        gone = set(cells)
+        grid.slots = [slot for i, slot in enumerate(grid.slots) if i not in gone]
+        if by_row:
+            here_row = min(lines[0], len(grid.slots) // grid.cols - 1)
+        else:
+            grid.cols -= len(lines)
+            here_col = min(lines[0], grid.cols - 1)
+        self.path[-1] = (self.path[-1][0], here_row * grid.cols + here_col)
+        self.pos = 0
+
     # ---- clipboard --------------------------------------------------------------------------
 
     def selection(self) -> Row:
         """A copy of the selected nodes (templates intact), or the highlighted template."""
+        part = self._cells_as_matrix()
+        if part is not None:
+            return [part]
         if self.anchor is not None:
             low, high = self.span
             return copy.deepcopy(self.row()[low:high])
@@ -333,13 +441,40 @@ class Editor:
             return copy.deepcopy([self.row()[self.pos - 1]])
         return []
 
+    def _cells_as_matrix(self) -> Template | None:
+        """The selected rows or columns as a matrix of their own (a copy)."""
+        grid = self._grid()
+        if self.cell_sel is None or grid is None:
+            return None
+        cells = self.selected_cells()
+        rows = len(grid.slots) // grid.cols
+        width = grid.cols if self.cell_sel[0] == "row" else len(cells) // rows
+        return copy.deepcopy(Template(Kind.MATRIX, [grid.slots[i] for i in cells], width))
+
     def cut(self) -> Row:
         nodes = self.selection()
         self._unselect(replace=True)
         return nodes
 
     def paste(self, nodes: Row) -> None:
-        """Insert copies of `nodes` at the cursor, replacing any selection."""
+        """Insert copies of `nodes` at the cursor, replacing any selection. A matrix of the shape
+        of the selected rows or columns fills those cells instead of nesting."""
+        grid = self._grid()
+        shape = self._cells_as_matrix()
+        if grid is not None and shape is not None and len(nodes) == 1:
+            part = nodes[0]
+            if (
+                isinstance(part, Template)
+                and part.kind is Kind.MATRIX
+                and (part.cols, len(part.slots)) == (shape.cols, len(shape.slots))
+            ):
+                cells = self.selected_cells()
+                for i, slot in zip(cells, copy.deepcopy(part.slots), strict=True):
+                    grid.slots[i] = slot
+                self.cell_sel = None
+                self.path[-1] = (self.path[-1][0], cells[0])
+                self.pos = 0
+                return
         self._unselect(replace=True)
         row = self.row()
         row[self.pos : self.pos] = copy.deepcopy(nodes)
@@ -348,6 +483,7 @@ class Editor:
     def select_all(self) -> None:
         """Ctrl+A: the whole entry line."""
         self.selected = False
+        self.cell_sel = None
         self.path = []
         self.anchor = 0 if self.root else None
         self.pos = len(self.root)
@@ -357,7 +493,9 @@ class Editor:
     def backspace(self) -> None:
         """Just after a template the first press highlights it and the second deletes it (0017)."""
         row = self.row()
-        if self.anchor is not None or self.selected:
+        if self.cell_sel is not None and self._grid() is not None:
+            self._remove_cells()
+        elif self.anchor is not None or self.selected:
             self._unselect(replace=True)
         elif self.pos:
             previous = row[self.pos - 1]
@@ -370,6 +508,9 @@ class Editor:
             self._dissolve()
 
     def delete(self) -> None:
+        if self.cell_sel is not None and self._grid() is not None:
+            self._remove_cells()
+            return
         if self.anchor is not None or self.selected:
             self._unselect(replace=True)
             return
@@ -389,6 +530,15 @@ class Editor:
         it when it is empty.
         """
         template = self._parent()
+        if template.kind is Kind.LIST and self.path[-1][1] > 0:  # undo the comma
+            index, slot = self.path[-1]
+            previous = template.slots[slot - 1]
+            joint = len(previous)
+            previous.extend(template.slots.pop(slot))
+            template.cols -= 1
+            self.path[-1] = (index, slot - 1)
+            self.pos = joint
+            return
         if template.kind in GRIDS and self.path[-1][1] > 0:  # cells do not merge: step back
             index, slot = self.path[-1]
             self.path[-1] = (index, slot - 1)
@@ -410,7 +560,7 @@ class Editor:
     # ---- moving -----------------------------------------------------------------------------
 
     def left(self) -> None:
-        if self.anchor is not None:  # a selection collapses to its left edge
+        if self.anchor is not None or self.cell_sel is not None:  # collapses to its left edge
             self._unselect()
             return
         self._unselect()
@@ -441,6 +591,9 @@ class Editor:
 
     def right(self) -> None:
         """Right leaves the slot it is in, even the numerator of a fraction (0017)."""
+        if self.cell_sel is not None:
+            self.cell_sel = None
+            return
         if self.anchor is not None:  # a selection collapses to its right edge
             self.pos = self.span[1]
             self.anchor = None
@@ -514,6 +667,7 @@ class Editor:
         """
         target_path = self._valid_path(path)
         target_pos = max(0, min(pos, len(self._row_at(target_path))))
+        self.cell_sel = None
         if not extend:
             self.selected = False
             self.anchor = None
@@ -666,6 +820,7 @@ _CALLS: dict[Kind, Callable[[list[str]], str]] = {
     Kind.SUM: lambda s: f"Σ({s[3]},{s[0]},{s[1]},{s[2]})",
     Kind.PRODUCT: lambda s: f"Π({s[3]},{s[0]},{s[1]},{s[2]})",
     Kind.LIMIT: lambda s: f"limit({s[3]},{s[0]},{s[1]}{_direction(s[2])})",
+    Kind.LIST: lambda s: "{" + ",".join(s) + "}",
 }
 
 
@@ -759,6 +914,7 @@ _LATEX: dict[Kind, Callable[[list[str], int], str]] = {
     Kind.SUM: lambda s, _: rf"\sum_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
     Kind.PRODUCT: lambda s, _: rf"\prod_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
     Kind.LIMIT: lambda s, _: rf"\lim_{{{s[0]}\to {s[1]}^{{{s[2]}}}}}{s[3]}",
+    Kind.LIST: lambda s, _: r"\left\{" + r",\,".join(s) + r"\right\}",
 }
 
 

@@ -2,7 +2,8 @@
 
 Flet reports the key, not the typed character: `Shift+6` arrives as key `6` with shift set
 (decision 0015 finding 4). So shifted symbols come from a US/AU layout table, which suits the
-Chromebooks first and is wrong on other layouts until a Dart key handler exists (M2d).
+Chromebooks first and is wrong on other layouts until typed characters are captured (to do, see
+decision 0024).
 """
 
 from __future__ import annotations

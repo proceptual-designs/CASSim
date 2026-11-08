@@ -130,6 +130,7 @@ class Calculator:
             redo=lambda _: self._step(self._redo, self._undo),
             escape=lambda _: self._mover(lambda: None)(""),
             recall_at=self._recall_at,
+            select_cells=self._select_cells,
             place=lambda arg: self._place(arg, extend=False),
             extend=lambda arg: self._place(arg, extend=True),
         )
@@ -155,6 +156,8 @@ class Calculator:
         kind, _, shape = spec.partition(":")
         rows, _, cols = shape.partition(",")
         size = (int(rows), int(cols or 1)) if shape else (2, 2)
+        if kind == Kind.LIST:  # `list:3` is three elements
+            size = (1, int(rows) if shape else 3)
         self._edit("other", lambda: self.editor.insert_template(Kind(kind), size))
 
     def _power(self, exponent: str) -> None:
@@ -199,6 +202,7 @@ class Calculator:
     def _restore(self, snapshot: Snapshot) -> None:
         e = self.editor
         saved = copy.deepcopy(snapshot)
+        e.cell_sel = None
         e.root, e.path, e.pos, e.selected, e.anchor = (
             saved.root,
             saved.path,
@@ -230,6 +234,11 @@ class Calculator:
         at = rows.index(self.recall) if self.recall in rows else len(rows)
         at = max(at - 1, 0) if up else at + 1
         self.recall = rows[at] if at < len(rows) else None
+
+    def _select_cells(self, spec: str) -> None:
+        """`row:-1`, `row:1`, `col:-1` or `col:1`: select (then grow) a matrix's rows or columns."""
+        axis, _, step = spec.partition(":")
+        self._mover(lambda: self.editor.select_cells(axis, int(step or 0)))("")
 
     def _place(self, target: str, *, extend: bool) -> None:
         """A click in the entry line (`place`) or a shift+click (`extend`): see `Editor.place`."""

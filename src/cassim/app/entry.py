@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.theme import Theme
-from cassim.device.editor import Editor, Kind, Row, Template, function_names
+from cassim.device.editor import GRIDS, Editor, Kind, Row, Template, function_names
 
 _SMALL = 0.6  # limits, indices and bounds are set smaller, as in TeX
 
@@ -46,24 +46,39 @@ class EntryLine:
         size: float,
         click: Click,
         is_function: Callable[[str], bool] = lambda _: False,
+        hold: Click | None = None,
     ) -> None:
         self.theme = theme
         self.size = size
         self.click = click
         self.is_function = is_function
+        # A long press is the touch screen's shift+click: it extends the selection (0019)
+        self.hold = hold or click
+
+    def _detector(
+        self, content: ft.Control, path: Path, pos: int, *, expand: bool = False
+    ) -> ft.Control:
+        """A tap places the cursor at `pos` in the row at `path`; a long press extends to it."""
+        return ft.GestureDetector(
+            content,
+            expand=expand,
+            on_tap=lambda _: self.click(path, pos),
+            on_long_press_start=lambda _: self.hold(path, pos),
+        )
 
     def build(self, editor: Editor) -> ft.Control:
         """The whole line. A click past the end of it puts the cursor at the end of the entry."""
         self._editor = editor
         row = self._row(editor.root, [])
-        return ft.GestureDetector(
+        return self._detector(
             ft.Container(
                 row,
                 padding=ft.Padding.symmetric(vertical=2),
                 alignment=ft.Alignment.CENTER_LEFT,
                 bgcolor=HIT,
             ),
-            on_tap=lambda _: self.click([], len(editor.root)),
+            [],
+            len(editor.root),
         )
 
     # ---- rows -------------------------------------------------------------------------------
@@ -98,7 +113,7 @@ class EntryLine:
             parts.append(self._cursor())
         if row and on_cursor and low != high:
             parts.insert(self._bar_place(low, high, editor.pos), self._cursor(selected=True))
-        return ft.GestureDetector(
+        return self._detector(
             ft.Container(
                 ft.Row(
                     parts,
@@ -110,7 +125,8 @@ class EntryLine:
                 padding=pad,
                 alignment=ft.Alignment.CENTER if center else None,
             ),
-            on_tap=lambda _: self.click(here, len(row)),
+            here,
+            len(row),
         )
 
     @staticmethod
@@ -157,11 +173,7 @@ class EntryLine:
     def _halves(self, here: list[tuple[int, int]], index: int) -> ft.Control:
         """Two click zones filling the control they sit in: before the node and after it."""
         zones: list[ft.Control] = [
-            ft.GestureDetector(
-                ft.Container(expand=True, bgcolor=HIT),
-                expand=True,
-                on_tap=lambda _, at=at: self.click(here, at),
-            )
+            self._detector(ft.Container(expand=True, bgcolor=HIT), here, at, expand=True)
             for at in (index, index + 1)
         ]
         return ft.Row(zones, spacing=0, left=0, right=0, top=0, bottom=0)
@@ -184,6 +196,10 @@ class EntryLine:
             for s, slot in enumerate(node.slots)
         ]
         self.size = size
+        editor = self._editor
+        if editor.cell_sel is not None and editor.path[:-1] == here and editor.path[-1][0] == index:
+            for cell in editor.selected_cells():  # whole rows or columns of a matrix
+                slots[cell] = self._highlight(slots[cell])
 
         def chrome(piece: ft.Control) -> ft.Control:
             # drawn parts that are not slots (bar, radical, brackets) take clicks for the template
@@ -194,7 +210,7 @@ class EntryLine:
         elif node.kind is Kind.POWER:
             body = self._power(slots[0])
         elif node.kind is Kind.ROOT:
-            body = self._root(slots[0], chrome)
+            body = self._root(slots[0], chrome, row_height(node.slots[0]))
         else:
             body = self._matrix(slots, node.cols, chrome)
         # The zones also sit behind the contents, for the gaps the chrome leaves; a slot's own zones
@@ -231,10 +247,14 @@ class EntryLine:
             tight=True,
         )
 
-    def _root(self, radicand: ft.Control, chrome: Chrome) -> ft.Control:
+    def _root(self, radicand: ft.Control, chrome: Chrome, height: float = 1.0) -> ft.Control:
+        """The radical sign is set larger for a taller radicand (a fraction, a matrix)."""
         sign = chrome(
             ft.Text(
-                "√", size=self.size * 1.15, color=self.theme.screen_text, font_family=_MAIN_FONT
+                "√",
+                size=self.size * max(1.15, 1.1 * height),
+                color=self.theme.screen_text,
+                font_family=_MAIN_FONT,
             )
         )
         overline = chrome(
@@ -366,8 +386,17 @@ def _column(*parts: ft.Control) -> ft.Control:
 
 def _nth_root(p: _Parts) -> ft.Control:
     index = _column(p.slot(0, _SMALL), p.gap(0.55))
-    radicand = p.line._root(p.slot(1), lambda piece: piece)
+    radicand = p.line._root(p.slot(1), lambda piece: piece, row_height(p.node.slots[1]))
     return _row(index, radicand)
+
+
+def _list(p: _Parts) -> ft.Control:
+    cells: list[ft.Control] = []
+    for number in range(len(p.node.slots)):
+        if number:
+            cells.append(p.sign(", "))
+        cells.append(p.slot(number))
+    return _row(p.sign("{"), *cells, p.sign("}"))
 
 
 def _log(p: _Parts) -> ft.Control:
@@ -460,4 +489,37 @@ _DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
     Kind.SUM: lambda p: _big_operator(p, "Σ"),
     Kind.PRODUCT: lambda p: _big_operator(p, "Π"),
     Kind.LIMIT: _limit,
+    Kind.LIST: _list,
 }
+
+
+# ---- how tall a row is, in lines of text (for stretching signs) ---------------------------------
+
+_FRACTION_RULE = 0.3  # the bar and the space around it
+_RAISED = 0.45  # how far a power lifts its line
+_POWER_SCALE = 0.7  # an exponent is set at this fraction of the size
+
+
+def row_height(row: Row) -> float:
+    """The height of a row in lines of text: 1 for plain text, more for fractions, matrices and
+    raised powers. It sizes the radical sign, so a root over a fraction is drawn tall."""
+    return max([1.0, *(_node_height(node) for node in row)])
+
+
+def _node_height(node: object) -> float:
+    if not isinstance(node, Template):
+        return 1.0
+    slots = [row_height(slot) for slot in node.slots]
+    height = max(slots)
+    if node.kind is Kind.FRACTION:
+        height = slots[0] + slots[1] + _FRACTION_RULE
+    elif node.kind is Kind.POWER:
+        height = 1.0 + _RAISED + _POWER_SCALE * (slots[0] - 1)
+    elif node.kind in (Kind.ROOT, Kind.NTH_ROOT):
+        height = slots[-1] + 0.15
+    elif node.kind in GRIDS and node.cols:
+        rows = [slots[i : i + node.cols] for i in range(0, len(slots), node.cols)]
+        height = sum(max(r) for r in rows) + 0.1 * (len(rows) - 1)
+    elif node.kind in (Kind.SUM, Kind.PRODUCT, Kind.INTEGRAL, Kind.LIMIT):
+        height = max(slots[-1], 1.8)
+    return height
