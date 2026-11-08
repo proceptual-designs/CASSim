@@ -6,13 +6,8 @@ serves it below /CASSim/ as a GitHub Pages project site would, and drives it in 
 
 from __future__ import annotations
 
-import functools
-import http.server
 import json
-import os
-import threading
 import time
-from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -21,39 +16,6 @@ from playwright.sync_api import Browser, Page
 from tools import publish
 
 pytestmark = pytest.mark.e2e
-
-BASE = "CASSim"
-TYPES = {
-    ".mjs": "text/javascript",
-    ".js": "text/javascript",
-    ".wasm": "application/wasm",
-    ".webmanifest": "application/manifest+json",
-}
-
-
-class PagesHandler(http.server.SimpleHTTPRequestHandler):
-    def translate_path(self, path: str) -> str:
-        p = urlparse(path).path
-        if not p.startswith(f"/{BASE}/") and p != f"/{BASE}":
-            return str(Path(self.directory) / "__missing__")
-        return super().translate_path("/" + p.removeprefix(f"/{BASE}").lstrip("/"))
-
-    def guess_type(self, path: str | os.PathLike[str]) -> str:
-        return TYPES.get(Path(path).suffix, super().guess_type(path))
-
-    def log_message(self, format: str, *args: object) -> None:
-        pass
-
-
-@pytest.fixture(scope="module")
-def site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]:
-    dist = tmp_path_factory.mktemp("pwa") / "dist"
-    publish.build(dist, BASE)
-    handler = functools.partial(PagesHandler, directory=str(dist))
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    yield dist, f"http://127.0.0.1:{server.server_address[1]}/{BASE}/"
-    server.shutdown()
 
 
 def wait_for(page: Page, js: str, seconds: float = 240) -> bool:
