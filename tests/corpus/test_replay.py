@@ -1,3 +1,4 @@
+# Requirements traced here: FID-1, FID-3, FID-4
 """The corpus as a regression net: reviewed cases must pass, and nothing may crash the engine.
 
 A case is held to its result once its status moves from `pending` to `pass` or `xfail`.

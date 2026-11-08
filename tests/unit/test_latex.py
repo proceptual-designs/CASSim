@@ -1,3 +1,4 @@
+# Requirements traced here: FR-CALC-003
 """LaTeX output for the GUI (decision 0014): TI's conventions and Flet's Markdown transport."""
 
 import pytest

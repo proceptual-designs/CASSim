@@ -1,3 +1,4 @@
+# Requirements traced here: NFR-PORT-002
 """Touch selection, list and matrix drawing, and the stretching radical (M2d, FR-CALC-004)."""
 
 from collections.abc import Callable, Iterator, Sequence

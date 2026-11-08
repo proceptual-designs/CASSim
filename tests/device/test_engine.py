@@ -1,3 +1,4 @@
+# Requirements traced here: FR-EVAL-006, NFR-REL-002
 """The engine split: a RemoteSession, the Runner and Cancel (decisions 0005, 0016)."""
 
 import asyncio

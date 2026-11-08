@@ -1,3 +1,4 @@
+# Requirements traced here: FR-CALC-001, FR-CALC-002, FR-CALC-006
 """The Calculator page driven by key names (FR-DEV-001, FR-CALC-004, FR-DEV-007)."""
 
 from pathlib import Path

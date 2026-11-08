@@ -1,3 +1,4 @@
+# Requirements traced here: FR-LANG-001, FR-LANG-002, FR-LANG-004, FR-EVAL-005
 import pytest
 
 from cassim.core.errors import MISSING_QUOTE, SYNTAX, TISyntaxError

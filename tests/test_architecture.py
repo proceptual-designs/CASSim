@@ -1,3 +1,4 @@
+# Requirements traced here: NFR-MAINT-002
 """Dependency rules from PLAN.md section 3. Each rule is a package that must not import another."""
 
 from __future__ import annotations

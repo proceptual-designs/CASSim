@@ -1,3 +1,4 @@
+# Requirements traced here: NFR-PORT-002
 """The clickable entry line (FR-CALC-004, decision 0019): every click region maps to a target.
 
 The controls are built without a page, then each tap handler is called the way Flet would call it.

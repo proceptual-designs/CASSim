@@ -85,3 +85,14 @@ include = ["src", "tests", "tools"]
 # Strict: a warning fails the check, so possibly-unresolved-reference, unused-ignore-comment,
 # redundant-cast and deprecated are errors too.
 error-on-warning = true
+
+# Per-package coverage floors (NFR-MAINT-004), checked by tools/coverage_check.py. Lines and
+# branches combined, in percent. Set just below the figures of 2026-11-09 so they only ratchet up;
+# the SRS targets are 90 for core and 80 for the other non-UI packages. `app` (Flet) is excluded
+# and covered by Playwright. Packages with no code yet are not listed.
+[tool.cassim.coverage]
+core = 95
+device = 95
+profiles = 95
+runtime = 90
+cli = 90

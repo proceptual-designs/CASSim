@@ -1,3 +1,4 @@
+# Requirements traced here: FR-SCOPE-001, FR-CAT-006
 """Variables, user functions, DelVar/ClearAZ and the `|` constraint (M1c)."""
 
 import pytest

@@ -1,3 +1,4 @@
+# Requirements traced here: FR-PWA-003
 """The published site is installable and works offline (FR-PWA-001 to FR-PWA-004).
 
 Builds the real site with `tools.publish` (needs network for the vendored packages the first time),

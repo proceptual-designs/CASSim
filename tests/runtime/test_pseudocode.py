@@ -1,3 +1,4 @@
+# Requirements traced here: FR-RUN-005, FR-PSE-004, FR-PSE-005, FR-PSE-006, FR-TRC-002, FR-SET-006
 """Pseudocode parser, interpreter and trace tables (M7b; FR-PSE-*, FR-TRC-*, FR-SET-*)."""
 
 import random
