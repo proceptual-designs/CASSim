@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.layout import (
     BAR_H,
     GAP,
@@ -107,6 +108,8 @@ class App:
         page.services.append(self.files)
         self.prefs = ft.SharedPreferences()
         page.services.append(self.prefs)
+        self.launcher = ft.UrlLauncher()
+        page.services.append(self.launcher)
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
 
     async def start(self) -> None:
@@ -357,6 +360,7 @@ class App:
             chip("Menu", lambda: self.act("open_menu", "menu"), theme),
             chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
             chip("settings", self.open_settings, theme),
+            chip("Help", lambda: self.show_dialog("help"), theme),
             chip("About", lambda: self.show_dialog("about"), theme),
             *([chip("Install", self.install, theme)] if self.installable else []),
         ]
@@ -372,6 +376,8 @@ class App:
             self.open_settings()
         elif name == "system_settings":
             system_settings_dialog(self.page, self.state, self.on_system_change, self.theme)
+        elif name == "help":
+            self.page.run_task(self.launcher.launch_url, about.WIKI_URL)
         elif name == "about":
             about_dialog(self.page)
         elif name == "page_sorter":

@@ -24,6 +24,8 @@ LICENCE = (
 )
 
 SOURCE_URL = "https://github.com/simonjtyler/CASSim"
+# The help pages are the project wiki (private until the repository is public, after M2).
+WIKI_URL = SOURCE_URL + "/wiki"
 
 
 @dataclass(frozen=True)
