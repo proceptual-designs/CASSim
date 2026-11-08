@@ -1,0 +1,207 @@
+# The "Real or Complex" setting (Real, Rectangular, Polar): errors, odd roots, complex values, Polar form.
+# Captured on the simulator 2026-11-08 by Claude Cowork (computer use); build 6.0.3.374. Rows transcribed from
+# docs/testing/emulator-domain-results.md. Human reviewed 2026-11-08 (Simon Tyler). Cowork took one screenshot per group of inputs,
+# not one per input, so evidence lists the group screenshots. See docs/decisions/0026-real-or-complex-setting.md.
+# Settings: Radian, Auto, Float 8, CAS On; only "Real or Complex" changes. `@i` is typed ⅈ.
+schema_version: 1
+cases:
+- id: domain.real.non-real-errors
+  course: none
+  settings: {angle: radian, calc: auto, domain: real, digits: float8}
+  tier: 1
+  tags: [domain, real, errors]
+  steps:
+  - {in: 'sqrt(-1)', error: true, error_contains: Non-real result}
+  - {in: 'sqrt(-4)', error: true, error_contains: Non-real result}
+  - {in: 'sqrt(-8)', error: true, error_contains: Non-real result}
+  - {in: '(-4)^(1/2)', error: true, error_contains: Non-real result}
+  - {in: '(-1)^(1/2)', error: true, error_contains: Non-real result}
+  - {in: 'ln(-1)', error: true, error_contains: Non-real result}
+  - {in: 'ln(-2)', error: true, error_contains: Non-real result}
+  - {in: 'log(-1)', error: true, error_contains: Non-real result}
+  - {in: 'log(-100,10)', error: true, error_contains: Non-real result}
+  - {in: 'arcsin(2)', error: true, error_contains: Non-real result}
+  - {in: 'arccos(2)', error: true, error_contains: Non-real result}
+  - {in: 'arccosh(0)', error: true, error_contains: Non-real result}
+  - {in: 'arctanh(2)', error: true, error_contains: Non-real result}
+  - {in: 'arcsin(-2)', error: true, error_contains: Non-real result}
+  - {in: '{1,sqrt(-1)}', error: true, error_contains: Non-real result}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D1-sqrt-neg-real.png
+    - ../docs/testing/domain-shots/D1-sqrt-neg-real-dialog.png
+    - ../docs/testing/domain-shots/D1-pow-half-real.png
+    - ../docs/testing/domain-shots/D2-log-neg-real.png
+    - ../docs/testing/domain-shots/D2-arc-out-of-range-real.png
+    - ../docs/testing/domain-shots/D5-list-sqrt-real-dialog.png
+    note: 'Every error is the same dialog: Non-real result; for example, in the Real setting √(-1) is invalid; change Real or Complex to RECTANGULAR or POLAR. Screenshots are per group of inputs.'
+  status: pass
+- id: domain.real.values-and-warnings
+  course: none
+  settings: {angle: radian, calc: auto, domain: real, digits: float8}
+  tier: 1
+  tags: [domain, real, roots, warning]
+  steps:
+  - {in: '(-8)^(1/3)', out: '-2'}
+  - {in: 'root(-8,3)', out: '-2'}
+  - {in: '(-8)^(2/3)', out: '4'}
+  - {in: 'sqrt(-1)*sqrt(-1)', out: '-1', note: 'Device shows a warning triangle, Non-real calculation; no error.'}
+  - {in: '(sqrt(-1))^2', out: '-1', note: 'Warning triangle on the device.'}
+  - {in: 'real(3+4*sqrt(-1))', out: '3', note: 'Warning triangle on the device.'}
+  - {in: 'imag(3+4*sqrt(-1))', out: '4', note: 'Warning triangle on the device.'}
+  - {in: 'sqrt(x)', out: '√(x)'}
+  - {in: 'sqrt(-x)', out: '√(-x)'}
+  - {in: '@e^(@i*pi)', out: '-1'}
+  - {in: 'ln(@i)', out: 'π/2*ⅈ'}
+  - {in: 'sqrt(@i)', out: '√(2)/2+√(2)/2*ⅈ'}
+  - {in: 'ln(0)', out: undef}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D1-cuberoot-real.png
+    - ../docs/testing/domain-shots/D1-sqrt-x-and-products-real.png
+    - ../docs/testing/domain-shots/D1-sqrt-products-real-warning.png
+    - ../docs/testing/domain-shots/D3-real-imag-sqrt-and-products-real.png
+    - ../docs/testing/domain-shots/D3-real-imag-sqrt-real-warning.png
+    - ../docs/testing/domain-shots/D2-eipi-ln0-lni-real.png
+    - ../docs/testing/domain-shots/D7-solve-complex-sqrti-real.png
+    note: 'The error needs a real-only function outside its domain AND a complex final value; a typed ⅈ never errors. The warning triangle (FR-CALC-007) is not yet drawn by CASSim.'
+  status: pass
+- id: domain.rectangular.complex-values
+  course: none
+  settings: {angle: radian, calc: auto, domain: rectangular, digits: float8}
+  tier: 1
+  tags: [domain, rectangular, complex]
+  steps:
+  - {in: 'sqrt(-1)', out: 'ⅈ'}
+  - {in: 'sqrt(-4)', out: '2*ⅈ'}
+  - {in: 'sqrt(-8)', out: '2*√(2)*ⅈ'}
+  - {in: '(-4)^(1/2)', out: '2*ⅈ'}
+  - {in: '(-8)^(1/3)', out: '1+√(3)*ⅈ'}
+  - {in: '(-8)^(2/3)', out: '-2+2*√(3)*ⅈ'}
+  - {in: 'root(-8,3)', out: '-2'}
+  - {in: 'ln(-1)', out: 'π*ⅈ'}
+  - {in: 'ln(-2)', out: 'ln(2)+π*ⅈ'}
+  - {in: 'arcsin(2)', out: 'π/2-ln(4*√(3)+7)/2*ⅈ', compare: numeric}
+  - {in: 'arccos(2)', out: 'ln(4*√(3)+7)/2*ⅈ', compare: numeric}
+  - {in: 'arccosh(0)', out: 'π/2*ⅈ'}
+  - {in: 'arctanh(2)', out: 'ln(3)/2-π/2*ⅈ'}
+  - {in: 'arcsin(-2)', out: '-π/2+ln(4*√(3)+7)/2*ⅈ', compare: numeric}
+  - {in: '{1,sqrt(-1)}', out: '{1,ⅈ}'}
+  - {in: 'sqrt(@i)', out: '√(2)/2+√(2)/2*ⅈ'}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D1-sqrt-neg-rect.png
+    - ../docs/testing/domain-shots/D1-cuberoot-sqrtx-rect-a.png
+    - ../docs/testing/domain-shots/D1-cuberoot-sqrtx-rect-b.png
+    - ../docs/testing/domain-shots/D2-log-neg-rect.png
+    - ../docs/testing/domain-shots/D2-arcsin-arccos-2-rect.png
+    - ../docs/testing/domain-shots/D2-arccosh-arctanh-arcsin-neg2-rect.png
+    note: 'No warning triangles in Rectangular. Screenshots are per group of inputs. The ln(4√3+7)/2 forms equal ln(2+√3), hence numeric comparison.'
+  status: pass
+- id: domain.polar.exponential-form
+  course: none
+  settings: {angle: radian, calc: auto, domain: polar, digits: float8}
+  tier: 1
+  tags: [domain, polar, complex]
+  steps:
+  - {in: 'sqrt(-1)', out: 'ⅇ^(ⅈ*π/2)'}
+  - {in: 'sqrt(-4)', out: 'ⅇ^(ⅈ*π/2)*2'}
+  - {in: '(-8)^(1/3)', out: 'ⅇ^(ⅈ*π/3)*2'}
+  - {in: '(-8)^(2/3)', out: 'ⅇ^(2*ⅈ*π/3)*4'}
+  - {in: 'ln(-1)', out: 'ⅇ^(ⅈ*π/2)*π'}
+  - {in: '@i', out: 'ⅇ^(ⅈ*π/2)'}
+  - {in: '3+4*@i', out: 'ⅇ^(ⅈ*(π/2-tan⁻¹(3/4)))*5'}
+  - {in: '1/@i', out: 'ⅇ^(-ⅈ*π/2)'}
+  - {in: '1+@i', out: 'ⅇ^(ⅈ*π/4)*√(2)'}
+  - {in: '-1-@i', out: 'ⅇ^(-3*ⅈ*π/4)*√(2)'}
+  - {in: 'conj(3+4*@i)', out: 'ⅇ^(ⅈ*(2*tan⁻¹(3/4)-π)/2)*5'}
+  - {in: '-3', out: '-3'}
+  - {in: 'cZeros(x^2+1,x)', out: '{ⅇ^(ⅈ*π/2),ⅇ^(-ⅈ*π/2)}'}
+  - {in: '{1,sqrt(-1)}', out: '{1,ⅇ^(ⅈ*π/2)}'}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D1-sqrt-neg-polar-a.png
+    - ../docs/testing/domain-shots/D1-cuberoot-sqrtx-polar-a.png
+    - ../docs/testing/domain-shots/D3-i-basic-polar-a.png
+    - ../docs/testing/domain-shots/D3-imag-conj-angle-polar.png
+    - ../docs/testing/domain-shots/D5-polar-inputs-polar-b.png
+    - ../docs/testing/domain-shots/D4-cSolve-polar-b.png
+    note: 'Polar writes ⅇ^(ⅈθ)·r (modulus last, omitted when 1), angle in radians; real numbers are unchanged. Polar with Angle=Degree uses (r∠θ), see domain.polar.degree-notation.'
+  status: pass
+- id: domain.solve-is-real-only
+  course: none
+  settings: {angle: radian, calc: auto, domain: real, digits: float8}
+  tier: 1
+  tags: [domain, solve, cSolve]
+  steps:
+  - {in: 'solve(x^2+1=0,x)', out: 'false'}
+  - {in: 'solve(x^2=-4,x)', out: 'false'}
+  - {in: 'cSolve(x^2+1=0,x)', out: 'x=ⅈ or x=-ⅈ'}
+  - {in: 'factor(x^2+1)', out: 'x^2+1'}
+  - {in: 'cFactor(x^2+1)', out: '(x-ⅈ)*(x+ⅈ)'}
+  - {set: {domain: rectangular}}
+  - {in: 'solve(x^2+1=0,x)', out: 'false'}
+  - {in: 'cZeros(x^2+1,x)', out: '{ⅈ,-ⅈ}'}
+  - {set: {domain: polar}}
+  - {in: 'solve(x^2+1=0,x)', out: 'false'}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D4-solve-cSolve-real-a.png
+    - ../docs/testing/domain-shots/D4-solve-cSolve-rect-a.png
+    - ../docs/testing/domain-shots/D4-solve-cSolve-polar-a.png
+    - ../docs/testing/domain-shots/D4-zeros-factor-solve-rect-b.png
+    note: 'solve never returns complex roots, even in Rectangular and Polar; the c* commands work in every setting.'
+  status: pass
+- id: domain.polar.degree-notation
+  course: none
+  settings: {angle: degree, calc: auto, domain: polar, digits: float8}
+  tier: 2
+  tags: [domain, polar, degree]
+  steps:
+  - {in: '@i', out: '(1∠90)', compare: text}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D5-degree-polar.png
+    note: 'In Degree mode Polar writes (r∠θ) with θ in degrees. Only Polar was run in Degree (Real and Rectangular were not).'
+  status: pass
+- id: domain.polar.degree-exact-angle
+  course: none
+  settings: {angle: degree, calc: auto, domain: polar, digits: float8}
+  tier: 2
+  tags: [domain, polar, degree]
+  steps:
+  - {in: '3+4*@i', out: '(5∠90-tan⁻¹(3/4))', compare: text}
+  provenance:
+    source: simulator
+    simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view'
+    captured: '2026-11-08'
+    reviewed_by: 'claude (Cowork screenshot transcription); human reviewed 2026-11-08 (Simon Tyler)'
+    evidence:
+    - ../docs/testing/domain-shots/D5-degree-polar.png
+    note: 'The device writes the exact angle as 90-tan⁻¹(3/4), with tan⁻¹ in degrees. CASSim gives 180*tan⁻¹(4/3)/π: the same angle (53.13°), a different exact form.'
+  xfail_reason: 'Exact angle in degrees is written differently (same value); text compare.'
+  status: xfail

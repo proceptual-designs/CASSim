@@ -139,6 +139,19 @@ def to_degrees_minutes_seconds(host: Host, value: Value, args: list[Value]) -> V
 # ---- complex numbers and vectors -------------------------------------------------------------
 
 
+def _exponential_form(modulus: Raw, argument: Raw, settings: Settings) -> str:
+    """`ⅇ^(ⅈ*θ)*r` as the device writes it: the modulus last, and left out when it is 1."""
+    angle = to_text(Expr(argument), settings)
+    if argument.is_Add:
+        angle = f"({angle})"
+    sign, angle = ("-", angle[1:]) if angle.startswith("-") else ("", angle)
+    text = f"ⅇ^({sign}ⅈ*{angle})"
+    if modulus == 1:
+        return text
+    size = to_text(Expr(modulus), settings)
+    return f"{text}*({size})" if modulus.is_Add else f"{text}*{size}"
+
+
 def polar_form(value: Expr, settings: Settings) -> Value:
     """A complex number written as `r*ⅇ^(ⅈ*θ)`, or `(r∠θ)` when the angle is not in radians."""
     number = cas.number_value(value.raw)
@@ -147,8 +160,9 @@ def polar_form(value: Expr, settings: Settings) -> Value:
     modulus, argument = cas.polar_parts(value.raw)
     if settings.angle is Angle.RADIAN:
         # Finish the two parts, but not their product, which would turn back into a+bⅈ.
-        parts = (cas.finish(modulus, settings), cas.finish(argument, settings))
-        text = to_text(Expr(cas.polar_expression(*parts)), settings)
+        text = _exponential_form(
+            cas.finish(modulus, settings), cas.finish(argument, settings), settings
+        )
     else:
         turned = angles.from_radians(argument, settings.angle)
         text = f"({_show(modulus, settings)}∠{_show(turned, settings)})"

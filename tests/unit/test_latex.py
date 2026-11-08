@@ -15,7 +15,7 @@ def latex(line: str) -> str:
 @pytest.mark.parametrize(
     ("line", "wanted"),
     [
-        ("ⅇ^(ⅈ*π/3)", r"\mathrm{e}^{\frac{\mathrm{i} \pi}{3}}"),
+        ("ⅇ^(ⅈ*x)", r"\mathrm{e}^{\mathrm{i} x}"),
         ("ⅇ^2+√(2)/2", r"\frac{\sqrt{2}}{2} + \mathrm{e}^{2}"),
         ("ln(x)", r"\ln{\left(x \right)}"),
         ("sin⁻¹(x)", r"\sin^{-1}{\left(x \right)}"),

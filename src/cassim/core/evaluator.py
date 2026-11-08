@@ -122,6 +122,7 @@ class Evaluator:
         self._calls = 0
         # The `|` bindings in force, which also reach into stored values and Ans.
         self._substitutions: list[dict[str, Value]] = []
+        self._non_real = False
         self._dispatch: dict[type, Callable[[Any], Value]] = {
             ast.Number: self._number,
             ast.Dms: self._dms,
@@ -187,7 +188,11 @@ class Evaluator:
         return self._evaluated(statement)
 
     def _evaluated(self, node: ast.Expr) -> Value:
+        self._non_real = False
         return map_value(self._finish, self.expr(node))
+
+    def note_non_real(self) -> None:
+        self._non_real = True
 
     def _variable_name(self, node: ast.Expr) -> str:
         """The key for a name being stored to; constants and built-ins are refused."""
@@ -245,6 +250,8 @@ class Evaluator:
         if self._settings.cas_mode != CasMode.ON and cas.is_symbolic(value.raw):
             raise TIError(errors.CAS_RESTRICTED)
         finished = Expr(cas.finish(value.raw, self._settings))
+        if self._non_real and cas.is_non_real_number(finished.raw):
+            raise TIError(errors.NON_REAL)  # only ever set in Real mode
         # In Polar mode a complex number is written as r*ⅇ^(ⅈ*θ).
         if self._settings.domain == Domain.POLAR:
             return polar_form(finished, self._settings)
@@ -430,6 +437,8 @@ class Evaluator:
             return self._constrain(node)
         left, right = self.expr(node.left), self.expr(node.right)
         op = _ELEMENTWISE.get(node.op, node.op)
+        if op == "^" and isinstance(left, Expr) and isinstance(right, Expr):
+            return Expr(self._power(left.raw, right.raw))
         if op in cas.ARITHMETIC:
             return _combine(op, left, right)
         if op in ("and", "or"):
@@ -437,6 +446,19 @@ class Evaluator:
         if op == "&" and isinstance(left, Str) and isinstance(right, Str):
             return Str(left.value + right.value)
         raise _unsupported(f"the {node.op} operator here")
+
+    def _power(self, base: Raw, exponent: Raw) -> Raw:
+        """`base^exponent`. In Real mode an odd root of a negative number is real, and a complex
+        result from real operands (the square root of -4, written (-4)^(1/2)) is flagged."""
+        if self._settings.domain == Domain.REAL and base.is_real is True and exponent.is_real:
+            real = cas.real_power(base, exponent)
+            if real is not None:
+                return real
+            result = cas.ARITHMETIC["^"](base, exponent)
+            if cas.is_non_real_number(result):
+                self.note_non_real()
+            return result
+        return cas.ARITHMETIC["^"](base, exponent)
 
     def _compare(self, node: ast.Compare) -> Value:
         terms = [self.expr(node.first)] + [self.expr(term) for _, term in node.rest]

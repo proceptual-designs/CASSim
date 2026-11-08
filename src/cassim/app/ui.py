@@ -65,6 +65,9 @@ def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
     )
 
 
+STATUS_FIELDS = ("angle", "calc", "domain")  # the order of the words in the status line
+
+
 class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
@@ -74,12 +77,14 @@ class CalculatorView:
         theme: Theme = DARK,
         on_action: Callable[[str, str], None] = lambda action, arg: None,
         shift: Callable[[], bool] = lambda: False,
+        on_setting: Callable[[str], None] = lambda name: None,
     ) -> None:
         self.state = state
+        self.on_setting = on_setting
         self.theme = theme
         self.on_action = on_action
         self.shift = shift
-        self.status = ft.Text(size=12, color="#ffffff", weight=ft.FontWeight.BOLD)
+        self.status = ft.Row(spacing=8, tight=True)
         self.title = ft.Text(size=12, color="#ffffff")
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
@@ -105,8 +110,12 @@ class CalculatorView:
     def refresh(self) -> None:
         screen = self.state.screen()
         self.title.value = screen.title
-        self.status.value = screen.status
-        self.title.size = self.status.size = self.state.px(12)
+        size = self.state.px(12)
+        self.status.controls = [
+            self._status_field(word, size, number)
+            for number, word in enumerate(screen.status.split())
+        ]
+        self.title.size = size
         self.entry.content = self._entry(screen)
         self.history.controls = [
             *(self._line(line, number) for number, line in enumerate(screen.lines)),
@@ -115,6 +124,14 @@ class CalculatorView:
         ]
         self._error(screen)
         self._menu(screen.menu)
+
+    def _status_field(self, word: str, size: float, number: int) -> ft.Control:
+        """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
+        text = ft.Text(word, size=size, color="#ffffff", weight=ft.FontWeight.BOLD)
+        if number >= len(STATUS_FIELDS):
+            return text
+        name = STATUS_FIELDS[number]
+        return ft.Container(text, on_click=lambda _: self.on_setting(name), ink=True, tooltip=name)
 
     def _entry(self, screen: Screen) -> ft.Control:
         """The entry line as clickable controls; a page without a calculator shows its LaTeX."""

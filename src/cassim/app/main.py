@@ -41,6 +41,7 @@ from cassim.app.ui import (
     wizard_dialog,
 )
 from cassim.core.session import Session
+from cassim.core.settings import next_choice
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
 from cassim.device.engine import LocalEngine
@@ -91,7 +92,9 @@ class App:
         self.starting = False  # loading the autosave through a remote engine
         self.theme = DARK
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
-        self.view = CalculatorView(state, self.theme, self.act, lambda: self.shift)
+        self.view = CalculatorView(
+            state, self.theme, self.act, lambda: self.shift, self.cycle_setting
+        )
         self.keypad = Keypad(state, self.press, self.theme)
         self.sidebar = Sidebar(state, self.refresh, self.theme)
         self.toolbar = ft.Row(spacing=6, wrap=True)
@@ -275,6 +278,13 @@ class App:
         if self.busy:
             return
         self.state.run_action(action, arg)
+        self.refresh()
+
+    def cycle_setting(self, name: str) -> None:
+        """A click on Rad/Deg, Auto/Approx or Real/Rect/Polar in the title bar."""
+        if self.busy:
+            return
+        self.state.document.set(**{name: next_choice(self.state.document.settings, name)})
         self.refresh()
 
     def on_resize(self, e: ft.PageResizeEvent) -> None:

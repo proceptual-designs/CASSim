@@ -80,3 +80,25 @@ def test_lin_solve(line: str, wanted: str) -> None:
 )
 def test_inverse_binomial_n(line: str, wanted: str) -> None:
     assert text(line) == wanted
+
+
+@pytest.mark.parametrize("line", ["sqrt(-1)", "√(-4)", "sqrt(-4)"])
+def test_square_root_of_a_negative_is_non_real_in_real_mode(line: str) -> None:
+    """sqrt(-1) raises "Non-real result" in Real mode and gives ⅈ in Rectangular (simulator)."""
+    assert text(line) == "Non-real result"
+
+
+def test_square_root_of_a_negative_is_complex_in_rectangular_and_polar() -> None:
+    session = Session()
+    session.set(domain="rectangular")
+    assert text("sqrt(-1)", session) == "ⅈ"
+    assert text("sqrt(-4)", session) == "2*ⅈ"
+    session.set(domain="polar")
+    assert "ⅇ" in text("sqrt(-1)", session)
+
+
+def test_real_mode_square_roots_of_non_negatives_and_symbols_still_work() -> None:
+    assert text("sqrt(4)") == "2"
+    assert text("sqrt(2)") == "√(2)"
+    assert text("sqrt(x)") == "√(x)"
+    assert text("sqrt(-x)") == "√(-x)"

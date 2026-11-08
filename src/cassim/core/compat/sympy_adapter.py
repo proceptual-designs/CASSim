@@ -199,8 +199,28 @@ def finish(raw: Raw, settings: Settings) -> Raw:
         return sp.nan
     if _is_decimal_result(raw, settings):
         return raw.evalf()
+    if raw.is_number and raw.is_real is False:
+        return _complex_form(raw)
     # Numbers are always in simplest form: (1+ⅈ)^2 is 2*ⅈ, while (x+1)^2 stays as typed.
     return sp.expand(raw) if raw.is_number else raw
+
+
+_INVERSE_FUNCTIONS = (sp.asin, sp.acos, sp.acot, sp.asec, sp.acsc, sp.asinh, sp.acosh, sp.atanh)
+
+
+def _complex_form(raw: Raw) -> Raw:
+    """A non-real number as a+bⅈ: (-8)^(1/3) is 1+√3·ⅈ, and sin⁻¹(2) is π/2-ln(2+√3)·ⅈ."""
+    source = raw.rewrite(sp.log) if raw.has(*_INVERSE_FUNCTIONS) else raw
+    tidy = sp.expand_complex(source)
+    return sp.expand(raw) if tidy.has(sp.re, sp.im) else tidy
+
+
+def real_power(base: Raw, exponent: Raw) -> Raw | None:
+    """The real value of a negative number to a fraction with an odd denominator, which Real mode
+    takes: (-8)^(1/3) is -2 and (-8)^(2/3) is 4. None when this does not apply."""
+    if not (base.is_number and base.is_negative and exponent.is_Rational and exponent.q % 2):
+        return None
+    return (-1) ** exponent.p * (-base) ** exponent
 
 
 def is_symbolic(raw: Raw) -> bool:
