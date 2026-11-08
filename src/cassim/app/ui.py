@@ -51,7 +51,7 @@ ENTRY_ROOM = 28  # the blank line kept below the entry
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
 SHORT_CELL = 2  # characters that fit a grid cell at full size
-MENU_ROWS, MENU_ROWS_WIDE = 5, 16  # rows shown at once; the rest follow the highlight
+MENU_ROWS, MENU_ROWS_WIDE = 10, 16  # rows shown at once; the rest follow the highlight
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -274,7 +274,7 @@ class CalculatorView:
                 color=colour if on or not row.enabled else theme.key_label,
                 width=px(14) if keys else 0,
             ),
-            label_text(row.label, size=px(13), color=colour, expand=True, no_wrap=True),
+            label_text(row.label, size=px(12), color=colour, expand=True, no_wrap=True),
         ]
         if wide and row.hint:
             hint_colour = colour if on else theme.menu_hint
@@ -284,7 +284,7 @@ class CalculatorView:
         return ft.Container(
             ft.Row(parts, spacing=px(4)),
             bgcolor=(theme.accent if active and row.enabled else theme.key) if on else None,
-            padding=ft.Padding.symmetric(horizontal=px(4), vertical=px(2)),
+            padding=ft.Padding.symmetric(horizontal=px(4), vertical=px(1)),
             border_radius=px(3),
             tooltip=row.hint or None,
             ink=True,
@@ -326,7 +326,7 @@ class Keypad:
         self.refresh()
 
     def refresh(self) -> None:
-        gap = self.state.px(KEY_GAP)
+        gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
         self.control.controls = [
             ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
@@ -335,26 +335,26 @@ class Keypad:
 
     def _key(self, key: Key) -> ft.Control:
         state, theme = self.state, self.theme
-        width = state.px(key_span(key.width))
-        height = state.px(key_span(key.height, KEY_H))
+        width = state.kpx(key_span(key.width))
+        height = state.kpx(key_span(key.height, KEY_H))
         if not key.name:
             return ft.Container(width=width, height=height)
         pending = state.pending
         layer = {"ctrl": key.ctrl, "shift": key.shift}.get(pending, "")
         fill, text = theme.key_colours(key.style)
-        small = state.px(8 if key.width < 1 else 9)
+        small = state.kpx(8 if key.width < 1 else 9)
         labels = ft.Row(
             [
                 label_text(key.ctrl, size=small, color=theme.key_label, no_wrap=True),
                 label_text(key.shift, size=small, color=theme.shift_label, no_wrap=True),
             ],
-            spacing=state.px(3),
+            spacing=state.kpx(3),
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         )
         main = label_text(
             layer or key.label,
-            size=state.px(13 if key.height < 1 or key.width < 1 else 15),
+            size=state.kpx(13 if key.height < 1 or key.width < 1 else 15),
             color=text,
             weight=ft.FontWeight.W_600,
             no_wrap=True,
@@ -372,7 +372,7 @@ class Keypad:
             height=height,
             alignment=ft.Alignment.CENTER,
             bgcolor=theme.modifier_on if pending == key.name else fill,
-            border_radius=height / 2 if key.style == "pad" else state.px(7),
+            border_radius=height / 2 if key.style == "pad" else state.kpx(7),
             ink=True,
             tooltip=key_tip(key),
             on_click=lambda _, name=key.name: self.on_key(name),
@@ -523,6 +523,11 @@ def system_settings_dialog(
         width=240,
     )
 
+    zoom = ft.Slider(
+        min=50, max=200, divisions=30, value=round(system.zoom * 100), label="{value}%", width=240
+    )
+    zoom_row = ft.Column([ft.Text("Zoom (everything on screen)"), zoom], spacing=0, tight=True)
+
     layouts = list(state.profile.keypads)
     letters = ft.Dropdown(
         label="Keypad letters",
@@ -536,13 +541,14 @@ def system_settings_dialog(
         system.start_mode = Mode(start.value or system.start_mode)
         system.letters = letters.value or system.letters
         system.math_size = MATH_SIZES.get(size.value or "", system.math_size)
+        system.zoom = round((zoom.value or 100) / 100, 2)
         page.pop_dialog()
         on_change()
 
     page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("System Settings"),
-            content=ft.Column([start, size, letters], tight=True, spacing=12),
+            content=ft.Column([start, size, zoom_row, letters], tight=True, spacing=12),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),

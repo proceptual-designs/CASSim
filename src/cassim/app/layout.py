@@ -37,24 +37,49 @@ def keypad_size(width_units: float, height_units: float) -> tuple[int, int]:
     return round(key_span(width_units)), round(key_span(height_units, KEY_H))
 
 
+MIN_RATIO, MAX_RATIO, DEFAULT_RATIO = 0.4, 1.5, 0.8  # keypad size relative to the screen's
+MIN_ZOOM, MAX_ZOOM = 0.5, 2.0
+SPLITTER = 10  # px: the draggable bar between the screen and the keypad
+
+
+@dataclass(frozen=True)
+class Sizing:
+    """The user's choices: the keypad's size relative to the screen's, and an overall zoom."""
+
+    ratio: float = DEFAULT_RATIO
+    zoom: float = 1.0
+
+
 @dataclass(frozen=True)
 class HandheldPlan:
     side_by_side: bool  # keypad beside the screen (landscape) instead of under it
-    width: int  # the natural size of the arranged calculator
+    width: int  # the arranged calculator's size at scale 1, the keypad already at its ratio
     height: int
-    scale: float
+    scale: float  # of the screen
+    pad_scale: float  # of the keypad: the screen's scale times the ratio
+
+
+def clamp_ratio(ratio: float) -> float:
+    return max(MIN_RATIO, min(MAX_RATIO, ratio))
 
 
 def handheld_plan(
-    viewport_w: float | None, viewport_h: float | None, width_units: float, height_units: float
+    viewport_w: float | None,
+    viewport_h: float | None,
+    width_units: float,
+    height_units: float,
+    sizing: Sizing = Sizing(),  # noqa: B008 - frozen, so one shared default is safe
 ) -> HandheldPlan:
     """The arrangement and scale that make the calculator as large as the window allows. The
-    keypad's size is in key units (`keypad_units`)."""
-    pad_w, pad_h = keypad_size(width_units, height_units)
-    portrait = (max(SCREEN_W, pad_w), SCREEN_H + GAP + pad_h)
-    landscape = (SCREEN_W + GAP + pad_w, max(SCREEN_H, pad_h))
+    keypad's size is in key units (`keypad_units`). The screen matters more than the keys, so the
+    keypad is drawn at `ratio` times the screen's scale (the splitter changes it); `zoom` then
+    enlarges or shrinks the result, which may no longer fit the window."""
+    ratio, zoom = clamp_ratio(sizing.ratio), max(MIN_ZOOM, min(MAX_ZOOM, sizing.zoom))
+    pad_w, pad_h = (round(side * ratio) for side in keypad_size(width_units, height_units))
+    portrait = (max(SCREEN_W, pad_w), SCREEN_H + GAP + SPLITTER + pad_h)
+    landscape = (SCREEN_W + GAP + SPLITTER + pad_w, max(SCREEN_H, pad_h))
     if not viewport_w or not viewport_h:  # the window size is not known yet
-        return HandheldPlan(False, *portrait, 1.0)
+        return HandheldPlan(False, *portrait, zoom, zoom * ratio)
     room_w = max(viewport_w - 2 * MARGIN, 1)
     room_h = max(viewport_h - 2 * MARGIN - BAR_H, 1)
 
@@ -63,8 +88,9 @@ def handheld_plan(
 
     side = fit(landscape) > fit(portrait)
     width, height = landscape if side else portrait
-    scale = max(MIN_SCALE, min(MAX_SCALE, fit(landscape if side else portrait)))
-    return HandheldPlan(side, width, height, scale)
+    fitted = max(MIN_SCALE, min(MAX_SCALE, fit(landscape if side else portrait)))
+    scale = fitted * zoom
+    return HandheldPlan(side, width, height, scale, scale * ratio)
 
 
 def computer_screen_height(viewport_h: float | None) -> float:

@@ -11,12 +11,18 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.layout import (
+    DEFAULT_RATIO,
     GAP,
     NARROW,
     SCREEN_H,
     SCREEN_W,
+    SPLITTER,
+    HandheldPlan,
+    Sizing,
+    clamp_ratio,
     computer_screen_height,
     handheld_plan,
+    keypad_size,
     starting_mode,
 )
 from cassim.app.state import AppState, Mode, System
@@ -477,13 +483,19 @@ class App:
     def arrange(self) -> None:
         view = self.view.control
         state = self.state
+        system = state.system
         if state.mode is Mode.HANDHELD:
-            plan = handheld_plan(self.page.width, self.page.height, *keypad_units(state.keypad))
-            state.scale = plan.scale
+            plan = handheld_plan(
+                self.page.width,
+                self.page.height,
+                *keypad_units(state.keypad),
+                Sizing(system.keypad_ratio, system.zoom),
+            )
+            state.scale, state.pad_scale = plan.scale, plan.pad_scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False
-            parts: list[ft.Control] = [view, self.keypad.control]
-            gap = state.px(GAP)
+            parts: list[ft.Control] = [view, self.splitter(plan), self.keypad.control]
+            gap = state.px(GAP) / 2
             self.layout.alignment = ft.Alignment.CENTER
             self.layout.content = (
                 ft.Row(parts, spacing=gap, alignment=ft.MainAxisAlignment.CENTER)
@@ -495,8 +507,13 @@ class App:
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 )
             )
+            if system.zoom > 1:  # zoomed past the window: scroll rather than clip
+                self.layout.content = ft.Column(
+                    [ft.Row([self.layout.content], scroll=ft.ScrollMode.AUTO)],
+                    scroll=ft.ScrollMode.AUTO,
+                )
         else:
-            state.scale = 1.0
+            state.scale = state.pad_scale = system.zoom
             self.layout.alignment = None
             view.width = None
             view.expand = True
@@ -512,6 +529,63 @@ class App:
             self.layout.content = ft.Row(
                 parts, expand=True, spacing=12, vertical_alignment=ft.CrossAxisAlignment.START
             )
+
+    def splitter(self, plan: HandheldPlan) -> ft.Control:
+        """The bar between the screen and the keypad: drag it to give the screen or the keys more
+        of the window, double-click it to go back to the default (kept with the settings)."""
+        side = plan.side_by_side
+        theme = self.theme
+        grip = ft.Container(
+            width=4 if side else 48,
+            height=48 if side else 4,
+            border_radius=2,
+            bgcolor=theme.key_label,
+        )
+
+        def drag(e: ft.DragUpdateEvent) -> None:
+            units_w, units_h = keypad_units(self.state.keypad)
+            base = keypad_size(units_w, units_h)[0 if side else 1]
+            if e.local_delta is None:
+                return
+            delta = e.local_delta.x if side else e.local_delta.y
+            # The keypad is on the right or at the bottom, so dragging towards the screen grows it.
+            current = self.state.system.keypad_ratio
+            self.state.system.keypad_ratio = clamp_ratio(
+                current - delta / (base * max(self.state.scale, 0.01))
+            )
+            self.arrange()
+            self.refresh()
+
+        def reset(_: object) -> None:
+            self.state.system.keypad_ratio = DEFAULT_RATIO
+            self.on_system_change()
+
+        def done(_: object) -> None:
+            self.page.run_task(self.prefs.set, SYSTEM_KEY, self.state.system.dumps())
+
+        bar = ft.Container(
+            grip,
+            alignment=ft.Alignment.CENTER,
+            width=SPLITTER * self.state.scale if side else None,
+            height=None if side else SPLITTER * self.state.scale,
+            tooltip="Drag to resize the keypad; double-click to reset",
+        )
+        detector = ft.GestureDetector(
+            bar,
+            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT
+            if side
+            else ft.MouseCursor.RESIZE_UP_DOWN,
+            on_double_tap=reset,
+            drag_interval=30,
+            on_horizontal_drag_update=drag if side else None,
+            on_horizontal_drag_end=done if side else None,
+            on_vertical_drag_update=None if side else drag,
+            on_vertical_drag_end=None if side else done,
+        )
+        if side:
+            return detector
+        across = keypad_size(*keypad_units(self.state.keypad))[0] * self.state.pad_scale
+        return ft.Container(detector, width=across)  # a column would shrink the bar to its grip
 
 
 def make_bridge(changed: Callable[[], None]) -> Bridge | None:
