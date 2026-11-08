@@ -12,7 +12,7 @@ Status: accepted 2026-11-08. Evidence: `docs/testing/emulator-domain-results.md`
 - Approximate changes only the number format, not which inputs error.
 
 ## Known differences left (not done)
-- **Warning triangle** ("Non-real calculation", Real mode, on `√(-1)*√(-1)`, `real(3+4√(-1))`): the value is right but there is no warning in the UI.
+- **Warning triangle** ("Non-real calculation", Real mode, on `√(-1)*√(-1)`, `real(3+4√(-1))`): the value is right but there is no warning in the UI. Planned as the shared warning triangle, FR-CALC-007 (PLAN.md section 11).
 - **Polar results are plain text** in the GUI (a `Shown` value), not typeset.
 - Polar forms for out-of-range inverse functions differ in shape from the device (equal in value).
 - `fMax(x^2+1,x)` should give `x=-∞ or x=∞` and `fMin(x^2+1,x)` gives `x=0`; the engine leaves `fMax` unevaluated.

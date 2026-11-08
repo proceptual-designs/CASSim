@@ -317,6 +317,8 @@ These came out of a review of PLAN.md, the SRS, CLAUDE.md and `docs/` against th
 8. **Sequencing.** After M2 closes, take M3 (data pages) then M4 (graphs); both are Must for VCE use. M5 is mostly Could (TI-Basic, library ports); consider doing only the `mm_`/`sm_`/`gm_` ports Simon actually uses and leaving the TI-Basic interpreter until after M7c to M7f, since the program tree built for pseudocode may be reusable.
 9. **Public release gate.** NFR-LEG-007 (VCAA question text in the corpus) and the third-party notices (NFR-LEG-003) have no owner or milestone. Add them to the M6 exit.
 
+**Feature to add: warning triangle (FR-CALC-007, Should).** A yellow triangle on an entry with a hover (or tap) message, shared by every page that can warn. First message: "Non-real calculation" in Real mode (decision 0026). Steps: add `warnings` to the engine `Result` and the worker message, raise it where the Real-mode flag is set but the final value is real (`Evaluator._finish`), draw the triangle in `CalculatorView` beside the entry, and capture on the simulator where else the device shows it (Graphs, Lists & Spreadsheet, Data & Statistics). Do it with M3, when the second page type needs it, unless the Calculator page wants it sooner.
+
 ## 12. Architecture follow-ups (from a structural review, 2026-11-08)
 
 Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay_steps`, used by `from_dict` and `Runner.load`), the architecture map above matches the code, and `tests/test_architecture.py` enforces the import rules and checks that this map lists every package. The rest is deliberately deferred and **tied to a trigger**: do it when the trigger happens, not before.
