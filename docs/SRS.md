@@ -1,6 +1,6 @@
 # CASSim: Software Requirements Specification
 
-Status: **DRAFT 0.5** (2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the post-Nspire scope in 4.12. **The Code part (M7: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
+Status: **DRAFT 0.6** (2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the post-Nspire scope in 4.12. **The Code part (M7: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
 Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is the milestone in PLAN.md section 8. Verification: **T** test (unit/corpus/device), **E** E2E (Playwright), **I** inspection, **D** demonstration, **A** analysis (measurement).
 
@@ -55,7 +55,7 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 ## 2. Overall description
 
 ### 2.1 Product perspective
-A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser (IndexedDB). Hosted as static files.
+A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser: the autosave and System Settings use localStorage (Flet `SharedPreferences`) and named files and larger data use IndexedDB (M7). Hosted as static files.
 
 ### 2.2 Product functions (summary)
 Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M7: a Python and pseudocode environment, standalone and as page types; later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
@@ -144,7 +144,7 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-DOC-001 | Multiple documents; add/delete/reorder Problems and Pages; page sorter. | M | D |
 | FR-DOC-002 | Document and system settings dialogs. | M | D |
-| FR-DOC-003 | Autosave to browser storage (IndexedDB); recover after reload or crash. | M | E |
+| FR-DOC-003 | Autosave to browser storage; recover after reload or crash. As built in M2e it uses localStorage through Flet `SharedPreferences` (enough for a document); IndexedDB is reserved for named files (FR-EDT-002) and larger data. | M | E |
 | FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M7 (FR-RUN-010). Geometry excluded. | M | I |
@@ -197,7 +197,10 @@ This cross-cuts every functional area.
 | FR-THEME-001 | **Dark** is the default theme. | M | D |
 | FR-THEME-002 | Themes (at least Dark, Light, Outline) are selectable in the UI and defined in a config file (colours for keypad, screen, accents) that users can edit; invalid config falls back to Dark with a message. Config persists in browser storage and can be exported/imported. | S | T/D |
 | FR-DEV-006 | All three modes use the same device model; they differ only in layout components. | M | I |
-| FR-DEV-007 | Framework code in `device/` and `cassim_app` holds no Nspire-specific constants: key layers, menu trees, page types, skin and theme values come from data or registries supplied by the (Nspire) profile, and page types are registered rather than hard-coded. This is the M2 guard for FR-PROF-001 and adds no features. | S | I |
+| FR-DEV-007 | Framework code in `device/` and `cassim.app` holds no Nspire-specific constants: key layers, menu trees, page types, skin and theme values come from data or registries supplied by the (Nspire) profile, and page types are registered rather than hard-coded. This is the M2 guard for FR-PROF-001 and adds no features. | S | I |
+| FR-DEV-008 | **Menus follow the device.** The Calculator Menu and the Doc menu, the trig, templates, relations, punctuation and symbol grids and the Catalog keep the device's order and numbering (decision 0022), so keystroke habits transfer. An item CASSim cannot do yet is shown greyed as a placeholder, never omitted, and does nothing. Every item is also reachable by mouse and touch. | S | T/D |
+| FR-DEV-009 | The multi-argument commands (distributions, statistics, regressions, Finance Solver, derivative at a point, matrices, systems, polynomial roots) have data-driven dialogs that paste or run as on the device (decision 0022). | S | T/D |
+| FR-DEV-010 | System Settings are persisted per browser (start view, maths size, keypad letters ABC or QWERTY) and apply to every mode. | C | T |
 
 ### 4.10 Teacher and class features
 | ID | Requirement | Pri | Ver |
@@ -380,14 +383,14 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.
 - NFR-MAINT-002 (M) Core never imports Flet (lint rule); SymPy only in the adapter.
 - NFR-MAINT-003 (M) Conventional commits; small commits; decisions recorded in `docs/decisions/`.
-- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim_app` (Flet UI) is excluded and covered by Playwright. CI reports coverage and fails below target.
+- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim.app` (Flet UI) is excluded and covered by Playwright. At 2026-11-08 CI reports coverage but enforces no threshold. CI reports coverage and fails below target.
 - NFR-MAINT-006 (M) Every requirement ID appears in at least one test (marker or docstring) or is listed as untested with a reason. A generated traceability table (`docs/traceability.md`) is checked in CI.
 - NFR-MAINT-005 (S) Dependency versions pinned (uv lockfile); Pyodide upgrade procedure documented.
 
 ### 5.7 Legal and licensing
 - NFR-LEG-001 (M) No TI marks, artwork, ROM content or screenshots shipped. Reference screenshots stay in `docs/design/reference/`, not the build.
 - NFR-LEG-002 (M) A visible disclaimer: not affiliated with or endorsed by TI; not an approved exam calculator.
-- NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, MathLive/MathQuill if used) ship with the build.
+- NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, and the vendored fonts) ship with the build.
 - NFR-LEG-004 (S) Before porting LazyMath UDFs, record the licence check (LazyMath Unlicense) in `docs/decisions/`.
 - NFR-LEG-005 (M) From M8, the disclaimer in NFR-LEG-002 also covers Casio and HP. No Casio or HP marks, artwork, ROM, firmware or emulator software is shipped; reference screenshots stay in `docs/design/reference/`.
 - NFR-LEG-006 (C) Before capturing a corpus from a manufacturer's emulator software, record its licence terms and why they allow this use in `docs/decisions/` (as NFR-LEG-004 does for LazyMath).
@@ -399,7 +402,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
 - **Files**: `.cassim.json` (versioned), CSV, optionally xlsx. `.tns` is deferred (FR-DOC-006).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
-- **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; MathLive (fallback MathQuill) for the 2D editor, **unverified in the Flet web build**.
+- **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; the 2D editor is CASSim's own template editor drawn from Flet controls (decisions 0015, 0018, 0019); MathLive and MathQuill are not used.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
 
 ## 7. Data requirements
@@ -471,3 +474,24 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire |
 | `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) |
+
+---
+
+## Appendix B. Implementation status (2026-11-08)
+
+A summary, not a substitute for the traceability table (NFR-MAINT-006), which does not exist yet (PLAN.md section 11).
+
+| Area | Requirements | Status |
+|---|---|---|
+| Language, evaluation, scope | 4.1 | Built (M1). |
+| Command catalogue | 4.2 | Tier 1 built; Tier 2 per the matrix; FR-CAT-005 matrix published (`docs/command_matrix.md`). |
+| Calculator page, device model | 4.3, 4.9 | Built through 2g; Tablet mode (FR-DEV-003) not started; editor leftovers open (PLAN.md, 2d). |
+| Documents, files, share links | 4.4 | Built (autosave, `.cassim.json`, share links, Page Sorter). Multiple documents in one session (FR-DOC-001) not checked. |
+| PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; real GitHub Pages and Safari, iOS and Chromebook not yet run. |
+| Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6 | Engine commands exist; pages not started (M3). |
+| Graphs and Table | 4.7 | Not started (M4). |
+| TI-Basic, libraries | 4.8 | Not started (M5, Could). |
+| Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built (M7b), 58 golden programs green. Translation, editor, settings bar, Code view and page types not started. |
+| Python runtime | FR-RUN-002/003 | Not started; the sandbox spike (7a) comes first. |
+| Profiles, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Not started; only the M2 guard applies. |
+| Non-functional | 5 | NFR-MAINT-006 (traceability) and NFR-USE-002 (accessibility notes) have no artefact; NFR-MAINT-004 has no enforced threshold; NFR-LEG-002 disclaimer and NFR-LEG-003 notices need checking before release. |
