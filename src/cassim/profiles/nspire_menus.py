@@ -109,12 +109,12 @@ def _derivative_at(v: Mapping[str, str]) -> list[Binding]:
     ]
 
 
-def _system(v: Mapping[str, str]) -> list[Binding]:
-    """solve( with the device's system template and the variables; the cursor in the first
-    equation."""
+def _system(v: Mapping[str, str], command: str = "solve") -> list[Binding]:
+    """`solve(` (or `linSolve(`) with the device's system template and the variables; the
+    cursor in the first equation."""
     count, after = int(v["count"]), f",{{{v['vars']}}})"
     return [
-        Binding("insert", "solve("),
+        Binding("insert", f"{command}("),
         Binding("template", f"system:{count}"),
         *(Binding("tab") for _ in range(count)),  # out of the template
         Binding("insert", after),
@@ -122,6 +122,12 @@ def _system(v: Mapping[str, str]) -> list[Binding]:
         Binding("left"),  # into the last equation
         *(Binding("shift_tab") for _ in range(count - 1)),  # back to the first
     ]
+
+
+def _desolve(v: Mapping[str, str]) -> str:
+    """deSolve(equation and conditions, x, y), as the device's dialog pastes it."""
+    parts = [v["equation"], *(v[name] for name in ("c1", "c2") if v[name])]
+    return f"deSolve({' and '.join(parts)},{v['x']},{v['y']})"
 
 
 def polynomial(coefficients: str, var: str) -> str:
@@ -222,7 +228,9 @@ _REGRESSIONS = (
 )
 
 _BOUNDS_FROM_0 = (Field("lower", "Lower Bound", "0"), Field("upper", "Upper Bound"))
-# In the device's order (Probability > 5 and Statistics > 5 are the same list); D is a placeholder.
+# Dialog titles that differ from the menu label (Cowork run 2, part 2).
+_DIST_TITLES = {"invBinom": "Num Successes", "invBinomN": "Num Trials"}
+# In the device's order (Probability > 5 and Statistics > 5 are the same list).
 _DISTRIBUTIONS = (
     ("Normal Pdf", "normPdf", "1", (_X, _MU, _SIGMA)),
     ("Normal Cdf", "normCdf", "2", (_LOWER, _UPPER, _MU, _SIGMA)),
@@ -231,13 +239,19 @@ _DISTRIBUTIONS = (
     ("t Cdf", "tCdf", "5", (_LOWER, _UPPER, _DF)),
     ("Inverse t", "invt", "6", (_AREA, _DF)),
     ("χ² Pdf", "χ²Pdf", "7", (_X, _DF)),
-    ("χ² Cdf", "χ²Cdf", "8", (_LOWER, _UPPER, _DF)),
+    ("χ² Cdf", "χ²Cdf", "8", (*_BOUNDS_FROM_0, _DF)),
     ("Inverse χ²", "invχ²", "9", (_AREA, _DF)),
     ("Binomial Pdf", "binomPdf", "A", (_N, _P, Field("x", "X Value (optional)"))),
     ("Binomial Cdf", "binomCdf", "B", (_N, _P, *_BOUNDS_FROM_0)),
     ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P)),
-    ("F Pdf", "fPdf", "E", (_X, _DFN, _DFD)),
-    ("F Cdf", "fCdf", "F", (_LOWER, _UPPER, _DFN, _DFD)),
+    (
+        "Inverse Binomial N",
+        "invBinomN",
+        "D",
+        (Field("c", "Cumulative Prob"), _P, Field("x", "Successes, x")),
+    ),
+    ("F Pdf", "FPdf", "E", (_X, _DFN, _DFD)),
+    ("F Cdf", "FCdf", "F", (*_BOUNDS_FROM_0, _DFN, _DFD)),
     ("Inverse F", "invF", "G", (_AREA, _DFN, _DFD)),
     ("Geometric Pdf", "geomPdf", "H", (_P, _X)),
     (
@@ -258,10 +272,24 @@ WIZARDS: dict[str, Wizard] = {
     ),
     "solve_system": Wizard("Solve a System of Equations", _SYSTEM_FIELDS, steps=_system),
     "solve_linear_system": Wizard(
-        "Solve a System of Linear Equations", _SYSTEM_FIELDS, steps=_system
+        "Solve a System of Linear Equations",
+        _SYSTEM_FIELDS,
+        steps=lambda v: _system(v, "linSolve"),
+    ),
+    "desolve": Wizard(
+        "Differential Equation Solver",
+        (
+            Field("equation", "Equation", "y'=2*y"),
+            Field("x", "Independent Var", "x"),
+            Field("y", "Dependent Var", "y"),
+            Field("c1", "Condition (Optional)"),
+            Field("c2", "Condition (Optional)"),
+        ),
+        run=True,
+        build=_desolve,
     ),
     "piecewise": Wizard(
-        "Piecewise Function",
+        "Create Piecewise Function",
         (Field("count", "Number of function pieces", "3", whole=(1, 20)),),
         template="piecewise:{count}",
     ),
@@ -313,15 +341,21 @@ WIZARDS: dict[str, Wizard] = {
             Field("pmtat", "PmtAt", "0", choices=(("0", "END"), ("1", "BEGIN"))),
         ),
         calculate=finance_calculate,
+        copies=(("ppy", "cpy"),),  # changing PpY changes CpY, as on the device
     ),
-    **{name: _dist(title, name, *fields) for title, name, _, fields in _DISTRIBUTIONS},
+    **{
+        name: _dist(_DIST_TITLES.get(name, title), name, *fields)
+        for title, name, _, fields in _DISTRIBUTIONS
+    },
     **{command.casefold(): _regression(title, command) for title, command, _ in _REGRESSIONS},
 }
 
 
-_DIST_ITEMS = [wiz(title, name, key, FUNCTIONS[name]) for title, name, key, _ in _DISTRIBUTIONS]
-_DIST_ITEMS.insert(12, todo("Inverse Binomial N…", "D"))
-DISTRIBUTIONS = sub("Distributions", "5", *_DIST_ITEMS)
+DISTRIBUTIONS = sub(
+    "Distributions",
+    "5",
+    *(wiz(title, name, key, FUNCTIONS[name]) for title, name, key, _ in _DISTRIBUTIONS),
+)
 
 
 def _template_item(label: str, kind: str, name: str, key: str) -> MenuItem:
@@ -478,8 +512,7 @@ MENU = MenuItem(
                 todo("Generalized Series", "2"),
                 todo("Dominant Term", "3"),
             ),
-            # The device opens a dialog here; CASSim types the command.
-            fn("Differential Equation Solver", "deSolve", "D"),
+            wiz("Differential Equation Solver", "desolve", "D", FUNCTIONS["deSolve"]),
             fn("Implicit Differentiation", "impDif", "E"),
             sub(
                 "Numerical Calculations",
@@ -719,20 +752,49 @@ MENU = MenuItem(
                 "Send",
                 "RefreshProbeVars",
             ),
-            todo_sub(
+            sub(
                 "Mode",
                 "8",
-                "Display Digits",
-                "Angle",
-                "Exponential Format",
-                "Real or Complex",
-                "Auto or Approx",
-                "Vector Format",
-                "Base",
-                "Unit System",
-                "Get Mode",
-                "Get Language Info",
-                "Get Platform Info",
+                todo_sub(
+                    "Display Digits",
+                    "1",
+                    "Float",
+                    "Float1",
+                    "Float2",
+                    "Float3",
+                    "Float4",
+                    "Float5",
+                    "Float6",
+                    "Float7",
+                    "Float8",
+                    "Float9",
+                    "Float10",
+                    "Float11",
+                    "Float12",
+                    "Fix0",
+                    "Fix1",
+                    "Fix2",
+                    "Fix3",
+                    "Fix4",
+                    "Fix5",
+                    "Fix6",
+                    "Fix7",
+                    "Fix8",
+                    "Fix9",
+                    "Fix10",
+                    "Fix11",
+                    "Fix12",
+                ),
+                todo_sub("Angle", "2", "Radian", "Degree", "Gradian"),
+                todo_sub("Exponential Format", "3", "Normal", "Scientific", "Engineering"),
+                todo_sub("Real or Complex", "4", "Real", "Rectangular", "Polar"),
+                todo_sub("Auto or Approx", "5", "Auto", "Approximate", "Exact"),
+                todo_sub("Vector Format", "6", "Rectangular", "Cylindrical", "Spherical"),
+                todo_sub("Base", "7", "Decimal", "Hex", "Binary"),
+                todo_sub("Unit System", "8", "SI", "Eng/US"),
+                todo("Get Mode", "9"),
+                todo("Get Language Info", "A"),
+                todo("Get Platform Info", "B"),
             ),
             todo("Add New Line", "9"),
         ),
@@ -792,6 +854,8 @@ DOC = MenuItem(
             todo("Notes", "8"),
             todo("Vernier DataQuest™", "9"),
             todo("Widget", "A"),
+            todo_sub("Program Editor", "B", "New…", "Open…", "Import…", "View…"),
+            todo_sub("Add Python", "C", "New…", "Open…", "Shell"),
         ),
         sub(
             "Page Layout",
@@ -901,7 +965,7 @@ TEMPLATES = MenuItem(
         _cell("{=", "System of 2 equations", "system:2"),
         MenuItem("{n=", "wizard", "system", hint="System of N equations…"),
         _cell("|x|", "Absolute value", "abs"),
-        MenuItem("°'\"", hint="Degrees, minutes, seconds: " + NOT_YET, enabled=False),
+        _cell("°'\"", "Degrees, minutes, seconds", "dms"),
         MenuItem("2×2", "template", "matrix:2,2", hint="2 × 2 matrix"),
         MenuItem("1×2", "template", "matrix:1,2", hint="1 × 2 matrix"),
         MenuItem("2×1", "template", "matrix:2,1", hint="2 × 1 matrix"),
@@ -910,7 +974,7 @@ TEMPLATES = MenuItem(
         _cell("Π", "Product", "product"),
         _cell("d/d", "First derivative (shift+−)", "derivative"),
         _cell("d²", "Second derivative", "derivative2"),
-        MenuItem("dⁿ", hint="Nth derivative: " + NOT_YET, enabled=False),
+        _cell("dⁿ", "Nth derivative", "derivative_n"),
         _cell("∫ₐᵇ", "Definite integral (shift++)", "integral"),
         _cell("∫", "Indefinite integral", "antiderivative"),
         _cell("lim", "Limit", "limit"),

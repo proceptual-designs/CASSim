@@ -408,6 +408,22 @@ def _derivative(p: _Parts, *, second: bool) -> ft.Control:
     return _row(fraction, p.sign("("), p.slot(1), p.sign(")"))
 
 
+def _nth_derivative(p: _Parts) -> ft.Control:
+    top = _row(p.sign("d", 0.8), _column(p.slot(0, _SMALL), p.gap(0.4)))
+    fraction = ft.Column(
+        [top, p.bar(across=True), _row(p.sign("d", 0.8), p.slot(1, 0.8))],
+        spacing=0,
+        tight=True,
+        intrinsic_width=True,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    return _row(fraction, p.sign("("), p.slot(2), p.sign(")"))
+
+
+def _dms(p: _Parts) -> ft.Control:
+    return _row(p.slot(0), p.sign("°"), p.slot(1), p.sign("'"), p.slot(2), p.sign('"'))
+
+
 def _integral(p: _Parts) -> ft.Control:
     sign = _column(p.slot(1, _SMALL), p.sign("∫", 1.5), p.slot(0, _SMALL))
     return _row(sign, p.slot(2), p.sign(" d"), p.slot(3))
@@ -423,8 +439,9 @@ def _big_operator(p: _Parts, symbol: str) -> ft.Control:
 
 
 def _limit(p: _Parts) -> ft.Control:
-    below = _row(p.slot(0, _SMALL), p.sign("→", _SMALL), p.slot(1, _SMALL))
-    return _row(_column(p.sign("lim"), below), p.sign(" "), p.slot(2))
+    direction = _column(p.slot(2, 0.45), p.gap(0.3))  # a small + or − after the point
+    below = _row(p.slot(0, _SMALL), p.sign("→", _SMALL), p.slot(1, _SMALL), direction)
+    return _row(_column(p.sign("lim"), below), p.sign(" "), p.slot(3))
 
 
 # How each function-like template is drawn (the older kinds are drawn by `EntryLine` itself).
@@ -436,6 +453,8 @@ _DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
     Kind.SYSTEM: lambda p: _grid(p, ""),
     Kind.DERIVATIVE: lambda p: _derivative(p, second=False),
     Kind.DERIVATIVE2: lambda p: _derivative(p, second=True),
+    Kind.DERIVATIVE_N: _nth_derivative,
+    Kind.DMS: _dms,
     Kind.INTEGRAL: _integral,
     Kind.ANTIDERIVATIVE: _antiderivative,
     Kind.SUM: lambda p: _big_operator(p, "Σ"),

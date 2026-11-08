@@ -61,6 +61,7 @@ class Wizard:
     build: Callable[[Mapping[str, str]], str] | None = None
     steps: Callable[[Mapping[str, str]], list[Binding]] | None = None  # key actions to replay
     calculate: Callable[[Mapping[str, str], str], dict[str, str]] | None = None
+    copies: tuple[tuple[str, str], ...] = ()  # (source, target): typing in source sets target
 
     def defaults(self) -> dict[str, str]:
         return {field.name: field.default for field in self.fields}

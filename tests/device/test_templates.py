@@ -38,7 +38,11 @@ def _fill(kind: Kind, *slots: str, shape: tuple[int, int] = (2, 2)) -> Editor:
         (Kind.ANTIDERIVATIVE, ("x^2", "x"), "∫(x^(2),x)", "x^3/3"),
         (Kind.SUM, ("k", "1", "10", "k^2"), "Σ(k^(2),k,1,10)", "385"),
         (Kind.PRODUCT, ("k", "1", "5", "k"), "Π(k,k,1,5)", "120"),
-        (Kind.LIMIT, ("x", "0", "sin(x)/x"), "limit(sin(x)/x,x,0)", "1"),
+        (Kind.LIMIT, ("x", "0", "", "sin(x)/x"), "limit(sin(x)/x,x,0)", "1"),
+        (Kind.LIMIT, ("x", "0", "+", "abs(x)/x"), "limit(abs(x)/x,x,0,1)", "1"),  # direction
+        (Kind.LIMIT, ("x", "0", "-", "abs(x)/x"), "limit(abs(x)/x,x,0,-1)", "-1"),
+        (Kind.DERIVATIVE_N, ("3", "x", "x^5"), "derivative(x^(5),x,3)", "60*x^2"),
+        (Kind.DMS, ("30", "15", "0"), "(30°15'0\")", "121*π/720"),  # Radian mode, as on the device
     ],
 )
 def test_each_template_reads_and_evaluates(

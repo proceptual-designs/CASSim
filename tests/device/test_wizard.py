@@ -219,3 +219,32 @@ def test_paste_from_outside_keeps_exponents_in_place() -> None:
     calculator = _calculator(state)
     state.run_action("enter")
     assert calculator.history[-1].result.text == "x^2+1"  # not x^(2+1)
+
+
+def test_solve_system_of_linear_equations_pastes_lin_solve() -> None:
+    state = _finish("solve_linear_system")
+    calculator = _calculator(state)
+    assert calculator.editor.linear() == "linSolve({,},{x,y})"
+    calculator.editor.insert_text("x+y=3")
+    calculator.editor.tab()
+    calculator.editor.insert_text("x-y=1")
+    state.run_action("enter")
+    assert calculator.history[-1].result.text == "{2,1}"
+
+
+def test_differential_equation_solver_joins_the_conditions() -> None:
+    state = _finish("desolve", c1="y(0)=1")
+    entry = _calculator(state).history[-1]
+    assert entry.text == "deSolve(y'=2*y and y(0)=1,x,y)"
+    assert entry.result.text == "y=ⅇ^(2*x)"
+
+
+def test_inverse_binomial_n_dialog() -> None:
+    wizard = WIZARDS["invBinomN"]
+    assert wizard.title == "Num Trials"
+    state = _finish("invBinomN", c="0.5", p="0.5", x="5")
+    assert _calculator(state).history[-1].result.text == "12"
+
+
+def test_finance_solver_ppy_sets_cpy() -> None:
+    assert WIZARDS["finance"].copies == (("ppy", "cpy"),)

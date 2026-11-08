@@ -48,3 +48,35 @@ def test_piecewise_stays_symbolic_while_undecided() -> None:
 
 def test_undef_is_drawn_as_undef_not_nan() -> None:
     assert Session().eval("1/0").latex == r"\text{undef}"
+
+
+def test_an_even_root_of_a_negative_is_non_real_in_real_mode() -> None:
+    """²√-4 gives "Non-real result" on the device (templates run, part 1)."""
+    assert text("root(-4,2)") == "Non-real result"
+    session = Session()
+    session.set(domain="rectangular")
+    assert text("root(-4,2)", session) == "2*ⅈ"
+
+
+@pytest.mark.parametrize(
+    ("line", "wanted"),
+    [
+        ("linSolve({x+y=3,x-y=1},{x,y})", "{2,1}"),  # the device's own example
+        ("linSolve(x+y=3 and x-y=1,{x,y})", "{2,1}"),
+        ("linSolve({x+y=3},{x,y})", "{3-y,y}"),
+        ("linSolve({x+y=3,x+y=4},{x,y})", "No solution found"),
+    ],
+)
+def test_lin_solve(line: str, wanted: str) -> None:
+    assert text(line) == wanted
+
+
+@pytest.mark.parametrize(
+    ("line", "wanted"),
+    [
+        ("invBinomN(0.5,0.5,5)", "12"),  # the device's example: P(X<=5) is exactly 0.5 at n=11
+        ("invBinomN(0.05,0.1,0)", "29"),  # fewest trials for P(at least one) > 0.95
+    ],
+)
+def test_inverse_binomial_n(line: str, wanted: str) -> None:
+    assert text(line) == wanted

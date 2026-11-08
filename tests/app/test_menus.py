@@ -394,7 +394,7 @@ def test_routes_checked_on_the_simulator(route: tuple[str, ...], typed: str) -> 
         ("A", "binomPdf"),
         ("B", "binomCdf"),
         ("C", "invBinom"),
-        ("E", "fPdf"),
+        ("E", "FPdf"),
         ("H", "geomPdf"),
         ("K", "poissCdf"),
     ],
@@ -422,3 +422,17 @@ def test_keypad_pairs_and_the_return_key() -> None:
     assert calculator.editor.linear() == '"h"'
     state.press_keypad("return")
     assert calculator.history == []
+
+
+def test_mode_and_insert_follow_the_second_device_run() -> None:
+    state = AppState()
+    for key in ("F2", "9", "8", "1"):  # Functions & Programs > Mode > Display Digits
+        state.key_event(key)
+    rows = _menu(state).rows
+    assert (rows[0].label, rows[12].key, rows[12].label) == ("Float", "D", "Float12")
+    assert (rows[13].key, rows[25].key, rows[25].label) == ("E", "Q", "Fix12")
+    state.key_event("Escape")
+    for key in ("F4", "4"):
+        state.key_event(key)
+    labels = {row.key: row.label for row in _menu(state).rows}
+    assert (labels["B"], labels["C"]) == ("Program Editor", "Add Python")

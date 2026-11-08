@@ -1,5 +1,6 @@
 """Probability distributions: normal, t, chi-square, F, binomial, geometric and Poisson."""
 
+import math
 from collections.abc import Callable
 
 from cassim.core import errors
@@ -160,6 +161,26 @@ def inv_binom(host: Host, args: list[Value]) -> Value:
         if (cas.real_float(total) or 0.0) >= area - _AREA_TOLERANCE:
             return Expr(cas.integer(k))
     return Expr(cas.integer(n))
+
+
+_MOST_TRIALS = 100_000  # invBinomN stops looking here
+
+
+@eager("invBinomN", 3)
+def inv_binom_n(host: Host, args: list[Value]) -> Value:
+    """`invBinomN(area, p, x)`: the fewest trials n for which P(X<=x) is below the area. On the
+    device an exact tie moves on, so invBinomN(0.5,0.5,5) is 12, not 11 (P(X<=5) is 0.5 at 11)."""
+    area, chance, successes = _real(args[0]), _real(args[1]), _count(args[2])
+    if not (0 < area < 1 and 0 < chance < 1):
+        raise TIError(errors.DOMAIN)
+    for trials in range(successes, _MOST_TRIALS):
+        below = sum(
+            math.comb(trials, k) * chance**k * (1 - chance) ** (trials - k)
+            for k in range(successes + 1)
+        )
+        if below < area - _AREA_TOLERANCE:
+            return Expr(cas.integer(trials))
+    raise TIError(errors.DOMAIN)
 
 
 def _geometric_term(p: Raw, k: int) -> Raw:

@@ -531,6 +531,11 @@ def nth_root(raw: Raw, index: Raw) -> Raw:
     return sp.root(raw, index)
 
 
+def is_non_real_number(raw: Raw) -> bool:
+    """A number with an imaginary part (ⅈ, 2·ⅈ), as opposed to a real or a symbolic value."""
+    return bool(raw.is_number and raw.is_real is False and not raw.has(sp.nan, sp.zoo))
+
+
 def piecewise(pieces: list[tuple[Raw, Raw]], otherwise: Raw | None) -> Raw:
     """A piecewise value whose conditions are still symbolic: (value, condition) in order, then
     the value when none holds."""
@@ -796,6 +801,18 @@ def solve_equation(
 def conjuncts(raw: Raw) -> list[Raw]:
     """The parts of `a and b and c`, or just `raw`: a system can be typed either way."""
     return list(raw.args) if isinstance(raw, sp.And) else [raw]
+
+
+def linear_solve(equations: list[Raw], variables: list[Raw]) -> list[Raw] | None:
+    """The values of a linear system's unknowns in order, or None if it has no solution. A system
+    with infinitely many keeps the free unknowns in the answer."""
+    try:
+        found = sp.linsolve([as_equation(e) for e in equations], variables)
+    except ValueError, NotImplementedError, sp.PolynomialError:
+        return None
+    if not found:
+        return None
+    return list(next(iter(found)))
 
 
 def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:

@@ -36,11 +36,13 @@ class Kind(StrEnum):
     SYSTEM = "system"  # rows of one equation
     DERIVATIVE = "derivative"  # variable, expression
     DERIVATIVE2 = "derivative2"  # variable, expression
+    DERIVATIVE_N = "derivative_n"  # order, variable, expression
+    DMS = "dms"  # degrees, minutes, seconds
     INTEGRAL = "integral"  # lower, upper, integrand, variable
     ANTIDERIVATIVE = "antiderivative"  # integrand, variable
     SUM = "sum"  # variable, lower, upper, expression
     PRODUCT = "product"  # variable, lower, upper, expression
-    LIMIT = "limit"  # variable, point, expression
+    LIMIT = "limit"  # variable, point, direction (+ or -, may be empty), expression
 
 
 _SLOTS = {
@@ -52,11 +54,13 @@ _SLOTS = {
     Kind.ABS: 1,
     Kind.DERIVATIVE: 2,
     Kind.DERIVATIVE2: 2,
+    Kind.DERIVATIVE_N: 3,
+    Kind.DMS: 3,
     Kind.INTEGRAL: 4,
     Kind.ANTIDERIVATIVE: 2,
     Kind.SUM: 4,
     Kind.PRODUCT: 4,
-    Kind.LIMIT: 3,
+    Kind.LIMIT: 4,
 }
 # Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
 # The second number is the fixed width (0: chosen when the template is made).
@@ -655,12 +659,24 @@ _CALLS: dict[Kind, Callable[[list[str]], str]] = {
     Kind.SYSTEM: lambda s: "{" + ",".join(s) + "}",
     Kind.DERIVATIVE: lambda s: f"derivative({s[1]},{s[0]})",
     Kind.DERIVATIVE2: lambda s: f"derivative({s[1]},{s[0]},2)",
+    Kind.DERIVATIVE_N: lambda s: f"derivative({s[2]},{s[1]},{s[0]})",
+    Kind.DMS: lambda s: f"({s[0]}°{s[1]}'{s[2]}\")",
     Kind.INTEGRAL: lambda s: f"∫({s[2]},{s[3]},{s[0]},{s[1]})",
     Kind.ANTIDERIVATIVE: lambda s: f"∫({s[0]},{s[1]})",
     Kind.SUM: lambda s: f"Σ({s[3]},{s[0]},{s[1]},{s[2]})",
     Kind.PRODUCT: lambda s: f"Π({s[3]},{s[0]},{s[1]},{s[2]})",
-    Kind.LIMIT: lambda s: f"limit({s[2]},{s[0]},{s[1]})",
+    Kind.LIMIT: lambda s: f"limit({s[3]},{s[0]},{s[1]}{_direction(s[2])})",
 }
+
+
+def _direction(slot: str) -> str:
+    """The limit template's direction slot as `limit`'s fourth argument: + is from the right."""
+    text = slot.strip().replace("−", "-")
+    if not text:
+        return ""
+    return "," + {"+": "1", "-": "-1"}.get(text, text)
+
+
 # After one of these a function-like template needs an explicit `*`: `x` then |□| would
 # otherwise read as `xabs(`, and `2` then a system as `2{`.
 _JOINS = _TERM_CHARS | {")", "]", "}"}
@@ -734,11 +750,15 @@ _LATEX: dict[Kind, Callable[[list[str], int], str]] = {
     Kind.SYSTEM: lambda s, c: rf"\begin{{cases}}{_rows(s, c, '')}\end{{cases}}",
     Kind.DERIVATIVE: lambda s, _: rf"\frac{{d}}{{d{s[0]}}}\left({s[1]}\right)",
     Kind.DERIVATIVE2: lambda s, _: rf"\frac{{d^{{2}}}}{{d{s[0]}^{{2}}}}\left({s[1]}\right)",
+    Kind.DERIVATIVE_N: lambda s, _: (
+        rf"\frac{{d^{{{s[0]}}}}}{{d{s[1]}^{{{s[0]}}}}}\left({s[2]}\right)"
+    ),
+    Kind.DMS: lambda s, _: rf"{s[0]}^\circ {s[1]}' {s[2]}''",
     Kind.INTEGRAL: lambda s, _: rf"\int_{{{s[0]}}}^{{{s[1]}}}{s[2]}\,d{s[3]}",
     Kind.ANTIDERIVATIVE: lambda s, _: rf"\int {s[0]}\,d{s[1]}",
     Kind.SUM: lambda s, _: rf"\sum_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
     Kind.PRODUCT: lambda s, _: rf"\prod_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
-    Kind.LIMIT: lambda s, _: rf"\lim_{{{s[0]}\to {s[1]}}}{s[2]}",
+    Kind.LIMIT: lambda s, _: rf"\lim_{{{s[0]}\to {s[1]}^{{{s[2]}}}}}{s[3]}",
 }
 
 

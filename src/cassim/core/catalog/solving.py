@@ -77,6 +77,20 @@ def c_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _solve(host, args, complex_roots=True)
 
 
+@lazy("linSolve", 2, cas=True)
+def lin_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`linSolve(system, {x,y})`: the values of the unknowns as a list, `{2,1}`. The system is a
+    list, the system template, or equations joined with `and`."""
+    equation_node, unknown_node = args
+    names = _unknowns(host, unknown_node)
+    equations = _equations(host, equation_node, names)
+    equations = [part for equation in equations for part in cas.conjuncts(equation)]
+    values = cas.linear_solve(equations, [cas.symbol(name) for name in names])
+    if values is None:
+        raise TIError(errors.NO_SOLUTION)
+    return list_of(values)
+
+
 def _single_unknown(host: Host, node: ast.Expr) -> str:
     names = _unknowns(host, node)
     if len(names) != 1:
