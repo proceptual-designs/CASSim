@@ -1,6 +1,9 @@
 # CASSim
 
 A free, installable simulator of the TI-Nspire CX CAS that runs entirely in your browser.
+
+**Try it: <https://simonjtyler.github.io/CASSim/>** (installable as an app; works offline after the first load).
+
 Plans for other simulated devices are in [PLAN.md](PLAN.md).
 Built for the VCE Mathematics courses, but should be more generally useful.
 Usable on a desktop, laptop, netbook (Chromebook), tablet or a phone.
