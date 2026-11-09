@@ -35,6 +35,7 @@ def test_manifest_and_icons(site: tuple[Path, str]) -> None:
     assert manifest["display"] == "standalone"
     assert {"192x192", "512x512"} <= {i["sizes"] for i in manifest["icons"]}
     assert all((dist / i["src"]).is_file() for i in manifest["icons"])
+    assert (dist / "favicon.png").is_file()  # the same artwork, linked by index.html
     html = (dist / "index.html").read_text(encoding="utf-8")
     assert html.count('rel="manifest"') == 1
     assert 'href="manifest.webmanifest"' in html
