@@ -48,7 +48,7 @@ def _span(run: str) -> ft.TextSpan:
     return ft.TextSpan(run, style=style)
 
 
-ENTRY_ROOM = 28  # the blank line kept below the entry
+ENTRY_ROOM = 56  # blank space kept below the entry: the list scrolls once 3/4 of the screen is used
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
 SHORT_CELL = 2  # characters that fit a grid cell at full size
@@ -89,7 +89,11 @@ class CalculatorView:
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
         self.history = ft.ListView(
-            expand=True, auto_scroll=True, auto_scroll_animation=ft.Animation(duration=0), spacing=2
+            expand=True,
+            auto_scroll=True,
+            auto_scroll_animation=ft.Animation(duration=0),
+            spacing=2,
+            padding=ft.Padding.only(top=6),  # the first line is not cut off by the title bar
         )
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
@@ -558,6 +562,12 @@ def settings_dialog(
         dropdown("Display digits", "digits", [(d, d.title()) for d in digits], current.digits),
         dropdown("Letter case", "case", enum_options(Case), current.case),
         dropdown("Results as keyboard text", "ascii", enum_options(Ascii), current.ascii),
+        dropdown(
+            "Join conditions with",
+            "logic",
+            [("words", "and, or"), ("symbols", "∧, ∨")],
+            current.logic,
+        ),
     ]
 
     def apply() -> None:
@@ -828,12 +838,11 @@ def wizard_dialog(
         except ValueError as error:
             report(str(error))
             return
-        for key, value in found.items():
-            if key in boxes:
-                boxes[key].value = value
-            else:
-                extra[key] = value
+        extra.update({key: value for key, value in found.items() if key not in boxes})
+        for key in boxes.keys() & found.keys():
+            boxes[key].value = found[key]
         report("")
+        state.store_wizard(wizard, values())
         page.update()
 
     def ok() -> None:

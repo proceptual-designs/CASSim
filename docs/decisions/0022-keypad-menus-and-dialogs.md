@@ -106,7 +106,7 @@ device's dialog.
 is worked out from the others. Closing it pastes nothing, as on the device. The calculation uses the same
 pure-float code as the `tvm*` functions (`core/compat/finance.py`) in the app process; boxes accept
 decimals, `ᴇ` and `a/b`; answers show 9 significant digits. **CASSim:** the device also stores the values
-in `tvm.n`, `tvm.i`, ...; CASSim does not yet.
+in `tvm.n`, `tvm.i`, ... (`n i pv pmt fv ppy cpy pmtat`); CASSim now does the same after each calculation.
 
 ## Found on the way
 

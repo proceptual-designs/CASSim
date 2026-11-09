@@ -249,3 +249,19 @@ def test_inverse_binomial_n_dialog() -> None:
 
 def test_finance_solver_ppy_sets_cpy() -> None:
     assert WIZARDS["finance"].copies == (("ppy", "cpy"),)
+
+
+def test_finance_solver_stores_the_tvm_variables() -> None:
+    """The device leaves `tvm.n`, `tvm.i`, ... behind after a calculation (E6)."""
+    state = AppState()
+    wizard = WIZARDS["finance"]
+    known = {"n": "12", "i": "6", "pv": "10000", "fv": "0", "ppy": "12", "cpy": "12"}
+    values = {**wizard.defaults(), **known}
+    assert wizard.calculate is not None
+    found = wizard.calculate(values, "pmt")
+    state.store_wizard(wizard, found)
+    session = _calculator(state).session
+    assert session.eval("tvm.n").text == "12"
+    assert session.eval("tvm.pmtat").text == "0"
+    assert session.eval("tvm.pv").text == "10000"
+    assert abs(float(session.eval("tvm.pmt").text) + 860.664297) < 1e-5

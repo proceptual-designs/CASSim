@@ -154,17 +154,20 @@ def _atom_latex(value: Str | Bool | Void | Shown) -> str:
     return r"\text{Done}"
 
 
-def to_latex(value: Value) -> str:
+def to_latex(value: Value, *, logic_symbols: bool = False) -> str:
+    def again(item: Value) -> str:
+        return to_latex(item, logic_symbols=logic_symbols)
+
     if isinstance(value, Expr):
-        return cas.latex(value.raw)
+        return cas.latex(value.raw, logic_symbols=logic_symbols)
     if isinstance(value, Str | Bool | Void | Shown):
         return _atom_latex(value)
     if isinstance(value, Unevaluated):
-        arguments = ",".join(to_latex(arg) for arg in value.args)
+        arguments = ",".join(again(arg) for arg in value.args)
         return rf"\text{{{value.name}}}\left({arguments}\right)"
     if isinstance(value, ListValue):
-        return r"\{" + ",".join(to_latex(item) for item in value.items) + r"\}"
-    rows = r"\\".join("&".join(to_latex(cell) for cell in row) for row in value.rows)
+        return r"\{" + ",".join(again(item) for item in value.items) + r"\}"
+    rows = r"\\".join("&".join(again(cell) for cell in row) for row in value.rows)
     return rf"\begin{{bmatrix}}{rows}\end{{bmatrix}}"
 
 

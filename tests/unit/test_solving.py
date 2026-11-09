@@ -178,6 +178,13 @@ def test_the_unknown_is_symbolic_even_if_it_holds_a_value():
     assert text("x:=5", "solve(x^2=9,x)", "x") == "5"
 
 
+def test_unknowns_need_no_list():
+    """`solve(eqs, x, y)` is `solve(eqs, {x,y})`, as on the handheld."""
+    system = "solve(x^2+y^2=1 and x+y=1,x,y)"
+    assert text(system) == text("solve(x^2+y^2=1 and x+y=1,{x,y})")
+    assert text("solve(x+y=3 and x-y=1,x,y)") == "x=2 and y=1"
+
+
 def test_arguments_are_checked():
     assert error("solve(x^2=1)") == "Too few arguments"
     assert error("solve(x^2=1,x,x)") == "Too many arguments"

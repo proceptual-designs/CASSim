@@ -9,7 +9,7 @@ from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_ascii, to_latex, to_text
 from cassim.core.parser import parse
 from cassim.core.scope import Function, Scope
-from cassim.core.settings import Ascii, Calc, Case, Settings, updated, variable_key
+from cassim.core.settings import Ascii, Calc, Case, Logic, Settings, updated, variable_key
 from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import (
     Bool,
@@ -79,7 +79,7 @@ class Session:
             text = to_text(value, self.settings)
             if self.settings.ascii is Ascii.ON:
                 text = to_ascii(text)
-            latex = to_latex(value)
+            latex = to_latex(value, logic_symbols=self.settings.logic is Logic.SYMBOLS)
         except TIError as error:
             return Result(error.message, "", None, error.message)
         except RecursionError:
@@ -109,6 +109,13 @@ class Session:
             elif item is not None:
                 rows.append(VariableInfo(name, to_text(item, self.settings), to_latex(item), False))
         return rows
+
+    def store_numbers(self, numbers: dict[str, float]) -> None:
+        """Set variables to numbers from outside the entry line, as a dialog does (`tvm.n`).
+        Whole numbers are stored as integers, the rest as decimals."""
+        for name, number in numbers.items():
+            raw = cas.integer(int(number)) if number.is_integer() else cas.from_float(number)
+            self.scope.define(variable_key(self.settings, name), Expr(raw))
 
     def new_problem(self) -> None:
         self._ans = None

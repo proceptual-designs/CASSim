@@ -308,25 +308,45 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
 
 
 class _TILatexPrinter(LatexPrinter):
-    """SymPy's LaTeX printer with TI's conventions: upright ⅇ and ⅈ, `ln`, `sin⁻¹`, `undef`."""
+    """SymPy's LaTeX printer with TI's conventions: bold upright ⅇ and ⅈ, `ln`, `sin⁻¹`, `undef`,
+    and `and`/`or` between conditions (`∧`/`∨` when `symbols_for_logic`)."""
+
+    symbols_for_logic = False
 
     def _print(self, expr: Any, **kwargs: Any) -> str:  # noqa: ANN401
         if expr is sp.E:
-            return r"\mathrm{e}"
+            return r"\mathbf{e}"
         if expr is sp.I:
-            return r"\mathrm{i}"
+            return r"\mathbf{i}"
         if expr is sp.nan:
             return r"\text{undef}"  # SymPy would print NaN
         if isinstance(expr, sp.exp):
-            return rf"\mathrm{{e}}^{{{self._print(expr.exp)}}}"
+            return rf"\mathbf{{e}}^{{{self._print(expr.exp)}}}"
         return super()._print(expr, **kwargs)
+
+    def _joined(self, expr: Any, word: str, symbol: str, inner: type) -> str:  # noqa: ANN401
+        """The arguments of an `And` or `Or`; the other connective inside is bracketed."""
+        parts = [
+            rf"\left({self._print(arg)}\right)" if isinstance(arg, inner) else self._print(arg)
+            for arg in expr.args
+        ]
+        joint = rf" {symbol} " if self.symbols_for_logic else rf"\ \mathbf{{{word}}}\ "
+        return joint.join(parts)
+
+    def _print_And(self, e: Any) -> str:  # noqa: ANN401
+        return self._joined(e, "and", r"\wedge", sp.Or)
+
+    def _print_Or(self, e: Any) -> str:  # noqa: ANN401
+        return self._joined(e, "or", r"\vee", sp.And)
 
 
 _LATEX_SETTINGS = {"inv_trig_style": "power", "ln_notation": True}
 
 
-def latex(raw: Raw) -> str:
-    return _TILatexPrinter(_LATEX_SETTINGS).doprint(raw)
+def latex(raw: Raw, *, logic_symbols: bool = False) -> str:
+    printer = _TILatexPrinter(_LATEX_SETTINGS)
+    printer.symbols_for_logic = logic_symbols
+    return printer.doprint(raw)
 
 
 def _negate(node: ast.Expr) -> ast.Expr:

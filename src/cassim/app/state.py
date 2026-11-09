@@ -246,6 +246,12 @@ class AppState:
                 self.run(binding)
         return problems
 
+    def store_wizard(self, wizard: Wizard, values: dict[str, str]) -> None:
+        """Leave a live dialog's results in variables (the Finance Solver's `tvm.` set)."""
+        calculator = self.document.current.calculator
+        if wizard.store is not None and calculator is not None:
+            calculator.session.store_numbers(wizard.store(values))
+
     def _menu_key(self, binding: Binding) -> None:
         """While a menu is open it takes every key; a chosen leaf runs once the menu has closed."""
         assert self.menu is not None

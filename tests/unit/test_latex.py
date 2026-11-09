@@ -5,6 +5,7 @@ import pytest
 
 from cassim.core.format import latex_for_markdown
 from cassim.core.session import Session
+from cassim.core.settings import Logic, Settings
 
 
 def latex(line: str) -> str:
@@ -16,8 +17,8 @@ def latex(line: str) -> str:
 @pytest.mark.parametrize(
     ("line", "wanted"),
     [
-        ("ⅇ^(ⅈ*x)", r"\mathrm{e}^{\mathrm{i} x}"),
-        ("ⅇ^2+√(2)/2", r"\frac{\sqrt{2}}{2} + \mathrm{e}^{2}"),
+        ("ⅇ^(ⅈ*x)", r"\mathbf{e}^{\mathbf{i} x}"),
+        ("ⅇ^2+√(2)/2", r"\frac{\sqrt{2}}{2} + \mathbf{e}^{2}"),
         ("ln(x)", r"\ln{\left(x \right)}"),
         ("sin⁻¹(x)", r"\sin^{-1}{\left(x \right)}"),
     ],
@@ -25,6 +26,17 @@ def latex(line: str) -> str:
 def test_ti_conventions(line, wanted):
     """ⅇ and ⅈ are upright; `ln` and `sin⁻¹` are written as TI does."""
     assert latex(line) == wanted
+
+
+def test_conditions_are_joined_with_words_or_symbols():
+    """TI writes `and` and `or`; the symbols are an option (setting `logic`)."""
+    line = "solve(x^2+y^2=1 and x+y=1,x,y)"
+    words = latex(line)
+    assert r"\mathbf{and}" in words
+    assert r"\wedge" not in words
+    shown = Session(Settings(logic=Logic.SYMBOLS)).eval(line).latex
+    assert r"\wedge" in shown
+    assert "mathbf{and}" not in shown
 
 
 def test_matrix_rows_survive_markdown():
