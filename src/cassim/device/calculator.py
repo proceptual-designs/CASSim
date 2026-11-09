@@ -78,6 +78,7 @@ class Calculator:
         self.error: str | None = None  # a dialog waiting for a key press
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
         self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
+        self.recall_touched = False  # a key or click has moved inside the picked row
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
         self._group: str | None = None  # the kind of edit in progress, for undo grouping
@@ -126,8 +127,8 @@ class Calculator:
             ),
             template=self._template,
             power=self._power,
-            backspace=lambda _: self._edit("other", self.editor.backspace),
-            delete=lambda _: self._edit("other", self.editor.delete),
+            backspace=lambda _: self._delete(self.editor.backspace),
+            delete=lambda _: self._delete(self.editor.delete),
             clear=lambda _: self._edit("other", self.editor.clear),
             copy=lambda _: self._copy(),
             cut=lambda _: self._cut(),
@@ -165,6 +166,7 @@ class Calculator:
         """Pick a history row (or none). The row opens as an editor, cursor at its end, so the
         keys and clicks can move inside it and select part of it."""
         self.recall = picked
+        self.recall_touched = False
         if picked is None:
             return
         entry = self.history[picked[0]]
@@ -183,6 +185,7 @@ class Calculator:
             if self.recall is None or name not in _RECALL_MOVES:
                 entry_move(arg)
             else:
+                self.recall_touched = True
                 getattr(self._recalled, name)()
 
         return move
@@ -195,7 +198,17 @@ class Calculator:
             path, pos = parse_target(target)
         except ValueError:
             return
+        self.recall_touched = True
         self._recalled.place(path, pos, extend=extend)
+
+    def _delete(self, remove_in_entry: Callable[[], None]) -> None:
+        """Del or Backspace: on a picked history row it deletes that entry and its result from the
+        display; otherwise it edits the entry line."""
+        if self.recall is None:
+            self._edit("other", remove_in_entry)
+            return
+        del self.history[self.recall[0]]
+        self.recall = None
 
     # ---- editing, with undo groups ----------------------------------------------------------
 

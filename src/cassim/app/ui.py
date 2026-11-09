@@ -192,16 +192,6 @@ class CalculatorView:
         """A long press: the touch screen's shift+click."""
         self.on_action("extend", format_target(path, pos))
 
-    def _recall_click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
-        """A click in the picked row: the cursor goes there (shift extends the selection)."""
-        extend = self.shift() or self.state.pending == "shift"
-        if extend:
-            self.state.clear_pending()
-        self.on_action("recall_extend" if extend else "recall_place", format_target(path, pos))
-
-    def _recall_hold(self, path: Sequence[tuple[int, int]], pos: int) -> None:
-        self.on_action("recall_extend", format_target(path, pos))
-
     def _fits(self, entry: Line, result: Line) -> bool:
         """Whether an entry and its result are short enough to share a line. LaTeX cannot be
         measured here, so this counts characters (fractions, powers and roots weigh double)
@@ -217,7 +207,7 @@ class CalculatorView:
         """An entry and its result with a thin rule under them: one line if both are short."""
         first = self._line(entry, number)
         second = self._line(result, number + 1)
-        if not (entry.selected or result.selected) and self._fits(entry, result):
+        if self._fits(entry, result):
             second.expand = True  # takes the rest of the line, result at the right edge
             body: ft.Control = ft.Row([first, second], spacing=0)
         else:
@@ -228,26 +218,18 @@ class CalculatorView:
         )
 
     def _line(self, line: Line, number: int) -> ft.Container:
+        """One history row. A picked row is highlighted as TI does: only the item, same size and
+        place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
-        calculator = self.state.document.current.calculator
-        recalled = calculator.recall_editor if calculator is not None and line.selected else None
-        if calculator is not None and recalled is not None:
-            # the picked row is an editor: click in it, move and select with the keys
-            content: ft.Control = EntryLine(
-                self.theme,
-                self.state.math_size,
-                self._recall_click,
-                calculator.session.is_function,
-                self._recall_hold,
-            ).build(recalled)
-        else:
-            content = math(line.latex, self.theme, self.state.math_size)
+        shown = ft.Container(
+            math(line.latex, self.theme, self.state.math_size),
+            bgcolor=self.theme.selection if line.selected and not line.part else None,
+        )
         return ft.Container(
-            content,
-            on_click=None if recalled is not None else lambda _: self.on_action("recall_at", spec),
+            shown,
+            on_click=lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
-            bgcolor=self.theme.selection if line.selected else None,
             padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
             key=_scroll_key() if line.selected else None,
         )

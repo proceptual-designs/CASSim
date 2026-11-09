@@ -9,6 +9,7 @@ from cassim import device
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
 from cassim.device.keys import Binding, Keyboard
+from cassim.device.screen import render
 from cassim.profiles import nspire
 
 
@@ -334,3 +335,36 @@ def test_enter_on_an_empty_line_does_nothing_without_ans() -> None:
     calc.perform(Binding("enter"))
     calc.perform(Binding("enter"))
     assert len(calc.history) == 1
+
+
+def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
+    """Del or Backspace with a history row picked deletes the entry and its result."""
+    for key in ("delete", "backspace"):
+        calc = Calculator()
+        for line in ("1+1", "2+2", "3+3"):
+            _type(calc, line)
+            calc.perform(Binding("enter"))
+        calc.perform(Binding("up"))
+        calc.perform(Binding("up"))  # the entry `3+3`
+        calc.perform(Binding("up"))
+        calc.perform(Binding("up"))  # the entry `2+2`
+        calc.perform(Binding(key))
+        assert [entry.text for entry in calc.history] == ["1+1", "3+3"]
+        assert calc.recall is None
+
+
+def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
+    document = Document()
+    calc = document.current.calculator
+    assert calc is not None
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    plain = render(document).lines[0]
+    assert plain.selected
+    assert not plain.part  # the whole item is highlighted, in its usual LaTeX
+    calc.perform(Binding("select_left"))
+    moved = render(document).lines[0]
+    assert moved.part
+    assert r"\fcolorbox" in moved.latex  # the selected part is highlighted inside the line
