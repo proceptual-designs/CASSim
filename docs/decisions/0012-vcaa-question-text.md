@@ -34,3 +34,7 @@ The application build never contains the corpus (as with `references/`), so the 
 ## Update 2026-11-02 (14:57)
 
 The owner confirmed the VCAA questions are fine to use and asked for a note of which paper each came from. Each case's `source` field names it, and `docs/pseudocode/sources.md` lists them all (cases still needing the exact paper confirmed are flagged). The condition above (permission, replacement or removal before any public release) stands.
+
+## Update 2026-11-09
+
+The owner chose to make the repository public with the `third_party: true` cases still in the tree (option "proceed anyway"), accepting the licensing risk, to test GitHub Pages. None of the three options above was carried out; the cases keep their `source` attributions. If VCAA objects, remove them (option 3) and rewrite the history.
