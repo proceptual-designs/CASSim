@@ -723,6 +723,14 @@ class Editor:
         """The TI text for the parser."""
         return _linear(self.root)
 
+    def missing_closers(self) -> str:
+        """The brackets Enter would add at the end of the line."""
+        return missing_closers(self.root)
+
+    def complete_brackets(self) -> None:
+        """Close the brackets left open at the end of the line (what Enter does)."""
+        self.root.extend(self.missing_closers())
+
     def latex(
         self, *, cursor: bool = True, is_function: Callable[[str], bool] = lambda _: False
     ) -> str:
@@ -730,6 +738,80 @@ class Editor:
         that `is_function` accepts are bold."""
         place = (self.path, self.pos, self.span) if cursor else None
         return _latex(self.root, place, [], is_function)
+
+
+_CLOSERS = {"(": ")", "[": "]", "{": "}"}
+
+
+def missing_closers(row: Row) -> str:
+    """The closing brackets the line lacks at its end, innermost first (`sin(2*(3+4` needs `))`).
+    Brackets inside a text string do not count."""
+    wanted: list[str] = []
+    in_text = False
+    for node in row:
+        if not isinstance(node, str):
+            continue
+        if node == '"':
+            in_text = not in_text
+        elif in_text:
+            continue
+        elif node in _CLOSERS:
+            wanted.append(_CLOSERS[node])
+        elif wanted and node == wanted[-1]:
+            wanted.pop()
+    return "".join(reversed(wanted))
+
+
+def _is_name_char(node: Node | str) -> bool:
+    return isinstance(node, str) and (node.isalnum() or node in "_.@")
+
+
+def _closing(row: Row, start: int) -> int | None:
+    """The index of the `)` that closes the `(` at `start`, among the characters of `row`."""
+    depth = 0
+    for index in range(start, len(row)):
+        if row[index] == "(":
+            depth += 1
+        elif row[index] == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
+def modernised(row: Row) -> Row:
+    """The line as a student would write it on paper: `pi` is π, `infinity` is ∞, `sqrt(x)` is a
+    root template and `exp(x)` is ⅇ with a power. Used on a line once it has been entered; the
+    typing is untouched until then."""
+    out: Row = []
+    index = 0
+    while index < len(row):
+        node = row[index]
+        if isinstance(node, Template):
+            out.append(Template(node.kind, [modernised(slot) for slot in node.slots], node.cols))
+            index += 1
+            continue
+        if not (node.isascii() and node.isalpha()) or (out and _is_name_char(out[-1])):
+            out.append(node)
+            index += 1
+            continue
+        end = index
+        while end < len(row) and _is_name_char(row[end]) and row[end] != ".":
+            end += 1
+        word = "".join(str(n) for n in row[index:end]).casefold()
+        close = _closing(row, end) if end < len(row) and row[end] == "(" else None
+        if word in ("pi", "infinity"):
+            out.append("π" if word == "pi" else "∞")
+        elif word == "sqrt" and close is not None:
+            out.append(Template(Kind.ROOT, [modernised(row[end + 1 : close])]))
+            end = close + 1
+        elif word == "exp" and close is not None:
+            out.extend(["ⅇ", Template(Kind.POWER, [modernised(row[end + 1 : close])])])
+            end = close + 1
+        else:
+            out.extend(row[index:end])
+        index = end
+    return out
 
 
 def linear_text(nodes: Row) -> str:

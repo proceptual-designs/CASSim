@@ -119,6 +119,17 @@ class EntryLine:
             parts.append(self._cursor())
         if row and on_cursor and low != high:
             parts.insert(self._bar_place(low, high, editor.pos), self._cursor(selected=True))
+        closers = editor.missing_closers() if not here else ""
+        if closers:  # what Enter will add, shown faintly
+            parts.append(
+                ft.Text(
+                    closers,
+                    size=self.size,
+                    color="#66" + self.theme.screen_text[1:],
+                    font_family=_MAIN_FONT,
+                    no_wrap=True,
+                )
+            )
         return self._detector(
             ft.Container(
                 ft.Row(

@@ -78,6 +78,9 @@ HANDHELD: Keymap = {
     "EE": Binding("insert", "ᴇ"),
     "punct": Binding("open_menu", "punctuation"),
     "pi": Binding("open_menu", "symbols"),
+    "ctrl+c": Binding("copy"),  # as on the handheld: ctrl, then the letter
+    "ctrl+x": Binding("cut"),
+    "ctrl+v": Binding("paste"),
     "ctrl+8": Binding("home"),
     "ctrl+2": Binding("end"),
 }

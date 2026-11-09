@@ -144,6 +144,7 @@ class App:
         state.show_dialog = self.show_dialog
         state.doc_extras = self.doc_extras
         state.show_wizard = self.show_wizard
+        state.request_paste = self.request_paste
         self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
         self.files = ft.FilePicker()
         page.services.append(self.files)
@@ -324,6 +325,14 @@ class App:
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.clipboard.get() or "")
         state.run(binding)
+        self.refresh()
+
+    def request_paste(self) -> None:
+        self.page.run_task(self.paste_from_clipboard)
+
+    async def paste_from_clipboard(self) -> None:
+        """Paste the system clipboard into the entry line (the keypad's ctrl+v)."""
+        self.state.paste_text(await self.clipboard.get() or "")
         self.refresh()
 
     def act(self, action: str, arg: str = "") -> None:
