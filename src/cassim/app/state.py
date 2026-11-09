@@ -82,6 +82,8 @@ class AppState:
         self.profile = profile
         self.keypad_keys = Keyboard(profile.handheld, profile.modifiers)
         self.computer_keys = Keyboard(profile.computer)
+        # set by the GUI: reads the system clipboard and pastes it (keypad paste, which has no text)
+        self.request_paste: Callable[[], None] | None = None
         self.clipboard_out: Callable[[str], None] | None = None  # set by the GUI: system clipboard
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
@@ -296,5 +298,8 @@ class AppState:
             return False
         cased = self._cased(binding) if keyboard is self.keypad_keys else binding
         assert cased is not None
+        if cased.action == "paste" and not cased.arg and self.request_paste is not None:
+            self.request_paste()  # the GUI fetches the system clipboard, then pastes
+            return True
         self.run(cased)
         return True

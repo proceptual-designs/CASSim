@@ -18,6 +18,7 @@ class Line:
     latex: str
     text: str
     selected: bool = False  # Up has picked this row for recall
+    part: bool = False  # the LaTeX draws its own cursor and selection (the row was moved into)
 
 
 @dataclass(frozen=True)
@@ -50,9 +51,15 @@ def render(document: Document, status: str = "", menu: MenuView | None = None) -
         return Screen(title, status, (), "", None, menu)
     lines: list[Line] = []
     for index, entry in enumerate(page.history):
-        lines.append(Line("entry", entry.latex, entry.text, page.recall == (index, "entry")))
-        result = entry.result.latex or f"\text{{{entry.result.text}}}"
-        lines.append(Line("result", result, entry.result.text, page.recall == (index, "result")))
+        for kind in ("entry", "result"):
+            picked = page.recall == (index, kind)
+            latex = entry.latex if kind == "entry" else entry.result.latex
+            text = entry.text if kind == "entry" else entry.result.text
+            editor = page.recall_editor
+            part = picked and page.recall_touched and editor is not None
+            if part and editor is not None:  # drawn from its editor: its cursor and selection show
+                latex = editor.latex(is_function=page.session.is_function)
+            lines.append(Line(kind, latex or rf"\text{{{text}}}", text, picked, bool(part)))
     return Screen(
         title,
         status,

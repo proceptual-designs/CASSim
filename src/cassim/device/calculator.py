@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from cassim.core.session import Result, Session
 from cassim.device.clipboard import Clipboard
-from cassim.device.editor import MARK, Editor, Kind, Node, parse_target
+from cassim.device.editor import MARK, Editor, Kind, Node, linear_text, modernised, parse_target
 from cassim.device.editor import Row as EditorRow
 from cassim.device.engine import RemoteSession
 
@@ -78,6 +78,7 @@ class Calculator:
         self.error: str | None = None  # a dialog waiting for a key press
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
         self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
+        self.recall_touched = False  # a key or click has moved inside the picked row
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
         self._group: str | None = None  # the kind of edit in progress, for undo grouping
@@ -126,8 +127,8 @@ class Calculator:
             ),
             template=self._template,
             power=self._power,
-            backspace=lambda _: self._edit("other", self.editor.backspace),
-            delete=lambda _: self._edit("other", self.editor.delete),
+            backspace=lambda _: self._delete(self.editor.backspace),
+            delete=lambda _: self._delete(self.editor.delete),
             clear=lambda _: self._edit("other", self.editor.clear),
             copy=lambda _: self._copy(),
             cut=lambda _: self._cut(),
@@ -165,6 +166,7 @@ class Calculator:
         """Pick a history row (or none). The row opens as an editor, cursor at its end, so the
         keys and clicks can move inside it and select part of it."""
         self.recall = picked
+        self.recall_touched = False
         if picked is None:
             return
         entry = self.history[picked[0]]
@@ -183,6 +185,7 @@ class Calculator:
             if self.recall is None or name not in _RECALL_MOVES:
                 entry_move(arg)
             else:
+                self.recall_touched = True
                 getattr(self._recalled, name)()
 
         return move
@@ -195,7 +198,31 @@ class Calculator:
             path, pos = parse_target(target)
         except ValueError:
             return
+        self.recall_touched = True
         self._recalled.place(path, pos, extend=extend)
+
+    def _delete(self, remove_in_entry: Callable[[], None]) -> None:
+        """Del or Backspace: on a picked history row it deletes that entry and its result from the
+        display; on an empty entry line it deletes the last result and reopens its input;
+        otherwise it edits the entry line."""
+        if self.recall is None:
+            if self.editor.is_empty and self.history:
+                self._reopen_last()
+            else:
+                self._edit("other", remove_in_entry)
+            return
+        del self.history[self.recall[0]]
+        self.recall = None
+
+    def _reopen_last(self) -> None:
+        """Del on an empty entry line deletes the last result and takes its input back into the
+        entry line, cursor at the end, to be edited and entered again."""
+        last = self.history.pop()
+        if last.nodes:
+            self.editor.paste(list(last.nodes))
+        else:
+            self.editor.insert_text(last.text)
+        self._group = None
 
     # ---- editing, with undo groups ----------------------------------------------------------
 
@@ -233,12 +260,20 @@ class Calculator:
         change()
 
     def _copy(self) -> None:
-        nodes = self.editor.selection()
+        """Copy the selection in the entry line or, with a history row picked, the selected part
+        of that row (all of it if nothing in it is selected)."""
+        if self.recall is not None:
+            picked = self._recalled
+            nodes = picked.selection() or copy.deepcopy(picked.root)
+        else:
+            nodes = self.editor.selection()
         if nodes:
             self.clipboard.nodes = nodes
 
     def _cut(self) -> None:
-        if self.editor.selection():
+        if self.recall is not None:  # history is not edited by cutting: it is a copy
+            self._copy()
+        elif self.editor.selection():
             self._edit("other", lambda: setattr(self.clipboard, "nodes", self.editor.cut()))
 
     def _paste(self, text: str) -> None:
@@ -322,6 +357,7 @@ class Calculator:
             self.recall = None
             self.editor.paste(nodes)
             return
+        self.editor.complete_brackets()  # `sin(2*(3+4` is entered as `sin(2*(3+4))`
         text = self.editor.linear()
         if not text and self.history and _ANS.search(self.history[-1].text):
             # Enter on an empty line repeats the last entry if it uses Ans, now with the new Ans
@@ -345,13 +381,16 @@ class Calculator:
         if result.error is not None:
             self.error = result.error
             return
+        # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(
+        shown = Editor()
+        shown.root = modernised(self.editor.root)
         self.history.append(
             Entry(
-                text,
-                self.editor.latex(cursor=False, is_function=self.session.is_function),
+                linear_text(shown.root) if shown.root != self.editor.root else text,
+                shown.latex(cursor=False, is_function=self.session.is_function),
                 result,
                 approximate,
-                tuple(copy.deepcopy(self.editor.root)),
+                tuple(shown.root),
             )
         )
         self.editor.clear()

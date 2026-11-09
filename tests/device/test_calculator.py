@@ -6,9 +6,12 @@ from pathlib import Path
 import pytest
 
 from cassim import device
+from cassim.app.state import AppState
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
+from cassim.device.editor import Editor
 from cassim.device.keys import Binding, Keyboard
+from cassim.device.screen import render
 from cassim.profiles import nspire
 
 
@@ -334,3 +337,132 @@ def test_enter_on_an_empty_line_does_nothing_without_ans() -> None:
     calc.perform(Binding("enter"))
     calc.perform(Binding("enter"))
     assert len(calc.history) == 1
+
+
+def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
+    """Del or Backspace with a history row picked deletes the entry and its result."""
+    for key in ("delete", "backspace"):
+        calc = Calculator()
+        for line in ("1+1", "2+2", "3+3"):
+            _type(calc, line)
+            calc.perform(Binding("enter"))
+        calc.perform(Binding("up"))
+        calc.perform(Binding("up"))  # the entry `3+3`
+        calc.perform(Binding("up"))
+        calc.perform(Binding("up"))  # the entry `2+2`
+        calc.perform(Binding(key))
+        assert [entry.text for entry in calc.history] == ["1+1", "3+3"]
+        assert calc.recall is None
+
+
+def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
+    document = Document()
+    calc = document.current.calculator
+    assert calc is not None
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    plain = render(document).lines[0]
+    assert plain.selected
+    assert not plain.part  # the whole item is highlighted, in its usual LaTeX
+    calc.perform(Binding("select_left"))
+    moved = render(document).lines[0]
+    assert moved.part
+    assert r"\fcolorbox" in moved.latex  # the selected part is highlighted inside the line
+
+
+def test_del_on_an_empty_line_reopens_the_last_input() -> None:
+    """The last result goes and its input comes back, cursor at the end, to be edited."""
+    calc = Calculator()
+    _type(calc, "1+1")
+    calc.perform(Binding("enter"))
+    _type(calc, "2+3")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("backspace"))
+    assert [entry.text for entry in calc.history] == ["1+1"]
+    assert calc.editor.linear() == "2+3"
+    calc.perform(Binding("backspace"))  # now an ordinary backspace in the entry
+    assert calc.editor.linear() == "2+"
+
+
+def test_del_on_an_empty_line_with_no_history_does_nothing() -> None:
+    calc = Calculator()
+    calc.perform(Binding("delete"))
+    assert calc.editor.is_empty
+
+
+def test_enter_closes_open_brackets() -> None:
+    calc = Calculator()
+    _type(calc, "2*(3+4")
+    assert calc.editor.missing_closers() == ")"
+    calc.perform(Binding("enter"))
+    assert calc.history[-1].text == "2*(3+4)"
+    assert calc.history[-1].result.text == "14"
+
+
+def test_brackets_in_text_and_already_closed_ones_are_left_alone() -> None:
+    assert Editor("sin(2*(3+4").missing_closers() == "))"
+    assert Editor("{1,[2").missing_closers() == "]}"
+    assert Editor("(1+2)").missing_closers() == ""
+    assert Editor('"a(b"').missing_closers() == ""
+
+
+def test_entered_lines_use_proper_symbols() -> None:
+    """After Enter, pi, sqrt( and exp( show as π, a root and ⅇ to a power; the value is the same."""
+    calc = Calculator()
+    _type(calc, "sqrt(2)*pi+exp(1)")
+    calc.perform(Binding("enter"))
+    entry = calc.history[-1]
+    assert entry.text == "√(2)*π+ⅇ^(1)"
+    assert r"\sqrt{2}" in entry.latex
+    assert r"\pi" in entry.latex
+    assert "pi" not in entry.latex.replace(r"\pi", "")
+    assert [type(node).__name__ for node in entry.nodes].count("Template") == 2
+
+
+def test_names_that_only_contain_pi_or_sqrt_are_left_alone() -> None:
+    calc = Calculator()
+    _type(calc, "spin+pie+sqrtx")
+    calc.perform(Binding("enter"))
+    assert calc.history[-1].text == "spin+pie+sqrtx"
+
+
+def test_copy_from_a_picked_history_row_pastes_into_the_entry_line() -> None:
+    """Ctrl+C on a picked row copies its selected part; Ctrl+V pastes it into the current input."""
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("select_left"))
+    calc.perform(Binding("select_left"))  # "34"
+    calc.perform(Binding("copy"))
+    assert calc.recall is not None  # copying leaves the row picked
+    calc.perform(Binding("paste", ""))
+    assert calc.recall is None
+    assert calc.editor.linear() == "34"
+    assert [entry.text for entry in calc.history] == ["12+34"]
+
+
+def test_cut_on_a_picked_row_only_copies() -> None:
+    calc = Calculator()
+    _type(calc, "7+8")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("cut"))
+    assert len(calc.history) == 1
+    calc.perform(Binding("paste", ""))
+    assert calc.editor.linear() == "7+8"
+
+
+def test_the_keypad_has_ctrl_c_x_v() -> None:
+    state = AppState()
+    state.press_keypad("ctrl")
+    state.press_keypad("c")
+    pasted: list[str] = []
+    state.request_paste = lambda: pasted.append("asked")
+    state.press_keypad("ctrl")
+    state.press_keypad("v")
+    assert pasted == ["asked"]
