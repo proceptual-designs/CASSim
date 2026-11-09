@@ -155,6 +155,8 @@ class Bridge:
 
     def __init__(self, changed: Callable[[], None]) -> None:
         self.installable = False
+        self.standalone = False  # already running as an installed app (or fullscreen)
+        self.can_fullscreen = False
         self._changed = changed
         self._channel = js.BroadcastChannel.new("cassim")
         self._callback = create_proxy(self._on_message)
@@ -162,8 +164,13 @@ class Bridge:
         self._send("hello")  # the page answers with what the browser offers
 
     def _on_message(self, event: js.MessageEvent) -> None:
-        if str(event.data.op) == "installable":
+        op = str(event.data.op)
+        if op == "installable":
             self.installable = bool(event.data.value)
+            self._changed()
+        elif op == "env":
+            self.standalone = bool(event.data.standalone)
+            self.can_fullscreen = bool(event.data.fullscreen)
             self._changed()
 
     def _send(self, op: str) -> None:

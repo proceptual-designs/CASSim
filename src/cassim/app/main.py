@@ -12,8 +12,8 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.layout import (
-    BAR_H,
     GAP,
+    INSTALL_ROW,
     NARROW,
     SCREEN_H,
     SCREEN_W,
@@ -47,6 +47,7 @@ from cassim.device.calculator import Calculator
 from cassim.device.document import Document
 from cassim.device.engine import LocalEngine
 from cassim.device.keys import Binding, keypad_units
+from cassim.device.menu import MenuItem
 from cassim.device.runner import Runner, Status
 from cassim.device.serialize import DocumentFileError, dumps, loads, parse
 from cassim.device.share import LinkTooLongError, encode, unpack
@@ -82,12 +83,14 @@ class App:
     def __init__(self, page: ft.Page, state: AppState, runner: Runner | None = None) -> None:
         self.page = page
         self.state = state
-        self.bridge = make_bridge(self.refresh)  # the page, from the browser's worker
+        self.bridge = make_bridge(self.on_bridge)  # the page, from the browser's worker
         self.runner = runner  # None: the maths runs in this process, synchronously
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
-        self.shape: tuple[Mode, bool, bool, bool] | None = None  # what the layout is built from
+        self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
+            None  # what the layout is built from
+        )
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
         self.first_visit = False  # nothing saved yet: the window size picks the mode
         self.starting = False  # loading the autosave through a remote engine
@@ -97,11 +100,14 @@ class App:
             state, self.theme, self.act, lambda: self.shift, self.cycle_setting
         )
         self.keypad = Keypad(state, self.press, self.theme)
-        self.sidebar = Sidebar(state, self.refresh, self.theme)
+        self.sidebar = Sidebar(
+            state, self.refresh, self.theme, lambda: self.act("open_menu", "menu")
+        )
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
         self.clipboard = connect_clipboard(page, state)
         state.show_dialog = self.show_dialog
+        state.doc_extras = self.doc_extras
         state.show_wizard = self.show_wizard
         self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
         self.files = ft.FilePicker()
@@ -311,11 +317,6 @@ class App:
         return bool(sides) and min(sides) < NARROW
 
     @property
-    def compact(self) -> bool:
-        """A phone: the calculator gets the room and the toolbar is nearly empty."""
-        return self.phone and self.state.mode is Mode.HANDHELD
-
-    @property
     def installable(self) -> bool:
         """The browser has offered to install CASSim and it is not installed yet."""
         return self.bridge is not None and self.bridge.installable
@@ -327,6 +328,25 @@ class App:
     def go_fullscreen(self) -> None:
         if self.bridge is not None:
             self.bridge.fullscreen()
+
+    def on_bridge(self) -> None:
+        """The page reported what the browser offers: the Install row may appear or go."""
+        self.arrange()
+        self.refresh()
+
+    def doc_extras(self) -> tuple[MenuItem, ...]:
+        """Doc menu items for this browser: the view switch (Handheld has no toolbar), Fullscreen
+        (not when already installed or fullscreen) and Install (while the browser offers it)."""
+        items: list[MenuItem] = []
+        if not self.phone:
+            other = "Computer" if self.state.mode is Mode.HANDHELD else "Handheld"
+            items.append(MenuItem(f"{other} view", "dialog", "switch_view", hint="CASSim"))
+        bridge = self.bridge
+        if bridge is not None and bridge.can_fullscreen and not bridge.standalone:
+            items.append(MenuItem("Fullscreen", "dialog", "fullscreen", hint="CASSim"))
+        if self.installable:
+            items.append(MenuItem("Install CASSim", "dialog", "install", hint="CASSim"))
+        return tuple(items)
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -343,13 +363,8 @@ class App:
 
     def toolbar_controls(self) -> list[ft.Control]:
         theme, mode = self.theme, self.state.mode
-        if self.compact:
-            # Everything else is on the keypad's Doc and Menu keys; only the browser's own
-            # install and fullscreen buttons remain, and only when the browser offers them.
-            return [
-                *([chip("Install", self.install, theme)] if self.installable else []),
-                *([chip("Fullscreen", self.go_fullscreen, theme)] if self.bridge else []),
-            ]
+        if mode is Mode.HANDHELD:
+            return []  # the keypad's Doc and Menu keys do everything (Install sits above the keys)
         return [
             chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
             chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
@@ -364,7 +379,6 @@ class App:
             chip("+ problem", lambda: self.act("add_problem"), theme),
             chip("delete page", lambda: self.act("delete_page"), theme),
             chip("Doc", lambda: self.act("open_menu", "doc"), theme),
-            chip("Menu", lambda: self.act("open_menu", "menu"), theme),
             chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
             chip("settings", self.open_settings, theme),
             chip("Help", lambda: self.show_dialog("help"), theme),
@@ -373,7 +387,13 @@ class App:
         ]
 
     def show_dialog(self, name: str) -> None:
-        if name == "save_file":
+        if name == "fullscreen":
+            self.go_fullscreen()
+        elif name == "install":
+            self.install()
+        elif name == "switch_view":
+            self.set_mode(Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD)
+        elif name == "save_file":
             self.page.run_task(self.save_file)
         elif name == "open_file":
             self.page.run_task(self.open_file)
@@ -483,23 +503,26 @@ class App:
         system = state.system
         if self.phone:
             state.mode = Mode.HANDHELD  # Computer mode is not usable on a phone
+        offer = self.installable and state.mode is Mode.HANDHELD
+        self.keypad.install = self.install if offer else None  # an Install row above the keys
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             plan = handheld_plan(
                 self.page.width,
                 self.page.height,
-                *keypad_units(state.keypad),
+                keypad_units(state.keypad)[0],
+                keypad_units(state.keypad)[1] + (INSTALL_ROW if offer else 0),
                 Sizing(
                     None if self.phone else share,
                     system.zoom,
-                    0 if self.phone and not self.toolbar.controls else BAR_H,
+                    0,
                 ),
             )
             self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, self.phone, system.zoom > 1)
+            shape = (Mode.HANDHELD, plan.side_by_side, self.phone, system.zoom > 1, offer)
             if shape == self.shape:
                 # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
                 # the drag, which is why it used to stop after a few pixels.

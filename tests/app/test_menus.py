@@ -437,3 +437,22 @@ def test_mode_and_insert_follow_the_second_device_run() -> None:
         state.key_event(key)
     labels = {row.key: row.label for row in _menu(state).rows}
     assert (labels["B"], labels["C"]) == ("Program Editor", "Add Python")
+
+
+def test_doc_menu_gets_the_browser_items() -> None:
+    """The page's Install and Fullscreen offers appear as Doc menu items, and only when given."""
+    state = AppState()
+    state.doc_extras = lambda: (
+        MenuItem("Fullscreen", "dialog", "fullscreen"),
+        MenuItem("Install CASSim", "dialog", "install"),
+    )
+    asked: list[str] = []
+    state.show_dialog = asked.append
+    state.key_event("F4")
+    view = state.screen().menu
+    assert view is not None
+    assert [row.label for row in view.rows][-2:] == ["Fullscreen", "Install CASSim"]
+    for _ in range(len(view.rows) - 2):
+        state.key_event("Arrow Down")
+    state.key_event("Enter")
+    assert asked == ["fullscreen"]

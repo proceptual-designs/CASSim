@@ -9,13 +9,13 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
-from cassim.app.layout import KEY_GAP, KEY_H, key_span
+from cassim.app.layout import INSTALL_ROW, KEY_GAP, KEY_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
-from cassim.device.keys import Key
+from cassim.device.keys import Key, keypad_units
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.screen import Line, Screen, thumbnail
 from cassim.device.wizard import Field, Wizard
@@ -345,9 +345,16 @@ class Keypad:
     shift labels small above it; the pending modifier lights up and its layer's labels move onto
     the keys."""
 
-    def __init__(self, state: AppState, on_key: Callable[[str], None], theme: Theme = DARK) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        on_key: Callable[[str], None],
+        theme: Theme = DARK,
+        install: Callable[[], None] | None = None,
+    ) -> None:
         self.state = state
         self.on_key = on_key
+        self.install = install  # set while the browser offers to install; None otherwise
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
         self.refresh()
@@ -355,10 +362,28 @@ class Keypad:
     def refresh(self) -> None:
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
-        self.control.controls = [
+        rows: list[ft.Control] = []
+        if self.install is not None:
+            install = self.install
+            rows.append(
+                ft.Container(
+                    label_text(
+                        "Install CASSim", size=self.state.kpx(13), color=self.theme.key_text
+                    ),
+                    width=self.state.kpx(key_span(keypad_units(self.state.keypad)[0])),
+                    height=self.state.kpx(key_span(INSTALL_ROW, KEY_H)),
+                    alignment=ft.Alignment.CENTER,
+                    bgcolor=self.theme.accent,
+                    border_radius=self.state.kpx(7),
+                    ink=True,
+                    on_click=lambda _: install(),
+                )
+            )
+        rows.extend(
             ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
             for row in self.state.keypad
-        ]
+        )
+        self.control.controls = rows
 
     def _key(self, key: Key) -> ft.Control:
         state, theme = self.state, self.theme
@@ -427,17 +452,38 @@ def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = Fa
 class Sidebar:
     """The page sorter and the variable list of the current Problem (FR-DOC-001)."""
 
-    def __init__(self, state: AppState, on_change: Callable[[], None], theme: Theme = DARK) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        on_change: Callable[[], None],
+        theme: Theme = DARK,
+        on_menu: Callable[[], None] | None = None,
+    ) -> None:
         self.state = state
         self.on_change = on_change
         self.theme = theme
+        self.on_menu = on_menu  # the large Menu button above the page list
         self.control = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO)
 
     def refresh(self) -> None:
         document = self.state.document
         theme = self.theme
         here = (document.problem, document.page)
-        rows: list[ft.Control] = [
+        rows: list[ft.Control] = []
+        if self.on_menu is not None:
+            menu = self.on_menu
+            rows.append(
+                ft.Container(
+                    label_text("Menu", size=16, color="#ffffff"),
+                    height=48,
+                    alignment=ft.Alignment.CENTER,
+                    bgcolor=theme.accent,
+                    border_radius=8,
+                    ink=True,
+                    on_click=lambda _: menu(),
+                )
+            )
+        rows += [
             ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text),
             ft.Row(
                 [

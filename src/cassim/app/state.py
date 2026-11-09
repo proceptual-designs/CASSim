@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 
 from cassim.app.keyboard import key_name
@@ -86,6 +86,8 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        # set by the GUI: extra Doc menu items for what the browser offers (install, fullscreen)
+        self.doc_extras: Callable[[], tuple[MenuItem, ...]] | None = None
         # Caps lock, set by the Caps Lock key or the keypad's ctrl+shift. Flet's key events do not
         # say whether the lock is on, so it is tracked here from its own key presses.
         self.caps = False
@@ -210,6 +212,10 @@ class AppState:
 
     def _open_menu(self, name: str) -> None:
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+        if root is not None and name == "doc" and self.doc_extras is not None:
+            extras = self.doc_extras()
+            if extras:
+                root = replace(root, items=(*root.items, *extras))
         if root is not None:
             self.menu = MenuState(root)
 
