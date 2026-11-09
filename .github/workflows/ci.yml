@@ -16,4 +16,6 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run ruff check
       - run: uv run ty check
-      - run: uv run pytest -m "not e2e" --cov=cassim
+      - run: uv run pytest -m "not e2e" --cov=cassim --cov-branch --cov-report=json
+      - run: uv run python -m tools.coverage_check
+      - run: uv run python -m tools.traceability --check

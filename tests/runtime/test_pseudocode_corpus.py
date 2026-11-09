@@ -1,3 +1,4 @@
+# Requirements traced here: FR-RUN-006
 """Replay corpus/pseudocode/seed.yaml and batch*.yaml against the interpreter (M7b; FR-PSE-*).
 
 Every case runs with display=full, Approx, Radian and the Euler toggle on (its default)

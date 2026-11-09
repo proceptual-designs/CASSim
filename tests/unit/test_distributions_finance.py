@@ -1,3 +1,4 @@
+# Requirements traced here: FR-STAT-004, FR-FIN-001
 """Distributions and finance (M1d slice 4). Reference values for the continuous distributions
 were computed with SciPy once and are fixed here, so the tests need no SciPy."""
 

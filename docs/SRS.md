@@ -385,7 +385,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.
 - NFR-MAINT-002 (M) Core never imports Flet (lint rule); SymPy only in the adapter.
 - NFR-MAINT-003 (M) Conventional commits; small commits; decisions recorded in `docs/decisions/`.
-- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim.app` (Flet UI) is excluded and covered by Playwright. At 2026-11-08 CI reports coverage but enforces no threshold. CI reports coverage and fails below target.
+- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim.app` (Flet UI) is excluded and covered by Playwright. CI fails when a package falls below its floor in `pyproject.toml` (`[tool.cassim.coverage]`, checked by `tools/coverage_check.py`). The floors started just below the figures of 2026-11-09 (core 96.9%, device 96.2%, profiles 98.1%, runtime 91.0%, cli 93.6%) and only rise. `sheet`, `stats` and `graph` have no code yet and get a floor when they do.
 - NFR-MAINT-006 (M) Every requirement ID appears in at least one test (marker or docstring) or is listed as untested with a reason. A generated traceability table (`docs/traceability.md`) is checked in CI.
 - NFR-MAINT-005 (S) Dependency versions pinned (uv lockfile); Pyodide upgrade procedure documented.
 
@@ -481,7 +481,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 
 ## Appendix B. Implementation status (2026-11-08)
 
-A summary, not a substitute for the traceability table (NFR-MAINT-006), which does not exist yet (PLAN.md section 11).
+A summary, not a substitute for the traceability table (`docs/traceability.md`, NFR-MAINT-006).
 
 | Area | Requirements | Status |
 |---|---|---|
@@ -496,4 +496,4 @@ A summary, not a substitute for the traceability table (NFR-MAINT-006), which do
 | Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built (M7b), 58 golden programs green. Translation, editor, settings bar, Code view and page types not started. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike (7a) comes first. |
 | Profiles, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Not started; only the M2 guard applies. |
-| Non-functional | 5 | NFR-MAINT-006 (traceability) and NFR-USE-002 (accessibility notes) have no artefact; NFR-MAINT-004 has no enforced threshold; NFR-LEG-002 disclaimer and NFR-LEG-003 notices need checking before release. |
+| Non-functional | 5 | Traceability (`docs/traceability.md`), accessibility notes (`docs/accessibility.md`) and per-package coverage floors exist (2026-11-09). NFR-LEG-002 is in the About dialog; NFR-LEG-003 notices need checking against the shipped files before release. |
