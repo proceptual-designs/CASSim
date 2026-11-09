@@ -357,9 +357,23 @@ class Keypad:
         self.install = install  # set while the browser offers to install; None otherwise
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
+        self._look: tuple[object, ...] | None = None
         self.refresh()
 
     def refresh(self) -> None:
+        state = self.state
+        # Everything that changes how a key looks. Rebuilding ~40 controls costs far more on a
+        # phone than the unchanged diff, so an unchanged keypad is left alone.
+        look = (
+            id(state.keypad),
+            state.pending,
+            state.pad_scale,
+            self.install is not None,
+            self.theme,
+        )
+        if look == self._look:
+            return
+        self._look = look
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
         rows: list[ft.Control] = []

@@ -190,7 +190,8 @@ class App:
         self.autosave()
         self.view.refresh()
         self.keypad.refresh()
-        self.sidebar.refresh()
+        if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
+            self.sidebar.refresh()
         self.toolbar.controls = [*self.toolbar_controls(), self.status]
         self.page.update()
         self.kick()
