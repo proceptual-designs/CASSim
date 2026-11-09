@@ -48,6 +48,7 @@ def _span(run: str) -> ft.TextSpan:
     return ft.TextSpan(run, style=style)
 
 
+SELECTED_KEY = "picked-line"
 ENTRY_ROOM = 56  # blank space kept below the entry: the list scrolls once 3/4 of the screen is used
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
@@ -84,16 +85,19 @@ class CalculatorView:
         self.theme = theme
         self.on_action = on_action
         self.shift = shift
+        self._follow = False
         self.status = ft.Row(spacing=8, tight=True)
         self.title = ft.Text(size=12, color="#ffffff")
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
-        self.history = ft.ListView(
+        # A Column, not a ListView: it builds every line, so `scroll_to` can find a line by key
+        # (Up selects a line to recall, and the view follows it).
+        self.history = ft.Column(
             expand=True,
+            scroll=ft.ScrollMode.AUTO,
             auto_scroll=True,
             auto_scroll_animation=ft.Animation(duration=0),
             spacing=2,
-            padding=ft.Padding.only(top=6),  # the first line is not cut off by the title bar
         )
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
@@ -121,13 +125,26 @@ class CalculatorView:
         ]
         self.title.size = size
         self.entry.content = self._entry(screen)
+        lines = [self._line(line, number) for number, line in enumerate(screen.lines)]
+        picked = next((n for n, line in enumerate(screen.lines) if line.selected), None)
+        if picked is not None:
+            lines[picked].key = SELECTED_KEY
         self.history.controls = [
-            *(self._line(line, number) for number, line in enumerate(screen.lines)),
+            ft.Container(height=self.state.px(6)),  # the first line is not cut off by the title bar
+            *lines,
             self.entry,
             ft.Container(height=self.state.px(ENTRY_ROOM)),
         ]
+        # While a line is picked the view follows it; otherwise it stays at the entry line
+        self.history.auto_scroll = picked is None
+        self._follow = picked is not None
         self._error(screen)
         self._menu(screen.menu)
+
+    def follow_selection(self) -> None:
+        """Scroll the history to the picked line. Called after the page has been updated."""
+        if self._follow and self.history.page is not None:
+            self.history.page.run_task(self.history.scroll_to, scroll_key=SELECTED_KEY)
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -170,7 +187,7 @@ class CalculatorView:
             on_click=lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
-            padding=ft.Padding.symmetric(horizontal=6),
+            padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
         )
 
     def _menu(self, view: MenuView | None) -> None:

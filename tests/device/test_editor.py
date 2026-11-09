@@ -246,6 +246,14 @@ class TestLatex:
         assert tex.endswith(r"\ \mathbf{o}\mathbf{r}\ z")
         assert Editor("band").latex(cursor=False) == "band"  # only the whole word
 
+    def test_system_result_names_are_one_bold_name(self):
+        """`tvm.pmt` and `stat.sx` are the calculator's own variables, not letters and a dot."""
+        assert (
+            Editor("tvm.n").latex(cursor=False)
+            == r"\mathbf{t}\mathbf{v}\mathbf{m}\mathbf{.}\mathbf{n}"
+        )
+        assert Editor("x.n").latex(cursor=False) == "x.n"
+
     def test_typed_constants_are_bold_upright(self):
         """`@e` and `@i` show as the constants; `@exp` and a plain `e` do not."""
         assert Editor("2@e").latex(cursor=False) == r"2\mathbf{e}"

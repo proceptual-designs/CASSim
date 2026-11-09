@@ -193,6 +193,7 @@ class App:
         self.sidebar.refresh()
         self.toolbar.controls = [*self.toolbar_controls(), self.status]
         self.page.update()
+        self.view.follow_selection()
         self.kick()
 
     # ---- the engine -------------------------------------------------------------------------

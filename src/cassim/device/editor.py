@@ -921,6 +921,8 @@ _LATEX: dict[Kind, Callable[[list[str], int], str]] = {
 
 # Names that are never a plain variable: `ans`, and the words that join conditions.
 _WORDS = frozenset({"ans", "and", "or", "xor", "not"})
+# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, drawn upright.
+_SYSTEM_PREFIXES = ("tvm.", "stat.")
 
 
 def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
@@ -933,12 +935,22 @@ def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
         if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
             run.append(index)
             continue
+        if run and isinstance(node, str) and node == "." and _dotted(row, run, index):
+            run.append(index)  # `tvm.` goes on into `tvm.pmt`
+            continue
         if run:
             name = "".join(str(row[i]) for i in run)
-            if name.casefold() in _WORDS or (node == "(" and is_function(name)):
+            system = name.casefold().startswith(_SYSTEM_PREFIXES) and not name.endswith(".")
+            if system or name.casefold() in _WORDS or (node == "(" and is_function(name)):
                 marked.update(run)
         run = []
     return marked
+
+
+def _dotted(row: Row, run: list[int], index: int) -> bool:
+    """Whether the `.` at `index` continues the name in `run` as a system name (`tvm.`)."""
+    word = "".join(str(row[i]) for i in run).casefold()
+    return f"{word}.".startswith(_SYSTEM_PREFIXES) and word in ("tvm", "stat")
 
 
 def at_constants(row: Row) -> dict[int, str]:
