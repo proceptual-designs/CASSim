@@ -13,7 +13,6 @@ import flet as ft
 from cassim.app import about
 from cassim.app.layout import (
     GAP,
-    INSTALL_ROW,
     NARROW,
     SCREEN_H,
     SCREEN_W,
@@ -505,14 +504,16 @@ class App:
         if self.phone:
             state.mode = Mode.HANDHELD  # Computer mode is not usable on a phone
         offer = self.installable and state.mode is Mode.HANDHELD
-        self.keypad.install = self.install if offer else None  # an Install row above the keys
+        self.keypad.install = (
+            self.install if offer else None
+        )  # Install takes the empty top-right cell
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             plan = handheld_plan(
                 self.page.width,
                 self.page.height,
                 keypad_units(state.keypad)[0],
-                keypad_units(state.keypad)[1] + (INSTALL_ROW if offer else 0),
+                keypad_units(state.keypad)[1],
                 Sizing(
                     None if self.phone else share,
                     system.zoom,

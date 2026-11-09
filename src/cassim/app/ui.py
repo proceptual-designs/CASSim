@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from enum import StrEnum
+from typing import Any, cast
 
 import flet as ft
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
-from cassim.app.layout import INSTALL_ROW, KEY_GAP, KEY_H, key_span
+from cassim.app.layout import KEY_GAP, KEY_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
-from cassim.device.keys import Key, keypad_units
+from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.screen import Line, Screen, thumbnail
 from cassim.device.wizard import Field, Wizard
@@ -49,6 +50,13 @@ def _span(run: str) -> ft.TextSpan:
 
 
 SELECTED_KEY = "picked-line"
+
+
+def _scroll_key() -> ft.ScrollKey:
+    """The key `scroll_to` finds the picked line by (Flet's stubs hide ScrollKey's argument)."""
+    return cast("Any", ft.ScrollKey)(value=SELECTED_KEY)
+
+
 ENTRY_ROOM = 56  # blank space kept below the entry: the list scrolls once 3/4 of the screen is used
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
@@ -125,13 +133,14 @@ class CalculatorView:
         ]
         self.title.size = size
         self.entry.content = self._entry(screen)
-        lines = [self._line(line, number) for number, line in enumerate(screen.lines)]
+        pairs = [
+            self._pair(screen.lines[number], screen.lines[number + 1], number)
+            for number in range(0, len(screen.lines) - 1, 2)
+        ]
         picked = next((n for n, line in enumerate(screen.lines) if line.selected), None)
-        if picked is not None:
-            lines[picked].key = SELECTED_KEY
         self.history.controls = [
             ft.Container(height=self.state.px(6)),  # the first line is not cut off by the title bar
-            *lines,
+            *pairs,
             self.entry,
             ft.Container(height=self.state.px(ENTRY_ROOM)),
         ]
@@ -144,7 +153,7 @@ class CalculatorView:
     def follow_selection(self) -> None:
         """Scroll the history to the picked line. Called after the page has been updated."""
         if self._follow and self.history.page is not None:
-            self.history.page.run_task(self.history.scroll_to, scroll_key=SELECTED_KEY)
+            self.history.page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -179,15 +188,64 @@ class CalculatorView:
         """A long press: the touch screen's shift+click."""
         self.on_action("extend", format_target(path, pos))
 
-    def _line(self, line: Line, number: int) -> ft.Control:
+    def _recall_click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A click in the picked row: the cursor goes there (shift extends the selection)."""
+        extend = self.shift() or self.state.pending == "shift"
+        if extend:
+            self.state.clear_pending()
+        self.on_action("recall_extend" if extend else "recall_place", format_target(path, pos))
+
+    def _recall_hold(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        self.on_action("recall_extend", format_target(path, pos))
+
+    def _fits(self, entry: Line, result: Line) -> bool:
+        """Whether an entry and its result are short enough to share a line. LaTeX cannot be
+        measured here, so this counts characters (fractions, powers and roots weigh double)
+        against the screen width, with room to spare."""
+
+        def width(text: str) -> int:
+            return len(text) + sum(text.count(char) for char in "/^√[")
+
+        room = self.state.px(300) / (0.62 * self.state.math_size)
+        return width(entry.text) + width(result.text) + 3 <= room
+
+    def _pair(self, entry: Line, result: Line, number: int) -> ft.Control:
+        """An entry and its result with a thin rule under them: one line if both are short."""
+        first = self._line(entry, number)
+        second = self._line(result, number + 1)
+        if not (entry.selected or result.selected) and self._fits(entry, result):
+            second.expand = True  # takes the rest of the line, result at the right edge
+            body: ft.Control = ft.Row([first, second], spacing=0)
+        else:
+            body = ft.Column([first, second], spacing=0)
+        rule = ft.BorderSide(1, "#40" + self.theme.screen_text[1:])
+        return ft.Container(
+            body, border=ft.Border(bottom=rule), padding=ft.Padding.only(bottom=self.state.px(2))
+        )
+
+    def _line(self, line: Line, number: int) -> ft.Container:
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
+        calculator = self.state.document.current.calculator
+        recalled = calculator.recall_editor if calculator is not None and line.selected else None
+        if calculator is not None and recalled is not None:
+            # the picked row is an editor: click in it, move and select with the keys
+            content: ft.Control = EntryLine(
+                self.theme,
+                self.state.math_size,
+                self._recall_click,
+                calculator.session.is_function,
+                self._recall_hold,
+            ).build(recalled)
+        else:
+            content = math(line.latex, self.theme, self.state.math_size)
         return ft.Container(
-            math(line.latex, self.theme, self.state.math_size),
-            on_click=lambda _: self.on_action("recall_at", spec),
+            content,
+            on_click=None if recalled is not None else lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
             padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
+            key=_scroll_key() if line.selected else None,
         )
 
     def _menu(self, view: MenuView | None) -> None:
@@ -383,28 +441,30 @@ class Keypad:
     def refresh(self) -> None:
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
+        keypad = self.state.keypad
         rows: list[ft.Control] = []
-        if self.install is not None:
-            install = self.install
-            rows.append(
-                ft.Container(
-                    label_text(
-                        "Install CASSim", size=self.state.kpx(13), color=self.theme.key_text
-                    ),
-                    width=self.state.kpx(key_span(keypad_units(self.state.keypad)[0])),
-                    height=self.state.kpx(key_span(INSTALL_ROW, KEY_H)),
-                    alignment=ft.Alignment.CENTER,
-                    bgcolor=self.theme.accent,
-                    border_radius=self.state.kpx(7),
-                    ink=True,
-                    on_click=lambda _: install(),
-                )
-            )
-        rows.extend(
-            ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
-            for row in self.state.keypad
-        )
+        for number, row in enumerate(keypad):
+            keys = [self._key(key) for key in row]
+            # Install takes the empty cell at the top right of the keypad, so it needs no row
+            if number == 0 and self.install is not None and not row[-1].name:
+                keys[-1] = self._install_key(row[-1])
+            rows.append(ft.Row(keys, spacing=gap, tight=True))
         self.control.controls = rows
+
+    def _install_key(self, cell: Key) -> ft.Control:
+        install = self.install
+        assert install is not None
+        return ft.Container(
+            label_text("Install", size=self.state.kpx(12), color="#ffffff"),
+            width=self.state.kpx(key_span(cell.width)),
+            height=self.state.kpx(key_span(cell.height, KEY_H)),
+            alignment=ft.Alignment.CENTER,
+            bgcolor=self.theme.accent,
+            border_radius=self.state.kpx(7),
+            ink=True,
+            tooltip="Install CASSim",
+            on_click=lambda _: install(),
+        )
 
     def _key(self, key: Key) -> ft.Control:
         state, theme = self.state, self.theme

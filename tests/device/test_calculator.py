@@ -269,3 +269,68 @@ def test_clicking_a_history_row_picks_it_and_a_second_click_recalls_it() -> None
     calc.perform(Binding("recall_at", "0:entry"))
     assert calc.editor.linear() == "1+2"
     calc.perform(Binding("recall_at", "9:entry"))  # no such row: ignored
+
+
+def _type(calc: Calculator, text: str) -> None:
+    for char in text:
+        calc.perform(Binding("insert", char))
+
+
+def test_a_picked_row_has_a_cursor_that_selects_parts() -> None:
+    """Up picks a row; Left and Shift+Left move and select inside it; Enter brings only the
+    selected part down to the entry line (FR-CALC-004)."""
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))  # the entry row `12+34`
+    assert calc.recall_editor is not None
+    calc.perform(Binding("select_left"))
+    calc.perform(Binding("select_left"))  # "34"
+    calc.perform(Binding("enter"))
+    assert calc.recall is None
+    assert calc.editor.linear() == "34"
+
+
+def test_enter_on_a_picked_row_without_a_selection_brings_the_whole_row() -> None:
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("left"))  # moves inside the row, which stays picked
+    assert calc.recall is not None
+    calc.perform(Binding("enter"))
+    assert calc.editor.linear() == "12+34"
+
+
+def test_clicking_inside_a_picked_row_places_the_cursor() -> None:
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("up"))
+    calc.perform(Binding("recall_place", "0"))
+    calc.perform(Binding("recall_extend", "2"))  # selects "12"
+    calc.perform(Binding("enter"))
+    assert calc.editor.linear() == "12"
+
+
+def test_enter_repeats_an_entry_that_uses_ans() -> None:
+    """Newton-style: an entry with `ans`, then Enter again and again, each with the new Ans."""
+    calc = Calculator()
+    _type(calc, "1")
+    calc.perform(Binding("enter"))
+    _type(calc, "ans+1")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("enter"))  # empty entry: the same expression with the new Ans
+    calc.perform(Binding("enter"))
+    assert [entry.result.text for entry in calc.history] == ["1", "2", "3", "4"]
+
+
+def test_enter_on_an_empty_line_does_nothing_without_ans() -> None:
+    calc = Calculator()
+    _type(calc, "2+2")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("enter"))
+    assert len(calc.history) == 1
