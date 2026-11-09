@@ -142,7 +142,31 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
   // The Python app runs in a Web Worker and cannot touch the page, so install and fullscreen go
   // through a BroadcastChannel: the app asks, the page does it and reports what the browser offers.
   var bus = new BroadcastChannel("cassim");
-  function tell() { bus.postMessage({op: "installable", value: !!window.cassimInstallEvent}); }
+  function tell() {
+    bus.postMessage({op: "installable", value: !!window.cassimInstallEvent});
+    var d = document.documentElement;
+    var shown = ["standalone", "fullscreen", "minimal-ui"].some(function (m) {
+      return window.matchMedia("(display-mode: " + m + ")").matches;
+    }) || navigator.standalone === true || !!document.fullscreenElement;
+    bus.postMessage({op: "env", standalone: shown,
+      fullscreen: !!(d.requestFullscreen || d.webkitRequestFullscreen)});
+  }
+  // requestFullscreen needs a recent tap. The app's answer comes back from a worker and a slow
+  // phone can take longer than the browser allows, so a refusal arms the next tap instead.
+  var fullscreenArmed = false;
+  function goFullscreen() {
+    var d = document.documentElement;
+    var ask = d.requestFullscreen || d.webkitRequestFullscreen;
+    if (!ask) return;
+    try {
+      var r = ask.call(d);
+      if (r && r.catch) r.catch(function () { fullscreenArmed = true; });
+    } catch (e) { fullscreenArmed = true; }
+  }
+  document.addEventListener("pointerup", function () {
+    if (fullscreenArmed) { fullscreenArmed = false; goFullscreen(); }
+  }, true);
+  document.addEventListener("fullscreenchange", tell);
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     window.cassimInstallEvent = e;
@@ -160,7 +184,7 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
       window.cassimInstallEvent = null;
       e.prompt();
       tell();
-    } else if (op === "fullscreen") document.documentElement.requestFullscreen();
+    } else if (op === "fullscreen") goFullscreen();
   };
   if (!("serviceWorker" in navigator)) return;
   var reloading = false;
