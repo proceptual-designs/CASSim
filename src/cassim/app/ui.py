@@ -10,7 +10,7 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
-from cassim.app.layout import KEY_GAP, KEY_H, key_span
+from cassim.app.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
@@ -61,7 +61,11 @@ ENTRY_ROOM = 56  # blank space kept below the entry: the list scrolls once 3/4 o
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
 SHORT_CELL = 2  # characters that fit a grid cell at full size
-MENU_ROWS, MENU_ROWS_WIDE = 10, 16  # rows shown at once; the rest follow the highlight
+MENU_ROWS_WIDE = 16  # rows of a menu shown at once in Computer mode; the rest follow the highlight
+# Handheld menus must fit the 240 px screen, so their rows are counted from what is left of it
+# (all in handheld pixels): the title bar, a panel's padding, header, hint line and ▲ ▼ rows.
+TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 19.5
+MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -259,7 +263,9 @@ class CalculatorView:
         wide = self.state.mode is Mode.COMPUTER
         px = self.state.px
         # Submenus overlap their parent by half (Computer) or nearly all of it (Handheld).
-        step_x, step_y = (px(MENU_W_WIDE) / 2, px(10)) if wide else (px(22), px(10))
+        step_x, step_y = (
+            (px(MENU_W_WIDE) / 2, px(MENU_STEP_Y)) if wide else (px(22), px(MENU_STEP_Y))
+        )
         panels = [
             ft.Container(
                 self._panel(view, depth, panel, wide=wide),
@@ -282,21 +288,23 @@ class CalculatorView:
     def _panel(self, view: MenuView, depth: int, panel: Panel, *, wide: bool) -> ft.Control:
         theme, px = self.theme, self.state.px
         last = depth == len(view.panels) - 1
-        shown = MENU_ROWS_WIDE if wide else MENU_ROWS
         columns = panel.columns or 1
+        shown = (
+            MENU_ROWS_WIDE if wide else self._rows_that_fit(depth, panel, last=last, hint=view.hint)
+        )
         lines = -(-len(panel.rows) // columns)  # rows of the list or the grid
         chosen = selected_index(panel) // columns
         start = max(0, min(chosen - shown // 2, lines - shown))
         window = range(start, min(lines, start + shown))
         items: list[ft.Control] = [self._header(view, depth, panel)]
         if start:
-            items.append(self._more("▲ more", -shown * columns, active=last))
+            items.append(self._more("▲", -shown * columns, active=last))
         if panel.columns:
             items.extend(self._grid_line(depth, panel, line, active=last) for line in window)
         else:
             items.extend(self._menu_row(depth, panel, n, wide=wide, active=last) for n in window)
         if window.stop < lines:
-            items.append(self._more("▼ more", shown * columns, active=last))
+            items.append(self._more("▼", shown * columns, active=last))
         if last and view.hint and (not wide or panel.columns):
             items.append(
                 ft.Container(
@@ -305,7 +313,7 @@ class CalculatorView:
                     border=ft.Border.only(top=ft.BorderSide(1, theme.key_label)),
                 )
             )
-        return ft.Container(
+        box = ft.Container(
             ft.Column(items, spacing=0, tight=True),
             bgcolor=theme.title_bar,
             padding=px(4),
@@ -314,6 +322,23 @@ class CalculatorView:
             shadow=ft.BoxShadow(blur_radius=8, color="#80000000"),
             on_click=lambda _: None,  # a click between rows is not a click outside the menu
         )
+        if not last:
+            return box
+
+        def wheel(
+            event: ft.ScrollEvent,
+        ) -> None:  # the mouse wheel moves the highlight, which scrolls
+            self.on_action("menu_page", str((1 if event.scroll_delta.y > 0 else -1) * columns))
+
+        return ft.GestureDetector(box, on_scroll=wheel)
+
+    def _rows_that_fit(self, depth: int, panel: Panel, *, last: bool, hint: str) -> int:
+        """How many lines of a handheld panel fit on the screen under it, leaving room for its
+        header, the ▲ and ▼ rows and (on the deepest panel) the syntax hint."""
+        height = LIST_ROW_H if not panel.columns else GRID_CELL - 3
+        taken = TITLE_H + 4 + depth * MENU_STEP_Y + 4 + PANEL_PAD + HEADER_H + 2 * ARROW_H
+        taken += HINT_H if last and hint else 0
+        return max(3, int((SCREEN_H - taken) / height))
 
     def _header(self, view: MenuView, depth: int, panel: Panel) -> ft.Control:
         """The panel's title; on a submenu it is a back button (it closes this level)."""
@@ -330,9 +355,11 @@ class CalculatorView:
         )
 
     def _more(self, text: str, step: int, *, active: bool) -> ft.Control:
+        """The ▲ or ▼ that says there is more above or below; a click pages that way."""
         return ft.Container(
-            label_text(text, size=self.state.px(11), color=self.theme.key_label),
-            padding=ft.Padding.symmetric(horizontal=self.state.px(6)),
+            label_text(text, size=self.state.px(11), color=self.theme.accent),
+            alignment=ft.Alignment.CENTER,
+            height=self.state.px(ARROW_H),
             on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
         )
 
