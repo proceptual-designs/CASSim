@@ -145,10 +145,11 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
   function tell() {
     bus.postMessage({op: "installable", value: !!window.cassimInstallEvent});
     var d = document.documentElement;
+    var inFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     var shown = ["standalone", "fullscreen", "minimal-ui"].some(function (m) {
       return window.matchMedia("(display-mode: " + m + ")").matches;
-    }) || navigator.standalone === true || !!document.fullscreenElement;
-    bus.postMessage({op: "env", standalone: shown,
+    }) || navigator.standalone === true || inFullscreen;
+    bus.postMessage({op: "env", standalone: shown, inFullscreen: inFullscreen,
       fullscreen: !!(d.requestFullscreen || d.webkitRequestFullscreen)});
   }
   // requestFullscreen needs a recent tap. The app's answer comes back from a worker and a slow
@@ -162,6 +163,10 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
       var r = ask.call(d);
       if (r && r.catch) r.catch(function () { fullscreenArmed = true; });
     } catch (e) { fullscreenArmed = true; }
+  }
+  function exitFullscreen() {
+    var leave = document.exitFullscreen || document.webkitExitFullscreen;
+    if (leave) try { leave.call(document); } catch (e) {}
   }
   document.addEventListener("pointerup", function () {
     if (fullscreenArmed) { fullscreenArmed = false; goFullscreen(); }
@@ -185,6 +190,7 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
       e.prompt();
       tell();
     } else if (op === "fullscreen") goFullscreen();
+    else if (op === "exit_fullscreen") exitFullscreen();
   };
   if (!("serviceWorker" in navigator)) return;
   var reloading = false;

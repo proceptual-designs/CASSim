@@ -64,7 +64,7 @@ device it makes a variable distinct from a typed `a_1`, and CASSim's parser has 
 - Calculus > D Differential Equation Solver… is a dialog: Equation, Independent Var, Dependent Var, two
   optional Conditions; it pastes and runs `deSolve(eq and cond1 and cond2,x,y)`.
 - Finance Solver: changing PpY changes CpY (`Wizard.copies`). The device also stores `tvm.n`, `tvm.i`,
-  … after a calculation; CASSim does not yet.
+  … after a calculation; CASSim now does too (display fixes branch).
 - Doc > Insert continues B Program Editor ▶ (New…, Open…, Import…, View…) and C Add Python ▶ (New…,
   Open…, Shell); Functions & Programs > Mode's eight submenus are listed (Display Digits: Float, Float1 to
   Float12, Fix0 to Fix12). All greyed.
@@ -77,3 +77,18 @@ device it makes a variable distinct from a typed `a_1`, and CASSim's parser has 
   gives `y=c1·sin(x)+cos(x)`): the derivative condition is not applied.
 - The LaTeX of a symbolic piecewise result is SymPy's ("for x < 0 / otherwise"); the device echoes the
   pieces with their conditions.
+
+## Display fixes (2026-11-09)
+
+- History and result LaTeX: `ans`, `and`, `or`, `xor` and `not` are upright bold (they are names, not
+  variables), and a space is kept (`\ `) so `and` no longer runs into its equations. `@e` and `@i` are drawn
+  as bold upright **e** and **i** in the entry and history; results draw ⅇ and ⅈ the same way. Bold was
+  chosen because KaTeX has no glyph for U+2147/U+2148.
+- Conditions in results read `x=1 and y=0 or ...` as on the handheld. Document Settings has a new
+  "Join conditions with" choice (`logic`: `words` default, or `symbols` for ∧ ∨).
+- `solve` and `cSolve` take the unknowns as `x,y` as well as `{x,y}`; a repeated unknown is "Too many arguments".
+- The Finance Solver stores `tvm.n`, `tvm.i`, `tvm.pv`, `tvm.pmt`, `tvm.fv`, `tvm.ppy`, `tvm.cpy`, `tvm.pmtat`
+  after each calculation (names from the simulator capture). Whole values are stored as integers, the rest as
+  decimals (the device keeps decimals, `tvm.pmt = 0.`).
+- Screen: 6 px above the first line; the blank space under the entry is 56 px (a quarter of the screen), so
+  the list scrolls once about three quarters of it is used.

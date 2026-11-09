@@ -11,12 +11,15 @@ from cassim.core.valueops import list_of, raw_list, raw_of
 from cassim.core.values import Bool, Expr, ListValue, Raw, Value
 
 
-def _unknowns(host: Host, node: ast.Expr) -> list[str]:
-    """The variable or `{x,y}` list named in the second argument, as it was typed."""
-    nodes = node.items if isinstance(node, ast.ListLit) else (node,)
+def _unknowns(host: Host, node: ast.Expr, *more: ast.Expr) -> list[str]:
+    """The variable, `{x,y}` list or `x, y` named after the equation, as it was typed."""
+    nodes = node.items if isinstance(node, ast.ListLit) else (node, *more)
     if not nodes or not all(isinstance(n, ast.Name) for n in nodes):
         raise TIError(errors.SYNTAX)
-    return [variable_key(host.settings, n.text) for n in nodes if isinstance(n, ast.Name)]
+    names = [variable_key(host.settings, n.text) for n in nodes if isinstance(n, ast.Name)]
+    if len(set(names)) != len(names):
+        raise TIError(errors.TOO_MANY_ARGUMENTS)
+    return names
 
 
 def _radian_converter(host: Host) -> Callable[[Raw], Raw] | None:
@@ -46,8 +49,8 @@ def _answer(condition: Raw) -> Value:
 
 
 def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Value:
-    equation_node, unknown_node = args
-    names = _unknowns(host, unknown_node)
+    equation_node, *unknown_nodes = args
+    names = _unknowns(host, *unknown_nodes)
     equations = _equations(host, equation_node, names)
     symbols = [cas.symbol(name) for name in names]
     if len(symbols) > 1:  # `solve(eq1 and eq2, {x,y})` is the same system as `{eq1, eq2}`
@@ -67,12 +70,12 @@ def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
     return _answer(condition)
 
 
-@lazy("solve", 2, cas=True)
+@lazy("solve", 2, None, cas=True)
 def solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _solve(host, args, complex_roots=False)
 
 
-@lazy("cSolve", 2, cas=True)
+@lazy("cSolve", 2, None, cas=True)
 def c_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _solve(host, args, complex_roots=True)
 

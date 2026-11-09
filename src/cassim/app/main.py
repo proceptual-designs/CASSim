@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,6 @@ import flet as ft
 from cassim.app import about
 from cassim.app.layout import (
     GAP,
-    INSTALL_ROW,
     NARROW,
     SCREEN_H,
     SCREEN_W,
@@ -75,6 +75,41 @@ def connect_clipboard(page: ft.Page, state: AppState) -> ft.Clipboard:
 
     state.clipboard_out = copy_out
     return clipboard
+
+
+@dataclass(frozen=True)
+class BrowserOffers:
+    """What the page reports the browser can do."""
+
+    installable: bool = False
+    can_fullscreen: bool = False
+    standalone: bool = False  # already installed, or fullscreen
+    in_fullscreen: bool = False
+
+
+def browser_doc_items(
+    *, handheld: bool, phone: bool, offers: BrowserOffers
+) -> tuple[MenuItem, ...]:
+    """The Doc menu's last three items, always in this order so the keys never move (muscle
+    memory): the view switch, Fullscreen and Install. One the browser or device cannot do is
+    greyed, and Fullscreen reads Exit Fullscreen while the page is fullscreen."""
+    return (
+        MenuItem(
+            f"{'Computer' if handheld else 'Handheld'} view",
+            "dialog",
+            "switch_view",
+            hint="CASSim",
+            enabled=not phone,
+        ),
+        MenuItem(
+            "Exit Fullscreen" if offers.in_fullscreen else "Fullscreen",
+            "dialog",
+            "fullscreen",
+            hint="CASSim",
+            enabled=offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone),
+        ),
+        MenuItem("Install CASSim", "dialog", "install", hint="CASSim", enabled=offers.installable),
+    )
 
 
 class App:
@@ -194,6 +229,7 @@ class App:
             self.sidebar.refresh()
         self.toolbar.controls = [*self.toolbar_controls(), self.status]
         self.page.update()
+        self.view.follow_selection()
         self.kick()
 
     # ---- the engine -------------------------------------------------------------------------
@@ -327,8 +363,12 @@ class App:
             self.bridge.install()
 
     def go_fullscreen(self) -> None:
+        """Doc > Fullscreen, which reads Exit Fullscreen while the page is fullscreen."""
         if self.bridge is not None:
-            self.bridge.fullscreen()
+            if self.bridge.in_fullscreen:
+                self.bridge.exit_fullscreen()
+            else:
+                self.bridge.fullscreen()
 
     def on_bridge(self) -> None:
         """The page reported what the browser offers: the Install row may appear or go."""
@@ -336,18 +376,18 @@ class App:
         self.refresh()
 
     def doc_extras(self) -> tuple[MenuItem, ...]:
-        """Doc menu items for this browser: the view switch (Handheld has no toolbar), Fullscreen
-        (not when already installed or fullscreen) and Install (while the browser offers it)."""
-        items: list[MenuItem] = []
-        if not self.phone:
-            other = "Computer" if self.state.mode is Mode.HANDHELD else "Handheld"
-            items.append(MenuItem(f"{other} view", "dialog", "switch_view", hint="CASSim"))
+        """The Doc menu's last three items (see `browser_doc_items`)."""
         bridge = self.bridge
-        if bridge is not None and bridge.can_fullscreen and not bridge.standalone:
-            items.append(MenuItem("Fullscreen", "dialog", "fullscreen", hint="CASSim"))
-        if self.installable:
-            items.append(MenuItem("Install CASSim", "dialog", "install", hint="CASSim"))
-        return tuple(items)
+        return browser_doc_items(
+            handheld=self.state.mode is Mode.HANDHELD,
+            phone=self.phone,
+            offers=BrowserOffers(
+                self.installable,
+                bridge is not None and bridge.can_fullscreen,
+                bridge is not None and bridge.standalone,
+                bridge is not None and bridge.in_fullscreen,
+            ),
+        )
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -505,14 +545,16 @@ class App:
         if self.phone:
             state.mode = Mode.HANDHELD  # Computer mode is not usable on a phone
         offer = self.installable and state.mode is Mode.HANDHELD
-        self.keypad.install = self.install if offer else None  # an Install row above the keys
+        self.keypad.install = (
+            self.install if offer else None
+        )  # Install takes the empty top-right cell
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             plan = handheld_plan(
                 self.page.width,
                 self.page.height,
                 keypad_units(state.keypad)[0],
-                keypad_units(state.keypad)[1] + (INSTALL_ROW if offer else 0),
+                keypad_units(state.keypad)[1],
                 Sizing(
                     None if self.phone else share,
                     system.zoom,

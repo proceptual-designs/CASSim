@@ -7,6 +7,7 @@ Behaviour follows the emulator runs in `docs/testing/` (decision 0017).
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -22,6 +23,16 @@ if TYPE_CHECKING:
     from cassim.device.keys import Binding
 
 type Row = Literal["entry", "result"]
+
+_ANS = re.compile(r"(?<![\w.])ans(?!\w)", re.IGNORECASE)
+# Keys that move or select inside the picked history row while one is picked
+_RECALL_MOVES = frozenset(
+    {
+        "left", "right", "tab", "shift_tab", "home", "end", "select_left", "select_right",
+        "select_all", "select_word_left", "select_word_right", "select_to_start",
+        "select_to_end", "word_left", "word_right",
+    }
+)  # fmt: skip
 
 _OPERAND_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_πⅇⅈ")
 
@@ -66,6 +77,7 @@ class Calculator:
         self.history: list[Entry] = []
         self.error: str | None = None  # a dialog waiting for a key press
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
+        self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
         self._group: str | None = None  # the kind of edit in progress, for undo grouping
@@ -106,9 +118,7 @@ class Calculator:
             "word_left": self.editor.word_left,
             "word_right": self.editor.word_right,
         }
-        actions: dict[str, Callable[[str], None]] = {
-            name: self._mover(method) for name, method in move.items()
-        }
+        actions: dict[str, Callable[[str], None]] = {name: self._recall_move(name) for name in move}
         actions.update(
             insert=self._insert,
             insert_linear=lambda text: self._edit(
@@ -133,6 +143,8 @@ class Calculator:
             select_cells=self._select_cells,
             place=lambda arg: self._place(arg, extend=False),
             extend=lambda arg: self._place(arg, extend=True),
+            recall_place=lambda arg: self._recall_place(arg, extend=False),
+            recall_extend=lambda arg: self._recall_place(arg, extend=True),
         )
         return actions
 
@@ -143,6 +155,47 @@ class Calculator:
             method()
 
         return move
+
+    @property
+    def recall_editor(self) -> Editor | None:
+        """The picked history row as an editor, or None when no row is picked."""
+        return self._recalled if self.recall is not None else None
+
+    def _pick(self, picked: tuple[int, Row] | None) -> None:
+        """Pick a history row (or none). The row opens as an editor, cursor at its end, so the
+        keys and clicks can move inside it and select part of it."""
+        self.recall = picked
+        if picked is None:
+            return
+        entry = self.history[picked[0]]
+        if picked[1] == "entry" and entry.nodes:
+            self._recalled = Editor()
+            self._recalled.root = copy.deepcopy(list(entry.nodes))
+            self._recalled.pos = len(self._recalled.root)
+        else:
+            self._recalled = Editor(entry.text if picked[1] == "entry" else entry.result.text)
+
+    def _recall_move(self, name: str) -> Callable[[str], None]:
+        """A movement key: inside the picked row while one is picked, else in the entry line."""
+        entry_move = self._mover(getattr(self.editor, name))
+
+        def move(arg: str) -> None:
+            if self.recall is None or name not in _RECALL_MOVES:
+                entry_move(arg)
+            else:
+                getattr(self._recalled, name)()
+
+        return move
+
+    def _recall_place(self, target: str, *, extend: bool) -> None:
+        """A click in the picked row: put the cursor there, or extend the selection."""
+        if self.recall is None:
+            return
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._recalled.place(path, pos, extend=extend)
 
     # ---- editing, with undo groups ----------------------------------------------------------
 
@@ -233,7 +286,7 @@ class Calculator:
         ]
         at = rows.index(self.recall) if self.recall in rows else len(rows)
         at = max(at - 1, 0) if up else at + 1
-        self.recall = rows[at] if at < len(rows) else None
+        self._pick(rows[at] if at < len(rows) else None)
 
     def _select_cells(self, spec: str) -> None:
         """`row:-1`, `row:1`, `col:-1` or `col:1`: select (then grow) a matrix's rows or columns."""
@@ -258,19 +311,27 @@ class Calculator:
         if self.recall == picked:
             self._enter(approximate=False)
         else:
-            self.recall = picked
+            self._pick(picked)
 
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:
-            index, row = self.recall
-            entry = self.history[index]
+            # What is selected in the picked row comes down to the entry line, else the whole row;
+            # fractions and powers stay templates
+            picked = self._recalled
+            nodes = picked.selection() or copy.deepcopy(picked.root)
             self.recall = None
-            if row == "entry" and entry.nodes:  # keep fractions and powers as templates
-                self.editor.paste(list(entry.nodes))
-            else:
-                self.editor.insert_text(entry.text if row == "entry" else entry.result.text)
+            self.editor.paste(nodes)
             return
         text = self.editor.linear()
+        if not text and self.history and _ANS.search(self.history[-1].text):
+            # Enter on an empty line repeats the last entry if it uses Ans, now with the new Ans
+            # (Newton's method: `ans-f(ans)/f'(ans)`, Enter, Enter, ...)
+            last = self.history[-1]
+            if last.nodes:
+                self.editor.paste(list(last.nodes))
+            else:
+                self.editor.insert_text(last.text)
+            text = self.editor.linear()
         if not text:
             return
         if getattr(self.session, "deferred", False):

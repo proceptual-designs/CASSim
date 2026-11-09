@@ -16,7 +16,6 @@ MARGIN = 12  # px kept clear round the scaled calculator
 GAP = 12  # px between the screen and the keypad
 SCREEN_W, SCREEN_H = 320, 240  # the handheld's pixels
 KEY_W, KEY_H, KEY_GAP = 60, 40, 4  # one key unit; the keypad is 5 units across
-INSTALL_ROW = 0.7  # height of the Install button above the keys, in key heights
 MIN_SCALE, MAX_SCALE = 0.4, 2.5
 BAR_H = 44  # the toolbar row above the calculator
 

@@ -3,6 +3,7 @@
 
 import pytest
 
+from cassim.app.main import BrowserOffers, browser_doc_items
 from cassim.app.state import AppState, Mode
 from cassim.core.catalog import registry
 from cassim.device.calculator import Calculator
@@ -456,3 +457,23 @@ def test_doc_menu_gets_the_browser_items() -> None:
         state.key_event("Arrow Down")
     state.key_event("Enter")
     assert asked == ["fullscreen"]
+
+
+def test_doc_menu_browser_items_never_move() -> None:
+    """The last three Doc items keep their places whatever the browser offers (muscle memory);
+    one that is not available is greyed and Fullscreen turns into Exit Fullscreen."""
+
+    def items(**offers: bool) -> list[tuple[str, bool]]:
+        view = {"handheld": offers.pop("handheld", True), "phone": offers.pop("phone", False)}
+        given = BrowserOffers(**{"can_fullscreen": True, **offers})
+        return [(i.label, i.enabled) for i in browser_doc_items(**view, offers=given)]
+
+    assert items() == [("Computer view", True), ("Fullscreen", True), ("Install CASSim", False)]
+    assert items(in_fullscreen=True, standalone=True)[1] == ("Exit Fullscreen", True)
+    assert items(standalone=True)[1] == ("Fullscreen", False)
+    assert items(phone=True, installable=True) == [
+        ("Computer view", False),
+        ("Fullscreen", True),
+        ("Install CASSim", True),
+    ]
+    assert items(handheld=False)[0] == ("Handheld view", True)

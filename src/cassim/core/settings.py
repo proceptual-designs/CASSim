@@ -49,6 +49,13 @@ class Ascii(StrEnum):
     ON = "on"
 
 
+class Logic(StrEnum):
+    """How a result joins conditions: the words `and`, `or` (as the handheld) or `∧`, `∨`."""
+
+    WORDS = "words"
+    SYMBOLS = "symbols"
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Document settings. `digits` is `floatN` or `fixN`, as in the corpus."""
@@ -62,6 +69,7 @@ class Settings:
     case: Case = Case.INSENSITIVE
     pretty: Pretty = Pretty.OFF
     ascii: Ascii = Ascii.OFF
+    logic: Logic = Logic.WORDS
 
 
 PRESETS = {
@@ -99,6 +107,7 @@ def updated(settings: Settings, changes: dict[str, str]) -> Settings:
         case=Case(changes.get("case", settings.case)),
         pretty=Pretty(changes.get("pretty", settings.pretty)),
         ascii=Ascii(changes.get("ascii", settings.ascii)),
+        logic=Logic(changes.get("logic", settings.logic)),
     )
 
 

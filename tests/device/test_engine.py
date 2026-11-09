@@ -109,6 +109,19 @@ def test_settings_changes_reach_the_engine_on_sync() -> None:
     assert last(document) == "0.333"
 
 
+def test_numbers_stored_by_a_dialog_reach_the_engine() -> None:
+    """The Finance Solver's `tvm.` variables are set in the engine, not only in the UI."""
+    runner, document = make()
+    session = document.problems[0].session
+    session.store_numbers({"tvm.n": 12.0, "tvm.pmt": -860.5})
+
+    async def go() -> None:
+        await enter(runner, document, "tvm.n")
+
+    asyncio.run(go())
+    assert last(document) == "12"
+
+
 def test_each_problem_has_its_own_variables() -> None:
     runner, document = make()
 

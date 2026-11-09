@@ -39,6 +39,10 @@ def eval_op(line: str, *, approximate: bool) -> Op:
     return {"op": "eval", "line": line, "approximate": approximate}
 
 
+def store_op(numbers: dict[str, float]) -> Op:
+    return {"op": "store", "numbers": numbers}
+
+
 class EngineError(RuntimeError):
     """The engine could not run an op (a crashed worker); not a TI error, which is in the result."""
 
@@ -59,6 +63,8 @@ class EngineCore:
                     session.new_problem()
                 case "settings":
                     session.settings = updated(session.settings, op["values"])
+                case "store":
+                    session.store_numbers(op["numbers"])
                 case "eval":
                     done = session.eval(op["line"], approximate=bool(op["approximate"]))
                     result = {"text": done.text, "latex": done.latex, "error": done.error}
@@ -142,6 +148,9 @@ class RemoteSession:
 
     def new_problem(self) -> None:
         self.outbox.append({"op": "new_problem"})
+
+    def store_numbers(self, numbers: dict[str, float]) -> None:
+        self.outbox.append(store_op(numbers))
 
     def eval(self, line: str, *, approximate: bool = False) -> Result:
         msg = "a RemoteSession evaluates through the app's Runner, not synchronously"

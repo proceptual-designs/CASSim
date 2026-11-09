@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from enum import StrEnum
+from typing import Any, cast
 
 import flet as ft
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
-from cassim.app.layout import INSTALL_ROW, KEY_GAP, KEY_H, key_span
+from cassim.app.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
 from cassim.core.format import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
-from cassim.device.keys import Key, keypad_units
+from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.screen import Line, Screen, thumbnail
 from cassim.device.wizard import Field, Wizard
@@ -48,11 +49,23 @@ def _span(run: str) -> ft.TextSpan:
     return ft.TextSpan(run, style=style)
 
 
-ENTRY_ROOM = 28  # the blank line kept below the entry
+SELECTED_KEY = "picked-line"
+
+
+def _scroll_key() -> ft.ScrollKey:
+    """The key `scroll_to` finds the picked line by (Flet's stubs hide ScrollKey's argument)."""
+    return cast("Any", ft.ScrollKey)(value=SELECTED_KEY)
+
+
+ENTRY_ROOM = 56  # blank space kept below the entry: the list scrolls once 3/4 of the screen is used
 MENU_W, MENU_W_WIDE = 200, 400  # a menu panel, in Handheld and in Computer mode
 GRID_CELL = 26  # a grid menu's cell (11 fit the handheld's 320 px)
 SHORT_CELL = 2  # characters that fit a grid cell at full size
-MENU_ROWS, MENU_ROWS_WIDE = 10, 16  # rows shown at once; the rest follow the highlight
+MENU_ROWS_WIDE = 16  # rows of a menu shown at once in Computer mode; the rest follow the highlight
+# Handheld menus must fit the 240 px screen, so their rows are counted from what is left of it
+# (all in handheld pixels): the title bar, a panel's padding, header, hint line and ▲ ▼ rows.
+TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 19.5
+MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -84,12 +97,19 @@ class CalculatorView:
         self.theme = theme
         self.on_action = on_action
         self.shift = shift
+        self._follow = False
         self.status = ft.Row(spacing=8, tight=True)
         self.title = ft.Text(size=12, color="#ffffff")
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
-        self.history = ft.ListView(
-            expand=True, auto_scroll=True, auto_scroll_animation=ft.Animation(duration=0), spacing=2
+        # A Column, not a ListView: it builds every line, so `scroll_to` can find a line by key
+        # (Up selects a line to recall, and the view follows it).
+        self.history = ft.Column(
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+            auto_scroll=True,
+            auto_scroll_animation=ft.Animation(duration=0),
+            spacing=2,
         )
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
@@ -117,13 +137,27 @@ class CalculatorView:
         ]
         self.title.size = size
         self.entry.content = self._entry(screen)
+        pairs = [
+            self._pair(screen.lines[number], screen.lines[number + 1], number)
+            for number in range(0, len(screen.lines) - 1, 2)
+        ]
+        picked = next((n for n, line in enumerate(screen.lines) if line.selected), None)
         self.history.controls = [
-            *(self._line(line, number) for number, line in enumerate(screen.lines)),
+            ft.Container(height=self.state.px(6)),  # the first line is not cut off by the title bar
+            *pairs,
             self.entry,
             ft.Container(height=self.state.px(ENTRY_ROOM)),
         ]
+        # While a line is picked the view follows it; otherwise it stays at the entry line
+        self.history.auto_scroll = picked is None
+        self._follow = picked is not None
         self._error(screen)
         self._menu(screen.menu)
+
+    def follow_selection(self) -> None:
+        """Scroll the history to the picked line. Called after the page has been updated."""
+        if self._follow and self.history.page is not None:
+            self.history.page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -158,15 +192,64 @@ class CalculatorView:
         """A long press: the touch screen's shift+click."""
         self.on_action("extend", format_target(path, pos))
 
-    def _line(self, line: Line, number: int) -> ft.Control:
+    def _recall_click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A click in the picked row: the cursor goes there (shift extends the selection)."""
+        extend = self.shift() or self.state.pending == "shift"
+        if extend:
+            self.state.clear_pending()
+        self.on_action("recall_extend" if extend else "recall_place", format_target(path, pos))
+
+    def _recall_hold(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        self.on_action("recall_extend", format_target(path, pos))
+
+    def _fits(self, entry: Line, result: Line) -> bool:
+        """Whether an entry and its result are short enough to share a line. LaTeX cannot be
+        measured here, so this counts characters (fractions, powers and roots weigh double)
+        against the screen width, with room to spare."""
+
+        def width(text: str) -> int:
+            return len(text) + sum(text.count(char) for char in "/^√[")
+
+        room = self.state.px(300) / (0.62 * self.state.math_size)
+        return width(entry.text) + width(result.text) + 3 <= room
+
+    def _pair(self, entry: Line, result: Line, number: int) -> ft.Control:
+        """An entry and its result with a thin rule under them: one line if both are short."""
+        first = self._line(entry, number)
+        second = self._line(result, number + 1)
+        if not (entry.selected or result.selected) and self._fits(entry, result):
+            second.expand = True  # takes the rest of the line, result at the right edge
+            body: ft.Control = ft.Row([first, second], spacing=0)
+        else:
+            body = ft.Column([first, second], spacing=0)
+        rule = ft.BorderSide(1, "#40" + self.theme.screen_text[1:])
+        return ft.Container(
+            body, border=ft.Border(bottom=rule), padding=ft.Padding.only(bottom=self.state.px(2))
+        )
+
+    def _line(self, line: Line, number: int) -> ft.Container:
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
+        calculator = self.state.document.current.calculator
+        recalled = calculator.recall_editor if calculator is not None and line.selected else None
+        if calculator is not None and recalled is not None:
+            # the picked row is an editor: click in it, move and select with the keys
+            content: ft.Control = EntryLine(
+                self.theme,
+                self.state.math_size,
+                self._recall_click,
+                calculator.session.is_function,
+                self._recall_hold,
+            ).build(recalled)
+        else:
+            content = math(line.latex, self.theme, self.state.math_size)
         return ft.Container(
-            math(line.latex, self.theme, self.state.math_size),
-            on_click=lambda _: self.on_action("recall_at", spec),
+            content,
+            on_click=None if recalled is not None else lambda _: self.on_action("recall_at", spec),
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             bgcolor=self.theme.selection if line.selected else None,
-            padding=ft.Padding.symmetric(horizontal=6),
+            padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
+            key=_scroll_key() if line.selected else None,
         )
 
     def _menu(self, view: MenuView | None) -> None:
@@ -180,7 +263,9 @@ class CalculatorView:
         wide = self.state.mode is Mode.COMPUTER
         px = self.state.px
         # Submenus overlap their parent by half (Computer) or nearly all of it (Handheld).
-        step_x, step_y = (px(MENU_W_WIDE) / 2, px(10)) if wide else (px(22), px(10))
+        step_x, step_y = (
+            (px(MENU_W_WIDE) / 2, px(MENU_STEP_Y)) if wide else (px(22), px(MENU_STEP_Y))
+        )
         panels = [
             ft.Container(
                 self._panel(view, depth, panel, wide=wide),
@@ -203,21 +288,23 @@ class CalculatorView:
     def _panel(self, view: MenuView, depth: int, panel: Panel, *, wide: bool) -> ft.Control:
         theme, px = self.theme, self.state.px
         last = depth == len(view.panels) - 1
-        shown = MENU_ROWS_WIDE if wide else MENU_ROWS
         columns = panel.columns or 1
+        shown = (
+            MENU_ROWS_WIDE if wide else self._rows_that_fit(depth, panel, last=last, hint=view.hint)
+        )
         lines = -(-len(panel.rows) // columns)  # rows of the list or the grid
         chosen = selected_index(panel) // columns
         start = max(0, min(chosen - shown // 2, lines - shown))
         window = range(start, min(lines, start + shown))
         items: list[ft.Control] = [self._header(view, depth, panel)]
         if start:
-            items.append(self._more("▲ more", -shown * columns, active=last))
+            items.append(self._more("▲", -shown * columns, active=last))
         if panel.columns:
             items.extend(self._grid_line(depth, panel, line, active=last) for line in window)
         else:
             items.extend(self._menu_row(depth, panel, n, wide=wide, active=last) for n in window)
         if window.stop < lines:
-            items.append(self._more("▼ more", shown * columns, active=last))
+            items.append(self._more("▼", shown * columns, active=last))
         if last and view.hint and (not wide or panel.columns):
             items.append(
                 ft.Container(
@@ -226,7 +313,7 @@ class CalculatorView:
                     border=ft.Border.only(top=ft.BorderSide(1, theme.key_label)),
                 )
             )
-        return ft.Container(
+        box = ft.Container(
             ft.Column(items, spacing=0, tight=True),
             bgcolor=theme.title_bar,
             padding=px(4),
@@ -235,6 +322,23 @@ class CalculatorView:
             shadow=ft.BoxShadow(blur_radius=8, color="#80000000"),
             on_click=lambda _: None,  # a click between rows is not a click outside the menu
         )
+        if not last:
+            return box
+
+        def wheel(
+            event: ft.ScrollEvent,
+        ) -> None:  # the mouse wheel moves the highlight, which scrolls
+            self.on_action("menu_page", str((1 if event.scroll_delta.y > 0 else -1) * columns))
+
+        return ft.GestureDetector(box, on_scroll=wheel)
+
+    def _rows_that_fit(self, depth: int, panel: Panel, *, last: bool, hint: str) -> int:
+        """How many lines of a handheld panel fit on the screen under it, leaving room for its
+        header, the ▲ and ▼ rows and (on the deepest panel) the syntax hint."""
+        height = LIST_ROW_H if not panel.columns else GRID_CELL - 3
+        taken = TITLE_H + 4 + depth * MENU_STEP_Y + 4 + PANEL_PAD + HEADER_H + 2 * ARROW_H
+        taken += HINT_H if last and hint else 0
+        return max(3, int((SCREEN_H - taken) / height))
 
     def _header(self, view: MenuView, depth: int, panel: Panel) -> ft.Control:
         """The panel's title; on a submenu it is a back button (it closes this level)."""
@@ -251,9 +355,11 @@ class CalculatorView:
         )
 
     def _more(self, text: str, step: int, *, active: bool) -> ft.Control:
+        """The ▲ or ▼ that says there is more above or below; a click pages that way."""
         return ft.Container(
-            label_text(text, size=self.state.px(11), color=self.theme.key_label),
-            padding=ft.Padding.symmetric(horizontal=self.state.px(6)),
+            label_text(text, size=self.state.px(11), color=self.theme.accent),
+            alignment=ft.Alignment.CENTER,
+            height=self.state.px(ARROW_H),
             on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
         )
 
@@ -376,28 +482,30 @@ class Keypad:
         self._look = look
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
+        keypad = self.state.keypad
         rows: list[ft.Control] = []
-        if self.install is not None:
-            install = self.install
-            rows.append(
-                ft.Container(
-                    label_text(
-                        "Install CASSim", size=self.state.kpx(13), color=self.theme.key_text
-                    ),
-                    width=self.state.kpx(key_span(keypad_units(self.state.keypad)[0])),
-                    height=self.state.kpx(key_span(INSTALL_ROW, KEY_H)),
-                    alignment=ft.Alignment.CENTER,
-                    bgcolor=self.theme.accent,
-                    border_radius=self.state.kpx(7),
-                    ink=True,
-                    on_click=lambda _: install(),
-                )
-            )
-        rows.extend(
-            ft.Row([self._key(key) for key in row], spacing=gap, tight=True)
-            for row in self.state.keypad
-        )
+        for number, row in enumerate(keypad):
+            keys = [self._key(key) for key in row]
+            # Install takes the empty cell at the top right of the keypad, so it needs no row
+            if number == 0 and self.install is not None and not row[-1].name:
+                keys[-1] = self._install_key(row[-1])
+            rows.append(ft.Row(keys, spacing=gap, tight=True))
         self.control.controls = rows
+
+    def _install_key(self, cell: Key) -> ft.Control:
+        install = self.install
+        assert install is not None
+        return ft.Container(
+            label_text("Install", size=self.state.kpx(12), color="#ffffff"),
+            width=self.state.kpx(key_span(cell.width)),
+            height=self.state.kpx(key_span(cell.height, KEY_H)),
+            alignment=ft.Alignment.CENTER,
+            bgcolor=self.theme.accent,
+            border_radius=self.state.kpx(7),
+            ink=True,
+            tooltip="Install CASSim",
+            on_click=lambda _: install(),
+        )
 
     def _key(self, key: Key) -> ft.Control:
         state, theme = self.state, self.theme
@@ -572,6 +680,12 @@ def settings_dialog(
         dropdown("Display digits", "digits", [(d, d.title()) for d in digits], current.digits),
         dropdown("Letter case", "case", enum_options(Case), current.case),
         dropdown("Results as keyboard text", "ascii", enum_options(Ascii), current.ascii),
+        dropdown(
+            "Join conditions with",
+            "logic",
+            [("words", "and, or"), ("symbols", "∧, ∨")],
+            current.logic,
+        ),
     ]
 
     def apply() -> None:
@@ -842,12 +956,11 @@ def wizard_dialog(
         except ValueError as error:
             report(str(error))
             return
-        for key, value in found.items():
-            if key in boxes:
-                boxes[key].value = value
-            else:
-                extra[key] = value
+        extra.update({key: value for key, value in found.items() if key not in boxes})
+        for key in boxes.keys() & found.keys():
+            boxes[key].value = found[key]
         report("")
+        state.store_wizard(wizard, values())
         page.update()
 
     def ok() -> None:

@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.theme import Theme
-from cassim.device.editor import GRIDS, Editor, Kind, Row, Template, function_names
+from cassim.device.editor import GRIDS, Editor, Kind, Row, Template, at_constants, function_names
 
 _SMALL = 0.6  # limits, indices and bounds are set smaller, as in TeX
 
@@ -96,6 +96,7 @@ class EntryLine:
         on_cursor = editor.path == here
         low, high = editor.span if on_cursor else (0, 0)
         names = function_names(row, self.is_function)
+        constants = at_constants(row)
         parts: list[ft.Control] = []
         if not row:
             parts.append(self._cursor() if on_cursor else self._empty_slot())
@@ -106,7 +107,12 @@ class EntryLine:
             body = (
                 self._template(node, here, index)
                 if isinstance(node, Template)
-                else self._char(node, here, index, bold=index in names)
+                else self._char(
+                    constants.get(index, node),
+                    here,
+                    index,
+                    bold=index in names or bool(constants.get(index)),
+                )
             )
             parts.append(self._highlight(body) if chosen else body)
         if row and on_cursor and low == high and editor.pos == len(row):

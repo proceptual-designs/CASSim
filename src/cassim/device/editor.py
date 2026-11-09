@@ -877,8 +877,9 @@ _SYMBOLS = {
     "}": r"\}",
     "π": r"\pi ",
     "∞": r"\infty ",
-    "ⅇ": r"\mathrm{e}",
-    "ⅈ": r"\mathrm{i}",
+    "ⅇ": r"\mathbf{e}",  # bold upright, so the constants stand out from the variables e and i
+    "ⅈ": r"\mathbf{i}",
+    " ": r"\ ",  # TeX drops a plain space, which would run `and` into its equations
     "%": r"\%",
     "_": r"\_",
     "#": r"\#",
@@ -918,21 +919,54 @@ _LATEX: dict[Kind, Callable[[list[str], int], str]] = {
 }
 
 
+# Names that are never a plain variable: `ans`, and the words that join conditions.
+_WORDS = frozenset({"ans", "and", "or", "xor", "not"})
+# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, drawn upright.
+_SYSTEM_PREFIXES = ("tvm.", "stat.")
+
+
 def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
-    """Indices of letters that spell a defined function followed by `(`, such as `sin` in
-    `sin(x)` or a user's `f` in `f(x)`. A name nothing defines stays plain."""
+    """Indices of letters drawn upright and bold: a defined function followed by `(`, such as
+    `sin` in `sin(x)` or a user's `f` in `f(x)`, and the words `ans`, `and`, `or`, `xor` and
+    `not`. A name nothing defines stays plain."""
     marked: set[int] = set()
     run: list[int] = []
     for index, node in enumerate([*row, ""]):
         if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
             run.append(index)
             continue
-        if run and node == "(":
+        if run and isinstance(node, str) and node == "." and _dotted(row, run, index):
+            run.append(index)  # `tvm.` goes on into `tvm.pmt`
+            continue
+        if run:
             name = "".join(str(row[i]) for i in run)
-            if is_function(name):
+            system = name.casefold().startswith(_SYSTEM_PREFIXES) and not name.endswith(".")
+            if system or name.casefold() in _WORDS or (node == "(" and is_function(name)):
                 marked.update(run)
         run = []
     return marked
+
+
+def _dotted(row: Row, run: list[int], index: int) -> bool:
+    """Whether the `.` at `index` continues the name in `run` as a system name (`tvm.`)."""
+    word = "".join(str(row[i]) for i in run).casefold()
+    return f"{word}.".startswith(_SYSTEM_PREFIXES) and word in ("tvm", "stat")
+
+
+def at_constants(row: Row) -> dict[int, str]:
+    """TI's typed constants `@e` and `@i`: the index of the `@` (shown as nothing) and of the
+    letter (shown as bold ⅇ or ⅈ), so they read as the constants the palette's ⅇ and ⅈ give."""
+    shown: dict[int, str] = {}
+    for index in range(len(row) - 1):
+        letter = row[index + 1]
+        after = row[index + 2] if index + 2 < len(row) else ""
+        if (
+            row[index] == "@"
+            and letter in ("e", "i")
+            and not (isinstance(after, str) and after.isalnum())
+        ):
+            shown[index], shown[index + 1] = "", str(letter)
+    return shown
 
 
 type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
@@ -946,10 +980,14 @@ def _latex(
     at = place[1] if place is not None else -1
     low, high = place[2] if here_cursor and place is not None else (0, 0)
     names = function_names(row, is_function)
+    constants = at_constants(row)
     if not row:
         return _CURSOR if here_cursor else _EMPTY_SLOT
     pieces: list[str] = []
     for i, node in enumerate(row):
+        if i in constants:
+            pieces.append(rf"\mathbf{{{constants[i]}}}" if constants[i] else "")
+            continue
         if isinstance(node, str):
             pieces.append(rf"\mathbf{{{node}}}" if i in names else _SYMBOLS.get(node, node))
             continue

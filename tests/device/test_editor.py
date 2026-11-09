@@ -237,7 +237,29 @@ class TestLatex:
         assert keys("1F2").latex(cursor=False) == r"\frac{1}{2}"
 
     def test_symbols_are_typeset(self):
-        assert Editor("2π*ⅇ").latex(cursor=False) == r"2\pi \cdot \mathrm{e}"
+        assert Editor("2π*ⅇ").latex(cursor=False) == r"2\pi \cdot \mathbf{e}"
+
+    def test_ans_and_the_logic_words_are_bold_and_keep_their_spaces(self):
+        """`ans`, `and` and `or` are not variables, and TeX would drop the spaces round them."""
+        tex = Editor("ans x=1 and y=2 or z").latex(cursor=False)
+        assert r"\mathbf{a}\mathbf{n}\mathbf{s}\ x=1\ \mathbf{a}\mathbf{n}\mathbf{d}\ y=2" in tex
+        assert tex.endswith(r"\ \mathbf{o}\mathbf{r}\ z")
+        assert Editor("band").latex(cursor=False) == "band"  # only the whole word
+
+    def test_system_result_names_are_one_bold_name(self):
+        """`tvm.pmt` and `stat.sx` are the calculator's own variables, not letters and a dot."""
+        assert (
+            Editor("tvm.n").latex(cursor=False)
+            == r"\mathbf{t}\mathbf{v}\mathbf{m}\mathbf{.}\mathbf{n}"
+        )
+        assert Editor("x.n").latex(cursor=False) == "x.n"
+
+    def test_typed_constants_are_bold_upright(self):
+        """`@e` and `@i` show as the constants; `@exp` and a plain `e` do not."""
+        assert Editor("2@e").latex(cursor=False) == r"2\mathbf{e}"
+        assert Editor("@i").latex(cursor=False) == r"\mathbf{i}"
+        assert Editor("@ex").latex(cursor=False) == "@ex"
+        assert Editor("e").latex(cursor=False) == "e"
 
     def test_defined_function_names_are_bold(self):
         """Only names the engine knows (or the user defined) turn bold, and only before `(`."""

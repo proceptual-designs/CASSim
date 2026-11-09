@@ -212,6 +212,19 @@ def finance_calculate(v: Mapping[str, str], target: str) -> dict[str, str]:
     return {**v, target: _shown(answer)}
 
 
+def finance_store(v: Mapping[str, str]) -> dict[str, float]:
+    """What the Finance Solver leaves in `tvm.n`, `tvm.i`, `tvm.pv`, `tvm.pmt`, `tvm.fv`, `tvm.ppy`,
+    `tvm.cpy` and `tvm.pmtat` (the device's names). A box that is not a number is left out."""
+    stored: dict[str, float] = {}
+    for name in (*_TVM_ORDER, "ppy", "cpy"):
+        try:
+            stored[f"tvm.{name}"] = _number(v, name)
+        except ValueError:
+            continue
+    stored["tvm.pmtat"] = 1.0 if v.get("pmtat") == "1" else 0.0
+    return stored
+
+
 _REGRESSIONS = (
     ("Linear Regression (mx+b)", "LinRegMx", "3"),
     ("Linear Regression (a+bx)", "LinRegBx", "4"),
@@ -341,6 +354,7 @@ WIZARDS: dict[str, Wizard] = {
             Field("pmtat", "PmtAt", "0", choices=(("0", "END"), ("1", "BEGIN"))),
         ),
         calculate=finance_calculate,
+        store=finance_store,
         copies=(("ppy", "cpy"),),  # changing PpY changes CpY, as on the device
     ),
     **{
