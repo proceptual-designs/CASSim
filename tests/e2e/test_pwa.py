@@ -35,7 +35,13 @@ def test_manifest_and_icons(site: tuple[Path, str]) -> None:
     assert manifest["display"] == "standalone"
     assert {"192x192", "512x512"} <= {i["sizes"] for i in manifest["icons"]}
     assert all((dist / i["src"]).is_file() for i in manifest["icons"])
-    assert 'rel="manifest"' in (dist / "index.html").read_text(encoding="utf-8")
+    html = (dist / "index.html").read_text(encoding="utf-8")
+    assert html.count('rel="manifest"') == 1
+    assert 'href="manifest.webmanifest"' in html
+    assert manifest["name"] == "CASSim"
+    assert "<title>CASSim</title>" in html
+    assert 'apple-mobile-web-app-title" content="CASSim"' in html
+    assert not (dist / "manifest.json").exists()
 
 
 def test_loads_and_works_offline(browser: Browser, site: tuple[Path, str]) -> None:
