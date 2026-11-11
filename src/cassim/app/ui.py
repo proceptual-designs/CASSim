@@ -7,13 +7,17 @@ from enum import StrEnum
 from typing import Any, cast
 
 import flet as ft
+import flet.canvas as cv
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
 from cassim.app.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
+from cassim.app.template_icons import HEIGHT as ICON_H
+from cassim.app.template_icons import ICONS, Icon, Slot, Stroke
+from cassim.app.template_icons import WIDTH as ICON_W
 from cassim.app.theme import DARK, Theme
-from cassim.core.format import latex_for_markdown
+from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
 from cassim.device.keys import Key
@@ -47,6 +51,42 @@ def label_text(text: str, **style: object) -> ft.Text:
 def _span(run: str) -> ft.TextSpan:
     style = ft.TextStyle(font_family=SYMBOL_FONT) if run[0] in SYMBOLS else None
     return ft.TextSpan(run, style=style)
+
+
+def icon_canvas(icon: Icon, scale: float, colour: str) -> cv.Canvas:
+    """A template icon drawn at `scale` screen pixels per handheld pixel. Slots are thinner than
+    the strokes, so the fixed parts of a template stand out from the places to type in."""
+
+    def paint(width: float) -> ft.Paint:
+        return ft.Paint(
+            color=colour,
+            stroke_width=width * scale,
+            style=ft.PaintingStyle.STROKE,
+            stroke_cap=ft.StrokeCap.ROUND,
+            stroke_join=ft.StrokeJoin.ROUND,
+        )
+
+    shapes: list[cv.Shape] = []
+    for shape in icon:
+        if isinstance(shape, Stroke):
+            (x, y), *rest = shape.points
+            elements: list[cv.Path.PathElement] = [cv.Path.MoveTo(x * scale, y * scale)]
+            elements.extend(cv.Path.LineTo(x * scale, y * scale) for x, y in rest)
+            shapes.append(cv.Path(elements, paint=paint(1.1)))
+        elif isinstance(shape, Slot):
+            side = shape.side * scale
+            shapes.append(cv.Rect(shape.x * scale, shape.y * scale, side, side, paint=paint(0.6)))
+        else:
+            shapes.append(
+                cv.Text(
+                    shape.x * scale,
+                    shape.y * scale,
+                    shape.text,
+                    style=ft.TextStyle(size=shape.size * scale, color=colour, italic=shape.italic),
+                    alignment=ft.Alignment.CENTER,
+                )
+            )
+    return cv.Canvas(shapes, width=ICON_W * scale, height=ICON_H * scale)
 
 
 SELECTED_KEY = "picked-line"
@@ -372,8 +412,11 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         on = row.selected
         colour = theme.menu_disabled if not row.enabled else "#ffffff" if on else theme.key_text
+        icon = ICONS.get(row.icon)
         return ft.Container(
-            label_text(
+            icon_canvas(icon, self.state.scale, colour)
+            if icon
+            else label_text(
                 row.label, size=px(12 if len(row.label) <= SHORT_CELL else 10), color=colour
             ),
             width=px(GRID_CELL),

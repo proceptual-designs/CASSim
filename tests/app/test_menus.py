@@ -5,6 +5,8 @@ import pytest
 
 from cassim.app.main import BrowserOffers, browser_doc_items
 from cassim.app.state import AppState, Mode
+from cassim.app.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
+from cassim.app.ui import icon_canvas
 from cassim.core.catalog import registry
 from cassim.device.calculator import Calculator
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
@@ -477,3 +479,29 @@ def test_doc_menu_browser_items_never_move() -> None:
         ("Install CASSim", True),
     ]
     assert items(handheld=False)[0] == ("Handheld view", True)
+
+
+def test_template_cells_are_drawn_as_pictures() -> None:
+    """FR-CALC-005: every cell of the templates palette has a picture of its template, drawn
+    inside the cell, and the menu rows carry it to the view."""
+    state = AppState(mode=Mode.HANDHELD)
+    state.press_keypad("templates")
+    rows = _menu(state).rows
+    assert [row.icon for row in rows] == list(ICONS)  # one each, in the palette's order
+    for name, icon in ICONS.items():
+        for shape in icon:
+            if isinstance(shape, Stroke):
+                xs, ys = zip(*shape.points, strict=True)
+            elif isinstance(shape, Slot):
+                xs, ys = (shape.x, shape.x + shape.side), (shape.y, shape.y + shape.side)
+            else:
+                xs, ys = (shape.x,), (shape.y,)
+            assert 0 <= min(xs) <= max(xs) <= WIDTH, name
+            assert 0 <= min(ys) <= max(ys) <= HEIGHT, name
+        assert len(icon_canvas(icon, 2.0, "#ffffff").shapes) == len(icon)
+
+
+def test_other_grid_cells_keep_their_labels() -> None:
+    state = AppState(mode=Mode.HANDHELD)
+    state.press_keypad("trig")
+    assert not any(row.icon for row in _menu(state).rows)

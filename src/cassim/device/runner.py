@@ -12,7 +12,7 @@ import asyncio
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from cassim.core.session import Result
+from cassim.core.results import Result
 from cassim.core.settings import Settings
 from cassim.device.engine import Engine, EngineError, RemoteSession, Reply, eval_op
 from cassim.device.serialize import parse, replay_steps

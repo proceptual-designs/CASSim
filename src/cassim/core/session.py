@@ -1,6 +1,6 @@
 """The engine's public API: one calculator session, as specified in docs/testing/TESTING.md."""
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 from cassim.core import ast, catalog, errors
 from cassim.core.compat import sympy_adapter as cas
@@ -8,6 +8,7 @@ from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_ascii, to_latex, to_text
 from cassim.core.parser import parse
+from cassim.core.results import Result, VariableInfo
 from cassim.core.scope import Function, Scope
 from cassim.core.settings import Ascii, Calc, Case, Logic, Settings, updated, variable_key
 from cassim.core.valueops import map_value, raw_of
@@ -23,24 +24,7 @@ from cassim.core.values import (
     Void,
 )
 
-
-@dataclass(frozen=True, slots=True)
-class Result:
-    text: str
-    latex: str
-    value: Value | None
-    error: str | None
-    full: str = ""  # the text at 14 digits: what `Ans` stands for in a history line
-
-
-@dataclass(frozen=True, slots=True)
-class VariableInfo:
-    """One row of the variable list."""
-
-    name: str
-    text: str  # the value as linear text, or `f(x)` for a function
-    latex: str
-    is_function: bool
+__all__ = ["Result", "Session", "VariableInfo"]  # the two rows are defined in `results`
 
 
 class Session:

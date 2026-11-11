@@ -6,17 +6,20 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from cassim.app.keyboard import key_name
-from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.document import Document, PageKind
-from cassim.device.engine import RemoteSession
+from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.screen import Screen, render
 from cassim.device.wizard import Wizard
 from cassim.profiles import Profile, nspire
+
+if TYPE_CHECKING:
+    from cassim.core.session import Session
 
 _MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
 
@@ -74,7 +77,7 @@ class AppState:
         *,
         mode: Mode = Mode.COMPUTER,
         profile: Profile = nspire.PROFILE,
-        sessions: Callable[[Settings], Session | RemoteSession] = Session,
+        sessions: Callable[[Settings], Session | RemoteSession] = local_session,
     ) -> None:
         self.sessions = sessions  # RemoteSessions when the maths runs in another worker
         self.document = document if document is not None else Document(sessions=sessions)

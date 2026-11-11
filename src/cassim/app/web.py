@@ -26,11 +26,12 @@ self.onmessage = async (e) => {
   const m = e.data;
   try {
     if (m.op === "boot") {
+      // cassim.zip holds the engine and SymPy as bytecode (tools/publish.py), so nothing is
+      // installed here; it downloads while Pyodide starts.
+      const zip = fetch(m.zipUrl).then((r) => r.arrayBuffer());
       const mod = await import(m.pyodideUrl);
       py = await mod.loadPyodide();
-      await py.loadPackage(["sympy", "pyyaml"]);
-      const buf = await (await fetch(m.zipUrl)).arrayBuffer();
-      py.unpackArchive(buf, "zip", {extractDir: "/cassim_lib"});
+      py.unpackArchive(await zip, "zip", {extractDir: "/cassim_lib"});
       py.runPython(`
 import sys, json
 sys.path.insert(0, "/cassim_lib")
@@ -52,6 +53,12 @@ def handle(message):
   }
 };
 """
+
+
+# At start-up the spare waits this long after the active engine is ready, so it does not compete
+# with replaying the autosaved document and the first keys on a phone. After a Cancel there is no
+# wait: the user may cancel again.
+SPARE_DELAY = 3.0
 
 
 def _absolute(path: str) -> str:
@@ -100,6 +107,7 @@ class _Worker:
             pyodideUrl=_absolute(str(js.pyodideUrl)),
             zipUrl=_absolute("cassim.zip"),
         )
+        print("CASSIM: ENGINE READY", flush=True)  # read by tools/loadtime.py
 
     async def send(self, message: dict[str, Any]) -> dict[str, Any]:
         await self.ready
@@ -122,13 +130,14 @@ class WorkerEngine:
         self._active = _Worker()
         self._spare: _Worker | None = None
         self._spare_task: asyncio.Future[None]  # kept so the task is not collected
-        self._spare_task = asyncio.ensure_future(self._start_spare())
+        self._spare_task = asyncio.ensure_future(self._start_spare(SPARE_DELAY))
 
-    async def _start_spare(self) -> None:
-        """Boot the spare after the active engine, so the first calculator is not slowed."""
+    async def _start_spare(self, delay: float = 0.0) -> None:
+        """Boot the spare once the active engine is ready and `delay` seconds have passed."""
         active = self._active
         try:
             await active.ready
+            await asyncio.sleep(delay)
         except asyncio.CancelledError, EngineError:
             return
         if self._active is active and self._spare is None:

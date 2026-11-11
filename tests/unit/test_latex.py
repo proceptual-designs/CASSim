@@ -3,7 +3,7 @@
 
 import pytest
 
-from cassim.core.format import latex_for_markdown
+from cassim.core.results import latex_for_markdown
 from cassim.core.session import Session
 from cassim.core.settings import Logic, Settings
 
