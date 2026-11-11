@@ -52,7 +52,7 @@ Open and Save only read and write the native `.cassim.json` format. `.tns` stays
 
 ## Corpus capture (NFR-LEG-006)
 
-The corpus was captured from the TI-Nspire CX CAS Premium Teacher Software, so NFR-LEG-006 is now a Must for TI. Its licence terms still need recording here or in a decision of their own; Simon is to supply them (SRS question Q42). Nothing in this record assumes what they say.
+The corpus was captured from the TI-Nspire CX CAS Premium Teacher Software, so NFR-LEG-006 is now a Must for TI. Its licence terms are recorded in decision 0029 (SRS Q42).
 
 ## Casio and HP (NFR-LEG-005)
 
