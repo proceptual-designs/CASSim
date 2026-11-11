@@ -76,7 +76,7 @@ class Runner:
         session.accept(sent, reply)
         found = reply["result"]
         calculator.finish(
-            Result(found["text"], found["latex"], None, found["error"]),
+            Result(found["text"], found["latex"], None, found["error"], found.get("full", "")),
             pending.text,
             pending.approximate,
         )

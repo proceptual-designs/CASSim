@@ -93,13 +93,16 @@ def test_ctrl_enter_and_keypad_ctrl_enter_give_the_decimal_result():
         assert page.history[0].approximate
 
 
-def test_an_error_dialog_takes_the_next_key_and_keeps_the_entry():
+def test_an_error_dialog_takes_the_next_key_and_the_entry_stays_in_the_history():
+    """H1 j: after the dialog the history keeps the entry, its result the message in quotes."""
     page = computer("2", "+", "/", "3", "Enter")
     assert page.error is not None
-    assert not page.history
     page.perform(Binding("enter"))  # dismisses the dialog and does nothing else
     assert page.error is None
-    assert page.editor.linear() == "2+/3"
+    assert page.editor.is_empty
+    assert page.history[-1].text == "2+/3"
+    assert page.history[-1].result.text.startswith('"')
+    assert page.history[-1].result.error is not None
 
 
 def test_up_on_an_empty_line_walks_the_history_and_return_copies():
@@ -331,12 +334,16 @@ def test_enter_repeats_an_entry_that_uses_ans() -> None:
     assert [entry.result.text for entry in calc.history] == ["1", "2", "3", "4"]
 
 
-def test_enter_on_an_empty_line_does_nothing_without_ans() -> None:
+def test_enter_on_an_empty_line_repeats_the_last_entry_with_or_without_ans() -> None:
+    """H6 d: the entry is run again whether or not it uses Ans."""
     calc = Calculator()
     _type(calc, "2+2")
     calc.perform(Binding("enter"))
     calc.perform(Binding("enter"))
-    assert len(calc.history) == 1
+    assert [entry.result.text for entry in calc.history] == ["4", "4"]
+    empty = Calculator()
+    empty.perform(Binding("enter"))  # nothing to repeat
+    assert not empty.history
 
 
 def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
@@ -372,18 +379,15 @@ def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
     assert r"\fcolorbox" in moved.latex  # the selected part is highlighted inside the line
 
 
-def test_del_on_an_empty_line_reopens_the_last_input() -> None:
-    """The last result goes and its input comes back, cursor at the end, to be edited."""
+def test_del_on_an_empty_line_does_nothing() -> None:
+    """H5 c: Del, Backspace and the keypad's del leave the history alone on an empty entry line."""
     calc = Calculator()
     _type(calc, "1+1")
     calc.perform(Binding("enter"))
-    _type(calc, "2+3")
-    calc.perform(Binding("enter"))
-    calc.perform(Binding("backspace"))
+    for action in ("backspace", "delete"):
+        calc.perform(Binding(action))
     assert [entry.text for entry in calc.history] == ["1+1"]
-    assert calc.editor.linear() == "2+3"
-    calc.perform(Binding("backspace"))  # now an ordinary backspace in the entry
-    assert calc.editor.linear() == "2+"
+    assert calc.editor.is_empty
 
 
 def test_del_on_an_empty_line_with_no_history_does_nothing() -> None:

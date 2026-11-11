@@ -79,7 +79,7 @@ def test_variables_and_functions_come_from_the_snapshot() -> None:
     assert [(v.name, v.is_function) for v in session.variables()] == [("a", False), ("f", True)]
 
 
-def test_an_error_becomes_a_dialog_and_changes_nothing() -> None:
+def test_an_error_becomes_a_dialog_and_a_quoted_history_entry() -> None:
     runner, document = make()
 
     async def go() -> None:
@@ -89,7 +89,8 @@ def test_an_error_becomes_a_dialog_and_changes_nothing() -> None:
     calculator = document.current.calculator
     assert calculator is not None
     assert calculator.error is not None
-    assert not calculator.history
+    assert [entry.text for entry in calculator.history] == ["solve()"]
+    assert calculator.history[0].result.text.startswith('"')
 
 
 def test_settings_changes_reach_the_engine_on_sync() -> None:
@@ -230,3 +231,23 @@ def test_load_replays_through_the_engine_like_the_synchronous_loader() -> None:
 def test_remote_session_refuses_synchronous_eval() -> None:
     with pytest.raises(NotImplementedError):
         RemoteSession(0, Settings()).eval("1")
+
+
+def test_ans_follows_the_history_through_the_engine_after_an_undo() -> None:
+    """Check 3, H5 g: an undo sets the engine's Ans from the entry left in the history, and a
+    repeated entry still sees the new Ans."""
+    runner, document = make()
+
+    async def go() -> None:
+        await enter(runner, document, "5")
+        await enter(runner, document, "7")
+        calculator = document.current.calculator
+        assert calculator is not None
+        calculator.perform(Binding("undo"))
+        calculator.editor.clear()
+        await runner.sync(document)
+        await enter(runner, document, "ans")
+        assert last(document) == "5"
+        assert calculator.history[-1].text == "5"
+
+    asyncio.run(go())

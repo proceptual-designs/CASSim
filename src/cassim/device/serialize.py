@@ -81,7 +81,10 @@ def to_dict(document: Document) -> dict[str, Any]:
             if page.calculator is not None:
                 calculator = page.calculator
                 item["entries"] = [
-                    {"nodes": _dump_nodes(entry.nodes), "approximate": entry.approximate}
+                    {
+                        "nodes": _dump_nodes(entry.source or entry.nodes),
+                        "approximate": entry.approximate,
+                    }
                     for entry in calculator.history
                 ]
                 item["entry"] = _dump_nodes(calculator.editor.root)
@@ -182,6 +185,7 @@ def _load_page(document: Document, data: dict[str, Any]) -> Generator[Calculator
     calculator.editor.clear()
     calculator.editor.root = _load_nodes(data.get("entry", []))
     calculator.editor.pos = len(calculator.editor.root)
+    calculator.forget_undo()  # loading is not something to undo
     return page
 
 

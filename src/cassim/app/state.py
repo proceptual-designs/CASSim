@@ -211,8 +211,7 @@ class AppState:
     def _page_undo(self, action: str) -> bool:
         """Undo or redo with nothing left to step in the entry line falls through to the document
         (emulator run S7 f: ctrl+Z on a fresh page undoes the page insert, ctrl+Y brings it back).
-        Undo falls through only from a page with no history: an evaluation is not undone yet, and
-        stepping past one would take away a page of work. True if the document took the key."""
+        True if the document took the key."""
         calculator = self.document.current.calculator
         if calculator is not None and (
             calculator.error is not None or calculator.pending is not None
@@ -222,7 +221,7 @@ class AppState:
             if calculator is not None and calculator.can_redo:
                 return False
             return self.document.redo()
-        if calculator is not None and (calculator.can_undo or calculator.history):
+        if calculator is not None and calculator.can_undo:
             return False
         return self.document.undo()
 

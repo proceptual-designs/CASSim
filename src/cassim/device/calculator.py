@@ -7,13 +7,21 @@ Behaviour follows the emulator runs in `docs/testing/` (decision 0017).
 from __future__ import annotations
 
 import copy
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from cassim.core.results import Result
 from cassim.device.clipboard import Clipboard
-from cassim.device.editor import MARK, Editor, Kind, Node, linear_text, modernised, parse_target
+from cassim.device.editor import (
+    MARK,
+    Editor,
+    Kind,
+    Node,
+    linear_text,
+    modernised,
+    parse_target,
+    substitute_ans,
+)
 from cassim.device.editor import Row as EditorRow
 from cassim.device.engine import RemoteSession, local_session
 
@@ -25,7 +33,6 @@ if TYPE_CHECKING:
 
 type Row = Literal["entry", "result"]
 
-_ANS = re.compile(r"(?<![\w.])ans(?!\w)", re.IGNORECASE)
 # Keys that move or select inside the picked history row while one is picked
 _RECALL_MOVES = frozenset(
     {
@@ -47,6 +54,7 @@ class Snapshot:
     pos: int
     selected: bool
     anchor: int | None
+    history: tuple[Entry, ...] = ()  # undo goes back over evaluations and deletes too
 
 
 @dataclass(frozen=True)
@@ -58,6 +66,9 @@ class Entry:
     result: Result
     approximate: bool = False
     nodes: tuple[Node, ...] = ()  # the entry's templates and characters, for recall
+    # The entry as typed, with `ans` still in it: what Enter on an empty line runs again, and what
+    # a saved file keeps. `nodes` and `text` show the value `ans` had (emulator check 3, H1 g).
+    source: tuple[Node, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -83,6 +94,7 @@ class Calculator:
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
         self._group: str | None = None  # the kind of edit in progress, for undo grouping
+        self._synced: Entry | None = None  # the entry the session's `Ans` was last set from
         # With a deferred session (the maths runs in another worker) Enter only queues the entry;
         # the app evaluates it and calls `finish` (or `abort` after a Cancel).
         self.pending: Pending | None = None
@@ -141,6 +153,9 @@ class Calculator:
             undo=lambda _: self._step(self._undo, self._redo),
             redo=lambda _: self._step(self._redo, self._undo),
             escape=lambda _: self._mover(lambda: None)(""),
+            home_key=lambda arg: (
+                self._first_line() if self.recall else self._recall_move("home")(arg)
+            ),
             first_line=lambda _: self._first_line(),
             last_line=lambda _: self._mover(lambda: None)(""),  # ctrl+1: back to the entry line
             recall_at=self._recall_at,
@@ -159,11 +174,6 @@ class Calculator:
             method()
 
         return move
-
-    @property
-    def can_undo(self) -> bool:
-        """There is typing to undo in the entry line."""
-        return bool(self._undo)
 
     @property
     def can_redo(self) -> bool:
@@ -219,27 +229,19 @@ class Calculator:
         self._recalled.place(path, pos, extend=extend)
 
     def _delete(self, remove_in_entry: Callable[[], None]) -> None:
-        """Del or Backspace: on a picked history row it deletes that entry and its result from the
-        display; on an empty entry line it deletes the last result and reopens its input;
+        """Del or Backspace: on a picked history row it deletes that entry and its result, and
+        undo brings them back; on an empty entry line it does nothing (emulator check 3, H5 c);
         otherwise it edits the entry line."""
         if self.recall is None:
-            if self.editor.is_empty and self.history:
-                self._reopen_last()
-            else:
+            if not self.editor.is_empty:
                 self._edit("other", remove_in_entry)
             return
+        self._undo.append(self._snapshot())
+        self._redo.clear()
         del self.history[self.recall[0]]
         self.recall = None
-
-    def _reopen_last(self) -> None:
-        """Del on an empty entry line deletes the last result and takes its input back into the
-        entry line, cursor at the end, to be edited and entered again."""
-        last = self.history.pop()
-        if last.nodes:
-            self.editor.paste(list(last.nodes))
-        else:
-            self.editor.insert_text(last.text)
         self._group = None
+        self._sync_ans()
 
     # ---- editing, with undo groups ----------------------------------------------------------
 
@@ -302,11 +304,36 @@ class Calculator:
 
     def _snapshot(self) -> Snapshot:
         e = self.editor
-        return copy.deepcopy(Snapshot(e.root, e.path, e.pos, e.selected, e.anchor))
+        saved = copy.deepcopy(Snapshot(e.root, e.path, e.pos, e.selected, e.anchor))
+        saved.history = tuple(self.history)
+        return saved
+
+    def forget_undo(self) -> None:
+        """Drop the undo and redo history (after a document is loaded)."""
+        self._undo.clear()
+        self._redo.clear()
+        self._group = None
+
+    def _ans_entry(self) -> Entry | None:
+        """The last entry that gave `Ans` a value (not an error, and not a bare `Done`)."""
+        for entry in reversed(self.history):
+            if entry.result.error is None and entry.result.text not in ("", "Done"):
+                return entry
+        return None
+
+    def _sync_ans(self) -> None:
+        """`Ans` follows what is left in the history after an undo or a delete (H5 g)."""
+        entry = self._ans_entry()
+        if entry is not self._synced:
+            self._synced = entry
+            self.session.set_ans(None if entry is None else entry.result.full or entry.result.text)
 
     def _restore(self, snapshot: Snapshot) -> None:
         e = self.editor
         saved = copy.deepcopy(snapshot)
+        saved.history = snapshot.history
+        self.history[:] = saved.history
+        self.recall = None
         e.cell_sel = None
         e.root, e.path, e.pos, e.selected, e.anchor = (
             saved.root,
@@ -316,10 +343,16 @@ class Calculator:
             saved.anchor,
         )
 
+    @property
+    def can_undo(self) -> bool:
+        """There is typing, an evaluation or a delete to undo on this page."""
+        return bool(self._undo)
+
     def _step(self, source: list[Snapshot], target: list[Snapshot]) -> None:
         if source:
             target.append(self._snapshot())
             self._restore(source.pop())
+            self._sync_ans()
         self._group = None
 
     # ---- history ----------------------------------------------------------------------------
@@ -376,11 +409,14 @@ class Calculator:
             return
         self.editor.complete_brackets()  # `sin(2*(3+4` is entered as `sin(2*(3+4))`
         text = self.editor.linear()
-        if not text and self.history and _ANS.search(self.history[-1].text):
-            # Enter on an empty line repeats the last entry if it uses Ans, now with the new Ans
-            # (Newton's method: `ans-f(ans)/f'(ans)`, Enter, Enter, ...)
+        if not text and self.history:
+            # Enter on an empty line runs the last entry again, as typed, so an `ans` in it takes
+            # the new value (Newton's method: `ans-f(ans)/f'(ans)`, Enter, Enter, ...) and a
+            # random one gives a new number (emulator check 3, H6)
             last = self.history[-1]
-            if last.nodes:
+            if last.source:
+                self.editor.paste(list(last.source))
+            elif last.nodes:
                 self.editor.paste(list(last.nodes))
             else:
                 self.editor.insert_text(last.text)
@@ -396,21 +432,31 @@ class Calculator:
         """Record an evaluated entry: history on success, an error dialog otherwise."""
         self.pending = None
         if result.error is not None:
+            # a dialog, and the entry stays in the history with the message as a quoted string
             self.error = result.error
-            return
-        # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(
+            result = Result(f'"{result.error}"', "", None, result.error)
+        # undo goes back to the entry as typed, cursor at its end
+        before = self._snapshot()
+        before.path, before.pos, before.selected, before.anchor = [], len(before.root), False, None
+        self._undo.append(before)
+        self._redo.clear()
+        # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(, and `ans`
+        # shown as the value it had
         shown = Editor()
         shown.root = modernised(self.editor.root)
-        self.history.append(
-            Entry(
-                linear_text(shown.root) if shown.root != self.editor.root else text,
-                shown.latex(cursor=False, is_function=self.session.is_function),
-                result,
-                approximate,
-                tuple(shown.root),
-            )
+        previous = self._ans_entry()
+        if previous is not None:
+            shown.root = substitute_ans(shown.root, previous.result.full or previous.result.text)
+        entry = Entry(
+            linear_text(shown.root) if shown.root != self.editor.root else text,
+            shown.latex(cursor=False, is_function=self.session.is_function),
+            result,
+            approximate,
+            tuple(shown.root),
+            tuple(copy.deepcopy(self.editor.root)),
         )
+        self.history.append(entry)
+        if result.error is None and result.text not in ("", "Done"):
+            self._synced = entry
         self.editor.clear()
-        self._undo.clear()
-        self._redo.clear()
         self._group = None
