@@ -24,6 +24,17 @@ if TYPE_CHECKING:
 
 SCHEMA = 1
 FORMAT = "cassim-document"
+SUFFIX = ".cassim.json"
+"""Open and Save read and write only this native format (FR-DOC-006). Foreign formats such as
+`.tns`, if ever supported, belong under File > Import and Export, never Open or Save."""
+OPEN_EXTENSIONS = ("json",)
+"""What the Open dialog offers. Browsers filter on the last extension only, so `.cassim.json`
+files are offered as `json`; anything that is not a CASSim document fails in `parse`."""
+
+
+def file_name(document: Document) -> str:
+    """The name Save gives the document's file."""
+    return f"{document.name}{SUFFIX}"
 
 
 class DocumentFileError(ValueError):

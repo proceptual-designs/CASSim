@@ -5,6 +5,7 @@ from dataclasses import replace
 from cassim.app.state import MATH_SIZES, AppState, Mode, System
 from cassim.core.settings import Angle
 from cassim.device.screen import thumbnail
+from cassim.profiles.nspire_menus import DOC
 
 
 def enter(state: AppState, text: str) -> None:
@@ -145,3 +146,10 @@ def test_system_settings_round_trip_and_fall_back() -> None:
     for bad in ("", "[]", '{"start_mode": "x", "math_size": 20}', '{"start_mode": "computer"}'):
         assert System.loads(bad) == System()
     assert System.loads('{"start_mode": "handheld", "math_size": 99}').math_size == 20
+
+
+def test_file_menu_has_no_tns_entry() -> None:
+    """FR-DOC-006: `.tns` is not built, so the File menu offers no Import or Export of it."""
+    file_menu = next(item for item in DOC.items if item.label == "File")
+    labels = [item.label for item in file_menu.items]
+    assert not any("tns" in label.lower() or "import" in label.lower() for label in labels)

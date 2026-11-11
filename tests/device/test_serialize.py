@@ -109,3 +109,13 @@ def test_replay_steps_is_the_public_replay_interface() -> None:
     assert callable(serialize.replay_steps)
     assert not hasattr(serialize, "_steps")
     assert runner.replay_steps is serialize.replay_steps
+
+
+def test_open_and_save_use_only_the_native_format() -> None:
+    """FR-DOC-006: Open and Save read and write `.cassim.json` only; `.tns` is never offered."""
+    document = Document()
+    assert serialize.file_name(document).endswith(".cassim.json")
+    assert serialize.OPEN_EXTENSIONS == ("json",)
+    assert "tns" not in serialize.OPEN_EXTENSIONS
+    with pytest.raises(DocumentFileError):
+        serialize.parse("*TIMLP0601")  # the start of a `.tns` file is not a CASSim document
