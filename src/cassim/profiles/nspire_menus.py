@@ -959,33 +959,35 @@ SYMBOLS = MenuItem(
 )
 
 
-def _cell(label: str, name: str, spec: str) -> MenuItem:
-    """A template cell: `spec` is the template kind, as for the `template` key action."""
-    return MenuItem(label, "template", spec, hint=name)
+def _cell(label: str, name: str, spec: str, icon: str = "") -> MenuItem:
+    """A template cell: `spec` is the template kind, as for the `template` key action, and `icon`
+    the picture drawn for it (`app/template_icons.py`), which is `spec` unless given."""
+    return MenuItem(label, "template", spec, hint=name, icon=icon or spec)
 
 
-# The templates key: the device's 25 icons, 11 to a row, in order. Templates CASSim does not have
+# The templates key: the device's 25 icons, 11 to a row, in order. Each cell is drawn as a small
+# picture of its template (the label is kept as its name in text). Templates CASSim does not have
 # yet are greyed.
 TEMPLATES = MenuItem(
     "Templates",
     columns=11,
     items=(
-        MenuItem("a/b", "template", "fraction", hint="Fraction (ctrl+÷)"),
-        MenuItem("xʸ", "insert", "^", hint="Exponent (^)"),
-        MenuItem("√", "template", "root", hint="Square root (ctrl+x²)"),
+        _cell("a/b", "Fraction (ctrl+÷)", "fraction"),
+        MenuItem("xʸ", "insert", "^", hint="Exponent (^)", icon="power"),
+        _cell("√", "Square root (ctrl+x²)", "root"),
         _cell("ⁿ√", "Nth root (ctrl+^)", "nth_root"),
-        MenuItem("eˣ", "insert", "ⅇ^", hint="e exponent (eˣ)"),
+        MenuItem("eˣ", "insert", "ⅇ^", hint="e exponent (eˣ)", icon="exp"),
         _cell("log", "Log with base (ctrl+10ˣ)", "log"),
-        _cell("{2", "Piecewise, 2 pieces", "piecewise:2"),
-        MenuItem("{n", "wizard", "piecewise", hint="Piecewise, N pieces…"),
-        _cell("{=", "System of 2 equations", "system:2"),
-        MenuItem("{n=", "wizard", "system", hint="System of N equations…"),
+        _cell("{2", "Piecewise, 2 pieces", "piecewise:2", "piecewise2"),
+        MenuItem("{n", "wizard", "piecewise", hint="Piecewise, N pieces…", icon="piecewise_n"),
+        _cell("{=", "System of 2 equations", "system:2", "system2"),
+        MenuItem("{n=", "wizard", "system", hint="System of N equations…", icon="system_n"),
         _cell("|x|", "Absolute value", "abs"),
         _cell("°'\"", "Degrees, minutes, seconds", "dms"),
-        MenuItem("2×2", "template", "matrix:2,2", hint="2 × 2 matrix"),
-        MenuItem("1×2", "template", "matrix:1,2", hint="1 × 2 matrix"),
-        MenuItem("2×1", "template", "matrix:2,1", hint="2 × 1 matrix"),
-        MenuItem("m×n", "wizard", "matrix", hint="m × n matrix…"),
+        _cell("2×2", "2 × 2 matrix", "matrix:2,2", "matrix22"),
+        _cell("1×2", "1 × 2 matrix", "matrix:1,2", "matrix12"),
+        _cell("2×1", "2 × 1 matrix", "matrix:2,1", "matrix21"),
+        MenuItem("m×n", "wizard", "matrix", hint="m × n matrix…", icon="matrix_mn"),
         _cell("Σ", "Sum", "sum"),
         _cell("Π", "Product", "product"),
         _cell("d/d", "First derivative (shift+−)", "derivative"),
@@ -994,9 +996,9 @@ TEMPLATES = MenuItem(
         _cell("∫ₐᵇ", "Definite integral (shift++)", "integral"),
         _cell("∫", "Indefinite integral", "antiderivative"),
         _cell("lim", "Limit", "limit"),
-        MenuItem("x₁", hint="Subscript: " + NOT_YET, enabled=False),
+        MenuItem("x₁", hint="Subscript: " + NOT_YET, enabled=False, icon="subscript"),
         # Not on the device (its lists are typed as {1,2,3}); a comma starts the next element.
-        _cell("{ }", "List template (CASSim)", "list:3"),
+        _cell("{ }", "List template (CASSim)", "list:3", "list"),
     ),
 )
 

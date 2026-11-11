@@ -37,6 +37,7 @@ class MenuItem:
     columns: int = 0  # a submenu drawn as a grid this many items wide
     jump: bool = False  # a submenu where a typed letter jumps to the first item starting with it
     start: tuple[int, ...] = ()  # submenus opened at once (the Catalog opens on its first tab)
+    icon: str = ""  # a grid cell drawn as this named picture instead of its label
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class Row:
     selected: bool
     hint: str = ""
     enabled: bool = True
+    icon: str = ""
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,7 @@ class MenuState:
                         index == entry.index,
                         item.hint,
                         item.enabled,
+                        item.icon,
                     )
                     for index, (key, item) in enumerate(
                         zip(item_keys(entry.item), entry.item.items, strict=True)
