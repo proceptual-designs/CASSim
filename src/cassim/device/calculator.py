@@ -141,6 +141,8 @@ class Calculator:
             undo=lambda _: self._step(self._undo, self._redo),
             redo=lambda _: self._step(self._redo, self._undo),
             escape=lambda _: self._mover(lambda: None)(""),
+            first_line=lambda _: self._first_line(),
+            last_line=lambda _: self._mover(lambda: None)(""),  # ctrl+1: back to the entry line
             recall_at=self._recall_at,
             select_cells=self._select_cells,
             place=lambda arg: self._place(arg, extend=False),
@@ -157,6 +159,20 @@ class Calculator:
             method()
 
         return move
+
+    @property
+    def can_undo(self) -> bool:
+        """There is typing to undo in the entry line."""
+        return bool(self._undo)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
+
+    def _first_line(self) -> None:
+        """ctrl+7: pick the first history row (emulator runs S5 b, H2 c)."""
+        if self.history:
+            self._pick((0, "entry"))
 
     @property
     def recall_editor(self) -> Editor | None:

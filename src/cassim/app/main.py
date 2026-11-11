@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from collections.abc import Callable
@@ -126,6 +127,7 @@ class App:
             None  # what the layout is built from
         )
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
+        self.resizing = False  # a splitter redraw is queued: further drag steps only add up
         self.first_visit = False  # nothing saved yet: the window size picks the mode
         self.starting = False  # loading the autosave through a remote engine
         self.theme = DARK
@@ -640,8 +642,7 @@ class App:
             room = self.plan.extent * max(self.state.system.zoom, 0.01)
             current = self.state.system.keypad_share or self.plan.share
             self.state.system.keypad_share = clamp_share(current - delta / room)
-            self.arrange()
-            self.refresh()
+            self.resize_soon()
 
         def reset(_: object) -> None:
             self.state.system.keypad_share = 0.0
@@ -675,6 +676,33 @@ class App:
         self.holder = ft.Container(detector)  # a column would shrink the bar to its grip
         self.size_splitter(plan)
         return self.holder
+
+    def resize_soon(self) -> None:
+        """Queue one redraw for the splitter. Drag steps arrive faster than the screen and keys
+        can be rebuilt, and a redraw per step made the drag lag far behind the pointer; the steps
+        that arrive while a redraw is queued or running only move the share."""
+        if self.resizing:
+            return
+        self.resizing = True
+        self.page.run_task(self.resize)
+
+    async def resize(self) -> None:
+        await asyncio.sleep(0)  # the drag steps already waiting are taken in first
+        try:
+            self.resize_now()
+        finally:
+            self.resizing = False
+
+    def resize_now(self) -> None:
+        """Redraw after a splitter step: only the part whose scale changed (often just the keys,
+        since the screen is limited by the window's other side), and nothing else. The document
+        has not changed, so there is no autosave, toolbar or sidebar work."""
+        before = self.state.scale
+        self.arrange()
+        if self.state.scale != before:
+            self.view.refresh()
+        self.keypad.refresh()
+        self.page.update()
 
     def size_splitter(self, plan: HandheldPlan) -> None:
         if self.holder is not None:

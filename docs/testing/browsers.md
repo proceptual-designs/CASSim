@@ -2,7 +2,7 @@
 
 Evidence for NFR-PORT-001: every release is tested on the primary targets (Chromebooks, Chrome, Safari on macOS, iOS and iPadOS); Edge and Firefox are smoke-tested. Update this table whenever a run is made. A blank means not run.
 
-Last updated 2026-11-08.
+Last updated 2026-11-12.
 
 ## Matrix
 
@@ -16,11 +16,13 @@ Last updated 2026-11-08.
 | Safari on iPad | Primary | not run | | Needs a device. Tablet mode is not built; Handheld or Computer applies. |
 | Edge (desktop, headed) | Secondary | not run | | Headless Chromium above may be Edge; a headed smoke run has not been done. |
 | Firefox | Secondary | not run | | |
-| Android Chrome (phone) | Not a stated target | not run | | The install-on-a-phone item in PLAN.md M2 is Simon's. |
+| Simon's phone (model, OS and browser not recorded) | Unknown | 2026-11-12 | The GitHub Pages site, installed as an app; save and load (by hand, Simon) | Works. Slow (PLAN.md section 12, A6). Offline use and the rest of the checklist below were not recorded. |
+| Desktop browser, GitHub Pages site (browser not recorded) | | by 2026-11-12 | <https://simonjtyler.github.io/CASSim/> opened (by hand, Simon) | Loads. |
 
 ## Not covered by any run
 
-- A real GitHub Pages deploy and offline behaviour there (PLAN.md M2 exit item 1). Only a local server under `/CASSim/` has been used (decision 0016).
+- Offline behaviour of the GitHub Pages site. The site loads and installs (table above); the automated offline reload uses a local server under `/CASSim/` (decision 0016).
+- Safari, iOS, iPadOS and Chromebook: no devices are available (2026-11-12).
 - Non-US keyboard layouts: typed characters come from a US/AU table (decision 0024).
 - Screen readers (`docs/accessibility.md`).
 - Engine start time: decision 0016 measured about 68 s to a ready engine on a first load and 61 s on an offline reload in headless Edge (one engine plus its spare). The current site has not been re-timed. NFR-PERF-001 asks for it to be measured and reported.

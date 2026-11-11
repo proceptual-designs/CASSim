@@ -7,11 +7,15 @@ from enum import StrEnum
 from typing import Any, cast
 
 import flet as ft
+import flet.canvas as cv
 
 from cassim.app import about
 from cassim.app.entry import EntryLine
 from cassim.app.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
+from cassim.app.template_icons import HEIGHT as ICON_H
+from cassim.app.template_icons import ICONS, Icon, Slot, Stroke
+from cassim.app.template_icons import WIDTH as ICON_W
 from cassim.app.theme import DARK, Theme
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
@@ -49,6 +53,42 @@ def _span(run: str) -> ft.TextSpan:
     return ft.TextSpan(run, style=style)
 
 
+def icon_canvas(icon: Icon, scale: float, colour: str) -> cv.Canvas:
+    """A template icon drawn at `scale` screen pixels per handheld pixel. Slots are thinner than
+    the strokes, so the fixed parts of a template stand out from the places to type in."""
+
+    def paint(width: float) -> ft.Paint:
+        return ft.Paint(
+            color=colour,
+            stroke_width=width * scale,
+            style=ft.PaintingStyle.STROKE,
+            stroke_cap=ft.StrokeCap.ROUND,
+            stroke_join=ft.StrokeJoin.ROUND,
+        )
+
+    shapes: list[cv.Shape] = []
+    for shape in icon:
+        if isinstance(shape, Stroke):
+            (x, y), *rest = shape.points
+            elements: list[cv.Path.PathElement] = [cv.Path.MoveTo(x * scale, y * scale)]
+            elements.extend(cv.Path.LineTo(x * scale, y * scale) for x, y in rest)
+            shapes.append(cv.Path(elements, paint=paint(1.1)))
+        elif isinstance(shape, Slot):
+            side = shape.side * scale
+            shapes.append(cv.Rect(shape.x * scale, shape.y * scale, side, side, paint=paint(0.6)))
+        else:
+            shapes.append(
+                cv.Text(
+                    shape.x * scale,
+                    shape.y * scale,
+                    shape.text,
+                    style=ft.TextStyle(size=shape.size * scale, color=colour, italic=shape.italic),
+                    alignment=ft.Alignment.CENTER,
+                )
+            )
+    return cv.Canvas(shapes, width=ICON_W * scale, height=ICON_H * scale)
+
+
 SELECTED_KEY = "picked-line"
 
 
@@ -79,6 +119,13 @@ def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
 
 
 STATUS_FIELDS = ("angle", "calc", "domain")  # the order of the words in the status line
+
+
+STUB_NOTICE = "This page type is not built yet. CASSim has the Calculator page so far."
+STUB_HELP = (
+    "Doc > Insert adds a Calculator page; Doc > Page Layout > Delete Page removes this one; "
+    "undo takes it away again."
+)
 
 
 class CalculatorView:
@@ -136,6 +183,13 @@ class CalculatorView:
             for number, word in enumerate(screen.status.split())
         ]
         self.title.size = size
+        if screen.stub is not None:  # a page type with nothing behind it yet
+            self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
+            self.history.auto_scroll = False
+            self._follow = False
+            self._error(screen)
+            self._menu(screen.menu)
+            return
         self.entry.content = self._entry(screen)
         pairs = [
             self._pair(screen.lines[number], screen.lines[number + 1], number)
@@ -358,8 +412,11 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         on = row.selected
         colour = theme.menu_disabled if not row.enabled else "#ffffff" if on else theme.key_text
+        icon = ICONS.get(row.icon)
         return ft.Container(
-            label_text(
+            icon_canvas(icon, self.state.scale, colour)
+            if icon
+            else label_text(
                 row.label, size=px(12 if len(row.label) <= SHORT_CELL else 10), color=colour
             ),
             width=px(GRID_CELL),
@@ -426,6 +483,33 @@ class CalculatorView:
             padding=12,
             border_radius=6,
         )
+
+
+def stub_notice(name: str, theme: Theme, px: Callable[[float], float]) -> ft.Control:
+    """What a page type without a model shows: its name and that it is still to be built."""
+    return ft.Container(
+        ft.Column(
+            [
+                label_text(name, size=px(18), color=theme.screen_text, weight=ft.FontWeight.BOLD),
+                label_text(
+                    STUB_NOTICE,
+                    size=px(12),
+                    color=theme.screen_text,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+                label_text(
+                    STUB_HELP,
+                    size=px(11),
+                    color=theme.screen_text,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            ],
+            spacing=px(8),
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        padding=ft.Padding.symmetric(horizontal=px(16), vertical=px(28)),
+        alignment=ft.Alignment.CENTER,
+    )
 
 
 class Keypad:
@@ -607,7 +691,7 @@ class Sidebar:
             rows.append(
                 ft.Container(
                     label_text(
-                        f"{problem + 1}.{page + 1}  {kind}",
+                        f"{problem + 1}.{page + 1}  {self.state.page_name(kind)}",
                         color=theme.accent if (problem, page) == here else theme.key_text,
                     ),
                     padding=ft.Padding.symmetric(vertical=2),
@@ -781,6 +865,7 @@ def sorter_dialog(
     """The page sorter: every page as a tile, grouped by Problem. Click a tile to go to it, then
     move or delete it with the buttons."""
     document = state.document
+    names = state.profile.pages
     body = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, width=520, height=360)
 
     def act(action: str, arg: str = "") -> None:
@@ -800,7 +885,10 @@ def sorter_dialog(
             ft.Column(
                 [
                     ft.Text(f"{problem + 1}.{index + 1}", size=11, color=theme.key_label),
-                    *(ft.Text(line, size=11, color=theme.screen_text) for line in thumbnail(shown)),
+                    *(
+                        ft.Text(line, size=11, color=theme.screen_text)
+                        for line in thumbnail(shown, names=names)
+                    ),
                 ],
                 spacing=1,
             ),

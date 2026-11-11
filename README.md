@@ -9,7 +9,7 @@ Built for the VCE Mathematics courses, but should be more generally useful.
 Usable on a desktop, laptop, netbook (Chromebook), tablet or a phone.
 
 > **Status: in development.** The calculation engine is complete and the app shell is working.
-> Graphs, lists and spreadsheet, and statistics pages are not built yet. See [PLAN.md](PLAN.md).
+> Graphs, lists and spreadsheet, statistics and notes pages are not built yet: Doc > Insert adds them as placeholders that say so. See [PLAN.md](PLAN.md).
 
 CASSim is an independently made simulator for educational purposes. 
 For this reason, the behaviour, layout, and menu structure of the simulator is designed to be similar to the TI-Nspire CX CAS, but it is not an exact copy.

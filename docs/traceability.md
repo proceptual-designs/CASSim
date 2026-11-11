@@ -152,24 +152,24 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-001 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/unit/test_latex.py` |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py`, `tests/device/test_calculator.py` and 5 more |
+| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py`, `tests/device/test_calculator.py` and 6 more |
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml` |
-| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
+| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_stub_pages.py`, `tests/device/test_document.py` |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
-| FR-DOC-003 | Must | `tests/device/test_serialize.py` |
+| FR-DOC-003 | Must | `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
 | FR-STAT-002 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-004 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
-| FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 2 more |
-| FR-DEV-004 | Must | `tests/app/test_layout.py`, `tests/app/test_state.py` |
+| FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 3 more |
+| FR-DEV-004 | Must | `tests/app/test_layout.py`, `tests/app/test_splitter_drag.py`, `tests/app/test_state.py` |
 | FR-DEV-005 | Should | `tests/app/test_keypad_refresh.py`, `tests/device/test_screen.py` |
 | FR-DEV-006 | Must | `tests/app/test_state.py` |
-| FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/device/test_calculator.py`, `tests/test_architecture.py` |
+| FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 1 more |
 | FR-DEV-008 | Should | `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
 | FR-PWA-001 | Must | `tests/e2e/test_pwa.py` |

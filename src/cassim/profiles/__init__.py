@@ -21,3 +21,6 @@ class Profile:
     wizards: Mapping[str, Wizard] = field(default_factory=dict)  # dialogs, by name
     # Other keypads the user may choose (System Settings), by name; the first is the default.
     keypads: Mapping[str, Keypad] = field(default_factory=dict)
+    # What the device calls each page type, by `PageKind` value (`spreadsheet` is
+    # "Lists & Spreadsheet" on the Nspire); a kind that is missing is shown by its value.
+    pages: Mapping[str, str] = field(default_factory=dict)
