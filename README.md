@@ -17,6 +17,20 @@ It is not affiliated with, endorsed by or sponsored by Texas Instruments.
 It is not an approved exam calculator and must not be used in assessments that require an approved device. 
 TI-Nspire is a trademark of Texas Instruments.
 
+### Design and IP
+
+CASSim mirrors the handheld's layout, menus and commands so that practice transfers to the real
+calculator. All artwork and help text are CASSim's own. Its behaviour was learned only by using
+TI's software as a user, typing inputs and recording the outputs; nothing was decompiled. It is not
+an approved exam calculator. The rule is written up in
+[docs/decisions/0028-ip-boundary-and-clean-room.md](docs/decisions/0028-ip-boundary-and-clean-room.md).
+
+**Wolfram Language and Mathematica.** There are no plans to implement the Wolfram Language or
+Mathematica in CASSim. If that is what you need, see **Woxi** (<https://github.com/ad-si/Woxi>,
+docs at <https://woxi.ad-si.com/>), an open-source interpreter for a subset of the Wolfram
+Language with a notebook editor, Woxi Studio. CASSim and Woxi are separate, unaffiliated
+projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
+
 ## What it does
 
 - **Calculator page** with an Nspire-like keypad, numbered menus, 2D templates (fractions, roots,
@@ -29,6 +43,8 @@ TI-Nspire is a trademark of Texas Instruments.
 - **Private and offline.** No server, no telemetry, no account. The site installs as a PWA and
   runs without a network. Documents are saved in the browser's local storage or as files 
   or shared as a link that carries the document in the URL fragment.
+- **Files.** Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot be
+  opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
 
 ## How it is tested
 
