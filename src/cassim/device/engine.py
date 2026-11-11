@@ -186,6 +186,10 @@ class RemoteSession:
             variable_key(self._settings, name) in self._functions
         )
 
+    def is_defined(self, name: str) -> bool:
+        key = variable_key(self._settings, name)
+        return any(variable_key(self._settings, row.name) == key for row in self._rows)
+
     def variables(self) -> list[VariableInfo]:
         return list(self._rows)
 

@@ -72,13 +72,13 @@ def render(
             editor = page.recall_editor
             part = picked and page.recall_touched and editor is not None
             if part and editor is not None:  # drawn from its editor: its cursor and selection show
-                latex = editor.latex(is_function=page.session.is_function)
+                latex = editor.latex(is_defined=page.session.is_defined)
             lines.append(Line(kind, latex or rf"\text{{{text}}}", text, picked, bool(part)))
     return Screen(
         title,
         status,
         tuple(lines),
-        page.editor.latex(is_function=page.session.is_function),
+        page.editor.latex(is_defined=page.session.is_defined),
         page.error,
         menu,
     )

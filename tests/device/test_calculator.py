@@ -183,21 +183,23 @@ def test_framework_does_not_import_a_profile():
         assert "cassim.profiles" not in module.read_text(encoding="utf-8"), module.name
 
 
-def test_user_and_builtin_functions_are_bold_once_defined() -> None:
-    """A function is bold when something defines it: a built-in, or `f(x):=...` in the Problem."""
-    page = computer(*"f(x):=x^2", "Enter")
+def test_defined_names_are_bold_and_catalog_names_upright() -> None:
+    """FR-CALC-003: a name turns bold once the Problem defines it (a function or any value);
+    a Catalog function is upright, and an undefined name stays italic."""
+    page = computer(*"f(x):=x^2", "Enter", *"a:=3", "Enter")
     typed = Keyboard(nspire.COMPUTER)
-    for key in "f(2)":
-        press(page, typed, key)
-    assert r"\mathbf{f}" in page.editor.latex(is_function=page.session.is_function)
-    page.editor.clear()
-    for key in "g(2)":
-        press(page, typed, key)
-    assert r"\mathbf" not in page.editor.latex(is_function=page.session.is_function)
-    page.editor.clear()
-    for key in "solve(":
-        press(page, typed, key)
-    assert r"\mathbf{s}" in page.editor.latex(is_function=page.session.is_function)
+
+    def shown(text: str) -> str:
+        page.editor.clear()
+        for key in text:
+            press(page, typed, key)
+        return page.editor.latex(is_defined=page.session.is_defined)
+
+    assert r"\mathbf{f}" in shown("f(2)")
+    assert r"\mathbf{a}" in shown("a+1")
+    assert r"\mathbf" not in shown("g(2)")
+    assert r"\mathrm{s}" in shown("solve(")
+    assert r"\mathbf" not in shown("solve(")
 
 
 def test_shift_arrows_select_and_typing_replaces() -> None:

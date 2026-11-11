@@ -93,6 +93,10 @@ class Session:
             self.scope.get(variable_key(self.settings, name)), Function
         )
 
+    def is_defined(self, name: str) -> bool:
+        """Whether the Problem gives `name` a value or a function (it is then drawn bold)."""
+        return self.scope.get(variable_key(self.settings, name)) is not None
+
     def variables(self) -> list[VariableInfo]:
         """The Problem's variables and user functions, sorted by name (the variable list)."""
         rows: list[VariableInfo] = []

@@ -118,6 +118,42 @@ def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
     )
 
 
+def window_start(line: int, lines: int, shown: int) -> int:
+    """The first line a panel shows: the highlighted `line` is kept in the middle, except near
+    the ends of the list."""
+    return max(0, min(line - shown // 2, lines - shown))
+
+
+def scroll_line(line: int, lines: int, shown: int, step: int) -> int:
+    """Where the highlight goes so the window moves one line (`step` 1 down, -1 up). The
+    highlight is first brought to the window's middle, since the window centres on it; at the
+    end of the list it stops."""
+    middle = window_start(line, lines, shown) + shown // 2
+    target = max(line, middle) + 1 if step > 0 else min(line, middle) - 1
+    return max(0, min(lines - 1, target))
+
+
+class DragSteps:
+    """Turns a vertical drag into whole-row steps: finger up (a negative delta) is a step down
+    the list, as when a touch screen list follows the finger."""
+
+    def __init__(self) -> None:
+        self.travel = 0.0
+
+    def reset(self) -> None:
+        self.travel = 0.0
+
+    def feed(self, delta: float, row: float) -> list[int]:
+        """The steps (+1 down the list, -1 up) for a move of `delta` with rows `row` high."""
+        self.travel += delta
+        steps: list[int] = []
+        while row > 0 and abs(self.travel) >= row:
+            sign = 1 if self.travel > 0 else -1
+            self.travel -= sign * row
+            steps.append(-sign)
+        return steps
+
+
 STATUS_FIELDS = ("angle", "calc", "domain")  # the order of the words in the status line
 
 
@@ -161,6 +197,17 @@ class CalculatorView:
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
         self.menu = ft.Container(visible=False, alignment=ft.Alignment.TOP_LEFT, expand=True)
+        # A one-finger drag on an open menu scrolls it (a CASSim touch feature; the device has
+        # none). The detector wraps the lasting menu layer, so a drag outlives each redraw.
+        self._drag = DragSteps()
+        self._menu_view: MenuView | None = None
+        self._shown = 1  # lines the deepest open panel shows
+        menu_layer = ft.GestureDetector(
+            self.menu,
+            on_vertical_drag_start=lambda _: self._drag.reset(),
+            on_vertical_drag_update=self._drag_menu,
+            on_vertical_drag_end=lambda _: self._drag.reset(),
+        )
         title_bar = ft.Container(
             ft.Row([self.title, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             bgcolor=theme.title_bar,
@@ -168,7 +215,9 @@ class CalculatorView:
         )
         body = ft.Column([self.history], expand=True, spacing=0)
         self.control = ft.Container(
-            ft.Column([title_bar, ft.Stack([body, self.error, self.menu], expand=True)], spacing=0),
+            ft.Column(
+                [title_bar, ft.Stack([body, self.error, menu_layer], expand=True)], spacing=0
+            ),
             bgcolor=theme.screen,
             border_radius=6,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
@@ -230,7 +279,7 @@ class CalculatorView:
             self.theme,
             self.state.math_size,
             self._click,
-            calculator.session.is_function,
+            calculator.session.is_defined,
             self._hold,
         ).build(calculator.editor)
 
@@ -294,6 +343,7 @@ class CalculatorView:
         highlighted row's syntax shows at the foot of the deepest panel (beside every row in
         Computer mode, where there is room)."""
         self.menu.visible = view is not None
+        self._menu_view = view
         if view is None:
             return
         wide = self.state.mode is Mode.COMPUTER
@@ -321,6 +371,26 @@ class CalculatorView:
         )
         self.menu.content = ft.Stack([outside, *panels])
 
+    def _drag_menu(self, event: ft.DragUpdateEvent) -> None:
+        """Scroll the deepest panel a row (a grid line) for each row's height the finger
+        travels, so the list moves with the finger."""
+        view = self._menu_view
+        if view is None or not view.panels or event.primary_delta is None:
+            return
+        panel = view.panels[-1]
+        row = self.state.px(GRID_CELL - 3 if panel.columns else LIST_ROW_H)
+        for step in self._drag.feed(event.primary_delta, row):
+            self._scroll_menu(panel, step)
+
+    def _scroll_menu(self, panel: Panel, step: int) -> None:
+        """Move the window a line down (`step` 1) or up (-1), taking the highlight with it."""
+        columns = panel.columns or 1
+        lines = -(-len(panel.rows) // columns)
+        line = selected_index(panel) // columns
+        moved = scroll_line(line, lines, self._shown, step)
+        if moved != line:
+            self.on_action("menu_page", str((moved - line) * columns))
+
     def _panel(self, view: MenuView, depth: int, panel: Panel, *, wide: bool) -> ft.Control:
         theme, px = self.theme, self.state.px
         last = depth == len(view.panels) - 1
@@ -330,7 +400,9 @@ class CalculatorView:
         )
         lines = -(-len(panel.rows) // columns)  # rows of the list or the grid
         chosen = selected_index(panel) // columns
-        start = max(0, min(chosen - shown // 2, lines - shown))
+        start = window_start(chosen, lines, shown)
+        if last:
+            self._shown = shown
         window = range(start, min(lines, start + shown))
         items: list[ft.Control] = [self._header(view, depth, panel)]
         if start:
@@ -361,10 +433,8 @@ class CalculatorView:
         if not last:
             return box
 
-        def wheel(
-            event: ft.ScrollEvent,
-        ) -> None:  # the mouse wheel moves the highlight, which scrolls
-            self.on_action("menu_page", str((1 if event.scroll_delta.y > 0 else -1) * columns))
+        def wheel(event: ft.ScrollEvent) -> None:  # the mouse wheel scrolls, as a drag does
+            self._scroll_menu(panel, 1 if event.scroll_delta.y > 0 else -1)
 
         return ft.GestureDetector(box, on_scroll=wheel)
 
