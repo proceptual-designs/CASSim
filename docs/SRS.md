@@ -12,7 +12,7 @@ Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is
 Defines what CASSim must do and the constraints it must meet. It is the baseline for the design documents (SDD, `docs/design/`) and for acceptance testing.
 
 ### 1.2 Scope
-CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy/SciPy) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding.
+CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy/SciPy) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding. It reproduces the device's *layout, menu structure and vocabulary* so that students can transfer to the real handheld, but not its artwork or prose (decision 0028).
 
 CASSim is a **simulator, not a hardware-level emulation**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. CASSim is released under the Unlicense.
 
@@ -73,7 +73,7 @@ Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Sec
 
 ### 2.5 Constraints
 - C-1 Core is pure Python, fully typed, Ty strict; SymPy is touched only in `core/compat/sympy_adapter.py`.
-- C-2 No TI, Casio or HP logos, artwork, ROM or firmware content. Product name is CASSim.
+- C-2 No TI, Casio or HP logos, artwork, ROM or firmware content. Product name is CASSim. CASSim reproduces each device's layout, menu structure and vocabulary so that students can transfer to the real handheld, but not its artwork or prose (decision 0028, NFR-LEG-008, NFR-LEG-009).
 - C-3 TI syntax is parsed by a real tokenizer + Pratt parser, never regexes. The same holds for every other device dialect and for pseudocode.
 - C-4 Canonical text is Unicode (`ⅇ ⅈ ᴇ π ∞ ᵀ ʳ ᵍ ° ∠ ▶`); ASCII is an input/REPL spelling only. These conventions are fixed.
 - C-5 Statistics follow the TI/school convention (quartiles as medians of halves; `sx` uses n-1, `σx` uses n); `numpy.percentile` is not used.
@@ -149,7 +149,7 @@ This cross-cuts every functional area.
 | FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M7 (FR-RUN-010). Geometry excluded. | M | I |
-| FR-DOC-006 | `.tns` import/export: deferred to a later release (Won't for now); no other feature depends on it. | W | D |
+| FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save only ever read and write the native `.cassim.json` format. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
 
 ### 4.5 Lists & Spreadsheet — M3
 | ID | Requirement | Pri | Ver |
@@ -194,7 +194,7 @@ This cross-cuts every functional area.
 | FR-DEV-002 | **Computer** mode: page/problem sidebar, large 2D pane, templates/catalog/variable panels, physical keyboard first. Equal top priority with Handheld. | M | D |
 | FR-DEV-003 | **Tablet/demo** mode: screen plus on-screen keyboard (portrait/landscape), large touch targets, optional "show keystrokes". | S | D |
 | FR-DEV-004 | **Handheld** mode: faithful 320x240 layout and keypad, scales to fullscreen on phones, hardware keyboard mapped. Equal top priority with Computer. | M | D |
-| FR-DEV-005 | Key layout and secondary labels (ctrl/shift) match the real device layout, drawn in CASSim's own artwork. | S | I |
+| FR-DEV-005 | Key layout and key labels, including the secondary ctrl/shift labels, match the real device so students can transfer to it. The artwork is CASSim's own, drawn from scratch to match positions and layout, never traced from screenshots or photographs (decision 0028). | S | I |
 | FR-THEME-001 | **Dark** is the default theme. | M | D |
 | FR-THEME-002 | Themes (at least Dark, Light, Outline) are selectable in the UI and defined in a config file (colours for keypad, screen, accents) that users can edit; invalid config falls back to Dark with a message. Config persists in browser storage and can be exported/imported. | S | T/D |
 | FR-DEV-006 | All three modes use the same device model; they differ only in layout components. | M | I |
@@ -336,7 +336,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-CPD-001 | A ClassPad profile with its own dialect, catalogue (Tier 1 VCE core first, tiers as in FR-CAT-001 to -003), settings presets, display conventions and error table, each pinned by a corpus captured from the oracle [Q17]. Nothing is inherited from the Nspire profile unless the corpus confirms it. | C | T |
 | FR-CPD-002 | The corpus lives in `corpus/classpad/` with the same provenance, status and `xfail(strict=True)` rules as FID-3 and FID-4; Tier 1 passes (canonical) before any exact-text work. | C | T |
 | FR-CPD-003 | App/page set as the oracle shows it (calculation, graph and table, statistics, spreadsheet) [TBC], reusing the shared sheet, stats and graph engines through the profile. Geometry is excluded. | C | T/D |
-| FR-CPD-004 | Handheld skin and keypad (or touch interface, per Q19) in CASSim's own artwork. | C | D |
+| FR-CPD-004 | Handheld skin and keypad (or touch interface, per Q19): key layout and labels match the device; the artwork is CASSim's own and not traced (decision 0028). | C | D |
 | FR-CPD-005 | VCE setting presets for Methods, Specialist and General, and scripted exam-style flows, as for the Nspire. | C | T/E |
 
 **HP Prime (M9, optional)**
@@ -395,14 +395,16 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, and the vendored fonts) ship with the build.
 - NFR-LEG-004 (S) Before porting LazyMath UDFs, record the licence check (LazyMath Unlicense) in `docs/decisions/`.
 - NFR-LEG-005 (M) From M8, the disclaimer in NFR-LEG-002 also covers Casio and HP. No Casio or HP marks, artwork, ROM, firmware or emulator software is shipped; reference screenshots stay in `docs/design/reference/`.
-- NFR-LEG-006 (C) Before capturing a corpus from a manufacturer's emulator software, record its licence terms and why they allow this use in `docs/decisions/` (as NFR-LEG-004 does for LazyMath).
+- NFR-LEG-006 (M for TI, C for Casio and HP) Before capturing a corpus from a manufacturer's emulator software, record its licence terms and why they allow this use in `docs/decisions/` (as NFR-LEG-004 does for LazyMath). Must for TI because a corpus has already been captured from the TI-Nspire CX CAS Premium Teacher Software; the terms are still to be supplied (Q42).
 - NFR-LEG-007 (M) Question text that is (c) VCAA (corpus cases marked `third_party: true`) stays in the private repository for development (decision 0012). VCAA's terms require permission for publication on a website, so before the repository or corpus is made public those cases are either cleared with VCAA or replaced by original programs. The corpus is never part of the app build, and each case keeps its attribution in `source`.
+- NFR-LEG-008 (M) Clean room. Device behaviour is learned only by observing the TI, Casio or HP software and handhelds in normal use (typing inputs, recording outputs and screenshots). No decompiling, disassembly, debugging, unpacking or patching of their binaries, and no inspection of their memory or network traffic. Data tables are never extracted from them. Reference material in `references/` is consulted, not copied (decision 0028).
+- NFR-LEG-009 (M) All help, catalog and explanatory text in the app is original. Short functional labels (menu items, error names such as "Domain error") and command names may match the device; nothing is copied verbatim from `references/` (decision 0028). Checked before public release by an audit of the in-app strings against the Reference Guide.
 
 ---
 
 ## 6. External interfaces
 - **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
-- **Files**: `.cassim.json` (versioned), CSV, optionally xlsx. `.tns` is deferred (FR-DOC-006).
+- **Files**: Open and Save use only the native `.cassim.json` (versioned). CSV and optionally xlsx come in and go out through Import and Export, which is the general home for foreign formats; `.tns` is deferred and, if built, goes there too (FR-DOC-006).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
 - **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; the 2D editor is CASSim's own template editor drawn from Flet controls (decisions 0015, 0018, 0019); MathLive and MathQuill are not used.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
@@ -426,7 +428,7 @@ Each FR maps to: milestone (above), corpus tags (e.g. `solve`, `tier1`), tests, 
 ---
 
 ## 10. Open questions
-Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-11-02 and 2026-11-04 with the post-Nspire scope (4.12); none of them blocks M0-M6. New ones will be added as the design docs surface them.
+Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-11-02 and 2026-11-04 with the post-Nspire scope (4.12); none of them blocks M0-M6. Q42 was added on 2026-11-12 with decision 0028. New ones will be added as the design docs surface them.
 
 | # | Question | Needed by |
 |---|---|---|
@@ -456,6 +458,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 | Q39 | ~~Defaults for the run limits and the Euler toggle~~ **Answered 2026-11-04:** 10,000 loop iterations, recursion depth 100, `e` off (FR-SET-008, FR-SET-009). **Revised 2026-11-06:** 1,000 passes per loop, 20,000 trace steps, depth 100, `e` on. | done |
 | Q40 | ~~How does the variable argument bind in the expression form?~~ **Answered 2026-11-04:** the name must match the variable the expression uses, `f(t)` evaluates the expression at `t`, assignments to the variable inside the function are local (FR-PSE-002). | done |
 | Q41 | ~~Exact values in Auto and Exact modes~~ **Answered 2026-11-04, revised 2026-11-07:** first decided as not in the first release; Simon then made it a Should (FR-PSE-012), with the same Approx / Auto / Exact toggle as the CAS. | done |
+| Q42 | What are the licence terms of the TI-Nspire CX CAS Premium Teacher Software (the version used for corpus capture), and do they allow capturing outputs and screenshots for a test corpus? Simon to supply the terms; record them in `docs/decisions/` (NFR-LEG-006). | before public release |
 
 ---
 

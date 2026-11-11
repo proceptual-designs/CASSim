@@ -49,7 +49,14 @@ from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.runner import Runner, Status
-from cassim.device.serialize import DocumentFileError, dumps, loads, parse
+from cassim.device.serialize import (
+    OPEN_EXTENSIONS,
+    DocumentFileError,
+    dumps,
+    file_name,
+    loads,
+    parse,
+)
 from cassim.device.share import LinkTooLongError, encode, unpack
 from cassim.device.wizard import Wizard
 
@@ -463,11 +470,11 @@ class App:
             sorter_dialog(self.page, self.state, self.refresh, self.theme)
 
     async def save_file(self) -> None:
-        """Download the document as `.cassim.json` (FR-DOC-004)."""
+        """Download the document as `.cassim.json` (FR-DOC-004, FR-DOC-006)."""
         document = self.state.document
         await self.files.save_file(
             dialog_title="Save document",
-            file_name=f"{document.name}.cassim.json",
+            file_name=file_name(document),
             src_bytes=dumps(document).encode("utf-8"),
         )
 
@@ -475,7 +482,7 @@ class App:
         picked = await self.files.pick_files(
             dialog_title="Open document",
             file_type=ft.FilePickerFileType.CUSTOM,
-            allowed_extensions=["json"],
+            allowed_extensions=list(OPEN_EXTENSIONS),
             with_data=True,
         )
         if not picked or picked[0].bytes is None:
