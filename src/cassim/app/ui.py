@@ -81,6 +81,13 @@ def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
 STATUS_FIELDS = ("angle", "calc", "domain")  # the order of the words in the status line
 
 
+STUB_NOTICE = "This page type is not built yet. CASSim has the Calculator page so far."
+STUB_HELP = (
+    "Doc > Insert adds a Calculator page; Doc > Page Layout > Delete Page removes this one; "
+    "undo takes it away again."
+)
+
+
 class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
@@ -136,6 +143,13 @@ class CalculatorView:
             for number, word in enumerate(screen.status.split())
         ]
         self.title.size = size
+        if screen.stub is not None:  # a page type with nothing behind it yet
+            self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
+            self.history.auto_scroll = False
+            self._follow = False
+            self._error(screen)
+            self._menu(screen.menu)
+            return
         self.entry.content = self._entry(screen)
         pairs = [
             self._pair(screen.lines[number], screen.lines[number + 1], number)
@@ -428,6 +442,33 @@ class CalculatorView:
         )
 
 
+def stub_notice(name: str, theme: Theme, px: Callable[[float], float]) -> ft.Control:
+    """What a page type without a model shows: its name and that it is still to be built."""
+    return ft.Container(
+        ft.Column(
+            [
+                label_text(name, size=px(18), color=theme.screen_text, weight=ft.FontWeight.BOLD),
+                label_text(
+                    STUB_NOTICE,
+                    size=px(12),
+                    color=theme.screen_text,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+                label_text(
+                    STUB_HELP,
+                    size=px(11),
+                    color=theme.screen_text,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            ],
+            spacing=px(8),
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        padding=ft.Padding.symmetric(horizontal=px(16), vertical=px(28)),
+        alignment=ft.Alignment.CENTER,
+    )
+
+
 class Keypad:
     """The on-screen keys, laid out as on the handheld (FR-DEV-005). Each key shows its ctrl and
     shift labels small above it; the pending modifier lights up and its layer's labels move onto
@@ -607,7 +648,7 @@ class Sidebar:
             rows.append(
                 ft.Container(
                     label_text(
-                        f"{problem + 1}.{page + 1}  {kind}",
+                        f"{problem + 1}.{page + 1}  {self.state.page_name(kind)}",
                         color=theme.accent if (problem, page) == here else theme.key_text,
                     ),
                     padding=ft.Padding.symmetric(vertical=2),
@@ -781,6 +822,7 @@ def sorter_dialog(
     """The page sorter: every page as a tile, grouped by Problem. Click a tile to go to it, then
     move or delete it with the buttons."""
     document = state.document
+    names = state.profile.pages
     body = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, width=520, height=360)
 
     def act(action: str, arg: str = "") -> None:
@@ -800,7 +842,10 @@ def sorter_dialog(
             ft.Column(
                 [
                     ft.Text(f"{problem + 1}.{index + 1}", size=11, color=theme.key_label),
-                    *(ft.Text(line, size=11, color=theme.screen_text) for line in thumbnail(shown)),
+                    *(
+                        ft.Text(line, size=11, color=theme.screen_text)
+                        for line in thumbnail(shown, names=names)
+                    ),
                 ],
                 spacing=1,
             ),

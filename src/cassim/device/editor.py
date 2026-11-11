@@ -508,13 +508,23 @@ class Editor:
             self._dissolve()
 
     def delete(self) -> None:
+        """Forward delete. In front of a template the first press highlights it; a second leaves
+        only what was in its first slot, selected (emulator run S8 a: `3/4` becomes `3`)."""
         if self.cell_sel is not None and self._grid() is not None:
             self._remove_cells()
             return
-        if self.anchor is not None or self.selected:
+        row = self.row()
+        if self.selected and self.anchor is None:
+            index = self.pos - 1
+            kept = _template(row[index]).slots[0]
+            row[index : index + 1] = kept
+            self.selected = False
+            self.anchor = index if kept else None
+            self.pos = index + len(kept)
+            return
+        if self.anchor is not None:
             self._unselect(replace=True)
             return
-        row = self.row()
         if self.pos < len(row):
             node = row[self.pos]
             if isinstance(node, Template):

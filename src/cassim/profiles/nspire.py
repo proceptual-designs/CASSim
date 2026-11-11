@@ -81,8 +81,12 @@ HANDHELD: Keymap = {
     "ctrl+c": Binding("copy"),  # as on the handheld: ctrl, then the letter
     "ctrl+x": Binding("cut"),
     "ctrl+v": Binding("paste"),
+    "ctrl+z": Binding("undo"),  # TI's shortcut sheet lists both for the handheld; shift+esc is
+    "ctrl+y": Binding("redo"),  # not redo on the emulator (S7 g)
     "ctrl+8": Binding("home"),
     "ctrl+2": Binding("end"),
+    "ctrl+7": Binding("first_line"),  # the first history row (S5 b)
+    "ctrl+1": Binding("last_line"),  # back to the entry line (S5 b2)
 }
 
 COMPUTER: Keymap = {
@@ -271,6 +275,18 @@ KEYPAD: Keypad = (*_MAIN, *_ABC)
 KEYPAD_QWERTY: Keypad = (*_MAIN, *_QWERTY)
 KEYPADS = {"ABC": KEYPAD, "QWERTY": KEYPAD_QWERTY}  # the letter layouts, by setting name
 
+# The device's names for its page types (`PageKind` values)
+PAGES = {
+    "calculator": "Calculator",
+    "graphs": "Graphs",
+    "spreadsheet": "Lists & Spreadsheet",
+    "statistics": "Data & Statistics",
+    "notes": "Notes",
+    "program": "Program Editor",
+    "python": "Python",
+    "pseudocode": "Pseudocode",
+}
+
 PROFILE = Profile(
     "TI-Nspire CX CAS",
     HANDHELD,
@@ -281,4 +297,5 @@ PROFILE = Profile(
     MENUS,
     WIZARDS,
     KEYPADS,
+    PAGES,
 )

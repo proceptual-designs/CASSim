@@ -137,7 +137,12 @@ class AppState:
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None
         status = self.profile.status(self.document.settings)
-        return render(self.document, f"{status} CAPS" if self.caps else status, view)
+        status = f"{status} CAPS" if self.caps else status
+        return render(self.document, status, view, self.profile.pages)
+
+    def page_name(self, kind: PageKind) -> str:
+        """The device's name for a page type ("Lists & Spreadsheet")."""
+        return self.profile.pages.get(kind.value, kind.value)
 
     def press_keypad(self, name: str) -> None:
         self._perform(self.keypad_keys, name)
@@ -192,11 +197,31 @@ class AppState:
         if self._shell_action(binding) or self._document_action(binding):
             return
         calculator = self.document.current.calculator
+        if binding.action in ("undo", "redo") and self._page_undo(binding.action):
+            return
         if calculator is None:
             return
         calculator.perform(binding)
         if binding.action in ("copy", "cut") and self.clipboard_out is not None:
             self.clipboard_out(self.document.clipboard.text)
+
+    def _page_undo(self, action: str) -> bool:
+        """Undo or redo with nothing left to step in the entry line falls through to the document
+        (emulator run S7 f: ctrl+Z on a fresh page undoes the page insert, ctrl+Y brings it back).
+        Undo falls through only from a page with no history: an evaluation is not undone yet, and
+        stepping past one would take away a page of work. True if the document took the key."""
+        calculator = self.document.current.calculator
+        if calculator is not None and (
+            calculator.error is not None or calculator.pending is not None
+        ):
+            return False  # the key belongs to the dialog or the run
+        if action == "redo":
+            if calculator is not None and calculator.can_redo:
+                return False
+            return self.document.redo()
+        if calculator is not None and (calculator.can_undo or calculator.history):
+            return False
+        return self.document.undo()
 
     def _shell_action(self, binding: Binding) -> bool:
         """Caps lock, menus and dialogs, which belong to the shell and not to a page."""
@@ -205,6 +230,8 @@ class AppState:
         elif self.menu is not None and self.menu.open:
             self._menu_key(binding)
         elif binding.action == "open_menu":
+            if binding.arg == "menu" and self.document.current.calculator is None:
+                return True  # a stub page has no menu of its own yet
             self._open_menu(binding.arg)
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)

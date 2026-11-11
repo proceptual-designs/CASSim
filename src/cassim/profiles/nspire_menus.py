@@ -19,6 +19,7 @@ from cassim.device.wizard import Field, Wizard
 from cassim.profiles.nspire_syntax import COMMANDS, CONVERSIONS, FUNCTIONS
 
 NOT_YET = "Not in CASSim yet"
+STUB_PAGE = "Adds a placeholder: this page type is not built yet"
 
 
 def fn(label: str, name: str, key: str = "") -> MenuItem:
@@ -861,11 +862,12 @@ DOC = MenuItem(
             MenuItem("Problem", "add_problem", key="1"),
             MenuItem("Page", "add_page", "calculator", key="2", hint="ctrl+I"),
             MenuItem("Calculator", "add_page", "calculator", key="3"),
-            todo("Graphs", "4"),
+            # These four add a page that only says it is not built yet (PLAN.md, M3 and M4)
+            MenuItem("Graphs", "add_page", "graphs", key="4", hint=STUB_PAGE),
             todo("Geometry", "5"),
-            todo("Lists & Spreadsheet", "6"),
-            todo("Data & Statistics", "7"),
-            todo("Notes", "8"),
+            MenuItem("Lists & Spreadsheet", "add_page", "spreadsheet", key="6", hint=STUB_PAGE),
+            MenuItem("Data & Statistics", "add_page", "statistics", key="7", hint=STUB_PAGE),
+            MenuItem("Notes", "add_page", "notes", key="8", hint=STUB_PAGE),
             todo("Vernier DataQuest™", "9"),
             todo("Widget", "A"),
             todo_sub("Program Editor", "B", "New…", "Open…", "Import…", "View…"),
