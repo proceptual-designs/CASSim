@@ -440,8 +440,9 @@ class Calculator:
         before.path, before.pos, before.selected, before.anchor = [], len(before.root), False, None
         self._undo.append(before)
         self._redo.clear()
-        # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(, and `ans`
-        # shown as the value it had
+        # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(, Catalog
+        # names in the Catalog's case, and `ans` shown as the value it had. Names are bold only
+        # on the entry line: the history draws a defined name italic again (check 4, A4).
         shown = Editor()
         shown.root = modernised(self.editor.root)
         previous = self._ans_entry()
@@ -449,7 +450,7 @@ class Calculator:
             shown.root = substitute_ans(shown.root, previous.result.full or previous.result.text)
         entry = Entry(
             linear_text(shown.root) if shown.root != self.editor.root else text,
-            shown.latex(cursor=False, is_defined=self.session.is_defined),
+            shown.latex(cursor=False),
             result,
             approximate,
             tuple(shown.root),

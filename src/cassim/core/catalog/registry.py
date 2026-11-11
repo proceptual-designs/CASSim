@@ -153,5 +153,10 @@ def canonical_names() -> frozenset[str]:
     return frozenset(_FUNCTIONS)
 
 
+def spellings() -> dict[str, str]:
+    """The catalog's spelling of every function, by its key, for `tools.builtin_names`."""
+    return {key: entry.name for key, entry in _FUNCTIONS.items()}
+
+
 def is_builtin(name: str) -> bool:
     return canonical(name) in _FUNCTIONS

@@ -26,6 +26,7 @@ from cassim.device.editor import (
     Style,
     Template,
     at_constants,
+    constant_style,
     name_styles,
 )
 
@@ -120,7 +121,9 @@ class EntryLine:
                     constants.get(index, node),
                     here,
                     index,
-                    style=Style.BOLD if constants.get(index) else styles.get(index),
+                    style=constant_style(letter)
+                    if (letter := constants.get(index))
+                    else styles.get(index),
                 )
             )
             parts.append(self._highlight(body) if chosen else body)
@@ -190,8 +193,10 @@ class EntryLine:
             _SHOWN.get(char, char),
             size=self.size,
             color=self.theme.screen_text,
-            weight=ft.FontWeight.BOLD if style is Style.BOLD else None,
-            font_family=_MATH_FONT if char in _LETTERS and style is None else _MAIN_FONT,
+            weight=ft.FontWeight.BOLD if style in (Style.BOLD, Style.BOLD_ITALIC) else None,
+            font_family=_MATH_FONT
+            if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
+            else _MAIN_FONT,
             no_wrap=True,
         )
         if char in _BINARY:

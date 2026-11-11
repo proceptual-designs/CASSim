@@ -308,8 +308,8 @@ def _close(left: Raw, right: Raw, tolerance: float | None) -> bool:
 
 
 class _TILatexPrinter(LatexPrinter):
-    """SymPy's LaTeX printer with TI's conventions: bold upright ⅇ and ⅈ, `ln`, `sin⁻¹`, `undef`,
-    and `and`/`or` between conditions (`∧`/`∨` when `symbols_for_logic`)."""
+    """SymPy's LaTeX printer with TI's conventions: bold upright ⅇ, bold italic ⅈ, `ln`, `sin⁻¹`,
+    `undef`, and `and`/`or` between conditions (`∧`/`∨` when `symbols_for_logic`)."""
 
     symbols_for_logic = False
 
@@ -317,7 +317,7 @@ class _TILatexPrinter(LatexPrinter):
         if expr is sp.E:
             return r"\mathbf{e}"
         if expr is sp.I:
-            return r"\mathbf{i}"
+            return r"\boldsymbol{i}"
         if expr is sp.nan:
             return r"\text{undef}"  # SymPy would print NaN
         if isinstance(expr, sp.exp):
