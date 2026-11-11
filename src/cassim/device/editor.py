@@ -17,6 +17,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from cassim.core.builtin_names import is_builtin
+from cassim.core.parser import COMMANDS
+
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
 
 type Row = list[Node]
@@ -743,12 +746,12 @@ class Editor:
         self.root.extend(self.missing_closers())
 
     def latex(
-        self, *, cursor: bool = True, is_function: Callable[[str], bool] = lambda _: False
+        self, *, cursor: bool = True, is_defined: Callable[[str], bool] = lambda _: False
     ) -> str:
-        """LaTeX for the entry, with the cursor drawn as a bar and empty slots as boxes. Names
-        that `is_function` accepts are bold."""
+        """LaTeX for the entry, with the cursor drawn as a bar and empty slots as boxes. Catalog
+        names are upright and names `is_defined` accepts are bold (`name_styles`)."""
         place = (self.path, self.pos, self.span) if cursor else None
-        return _latex(self.root, place, [], is_function)
+        return _latex(self.root, place, [], is_defined)
 
 
 _CLOSERS = {"(": ")", "[": "]", "{": "}"}
@@ -1039,17 +1042,30 @@ _LATEX: dict[Kind, Callable[[list[str], int], str]] = {
 }
 
 
+class Style(StrEnum):
+    """How a name's letters are drawn. A name with neither style stays italic, as a variable."""
+
+    ROMAN = "roman"  # upright: a Catalog name (function, command, `Define`) or a word operator
+    BOLD = "bold"  # a name the Problem defines: a variable, an expression, a function...
+
+
 # Names that are never a plain variable: `ans`, and the words that join conditions.
 _WORDS = frozenset({"ans", "and", "or", "xor", "not"})
-# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, drawn upright.
+# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, drawn bold.
 _SYSTEM_PREFIXES = ("tvm.", "stat.")
 
 
-def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
-    """Indices of letters drawn upright and bold: a defined function followed by `(`, such as
-    `sin` in `sin(x)` or a user's `f` in `f(x)`, and the words `ans`, `and`, `or`, `xor` and
-    `not`. A name nothing defines stays plain."""
-    marked: set[int] = set()
+def is_catalog_name(name: str) -> bool:
+    """Whether `name` is in the Catalog: a function, a command such as `DelVar`, or `Define`."""
+    word = name.casefold()
+    return word in _WORDS or word in COMMANDS or word == "define" or is_builtin(word)
+
+
+def name_styles(row: Row, is_defined: Callable[[str], bool]) -> dict[int, Style]:
+    """The style of each letter that belongs to a name which is not a plain variable: Catalog
+    names (`Define`, `solve`, `sin`, `ans`, `and`) upright, and names the Problem defines (any
+    value or function, and `tvm.pmt` style system variables) bold. Any other name is italic."""
+    styles: dict[int, Style] = {}
     run: list[int] = []
     for index, node in enumerate([*row, ""]):
         if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
@@ -1061,10 +1077,17 @@ def function_names(row: Row, is_function: Callable[[str], bool]) -> set[int]:
         if run:
             name = "".join(str(row[i]) for i in run)
             system = name.casefold().startswith(_SYSTEM_PREFIXES) and not name.endswith(".")
-            if system or name.casefold() in _WORDS or (node == "(" and is_function(name)):
-                marked.update(run)
+            style = (
+                Style.BOLD
+                if system or is_defined(name)
+                else Style.ROMAN
+                if is_catalog_name(name)
+                else None
+            )
+            if style is not None:
+                styles.update(dict.fromkeys(run, style))
         run = []
-    return marked
+    return styles
 
 
 def _dotted(row: Row, run: list[int], index: int) -> bool:
@@ -1089,17 +1112,19 @@ def at_constants(row: Row) -> dict[int, str]:
     return shown
 
 
+_FONTS = {Style.ROMAN: "mathrm", Style.BOLD: "mathbf"}
+
 type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
 
 
 def _latex(
-    row: Row, place: Place | None, here: list[tuple[int, int]], is_function: Callable[[str], bool]
+    row: Row, place: Place | None, here: list[tuple[int, int]], is_defined: Callable[[str], bool]
 ) -> str:
     """The row as LaTeX. `place` is the cursor's path, its position and the selected span."""
     here_cursor = place is not None and place[0] == here
     at = place[1] if place is not None else -1
     low, high = place[2] if here_cursor and place is not None else (0, 0)
-    names = function_names(row, is_function)
+    styles = name_styles(row, is_defined)
     constants = at_constants(row)
     if not row:
         return _CURSOR if here_cursor else _EMPTY_SLOT
@@ -1109,10 +1134,11 @@ def _latex(
             pieces.append(rf"\mathbf{{{constants[i]}}}" if constants[i] else "")
             continue
         if isinstance(node, str):
-            pieces.append(rf"\mathbf{{{node}}}" if i in names else _SYMBOLS.get(node, node))
+            style = styles.get(i)
+            pieces.append(rf"\{_FONTS[style]}{{{node}}}" if style else _SYMBOLS.get(node, node))
             continue
         slots = [
-            _latex(slot, place, [*here, (i, s)], is_function) for s, slot in enumerate(node.slots)
+            _latex(slot, place, [*here, (i, s)], is_defined) for s, slot in enumerate(node.slots)
         ]
         if node.kind in _LATEX:
             pieces.append(_LATEX[node.kind](slots, node.cols))

@@ -76,6 +76,10 @@ def test_variables_and_functions_come_from_the_snapshot() -> None:
     assert session.is_function("F")  # case insensitive by default
     assert session.is_function("solve")  # built in
     assert not session.is_function("a")
+    assert session.is_defined("a")  # drawn bold on the entry line (FR-CALC-003)
+    assert session.is_defined("F")
+    assert not session.is_defined("solve")
+    assert not session.is_defined("b")
     assert [(v.name, v.is_function) for v in session.variables()] == [("a", False), ("f", True)]
 
 

@@ -449,7 +449,7 @@ class Calculator:
             shown.root = substitute_ans(shown.root, previous.result.full or previous.result.text)
         entry = Entry(
             linear_text(shown.root) if shown.root != self.editor.root else text,
-            shown.latex(cursor=False, is_function=self.session.is_function),
+            shown.latex(cursor=False, is_defined=self.session.is_defined),
             result,
             approximate,
             tuple(shown.root),

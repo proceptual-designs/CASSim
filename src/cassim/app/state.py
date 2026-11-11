@@ -232,9 +232,8 @@ class AppState:
         elif self.menu is not None and self.menu.open:
             self._menu_key(binding)
         elif binding.action == "open_menu":
-            if binding.arg == "menu" and self.document.current.calculator is None:
-                return True  # a stub page has no menu of its own yet
-            self._open_menu(binding.arg)
+            stub = binding.arg == "menu" and self.document.current.calculator is None
+            self._open_menu("menu_stub" if stub else binding.arg)  # a stub has only About, Help
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)
         else:

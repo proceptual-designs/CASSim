@@ -1,12 +1,13 @@
 # Requirements traced here: FR-DEV-008
 """Menus walked from keys: the Doc and Menu trees come from the profile (FR-DEV-001, FR-DEV-007)."""
 
+import flet as ft
 import pytest
 
 from cassim.app.main import BrowserOffers, browser_doc_items
 from cassim.app.state import AppState, Mode
 from cassim.app.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
-from cassim.app.ui import icon_canvas
+from cassim.app.ui import CalculatorView, DragSteps, icon_canvas, scroll_line, window_start
 from cassim.core.catalog import registry
 from cassim.device.calculator import Calculator
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
@@ -340,7 +341,7 @@ def test_placeholders_keep_the_handheld_numbering() -> None:
     """Items CASSim lacks are greyed but keep their numbers (decision 0022)."""
     state = AppState()
     state.key_event("F2")
-    assert [row.key for row in _menu(state).rows] == list("123456789")
+    assert [row.key for row in _menu(state).rows] == list("123456789AB")  # A, B: CASSim
     state.key_event("9")  # Functions & Programs: it opens, every command greyed
     assert not any(row.enabled for row in _menu(state).rows if not row.submenu)
     state.key_event("Arrow Left")
@@ -505,3 +506,52 @@ def test_other_grid_cells_keep_their_labels() -> None:
     state = AppState(mode=Mode.HANDHELD)
     state.press_keypad("trig")
     assert not any(row.icon for row in _menu(state).rows)
+
+
+def test_a_drag_turns_into_whole_row_steps() -> None:
+    """Touch-scrollable menus (a CASSim feature): a finger moving up a row's height steps one
+    row down the list, as the list follows the finger; part rows carry over."""
+    drag = DragSteps()
+    assert drag.feed(-10, 19.5) == []
+    assert drag.feed(-10, 19.5) == [1]  # 20 px up in all: one row
+    assert drag.feed(-40, 19.5) == [1, 1]
+    assert drag.feed(60, 19.5) == [-1, -1, -1]
+    drag.reset()
+    assert drag.travel == 0
+    assert drag.feed(5, 0) == []  # a zero row height never loops
+
+
+def test_a_drag_on_an_open_menu_moves_its_highlight() -> None:
+    state = AppState(mode=Mode.HANDHELD)
+    view = CalculatorView(state, on_action=state.run_action)
+    state.key_event("F2")
+    state.key_event("3")  # Algebra, longer than the handheld screen
+    view.refresh()
+    assert state.menu is not None
+    before = state.menu.level.index
+    here = ft.Offset(0, 0)
+    event = ft.DragUpdateEvent(
+        name="update",
+        control=view.control,
+        local_position=here,
+        global_position=here,
+        primary_delta=-60,
+    )
+    view._drag_menu(event)
+    assert state.menu.level.index > before
+
+
+def test_each_scroll_step_moves_the_window_one_line() -> None:
+    """A drag or wheel step scrolls the list itself: from the top of a 20-line list showing 7,
+    the window moves a line at once, and it stops at the ends."""
+    shown, lines = 7, 20
+    line = 0
+    starts = []
+    for _ in range(4):
+        line = scroll_line(line, lines, shown, 1)
+        starts.append(window_start(line, lines, shown))
+    assert starts == [1, 2, 3, 4]
+    line = scroll_line(line, lines, shown, -1)
+    assert window_start(line, lines, shown) == 3
+    assert scroll_line(19, lines, shown, 1) == 19
+    assert scroll_line(0, lines, shown, -1) == 0

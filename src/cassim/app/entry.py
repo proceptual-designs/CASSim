@@ -18,7 +18,16 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.theme import Theme
-from cassim.device.editor import GRIDS, Editor, Kind, Row, Template, at_constants, function_names
+from cassim.device.editor import (
+    GRIDS,
+    Editor,
+    Kind,
+    Row,
+    Style,
+    Template,
+    at_constants,
+    name_styles,
+)
 
 _SMALL = 0.6  # limits, indices and bounds are set smaller, as in TeX
 
@@ -45,13 +54,13 @@ class EntryLine:
         theme: Theme,
         size: float,
         click: Click,
-        is_function: Callable[[str], bool] = lambda _: False,
+        is_defined: Callable[[str], bool] = lambda _: False,
         hold: Click | None = None,
     ) -> None:
         self.theme = theme
         self.size = size
         self.click = click
-        self.is_function = is_function
+        self.is_defined = is_defined
         # A long press is the touch screen's shift+click: it extends the selection (0019)
         self.hold = hold or click
 
@@ -95,7 +104,7 @@ class EntryLine:
         editor = self._editor
         on_cursor = editor.path == here
         low, high = editor.span if on_cursor else (0, 0)
-        names = function_names(row, self.is_function)
+        styles = name_styles(row, self.is_defined)
         constants = at_constants(row)
         parts: list[ft.Control] = []
         if not row:
@@ -111,7 +120,7 @@ class EntryLine:
                     constants.get(index, node),
                     here,
                     index,
-                    bold=index in names or bool(constants.get(index)),
+                    style=Style.BOLD if constants.get(index) else styles.get(index),
                 )
             )
             parts.append(self._highlight(body) if chosen else body)
@@ -173,14 +182,16 @@ class EntryLine:
     # ---- characters -------------------------------------------------------------------------
 
     def _char(
-        self, char: str, here: list[tuple[int, int]], index: int, *, bold: bool
+        self, char: str, here: list[tuple[int, int]], index: int, *, style: Style | None
     ) -> ft.Control:
+        """A character; a letter of a Catalog name is upright and of a defined name bold
+        (`name_styles`), and any other letter italic, as a variable."""
         text: ft.Control = ft.Text(
             _SHOWN.get(char, char),
             size=self.size,
             color=self.theme.screen_text,
-            weight=ft.FontWeight.BOLD if bold else None,
-            font_family=_MATH_FONT if char in _LETTERS and not bold else _MAIN_FONT,
+            weight=ft.FontWeight.BOLD if style is Style.BOLD else None,
+            font_family=_MATH_FONT if char in _LETTERS and style is None else _MAIN_FONT,
             no_wrap=True,
         )
         if char in _BINARY:

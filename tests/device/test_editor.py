@@ -242,11 +242,11 @@ class TestLatex:
     def test_symbols_are_typeset(self):
         assert Editor("2π*ⅇ").latex(cursor=False) == r"2\pi \cdot \mathbf{e}"
 
-    def test_ans_and_the_logic_words_are_bold_and_keep_their_spaces(self):
-        """`ans`, `and` and `or` are not variables, and TeX would drop the spaces round them."""
+    def test_ans_and_the_logic_words_are_upright_and_keep_their_spaces(self):
+        """`ans`, `and` and `or` are Catalog words, and TeX would drop the spaces round them."""
         tex = Editor("ans x=1 and y=2 or z").latex(cursor=False)
-        assert r"\mathbf{a}\mathbf{n}\mathbf{s}\ x=1\ \mathbf{a}\mathbf{n}\mathbf{d}\ y=2" in tex
-        assert tex.endswith(r"\ \mathbf{o}\mathbf{r}\ z")
+        assert r"\mathrm{a}\mathrm{n}\mathrm{s}\ x=1\ \mathrm{a}\mathrm{n}\mathrm{d}\ y=2" in tex
+        assert tex.endswith(r"\ \mathrm{o}\mathrm{r}\ z")
         assert Editor("band").latex(cursor=False) == "band"  # only the whole word
 
     def test_system_result_names_are_one_bold_name(self):
@@ -264,15 +264,23 @@ class TestLatex:
         assert Editor("@ex").latex(cursor=False) == "@ex"
         assert Editor("e").latex(cursor=False) == "e"
 
-    def test_defined_function_names_are_bold(self):
-        """Only names the engine knows (or the user defined) turn bold, and only before `(`."""
-        known = {"sin", "f"}.__contains__
-        assert Editor("sin(x)").latex(cursor=False, is_function=known) == (
-            r"\mathbf{s}\mathbf{i}\mathbf{n}(x)"
+    def test_catalog_names_are_upright_and_defined_names_bold(self):
+        """FR-CALC-003: Catalog names (`Define`, commands, functions) are upright whether or not a
+        bracket follows; any name the Problem defines is bold; any other name stays italic."""
+        defined = {"f", "a"}.__contains__
+        assert Editor("sin(x)").latex(cursor=False) == r"\mathrm{s}\mathrm{i}\mathrm{n}(x)"
+        assert Editor("sin").latex(cursor=False) == r"\mathrm{s}\mathrm{i}\mathrm{n}"
+        assert (
+            Editor("Define g(x)=x")
+            .latex(cursor=False)
+            .startswith(r"\mathrm{D}\mathrm{e}\mathrm{f}\mathrm{i}\mathrm{n}\mathrm{e}")
         )
-        assert Editor("f(x)").latex(cursor=False, is_function=known) == r"\mathbf{f}(x)"
-        assert Editor("g(x)").latex(cursor=False, is_function=known) == "g(x)"
-        assert Editor("sin").latex(cursor=False, is_function=known) == "sin"
+        assert Editor("DelVar a").latex(cursor=False, is_defined=defined).endswith(r"\mathbf{a}")
+        assert r"\mathrm{O}\mathrm{n}\mathrm{e}" in Editor("OneVar l").latex(cursor=False)
+        assert Editor("f(x)").latex(cursor=False, is_defined=defined) == r"\mathbf{f}(x)"
+        assert Editor("f").latex(cursor=False, is_defined=defined) == r"\mathbf{f}"
+        assert Editor("2a+b").latex(cursor=False, is_defined=defined) == r"2\mathbf{a}+b"
+        assert Editor("g(x)").latex(cursor=False, is_defined=defined) == "g(x)"
         assert Editor("xy").latex(cursor=False) == "xy"
 
     def test_cursor_bar_is_no_taller_than_a_digit(self):

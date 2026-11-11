@@ -151,7 +151,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CAT-006 | Must | `tests/unit/test_scope.py` |
 | FR-CALC-001 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
-| FR-CALC-003 | Must | `tests/unit/test_latex.py` |
+| FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
 | FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py`, `tests/device/test_calculator.py` and 7 more |
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
@@ -214,6 +214,6 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
 | NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |
-| NFR-LEG-002 | Must | `tests/app/test_about.py` |
+| NFR-LEG-002 | Must | `tests/app/test_about.py`, `tests/app/test_stub_pages.py` |
 | NFR-LEG-003 | Must | `tests/app/test_about.py` |
 | NFR-LEG-007 | Must | `corpus/pseudocode/seed.yaml` |
