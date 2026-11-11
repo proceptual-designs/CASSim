@@ -13,7 +13,7 @@ from cassim.app.entry import EntryLine
 from cassim.app.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
 from cassim.app.state import MATH_SIZES, AppState, Mode
 from cassim.app.theme import DARK, Theme
-from cassim.core.format import latex_for_markdown
+from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
 from cassim.device.keys import Key

@@ -41,11 +41,10 @@ from cassim.app.ui import (
     system_settings_dialog,
     wizard_dialog,
 )
-from cassim.core.session import Session
 from cassim.core.settings import Settings, next_choice
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document
-from cassim.device.engine import LocalEngine
+from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.runner import Runner, Status
@@ -178,6 +177,7 @@ class App:
                 on_key_up=lambda e: self.track_shift(e.key, down=False),
             )
         )
+        print("CASSIM: UI", flush=True)  # the first screen is on its way (tools/loadtime.py)
         if self.runner is not None:
             self.starting = True
             self.status.value = "Starting the calculator engine..."
@@ -705,7 +705,7 @@ def make_runner() -> Runner | None:
 
 async def main(page: ft.Page, view: Mode | None = None, settings: Settings | None = None) -> None:
     runner = make_runner()
-    state = AppState(sessions=Session if runner is None else runner.new_session)
+    state = AppState(sessions=local_session if runner is None else runner.new_session)
     await App(page, state, runner).start(view, settings)
 
 

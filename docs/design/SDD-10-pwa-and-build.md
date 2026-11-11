@@ -1,6 +1,6 @@
 # SDD-10. Build, offline site and deploy
 
-Status: describes `tools/publish.py` and the CI workflow at 2026-11-08. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
+Status: describes `tools/publish.py` and the CI workflow at 2026-11-08. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
 
 ## Goal
 
@@ -12,17 +12,17 @@ A folder of static files that any free host can serve under a sub-path (`/CASSim
 
 | Step | What it does | Why |
 |---|---|---|
-| `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the symbols font and a generated `pyproject.toml` that names only `flet`, `sympy` and `pyyaml`. | `flet publish` reads a self-contained app folder. The staged `main.py` runs `micropip.install(["sympy", "pyyaml"])`, imports `cassim.app.main.main` and starts it. |
+| `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the symbols font and a generated `pyproject.toml` that names only `flet`. | `flet publish` reads a self-contained app folder. The staged `main.py` imports `cassim.app.main.main` and starts it; it never imports SymPy (0027). |
 | `flet publish src/main.py --distpath DIST [--base-url B] [--no-cdn]` | Flet's static web build: Flutter app, CanvasKit, Pyodide core, Python worker. | The base build (decision 0002). |
 | `patch_index` | Adds the manifest and meta tags, the loading screen, the update bar and the install and fullscreen bridge to `index.html`. | FR-PWA-001, FR-PWA-003. |
-| `vendor_pyodide` | Downloads every Pyodide package in `PYODIDE_PACKAGES` and its dependencies into `pyodide/`. | `flet publish --no-cdn` self-hosts Pyodide core but not its packages (0002). |
-| `vendor_pypi_wheels` | Downloads the `flet` and `repath` wheels from PyPI into `pyodide/` and adds them to `pyodide-lock.json`. | So `micropip` never asks PyPI. |
+| `vendor_pyodide` | Copies the packages Pyodide still loads at run time (`RUNTIME_PACKAGES`: msgpack, pyyaml) into `pyodide/`. | `flet publish --no-cdn` self-hosts Pyodide core but not its packages (0002). |
+| `write_app_archive` | Replaces Flet's `app.tar.gz` with one holding `main.py`, `cassim` and, under `__pypackages__`, Flet, repath and six, compiled to bytecode. | No micropip and no compiling at start-up (0027). |
 | `vendor_fallback_fonts` | Copies `tools/fallback_fonts/` into `assets/fonts/`. | Flutter fetches Noto fallback fonts for glyphs Roboto lacks; they are committed so the build needs no Google request. |
-| `write_engine_zip` | Zips the `cassim` package as `cassim.zip`. | The engine worker boots its own Pyodide and unpacks it (SDD-02). |
+| `write_engine_zip` | Zips `cassim` without the UI, plus SymPy and mpmath, compiled to bytecode, as `cassim.zip`. | The engine worker boots its own Pyodide and unpacks it, with no `loadPackage` (SDD-02, 0027). |
 | `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork) and writes `manifest.webmanifest`. | FR-PWA-001. |
 | `add_offline_cache` | Writes `version.json`, `precache.json` (every file) and replaces Flutter's self-unregistering `flutter_service_worker.js`. | FR-PWA-002. |
 
-The build prints the file count and size. With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs).
+Wheels are downloaded once into `%TEMP%/cassim_wheels`. Bytecode is written only when the build's Python has Pyodide's minor version (otherwise source ships and the browser compiles it). The build prints the file count and size; `python -m tools.loadtime [--build]` times start-up (0027). With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs).
 
 ## Service worker
 
@@ -49,14 +49,15 @@ Because the Python app runs in a Web Worker with no DOM, install and fullscreen 
 
 `.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, and the traceability check. The e2e tests (which build the site) are run locally. There is no deploy job yet.
 
-## Measured (decisions 0002 and 0016, 2026-10-31 to 11-01, spike builds; the current site has not been re-timed)
+## Measured (decisions 0002, 0016 and 0027)
 
 | | Result |
 |---|---|
 | Cold start, CDN build | about 35 s |
 | Cold start, vendored | about 15 s |
 | Download | CDN 22 MB dist plus about 33 MB fetched; vendored 73 MB plus 21.7 MB packages (spike) |
-| Current site | 99 precached files, 83 MB (2026-11-08) |
+| Current site | 94 precached files, 90 MB (2026-11-12) |
+| Start-up, current site (0027, desktop Chromium) | first screen 4.9 s cold, 2.6 s warm; engine ready 6.7 s cold, 4.3 s warm |
 
 No fixed budgets exist (SRS); NFR-PERF-001 and NFR-PERF-005 ask only that they are measured and reported.
 
@@ -64,8 +65,8 @@ No fixed budgets exist (SRS); NFR-PERF-001 and NFR-PERF-005 ask only that they a
 
 - No real GitHub Pages deploy, no offline test there, and no deploy job.
 - Safari, iOS and Chromebook have not run the site; service-worker and canvas behaviour differ there.
-- The build downloads Pyodide packages and two PyPI wheels at build time; a download failure fails the build. They are not cached in the repo.
-- `PYODIDE_PACKAGES` must match what the engine worker and Flet load; a missing one fails only at run time in the browser.
+- The build downloads Pyodide packages and two PyPI wheels at build time; a download failure fails the build. They are cached in `%TEMP%`, not in the repo.
+- `RUNTIME_PACKAGES` and `ENGINE_PACKAGES` must match what Flet and the engine import; a missing one fails only at run time in the browser (the e2e tests catch it).
 - Pyodide upgrade procedure (NFR-MAINT-005) is not written down: bump the version, rebuild, run the e2e suite.
 - If the app ships a Dart extension, switch from `flet publish` to `flet build web` and keep the post-processing (0018).
 - The disclaimer, privacy text and third-party notices are in the app's About dialog; the notices have not been checked against the shipped files (NFR-LEG-003).

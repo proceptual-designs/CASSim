@@ -11,15 +11,16 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from cassim.core.session import Result, Session
+from cassim.core.results import Result
 from cassim.device.clipboard import Clipboard
 from cassim.device.editor import MARK, Editor, Kind, Node, linear_text, modernised, parse_target
 from cassim.device.editor import Row as EditorRow
-from cassim.device.engine import RemoteSession
+from cassim.device.engine import RemoteSession, local_session
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from cassim.core.session import Session
     from cassim.device.keys import Binding
 
 type Row = Literal["entry", "result"]
@@ -71,7 +72,7 @@ class Calculator:
     def __init__(
         self, session: Session | RemoteSession | None = None, clipboard: Clipboard | None = None
     ) -> None:
-        self.session = session if session is not None else Session()
+        self.session = session if session is not None else local_session()
         self.clipboard = clipboard if clipboard is not None else Clipboard()
         self.editor = Editor()
         self.history: list[Entry] = []

@@ -5,13 +5,13 @@ the syntax tree, for `seq`, `when` and others that decide what to evaluate). A c
 statement written without parentheses, such as `SortA l`.
 """
 
-import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Protocol
 
 from cassim.core import ast
+from cassim.core.builtin_names import canonical
 from cassim.core.scope import Scope
 from cassim.core.settings import Settings
 from cassim.core.values import Raw, Value
@@ -131,16 +131,8 @@ def lookup_conversion(name: str) -> ConversionRun | None:
     return _CONVERSIONS.get(name.casefold())
 
 
-# `sin⁻¹` and `arcsin` are one function; the catalog knows it by the typed name.
-_INVERSE_SPELLING = re.compile(r"(sin|cos|tan|sec|csc|cot)(h?)⁻¹")
-
-
-def _canonical(name: str) -> str:
-    return _INVERSE_SPELLING.sub(r"arc\1\2", name.casefold())
-
-
 def lookup(name: str) -> Entry | None:
-    return _FUNCTIONS.get(_canonical(name))
+    return _FUNCTIONS.get(canonical(name))
 
 
 def lookup_command(name: str) -> CommandRun | None:
@@ -156,5 +148,10 @@ def conversion_names() -> list[str]:
     return sorted(_CONVERSION_NAMES, key=str.casefold)
 
 
+def canonical_names() -> frozenset[str]:
+    """The key of every function, for `tools.builtin_names` and its test."""
+    return frozenset(_FUNCTIONS)
+
+
 def is_builtin(name: str) -> bool:
-    return _canonical(name) in _FUNCTIONS
+    return canonical(name) in _FUNCTIONS

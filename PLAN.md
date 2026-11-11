@@ -47,6 +47,7 @@ cassim/
       compat/sympy_adapter.py       ONLY place that touches SymPy internals; TI-compat fixes (solve families
                                     @n1, cSolve, domain constraints, simplification/format differences)
       format.py                     Value -> TI linear text AND a 2D layout tree (fraction, sqrt, power, matrix)
+      results.py builtin_names.py   what the UI holds without importing SymPy (decision 0027)
       errors.py                     TI error codes/messages
     basic/                  [placeholder] TI-Basic lexer/parser/interpreter (Prgm, Func, control flow, Disp/Request/Text, Try)
     pylib/                  [placeholder] Python-script bridge + sandbox API (see 5.4)

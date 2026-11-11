@@ -10,15 +10,17 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Generator
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.calculator import Calculator
 from cassim.device.document import Document, Page, PageKind
 from cassim.device.editor import Kind, Node, Row, Template
-from cassim.device.engine import RemoteSession
+from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding
+
+if TYPE_CHECKING:
+    from cassim.core.session import Session
 
 SCHEMA = 1
 FORMAT = "cassim-document"
@@ -117,7 +119,7 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def from_dict(
-    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession] = Session
+    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession] = local_session
 ) -> Document:
     """Rebuild a document, replaying every entry through the engine (all in this process)."""
     steps = replay_steps(data, sessions)
