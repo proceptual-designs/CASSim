@@ -19,7 +19,7 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 | shift+minus | Derivative template | ✓ | | A, B, C | M2d | Confirmed (S2): slots variable, then expression |
 | shift+plus | Integral template | ✓ | | A, B, C | M2d | Confirmed (S2): definite; slots lower, upper, integrand, variable |
 | ctrl+* (keypad ×) | Template palette | ✓ | | C | M2d | Differs (S2): gives a string template `" "`, not the palette |
-| ctrl+K | Symbol palette | ✓ | | C | M2e, Should | Differs (S2): computer ctrl+K no visible effect; keypad not tested |
+| ctrl+K | Symbol palette | ✓ | | C | M2e, Should | Differs (S2): no visible effect from the computer keyboard or the keypad |
 | ctrl+( , ctrl+) | `[ ]` and `{ }` | ✓ | | C | M2d | Confirmed (S2) |
 | ctrl+= | Inequality menu | ✓ | | C | M2e, Could | Confirmed (S2): menu `> < ≠ ≥ ≤ \|` |
 | ctrl+S (keypad) | log( ) | ✓ | | C | M2d | Differs (S2): the key is ctrl+10ˣ and it gives a `log_a(b)` template (base slot, then argument) |
@@ -39,7 +39,7 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 | shift+arrows | Select | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): a template is selected as one unit |
 | ctrl+A | Select all | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): typing replaces |
 | ctrl+7 / ctrl+8 | Jump to first line / start of line | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): ctrl+7 selects the first history row, ctrl+8 start of line |
-| ctrl+1 / ctrl+2 | Jump to last line / end of line | ✓ | ✓ | A, B, C | M2d | ctrl+2 end of line confirmed; ctrl+1 no visible effect (S5) |
+| ctrl+1 / ctrl+2 | Jump to last line / end of line | ✓ | ✓ | A, B, C | M2d | Confirmed (S5): ctrl+2 end of line; ctrl+1 returns the cursor to the entry line (last line) |
 | ctrl+3 / ctrl+9 | Page down / page up | ✓ | ✓ | A, B, C | M2c | Confirmed (S5): scroll the history (ctrl+3 to the bottom) |
 | ctrl+up | Move up the document hierarchy | ✓ | ✓ | C | M2c, Could | Confirmed (S5): opens the page sorter |
 | Up on an empty entry line | Select last result, then last entry; Return copies | ✓ | ✓ | emulator | M2c | Confirmed (T4d) |
@@ -57,8 +57,8 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 | Keys | Action | Source | CASSim | Check |
 |---|---|---|---|---|
 | ctrl+C, ctrl+X, ctrl+V | Copy, cut, paste | A, B, C | M2d | Confirmed (S7): paste keeps the 2D template |
-| ctrl+Z, ctrl+Y | Undo, redo | A, B, C | M2d | Confirmed (S7 d): entry-line undo grouped by operator (`ab+c` is 3 steps: `ab`, `+`, `c`) |
-| shift+Esc | Redo (hand) | B | M2d, Could | Unsure (S7): no visible effect in my run |
+| ctrl+Z, ctrl+Y | Undo, redo | A, B, C | M2d | Confirmed (S7 d): entry-line undo grouped by operator (`ab+c` is 3 steps: `ab`, `+`, `c`); a template insert and each slot entry are separate steps; with an empty undo history ctrl+Z falls through and undoes the page insert |
+| shift+Esc | Redo (hand) | B | M2d, Could | Differs (S7): no redo; redo is ctrl+Y |
 | ctrl+I | Insert page | A, B, C | M2c | Used in the capture runs |
 | ctrl+N, ctrl+O, ctrl+S, ctrl+W | New, open, save, close document | A, B, C | M2c | not needed on the emulator |
 | ctrl+L | Variable list (Calc); store or link a variable (L&S) | A, B, C | M2c | Confirmed (S2) for Calculator |
@@ -84,6 +84,15 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 - Matrix size limit is 99 by 99. A fraction in a cell exits with Right and stays in the cell.
 - Symbols: EE key gives `ᴇ` (3.14ᴇ6 is 3140000.); `@E` is scientific notation, typed letters `EE` are not (Simon); `5%` gives 1/20; `<=`, `/=`, `=>` become ≤, ≠, ⇒ on Return; `pi`, `infinity`, `@i` become π, ∞, ⅈ; keypad eˣ gives bold ⅇ.
 - A keypad click followed at once by typed text can be reordered; wait after a keypad click.
+
+- Delete in front of a template: first Delete selects it, a second leaves only its first slot's content (`3/4` becomes `3`, selected).
+
+## Built from the follow-up run (2026-11-12)
+- ctrl+Z with nothing to undo in the entry line of a page with no history undoes the page insert; ctrl+Y redoes it. Undo of an evaluation (emulator check 3, H1) is not built, so undo does not step past a result.
+- The keypad has ctrl+Z and ctrl+Y as well as ctrl+esc; shift+esc is not bound.
+- Keypad ctrl+7 picks the first history row and ctrl+1 returns to the entry line. They are not bound on the computer keyboard, where a browser keeps ctrl+1 to ctrl+8 for its tabs.
+- The second Delete on a highlighted template keeps its first slot's content, selected. Seen on the emulator for a fraction only; CASSim does the same for every template.
+- ctrl+K is not bound (no effect on the emulator).
 
 ## Implementation notes
 - Bindings are data (profile registry), not code (FR-DEV-007). The editor exposes the actions: `insert_template(kind)`, `tab()`, `left()` and so on.

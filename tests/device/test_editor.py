@@ -194,6 +194,9 @@ def test_delete_removes_the_next_character_and_highlights_a_template():
     editor = keys("√2RH")
     editor.delete()
     assert editor.selected
+    editor.delete()  # the template goes; what was in its first slot stays, selected (S8 a)
+    assert editor.linear() == "2"
+    assert editor.selection() == ["2"]
     editor.delete()
     assert editor.is_empty
 

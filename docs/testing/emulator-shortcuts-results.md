@@ -105,7 +105,12 @@ Matches docs/design/shortcuts.md? no: it gives the string (text) template, not t
 Keys: ctrl+K on an empty line
 Entry line (before Return): nothing opens; S2-ctrlK-before.png
 Result (after Return): not run
-Matches docs/design/shortcuts.md? no: no symbol palette and no select-page effect was visible. The keypad ctrl+K was not tested.
+Matches docs/design/shortcuts.md? no: no symbol palette and no select-page effect was visible. Keypad ctrl+K: see S2 d2.
+
+### S2 d2: ctrl+K on the keypad
+Keys: keypad ctrl, then K
+Result: no visible effect on an empty line; S2-ctrlK-keypad.png
+Matches docs/design/shortcuts.md? no.
 
 ### S2 e: derivative, keypad shift + −
 Keys: keypad shift, then −; a Tab b Tab c
@@ -193,6 +198,10 @@ Matches docs/design/shortcuts.md? yes (swapped label order in the sheet: 8 is st
 Entry line: ctrl+7 selects the first history row; ctrl+1 had no visible effect; S5-b-ctrl7.png, S5-b-ctrl1.png
 Matches docs/design/shortcuts.md? unsure/partly: ctrl+7 works as "first line"; ctrl+1 did not visibly go to the last line.
 
+### S5 b2: ctrl+1 retest
+With four history rows: keypad ctrl+7 selects the first row; keypad ctrl+1 returns the cursor to the entry line at the bottom (last line). My earlier "no visible effect" was because the cursor was already there. S5-b2-ctrl7.png, S5-b2-ctrl1.png
+Matches docs/design/shortcuts.md? yes.
+
 ### S5 c: ctrl+9 and ctrl+3 on a long history (keypad)
 Entry line: ctrl+9 scrolls the history up, ctrl+3 scrolls to the bottom; S5-c-ctrl9.png, S5-c-ctrl3.png
 Matches docs/design/shortcuts.md? yes in effect (scroll the history).
@@ -246,7 +255,7 @@ Entry line: the pasted result is a stacked 2D fraction, not text; S7-a-selected.
 Matches docs/design/shortcuts.md? yes.
 
 ### S7 b: ctrl+X, ctrl+Z, ctrl+Y, shift+Esc
-Entry line: ctrl+X cuts the selected template; in my run ctrl+Z and ctrl+Y appeared to act on the document (page insert/remove), but Simon reports they act on the entry line (see the correction below); shift+Escape had no visible effect on the entry line; S7-b-cut.png, S7-b-ctrlZ.png, S7-b-ctrlY.png, S7-b-shiftEsc.png
+Entry line: ctrl+X cuts the selected template; ctrl+Z and ctrl+Y undo and redo on the entry line (my first reading of page-level effects was wrong; see the correction below); shift+Escape had no visible effect on the entry line; S7-b-cut.png, S7-b-ctrlZ.png, S7-b-ctrlY.png, S7-b-shiftEsc.png
 Matches docs/design/shortcuts.md? my run was inconclusive for ctrl+Z, ctrl+Y (see the correction below); unsure for shift+Esc.
 
 ### S7 c: ctrl+Z after typing and after a template insert, with nothing to undo
@@ -255,10 +264,21 @@ Matches docs/design/shortcuts.md? yes, per Simon's correction below.
 
 **Correction (Simon) and retest:** ctrl+Z and ctrl+Y act on the entry line, and undo groups edits by operator. Retested on a fresh page (computer keyboard) with `ab+c`: ctrl+Z gives `ab+`, then `ab`, then an empty line (three steps: `c`, `+`, `ab`); ctrl+Y then restores `ab`, `ab+`, `ab+c`. Simon's description is confirmed. My earlier page-level observation in S7 b and c was wrong. S7-d-typed.png, S7-d-undo1.png, S7-d-undo2.png, S7-d-undo3.png, S7-d-redo1.png, S7-d-redo2.png, S7-d-redo3.png
 
+### S7 e: undo and redo through a template (follow-up, computer keyboard)
+Keys: 1 ctrl+/ 2 Right + 3, then ctrl+Z four times, ctrl+Y twice
+Result: undo gives `1/2+` (the `3` goes first), then `1/2` (the `+` goes), then `1` over an empty denominator (the `2` goes), then `1` (the template is removed); redo restores the empty-denominator fraction, then `1/2`. The template insert and each slot entry are separate undo steps. S7-e-typed.png, S7-e-undo1.png to S7-e-undo4.png, S7-e-redo1.png, S7-e-redo2.png
+
+### S7 f: ctrl+Z with nothing to undo in the entry line
+Result: on a fresh Calculator page with an empty entry line, ctrl+Z undoes the page insertion itself (the page returns to a blank "Press menu" page) and ctrl+Y brings the Calculator page back. So ctrl+Z falls through to the document level when the entry line has no undo history. This is what my first S7 run saw. S7-f-emptyUndo-page.png, S7-f-emptyRedo-page.png
+
+### S7 g: shift+Esc as redo
+Result: after two ctrl+Z (`ab+c` to `ab`), shift+Escape left `ab`; no redo. S7-g-shiftEsc.png (an overlay covers part of the screen; the entry line is visible)
+
 ## S8. Backspace, delete and Esc
 
 ### S8 a: forward delete
 Keys, with the cursor between `a` and `b` in `ab`: computer Delete gives `a|` (the letter after the cursor goes); keypad shift then del gives `a|b` (no visible deletion); computer shift+Backspace acted as a plain Backspace (deleted `a`). In front of a fraction `3/4` at the start of the line: computer Delete selects the whole fraction (highlight; I did not press a second Delete); keypad shift+del leaves the fraction unchanged. In a numerator `12/34` (cursor after the 1): computer Delete deletes the 2. Shots: S8-a-Delete-letter.png, S8-a-shiftDel-letter.png, S8-b-shiftBS-computer-between.png, S8-a-Delete-beforeTemplate.png, S8-a-shiftDel-beforeTemplate.png, S8-a-Delete-inNumerator.png
+Follow-up: in front of `3/4`, the first Delete selects the whole fraction; a second Delete then leaves only the `3`, selected (the bar and `4` are gone). S8-g-Delete1-beforeTemplate.png, S8-g-Delete2-beforeTemplate.png
 Matches docs/design/shortcuts.md? not in the sheet (Delete works on the computer keyboard; keypad shift+del did nothing visible here).
 
 ### S8 b: clearing a half-typed entry
@@ -323,7 +343,7 @@ Result (after Return): `∞`; S9-i-after.png
 | 1 | shift+minus | **confirmed** | Derivative template, slots variable then expression. |
 | 1 | shift+plus | **confirmed** | Definite integral, slots lower, upper, integrand, variable. |
 | 1 | ctrl+* (palette) | **differs** | Gives the string template `" "`. |
-| 1 | ctrl+K (symbol palette) | **differs** | Computer ctrl+K no visible effect; keypad not tested. |
+| 1 | ctrl+K (symbol palette) | **differs** | No visible effect from the computer keyboard or the keypad (S2 d2). |
 | 1 | ctrl+( , ctrl+) | **confirmed** | `[ ]` and `{ }`. |
 | 1 | ctrl+= | **confirmed** | Menu `> < ≠ ≥ ≤ \|`. |
 | 1 | ctrl+S (keypad) log( ) | **differs** | Key is ctrl+10ˣ; gives `log_a(b)` with a base slot. |
@@ -339,7 +359,7 @@ Result (after Return): `∞`; S9-i-after.png
 | 2 | shift+arrows | **confirmed** | S5 d: the template is selected as a unit. |
 | 2 | ctrl+A | **confirmed** | Select all; typing replaces. |
 | 2 | ctrl+7 / ctrl+8 | **confirmed** | ctrl+7 selects the first history row; ctrl+8 start of line. |
-| 2 | ctrl+1 / ctrl+2 | **differs** | ctrl+2 end of line; ctrl+1 had no visible effect. |
+| 2 | ctrl+1 / ctrl+2 | **confirmed** | ctrl+2 end of line; ctrl+1 returns the cursor to the entry line (last line); S5 b2. |
 | 2 | ctrl+3 / ctrl+9 | **confirmed** | Scroll the history (3 to the bottom). |
 | 2 | ctrl+up | **confirmed** | Opens the page sorter. |
 | 2 | Up on an empty line | **not tested** | Confirmed in the first run (T4d). |
@@ -350,7 +370,7 @@ Result (after Return): `∞`; S9-i-after.png
 | 3 | Tab | **not tested** | Confirmed in the first run (T8b). |
 | 4 | ctrl+C, ctrl+X, ctrl+V | **confirmed** | Paste keeps the 2D template. |
 | 4 | ctrl+Z, ctrl+Y | **confirmed** | Entry-line undo/redo, grouped by operator (`ab+c` = 3 steps). Retested: undo gives `ab+`, `ab`, empty; redo restores them (S7-d). |
-| 4 | shift+Esc | **not tested** | Pressed; no visible effect, so no conclusion. |
+| 4 | shift+Esc | **differs** | No redo: after two ctrl+Z, shift+Esc left the entry unchanged (S7 g). Redo is ctrl+Y. |
 | 4 | ctrl+I | **confirmed** | Used to add every page in this run. |
 | 4 | ctrl+N, ctrl+O, ctrl+S, ctrl+W | **not tested** | |
 | 4 | ctrl+L | **confirmed** | Variable list (computer). |
@@ -363,6 +383,7 @@ Result (after Return): `∞`; S9-i-after.png
 ## Anything else noticed
 - A bare `Delete` key works on the computer keyboard; the keypad's shift+del (label "clear") did nothing visible.
 - The only way found to clear an entry is ctrl+A then Backspace.
+- ctrl+Z with an empty undo history falls through to the document (undoes the page insert); ctrl+Y redoes it.
 - ctrl+Z / ctrl+Y: Simon says they act on the entry line, grouped by operator (`ab+c` is 3 undo steps). Retested and confirmed (S7-d); my first S7 reading was wrong.
 - Scientific notation: `1@E5` is scientific notation; typing the letters `1EE5` is not. The keypad EE key inserts the `ᴇ` form (S9 a).
 - Return and keypad enter in a matrix evaluate it instead of adding a row; rows and columns come from alt+Return and shift+Return.
@@ -372,5 +393,6 @@ Result (after Return): `∞`; S9-i-after.png
 - A keypad click followed at once by typed text can reorder the two (see EE).
 
 ## What was run and what was not
-Run: S1 a to h (including e2), S2 a to k, S3 a to d, S4, S5 a to h, S6 a to d, S7 a to c, S8 a to c, S9 a to i.
-Not run: ctrl+K on the keypad; ctrl+N, O, S, W, R, G, T, M, E, F, H, B, 4, 6, Tab; the typed spellings not listed in S9; the second Delete on a selected template; keypad `ctrl+·` for approximate.
+Run: S1 a to h (including e2), S2 a to k, S3 a to d, S4, S5 a to h, S6 a to d, S7 a to d (d is the undo/redo retest), S8 a to c, S9 a to i.
+All earlier open items were run in a follow-up (S7 e to g, S5 b2, S2 d2, S8 a follow-up).
+Not run: ctrl+N, O, S, W, R, G, T, M, E, F, H, B, 4, 6, Tab; the typed spellings not listed in S9; keypad `ctrl+·` for approximate.
