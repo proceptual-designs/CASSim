@@ -17,7 +17,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from cassim.core.builtin_names import is_builtin
+from cassim.core.builtin_names import is_builtin, spelling
 from cassim.core.parser import COMMANDS
 
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
@@ -795,8 +795,9 @@ def _closing(row: Row, start: int) -> int | None:
 
 def modernised(row: Row) -> Row:
     """The line as a student would write it on paper: `pi` is π, `infinity` is ∞, `sqrt(x)` is a
-    root template and `exp(x)` is ⅇ with a power. Used on a line once it has been entered; the
-    typing is untouched until then."""
+    root template, `exp(x)` is ⅇ with a power, and a Catalog name typed in the wrong case is
+    spelled as the Catalog spells it (`SOLVE` is `solve`, `define` is `Define`). Used on a line
+    once it has been entered; the typing is untouched until then, as on the device."""
     out: Row = []
     index = 0
     while index < len(row):
@@ -822,10 +823,21 @@ def modernised(row: Row) -> Row:
         elif word == "exp" and close is not None:
             out.extend(["ⅇ", Template(Kind.POWER, [modernised(row[end + 1 : close])])])
             end = close + 1
+        elif (name := catalog_spelling(word)) is not None:
+            out.extend(name)
         else:
             out.extend(row[index:end])
         index = end
     return out
+
+
+def catalog_spelling(word: str) -> str | None:
+    """How the Catalog spells `word` (any case), or None for a name it does not own."""
+    if word in _WORDS:
+        return word
+    if word == "define":
+        return "Define"
+    return COMMANDS.get(word) or spelling(word)
 
 
 def substitute_ans(row: Row, value: str) -> Row:
@@ -1001,7 +1013,7 @@ _SYMBOLS = {
     "π": r"\pi ",
     "∞": r"\infty ",
     "ⅇ": r"\mathbf{e}",  # bold upright, so the constants stand out from the variables e and i
-    "ⅈ": r"\mathbf{i}",
+    "ⅈ": r"\boldsymbol{i}",  # bold italic, as the device draws it
     " ": r"\ ",  # TeX drops a plain space, which would run `and` into its equations
     "%": r"\%",
     "_": r"\_",
@@ -1047,11 +1059,12 @@ class Style(StrEnum):
 
     ROMAN = "roman"  # upright: a Catalog name (function, command, `Define`) or a word operator
     BOLD = "bold"  # a name the Problem defines: a variable, an expression, a function...
+    BOLD_ITALIC = "bold italic"  # the imaginary unit ⅈ
 
 
 # Names that are never a plain variable: `ans`, and the words that join conditions.
 _WORDS = frozenset({"ans", "and", "or", "xor", "not"})
-# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, drawn bold.
+# The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, bold once set.
 _SYSTEM_PREFIXES = ("tvm.", "stat.")
 
 
@@ -1064,7 +1077,9 @@ def is_catalog_name(name: str) -> bool:
 def name_styles(row: Row, is_defined: Callable[[str], bool]) -> dict[int, Style]:
     """The style of each letter that belongs to a name which is not a plain variable: Catalog
     names (`Define`, `solve`, `sin`, `ans`, `and`) upright, and names the Problem defines (any
-    value or function, and `tvm.pmt` style system variables) bold. Any other name is italic."""
+    value or function, and `tvm.pmt` style system variables once something has set them) bold.
+    Any other name is italic. The device draws bold only on the entry line: a history row is
+    drawn with `is_defined` false for every name (emulator check 4, A4)."""
     styles: dict[int, Style] = {}
     run: list[int] = []
     for index, node in enumerate([*row, ""]):
@@ -1076,13 +1091,8 @@ def name_styles(row: Row, is_defined: Callable[[str], bool]) -> dict[int, Style]
             continue
         if run:
             name = "".join(str(row[i]) for i in run)
-            system = name.casefold().startswith(_SYSTEM_PREFIXES) and not name.endswith(".")
             style = (
-                Style.BOLD
-                if system or is_defined(name)
-                else Style.ROMAN
-                if is_catalog_name(name)
-                else None
+                Style.BOLD if is_defined(name) else Style.ROMAN if is_catalog_name(name) else None
             )
             if style is not None:
                 styles.update(dict.fromkeys(run, style))
@@ -1112,7 +1122,13 @@ def at_constants(row: Row) -> dict[int, str]:
     return shown
 
 
-_FONTS = {Style.ROMAN: "mathrm", Style.BOLD: "mathbf"}
+_FONTS = {Style.ROMAN: "mathrm", Style.BOLD: "mathbf", Style.BOLD_ITALIC: "boldsymbol"}
+
+
+def constant_style(letter: str) -> Style:
+    """ⅇ is drawn bold upright and ⅈ bold italic (emulator check 4, A13)."""
+    return Style.BOLD_ITALIC if letter == "i" else Style.BOLD
+
 
 type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
 
@@ -1131,7 +1147,8 @@ def _latex(
     pieces: list[str] = []
     for i, node in enumerate(row):
         if i in constants:
-            pieces.append(rf"\mathbf{{{constants[i]}}}" if constants[i] else "")
+            letter = constants[i]
+            pieces.append(rf"\{_FONTS[constant_style(letter)]}{{{letter}}}" if letter else "")
             continue
         if isinstance(node, str):
             style = styles.get(i)

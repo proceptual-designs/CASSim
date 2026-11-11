@@ -249,18 +249,23 @@ class TestLatex:
         assert tex.endswith(r"\ \mathrm{o}\mathrm{r}\ z")
         assert Editor("band").latex(cursor=False) == "band"  # only the whole word
 
-    def test_system_result_names_are_one_bold_name(self):
-        """`tvm.pmt` and `stat.sx` are the calculator's own variables, not letters and a dot."""
+    def test_system_result_names_are_one_name_bold_once_set(self):
+        """`tvm.pmt` and `stat.sx` are the calculator's own variables, not letters and a dot. Like
+        any name they are bold only once something sets them (emulator check 4, A10: `tvmPmt()`
+        leaves `tvm.pmt` italic, `OneVar` makes `stat.results` bold)."""
         assert (
-            Editor("tvm.n").latex(cursor=False)
+            Editor("tvm.n").latex(cursor=False, is_defined={"tvm.n"}.__contains__)
             == r"\mathbf{t}\mathbf{v}\mathbf{m}\mathbf{.}\mathbf{n}"
         )
+        assert Editor("tvm.n").latex(cursor=False) == "tvm.n"
         assert Editor("x.n").latex(cursor=False) == "x.n"
 
-    def test_typed_constants_are_bold_upright(self):
-        """`@e` and `@i` show as the constants; `@exp` and a plain `e` do not."""
+    def test_typed_constants_show_as_the_constants(self):
+        """`@e` and `@i` show as the constants, ⅇ bold upright and ⅈ bold italic as the device
+        draws them in the history (emulator check 4, A13); `@exp` and a plain `e` do not."""
         assert Editor("2@e").latex(cursor=False) == r"2\mathbf{e}"
-        assert Editor("@i").latex(cursor=False) == r"\mathbf{i}"
+        assert Editor("@i").latex(cursor=False) == r"\boldsymbol{i}"
+        assert Editor("ⅈ").latex(cursor=False) == r"\boldsymbol{i}"
         assert Editor("@ex").latex(cursor=False) == "@ex"
         assert Editor("e").latex(cursor=False) == "e"
 

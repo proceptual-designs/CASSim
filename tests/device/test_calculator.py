@@ -202,6 +202,30 @@ def test_defined_names_are_bold_and_catalog_names_upright() -> None:
     assert r"\mathbf" not in shown("solve(")
 
 
+def test_the_history_draws_defined_names_italic_again() -> None:
+    """FR-CALC-003, emulator check 4 A4 and A6: bold is only for the entry line. Once Return is
+    pressed the history row draws every name of the user's italic, defined or not, while a
+    Catalog name stays upright."""
+    page = computer(*"a:=3", "Enter", *"solve(a*x=1,x)")
+    assert r"\mathbf{a}" in page.editor.latex(is_defined=page.session.is_defined)
+    press(page, Keyboard(nspire.COMPUTER), "Enter")
+    latex = page.history[-1].latex
+    assert r"\mathbf" not in latex
+    assert r"\mathrm{s}" in latex
+
+
+def test_catalog_names_take_the_catalogs_case_on_return() -> None:
+    """Emulator check 4 A3: `SOLVE(`, `Sin(` and `define` stay as typed on the entry line and are
+    spelled as the Catalog spells them in the history; a user's own name is left alone."""
+    page = computer(*"SOLVE(x=1,x)")
+    assert page.editor.linear() == "SOLVE(x=1,x)"
+    press(page, Keyboard(nspire.COMPUTER), "Enter")
+    assert page.history[-1].text == "solve(x=1,x)"
+    page = computer(*"define k(x)=x", "Enter", *"Sin(x)+K(2)+BINOMCDF(5,0.5,2)", "Enter")
+    assert page.history[0].text == "Define k(x)=x"
+    assert page.history[1].text == "sin(x)+K(2)+binomCdf(5,0.5,2)"
+
+
 def test_shift_arrows_select_and_typing_replaces() -> None:
     """Computer shift+arrows, ctrl+A; the keypad's shift then an arrow does the same (S5)."""
     page = computer(*"abc", "shift+ArrowLeft", "shift+ArrowLeft", "9")

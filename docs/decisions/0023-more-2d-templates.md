@@ -84,6 +84,10 @@ device it makes a variable distinct from a typed `a_1`, and CASSim's parser has 
   variables), and a space is kept (`\ `) so `and` no longer runs into its equations. `@e` and `@i` are drawn
   as bold upright **e** and **i** in the entry and history; results draw ⅇ and ⅈ the same way. Bold was
   chosen because KaTeX has no glyph for U+2147/U+2148.
+  *Updated 2026-11-12 (emulator check 4, `docs/testing/emulator-calc2-results.md` part A):* ⅈ is
+  bold italic, not upright; Catalog names and word operators are upright regular; a name the Problem
+  defines is bold on the entry line only, and the history draws it italic again; `tvm.` and `stat.`
+  names are bold only once set; a Catalog name typed in the wrong case is corrected on Return.
 - Conditions in results read `x=1 and y=0 or ...` as on the handheld. Document Settings has a new
   "Join conditions with" choice (`logic`: `words` default, or `symbols` for ∧ ∨).
 - `solve` and `cSolve` take the unknowns as `x,y` as well as `{x,y}`; a repeated unknown is "Too many arguments".
