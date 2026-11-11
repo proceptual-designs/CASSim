@@ -30,6 +30,7 @@ class Result:
     latex: str
     value: Value | None
     error: str | None
+    full: str = ""  # the text at 14 digits: what `Ans` stands for in a history line
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +81,10 @@ class Session:
             if self.settings.ascii is Ascii.ON:
                 text = to_ascii(text)
             latex = to_latex(value, logic_symbols=self.settings.logic is Logic.SYMBOLS)
+            full = text
+            if self.settings.digits != "float14":
+                full = to_text(value, replace(self.settings, digits="float14"))
+                full = to_ascii(full) if self.settings.ascii is Ascii.ON else full
         except TIError as error:
             return Result(error.message, "", None, error.message)
         except RecursionError:
@@ -88,7 +93,15 @@ class Session:
             return Result(message, "", None, message)
         if not isinstance(value, Void):
             self._ans = value
-        return Result(text, latex, value, None)
+        return Result(text, latex, value, None, full)
+
+    def set_ans(self, line: str | None) -> None:
+        """Make `Ans` the value of `line`, the last result left in the history after an undo or a
+        delete (emulator check 3, H5 g). None clears it. A line that fails changes nothing."""
+        if line is None:
+            self._ans = None
+        elif line.strip():
+            self.eval(line)
 
     def is_function(self, name: str) -> bool:
         """Whether `name` is a built-in command or a user function defined in this Problem."""

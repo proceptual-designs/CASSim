@@ -88,7 +88,8 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 - Delete in front of a template: first Delete selects it, a second leaves only its first slot's content (`3/4` becomes `3`, selected).
 
 ## Built from the follow-up run (2026-11-12)
-- ctrl+Z with nothing to undo in the entry line of a page with no history undoes the page insert; ctrl+Y redoes it. Undo of an evaluation (emulator check 3, H1) is not built, so undo does not step past a result.
+- ctrl+Z and ctrl+Y step through typing, evaluations and deleted pairs (a store is not undone). With nothing left to undo on the page, ctrl+Z undoes the page insert and ctrl+Y redoes it. Loading a document starts with no undo (emulator check 3, H1).
+- Home with a history line picked goes to the first line (H2 c).
 - The keypad has ctrl+Z and ctrl+Y as well as ctrl+esc; shift+esc is not bound.
 - Keypad ctrl+7 picks the first history row and ctrl+1 returns to the entry line. They are not bound on the computer keyboard, where a browser keeps ctrl+1 to ctrl+8 for its tabs.
 - The second Delete on a highlighted template keeps its first slot's content, selected. Seen on the emulator for a fraction only; CASSim does the same for every template.

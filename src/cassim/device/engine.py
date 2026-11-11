@@ -65,9 +65,16 @@ class EngineCore:
                     session.settings = updated(session.settings, op["values"])
                 case "store":
                     session.store_numbers(op["numbers"])
+                case "ans":
+                    session.set_ans(op["line"])
                 case "eval":
                     done = session.eval(op["line"], approximate=bool(op["approximate"]))
-                    result = {"text": done.text, "latex": done.latex, "error": done.error}
+                    result = {
+                        "text": done.text,
+                        "latex": done.latex,
+                        "error": done.error,
+                        "full": done.full,
+                    }
                 case other:
                     msg = f"unknown engine op {other!r}"
                     raise ValueError(msg)
@@ -151,6 +158,9 @@ class RemoteSession:
 
     def store_numbers(self, numbers: dict[str, float]) -> None:
         self.outbox.append(store_op(numbers))
+
+    def set_ans(self, line: str | None) -> None:
+        self.outbox.append({"op": "ans", "line": line})
 
     def eval(self, line: str, *, approximate: bool = False) -> Result:
         msg = "a RemoteSession evaluates through the app's Runner, not synchronously"

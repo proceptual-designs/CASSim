@@ -71,15 +71,20 @@ def test_undo_goes_through_the_typing_before_the_page() -> None:
     assert len(state.document.sorter()) == 1
 
 
-def test_undo_does_not_remove_a_page_that_has_results() -> None:
-    """An evaluation is not undone yet (emulator run H1), so undo stops there and does not step
-    past it to the page insert."""
+def test_undo_steps_back_over_the_evaluation_before_the_page_insert() -> None:
+    """H1 a, b: the first ctrl+Z takes the result away, the typing and then the page follow."""
     state = AppState()
     state.key_event("i", ctrl=True)
     typed(state, "2+3")
     state.key_event("Enter")
     state.key_event("z", ctrl=True)
+    assert line(state) == "2+3"
     assert len(state.document.sorter()) == 2
+    for _ in range(3):  # 3, +, 2
+        state.key_event("z", ctrl=True)
+    assert line(state) == ""
+    state.key_event("z", ctrl=True)
+    assert len(state.document.sorter()) == 1
 
 
 def test_the_keypad_has_ctrl_z_and_ctrl_y_and_shift_esc_is_not_redo() -> None:

@@ -33,9 +33,9 @@ flows:
   - {type: "5+7", expect: '12'}
   - {type: "*2", expect: '24', note: "an operator first on an empty line works on Ans"}
   - {type: "Ans-4", expect: '20'}
-  - {keys: "Up Up Enter", entry: "Ans-4", note: "Up twice picks the entry; Enter brings it into the line"}
-  - {keys: "Enter", expect: '16', note: "Ans is now 20 again, so Ans-4 is 16"}
-  - {type: "Ans^2", expect: '256'}
+  - {keys: "Up Up Enter", entry: "24-4", note: "Up twice picks the entry; Enter brings it into the line, with Ans shown as the value it had (emulator check 3, H1 g)"}
+  - {keys: "Enter", expect: '20', note: "the recalled line is 24-4"}
+  - {type: "Ans^2", expect: '400'}
 
 - id: methods-distributions
   course: methods

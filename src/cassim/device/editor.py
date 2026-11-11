@@ -12,6 +12,7 @@ renderer (decision 0015).
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -821,6 +822,33 @@ def modernised(row: Row) -> Row:
         else:
             out.extend(row[index:end])
         index = end
+    return out
+
+
+def substitute_ans(row: Row, value: str) -> Row:
+    """The line with each `ans` replaced by `value`, as the Teacher Software shows an entry in the
+    history (emulator check 3, H1 g and H6 a). A value that is not a plain number is bracketed."""
+    plain = re.fullmatch(r"[\d.]+(ᴇ-?\d+)?|[A-Za-zπⅇⅈ_][\w]*", value) is not None
+    inserted: Row = list(value if plain else f"({value})")
+    out: Row = []
+    index = 0
+    while index < len(row):
+        node = row[index]
+        if isinstance(node, Template):
+            out.append(
+                Template(node.kind, [substitute_ans(slot, value) for slot in node.slots], node.cols)
+            )
+            index += 1
+            continue
+        word = "".join(str(n) for n in row[index : index + 3]).casefold()
+        before = bool(out) and _is_name_char(out[-1])
+        after = index + 3 < len(row) and _is_name_char(row[index + 3])
+        if word == "ans" and not before and not after:
+            out.extend(inserted)
+            index += 3
+        else:
+            out.append(node)
+            index += 1
     return out
 
 

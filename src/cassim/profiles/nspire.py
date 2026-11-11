@@ -94,7 +94,7 @@ COMPUTER: Keymap = {
     "ArrowRight": Binding("right"),
     "ArrowUp": Binding("up"),
     "ArrowDown": Binding("down"),
-    "Home": Binding("home"),
+    "Home": Binding("home_key"),  # with a history line picked it goes to the first line (H2 c)
     "End": Binding("end"),
     "Escape": Binding("escape"),
     "CapsLock": Binding("caps"),  # the same lock as the keypad's ctrl+shift
