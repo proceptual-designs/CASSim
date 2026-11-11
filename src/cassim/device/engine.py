@@ -20,12 +20,14 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Protocol
 
-from cassim.core import catalog
-from cassim.core.session import Result, Session, VariableInfo
+from cassim.core.builtin_names import is_builtin
+from cassim.core.results import Result, VariableInfo
 from cassim.core.settings import Settings, updated, variable_key
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from cassim.core.session import Session
 
 type Op = dict[str, Any]
 type Reply = dict[str, Any]
@@ -43,6 +45,17 @@ def store_op(numbers: dict[str, float]) -> Op:
     return {"op": "store", "numbers": numbers}
 
 
+def local_session(settings: Settings | None = None) -> Session:
+    """A `Session` that does its maths in this process.
+
+    The import waits until one is wanted: it loads SymPy, which takes seconds in the browser, and
+    the UI's worker there only ever makes `RemoteSession`s (decision 0027).
+    """
+    from cassim.core.session import Session  # noqa: PLC0415
+
+    return Session(settings)
+
+
 class EngineError(RuntimeError):
     """The engine could not run an op (a crashed worker); not a TI error, which is in the result."""
 
@@ -55,7 +68,9 @@ class EngineCore:
 
     def apply(self, problem: int, ops: Iterable[Op]) -> Reply:
         """Apply `ops` in order; the reply holds the last `eval`'s result and the snapshot."""
-        session = self.sessions.setdefault(problem, Session())
+        session = self.sessions.get(problem)
+        if session is None:
+            session = self.sessions[problem] = local_session()
         result: dict[str, Any] | None = None
         for op in ops:
             match op["op"]:
@@ -157,7 +172,7 @@ class RemoteSession:
         raise NotImplementedError(msg)
 
     def is_function(self, name: str) -> bool:
-        return catalog.is_builtin(name.casefold()) or (
+        return is_builtin(name.casefold()) or (
             variable_key(self._settings, name) in self._functions
         )
 

@@ -106,8 +106,8 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CPD-005 | Could | M8 or M9 (device profiles); only the M2 guard applies now |
 | FR-HPP-001 | Would | M8 or M9 (device profiles); only the M2 guard applies now |
 | FR-HPP-002 | Would | M8 or M9 (device profiles); only the M2 guard applies now |
-| NFR-PERF-001 | Could | measured and reported, not asserted (SRS: no fixed budgets) |
-| NFR-PERF-002 | Should | measured and reported, not asserted (SRS: no fixed budgets) |
+| NFR-PERF-001 | Could | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
+| NFR-PERF-002 | Should | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
 | NFR-PERF-003 | Should | measured and reported, not asserted (SRS: no fixed budgets) |
 | NFR-PERF-005 | Could | measured and reported, not asserted (SRS: no fixed budgets) |
 | NFR-REL-003 | Should | autosave failure reporting is not built |

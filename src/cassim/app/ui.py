@@ -17,7 +17,7 @@ from cassim.app.template_icons import HEIGHT as ICON_H
 from cassim.app.template_icons import ICONS, Icon, Slot, Stroke
 from cassim.app.template_icons import WIDTH as ICON_W
 from cassim.app.theme import DARK, Theme
-from cassim.core.format import latex_for_markdown
+from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
 from cassim.device.keys import Key

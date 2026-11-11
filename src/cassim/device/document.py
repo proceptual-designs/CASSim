@@ -10,12 +10,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
-from cassim.core.session import Session
 from cassim.core.settings import Settings
 from cassim.device.calculator import Calculator
 from cassim.device.clipboard import Clipboard
-from cassim.device.engine import RemoteSession
+from cassim.device.engine import RemoteSession, local_session
+
+if TYPE_CHECKING:
+    from cassim.core.session import Session
 
 MAX_PAGES = 50  # per Problem, as on the emulator (docs/testing/emulator-editor-capture.md)
 
@@ -66,7 +69,7 @@ class Document:
         self,
         name: str = "Untitled",
         settings: Settings | None = None,
-        sessions: Callable[[Settings], Session | RemoteSession] = Session,
+        sessions: Callable[[Settings], Session | RemoteSession] = local_session,
     ) -> None:
         self.name = name
         self.sessions = sessions  # makes each Problem's session (a RemoteSession in the browser)

@@ -1,6 +1,6 @@
 # SDD-02. Engine worker, Cancel and restore
 
-Status: describes the code at 2026-11-08 (M2e). Requirements: FR-EVAL-006, NFR-REL-001, NFR-REL-002, NFR-PERF-003; Cancel within 1 s (SRS 5.1). Decisions: 0005 (spike 4), 0016 (publish and cancel), 0018.
+Status: describes the code at 2026-11-08 (M2e). Requirements: FR-EVAL-006, NFR-REL-001, NFR-REL-002, NFR-PERF-003; Cancel within 1 s (SRS 5.1). Decisions: 0005 (spike 4), 0016 (publish and cancel), 0018, 0027 (start-up time).
 
 ## Problem
 
@@ -13,10 +13,11 @@ Flet runs the UI, the document model and every event handler in one Pyodide work
 | `EngineCore` | `device/engine.py` | One `Session` per Problem id. `apply(problem, ops)` runs a list of ops and returns the last eval's result and a snapshot. `reset(journals)` rebuilds every session by replaying journals. Pure Python. |
 | `Engine` (protocol) | `device/engine.py` | Async transport: `run`, `reset`, `cancel`. |
 | `LocalEngine` | `device/engine.py` | `EngineCore` in-process. `cancel()` returns False. Used by tests and by `CASSIM_ENGINE=remote` on the desktop. |
-| `WorkerEngine`, `_Worker` | `app/web.py` | Browser only (`sys.platform == "emscripten"`). Spawns a module `Worker` from a Blob URL that boots its own Pyodide, loads `sympy` and `pyyaml`, unpacks `cassim.zip` and creates an `EngineCore`. |
+| `WorkerEngine`, `_Worker` | `app/web.py` | Browser only (`sys.platform == "emscripten"`). Spawns a module `Worker` from a Blob URL that boots its own Pyodide, unpacks `cassim.zip` (fetched while Pyodide starts; it holds SymPy and mpmath as bytecode) and creates an `EngineCore`. |
 | `RemoteSession` | `device/engine.py` | The UI's stand-in for a `Session`. Answers `is_function` and `variables` from the last snapshot, queues settings changes in an outbox, and keeps a journal of every op the engine has accepted. |
 | `Runner` | `device/runner.py` | Owns the status (`idle`, `busy`, `restarting`), sends the Calculator's pending entry, finishes it, and implements `cancel`, `sync` and `load`. |
-| Packaging | `tools/publish.py` | `write_engine_zip` builds `cassim.zip` (the pure-Python `cassim` package) served beside the site. |
+| Packaging | `tools/publish.py` | `write_engine_zip` builds `cassim.zip` (`cassim` without the UI, SymPy and mpmath, as bytecode) served beside the site. |
+| `local_session` | `device/engine.py` | Makes an in-process `Session` with a deferred import, so the UI worker never loads SymPy (0027). |
 
 ## Protocol
 
@@ -47,7 +48,7 @@ Everything crossing the worker boundary is JSON, so it survives `postMessage`.
 
 **Measured (0016):** Cancel to a ready, restored engine takes 16 to 19 ms with the spare already booted. Replay is linear at about 10 ms an entry. Flet's loop and the main thread stay at 60 fps throughout.
 
-**The spare.** Booting an engine takes 7 to 9 s (Pyodide plus SymPy), too slow to do on demand, so a spare is booted after the active engine is ready and after each reset. If Cancel is pressed again before the replacement spare is ready, the swap has to boot a worker; the measured worst case is about 22 s. This is the known weak spot in 0016.
+**The spare.** Booting an engine took 7 to 9 s in 0016 and about 2 to 4 s since 0027, still too slow to do on demand, so a spare is booted 3 s after the active engine is ready at start-up (`SPARE_DELAY`, so it does not compete with the autosave replay) and at once after each reset. If Cancel is pressed again before the replacement spare is ready, the swap has to boot a worker; the measured worst case is about 22 s. This is the known weak spot in 0016.
 
 ## Loading a document
 
@@ -61,6 +62,5 @@ Everything crossing the worker boundary is JSON, so it survives `postMessage`.
 
 - Desktop and native builds run `LocalEngine`, so Cancel is refused there (PLAN.md section 13, item 2).
 - Only one run is in flight at a time. `App.kick` starts a queued entry or settings sync only when the runner is idle, and the status line reads "Calculating... press Esc to cancel" while one runs.
-- The engine zip is the whole `cassim` package, including UI code it never imports; it could be trimmed.
 - A crashed worker is reported as a result row; there is no automatic restart other than Cancel.
 - Tests: `tests/device/test_engine.py` (RemoteSession, Runner, and Cancel through a `StuckEngine` test double), `tests/e2e/test_spike_cancel.py` and `tests/e2e/test_flows_browser.py` (the real worker in Chromium).
