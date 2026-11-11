@@ -45,7 +45,7 @@ The first screen arrives about 3.5 s sooner and the engine about 6 s sooner. The
 
 ## Not done, and why
 
-- **Lazy imports inside the engine** (load the catalog's calculus or matrices only when first used). The engine now starts in about 1.7 s after Pyodide on this machine and boots in the background, so the gain is small against the risk of a first-use pause in the middle of an exam question. Worth doing per module if a phone shows the engine as the bottleneck.
+- **Lazy imports inside the engine** (load the catalog's calculus or matrices only when first used; tracked as PLAN.md section 12, A7). The engine now starts in about 1.7 s after Pyodide on this machine and boots in the background, so the gain is small against the risk of a first-use pause in the middle of an exam question. Worth doing per module if a phone shows the engine as the bottleneck.
 - **A Pyodide memory snapshot** of the booted engine. It would make engine and spare boots near-instant but is experimental in Pyodide and ties the build to one exact Pyodide version; revisit when it is stable.
 - **Fewer Flet controls in the keypad and entry line.** Responsiveness after start-up is bounded by Flet's diff-and-send per key press; profile it on the phone before changing anything.
 - **Not verified on a phone.** The figures above are desktop Chromium. Run the site on the Pixel 6 and record the numbers here; NFR-PERF-001 and 002 ask only that they are measured.
