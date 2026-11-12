@@ -1,0 +1,5 @@
+[project]
+name = "spike-a-web"
+version = "0.0.1"
+requires-python = ">=3.14"
+dependencies = ["flet>=1.0.5"]
