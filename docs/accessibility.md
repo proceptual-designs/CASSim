@@ -22,7 +22,7 @@ NFR-USE-002 (Should) asks for keyboard-only operation in Computer mode and visib
 | **Colour as the only signal** | Status (Rad/Deg, Auto/Approx) is text, but the warning triangle (FR-CALC-007) is planned as colour plus a shape. | Keep a text label with every colour cue. |
 | **Reduced motion** | Not checked; the app has few animations. | Review when the graph pages arrive. |
 | **Reading order and headings** | Not applicable to a canvas; follows from the semantics work above. | As above. |
-| **The wiki** | Plain Markdown, so it is as accessible as GitHub's pages. | None. |
+| **The help site** | Plain HTML built from `docs/wiki/` (`tools.wiki_site`): headings, lists, tables, a labelled navigation, light and dark colours. Contrast has not been measured. | Measure contrast with the app's themes. |
 
 ## Rule for new work
 

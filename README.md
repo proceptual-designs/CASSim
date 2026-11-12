@@ -3,7 +3,12 @@
 A free, installable simulator of the TI-Nspire CX CAS that runs entirely in your browser.
 
 **Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after the first load).
-The testing version, updated on every change, is <https://cassim-calc.pages.dev/>; help is at <https://cassim-wiki.pages.dev/>.
+
+| Site | Address | What it is |
+|---|---|---|
+| CASSim (stable) | <https://cassim-app.pages.dev/> | The released version. Use this one. |
+| CASSim (testing) | <https://cassim-calc.pages.dev/> | The newest changes, updated on every merge. May break. |
+| Help | <https://cassim-wiki.pages.dev/> | The user guide; the app's Help link opens it. |
 
 Plans for other simulated devices are in [PLAN.md](PLAN.md).
 Built for the VCE Mathematics courses, but should be more generally useful.
@@ -75,9 +80,47 @@ The text interface is described in [docs/user/repl.md](docs/user/repl.md).
 CASSim is released as a **static web site** (`tools.publish`). It is the only supported build and the
 only one tested: copy `build/web` to the root of any static host, or pass `--base-url SUBPATH` to
 serve it below a sub-path. Users open it in a browser and can install it as an app (PWA); it then
-works offline. `.github/workflows/deploy.yml` deploys it to Cloudflare Pages: every merge to `main`
-updates the testing site (`cassim-calc`) and the help pages (`cassim-wiki`, built from `docs/wiki/`
-by `python -m tools.wiki_site`); a GitHub release updates the stable site (`cassim-app`).
+works offline.
+
+The stable and testing sites are the all-in-one app. Smaller single-device sites (CASSim-TIN,
+CASSim-pseudo, and later CASSim-CP) are planned: see [PLAN.md](PLAN.md) section 15.
+
+## Publishing
+
+The sites are Cloudflare Pages projects, deployed by `.github/workflows/deploy.yml` with
+`wrangler pages deploy`. Nothing is deployed from a developer's machine in normal use.
+
+| Project | Built from | Deployed when |
+|---|---|---|
+| `cassim-calc` (testing) | `python -m tools.publish` | every merge to `main` |
+| `cassim-wiki` (help) | `python -m tools.wiki_site`, from `docs/wiki/` | every merge to `main` |
+| `cassim-app` (stable) | `python -m tools.publish` | a published GitHub release |
+
+**Testing and help.** Merge a pull request into `main` (CI's `check` job must pass). The Deploy
+workflow then builds and publishes both. Edit the help pages in `docs/wiki/`; a `[[Page name]]` link
+to a page that does not exist fails the build.
+
+**A stable release.**
+
+1. Check the testing site: <https://cassim-calc.pages.dev/> loads, evaluates, and reloads offline.
+2. Set `version` in `pyproject.toml` in a pull request and merge it. The About dialog shows this
+   version; the offline cache is renewed on every build whether or not the number changes.
+3. Publish a release whose tag matches: `gh release create v0.2.0 --generate-notes`. The Deploy
+   workflow builds that commit and publishes it to `cassim-app`.
+4. Open <https://cassim-app.pages.dev/>. An installed copy shows an "update available" bar.
+
+**By hand.** Actions > Deploy > Run workflow, target `testing` or `stable`, or
+`gh workflow run deploy.yml -f target=stable`.
+
+**Rolling back.** In the Cloudflare dashboard, open the project's Deployments and choose
+"Rollback to this deployment" on an earlier one, or publish a new release from a fixed `main`.
+
+**Set-up (done once).** The workflow needs two repository secrets: `CLOUDFLARE_API_TOKEN` (a token
+with Account > Cloudflare Pages > Edit) and `CLOUDFLARE_ACCOUNT_ID`. A new Pages project is made
+with `npx wrangler pages project create NAME --production-branch main`.
+
+Each site is its own origin: an installed app, its autosaved document and its settings belong to
+the site they were made on. Move a document between sites by saving it to a file or a share link.
 
 The window opened by `uv run cassim` is for development. Native desktop (Windows, macOS, Linux) and
 mobile (Android, iOS) builds with `flet build` are possible later but not started; see

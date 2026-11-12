@@ -30,7 +30,7 @@ Last updated 2026-11-12.
 ## How to run
 
 - Automated: `uv run pytest -m e2e` (builds the site, takes several minutes).
-- By hand: `uv run python -m tools.publish`, then serve `build/web` so that it appears under `/CASSim/`, open it in the target, and walk through the checklist below.
+- By hand: `uv run python -m tools.publish`, then serve `build/web` at the root of a local server (or build with `--base-url CASSim` and serve it under `/CASSim/`), open it in the target, and walk through the checklist below.
 
 ## Manual checklist for a device run
 
