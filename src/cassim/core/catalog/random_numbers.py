@@ -1,5 +1,10 @@
-"""Random numbers: `rand`, `randInt`, `randNorm`, `randBin` and the `RandSeed` command."""
+"""Random numbers: `rand`, `randInt`, `randNorm`, `randBin` and the `RandSeed` command.
 
+The generator is L'Ecuyer's combined generator (1988), so `RandSeed n` gives the same numbers
+as the handheld (decision 0030).
+"""
+
+import math
 import random
 from collections.abc import Callable
 
@@ -12,7 +17,47 @@ from cassim.core.values import Expr, Raw, Value, Void
 
 # The most values one call may ask for.
 _MAX_COUNT = 100_000
-_generator = random.Random()
+
+
+class _Generator:
+    """L'Ecuyer's combined multiplicative generator, seeded as `RandSeed` does."""
+
+    _MODULUS_1 = 2147483563
+    MODULUS_2 = 2147483399
+
+    def __init__(self) -> None:
+        self.seed(random.randrange(1, self.MODULUS_2))
+
+    def seed(self, number: int) -> None:
+        if number == 0:
+            self._first, self._second = 12345, 67890
+        else:
+            self._first = 40014 * number % self._MODULUS_1
+            self._second = number % self.MODULUS_2
+
+    def random(self) -> float:
+        """A number in [0, 1)."""
+        self._first = 40014 * self._first % self._MODULUS_1
+        self._second = 40692 * self._second % self.MODULUS_2
+        value = (self._first - self._second) / self._MODULUS_1
+        return value + 1 if value < 0 else value
+
+    def randint(self, low: int, high: int) -> int:
+        return low + int((high - low + 1) * self.random())
+
+    def binomial(self, trials: int, chance: float) -> int:
+        return sum(self.random() < chance for _ in range(trials))
+
+    def gauss(self, mean: float, deviation: float) -> float:
+        """The polar method, keeping the second of the pair, as the handheld does."""
+        while True:
+            first, second = 2 * self.random() - 1, 2 * self.random() - 1
+            size = first * first + second * second
+            if 0 < size < 1:
+                return mean + deviation * second * math.sqrt(-2 * math.log(size) / size)
+
+
+_generator = _Generator()
 
 
 def _count(args: list[Value], position: int) -> int | None:
@@ -72,7 +117,7 @@ def rand_bin(host: Host, args: list[Value]) -> Value:
     trials, chance = cas.integer_value(raw_of(args[0])), _real(args[1])
     if trials is None or trials < 0 or not 0 <= chance <= 1:
         raise TIError(errors.DOMAIN)
-    return _draw(_count(args, 2), lambda: sum(_generator.random() < chance for _ in range(trials)))
+    return _draw(_count(args, 2), lambda: _generator.binomial(trials, chance))
 
 
 @command("RandSeed")
@@ -80,5 +125,6 @@ def rand_seed(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`RandSeed n` makes the following random numbers repeatable."""
     if len(args) != 1:
         raise TIError(errors.TOO_FEW_ARGUMENTS if not args else errors.TOO_MANY_ARGUMENTS)
-    _generator.seed(cas.integer_value(raw_of(host.expr(args[0]))))
+    number = cas.integer_value(raw_of(host.expr(args[0])))
+    _generator.seed(random.randrange(1, _Generator.MODULUS_2) if number is None else number)
     return Void()
