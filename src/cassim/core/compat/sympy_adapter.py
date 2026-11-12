@@ -25,6 +25,18 @@ ARITHMETIC: dict[str, Callable[[Raw, Raw], Raw]] = {
     "/": operator.truediv,
     "^": operator.pow,
 }
+
+
+def _keeps_decimal(function: Callable[[Raw], Raw]) -> Callable[[Raw], Raw]:
+    """A rounding function that gives a decimal for a decimal argument: `floor(2.7)` is `2.`."""
+
+    def apply(raw: Raw) -> Raw:
+        result = function(raw)
+        return sp.Float(result, 15) if raw.is_Float and result.is_Integer else result
+
+    return apply
+
+
 # One-argument functions, by the name typed. Angle handling is the catalog's business.
 FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "sqrt": sp.sqrt,
@@ -54,9 +66,9 @@ FUNCTIONS: dict[str, Callable[[Raw], Raw]] = {
     "arctanh": sp.atanh,
     "abs": sp.Abs,
     "sign": sp.sign,
-    "floor": sp.floor,
-    "int": sp.floor,
-    "ceiling": sp.ceiling,
+    "floor": _keeps_decimal(sp.floor),
+    "int": _keeps_decimal(sp.floor),
+    "ceiling": _keeps_decimal(sp.ceiling),
     "conj": sp.conjugate,
     "real": sp.re,
     "imag": sp.im,
@@ -523,7 +535,8 @@ def log(value: Raw, base: Raw | None) -> Raw:
 
 
 def integer_part(raw: Raw) -> Raw:
-    return sp.sign(raw) * sp.floor(sp.Abs(raw))
+    """`iPart`: the whole part, a decimal for a decimal argument (`iPart(-2.3)` is `-2.`)."""
+    return _keeps_decimal(lambda value: sp.sign(value) * sp.floor(sp.Abs(value)))(raw)
 
 
 def fractional_part(raw: Raw) -> Raw:
