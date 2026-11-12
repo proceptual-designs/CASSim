@@ -21,4 +21,4 @@ uv run cassim run lesson.tib
 | ⅈ (imaginary unit) | `@i` |
 | ᴇ (exponent marker) | `@E` |
 
-Full details are in [docs/user/repl.md](https://github.com/simonjtyler/CASSim/blob/main/docs/user/repl.md).
+Full details are in `docs/user/repl.md` in the CASSim source.

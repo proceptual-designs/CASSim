@@ -45,7 +45,7 @@ def test_about_is_in_settings_and_status_menu() -> None:
 
 def test_help_menu_item_opens_the_wiki() -> None:
     """Menu > Settings & Status > Help asks for the help dialog, which opens the wiki."""
-    assert about.WIKI_URL == about.SOURCE_URL + "/wiki"
+    assert about.WIKI_URL == "https://cassim-wiki.pages.dev/"
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append

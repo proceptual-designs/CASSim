@@ -89,3 +89,6 @@ secrets.*
 *.7z
 *.tar.gz
 *.rar
+
+# Cloudflare wrangler state
+.wrangler/

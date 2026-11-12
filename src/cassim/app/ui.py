@@ -856,7 +856,6 @@ def about_dialog(page: ft.Page) -> None:
             ft.Text(about.PRIVACY),
             heading("Licence"),
             ft.Text(about.LICENCE),
-            ft.Text(about.SOURCE_URL, selectable=True),
             ft.Text(f"Help: {about.WIKI_URL}", selectable=True),
             heading("Third-party notices"),
             *notices,

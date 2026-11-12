@@ -21,7 +21,7 @@ Last updated 2026-11-12.
 
 ## Not covered by any run
 
-- Offline behaviour of the GitHub Pages site. The site loads and installs (table above); the automated offline reload uses a local server under `/CASSim/` (decision 0016).
+- Offline behaviour of the Cloudflare Pages site on a real device. A headless Chromium run loaded <https://cassim-calc.pages.dev/>, evaluated, and reloaded and evaluated offline (2026-11-13).
 - Safari, iOS, iPadOS and Chromebook: no devices are available (2026-11-12).
 - Non-US keyboard layouts: typed characters come from a US/AU table (decision 0024).
 - Screen readers (`docs/accessibility.md`).

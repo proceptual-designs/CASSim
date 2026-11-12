@@ -4,7 +4,7 @@ Status: describes `tools/publish.py` and the CI workflow at 2026-11-08. Requirem
 
 ## Goal
 
-A folder of static files that any free host can serve under a sub-path (`/CASSim/` on GitHub Pages) or at the root, that installs as a PWA, and that works with the network off after the first visit, with no request to any other host (no CDN, no Google fonts, no PyPI).
+A folder of static files that any free host can serve at the root (the default, as on Cloudflare Pages) or under a sub-path (`--base-url CASSim`), that installs as a PWA, and that works with the network off after the first visit, with no request to any other host (no CDN, no Google fonts, no PyPI).
 
 ## Pipeline
 
@@ -42,12 +42,12 @@ Because the Python app runs in a Web Worker with no DOM, install and fullscreen 
 ## Hosting requirements
 
 - Any static host that serves `.mjs` as `text/javascript` and `.wasm` correctly. No special headers are needed (COOP and COEP are deliberately not used, SDD-02).
-- Built with `--base-url CASSim` the site must be served under `/CASSim/`; use `--base-url ''` for a root site.
-- GitHub Pages: not yet run (PLAN.md M2 exit item 1).
+- Built with the default `--base-url ''` the site is served at the root; with `--base-url CASSim` it must be served under `/CASSim/`.
+- Cloudflare Pages (PLAN.md section 14): the headless smoke test loaded, evaluated, precached 95 files and reloaded offline (2026-11-13).
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, and the traceability check. The e2e tests (which build the site) are run locally. There is no deploy job yet.
+`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, and the traceability check. The e2e tests (which build the site) are run locally. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: `main` to the testing site and the help pages, a GitHub release to the stable site (PLAN.md section 14).
 
 ## Measured (decisions 0002, 0016 and 0027)
 
@@ -63,7 +63,6 @@ No fixed budgets exist (SRS); NFR-PERF-001 and NFR-PERF-005 ask only that they a
 
 ## Known gaps and risks
 
-- No real GitHub Pages deploy, no offline test there, and no deploy job.
 - Safari, iOS and Chromebook have not run the site; service-worker and canvas behaviour differ there.
 - The build downloads Pyodide packages and two PyPI wheels at build time; a download failure fails the build. They are cached in `%TEMP%`, not in the repo.
 - `RUNTIME_PACKAGES` and `ENGINE_PACKAGES` must match what Flet and the engine import; a missing one fails only at run time in the browser (the e2e tests catch it).

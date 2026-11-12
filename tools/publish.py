@@ -1,6 +1,6 @@
 """Build the installable, offline static site (FR-PWA-001 to FR-PWA-004).
 
-    python -m tools.publish [--dist DIR] [--base-url CASSim] [--cdn]
+    python -m tools.publish [--dist DIR] [--base-url SUBPATH] [--cdn]
 
 Steps (decisions 0002, 0016, 0018, 0027): stage the app, `flet publish --no-cdn`, patch
 `index.html`, vendor the Pyodide packages loaded at run time, rebuild the app archive with Flet
@@ -565,11 +565,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument(
-        "--base-url", default="CASSim", help="sub-path on the host, '' for the root"
+        "--base-url",
+        default="",
+        help="sub-path on the host, for example CASSim; '' (default) for the root",
     )
     parser.add_argument("--cdn", action="store_true", help="leave Pyodide and CanvasKit on the CDN")
     args = parser.parse_args()
-    build(args.dist, args.base_url, cdn=args.cdn)
+    build(args.dist.resolve(), args.base_url, cdn=args.cdn)
 
 
 if __name__ == "__main__":

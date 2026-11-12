@@ -27,6 +27,7 @@ dev = [
     "pre-commit",
     "types-pyyaml",
     "prompt-toolkit>=3",
+    "markdown-it-py>=4.2.0",
 ]
 test = [
     "pytest",
