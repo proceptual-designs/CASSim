@@ -2,7 +2,7 @@
 
 ## Open it
 
-Open the CASSim web address your teacher or school gave you in a recent version of Chrome, Safari, Edge or Firefox. The first load takes a few seconds while the calculator engine starts. A message says when it is ready.
+Open <https://cassim-app.pages.dev/> in a recent version of Chrome, Safari, Edge or Firefox. (The other CASSim sites are listed on the [[Home]] page.) The first load takes a few seconds while the calculator engine starts. A message says when it is ready.
 
 ## Install it (optional)
 

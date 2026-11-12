@@ -6,6 +6,16 @@ CASSim is a free simulator of the TI-Nspire CX CAS that runs in your browser. It
 
 CASSim is still being built. See [[What works and what does not yet]] before you rely on it.
 
+## Where to find CASSim
+
+| Site | Address | What it is |
+|---|---|---|
+| CASSim | <https://cassim-app.pages.dev/> | The released version. Use this one. |
+| CASSim testing | <https://cassim-calc.pages.dev/> | The newest changes, for trying things early. It may break. |
+| Help | <https://cassim-wiki.pages.dev/> | These pages. |
+
+Each site keeps its own saved work: a document made on one site is not on the other. To move it, save it to a file or copy a share link (see [[Documents and sharing]]).
+
 ## Pages
 
 - [[Getting started]]: open it, install it, and your first calculation
