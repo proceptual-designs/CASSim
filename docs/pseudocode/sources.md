@@ -1,6 +1,6 @@
 # Pseudocode corpus: where each case came from
 
-Generated 2026-11-02 from `corpus/pseudocode/seed.yaml` (`source` field). `third_party: true` means the question text is (c) VCAA (decision 0012: fine for development in the private repo; see the condition before publication). Cases flagged CONFIRM need the exact paper and question number checked.
+Generated 2026-11-02 from `corpus/pseudocode/seed.yaml` (`source` field). `third_party: true` means the listing comes from (c) VCAA material (decision 0012: kept in the public repo with attribution, removed if VCAA objects). Cases flagged CONFIRM need the exact paper and question number checked.
 
 | Case | VCAA text | Source |
 |---|---|---|

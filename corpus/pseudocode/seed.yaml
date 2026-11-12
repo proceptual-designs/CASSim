@@ -4,7 +4,7 @@
 # Expected output was produced by RUNNING the reference Python (floats shown to 12 significant figures: these are reference values for numeric comparison, NOT the app's display, which defaults to 6 digits) and, where the author
 # published an answer, asserted equal to it by tools-style script; so status is `hand-verified`, not simulator-captured.
 # reviewed_by: claude (extraction); reviewed and approved case by case by Simon Tyler on 2026-11-04 (all 58 cases; changes from the review applied).
-# third_party: true = question text is (c) VCAA; fine in the private repo, must be cleared or replaced before anything is public (decision 0012, SRS NFR-LEG-007).
+# third_party: true = the listing comes from (c) VCAA material (attributed in `source`); kept in the public repo, removed if VCAA objects (decision 0012 update 2026-11-12, SRS NFR-LEG-007).
 # compare: exact | numeric (all numeric tokens within 1e-9 relative) | tokens-numeric (whitespace-split, numeric tokens numeric, others exact) | numeric(tol).
 # trace.horizontal_eligible: exactly one loop is executed and no loop is nested in another (the desk-check layout applies).
 # syntax: optional built-in preset name (default, vcaa, author, strict) the case is parsed under; absent means default. The default does not split `ax` into a*x; the vcaa and author presets do (decision 0021).

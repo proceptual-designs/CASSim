@@ -38,3 +38,7 @@ The owner confirmed the VCAA questions are fine to use and asked for a note of w
 ## Update 2026-11-09
 
 The owner chose to make the repository public with the `third_party: true` cases still in the tree (option "proceed anyway"), accepting the licensing risk, to test GitHub Pages. None of the three options above was carried out; the cases keep their `source` attributions. If VCAA objects, remove them (option 3) and rewrite the history.
+
+## Update 2026-11-12
+
+The owner's position, now the decision: the VCAA cases are generic mathematics and algorithms, and the corpus holds no VCAA question prose (no stems, instructions or option text), only the pseudocode listings, CASSim's own answers and outputs, and notes. The answers and the maths are not copyrightable. The short listings (simple loops, dice, sums) can be written only a few ways and have nothing protectable; the longer exam listings (intersect, the bisection programs, integer roots, arc length, volume of revolution) have at most a thin claim, are a few lines from a whole paper, and are attributed. So the condition above is **withdrawn**: the cases stay in the public repository with `third_party: true` and their `source` attributions. If VCAA objects, remove the cases they name (option 3).
