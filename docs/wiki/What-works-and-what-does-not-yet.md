@@ -11,10 +11,21 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 
 ## Not built yet
 
-- Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages
+- Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages (see below)
 - TI-Basic programs and the library functions (`mm_`, `sm_`, `gm_`)
 - Importing and exporting `.tns` files (not planned for now)
 - Python and pseudocode pages (planned)
+
+## Being built next
+
+You can already insert these pages, but each one only says it is not built yet.
+
+1. **Lists & Spreadsheet:** columns that are lists, formulas, and statistics calculations run from the sheet
+2. **Data & Statistics:** dot plots, box plots, histograms and scatter plots with regression lines, and the dot charts, bar charts and pie charts used in General Maths
+3. **Graphs:** functions, scatter plots, trace, Analyze Graph and the table
+4. **Notes:** text only at first
+
+As on the handheld, the pages of a Problem will share their data. A list typed on the Calculator page can be a spreadsheet column and a plot, and a change on one page shows on the others.
 
 ## Differences from the handheld
 
