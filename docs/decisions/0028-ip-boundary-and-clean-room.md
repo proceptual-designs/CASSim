@@ -61,6 +61,6 @@ The same boundary applies to the Casio ClassPad and HP Prime profiles (M8, M9): 
 ## Consequences
 
 - SRS: NFR-LEG-008 and NFR-LEG-009 added (Must); NFR-LEG-006 is Must for TI; FR-DEV-005, FR-CPD-004 and FR-DOC-006 reworded; C-2 and the scope say what is reproduced.
-- PLAN.md: principle 5, the storage paragraph and the decisions list carry the rule; a pre-release audit of in-app strings against the Reference Guide sits beside the NFR-LEG-007 release gate.
+- PLAN.md: principle 5, the storage paragraph and the decisions list carry the rule; a pre-release audit of in-app strings against the Reference Guide sits in the release gates of PLAN.md section 11.
 - Code: `device/serialize.py` names the native suffix (`SUFFIX`, `OPEN_EXTENSIONS`); tests check that Open and Save use only `.cassim.json` and that the File menu has no `.tns` entry.
 - A first audit (2026-11-12) compared every 8-word run in `src/` with the text of both Reference Guides. The only matches are function signatures (`tvmFV(N,I,PV,Pmt,[PpY],[CpY],[PmtAt])` and the like, which are syntax) and one attributed comment in `core/ast.py`. No user-facing string longer than 12 words was copied.
