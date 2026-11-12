@@ -43,6 +43,23 @@ def _from_truth(raw: Raw) -> Value:
     return Expr(raw) if decided is None else Bool(decided)
 
 
+def _logic(op: str, left: Value, right: Value) -> Value:
+    """`and`/`or`: element by element over lists, bitwise on integers, else logical."""
+    if isinstance(left, ListValue) and isinstance(right, ListValue):
+        if len(left.items) != len(right.items):
+            raise TIError(errors.DIMENSION_MISMATCH)
+        pairs = zip(left.items, right.items, strict=True)
+        return ListValue(tuple(_logic(op, a, b) for a, b in pairs))
+    if isinstance(left, ListValue):
+        return map_value(lambda item: _logic(op, item, right), left)
+    if isinstance(right, ListValue):
+        return map_value(lambda item: _logic(op, left, item), right)
+    result = cas.logic(op, as_expr(left).raw, as_expr(right).raw)
+    if result is None:
+        raise TIError(errors.DATA_TYPE)
+    return Expr(result) if result.is_Integer else _from_truth(result)
+
+
 def _arithmetic(op: str, left: Value, right: Value) -> Value:
     return Expr(cas.ARITHMETIC[op](as_expr(left).raw, as_expr(right).raw))
 
@@ -442,7 +459,7 @@ class Evaluator:
         if op in cas.ARITHMETIC:
             return _combine(op, left, right)
         if op in ("and", "or"):
-            return _from_truth(cas.logic(op, as_expr(left).raw, as_expr(right).raw))
+            return _logic(op, left, right)
         if op == "&" and isinstance(left, Str) and isinstance(right, Str):
             return Str(left.value + right.value)
         raise _unsupported(f"the {node.op} operator here")

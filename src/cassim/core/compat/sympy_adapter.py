@@ -170,8 +170,15 @@ def boolean(value: bool) -> Raw:
     return sp.true if value else sp.false
 
 
-def logic(op: str, left: Raw, right: Raw) -> Raw:
-    return sp.And(left, right) if op == "and" else sp.Or(left, right)
+def logic(op: str, left: Raw, right: Raw) -> Raw | None:
+    """`and`/`or`: bitwise on two integers (`3 or 4` is 7), else logical; None if neither fits."""
+    if left.is_Integer and right.is_Integer:
+        whole = (operator.and_ if op == "and" else operator.or_)(int(left), int(right))
+        return sp.Integer(whole)
+    try:
+        return sp.And(left, right) if op == "and" else sp.Or(left, right)
+    except TypeError:  # a number or expression that is not true or false
+        return None
 
 
 def logic_all(relations: list[Raw]) -> Raw:
