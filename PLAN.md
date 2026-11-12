@@ -355,3 +355,11 @@ Only the static web site is built and tested today (`python -m tools.publish`, o
 4. **Browser-only code.** The service worker, install prompt, share-link base URL and the engine worker assume a browser. File open and save, storage and the clipboard need a native check.
 5. **Toolchains.** Flutter (the Flet CLI installs it). Windows needs Visual Studio with the C++ workload; Android needs the Android SDK and a JDK; macOS and iOS need a Mac with Xcode, and an Apple developer account beyond the simulator; Linux needs Linux. CI would need a runner per platform.
 6. **Release.** Signing, store listings and updates are out of scope until a target is chosen.
+
+## 14. Future: hosting on Cloudflare Pages (idea, 2026-11-12)
+
+Move the published site from GitHub Pages to Cloudflare Pages. Cloudflare can deploy from a private repository on its free plan, or take the built site directly (`wrangler pages deploy build/web`), so the development repository and the published site no longer need to be the same public repository. A separate public source repository could follow later. Notes for when this is picked up:
+
+1. **Build at the root.** The site would be served at the root of its domain (for example `cassim.pages.dev`), so build with `python -m tools.publish --base-url ''` and check the service worker scope, manifest `start_url` and the e2e test that boots under `/CASSim/`.
+2. **Moving users.** Share links carry the old address, an installed app keeps its old origin, and autosaved documents live per origin in each browser. Run both sites for a while, with a notice on the old one asking users to save their document to a file and reopen it on the new site.
+3. **Docs.** Update the README link, CLAUDE.md, SRS 2.4 and `docs/testing/browsers.md` when it moves.
