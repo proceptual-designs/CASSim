@@ -53,6 +53,11 @@ The triggers of PLAN.md section 12 rows A1, A4 and A5 are met by slice 3.0:
 - A1: engine ops and replies become `TypedDict`s checked at the worker boundary, since the protocol gains ops for cells, sampling and analysis.
 - A5: `sheet`, `stats` and `graph` must not import `device` or `app`; the architecture test gains those rules as each package gets code.
 
+### 7. Behaviour, not look; touch first (Simon, 2026-11-13)
+
+- The emulator captures record behaviour. CASSim matches what a function does (which cells move, what a dialog asks, what is recalculated), not how the emulator draws it: cursor shapes, the hand pointer while resizing, the I-beam and similar are not copied.
+- Every function the emulator reaches by a key chord, right-click or mouse gesture gets a conventional touch route in CASSim: tap, long-press for the context menu, swipe, drag handles and on-screen menus. Key chords stay as shortcuts where a keyboard is present.
+
 ## Spikes
 
 Each is a short script under `spikes/` with its numbers added to this file. **A and B are done (results below); C and D are not.**
@@ -127,8 +132,19 @@ Whole numbers and exact fractions are about a third faster. At 500 elements ever
 
 Check 6 (`docs/testing/emulator-pages-capture.md`) parts E and F are needed before slices 3a and 3b settle, part D before 4b. Check 6 did not cover sharing, so parts G (shared data), H (split pages), J (categorical charts) and N (Notes) are in `docs/testing/emulator-sharing-capture.md`.
 
+The first run of check 6 (2026-11-13) did most of parts E and F: `docs/testing/emulator-sheet3-results.md` and `emulator-stats3-results.md`, with what is left in `emulator-check6-remaining.md`. Points from it that shape slices 3a and 3b:
+
+- A cell entry without `=` that is not a plain number or fraction (`2^0.5`, `sqrt(2)`, `pi`) is kept as typed and shown left-aligned, but formulas still use its value. Approximate mode shows the decimal point on existing numbers (`5.`), and redisplays the column; text entries stay as they were.
+- Errors: `=1/0` shows `#UNDEF` with no dialog; a formula that gives a list (`=randint(1,6,5)`) or a range used as a value (`=f1:f3`) gives a "Syntax Error in Cell" dialog, then `#ERR`; an undefined name or a circular reference gives a dialog and leaves the cell in edit mode. `=a1+"x"` shows `"x"+3`, unevaluated.
+- `mean` over a range skips empty cells (`mean(c1:c6)` with C5 and C6 empty is the mean of four), and `_` enters a void cell.
+- Naming a column after a list that already exists replaces the column's contents with no dialog; naming it after a list already on the sheet gives "Cannot link to same list/variable twice".
+- Sort moves whole rows across the selected columns, asks first ("Data Loss") when the range holds a formula column, and turns that column's formula into constants.
+- Fill copies a formula down with relative references, `$` references fixed. Generate Sequence writes a `seqgen(...)` column formula (not built in the engine yet).
+- Ctrl+R recalculates the sheet, and a `randint` cell gets a new value each time.
+- Data & Statistics: a regression adds `stat.freqreg`, `stat.resid`, `stat.xreg` and `stat.yreg` to the variable lists; Sort (List, Value, Alpha order) is live only on categorical charts; points selected on one plot show as selected on the other plots of the Problem.
+
 ## Not decided
 
-- How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Part G of the emulator check shows what the handheld does on recalculation; decide in slice 3a.
+- How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G shows what other events recalculate. Decide in slice 3a.
 - Timings on the Pixel 6 for both spikes.
 - Where the autosave size limit sits for a document with large lists; share links already fall back to a file above about 2,000 characters.
