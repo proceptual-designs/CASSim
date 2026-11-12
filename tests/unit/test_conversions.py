@@ -253,6 +253,44 @@ def test_random_integers_stay_in_range_and_can_be_repeated():
 
 
 @pytest.mark.parametrize(
+    ("seed", "line", "shown"),
+    [
+        # Emulator check 5 (docs/testing/emulator-catalog2-results.md, C3).
+        (1147, "randInt(3,10,4)", "{4,8,6,4}"),
+        (1147, "randBin(80,.5,3)", "{44,34,47}"),
+        (1, "randBin(10,0.5,3)", "{6,6,3}"),
+        (1, "randNorm(0,1,3)", "{0.62742879,-0.17147098,-0.55931652}"),
+        (1147, "{randNorm(0,1),randNorm(3,4.5)}", "{0.49254098,-3.5435597}"),
+    ],
+)
+def test_a_seed_gives_the_handhelds_random_numbers(seed, line, shown):
+    """FR-CAT-002: `RandSeed n` repeats the handheld's own sequence (decision 0030)."""
+    assert text(f"RandSeed {seed}", line) == shown
+
+
+def test_seed_zero_starts_the_generator_from_its_reset_state():
+    assert text("RandSeed 0", "rand()") == "0.9435974"
+
+
+@pytest.mark.parametrize(
+    ("line", "shown"),
+    [
+        # Exact in, exact out; decimal in, decimal out (emulator check 5, C3, and the corpus).
+        ("iPart({3/2,-2.3,7.003})", "{1,-2.,7.}"),
+        ("iPart(-1.234)", "-1."),
+        ("iPart(-7/3)", "-2"),
+        ("int(2.5)", "2."),
+        ("floor(2.7)", "2."),
+        ("ceiling(2.3)", "3."),
+        ("floor(7/2)", "3"),
+    ],
+)
+def test_rounding_keeps_the_arguments_exact_or_decimal_form(line, shown):
+    """FR-CAT-001: `iPart`, `int`, `floor` and `ceiling` follow their argument's form in Auto."""
+    assert text(line) == shown
+
+
+@pytest.mark.parametrize(
     ("line", "message"),
     [
         ("randInt(1.5,3)", "Domain error"),
