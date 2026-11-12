@@ -2,7 +2,8 @@
 
 A free, installable simulator of the TI-Nspire CX CAS that runs entirely in your browser.
 
-**Try it: <https://simonjtyler.github.io/CASSim/>** (installable as an app; works offline after the first load).
+**Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after the first load).
+The testing version, updated on every change, is <https://cassim-calc.pages.dev/>; help is at <https://cassim-wiki.pages.dev/>.
 
 Plans for other simulated devices are in [PLAN.md](PLAN.md).
 Built for the VCE Mathematics courses, but should be more generally useful.
@@ -72,9 +73,11 @@ The text interface is described in [docs/user/repl.md](docs/user/repl.md).
 ## Builds
 
 CASSim is released as a **static web site** (`tools.publish`). It is the only supported build and the
-only one tested: copy `build/web` to any static host (GitHub Pages, for example) under the sub-path
-`/CASSim/`, or pass `--base-url ''` to `tools.publish` for a site at the root. Users open it in a
-browser and can install it as an app (PWA); it then works offline.
+only one tested: copy `build/web` to the root of any static host, or pass `--base-url SUBPATH` to
+serve it below a sub-path. Users open it in a browser and can install it as an app (PWA); it then
+works offline. `.github/workflows/deploy.yml` deploys it to Cloudflare Pages: every merge to `main`
+updates the testing site (`cassim-calc`) and the help pages (`cassim-wiki`, built from `docs/wiki/`
+by `python -m tools.wiki_site`); a GitHub release updates the stable site (`cassim-app`).
 
 The window opened by `uv run cassim` is for development. Native desktop (Windows, macOS, Linux) and
 mobile (Android, iOS) builds with `flet build` are possible later but not started; see

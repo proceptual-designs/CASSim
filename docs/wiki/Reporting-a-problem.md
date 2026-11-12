@@ -1,6 +1,6 @@
 # Reporting a problem
 
-Tell your teacher, or open an issue on the project's GitHub page.
+Tell your teacher, or whoever gave you the CASSim link.
 
 Helpful details:
 

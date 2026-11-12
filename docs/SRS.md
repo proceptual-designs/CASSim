@@ -69,7 +69,7 @@ Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & St
 6. **Student or teacher on another CAS calculator** (from M8): wants the Casio or HP workflow rather than the Nspire's.
 
 ### 2.4 Operating environment
-Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Secondary: Edge, Firefox. Python 3.14 / Pyodide 314.0.7. Static hosting on GitHub Pages or any other free or cheap static host, with correct MIME types (`.mjs`) and no server-side code. Share links must stay within typical URL limits (about 2,000 characters is safe across browsers). Dev: Windows 11, uv, Ruff, Ty, pytest, Hypothesis, Playwright.
+Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Secondary: Edge, Firefox. Python 3.14 / Pyodide 314.0.7. Static hosting on Cloudflare Pages or any other free or cheap static host, with correct MIME types (`.mjs`) and no server-side code. Share links must stay within typical URL limits (about 2,000 characters is safe across browsers). Dev: Windows 11, uv, Ruff, Ty, pytest, Hypothesis, Playwright.
 
 ### 2.5 Constraints
 - C-1 Core is pure Python, fully typed, Ty strict; SymPy is touched only in `core/compat/sympy_adapter.py`.
@@ -492,7 +492,7 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | Command catalogue | 4.2 | Tier 1 built; Tier 2 per the matrix; FR-CAT-005 matrix published (`docs/command_matrix.md`). |
 | Calculator page, device model | 4.3, 4.9 | Built through 2h; Tablet mode (FR-DEV-003) not started; typed-character capture on non-US layouts open (decision 0024). Exam-style flows pass headless and in the browser (decision 0025). |
 | Documents, files, share links | 4.4 | Built (autosave, `.cassim.json`, share links, Page Sorter). Multiple documents in one session (FR-DOC-001) not checked. |
-| PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; real GitHub Pages and Safari, iOS and Chromebook not yet run. |
+| PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; the Cloudflare Pages site passed a headless smoke test with an offline reload; Safari, iOS and Chromebook not yet run. |
 | Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6 | Engine commands exist; pages not started (M3). |
 | Graphs and Table | 4.7 | Not started (M4). |
 | TI-Basic, libraries | 4.8 | Not started (M5, Could). |

@@ -23,9 +23,8 @@ LICENCE = (
     "CASSim is released under the Unlicense: free and unencumbered software in the public domain."
 )
 
-SOURCE_URL = "https://github.com/simonjtyler/CASSim"
-# The help pages are the project wiki (private until the repository is public, after M2).
-WIKI_URL = SOURCE_URL + "/wiki"
+# The help pages: `docs/wiki/`, built by `tools.wiki_site` and deployed to their own site.
+WIKI_URL = "https://cassim-wiki.pages.dev/"
 
 
 @dataclass(frozen=True)

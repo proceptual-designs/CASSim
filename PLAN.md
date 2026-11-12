@@ -129,7 +129,7 @@ Proposed layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../prime/`, wi
 | **Tablet / demo** | Screen on one side, on-screen keyboard on the other (portrait/landscape), big touch targets, optional "show keystrokes" for projection | Live demonstration |
 | **Handheld** (equal top priority) | Faithful-layout 320×240 screen + keypad; scales to fullscreen on phones; hardware keyboard mapped | Practising the real handheld workflow |
 
-The device model drives all three; modes differ only in layout components and which panels are visible. Primary test targets: Chromebooks, Chrome, Safari (macOS, iOS, iPadOS); secondary, smoke-tested: Edge, Firefox. Handheld mode must be usable at 360 px wide in both orientations. Hosting is any free or cheap static host (GitHub Pages first) with correct MIME types.
+The device model drives all three; modes differ only in layout components and which panels are visible. Primary test targets: Chromebooks, Chrome, Safari (macOS, iOS, iPadOS); secondary, smoke-tested: Edge, Firefox. Handheld mode must be usable at 360 px wide in both orientations. Hosting is any free or cheap static host with correct MIME types (Cloudflare Pages, section 14).
 
 **Profiles and modes (M8).** Switching device is orthogonal to these modes: a profile supplies its own handheld skin, keymap and page set, while the Computer and Tablet layouts are shared components that the profile configures. The Code view has no skin. The ClassPad is stylus/touch-driven, so its Handheld mode may need a touch-first interaction model rather than a key-sequence one (SRS Q19).
 
@@ -207,7 +207,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 **Status (2026-11-12):** 2a to 2h, the 2d editor completion and the exam-style flows are merged. M2 is not closed, but nothing left can be done without a device or a decision.
 
 Done since the 2026-11-08 list:
-- The site is published on GitHub Pages (<https://simonjtyler.github.io/CASSim/>, linked in the README) and loads (Simon).
+- The site was published on GitHub Pages and loaded (Simon); it moved to Cloudflare Pages on 2026-11-13 (section 14).
 - Installed on Simon's phone; save and load work (Simon, 2026-11-12). It is slow there: see section 12, A6, for a later session.
 - Stub pages (2026-11-12): Doc > Insert adds Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages. They have no model; the screen shows the page type's name and a notice that it is not built yet. Names come from the profile (`Profile.pages`). The menu key does nothing on a stub page, and ctrl+Z takes the page away again.
 - Disclaimer (NFR-LEG-002): the About CASSim dialog (Menu > Settings & Status > About, and an About chip in Computer mode) holds the disclaimer, privacy, licence, third-party notices (NFR-LEG-003) and versions; no footer line, by choice (2026-11-08). The repo link is private until the repo is public.
@@ -305,7 +305,7 @@ Open risks:
 12. **VCAA material.** Several pseudocode corpus cases come from VCAA exams (`third_party: true`, attributed in `source`). They hold the algorithm listings and CASSim's own answers, not VCAA's question prose, and stay in the public repository (decision 0012, update 2026-11-12; SRS NFR-LEG-007). Remove any case VCAA objects to.
 13. **Configurable grammar.** A user-editable syntax file can make the grammar ambiguous or break saved programs. Mitigation: validation (FR-SYN-004), data-only files, fall-back to the default, and property tests that restyle and re-parse every golden program under every preset (FR-SYN-007).
 14. **Documentation and traceability debt.** Largely paid on 2026-11-09 (section 11). Traceability is generated and checked in CI; 108 of 195 requirements are not cited by any test, each with a reason in `docs/traceability-reasons.yaml`, and the list shrinks as tests cite IDs. The SDDs for the built areas (02, 04, 05, 10) exist; the others wait for their areas.
-15. **Browser coverage.** All e2e runs use Chromium; Simon has loaded the GitHub Pages site and installed it on his phone. Safari and Chromebook are primary targets and are untested because no devices are available; Flutter canvas, service worker and fullscreen behave differently there. Run them as soon as a device can be borrowed, not at M6.
+15. **Browser coverage.** All e2e runs use Chromium; Simon has loaded the GitHub Pages site and installed it on his phone; the Cloudflare site passed a headless smoke test with an offline reload. Safari and Chromebook are primary targets and are untested because no devices are available; Flutter canvas, service worker and fullscreen behave differently there. Run them as soon as a device can be borrowed, not at M6.
 16. **Branch and worktree hygiene.** Several chats work in parallel. A leftover folder (`worktrees/m2f-menus`) outlived its merged branch and looked like a live worktree. Use `git worktree list` and remove finished ones. (Checked 2026-11-12: no stale worktrees or branches; `m7-batch3` was merged as PR 44.)
 
 ## 10. Design documents
@@ -356,10 +356,19 @@ Only the static web site is built and tested today (`python -m tools.publish`, o
 5. **Toolchains.** Flutter (the Flet CLI installs it). Windows needs Visual Studio with the C++ workload; Android needs the Android SDK and a JDK; macOS and iOS need a Mac with Xcode, and an Apple developer account beyond the simulator; Linux needs Linux. CI would need a runner per platform.
 6. **Release.** Signing, store listings and updates are out of scope until a target is chosen.
 
-## 14. Future: hosting on Cloudflare Pages (idea, 2026-11-12)
+## 14. Hosting on Cloudflare Pages (done 2026-11-13)
 
-Move the published site from GitHub Pages to Cloudflare Pages. Cloudflare can deploy from a private repository on its free plan, or take the built site directly (`wrangler pages deploy build/web`), so the development repository and the published site no longer need to be the same public repository. A separate public source repository could follow later. Notes for when this is picked up:
+The site moved from GitHub Pages to Cloudflare Pages, and the repository is private. `.github/workflows/deploy.yml` builds and deploys three projects with `wrangler pages deploy`:
 
-1. **Build at the root.** The site would be served at the root of its domain (for example `cassim.pages.dev`), so build with `python -m tools.publish --base-url ''` and check the service worker scope, manifest `start_url` and the e2e test that boots under `/CASSim/`.
-2. **Moving users.** Share links carry the old address, an installed app keeps its old origin, and autosaved documents live per origin in each browser. Run both sites for a while, with a notice on the old one asking users to save their document to a file and reopen it on the new site.
-3. **Docs.** Update the README link, CLAUDE.md, SRS 2.4 and `docs/testing/browsers.md` when it moves.
+| Project | Address | Deployed on |
+|---|---|---|
+| `cassim-app` (stable) | <https://cassim-app.pages.dev/> | a published GitHub release, or a manual run with target `stable` |
+| `cassim-calc` (testing) | <https://cassim-calc.pages.dev/> | every push to `main` |
+| `cassim-wiki` (help) | <https://cassim-wiki.pages.dev/> | every push to `main`; `docs/wiki/` built by `python -m tools.wiki_site` |
+
+Notes:
+
+1. **Built at the root.** `tools.publish` now defaults to `--base-url ''`; `tests/e2e/test_pwa.py` still boots the site under `/CASSim/` so a sub-path build stays tested.
+2. **Secrets.** The workflow needs `CLOUDFLARE_API_TOKEN` (Cloudflare Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
+3. **Moving users.** Share links, installed apps and autosaved documents belong to an origin, so they do not carry over from the GitHub Pages address or between the stable and testing sites: save a document to a file and open it on the new site.
+4. **Releasing.** `gh release create vX.Y.Z --generate-notes` deploys the current `main` to the stable site.
