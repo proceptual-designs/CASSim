@@ -117,7 +117,7 @@ Proposed layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../prime/`, wi
 
 **Configurable syntax.** The pseudocode grammar is driven by a **syntax file** (`docs/pseudocode/syntax-default.yaml`) kept in browser storage, editable in the app and exportable. It lets one construct be written several ways, each spelling accepted, warned about or rejected, with optional tokens (`then`, `do`, the colon, parentheses) and several block terminators (`end for`, `endfor`, `next`). The same file's emit section sets what the printer writes. The parser is therefore table-driven rather than hard-coded; the code pane always shows the user's own text. Because a free grammar can become ambiguous, files are validated, data-only, size-limited and fall back to the default if invalid; property tests restyle and re-parse every golden program under every preset.
 
-**Switching.** A profile switcher in the app shell. Each profile has its own documents, settings and theme namespace in storage, and its assets load lazily on first use and are then cached offline, so someone who only uses the Nspire never downloads the rest. Display modes (section 4) apply to every profile.
+**Switching.** A profile switcher in the app shell. Each profile has its own documents, settings and theme namespace in storage, and its assets load lazily on first use and are then cached offline, so someone who only uses the Nspire never downloads the rest. Display modes (section 4) apply to every profile. Each profile can also be published on its own, smaller site (section 15).
 
 **Oracle per device.** The Nspire uses the TI teacher software. For ClassPad and Prime the natural oracles are the manufacturers' own PC emulators (as I understand it, ClassPad Manager and the HP Prime Virtual Calculator); I have not checked availability or licence terms. The capture effort that dominated M0/M1 will recur, so each new profile ships Tier 1 first. Python semantics need no oracle (it is CPython); device-specific Python modules (e.g. TI's `ti_system`, `ti_plotlib`) are a later extra if wanted.
 
@@ -372,3 +372,51 @@ Notes:
 2. **Secrets.** The workflow needs `CLOUDFLARE_API_TOKEN` (Cloudflare Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 3. **Moving users.** Share links, installed apps and autosaved documents belong to an origin, so they do not carry over from the GitHub Pages address or between the stable and testing sites: save a document to a file and open it on the new site.
 4. **Releasing.** `gh release create vX.Y.Z --generate-notes` deploys the current `main` to the stable site.
+
+## 15. Plan: pluggable devices and separate bundles (proposed 2026-11-13)
+
+Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **all-in-one** apps: a shell that switches between the TI-Nspire, the Casio ClassPad, the pseudocode interpreter and tracer, the HP Prime and any later device, when each is built. Each device can also be published as its own **bundle** on its own site, so someone who needs one device downloads only that one. The cold start today is about 90 MB and a minute or more on a first visit, nearly all of it the engine (SymPy, SciPy, Pyodide) and the Flet app.
+
+### 15.1 Bundles and sites
+
+| Bundle | Contains | Site (Cloudflare Pages project) |
+|---|---|---|
+| all | shell, switcher, every built device; devices load on first use | `cassim-app` (stable), `cassim-calc` (testing) |
+| tin | shell, TI-Nspire CX CAS (Calculator now; Graphs, Lists & Spreadsheet, Data & Statistics, Notes later) | `cassim-tin` |
+| pseudo | shell, pseudocode editor, interpreter and trace tables (M7); no SymPy or SciPy, so it should be far smaller | `cassim-pseudo` |
+| cp | shell, Casio ClassPad (M8) | `cassim-cp` |
+| prime | shell, HP Prime (M9, if go) | `cassim-prime` |
+
+Project names are lower case on Cloudflare; the product names are CASSim-TIN, CASSim-CP and so on. The single-device sites deploy on a release, like `cassim-app`. The help site (`cassim-wiki`) stays one site, with a section per device.
+
+### 15.2 Architecture: pluggable modules, separable UIs
+
+1. **A device is a plug-in.** Each device is a package (`src/cassim/devices/<id>/`, the layout already proposed in 3.2) that exposes one `Device` object: id and title; the engine it needs (worker module and the Pyodide packages it loads); its page types; keymap, menus, skin and presets; its document schema namespace; and its help section. It depends on the shared layers and never on another device.
+2. **Shared layers stay shared.** `core/` (maths, values, Pratt-parser framework), `runtime/` (interpreters), `device/` (key layers, menu and screen frameworks, documents, storage, serialisation) and the shell (`app/`: window, switcher, storage, share links, PWA, themes). Core still never imports Flet.
+3. **Separable UIs.** Each device's Flet views live with the device (`devices/<id>/ui/`) and talk to the shell through a small interface: mount, unmount, menu and toolbar contributions, and dialogs. The shell knows device ids, not device classes.
+4. **Registry by build, not by discovery.** Pyodide has no reliable entry points, so `tools.publish` writes a generated `bundle.py` that lists the devices in the bundle. The shell imports only what that file lists; a test checks that no device package imports another.
+5. **One engine worker per device kind.** The Nspire engine boots SymPy; the pseudocode engine is pure Python and boots without it. The all-in-one app starts a device's worker when it is first opened.
+6. **Documents name their device.** `.cassim.json` and share links carry the device id. Any bundle that contains that device opens them; one that does not says which site does. Storage namespaces are per device (FR-PROF-004, Q20).
+
+### 15.3 Build, cache and deploy
+
+- `python -m tools.publish --bundle all|tin|pseudo|cp|prime` builds one bundle. A bundle's packages, archives and service-worker list come from its devices.
+- In the all-in-one app each device is its own archive (`device-<id>.zip` and its engine packages), fetched on first use. The service worker always precaches the shell. It also precaches each device once that device has been opened, so the device works offline from then on. The first visit therefore downloads only the shell and the device in use. An "Available offline" setting can fetch every device in advance.
+- `deploy.yml` grows a matrix: `main` deploys `all` to `cassim-calc`; a release deploys `all` to `cassim-app` and each single-device bundle to its own project.
+- Download size and cold start are measured per bundle and reported (no budgets, as in the SRS).
+
+### 15.4 Order of work
+
+1. ADR (next number) on the device interface and bundle format. It replaces the ADR planned for 8a and is written before more device code exists.
+2. Move the Nspire into `devices/tin/` behind the interface. Gate: every corpus case replays unchanged, the e2e suite passes, and coverage targets hold (this is 8a, brought forward).
+3. Bundle-aware `tools.publish`, the `tin` bundle and its site, and download-size reporting.
+4. The pseudocode device, from the built `runtime/` plus the M7 editor and trace views, as the first second device and the first small bundle. This is the cheapest proof that the switcher, the lazy loading and the separate bundles work.
+5. The switcher in the all-in-one app (8b), then ClassPad (M8) and Prime (M9) as plug-ins.
+
+Steps 1 to 3 change structure, not behaviour, and could run before M3. That is Simon's call, because it moves part of M8 ahead of M3 to M6.
+
+### 15.5 Open questions
+
+- Whether steps 1 to 3 go before M3 or after M6.
+- Whether the testing channel also needs single-device sites, or only `cassim-calc`.
+- Whether a document opened in the wrong bundle should offer a link to the right site.
