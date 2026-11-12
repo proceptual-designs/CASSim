@@ -41,6 +41,8 @@ Because the Python app runs in a Web Worker with no DOM, install and fullscreen 
 
 ## Hosting requirements
 
+One build of the whole app exists today. Single-device bundles (`--bundle`, one archive per device, per-device precaching) are planned in PLAN.md section 15 and FR-PROF-008; this document is updated when they are built.
+
 - Any static host that serves `.mjs` as `text/javascript` and `.wasm` correctly. No special headers are needed (COOP and COEP are deliberately not used, SDD-02).
 - Built with the default `--base-url ''` the site is served at the root; with `--base-url CASSim` it must be served under `/CASSim/`.
 - Cloudflare Pages (PLAN.md section 14): the headless smoke test loaded, evaluated, precached 95 files and reloaded offline (2026-11-13).
