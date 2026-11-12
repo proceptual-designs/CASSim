@@ -149,7 +149,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CAT-002 | Should | `tests/unit/test_conversions.py` |
 | FR-CAT-004 | Should | `tests/app/test_menus.py` |
 | FR-CAT-005 | Must | `tests/unit/test_ref_matrix.py` |
-| FR-CAT-006 | Must | `tests/unit/test_scope.py` |
+| FR-CAT-006 | Must | `tests/unit/test_conversions.py`, `tests/unit/test_scope.py` |
 | FR-CALC-001 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
