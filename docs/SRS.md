@@ -1,6 +1,6 @@
 # CASSim: Software Requirements Specification
 
-Status: **DRAFT 0.6** (2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the post-Nspire scope in 4.12. **The Code part (M7: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
+Status: **DRAFT 0.7** (2026-11-13: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the post-Nspire scope in 4.12. **The Code part (M7: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
 Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is the milestone in PLAN.md section 8. Verification: **T** test (unit/corpus/device), **E** E2E (Playwright), **I** inspection, **D** demonstration, **A** analysis (measurement).
 
@@ -12,7 +12,7 @@ Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is
 Defines what CASSim must do and the constraints it must meet. It is the baseline for the design documents (SDD, `docs/design/`) and for acceptance testing.
 
 ### 1.2 Scope
-CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy/SciPy) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding. It reproduces the device's *layout, menu structure and vocabulary* so that students can transfer to the real handheld, but not its artwork or prose (decision 0028).
+CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy and mpmath; SciPy is not shipped, decision 0031) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding. It reproduces the device's *layout, menu structure and vocabulary* so that students can transfer to the real handheld, but not its artwork or prose (decision 0028).
 
 CASSim is a **simulator, not a hardware-level emulation**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. CASSim is released under the Unlicense.
 
@@ -148,6 +148,8 @@ This cross-cuts every functional area.
 | FR-DOC-003 | Autosave to browser storage; recover after reload or crash. As built in M2e it uses localStorage through Flet `SharedPreferences` (enough for a document); IndexedDB is reserved for named files (FR-EDT-002) and larger data. | M | E |
 | FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
+| FR-DOC-008 | Within a Problem, every page shares one set of variables. A spreadsheet column linked to a list, a plot of that list and a graph of a function are views of the same variable: a change made on one page shows on every other page of the Problem when it is next seen, and nothing crosses between Problems (decision 0031). | M | T |
+| FR-DOC-009 | A page can be split into two panes, each holding one app (side by side, or one above the other), with focus moved between them; Quick Graph, Summary Plot and the Graphs table use it. Custom Split and layouts of three or four panes are greyed. | M | T/D |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M7 (FR-RUN-010). Geometry excluded. | M | I |
 | FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save only ever read and write the native `.cassim.json` format. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
 
@@ -161,10 +163,11 @@ This cross-cuts every functional area.
 ### 4.6 Data & Statistics and Finance — M3
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
-| FR-STAT-001 | Plots: dot, histogram, box, scatter; regression overlays and residuals. | M | T/D |
+| FR-STAT-001 | Plots of numeric data: dot plot, histogram, box plot, scatter and XY line; regression overlays and residuals. | M | T/D |
+| FR-STAT-005 | Plots of categorical data, as General Maths uses them: dot chart, bar chart and pie chart, from a list of categories or from a category list with a summary (count) list; Force Categorical X; split by a second category. | M | T/D |
 | FR-STAT-002 | OneVar/TwoVar with TI quartile and sd conventions (constraint C-5). | M | T |
 | FR-STAT-003 | Regressions (linear, quadratic, cubic, exponential, power, logistic, etc.) per the corpus. | M | T |
-| FR-STAT-004 | Distributions, hypothesis tests and intervals; SciPy loaded lazily on first use. | M | T |
+| FR-STAT-004 | Distributions, hypothesis tests and intervals, in pure Python and mpmath; SciPy is not shipped and is used only by the tests as an independent check (decision 0031). | M | T |
 | FR-FIN-001 | Finance Solver dialog and `tvm*`/`eff`/`nom` with the TI argument order. | M | T |
 
 ### 4.7 Graphs and Table — M4
@@ -177,6 +180,11 @@ This cross-cuts every functional area.
 | FR-GRAPH-005 | Sliders; Table view of graph functions. | S | D |
 | FR-GRAPH-006 | The graph engine emits a backend-neutral scene; one `Points` canvas shape per curve (decision 0004). | M | I |
 | FR-GRAPH-007 | Pan/zoom of a 2000-point curve stays interactive on a mid-range phone and a Chromebook. | S | A |
+
+### 4.7a Notes — M4
+| ID | Requirement | Pri | Ver |
+|---|---|---|---|
+| FR-NOTE-001 | A Notes page holding plain text, saved with the document. Maths boxes are a later Could. | S | T |
 
 ### 4.8 Programming and extensions — M5
 | ID | Requirement | Pri | Ver |
@@ -354,7 +362,8 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 |---|---|---|---|
 | NFR-PERF-001 | Cold start (no cache) has no hard limit (baseline 15 s vendored, 35 s CDN); it is measured and reported, and shows a progress screen. | C | A |
 | NFR-PERF-002 | Warm start (cache populated) is noticeably faster than cold start; measured and tracked, no fixed target. | S | A |
-| NFR-PERF-003 | Typical Tier 1 operation (solve, factor, diff, integrate) returns in <= 1 s after import; SciPy first-use delay <= 5 s and shown as busy. | S | A |
+| NFR-PERF-003 | Typical Tier 1 operation (solve, factor, diff, integrate) returns in <= 1 s after import; a slower operation is shown as busy. | S | A |
+| NFR-PERF-006 | Switching pages draws the new page from what the UI already holds and does not wait for the engine. The time from the key press to the page drawn is measured and reported (`tools/switchtime.py`); the aim is 100 ms on a desktop and 250 ms on a mid-range phone, with no fixed limit. | S | A |
 | NFR-PERF-004 | UI remains responsive during evaluation; Cancel takes effect within 1 s. | M | E |
 | NFR-PERF-005 | Total download is measured and reported. Baseline 22 MB (CDN) / 95 MB (vendored); no fixed budget. | C | A |
 
@@ -392,7 +401,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 ### 5.7 Legal and licensing
 - NFR-LEG-001 (M) No TI marks, artwork, ROM content or screenshots shipped. Reference screenshots stay in `docs/design/reference/`, not the build.
 - NFR-LEG-002 (M) A visible disclaimer: not affiliated with or endorsed by TI; not an approved exam calculator.
-- NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, SciPy BSD, and the vendored fonts) ship with the build.
+- NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, mpmath BSD, and the vendored fonts) ship with the build.
 - NFR-LEG-004 (S) Before porting LazyMath UDFs, record the licence check (LazyMath Unlicense) in `docs/decisions/`.
 - NFR-LEG-005 (M) From M8, the disclaimer in NFR-LEG-002 also covers Casio and HP. No Casio or HP marks, artwork, ROM, firmware or emulator software is shipped; reference screenshots stay in `docs/design/reference/`.
 - NFR-LEG-006 (M for TI, C for Casio and HP) Before capturing a corpus from a manufacturer's emulator software, record its licence terms and why they allow this use in `docs/decisions/` (as NFR-LEG-004 does for LazyMath). Must for TI because a corpus has already been captured from the TI-Nspire CX CAS Premium Teacher Software; the terms are recorded in decision 0029 (Q42): the EULA forbids reverse-compiling and redistributing the program, so capture is by ordinary use; screenshots of results may stay in the repository but never in the build.
@@ -493,8 +502,8 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | Calculator page, device model | 4.3, 4.9 | Built through 2h; Tablet mode (FR-DEV-003) not started; typed-character capture on non-US layouts open (decision 0024). Exam-style flows pass headless and in the browser (decision 0025). |
 | Documents, files, share links | 4.4 | Built (autosave, `.cassim.json`, share links, Page Sorter). Multiple documents in one session (FR-DOC-001) not checked. |
 | PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; the Cloudflare Pages site passed a headless smoke test with an offline reload; Safari, iOS and Chromebook not yet run. |
-| Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6 | Engine commands exist; pages not started (M3). |
-| Graphs and Table | 4.7 | Not started (M4). |
+| Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6, FR-DOC-008, FR-DOC-009 | Engine commands exist and the Finance Solver is built; pages planned (decision 0031, 2026-11-13), not started (M3). |
+| Graphs, Table and Notes | 4.7, 4.7a | Planned (decision 0031), not started (M4). |
 | TI-Basic, libraries | 4.8 | Not started (M5, Could). |
 | Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built (M7b), 58 golden programs green. Translation, editor, settings bar, Code view and page types not started. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike (7a) comes first. |

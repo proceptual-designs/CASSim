@@ -343,5 +343,26 @@ def test_trig_of_a_number_that_does_not_simplify_prints_as_typed():
     assert text("{sin(1),sin(30)}", settings=DEGREE) == "{sin(1),1/2}"
 
 
+@pytest.mark.parametrize(
+    ("line", "shown"),
+    [
+        # Emulator check 5 (C3): `and`/`or` are bitwise on integers and work through lists.
+        ("3 or 4", "7"),
+        ("3 and 4", "0"),
+        ("{1,2,3} or {3,2,1}", "{3,2,3}"),
+        ("1<2 or 3<2", "true"),
+        ("x>1 and x<3", "1<x<3"),
+    ],
+)
+def test_and_or_work_on_integers_lists_and_conditions(line, shown):
+    """FR-CAT-002: integer operands no longer crash the engine."""
+    assert text(line) == shown
+
+
+def test_and_or_on_a_decimal_is_a_data_type_error():
+    """FR-CAT-006: a TI-style error, not a Python exception."""
+    assert error("2.5 or 3") == "Data type"
+
+
 def test_the_family_of_solutions_uses_an_integer_parameter():
     assert text("solve(sin(x)=1/2,x)") == "x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6"

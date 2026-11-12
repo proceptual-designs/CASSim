@@ -1,0 +1,1211 @@
+# Emulator check 5, part C3: Reference Guide examples, seeded random numbers, and statistics
+# commands checked against scipy. Captured on the simulator 2026-11-12 by Claude Cowork (computer
+# use); build 6.0.3.374. Transcribed from docs/testing/emulator-catalog2-results.md. Human review
+# pending. Settings: Radian, Auto, Real, Float 8 unless a case says otherwise.
+schema_version: 1
+cases:
+- id: c5.ipart.decimal
+  course: none
+  settings: &id001
+    angle: radian
+    calc: auto
+    domain: real
+    digits: float8
+  tier: 2
+  tags:
+  - catalog
+  - rounding
+  steps:
+  - in: iPart(-1.234)
+    out: '-1.'
+    compare: text
+  - in: iPart({3/2,-2.3,7.003})
+    out: '{1,-2.,7.}'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: ../docs/testing/pages-shots-5/c3-15-ipart-approximate-mode.jpg
+    note: 'Automatic mode: a decimal argument gives a decimal whole number, an exact one an exact one.'
+  status: pass
+- id: c5.ipart.approximate
+  course: none
+  settings:
+    angle: radian
+    calc: approximate
+    domain: real
+    digits: float8
+  tier: 2
+  tags:
+  - catalog
+  - rounding
+  - approximate
+  steps:
+  - in: iPart({3/2,-2.3,7.003})
+    out: '{1.,-2.,7.}'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: ../docs/testing/pages-shots-5/c3-15-ipart-approximate-mode.jpg
+    note: The guide's printed example is this Approximate-mode result.
+  status: pass
+- id: c5.isprime
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - number
+  steps:
+  - in: isPrime(5)
+    out: 'true'
+    compare: text
+  - in: isPrime(6)
+    out: 'false'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.tanh-coth
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - hyperbolic
+  steps:
+  - in: tanh(1.2)
+    out: '0.83365461'
+    compare: numeric
+    tol: 1.0e-07
+  - in: coth(1.2)
+    out: '1.1995375'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.sech-csch
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - hyperbolic
+  steps:
+  - in: sech(3)
+    out: 1/cosh(3)
+  - in: csch(3)
+    out: 1/sinh(3)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+    note: sech(3) was read scrolled.
+  status: pass
+- id: c5.left-right
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - string
+  - list
+  steps:
+  - in: left("Hello",2)
+    out: '"He"'
+    compare: text
+  - in: left({1,3,-2,4},3)
+    out: '{1,3,-2}'
+  - in: right("Hello",2)
+    out: '"lo"'
+    compare: text
+  - in: right({1,3,-2,4},3)
+    out: '{3,-2,4}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.mid-ord
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - string
+  steps:
+  - in: mid("Hello there",2)
+    out: '"ello there"'
+    compare: text
+  - in: ord("hello")
+    out: '104'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pending
+- id: c5.remain-mod
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - number
+  steps:
+  - in: remain(7,3)
+    out: '1'
+  - in: mod(-7,3)
+    out: '2'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.bitwise.or-and
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - logic
+  - integer
+  steps:
+  - in: 3 or 4
+    out: '7'
+  - in: 3 and 4
+    out: '0'
+  - in: '{1,2,3} or {3,2,1}'
+    out: '{3,2,3}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.bitwise.nand-nor
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - logic
+  - integer
+  steps:
+  - in: 3 nand 4
+    out: '-1'
+  - in: 3 nor 4
+    out: '-8'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pending
+- id: c5.not
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - logic
+  steps:
+  - in: not(2>=3)
+    out: 'true'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.not-relation
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - logic
+  steps:
+  - in: not(x<2)
+    out: x≥2
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pending
+- id: c5.npr-symbolic
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - probability
+  steps:
+  - in: nPr(z,3)
+    out: z*(z-2)*(z-1)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.tangent-normal-line
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - calculus
+  steps:
+  - in: tangentLine(x^2,x,1)
+    out: 2*x-1
+  - in: normalLine(x^2,x,1)
+    out: 3/2-x/2
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.norm
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - matrix
+  steps:
+  - in: norm([1,2;3,4])
+    out: √(30)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.inverse-trig
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - trig
+  steps:
+  - in: arccot(1)
+    out: π/4
+  - in: arcsec({1,2,5})
+    out: '{0,π/3,cos⁻¹(1/5)}'
+  - in: arctan({0,.2,.5})
+    out: '{0,0.19739556,0.46364761}'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.sort
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - list
+  steps:
+  - in: '{2,1,4,3}→list1'
+    out: '{2,1,4,3}'
+  - in: SortA list1
+    out: Done
+    compare: text
+  - in: list1
+    out: '{1,2,3,4}'
+  - in: SortD list1
+    out: Done
+    compare: text
+  - in: list1
+    out: '{4,3,2,1}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.define-delvar-clearaz
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - variables
+  steps:
+  - in: Define g(x,y)=2*x-3*y
+    out: Done
+    compare: text
+  - in: g(1,2)
+    out: '-4'
+  - in: 2→a
+    out: '2'
+  - in: DelVar a
+    out: Done
+    compare: text
+  - in: a+2
+    out: a+2
+  - in: 5→b
+    out: '5'
+  - in: ClearAZ
+    out: Done
+    compare: text
+  - in: b
+    out: b
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.format
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - string
+  steps:
+  - in: format(1.234567,"f3")
+    out: '"1.235"'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pending
+- id: c5.row-operations
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - matrix
+  steps:
+  - in: mRow(-1/3,[1,2;3,4],2)
+    out: '[1,2;-1,-4/3]'
+  - in: mRowAdd(-3,[1,2;3,4],1,2)
+    out: '[1,2;0,-2]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pending
+- id: c5.median-matrix
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  - matrix
+  steps:
+  - in: median([.2,0;1,-.3;.4,-.5])
+    out: '[0.4,-0.3]'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: xfail
+  xfail_reason: median of a matrix (one median per column) gives a Data type error
+- id: c5.solve-quadratic-general
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - solve
+  steps:
+  - in: solve(a*x^2+b*x+c=0,x)
+    out: x=(√(b^2-4*a*c)-b)/(2*a) or x=-(√(b^2-4*a*c)+b)/(2*a)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: xfail
+  xfail_reason: CASSim adds the condition b²-4·a·c≥0 to each root; the device does not
+- id: c5.randseed.1
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - random
+  steps:
+  - in: RandSeed 1
+    out: Done
+    compare: text
+  - in: randBin(10,0.5,3)
+    out: '{6,6,3}'
+  - in: RandSeed 1
+    out: Done
+    compare: text
+  - in: randNorm(0,1,3)
+    out: '{0.62742879,-0.17147098,-0.55931652}'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+  status: pass
+- id: c5.randseed.1147
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - random
+  steps:
+  - in: RandSeed 1147
+    out: Done
+    compare: text
+  - in: randNorm(0,1)
+    out: '0.49254098'
+    compare: numeric
+    tol: 1.0e-07
+  - in: randNorm(3,4.5)
+    out: '-3.5435597'
+    compare: numeric
+    tol: 1.0e-07
+  - in: RandSeed 1147
+    out: Done
+    compare: text
+  - in: randBin(80,.5,3)
+    out: '{44,34,47}'
+  - in: RandSeed 1147
+    out: Done
+    compare: text
+  - in: randInt(3,10,4)
+    out: '{4,8,6,4}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3
+    note: The guide prints {47.,41.,46.} for randBin(80,.5,3); the emulator gives {44,34,47}.
+  status: pass
+- id: c5.stats.linregbx
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - &id002
+    in: lx:={1,2,3,4,5,6}
+    out: '{1,2,3,4,5,6}'
+  - &id003
+    in: ly:={2.1,3.9,6.2,7.8,10.1,12.2}
+    out: '{2.1,3.9,6.2,7.8,10.1,12.2}'
+    compare: numeric
+  - in: LinRegBx lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '-0.02'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '2.02'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.99821067'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.99910493'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.expreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: ExpReg lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '1.8424299'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '1.404215'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.94591132'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.97257973'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.powerreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: PowerReg lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '2.0537749'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '0.98453167'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.99810754'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.99905332'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.lnreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: LnReg lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '1.0271695'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '5.4925677'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.92589586'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.96223483'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.cubicreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: CubicReg lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '0.00648148'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '-0.04126984'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.c
+    out: '2.037963'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.d
+    out: '0.06666667'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.R²
+    out: '0.99862316'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.medmed
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: MedMed lx,ly,1
+    out: Done
+    compare: text
+  - in: stat.m
+    out: '2.0375'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '-0.08125'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.tinterval
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: tInterval ly,1,.95
+    out: Done
+    compare: text
+  - in: stat.CLower
+    out: '3.0805522'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.CUpper
+    out: '11.019448'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.x̄
+    out: '7.05'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.ME
+    out: '3.9694478'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.df
+    out: '5.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.n
+    out: '6.'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pending
+- id: c5.stats.tinterval-2samp
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: tInterval_2Samp lx,ly,1,1,.95,0
+    out: Done
+    compare: text
+  - in: stat.CLower
+    out: '-7.5890631'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.CUpper
+    out: '0.4890631'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.x̄Diff
+    out: '-3.55'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.ME
+    out: '4.0390631'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.df
+    out: '7.3082162'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+    note: Pooled=0 gives Welch's degrees of freedom.
+  status: pending
+- id: c5.stats.linregttest
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: LinRegtTest lx,ly,1,0
+    out: Done
+    compare: text
+  - in: stat.t
+    out: '47.238425'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.PVal
+    out: '0.0000012'
+    compare: numeric
+    tol: 0.05
+  - in: stat.df
+    out: '4.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.a
+    out: '-0.02'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '2.02'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.s
+    out: '0.17888544'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.SESlope
+    out: '0.0427618'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+    note: PVal is shown to 7 places, so it is compared with a loose tolerance.
+  status: pending
+- id: c5.stats.linregtintervals
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: LinRegtIntervals lx,ly,1,0,.95
+    out: Done
+    compare: text
+  - in: stat.CLower
+    out: '1.9012742'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.CUpper
+    out: '2.1387258'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '2.02'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.ME
+    out: '0.11872579'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.df
+    out: '4.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.s
+    out: '0.17888544'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.SESlope
+    out: '0.0427618'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pending
+- id: c5.stats.multreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: MultReg ly,lx,{1,0,2,1,3,0}
+    out: Done
+    compare: text
+  - in: stat.b0
+    out: '-0.0484375'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b1
+    out: '2.0171875'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b2
+    out: '0.0328125'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.R²
+    out: '0.99831158'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pending
+- id: c5.stats.sinreg
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - in: px:={0,1,2,3,4,5,6,7,8,9}
+    out: '{0,1,2,3,4,5,6,7,8,9}'
+  - in: py:={3.6,4.7,5,4.4,3.1,1.8,1,1.2,2.3,3.6}
+    out: '{3.6,4.7,5,4.4,3.1,1.8,1,1.2,2.3,3.6}'
+    compare: numeric
+    tol: 1.0e-07
+  - in: SinReg px,py
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '2.0226616'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '0.70049891'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.c
+    out: '0.29267705'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.d
+    out: '3.0078249'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.logistic
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - in: qx:={1,2,3,4,5,6,7,8}
+    out: '{1,2,3,4,5,6,7,8}'
+  - in: qy:={1,1.98,3.55,5.51,7.32,8.59,9.31,9.68}
+    out: '{1,1.98,3.55,5.51,7.32,8.59,9.31,9.68}'
+    compare: numeric
+    tol: 1.0e-07
+  - in: Logistic qx,qy
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '20.088093'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '0.80115816'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.c
+    out: '9.9986785'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass
+- id: c5.stats.chi2gof
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - in: χ²GOF {10,20,30},{20,20,20},2
+    out: Done
+    compare: text
+  - in: stat.χ²
+    out: '10.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.PVal
+    out: '0.00673795'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.df
+    out: '2.'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pending
+- id: c5.stats.ftest-2samp
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - *id002
+  - *id003
+  - in: FTest_2Samp lx,ly,1,1,0
+    out: Done
+    compare: text
+  - in: stat.PVal
+    out: '0.14844134'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.dfNumer
+    out: '5.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.dfDenom
+    out: '5.'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+    note: The F row had scrolled off and was not read.
+  status: pending
+- id: c5.stats.anova
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  steps:
+  - in: ANOVA {1,2,3},{2,4,6},{5,6,7}
+    out: Done
+    compare: text
+  - in: stat.F
+    out: '6.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.PVal
+    out: '0.03703704'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.df
+    out: '2.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.SS
+    out: '24.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.MS
+    out: '12.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.dfError
+    out: '6.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.SSError
+    out: '12.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.MSError
+    out: '2.'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.sp
+    out: '1.4142136'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pending
+- id: c5.stats.distributions
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - catalog
+  - statistics
+  - distributions
+  steps:
+  - in: FCdf(0,2,5,8)
+    out: '0.81700226'
+    compare: numeric
+    tol: 1.0e-07
+  - in: FPdf(1.5,5,8)
+    out: '0.27809797'
+    compare: numeric
+    tol: 1.0e-07
+  - in: invF(.95,5,8)
+    out: '3.6874987'
+    compare: numeric
+    tol: 1.0e-07
+  - in: invChi2(.95,3)
+    out: '7.8147279'
+    compare: numeric
+    tol: 1.0e-07
+  - in: geomCdf(.2,3)
+    out: '0.488'
+    compare: numeric
+    tol: 1.0e-07
+  - in: invt(.975,5)
+    out: '2.5705818'
+    compare: numeric
+    tol: 1.0e-07
+  - in: invNorm(.975)
+    out: '1.959964'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-12'
+    reviewed_by: claude (transcribed from Cowork's check 5 results); human review pending
+    evidence: docs/testing/emulator-catalog2-results.md, C3 (no printed example); ../docs/testing/pages-shots-5/c3n-*.jpg
+  status: pass

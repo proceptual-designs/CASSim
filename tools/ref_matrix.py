@@ -5,7 +5,8 @@ Usage:  uv run python tools/ref_matrix.py     (writes docs/command_matrix.csv an
 Sources, in order of authority:
   1. the TI-Nspire CAS Reference Guide (primary; software 3.2, older than the simulator);
   2. the TI-Nspire Reference Guide 4.5 (non-CAS; fills in newer numeric commands);
-  3. the simulator Catalog (not automated yet; the ``simulator_verified`` column is left empty).
+  3. the simulator: ``simulator_verified`` is ``yes`` when a simulator-captured corpus case uses
+     the command.
 Priority hints come from the corpus and from how often the VCE books mention a command.
 Needs ``pdftotext`` (poppler) on PATH; extracted text is cached under ``builds/cache/``.
 """
@@ -95,11 +96,13 @@ def pdf_text(path: Path, *, layout: bool) -> str:
     CACHE.mkdir(parents=True, exist_ok=True)
     cached = CACHE / f"{path.stem}{'.layout' if layout else ''}.txt"
     if cached.exists() and cached.stat().st_mtime >= path.stat().st_mtime:
-        return cached.read_text(encoding="utf-8")
+        return cached.read_bytes().decode("utf-8")
     cmd = ["pdftotext", "-enc", "UTF-8", *(["-layout"] if layout else []), str(path), "-"]
     out = subprocess.run(cmd, capture_output=True, check=True).stdout
     text = out.decode("utf-8", errors="replace")
-    cached.write_text(text, encoding="utf-8")
+    # Bytes, not text mode: Windows text mode changes the line endings, and the cached text must
+    # parse exactly as a fresh run does.
+    cached.write_bytes(text.encode("utf-8"))
     return text
 
 
@@ -140,6 +143,7 @@ class CorpusCase:
     id: str
     steps: int
     names: set[str] = field(default_factory=set)
+    simulator: bool = False
 
 
 def corpus_cases() -> list[CorpusCase]:
@@ -149,11 +153,22 @@ def corpus_cases() -> list[CorpusCase]:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         for case in data.get("cases", []):
             steps = case.get("steps", [])
-            text = " ".join(str(s.get("in", "")) for s in steps)
+            inputs = [str(s.get("in", "")) for s in steps]
+            text = " ".join(inputs)
             names = set(re.findall(r"([A-Za-z_][A-Za-z0-9_.]*)\s*\(", text))
             names |= set(re.findall(r"[►▶]\s*([A-Za-z0-9]+)", text))
+            # Commands typed as statements, without parentheses: `LinRegBx lx,ly`, `RandSeed 1`.
+            names |= {
+                word for line in inputs if (word := line.split(" ", 1)[0]).casefold() in COMMANDS
+            }
+            source = case.get("provenance", {}).get("source")
             cases.append(
-                CorpusCase(case["id"], len(steps), {n.lower() for n in names - NOT_COMMANDS})
+                CorpusCase(
+                    case["id"],
+                    len(steps),
+                    {n.lower() for n in names - NOT_COMMANDS},
+                    simulator=source == "simulator",
+                )
             )
     return cases
 
@@ -184,6 +199,7 @@ def main() -> int:
     book_text = {k: pdf_text(p, layout=False) for k, p in BOOKS.items()}
     cases = corpus_cases()
     per_cmd = Counter(n for c in cases for n in c.names)
+    on_simulator = {n for c in cases if c.simulator for n in c.names}
     engine = engine_names()
 
     rows = []
@@ -199,7 +215,7 @@ def main() -> int:
                 "corpus_cases": per_cmd.get(key, 0),
                 **{f"book_{k}": v for k, v in bk.items()},
                 "priority": priority(per_cmd.get(key, 0), total),
-                "simulator_verified": "",
+                "simulator_verified": "yes" if key in on_simulator else "",
                 "status": "done" if is_implemented(key, engine) else "todo",
             }
         )
@@ -212,6 +228,7 @@ def main() -> int:
         w.writerows(rows)
 
     by_prio = Counter(r["priority"] for r in rows)
+    verified = sum(r["simulator_verified"] == "yes" for r in rows)
     done = Counter(r["priority"] for r in rows if r["status"] == "done")
     left = [r for r in rows if r["status"] == "todo" and r["priority"] in ("core", "likely")]
 
@@ -246,8 +263,10 @@ def main() -> int:
         f"- Engine status (`status`): **{sum(done.values())} of {len(rows)}** implemented; "
         f"core {done['core']} of {by_prio['core']}, likely {done['likely']} of "
         f"{by_prio['likely']}, later {done['later']} of {by_prio['later']}.",
-        "- `simulator_verified` is empty: the guide (3.2, 2012) predates the simulator, so every "
-        "entry still needs a Catalog check.",
+        f"- `simulator_verified` is `yes` for **{verified} of {len(rows)}** commands: those used "
+        "by a corpus case captured on the simulator "
+        "(including `pending` ones). The guide (3.2, 2012) predates the simulator, so the rest "
+        "still need a check.",
         "",
         "## Core and likely commands not yet implemented",
         "",

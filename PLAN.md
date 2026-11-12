@@ -53,11 +53,12 @@ cassim/
     pylib/                  [placeholder] Python-script bridge + sandbox API (see 5.4)
     libs/                   [placeholder] native Python ports of mm_/sm_/gm_ style libraries, registered as lib\fn
     sheet/                  [placeholder] Lists & Spreadsheet engine (cells, named columns = lists, formula columns, deps graph)
-    stats/                  [placeholder] OneVar/TwoVar, regressions, tests/intervals, distributions (SciPy loaded lazily)
+    stats/                  [placeholder] Data & Statistics plot models; the statistics maths is in core/ (pure Python and
+                            mpmath, no SciPy: decision 0031)
     graph/                  [placeholder] function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
                             emits a backend-neutral scene (paths, points, labels)
     doc/                    [placeholder, empty] Document ownership lives in device/ for now (document.py, serialize.py);
-                            decide where it belongs before Graphs or Spreadsheet get models (section 12)
+                            it moves here in M3 slice 3.0 with the page-model boundary (decision 0031, section 12 A4)
     device/                 headless device model, document model and JSON serialiser (versioned, migrations, replay_steps): key layers (shift/ctrl/var/menu/doc), menu tree (data-driven),
                             input editor, page controllers, screen buffer
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
@@ -78,7 +79,8 @@ cassim/
 - **Settings.** Document-level (angle, calc mode, real/complex, digits) plus system-level. Presets for the three VCE courses (General: Degree/Approximate/Real; Methods: Radian/Auto/Real; Specialist: Radian/Auto/Rectangular, from the cas-solver skill).
 - **Scoping.** Document → Problems → Pages. All pages in a Problem share variables; a new Problem is a blank slate; `Define`/`→` writes the current Problem; library functions are document-wide and read-only; `Local` for programs.
 - **Long-running work.** Evaluation must be cancellable (TI's On/Esc). Plan: CAS runs in a worker; cancel = terminate and restart worker with state restored from the document model. Verified in M0 spike 1.
-- **Heavy dependencies.** SymPy loads at start; SciPy lazily on first stats/numerics call. Service worker caches everything for offline use.
+- **Heavy dependencies.** SymPy loads at start. SciPy and NumPy are not shipped: the statistics and numerics are pure Python and mpmath, with SciPy used only by the tests as an independent check (decision 0031). Service worker caches everything for offline use.
+- **Shared data.** Within a Problem every page is a view of the same variables, which live in the engine worker. The document stores definitions and view state; values are recomputed. Variables carry revision numbers so a page redraws only what changed, and page views are kept alive so switching does not wait for the engine (decision 0031; FR-DOC-008, NFR-PERF-006).
 - **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input is a 2D template editor (decision 0015): the tree model in `device/editor.py` draws itself as LaTeX with a cursor glyph and writes the linear TI text for the parser, so the engine is unchanged.
 - **Storage.** *As built (M2e): the autosave and System Settings use Flet `SharedPreferences` (browser localStorage), which is enough for one document; IndexedDB is kept for named files and larger data (M7).* Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema, schema-validated and size-limited on import). Open and Save read and write only `.cassim.json`. `.tns` is deferred (Won't for now) and nothing depends on it; if it is built it goes under File > Import… and Export…, never Open or Save (FR-DOC-006).
 - **Sharing.** A document can be shared as a URL: compressed and encoded in the URL **fragment**, so nothing reaches a server. Opening a link asks for confirmation first. Keep links under about 2,000 characters; larger documents fall back to file export.
@@ -238,13 +240,32 @@ Still open, each waiting on something:
   - **Flows done 2026-11-08 (decision 0025):** `corpus/flows/exam.yaml` holds 12 exam-style flows (Methods, Specialist, General, handheld keypad), played key by key by `tools/flows.py` through `AppState` (`tests/flows/`) and, for the 5 marked `browser`, typed into the built site by Playwright (`tests/e2e/test_flows_browser.py`, all pass). Installed on Simon's phone, with save and load, on 2026-11-12.
 
 **M3 — Data pages: Lists & Spreadsheet, Data & Statistics, Finance (L)**
-- Spreadsheet engine and page (named columns as lists, formula columns, fill, CSV/xlsx I/O).
-- Data & Statistics plots (dot, histogram, box, scatter), regression overlays and residuals, OneVar/TwoVar tables, Finance Solver dialog.
-- Exit: the General Maths workflows from the cas-solver skill reproduced as tests.
+
+**Status (2026-11-13):** planned (decision 0031); no code yet. Waiting on emulator check 6 (`docs/testing/emulator-pages-capture.md` parts E and F, and `docs/testing/emulator-sharing-capture.md` parts G, H and J) and on spikes A and B. The design rules (one owner for data, pages as views, kept-alive views, two-pane split pages, no SciPy) are in decision 0031 and are not repeated here.
+
+- Spikes first (decision 0031): A view cache and grid drawing; B data transfer, a fast path for plain numbers, and snapshot restore.
+- 3.0 Foundations, shared with M4: SDD-07; section 12 rows A4 (documents and the page-model boundary move to `doc/`), A1 (typed ops) and A5; variable revisions, the delta reply and the UI-side store (FR-DOC-008); the view cache and `tools/switchtime.py` (NFR-PERF-006); the shared scene type (FR-GRAPH-006); two-pane split pages (FR-DOC-009); the warning triangle (FR-CALC-007); debounced autosave in IndexedDB; schema bump with a migration.
+- 3a Sheet engine, headless (`sheet/`): cells, columns linked to list variables, formula columns, `a[]`, ranges, `$` references, the dependency graph and recalculation, voids, `#UNDEF`, the Data Loss and Conflict Detected cases, sort, fill, insert and delete. Replays the `app_spreadsheet`, `app_sheet_sort` and `app_sheet_fill` corpus cases.
+- 3b Sheet page: canvas grid, edit bar, keys, selection, clipboard, Go To, resize, the Menu and context menus from checks 4 to 6.
+- 3c Statistics from the sheet: the Stat Calculations dialogs writing live result columns; Distributions, Confidence Intervals and Stat Tests (the 22 commands of check 6 group 3, written on mpmath).
+- 3d Data & Statistics page: dot plot, box plot, histogram, scatter and XY line; **dot chart, bar chart and pie chart with Force Categorical X and summary lists (FR-STAT-005, needed for General Maths)**; regression overlays, residuals, Plot Function, Plot Value, Show Normal PDF, window and zoom.
+- 3e Quick Graph and Summary Plot (split page); CSV, then xlsx.
+- Finance: the Finance Solver was built in 2f; pin `PmtAt` and `amortTbl` (`simulator-todo.md` D19).
+- Greyed, not built: the movable line, Data Capture, Multiple Regression, ANOVA 2-Way, Custom Split and layouts of more than two panes.
+- Exit: the General Maths workflows from the cas-solver skill reproduced as flows (`corpus/flows`), headless and in the browser; the page-switch and recalculation timings reported.
 
 **M4 — Graphs and Tables (L)**
-- Graph page with function/parametric/polar/sequence/differential-equation entry, window and zoom, trace, analyse-graph tools (zero, min/max, intersection, ∫, dy/dx), sliders, Table view; Notes page.
-- Exit: graph snapshot tests, performance budget met on mid-range phone.
+
+**Status (2026-11-13):** planned (decision 0031); no code yet. Waiting on M3 slice 3.0, emulator check 6 part D (with rows D26 to D33 of `emulator-sharing-capture.md`), part N for Notes, and spikes C and D.
+
+- 4a Sampler and scene, headless (`graph/`): compile a function to `math` source for sampling in the UI worker, adaptive sampling, branch splitting at discontinuities (FR-GRAPH-004), restricted domains, the window, zoom and tick rules; scene snapshot tests (the scene as data, not pixels).
+- 4b Graphs page: the `f1` to `f99` entry line on the template editor, pan and zoom with throttled gestures, labels, attributes, Hide/Show.
+- 4c Trace and Analyze Graph: zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, bounded area. Replays the `app_graph_analysis` corpus cases.
+- 4d Other entry types, in this order: scatter plot, parametric, relations and conics (spike D), polar, sequence, differential equations.
+- 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
+- 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
+- Greyed, not built: Plane Geometry, 3D Graphing and the Geometry menu.
+- Exit: scene snapshot tests green; pan and zoom timed on a mid-range phone and a Chromebook and reported (FR-GRAPH-007).
 
 **M5 — Programming and extensions (L)**
 - TI-Basic interpreter + Program Editor; library mechanism; native ports of mm_/sm_/gm_ libraries (licence check first), each verified on the simulator.
@@ -323,7 +344,7 @@ These came out of a review of PLAN.md, the SRS, CLAUDE.md and `docs/` against th
 5. **DONE 2026-11-09.** **Browser matrix.** A short `docs/testing/browsers.md`: what has been run on which browser and device, with dates, so NFR-PORT-001 has evidence. Do the Safari, iOS and Chromebook runs before the M2 exit.
 6. **Keep CLAUDE.md short.** Its "Current state" had grown into one 400-word paragraph that went stale within a day. It now lists the state in a few lines and points here; milestone detail belongs in this file only.
 7. **DONE 2026-11-09.** **Number the open "to check on the simulator" items in one place.** They are scattered across decisions 0007 to 0010, 0022 and the emulator results files. Collect them in `docs/testing/simulator-todo.md` so the next capture session has a single list.
-8. **Sequencing.** After M2 closes, take M3 (data pages) then M4 (graphs); both are Must for VCE use. M5 is mostly Could (TI-Basic, library ports); consider doing only the `mm_`/`sm_`/`gm_` ports Simon actually uses and leaving the TI-Basic interpreter until after M7c to M7f, since the program tree built for pseudocode may be reusable.
+8. **Sequencing.** After M2 closes, take M3 (data pages) then M4 (graphs); both are Must for VCE use (planned in decision 0031, 2026-11-13). M5 is mostly Could (TI-Basic, library ports); consider doing only the `mm_`/`sm_`/`gm_` ports Simon actually uses and leaving the TI-Basic interpreter until after M7c to M7f, since the program tree built for pseudocode may be reusable.
 9. **Public release gate.** The third-party notices (NFR-LEG-003) have no owner or milestone. Add them to the M6 exit. (NFR-LEG-007, the VCAA cases, was settled on 2026-11-12: they stay, attributed; decision 0012.)
 10. **Release gate: original text (NFR-LEG-009, NFR-LEG-006).** Before public release, audit the in-app help, catalog and error strings against both Reference Guides for verbatim copying (decision 0028 records the method and a first clean run on 2026-11-12; repeat it once help and catalog text exist). Add it to the M6 exit with item 9. TI screenshots may stay in the repository but never go in the build (decision 0029).
 
@@ -338,7 +359,7 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 | A1 | Typed action names (`keys.py` string pairs) and typed worker messages (`engine.py` `dict[str, Any]` to `TypedDict`s, validated at the worker boundary). | The next change to the worker protocol or the menu data. | First step needs no refactor: a test that every enabled menu or profile action resolves to a handler, not only that wizard names exist. Add that test with the next menu work. |
 | A2 | Separate orchestration from browser services in `app/main.py` (about 620 lines: rendering, keyboard, worker, autosave, files, sharing, dialogs). Extract storage/file operations and engine coordination behind small interfaces; `App` only connects them. | The next feature or bug touching autosave, files, sharing or the worker in `main.py`. | Behaviour-preserving. Benefit is headless tests of failure handling. Do not refactor speculatively. |
 | A3 | Split `app/ui.py` (about 770 lines: calculator view, keypad, sidebar, several dialogs) into cohesive modules; derive the compact tools menu and the toolbar from one shared action list (currently duplicated in `main.py`). | Move code as each part is next touched; do the shared action list the next time either menu changes. | Duplicated lists drift, so the shared list matters more than the file split. |
-| A4 | Decide document ownership (`doc/` or `device/`) and introduce a page-model boundary; `Document` knows about calculator pages specifically. | When the second real page type (Graphs or Lists & Spreadsheet, M3/M4) gets a model. | Avoid a generic plugin framework before then. FR-DEV-007 already asks for registered page types. |
+| A4 | Decide document ownership (`doc/` or `device/`) and introduce a page-model boundary; `Document` knows about calculator pages specifically. | When the second real page type (Graphs or Lists & Spreadsheet, M3/M4) gets a model. | **Decided (0031): `doc/`, in M3 slice 3.0.** Avoid a generic plugin framework before then. FR-DEV-007 already asks for registered page types. |
 | A5 | Extend `tests/test_architecture.py` with new dependency rules as packages gain code (for example `sheet`, `graph`, `stats` must not import `device` or `app`). | Whenever a placeholder package gets its first module. | Also remove its `[placeholder]` tag in section 3. |
 | A6 | Re-check the spare engine (`app/web.py`, decisions 0016, 0027, SDD-02). Each load still boots three Pyodide runtimes (Flet, the engine, the spare). Remaining options: skip the spare on phones (Cancel would then restart in about 2 to 4 s since 0027), or share one runtime. | Phone memory trouble or key-press lag, or Cancel changes. | Simon's phone install (2026-11-12) works but was slow (about 11 s to load on a Pixel 6). Partly done in 0027 (2026-11-12): engine boot cut from 7 to 9 s to 2 to 4 s, and the spare now waits 3 s after the engine is ready (`SPARE_DELAY`). Key-press lag was cut earlier (keypad not rebuilt per press: 322 ms to 34 ms per refresh, 2026-11-09). Still to do: time start-up, memory and key presses on the Pixel 6 (`tools/loadtime.py` for desktop) and record them in 0027. |
 | A7 | Lazy-load catalog areas in the engine: register each function's name and arity up front, and import its module (calculus, matrices, distributions, finance and so on) on first use. | The phone timing (A6) shows the engine, not the UI, is what the user waits for, or a new area (SciPy statistics, M4) makes engine start-up slower. | Deferred in 0027: the engine boots in the background in about 2 s, and lazy loading moves that wait to the first use of a feature, perhaps mid-question. `core/builtin_names.py` already holds every name, so the registry change is small. Measure with `tools/loadtime.py` and a first-use timing per area; SciPy must stay lazy whatever is decided (PLAN section 3, `stats/`). |
@@ -351,7 +372,7 @@ Only the static web site is built and tested today (`python -m tools.publish`, o
 
 1. **Project setup.** A `[tool.flet]` section in `pyproject.toml` and a thin `src/main.py` that calls `cassim.app.main.run`; today only `tools/publish.py` stages a web entry point. Run `flet build` with `PYTHONUTF8=1` on Windows (decision 0018).
 2. **Cancel.** `make_runner()` uses the worker engine only in the browser; native builds run the engine in-process, where `LocalEngine.cancel()` returns False. Cancel within 1 s (SRS) needs the engine in a subprocess or isolate.
-3. **Dependencies.** The core needs only SymPy and PyYAML (pure Python). SciPy and NumPy (the `stats` extra) may have no wheels for Android or iOS: check Flet's package index before M4 and M6 rely on them.
+3. **Dependencies.** The core needs only SymPy, mpmath and PyYAML (pure Python). SciPy and NumPy are not used by the app (decision 0031), so they do not block Android or iOS.
 4. **Browser-only code.** The service worker, install prompt, share-link base URL and the engine worker assume a browser. File open and save, storage and the clipboard need a native check.
 5. **Toolchains.** Flutter (the Flet CLI installs it). Windows needs Visual Studio with the C++ workload; Android needs the Android SDK and a JDK; macOS and iOS need a Mac with Xcode, and an Apple developer account beyond the simulator; Linux needs Linux. CI would need a runner per platform.
 6. **Release.** Signing, store listings and updates are out of scope until a target is chosen.
