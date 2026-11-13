@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 
 import flet as ft
 
@@ -65,6 +66,9 @@ from cassim.doc.share import LinkTooLongError, encode, unpack
 # The keys of the two texts kept in browser storage, after the device's prefix (`cassim.`).
 AUTOSAVE_KEY = "autosave"
 SYSTEM_KEY = "system"
+# The document is saved this long after the last change, not on every key (decision 0031): saving
+# writes the whole document, and with sheet data that is too slow to do per key.
+AUTOSAVE_DELAY = 0.5  # seconds
 
 
 def browser_doc_items(
@@ -130,6 +134,8 @@ class App:
         state.request_paste = self.request_paste
         self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
+        self.save_at = 0.0  # when the waiting autosave runs (time.monotonic)
+        self.save_waiting = False  # a save task is waiting for that time
 
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
@@ -174,7 +180,21 @@ class App:
         print("CASSIM: READY", flush=True)
 
     def autosave(self) -> None:
-        """Keep the document in browser storage so a reload or crash loses nothing (FR-DOC-003)."""
+        """Save the document AUTOSAVE_DELAY after the last change, so a reload or crash loses
+        nothing (FR-DOC-003). Each change pushes the save back; one save task waits for it."""
+        self.save_at = time.monotonic() + AUTOSAVE_DELAY
+        if not self.save_waiting:
+            self.save_waiting = True
+            self.page.run_task(self.save_later)
+
+    async def save_later(self) -> None:
+        while (wait := self.save_at - time.monotonic()) > 0:
+            await asyncio.sleep(wait)
+        self.save_waiting = False
+        self.save_now()
+
+    def save_now(self) -> None:
+        """Save the document at once, if it changed since the last save."""
         text = dumps(self.state.document)
         if text != self.saved:
             self.saved = text
@@ -197,6 +217,9 @@ class App:
         try:
             self.replace(await self.read(text))
             self.saved = text
+            if self.debug:  # the end-to-end tests check what came back
+                count = sum(len(problem.pages) for problem in self.state.document.problems)
+                print(f"CASSIM: RECOVERED {count} pages", flush=True)
         except DocumentFileError:
             return  # a damaged autosave is ignored, and overwritten by the next change
 
@@ -278,9 +301,12 @@ class App:
         self.refresh()
 
     def on_lifecycle(self, e: ft.AppLifecycleStateChangeEvent) -> None:
-        """A key-up is lost when the window loses focus, so drop Shift then."""
+        """A key-up is lost when the window loses focus, so drop Shift then. A tab that is hidden
+        may be closed without warning, so a waiting autosave is done at once."""
         if e.state is not ft.AppLifecycleState.RESUME:
             self.shift = False
+        if e.state in (ft.AppLifecycleState.HIDE, ft.AppLifecycleState.PAUSE) and self.save_waiting:
+            self.save_now()
 
     def track_shift(self, key: str, *, down: bool) -> None:
         if "shift" in key.lower():

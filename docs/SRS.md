@@ -146,7 +146,7 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-DOC-001 | Multiple documents; add/delete/reorder Problems and Pages; page sorter. | M | D |
 | FR-DOC-002 | Document and system settings dialogs. | M | D |
-| FR-DOC-003 | Autosave to browser storage; recover after reload or crash. As built in M2e it uses localStorage through Flet `SharedPreferences` (enough for a document); IndexedDB is reserved for named files (FR-EDT-002) and larger data. | M | E |
+| FR-DOC-003 | Autosave to browser storage; recover after reload or crash. Since M3 slice 3.0 the autosave is in IndexedDB, written half a second after the last change (and at once when the tab is hidden); a document autosaved in localStorage by an earlier build is still opened. The desktop app uses Flet `SharedPreferences`. | M | E |
 | FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-008 | Within a Problem, every page shares one set of variables. A spreadsheet column linked to a list, a plot of that list and a graph of a function are views of the same variable: a change made on one page shows on every other page of the Problem when it is next seen, and nothing crosses between Problems (decision 0031). | M | T |

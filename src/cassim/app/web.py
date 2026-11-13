@@ -197,3 +197,61 @@ class Bridge:
 
     def exit_fullscreen(self) -> None:
         self._send("exit_fullscreen")
+
+
+async def _request(request: js.IDBRequest) -> object:
+    """The result of an IndexedDB request, awaited (decision 0003, spike 4)."""
+    future: asyncio.Future[object] = asyncio.get_running_loop().create_future()
+
+    def ok(_event: object) -> None:
+        if not future.done():
+            future.set_result(request.result)
+
+    def failed(_event: object) -> None:
+        if not future.done():
+            future.set_exception(OSError(str(request.error)))
+
+    on_ok, on_failed = create_proxy(ok), create_proxy(failed)
+    request.onsuccess = on_ok
+    request.onerror = on_failed
+    try:
+        return await future
+    finally:
+        on_ok.destroy()
+        on_failed.destroy()
+
+
+class TextStore:
+    """Texts by key in IndexedDB (FR-DOC-003, decision 0031): unlike localStorage it holds far more
+    than 5 MB and writes without blocking. One transaction per request, never held across an
+    `await`, since a transaction commits once the event loop is idle (decision 0003)."""
+
+    STORE = "texts"
+
+    def __init__(self, database: str = "cassim") -> None:
+        self._database = database
+        self._db: object | None = None
+
+    async def _open(self) -> js.IDBDatabase:
+        if self._db is None:
+            request = js.indexedDB.open(self._database, 1)
+            upgrade = create_proxy(lambda e: e.target.result.createObjectStore(self.STORE))
+            request.onupgradeneeded = upgrade
+            try:
+                self._db = await _request(request)
+            finally:
+                upgrade.destroy()
+        return self._db
+
+    async def get(self, key: str) -> str | None:
+        db = await self._open()
+        found = await _request(
+            db.transaction(self.STORE, "readonly").objectStore(self.STORE).get(key)
+        )
+        return found if isinstance(found, str) else None
+
+    async def put(self, key: str, text: str) -> None:
+        db = await self._open()
+        await _request(
+            db.transaction(self.STORE, "readwrite").objectStore(self.STORE).put(text, key)
+        )
