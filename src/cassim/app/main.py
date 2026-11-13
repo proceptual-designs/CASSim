@@ -43,22 +43,23 @@ from cassim.app.ui import (
     wizard_dialog,
 )
 from cassim.core.settings import Settings, next_choice
-from cassim.device.calculator import Calculator
-from cassim.device.document import Document
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.runner import Runner, Status
-from cassim.device.serialize import (
+from cassim.device.wizard import Wizard
+from cassim.devices.nspire.document import loads
+from cassim.devices.nspire.pages import PAGES
+from cassim.doc.document import Document
+from cassim.doc.serialize import (
     OPEN_EXTENSIONS,
     DocumentFileError,
     dumps,
     file_name,
-    loads,
     parse,
 )
-from cassim.device.share import LinkTooLongError, encode, unpack
-from cassim.device.wizard import Wizard
+from cassim.doc.share import LinkTooLongError, encode, unpack
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
@@ -255,7 +256,7 @@ class App:
 
     async def read(self, text: str) -> Document:
         """A document from its text, replayed by whichever engine this app uses."""
-        return loads(text) if self.runner is None else await self.runner.load(text)
+        return loads(text) if self.runner is None else await self.runner.load(text, PAGES)
 
     def replace(self, document: Document) -> None:
         self.state.replace_document(document)
@@ -267,7 +268,7 @@ class App:
         runner = self.runner
         if runner is None or not runner.idle:
             return
-        calculator = self.state.document.current.calculator
+        calculator = calculator_of(self.state.document.current)
         if calculator is not None and calculator.pending is not None:
             self.page.run_task(self.run_pending, calculator)
         elif runner.dirty(self.state.document):

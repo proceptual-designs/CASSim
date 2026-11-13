@@ -6,15 +6,15 @@ import zlib
 import pytest
 
 from cassim.core.settings import Settings
-from cassim.device.calculator import Calculator
-from cassim.device.document import Document
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.keys import Binding
-from cassim.device.serialize import DocumentFileError, dumps
-from cassim.device.share import MAX_FRAGMENT, LinkTooLongError, decode, encode
+from cassim.devices.nspire.document import Document, decode
+from cassim.doc.serialize import DocumentFileError, dumps
+from cassim.doc.share import MAX_FRAGMENT, LinkTooLongError, encode
 
 
 def typed(document: Document, text: str) -> None:
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert isinstance(calculator, Calculator)
     for char in text:
         calculator.perform(Binding("insert", char))

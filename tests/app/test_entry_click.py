@@ -11,6 +11,7 @@ import flet as ft
 from cassim.app.entry import EntryLine
 from cassim.app.state import AppState
 from cassim.app.theme import DARK
+from cassim.device.calculator import calculator_of, calculator_on
 from cassim.device.editor import Editor, Kind
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
@@ -107,7 +108,7 @@ def test_a_click_reaches_the_editor_through_the_view() -> None:
     for key in "abc":
         state.key_event(key)
     state.run_action("place", ":1")
-    assert state.document.current.calculator is not None
-    assert state.document.current.calculator.editor.pos == 1
+    assert calculator_of(state.document.current) is not None
+    assert calculator_on(state.document.current).editor.pos == 1
     state.run_action("extend", ":3")
-    assert state.document.current.calculator.editor.span == (1, 3)
+    assert calculator_on(state.document.current).editor.span == (1, 3)

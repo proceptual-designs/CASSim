@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
     from cassim.core.session import Session
     from cassim.device.keys import Binding
+    from cassim.doc.document import Page
 
 type Row = Literal["entry", "result"]
 
@@ -461,3 +462,17 @@ class Calculator:
             self._synced = entry
         self.editor.clear()
         self._group = None
+
+
+def calculator_of(page: Page) -> Calculator | None:
+    """The Calculator on a page, or None when the page is another type or not built yet."""
+    return page.model if isinstance(page.model, Calculator) else None
+
+
+def calculator_on(page: Page) -> Calculator:
+    """The Calculator on a page that is known to hold one."""
+    calculator = calculator_of(page)
+    if calculator is None:
+        msg = f"a {page.kind} page has no Calculator"
+        raise TypeError(msg)
+    return calculator

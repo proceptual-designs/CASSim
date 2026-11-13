@@ -9,7 +9,7 @@ from cassim.app.state import AppState, Mode
 from cassim.app.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
 from cassim.app.ui import CalculatorView, DragSteps, icon_canvas, scroll_line, window_start
 from cassim.core.catalog import registry
-from cassim.device.calculator import Calculator
+from cassim.device.calculator import Calculator, calculator_of, calculator_on
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
 from cassim.profiles import nspire, nspire_syntax
 
@@ -83,16 +83,16 @@ def test_menu_swallows_typing() -> None:
     state.key_event("F2")
     state.key_event("z")  # no such item
     state.key_event("Escape")
-    assert state.document.current.calculator is not None
-    assert state.document.current.calculator.editor.linear() == ""
+    assert calculator_of(state.document.current) is not None
+    assert calculator_on(state.document.current).editor.linear() == ""
 
 
 def test_menu_item_types_a_command() -> None:
     state = AppState()
     for key in ("F2", "3", "1"):  # Menu > 3 Algebra > 1 Solve, as on the handheld
         state.key_event(key)
-    assert state.document.current.calculator is not None
-    assert state.document.current.calculator.editor.linear() == "solve("
+    assert calculator_of(state.document.current) is not None
+    assert calculator_on(state.document.current).editor.linear() == "solve("
 
 
 def test_settings_item_asks_for_the_dialog() -> None:
@@ -332,7 +332,7 @@ def test_keypad_trig_and_ctrl_layers() -> None:
 
 
 def _calculator(state: AppState) -> Calculator:
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     return calculator
 

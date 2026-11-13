@@ -6,14 +6,16 @@ import json
 import pytest
 
 from cassim.core.settings import Angle
-from cassim.device import runner, serialize
-from cassim.device.document import Document, PageKind
+from cassim.device import runner
+from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding
-from cassim.device.serialize import SCHEMA, DocumentFileError, dumps, loads, migrate, to_dict
+from cassim.devices.nspire.document import Document, PageKind, loads
+from cassim.doc import serialize
+from cassim.doc.serialize import SCHEMA, DocumentFileError, dumps, migrate, to_dict
 
 
 def type_line(document: Document, text: str, *, enter: bool = True) -> None:
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     for char in text:
         calculator.perform(Binding("insert", char))
@@ -25,7 +27,7 @@ def sample() -> Document:
     document = Document("Maths")
     document.set(angle="degree")
     type_line(document, "a:=5")
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     calculator.perform(Binding("template", "fraction"))
     calculator.perform(Binding("insert", "a"))
@@ -45,13 +47,13 @@ def test_round_trip_restores_pages_results_variables_and_settings() -> None:
     assert loaded.name == "Maths"
     assert loaded.settings.angle == Angle.DEGREE
     assert [len(p.pages) for p in loaded.problems] == [2, 1]
-    first = loaded.problems[0].pages[1].calculator
+    first = calculator_of(loaded.problems[0].pages[1])
     assert first is not None
     assert first.history[0].result.text == "6"  # `a` came from the previous page
-    fraction = loaded.problems[0].pages[0].calculator
+    fraction = calculator_of(loaded.problems[0].pages[0])
     assert fraction is not None
     assert fraction.history[1].result.text == "5/2"
-    second = loaded.problems[1].pages[0].calculator
+    second = calculator_of(loaded.problems[1].pages[0])
     assert second is not None
     assert second.editor.linear() == "2+"
     assert loaded.problems[1].session.variables()[0].name == "b"
@@ -60,7 +62,7 @@ def test_round_trip_restores_pages_results_variables_and_settings() -> None:
 
 def test_templates_survive_so_recall_keeps_them() -> None:
     loaded = loads(dumps(sample()))
-    calculator = loaded.problems[0].pages[0].calculator
+    calculator = calculator_of(loaded.problems[0].pages[0])
     assert calculator is not None
     assert not isinstance(calculator.history[1].nodes[0], str)
 
@@ -77,6 +79,28 @@ def test_file_is_plain_versioned_json() -> None:
     assert data["format"] == "cassim-document"
     assert data["schema"] == SCHEMA
     assert to_dict(sample())["problems"][0]["pages"][0]["kind"] == PageKind.CALCULATOR.value
+
+
+def test_a_file_names_its_device_and_one_without_a_name_is_an_nspire_document() -> None:
+    """FR-PROF-009: the device id travels in the file (decision 0032 item 4)."""
+    data = to_dict(sample())
+    assert data["device"] == "nspire"
+    del data["device"]
+    assert dumps(loads(json.dumps(data))) == dumps(sample())
+
+
+def test_a_file_for_another_device_is_refused() -> None:
+    """FR-PROF-009: a build that does not hold the device opens nothing."""
+    data = to_dict(sample())
+    data["device"] = "classpad"
+    with pytest.raises(DocumentFileError, match="classpad"):
+        loads(json.dumps(data))
+
+
+def test_an_unknown_page_kind_is_not_a_page_type() -> None:
+    """FR-PROF-006: page types are the ones the device registered."""
+    with pytest.raises(ValueError, match="not a page type"):
+        Document().add_page("abacus")
 
 
 @pytest.mark.parametrize(

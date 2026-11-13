@@ -7,11 +7,11 @@ import pytest
 
 from cassim import device
 from cassim.app.state import AppState
-from cassim.device.calculator import Calculator
-from cassim.device.document import Document
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.editor import Editor
 from cassim.device.keys import Binding, Keyboard
 from cassim.device.screen import render
+from cassim.devices.nspire.document import Document
 from cassim.profiles import nspire
 
 
@@ -251,13 +251,13 @@ def test_ctrl_shift_arrows_select_words() -> None:
 def test_copy_cut_and_paste_across_pages_and_into_a_template() -> None:
     """S7: a pasted fraction stays stacked; the clipboard is shared by the pages of a document."""
     document = Document()
-    first = document.current.calculator
+    first = calculator_of(document.current)
     assert first is not None
     keyboard = Keyboard(nspire.COMPUTER)
     for key in ("1", "ctrl+/", "2", "ArrowRight", "shift+ArrowLeft", "ctrl+c"):
         press(first, keyboard, key)
     document.add_page()
-    second = document.current.calculator
+    second = calculator_of(document.current)
     assert second is not None
     for key in ("ctrl+v", "+", "ctrl+v"):
         press(second, keyboard, key)
@@ -390,7 +390,7 @@ def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
 
 def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
     document = Document()
-    calc = document.current.calculator
+    calc = calculator_of(document.current)
     assert calc is not None
     _type(calc, "12+34")
     calc.perform(Binding("enter"))

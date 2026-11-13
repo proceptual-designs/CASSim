@@ -1,6 +1,7 @@
 """The app state drives the document from keypad and physical keys (FR-DEV-004, FR-DEV-006)."""
 
 from cassim.app.state import AppState, Mode, System
+from cassim.device.calculator import calculator_of
 from cassim.profiles import nspire
 
 
@@ -74,7 +75,7 @@ def test_the_letter_layout_is_a_system_setting() -> None:
 
 
 def typed(state: AppState) -> str:
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     return calculator.editor.linear()
 

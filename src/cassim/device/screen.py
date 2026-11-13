@@ -9,8 +9,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from cassim.device.document import Document, Page
+from cassim.device.calculator import calculator_of, calculator_on
 from cassim.device.menu import MenuView
+from cassim.doc.document import Document, Page
 
 
 @dataclass(frozen=True)
@@ -37,16 +38,16 @@ class Screen:
 
 def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
     """What the device calls this page's type (`names` comes from the profile)."""
-    return (names or {}).get(page.kind.value, page.kind.value)
+    return (names or {}).get(str(page.kind), str(page.kind))
 
 
 def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None) -> tuple[str, ...]:
     """The last few lines of a page as plain text, for the page sorter."""
-    if page.calculator is None:
+    if calculator_of(page) is None:
         return (page_name(page, names), "(not built yet)")
     lines = [
         text
-        for entry in page.calculator.history[-rows:]
+        for entry in calculator_on(page).history[-rows:]
         for text in (entry.text, entry.result.text)
     ]
     return tuple(lines[-rows:])
@@ -60,7 +61,7 @@ def render(
 ) -> Screen:
     """Describe the current page. A page without a model is a stub: only its type's name."""
     title = f"{document.problem + 1}.{document.page + 1}"
-    page = document.current.calculator
+    page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))
     lines: list[Line] = []

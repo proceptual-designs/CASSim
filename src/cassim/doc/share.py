@@ -7,8 +7,8 @@ from __future__ import annotations
 import base64
 import zlib
 
-from cassim.device.document import Document
-from cassim.device.serialize import DocumentFileError, dumps, loads
+from cassim.doc.document import Document, PageTypes
+from cassim.doc.serialize import DocumentFileError, dumps, loads
 
 PREFIX = "doc="
 MAX_FRAGMENT = 2000  # characters, as in the SRS; longer links break in chat apps and e-mail
@@ -52,7 +52,7 @@ def unpack(fragment: str) -> str | None:
         raise DocumentFileError(msg) from error
 
 
-def decode(fragment: str) -> Document | None:
+def decode(fragment: str, types: PageTypes) -> Document | None:
     """The document in a fragment, loaded in this process, or None for a non-link."""
     text = unpack(fragment)
-    return None if text is None else loads(text)
+    return None if text is None else loads(text, types)

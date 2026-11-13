@@ -4,13 +4,14 @@ device's Tab order, the text the engine reads, grid movement, and keeping them i
 import pytest
 
 from cassim.app.state import AppState, Mode
-from cassim.device.calculator import Calculator
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.editor import Editor, Kind, Template
-from cassim.device.serialize import dumps, loads
+from cassim.devices.nspire.document import loads
+from cassim.doc.serialize import dumps
 
 
 def _calculator(state: AppState) -> Calculator:
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     return calculator
 
@@ -109,7 +110,7 @@ def test_templates_survive_a_saved_file() -> None:
     calculator.editor = _fill(Kind.PIECEWISE, "1", "x<0", "2", "x>=0", shape=(2, 2))
     state.run_action("enter")
     loaded = loads(dumps(state.document))
-    page = loaded.current.calculator
+    page = calculator_of(loaded.current)
     assert page is not None
     node = page.history[-1].nodes[0]
     assert isinstance(node, Template)

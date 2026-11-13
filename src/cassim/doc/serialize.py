@@ -1,8 +1,9 @@
 """Documents as plain, versioned JSON (FR-DOC-003, FR-DOC-004).
 
-A saved Calculator page holds the entries as typed (the editor's nodes, so templates survive), not
-their results: loading replays them in order, so every result and variable is recomputed by the
-engine and a file can never hold a stale answer. Random results therefore differ after a load.
+Each page type writes and reads its own part of the file (`PageType.dump` and `load`). A page
+saves what was typed, not results: loading replays it, so every result and variable is recomputed
+by the engine and a file can never hold a stale answer. Random results therefore differ after a
+load. The file names its device (FR-PROF-009); one with no name is an Nspire document.
 """
 
 from __future__ import annotations
@@ -13,17 +14,15 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from cassim.core.settings import Settings
-from cassim.device.calculator import Calculator
-from cassim.device.document import Document, Page, PageKind
-from cassim.device.editor import Kind, Node, Row, Template
 from cassim.device.engine import RemoteSession, local_session
-from cassim.device.keys import Binding
+from cassim.doc.document import Document, Page, PageTypes
 
 if TYPE_CHECKING:
     from cassim.core.session import Session
 
 SCHEMA = 1
 FORMAT = "cassim-document"
+FIRST_DEVICE = "nspire"  # files written before files named their device
 SUFFIX = ".cassim.json"
 """Open and Save read and write only this native format (FR-DOC-006). Foreign formats such as
 `.tns`, if ever supported, belong under File > Import and Export, never Open or Save."""
@@ -41,44 +40,6 @@ class DocumentFileError(ValueError):
     """The text is not a CASSim document this version can open."""
 
 
-# ---- nodes ----------------------------------------------------------------------------------
-
-
-def _dump_nodes(nodes: Row | tuple[Node, ...]) -> list[Any]:
-    out: list[Any] = []
-    for node in nodes:
-        if isinstance(node, str):
-            out.append(node)
-        else:
-            item: dict[str, Any] = {
-                "kind": node.kind.value,
-                "slots": [_dump_nodes(slot) for slot in node.slots],
-            }
-            if node.cols:
-                item["cols"] = node.cols
-            out.append(item)
-    return out
-
-
-def _load_nodes(items: list[Any]) -> Row:
-    row: Row = []
-    for item in items:
-        if isinstance(item, str):
-            row.append(item)
-        elif isinstance(item, dict):
-            row.append(
-                Template(
-                    Kind(item["kind"]),
-                    [_load_nodes(slot) for slot in item["slots"]],
-                    int(item.get("cols", 0)),
-                )
-            )
-        else:
-            msg = f"bad editor node {item!r}"
-            raise DocumentFileError(msg)
-    return row
-
-
 # ---- documents ------------------------------------------------------------------------------
 
 
@@ -88,22 +49,15 @@ def to_dict(document: Document) -> dict[str, Any]:
     for problem in document.problems:
         pages = []
         for page in problem.pages:
-            item: dict[str, Any] = {"kind": page.kind.value}
-            if page.calculator is not None:
-                calculator = page.calculator
-                item["entries"] = [
-                    {
-                        "nodes": _dump_nodes(entry.source or entry.nodes),
-                        "approximate": entry.approximate,
-                    }
-                    for entry in calculator.history
-                ]
-                item["entry"] = _dump_nodes(calculator.editor.root)
+            item: dict[str, Any] = {"kind": str(page.kind)}
+            if page.model is not None:
+                item.update(page.type.dump(page.model))
             pages.append(item)
         problems.append({"pages": pages})
     return {
         "format": FORMAT,
         "schema": SCHEMA,
+        "device": document.types.device,
         "name": document.name,
         "settings": {key: str(value) for key, value in asdict(document.settings).items()},
         "problem": document.problem,
@@ -133,10 +87,12 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def from_dict(
-    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession] = local_session
+    data: dict[str, Any],
+    types: PageTypes,
+    sessions: Callable[[Settings], Session | RemoteSession] = local_session,
 ) -> Document:
     """Rebuild a document, replaying every entry through the engine (all in this process)."""
-    steps = replay_steps(data, sessions)
+    steps = replay_steps(data, types, sessions)
     while True:
         try:
             next(steps)  # a deferred session would yield here; `Session` never does
@@ -145,18 +101,24 @@ def from_dict(
 
 
 def replay_steps(
-    data: dict[str, Any], sessions: Callable[[Settings], Session | RemoteSession]
-) -> Generator[Calculator, None, Document]:
+    data: dict[str, Any],
+    types: PageTypes,
+    sessions: Callable[[Settings], Session | RemoteSession],
+) -> Generator[Any, None, Document]:
     """Replay a document's entries: the public interface for loading, shared by `from_dict` (all in
     this process) and `Runner.load` (through a worker).
 
-    A generator: each time an entry waits for a remote engine it yields its Calculator, the driver
-    evaluates it (`Runner.evaluate`) and resumes; the finished Document is the return value
-    (`StopIteration.value`). Sessions that never yield run straight through."""
+    A generator: each time an entry waits for a remote engine it yields the page model that is
+    waiting, the driver evaluates it (`Runner.evaluate`) and resumes; the finished Document is the
+    return value (`StopIteration.value`). Sessions that never yield run straight through."""
     data = migrate(data)
+    device = data.get("device", FIRST_DEVICE)
+    if device != types.device:
+        msg = f"the document is for the {device} device, which this build does not hold"
+        raise DocumentFileError(msg)
     try:
         settings = Settings(**data.get("settings", {}))
-        document = Document(str(data.get("name", "Untitled")), settings, sessions)
+        document = Document(types, str(data.get("name", "Untitled")), settings, sessions)
         document.problems.clear()
         for saved in data["problems"]:
             document.problem = len(document.problems) - 1
@@ -164,7 +126,9 @@ def replay_steps(
             problem = document.problems[document.problem]
             problem.pages.clear()
             for page_data in saved["pages"]:
-                problem.pages.append((yield from _load_page(document, page_data)))
+                page_type = types[page_data["kind"]]
+                model = yield from page_type.load(page_type, problem, page_data)
+                problem.pages.append(Page(page_type, model))
         document.go(
             min(int(data.get("problem", 0)), len(document.problems) - 1),
             0,
@@ -177,27 +141,6 @@ def replay_steps(
         raise DocumentFileError(msg) from error
     document.forget_history()
     return document
-
-
-def _load_page(document: Document, data: dict[str, Any]) -> Generator[Calculator, None, Page]:
-    problem = document.problems[document.problem]
-    page = problem.new_page(PageKind(data["kind"]))
-    calculator = page.calculator
-    if calculator is None:
-        return page
-    for entry in data.get("entries", []):
-        calculator.editor.clear()
-        calculator.editor.root = _load_nodes(entry["nodes"])
-        calculator.editor.pos = len(calculator.editor.root)
-        calculator.perform(Binding("approximate" if entry.get("approximate") else "enter"))
-        if calculator.pending is not None:
-            yield calculator
-        calculator.error = None  # an entry that fails now was kept as typed; drop its dialog
-    calculator.editor.clear()
-    calculator.editor.root = _load_nodes(data.get("entry", []))
-    calculator.editor.pos = len(calculator.editor.root)
-    calculator.forget_undo()  # loading is not something to undo
-    return page
 
 
 def parse(text: str) -> dict[str, Any]:
@@ -213,5 +156,5 @@ def parse(text: str) -> dict[str, Any]:
     return data
 
 
-def loads(text: str) -> Document:
-    return from_dict(parse(text))
+def loads(text: str, types: PageTypes) -> Document:
+    return from_dict(parse(text), types)

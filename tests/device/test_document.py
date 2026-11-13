@@ -3,12 +3,14 @@
 
 import pytest
 
-from cassim.device.document import MAX_PAGES, Document, PageKind
+from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding
+from cassim.devices.nspire.document import Document, PageKind
+from cassim.doc.document import MAX_PAGES
 
 
 def type_into(document: Document, text: str) -> None:
-    page = document.current.calculator
+    page = calculator_of(document.current)
     assert page is not None
     for char in text:
         page.perform(Binding("insert", char))
@@ -16,7 +18,7 @@ def type_into(document: Document, text: str) -> None:
 
 
 def result(document: Document) -> str:
-    page = document.current.calculator
+    page = calculator_of(document.current)
     assert page is not None
     return page.history[-1].result.text
 
@@ -55,7 +57,7 @@ def test_problems_and_pages_insert_after_the_current_one() -> None:
 
 def test_only_calculator_pages_have_a_model() -> None:
     document = Document()
-    assert document.add_page(PageKind.NOTES).calculator is None
+    assert calculator_of(document.add_page(PageKind.NOTES)) is None
 
 
 def test_page_limit_per_problem() -> None:

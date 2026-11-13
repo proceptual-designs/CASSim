@@ -9,6 +9,7 @@ from cassim.app.entry import SELECTION, EntryLine, row_height
 from cassim.app.state import AppState
 from cassim.app.theme import DARK
 from cassim.app.ui import CalculatorView
+from cassim.device.calculator import calculator_on
 from cassim.device.editor import Editor, Kind
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
@@ -61,7 +62,7 @@ def test_a_long_press_extends_the_selection_from_the_cursor() -> None:
     view._hold([], 1)
     assert actions == [("extend", ":1")]
     state.run_action(*actions[0])
-    editor = state.document.current.calculator.editor  # ty: ignore[unresolved-attribute]
+    editor = calculator_on(state.document.current).editor
     assert editor.span == (1, 4)
 
 

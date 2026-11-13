@@ -12,10 +12,24 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "cassim"
 
 # (package, forbidden top-level import roots, reason)
 RULES = [
-    ("core", {"flet", "cassim.device", "cassim.app", "cassim.profiles"}, "core is pure Python"),
-    ("device", {"flet", "cassim.app", "cassim.profiles"}, "FR-DEV-007: device is headless"),
-    ("runtime", {"flet", "cassim.app", "cassim.device"}, "the runtime is UI-free"),
+    (
+        "core",
+        {"flet", "cassim.device", "cassim.app", "cassim.profiles", "cassim.devices", "cassim.doc"},
+        "core is pure Python",
+    ),
+    (
+        "device",
+        {"flet", "cassim.app", "cassim.profiles", "cassim.devices"},
+        "FR-DEV-007: device is headless",
+    ),
+    (
+        "runtime",
+        {"flet", "cassim.app", "cassim.device", "cassim.devices"},
+        "the runtime is UI-free",
+    ),
     ("profiles", {"flet", "cassim.app"}, "profiles are data"),
+    ("doc", {"flet", "cassim.app", "cassim.profiles", "cassim.devices"}, "decision 0032 item 6"),
+    ("devices", {"flet", "cassim.app"}, "a device imports without Flet (decision 0032)"),
 ]
 
 
@@ -37,6 +51,17 @@ def test_package_does_not_import_forbidden_modules(
         for name in imports(path):
             hit = any(name == bad or name.startswith(bad + ".") for bad in forbidden)
             assert not hit, f"{path.relative_to(SRC)} imports {name} ({why})"
+
+
+def test_a_device_never_imports_another_device() -> None:
+    """FR-PROF-008: each device is a plug-in that stands alone (decision 0032 item 6)."""
+    devices = [p.name for p in (SRC / "devices").iterdir() if (p / "__init__.py").exists()]
+    for device in devices:
+        others = {f"cassim.devices.{other}" for other in devices if other != device}
+        for path in (SRC / "devices" / device).rglob("*.py"):
+            for name in imports(path):
+                hit = any(name == bad or name.startswith(bad + ".") for bad in others)
+                assert not hit, f"{path.relative_to(SRC)} imports {name}"
 
 
 PLAN = Path(__file__).resolve().parents[1] / "PLAN.md"

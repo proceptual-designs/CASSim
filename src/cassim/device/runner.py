@@ -15,11 +15,11 @@ from typing import TYPE_CHECKING
 from cassim.core.results import Result
 from cassim.core.settings import Settings
 from cassim.device.engine import Engine, EngineError, RemoteSession, Reply, eval_op
-from cassim.device.serialize import parse, replay_steps
+from cassim.doc.serialize import parse, replay_steps
 
 if TYPE_CHECKING:
     from cassim.device.calculator import Calculator
-    from cassim.device.document import Document
+    from cassim.doc.document import Document, PageTypes
 
 
 class Status(StrEnum):
@@ -113,9 +113,9 @@ class Runner:
 
     # ---- loading ----------------------------------------------------------------------------
 
-    async def load(self, text: str) -> Document:
+    async def load(self, text: str, types: PageTypes) -> Document:
         """`loads` for a remote engine: replay the document's entries through it."""
-        steps = replay_steps(parse(text), self.new_session)
+        steps = replay_steps(parse(text), types, self.new_session)
         while True:
             try:
                 calculator = next(steps)

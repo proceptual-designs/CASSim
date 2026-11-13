@@ -6,9 +6,9 @@ import pytest
 
 from cassim.app.state import AppState
 from cassim.app.ui import STUB_NOTICE, CalculatorView, Sidebar
-from cassim.device.document import PageKind
 from cassim.device.screen import thumbnail
-from cassim.device.serialize import dumps, loads
+from cassim.devices.nspire.document import PageKind, loads
+from cassim.doc.serialize import dumps
 
 STUBS = [
     ("4", PageKind.GRAPHS, "Graphs"),

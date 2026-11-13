@@ -3,6 +3,7 @@
 S7 e to g, S5 b2, S8 a follow-up)."""
 
 from cassim.app.state import AppState, Mode
+from cassim.device.calculator import calculator_of
 from cassim.device.editor import Editor, Kind, Template
 
 
@@ -12,7 +13,7 @@ def typed(state: AppState, keys: str) -> None:
 
 
 def line(state: AppState) -> str:
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     return calculator.editor.linear()
 
@@ -25,7 +26,7 @@ def test_undo_steps_through_a_template_and_its_slots() -> None:
     typed(state, "2")
     state.key_event("Arrow Right")
     typed(state, "+3")
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
 
     def denominator() -> list[object]:
@@ -109,7 +110,7 @@ def test_ctrl_7_picks_the_first_row_and_ctrl_1_returns_to_the_entry_line() -> No
     for entry in ("1", "2", "3"):
         state.press_keypad(entry)
         state.press_keypad("enter")
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     for key in ("ctrl", "7"):
         state.press_keypad(key)
@@ -125,7 +126,7 @@ def test_ctrl_7_on_an_empty_history_does_nothing() -> None:
     state = AppState(mode=Mode.HANDHELD)
     for key in ("ctrl", "7"):
         state.press_keypad(key)
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     assert calculator.recall is None
 

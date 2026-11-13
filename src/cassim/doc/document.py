@@ -2,18 +2,20 @@
 
 A document holds Problems; a Problem holds Pages and one variable namespace (a `Session`), so a new
 Page keeps the variables and a new Problem starts clean. The document settings apply to every
-Problem. Page types other than Calculator have no model yet and are placeholders.
+Problem.
+
+Page types are registered, not named here (FR-PROF-006, decision 0032): a device gives the document
+its `PageTypes`, and each `PageType` makes, saves and loads its own page model. A type whose `new`
+gives None is a placeholder for a page that is not built yet.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cassim.core.settings import Settings
-from cassim.device.calculator import Calculator
 from cassim.device.clipboard import Clipboard
 from cassim.device.engine import RemoteSession, local_session
 
@@ -23,34 +25,76 @@ if TYPE_CHECKING:
 MAX_PAGES = 50  # per Problem, as on the emulator (docs/testing/emulator-editor-capture.md)
 
 
-class PageKind(StrEnum):
-    CALCULATOR = "calculator"
-    GRAPHS = "graphs"
-    SPREADSHEET = "spreadsheet"
-    STATISTICS = "statistics"
-    NOTES = "notes"
-    PROGRAM = "program"
-    PYTHON = "python"
-    PSEUDOCODE = "pseudocode"
+def _no_model(problem: Problem) -> None:
+    return None
+
+
+def _dump_nothing(model: object) -> dict[str, Any]:
+    return {}
+
+
+def _load_new(
+    page_type: PageType, problem: Problem, data: dict[str, Any]
+) -> Generator[Any, None, Any]:
+    """Load a page that saves nothing: a new model. (A generator that never yields.)"""
+    yield from ()
+    return page_type.new(problem)
+
+
+@dataclass(frozen=True)
+class PageType:
+    """One kind of page, as its device registers it.
+
+    `load` is a generator so a page can replay entries through an engine in another worker: it
+    yields whatever is waiting to be evaluated (see `serialize.replay_steps`) and returns the model.
+    """
+
+    kind: str  # what a file stores, and what the menus ask for
+    title: str  # what the device calls it
+    new: Callable[[Problem], Any] = _no_model  # the page's model; None for a page not built yet
+    dump: Callable[[Any], dict[str, Any]] = _dump_nothing  # the model's part of a document file
+    load: Callable[[PageType, Problem, dict[str, Any]], Generator[Any, None, Any]] = _load_new
+
+
+class PageTypes:
+    """A device's page types, by kind. The first is the type of a new document's only page."""
+
+    def __init__(self, device: str, types: tuple[PageType, ...]) -> None:
+        self.device = device  # the device's id, written into every file (FR-PROF-009)
+        self._types = {str(page_type.kind): page_type for page_type in types}
+        self.default = types[0]
+
+    def __getitem__(self, kind: str) -> PageType:
+        try:
+            return self._types[str(kind)]
+        except KeyError:
+            msg = f"{kind!r} is not a page type of the {self.device} device"
+            raise ValueError(msg) from None
+
+    def __iter__(self) -> Iterator[PageType]:
+        return iter(self._types.values())
 
 
 @dataclass
 class Page:
-    kind: PageKind
-    calculator: Calculator | None = None  # the model of a Calculator page
+    type: PageType
+    model: Any = None  # None on a page whose type is not built yet
+
+    @property
+    def kind(self) -> str:
+        return self.type.kind
 
 
 @dataclass
 class Problem:
     session: Session | RemoteSession
     clipboard: Clipboard
+    types: PageTypes
     pages: list[Page] = field(default_factory=list)
 
-    def new_page(self, kind: PageKind) -> Page:
-        calculator = (
-            Calculator(self.session, self.clipboard) if kind is PageKind.CALCULATOR else None
-        )
-        return Page(kind, calculator)
+    def new_page(self, kind: str) -> Page:
+        page_type = self.types[kind]
+        return Page(page_type, page_type.new(self))
 
 
 @dataclass(frozen=True)
@@ -67,10 +111,12 @@ class Document:
 
     def __init__(
         self,
+        types: PageTypes,
         name: str = "Untitled",
         settings: Settings | None = None,
         sessions: Callable[[Settings], Session | RemoteSession] = local_session,
     ) -> None:
+        self.types = types
         self.name = name
         self.sessions = sessions  # makes each Problem's session (a RemoteSession in the browser)
         self.settings = settings if settings is not None else Settings()
@@ -78,7 +124,7 @@ class Document:
         self.problems: list[Problem] = []
         self.problem = 0  # the current Problem
         self.page = 0  # the current Page within it
-        self._new_problem(PageKind.CALCULATOR)
+        self._new_problem(types.default.kind)
         self._undo: list[_Layout] = []  # structure only; page contents have their own undo
         self._redo: list[_Layout] = []
 
@@ -88,7 +134,7 @@ class Document:
     def current(self) -> Page:
         return self.problems[self.problem].pages[self.page]
 
-    def sorter(self) -> list[tuple[int, int, PageKind]]:
+    def sorter(self) -> list[tuple[int, int, str]]:
         """Every page as (problem, page, kind), numbered from 0, for the page sorter."""
         return [
             (p, q, page.kind)
@@ -101,13 +147,13 @@ class Document:
 
     # ---- adding and removing ---------------------------------------------------------------
 
-    def add_problem(self, kind: PageKind = PageKind.CALCULATOR) -> Page:
+    def add_problem(self, kind: str | None = None) -> Page:
         """Insert a Problem after the current one, with one page, and go to it."""
         self._remember()
-        return self._new_problem(kind)
+        return self._new_problem(kind or self.types.default.kind)
 
-    def _new_problem(self, kind: PageKind) -> Page:
-        problem = Problem(self.sessions(self.settings), self.clipboard)
+    def _new_problem(self, kind: str) -> Page:
+        problem = Problem(self.sessions(self.settings), self.clipboard, self.types)
         index = self.problem + 1 if self.problems else 0
         self.problems.insert(index, problem)
         page = problem.new_page(kind)
@@ -115,21 +161,21 @@ class Document:
         self.problem, self.page = index, 0
         return page
 
-    def add_page(self, kind: PageKind = PageKind.CALCULATOR) -> Page:
+    def add_page(self, kind: str | None = None) -> Page:
         """Insert a page after the current one in the same Problem, and go to it."""
         if not self.can_add_page():
             msg = f"a Problem holds at most {MAX_PAGES} pages"
             raise ValueError(msg)
         self._remember()
         problem = self.problems[self.problem]
-        page = problem.new_page(kind)
+        page = problem.new_page(kind or self.types.default.kind)
         self.page += 1
         problem.pages.insert(self.page, page)
         return page
 
     def delete_page(self) -> None:
         """Remove the current page. Removing the last page of a Problem removes the Problem,
-        and a document is never left empty: its last page is replaced by a blank Calculator."""
+        and a document is never left empty: its last page is replaced by a blank default page."""
         self._remember()
         problem = self.problems[self.problem]
         del problem.pages[self.page]
@@ -139,7 +185,7 @@ class Document:
         del self.problems[self.problem]
         if not self.problems:
             self.problem = 0
-            self._new_problem(PageKind.CALCULATOR)
+            self._new_problem(self.types.default.kind)
             return
         self.problem = min(self.problem, len(self.problems) - 1)
         self.page = min(self.page, len(self.problems[self.problem].pages) - 1)
@@ -148,7 +194,7 @@ class Document:
         self._remember()
         del self.problems[self.problem]
         if not self.problems:
-            self._new_problem(PageKind.CALCULATOR)
+            self._new_problem(self.types.default.kind)
             return
         self.problem = min(self.problem, len(self.problems) - 1)
         self.page = 0

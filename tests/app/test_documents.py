@@ -4,6 +4,7 @@ from dataclasses import replace
 
 from cassim.app.state import MATH_SIZES, AppState, Mode, System
 from cassim.core.settings import Angle
+from cassim.device.calculator import calculator_of, calculator_on
 from cassim.device.screen import thumbnail
 from cassim.profiles.nspire_menus import DOC
 
@@ -68,7 +69,9 @@ def test_page_move_and_undo_redo() -> None:
     enter(state, "3")
     document = state.document
     texts = lambda: [  # noqa: E731
-        page.calculator.history[0].text for page in document.problems[0].pages if page.calculator
+        calculator_on(page).history[0].text
+        for page in document.problems[0].pages
+        if calculator_of(page)
     ]
     assert texts() == ["a:=1", "2", "3"]
     state.run_action("move_page", "-2")
@@ -116,8 +119,8 @@ def test_new_document_and_replace_document() -> None:
     state = AppState()
     enter(state, "a:=5")
     state.run_action("new_document")
-    assert state.document.current.calculator is not None
-    assert state.document.current.calculator.history == []
+    assert calculator_of(state.document.current) is not None
+    assert calculator_on(state.document.current).history == []
     assert state.screen().menu is None
 
 
@@ -126,8 +129,8 @@ def test_file_menu_new_by_keys() -> None:
     enter(state, "1+1")
     for key in ("F4", "1", "1"):  # Doc > File > New
         state.key_event(key)
-    assert state.document.current.calculator is not None
-    assert state.document.current.calculator.history == []
+    assert calculator_of(state.document.current) is not None
+    assert calculator_on(state.document.current).history == []
 
 
 def test_file_menu_asks_for_the_file_dialogs() -> None:
