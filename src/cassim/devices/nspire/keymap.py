@@ -88,9 +88,17 @@ HANDHELD: Keymap = {
     "ctrl+2": Binding("end"),
     "ctrl+7": Binding("first_line"),  # the first history row (S5 b)
     "ctrl+1": Binding("last_line"),  # back to the entry line (S5 b2)
+    "ctrl+menu": Binding("context_menu"),  # a sheet's context menu
 }
 
 COMPUTER: Keymap = {
+    # Lists & Spreadsheet (check 6, E10, E23); other pages ignore them
+    "ctrl+g": Binding("goto"),
+    "ctrl+r": Binding("recalculate"),
+    "PageUp": Binding("page_up"),
+    "PageDown": Binding("page_down"),
+    "ContextMenu": Binding("context_menu"),
+    "shift+F10": Binding("context_menu"),
     "ArrowLeft": Binding("left"),
     "ArrowRight": Binding("right"),
     "ArrowUp": Binding("up"),

@@ -129,6 +129,8 @@ def replay_steps(
                 page_type = types[page_data["kind"]]
                 model = yield from page_type.load(page_type, problem, page_data)
                 problem.pages.append(Page(page_type, model))
+            for page in problem.pages:
+                page.type.after(page.model)
         document.go(
             min(int(data.get("problem", 0)), len(document.problems) - 1),
             0,

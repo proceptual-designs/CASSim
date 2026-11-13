@@ -18,7 +18,7 @@ Behaviour follows emulator check 6 (`docs/testing/emulator-sheet3-results.md`, p
 import re
 from collections import deque
 from collections.abc import Iterator
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 
 from cassim.core import ast
 from cassim.core.compat import sympy_adapter as cas
@@ -181,6 +181,17 @@ class Sheet:
             return to_text(content.value, self._session.settings)
         value = self._values.get((column, row))
         return "" if value is None or isinstance(value, Failed) else self._show(value).text
+
+    def saved(self, key: Key) -> tuple[str, str]:
+        """A cell's content as a file keeps it: ("entry" or "formula", text). A value from a list
+        is written at 14 digits (exact values stay exact), so it reads back as the same value."""
+        content = self._contents.get(key)
+        if isinstance(content, Formula):
+            return "formula", content.text
+        if isinstance(content, Constant):
+            full = replace(self._session.settings, digits="float14")
+            return "entry", to_text(content.value, full)
+        return "entry", content.text if isinstance(content, Entry) else ""
 
     def shown(self, column: int, row: int) -> Shown:
         """A cell as drawn (check 6, E5, E20, E21)."""
@@ -364,6 +375,8 @@ class Sheet:
         for column, info in enumerate(self._columns):
             if info.formula is not None:
                 self._link((column, 0), self._read_inputs(info.formula))
+            elif info.name is not None:
+                self._write(column)  # first, so formulas that use the list by name find it
         self._recalculate(set(self._inputs), outcome)
         for column, info in enumerate(self._columns):
             if info.name is not None:

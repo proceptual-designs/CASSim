@@ -11,6 +11,7 @@ from typing import Literal
 
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
+from cassim.devices.nspire.pages.spreadsheet import SheetScreen, spreadsheet_of
 from cassim.doc.document import Document, Page
 
 
@@ -35,6 +36,7 @@ class Screen:
     # The page type's name when the page has no model yet (Graphs, Notes...): the GUI shows a
     # notice instead of an entry line. None on a page that works.
     stub: str | None = None
+    sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
 
 
 def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
@@ -44,6 +46,9 @@ def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
 
 def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None) -> tuple[str, ...]:
     """The last few lines of a page as plain text, for the page sorter."""
+    sheet = spreadsheet_of(page)
+    if sheet is not None:
+        return (page_name(page, names), f"{len(sheet.cells)} cells")
     if calculator_of(page) is None:
         return (page_name(page, names), "(not built yet)")
     lines = [
@@ -62,6 +67,11 @@ def render(
 ) -> Screen:
     """Describe the current page. A page without a model is a stub: only its type's name."""
     title = f"{document.problem + 1}.{document.page + 1}"
+    sheet = spreadsheet_of(document.current)
+    if sheet is not None:
+        # TODO(3b-2): the grid view; until then the page shows the stub notice
+        name = page_name(document.current, names)
+        return Screen(title, status, (), "", None, menu, name, sheet.screen())
     page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))

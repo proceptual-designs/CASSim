@@ -237,6 +237,7 @@ class App:
 
     def refresh(self) -> None:
         start = time.perf_counter()
+        self.state.prepare()  # a sheet takes the engine's replies first
         self.autosave()
         self.view.refresh()
         self.keypad.refresh()

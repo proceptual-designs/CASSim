@@ -33,6 +33,10 @@ def _dump_nothing(model: object) -> dict[str, Any]:
     return {}
 
 
+def _after_nothing(model: object) -> None:
+    return None
+
+
 def _load_new(
     page_type: PageType, problem: Problem, data: dict[str, Any]
 ) -> Generator[Any, None, Any]:
@@ -54,6 +58,9 @@ class PageType:
     new: Callable[[Problem], Any] = _no_model  # the page's model; None for a page not built yet
     dump: Callable[[Any], dict[str, Any]] = _dump_nothing  # the model's part of a document file
     load: Callable[[PageType, Problem, dict[str, Any]], Generator[Any, None, Any]] = _load_new
+    # Called once all the pages of the model's Problem are loaded: a sheet rebuilds itself in the
+    # engine then, so its saved values win over the Problem's older Calculator entries.
+    after: Callable[[Any], None] = _after_nothing
 
 
 class PageTypes:

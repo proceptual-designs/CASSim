@@ -29,7 +29,13 @@ from cassim.sheet.sheet import (
 
 if TYPE_CHECKING:
     from cassim.core.session import Session
-    from cassim.device.engine import NoticePayload, SheetErrorPayload, SheetOp, SheetReply
+    from cassim.device.engine import (
+        ColumnPayload,
+        NoticePayload,
+        SheetErrorPayload,
+        SheetOp,
+        SheetReply,
+    )
 
 # How many rounds of one sheet's writes reaching another settle may take; a loop of sheets
 # feeding each other stops here.
@@ -48,6 +54,10 @@ class ProblemSheets:
         self.session = session
         self.pages: dict[int, Sheet] = {}
         self._reported: dict[int, int] = {}  # each page's revision in the last reply
+        # Each page's contents and columns as last reported, so a reply carries only the edits:
+        # the UI keeps the sheet's definitions (it saves the document without the engine).
+        self._known: dict[int, tuple[dict[Key, Content], list[ColumnPayload]]] = {}
+        self._viewed_at: dict[int, int] = {}  # each page's revision when its view was taken
 
     def run(self, op: SheetOp, replies: dict[int, SheetReply]) -> None:
         """Apply one sheet op; what it shows goes into `replies` for its page."""
@@ -72,6 +82,7 @@ class ProblemSheets:
             reply["error"] = failed
         if op["action"] == "view":
             self._view(sheet, _span(op["args"]["span"]), reply)
+            self._viewed_at[page] = sheet.revision
         self._relock()
 
     def _act(self, sheet: Sheet, op: SheetOp) -> list[Notice]:  # noqa: PLR0911 (one per action)
@@ -114,20 +125,47 @@ class ProblemSheets:
                 return sheet.recalculate()
             case "restore":
                 return _restore(sheet, args)
+            case "move":
+                return actions.move_column(sheet, column, cast("int", args["to"]))
+            case "put":
+                return sheet.put(_contents(args["cells"]))
             case _:  # "view" changes nothing
                 return []
 
     def _view(self, sheet: Sheet, span: Span, reply: SheetReply) -> None:
-        """The cells of `span` as drawn, and every column's name and formula. Only the cells
-        asked for are formatted (decision 0031, spike B)."""
+        """The cells of `span` as drawn. Only the cells asked for are formatted (decision 0031,
+        spike B)."""
+        reply["span"] = [span.start.column, span.start.row, span.end.column, span.end.row]
         reply["cells"] = [
             (column, row, shown.text, shown.right, sheet.text(column, row))
             for column, row in span.cells()
             if (shown := sheet.shown(column, row)).text
         ]
-        reply["columns"] = [
-            (info.shown_name, info.formula) for info in (sheet.column(c) for c in range(COLUMNS))
+
+    def _edits(self, page: int, sheet: Sheet, reply: SheetReply) -> None:
+        """What changed in the page's definitions since the last reply: cells as
+        [column, row, kind, text] ("" kind for a cleared cell), and the columns when they
+        changed. Contents are compared as objects, so only changed cells are formatted."""
+        contents = sheet.contents()
+        columns: list[ColumnPayload] = [
+            (info.name, info.shown_name, info.formula)
+            for info in (sheet.column(c) for c in range(COLUMNS))
         ]
+        before, old_columns = self._known.get(page, ({}, []))
+        # A reply may already hold edits from an earlier op of the same batch: the latest wins.
+        edits = {
+            (column, row): (column, row, kind, text) for column, row, kind, text in reply["edits"]
+        }
+        for key, content in contents.items():
+            old = before.get(key)
+            if old is not content and old != content:
+                edits[key] = (*key, *sheet.saved(key))
+        for key in before.keys() - contents.keys():
+            edits[key] = (*key, "", "")
+        reply["edits"] = [edits[key] for key in sorted(edits)]
+        if columns != old_columns:
+            reply["columns"] = columns
+        self._known[page] = (contents, columns)
 
     def settle(self, replies: dict[int, SheetReply], *, recalculate: bool = False) -> None:
         """Bring every sheet up to date with the Problem's variables, round by round until no
@@ -149,8 +187,12 @@ class ProblemSheets:
             # A sheet is in the reply when it was acted on or has changed since it was last
             # reported, whatever changed it (a Calculator store, another sheet).
             if page in replies or sheet.revision != self._reported.get(page):
-                _reply(replies, page)["revision"] = sheet.revision
+                reply = _reply(replies, page)
+                reply["revision"] = sheet.revision
                 self._reported[page] = sheet.revision
+                if reply["span"] and self._viewed_at.get(page) != sheet.revision:
+                    reply["span"], reply["cells"] = [], []  # the sheet moved on since the view
+                self._edits(page, sheet, reply)
         self._relock()
 
     def _relock(self) -> None:
@@ -169,9 +211,19 @@ def _reply(replies: dict[int, SheetReply], page: int) -> SheetReply:
             "notices": [],
             "error": None,
             "cells": [],
+            "span": [],
+            "edits": [],
             "columns": [],
         }
     return replies[page]
+
+
+def _contents(raw: object) -> dict[Key, Content | None]:
+    """Cells as sent, [column, row, kind, text]: `=` text is a formula, "" clears the cell."""
+    return {
+        (column, row): None if not text else Formula(text) if kind == "formula" else Entry(text)
+        for column, row, kind, text in cast("list[list]", raw)
+    }
 
 
 def _notice(notice: Notice) -> NoticePayload:
@@ -194,9 +246,7 @@ def _structure(sheet: Sheet, action: str, what: str, column: int, row: int) -> l
 
 def _restore(sheet: Sheet, args: dict[str, object]) -> list[Notice]:
     """A saved sheet: its cells as typed and its columns' names and formulas."""
-    contents: dict[Key, Content] = {}
-    for column, row, kind, text in cast("list[list]", args["cells"]):
-        contents[(column, row)] = Formula(text) if kind == "formula" else Entry(text)
+    contents = {key: content for key, content in _contents(args["cells"]).items() if content}
     columns = [
         ColumnInfo(name, shown, formula)
         for name, shown, formula in cast("list[list]", args["columns"])

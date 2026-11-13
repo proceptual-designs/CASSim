@@ -156,13 +156,13 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |
 | FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_stub_pages.py`, `tests/device/test_document.py` |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
-| FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 1 more |
+| FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 2 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
-| FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py`, `tests/unit/test_sheet.py` |
+| FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_spreadsheet_page.py` and 1 more |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
-| FR-SHEET-001 | Must | `tests/device/test_engine_sheet.py`, `tests/unit/test_seqgen.py`, `tests/unit/test_sheet.py` and 1 more |
-| FR-SHEET-002 | Must | `tests/device/test_engine_sheet.py`, `tests/unit/test_sheet.py`, `tests/unit/test_sheet_refs.py` |
+| FR-SHEET-001 | Must | `tests/device/test_engine_sheet.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_seqgen.py` and 2 more |
+| FR-SHEET-002 | Must | `tests/device/test_engine_sheet.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_sheet.py` and 1 more |
 | FR-STAT-002 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-004 | Must | `tests/unit/test_distributions_finance.py` |

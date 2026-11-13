@@ -14,11 +14,18 @@ from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.profile import Profile
+from cassim.device.sheet_link import link_for
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
 from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.pages.spreadsheet import (
+    NAME_ROW,
+    SHEET_ACTIONS,
+    Spreadsheet,
+    spreadsheet_of,
+)
 from cassim.devices.nspire.screen import Screen, render
 from cassim.doc.document import Document
 
@@ -137,6 +144,31 @@ class AppState:
         self.menu = None
         self.keypad_keys.pending = ""
 
+    @property
+    def sheet(self) -> Spreadsheet | None:
+        """The current page's spreadsheet, if it is a Lists & Spreadsheet page."""
+        return spreadsheet_of(self.document.current)
+
+    def prepare(self) -> None:
+        """Before drawing: the current sheet takes the engine's replies and asks for the cells
+        it shows; a dialog it wants opened is opened."""
+        sheet = self.sheet
+        if sheet is not None:
+            sheet.update()
+            self._open_sheet_wizard(sheet)
+
+    def retain_sheets(self) -> None:
+        """After pages are added, deleted, moved or brought back: each Problem's engine keeps
+        exactly the sheets of its pages (a deleted sheet frees the lists it linked)."""
+        for problem in self.document.problems:
+            sheets = [page.model for page in problem.pages if isinstance(page.model, Spreadsheet)]
+            link_for(problem.session).retain(sheets)
+
+    def _open_sheet_wizard(self, sheet: Spreadsheet) -> None:
+        if sheet.wizard is not None and self.show_wizard is not None:
+            wizard, sheet.wizard = sheet.wizard, None
+            self.show_wizard(wizard)
+
     def new_document(self) -> None:
         """A blank document with the current Document Settings."""
         self.replace_document(
@@ -205,6 +237,12 @@ class AppState:
         """Do a binding: document actions here, everything else on the current page."""
         if self._shell_action(binding) or self._document_action(binding):
             return
+        sheet = self.sheet
+        if sheet is not None:
+            self._sheet_key(sheet, binding)
+            return
+        if binding.action in SHEET_ACTIONS:
+            return  # a sheet's key on another page does nothing
         calculator = calculator_of(self.document.current)
         if binding.action in ("undo", "redo") and self._page_undo(binding.action):
             return
@@ -213,6 +251,22 @@ class AppState:
         calculator.perform(binding)
         if binding.action in ("copy", "cut") and self.clipboard_out is not None:
             self.clipboard_out(self.document.clipboard.text)
+
+    def _sheet_key(self, sheet: Spreadsheet, binding: Binding) -> None:
+        if binding.action == "context_menu":
+            self._open_menu(sheet.context_menu())
+            return
+        undo = binding.action in ("undo", "redo") and not sheet.dialogs and sheet.mode is None
+        if undo and sheet.editing is None:
+            can = sheet.can_undo if binding.action == "undo" else sheet.can_redo
+            if not can:  # nothing left on the page: the document's own undo (as the Calculator)
+                (self.document.undo if binding.action == "undo" else self.document.redo)()
+                self.retain_sheets()
+                return
+        sheet.perform(binding)
+        if binding.action in ("copy", "cut") and self.clipboard_out is not None:
+            self.clipboard_out(self.document.clipboard.text)
+        self._open_sheet_wizard(sheet)
 
     def _page_undo(self, action: str) -> bool:
         """Undo or redo with nothing left to step in the entry line falls through to the document
@@ -238,8 +292,12 @@ class AppState:
         elif self.menu is not None and self.menu.open:
             self._menu_key(binding)
         elif binding.action == "open_menu":
-            stub = binding.arg == "menu" and calculator_of(self.document.current) is None
-            self._open_menu("menu_stub" if stub else binding.arg)  # a stub has only About, Help
+            name = binding.arg
+            if name == "menu" and self.sheet is not None:
+                name = "menu_sheet"
+            elif name == "menu" and calculator_of(self.document.current) is None:
+                name = "menu_stub"  # a stub has only About, Help
+            self._open_menu(name)
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)
         else:
@@ -256,11 +314,33 @@ class AppState:
             self.menu = MenuState(root)
 
     def _variables_menu(self) -> MenuItem | None:
-        """The var key: the current Problem's variables, each typed by choosing it."""
+        """The var key: the current Problem's variables, each typed by choosing it. On a sheet's
+        name cell it links the column instead (check 6, E7)."""
+        sheet = self.sheet
         calculator = calculator_of(self.document.current)
-        if calculator is None:
+        session = sheet.session if sheet is not None else calculator.session if calculator else None
+        if session is None:
             return None
-        rows = sorted(calculator.session.variables(), key=lambda row: row.name.casefold())
+        rows = sorted(session.variables(), key=lambda row: row.name.casefold())
+        if sheet is not None and sheet.cursor[1] == NAME_ROW:
+            lists = tuple(
+                MenuItem(row.name, "sheet", f"link:{row.name}", hint=row.text)
+                for row in rows
+                if row.text.startswith("{")
+            )
+            return MenuItem(
+                "var",
+                items=(
+                    MenuItem("Store Var", "sheet", "store_var", key="1"),
+                    MenuItem("Unlink", "sheet", "unlink", key="2"),
+                    MenuItem(
+                        "Link To:",
+                        key="3",
+                        jump=True,
+                        items=lists or (MenuItem("(none)", "escape"),),
+                    ),
+                ),
+            )
         items = tuple(
             MenuItem(row.text, "insert", f"{row.name}(", hint="function")
             if row.is_function
@@ -324,6 +404,7 @@ class AppState:
         if action is None:
             return False
         action()
+        self.retain_sheets()
         return True
 
     def _perform(self, keyboard: Keyboard, name: str) -> bool:
