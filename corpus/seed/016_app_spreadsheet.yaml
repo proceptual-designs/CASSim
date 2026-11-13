@@ -16,7 +16,7 @@ app_cases:
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.formula-column-1.jpg, shots/app.sheet.formula-column-2.jpg', note: 'Whole-column reference is written a[]. The formula cell for a named column is prefilled
       with "name:=" so typing "=" there produces "name:==". If column A is named d and the formula uses d the simulator shows a Conflict Detected dialog (d: Column or Variable?), so the capture references
       the column as a[].'}
-  status: pending
+  status: pass
 - id: app.sheet.seq-column
   app: spreadsheet
   course: methods
@@ -28,7 +28,7 @@ app_cases:
     compare: list
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.seq-column-1.jpg, shots/app.sheet.seq-column-2.jpg', note: Typing n^2 inside seq needs the exponent exited with Right before the comma.}
-  status: pending
+  status: pass
 - id: app.sheet.generate-sequence-recursive
   app: spreadsheet
   course: methods
@@ -42,7 +42,7 @@ app_cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.generate-sequence-recursive.jpg, shots/app.sheet.generate-sequence-recursive-2.jpg', note: 'The column formula becomes =seqgen(2·u(n-1)+1,n,u,{1,6},{1}...). A Data Loss dialog appears when the target
       column already holds data.'}
-  status: pending
+  status: pass
 - id: app.sheet.one-variable-statistics
   app: spreadsheet
   course: methods
