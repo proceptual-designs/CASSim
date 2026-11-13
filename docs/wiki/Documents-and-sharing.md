@@ -4,7 +4,7 @@ A **document** holds Problems; a Problem holds Pages. At the moment only the Cal
 
 - Add a page with Ctrl+I (on the keypad: ctrl then doc), or Doc, Insert.
 - Move between pages with Alt+Left and Alt+Right, or click the page list.
-- The **Page Sorter** (Ctrl+Up) shows the pages as tiles. Click one to go to it, or move or delete it.
+- The **Page Sorter** (Ctrl+Up) shows the pages as tiles on the calculator's screen, a row per Problem, so the keypad still works. The arrow keys move the highlight (left and right through the pages, up and down between Problems), **Enter** or **Esc** opens the highlighted page, and **Delete** (or **del**) removes it. Tap a tile to highlight it and tap it again to open it. The buttons above the tiles move the page earlier or later, delete it, undo, redo and close the sorter.
 
 ## Saving
 
