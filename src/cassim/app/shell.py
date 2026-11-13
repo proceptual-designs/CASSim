@@ -19,7 +19,7 @@ from cassim.app import about
 from cassim.app.theme import DARK
 
 if TYPE_CHECKING:
-    from cassim.app.web import Bridge
+    from cassim.app.web import Bridge, TextStore
     from cassim.device.engine import Engine
     from cassim.devices import Device
 
@@ -77,6 +77,15 @@ def make_bridge(changed: Callable[[], None]) -> Bridge | None:
     return Bridge(changed)
 
 
+def make_text_store() -> TextStore | None:
+    """IndexedDB, in the browser only."""
+    if sys.platform != "emscripten":
+        return None
+    from cassim.app.web import TextStore  # noqa: PLC0415
+
+    return TextStore()
+
+
 class Shell:
     """The browser's services for one mounted device."""
 
@@ -92,6 +101,7 @@ class Shell:
         self.prefs = ft.SharedPreferences()
         self.launcher = ft.UrlLauncher()
         page.services.extend([self.clipboard, self.files, self.prefs, self.launcher])
+        self.texts = make_text_store()  # IndexedDB in the browser; None on the desktop
 
     def _offers_changed(self) -> None:
         self.changed()  # looked up when called: the device's UI sets it after the shell is made
@@ -102,11 +112,28 @@ class Shell:
     # ---- storage: texts by key, each device under its own prefix (FR-PROF-004) ---------------
 
     async def read(self, key: str) -> str | None:
-        saved = await self.prefs.get(self.device.storage + key)
+        """The text saved under `key`. In the browser it is in IndexedDB; a text saved by an
+        earlier build is still in localStorage and is read from there until it is next written."""
+        full = self.device.storage + key
+        if self.texts is not None:
+            found = await self.texts.get(full)
+            if found is not None:
+                return found
+        saved = await self.prefs.get(full)
         return saved if isinstance(saved, str) else None
 
     def write(self, key: str, text: str) -> None:
-        self.page.run_task(self.prefs.set, self.device.storage + key, text)
+        full = self.device.storage + key
+        if self.texts is None:
+            self.page.run_task(self.prefs.set, full, text)
+            return
+
+        async def put() -> None:
+            assert self.texts is not None
+            await self.texts.put(full, text)
+            await self.prefs.remove(full)  # the copy an earlier build left in localStorage
+
+        self.page.run_task(put)
 
     # ---- the system clipboard -----------------------------------------------------------------
 
