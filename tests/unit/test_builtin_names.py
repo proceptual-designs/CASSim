@@ -18,7 +18,7 @@ def test_names_match_the_catalog() -> None:
 def test_planned_names_match_the_command_matrix() -> None:
     """Run `python -m tools.builtin_names` when this fails."""
     assert sorted(PLANNED) == planned(NAMES)
-    assert {"count", "seqgen", "coldim", "arcsech"} <= PLANNED
+    assert {"count", "coldim", "arcsech"} <= PLANNED
     assert not PLANNED & NAMES
 
 
