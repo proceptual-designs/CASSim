@@ -38,7 +38,7 @@ class AppPage:
             "console", lambda m: self.logs.append(m.text) if m.text.startswith("CASSIM:") else None
         )
         page.goto(url + "#/debug", wait_until="load")
-        self.wait(lambda: any("READY" in line for line in self.logs), "READY")
+        self.wait(lambda: "CASSIM: READY" in self.logs, "READY")  # not ENGINE READY
         page.mouse.click(600, 150)  # focus the calculator
 
     @property

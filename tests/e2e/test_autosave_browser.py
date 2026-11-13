@@ -31,7 +31,7 @@ def reopen(app: AppPage, url: str) -> None:
     app.logs.clear()
     app.page.goto("about:blank")
     app.page.goto(url + "#/debug", wait_until="load")
-    app.wait(lambda: any("READY" in line for line in app.logs), "READY")
+    app.wait(lambda: "CASSIM: READY" in app.logs, "READY")
     app.page.mouse.click(600, 150)
 
 
