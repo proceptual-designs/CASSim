@@ -100,9 +100,7 @@ def render(
         return Screen(title, status, (), "", None, menu, sorter=sorter_tiles(document, names))
     sheet = spreadsheet_of(document.current)
     if sheet is not None:
-        # TODO(3b-2): the grid view; until then the page shows the stub notice
-        name = page_name(document.current, names)
-        return Screen(title, status, (), "", None, menu, stub=name, sheet=sheet.screen())
+        return Screen(title, status, (), "", None, menu, sheet=sheet.screen())
     page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))

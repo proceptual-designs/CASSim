@@ -21,6 +21,7 @@ from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
+from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT as ICON_H
 from cassim.devices.nspire.ui.template_icons import ICONS, Icon, Slot, Stroke
@@ -214,7 +215,11 @@ class CalculatorView:
             bgcolor=theme.title_bar,
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         )
+        # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
+        self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
         body = ft.Column([self.history], expand=True, spacing=0)
+        self.body = body
         self.control = ft.Container(
             ft.Column(
                 [title_bar, ft.Stack([body, self.error, menu_layer], expand=True)], spacing=0
@@ -233,6 +238,15 @@ class CalculatorView:
             for number, word in enumerate(screen.status.split())
         ]
         self.title.size = size
+        sheet = self.state.sheet
+        if sheet is not None and screen.sheet is not None:
+            self.body.controls = [self.sheet_view.control]
+            self.sheet_view.refresh(sheet, *self.body_size())
+            self._follow = False
+            self._error(screen)
+            self._menu(screen.menu)
+            return
+        self.body.controls = [self.history]
         if screen.sorter is not None:  # the page sorter, in place of the page
             self.history.controls = [self._sorter_bar(), *map(self._sorter_row, screen.sorter)]
             self.history.auto_scroll = False

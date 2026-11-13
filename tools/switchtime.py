@@ -2,16 +2,16 @@
 
     python -m tools.switchtime [--dist DIR] [--build] [--switches 20] [--entries 15] [--slow 4]
 
-Opens the site in Chromium with `#/debug`, fills two Calculator pages with entries (a third stays
-empty), then moves between the pages with alt+arrow and times each move from the key press to the
-app's `CASSIM: PAGE p.q` line, which it prints once the new page has been sent to Flutter. The aim
-is 100 ms on a desktop and 250 ms on a mid-range phone (decision 0031); nothing fails above it.
+Opens the site in Chromium with `#/debug`, fills two Calculator pages with entries and a third,
+Lists & Spreadsheet, page with a column of 30 values, then moves between the pages with alt+arrow
+and times each move from the key press to the app's `CASSIM: PAGE p.q` line, which it prints
+once the new page has been sent to Flutter. The aim is 100 ms on a desktop and 250 ms on a
+mid-range phone (decision 0031); nothing fails above it.
 
 `--slow N` applies Chromium's CPU throttle as a rough stand-in for a phone. Whether it also slows
 the Python worker is not known (spike A), so a real phone run is still needed.
 
-Pages other than Calculator join the cycle as they are built (Lists & Spreadsheet in 3b, Graphs
-in 4b).
+Graphs joins the cycle when it is built (4b).
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from pathlib import Path
 from playwright.sync_api import ConsoleMessage, Page, sync_playwright
 
 from tools import publish
+from tools.flows import SHIFTED
 from tools.loadtime import BASE, _Handler, launch
 
 READY = "CASSIM: READY"
@@ -66,6 +67,19 @@ def fill(page: Page, console: Console, entries: int, offset: int) -> None:
         enter(page, console, f"expand((x+{i + offset})^3)")
 
 
+def sheet(page: Page, console: Console) -> None:
+    """Doc > Insert > Lists & Spreadsheet, then a column formula of 30 values."""
+    for key in ("F4", "4", "6"):
+        page.keyboard.press(key)
+        page.wait_for_timeout(100)
+    page.keyboard.press("ArrowUp")  # A1 to the formula row
+    for piece in "=seq(n^2,n,1,30)":  # Flutter reads keys: shifted symbols go as Shift and a key
+        page.keyboard.press("Shift+" + SHIFTED[piece] if piece in SHIFTED else piece)
+        page.wait_for_timeout(20)
+    page.keyboard.press("Enter")
+    console.wait(page, lambda: console.count("CASSIM: SHEET A1 1") > 0, "the sheet's column")
+
+
 type Times = dict[str, list[tuple[float, float, float]]]  # page: (total, build, send) in ms
 
 
@@ -98,7 +112,7 @@ def measure(url: str, *, switches: int, entries: int, slow: float) -> Times:
         fill(page, console, entries, 0)
         page.keyboard.press("Control+i")  # a second Calculator page
         fill(page, console, entries, 100)
-        page.keyboard.press("Control+i")  # a third, left empty
+        sheet(page, console)  # a third: a Lists & Spreadsheet page with a column of 30
         page.wait_for_timeout(500)
         if slow != 1.0:
             cdp = page.context.new_cdp_session(page)

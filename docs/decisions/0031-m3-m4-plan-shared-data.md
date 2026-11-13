@@ -202,11 +202,13 @@ The first measurement of NFR-PERF-006, on today's Calculator pages: two pages of
 | A page with 15 entries | 126 to 130 ms | 147 ms | 9 to 10 ms / 30 to 33 ms |
 | The empty page | 58 ms | 62 ms | 3 ms / 12 ms |
 | The same, with Chromium's CPU throttle at 4 | 450 to 730 ms | 1,280 ms | 4 to 12 ms / 15 to 38 ms |
+| A Lists & Spreadsheet page with a 30-row column (slice 3b, 2026-11-14) | 66 ms | 73 ms | 3 ms / 16 ms |
 
 - On the desktop a full page is a little over the 100 ms aim; an empty one is well under.
 - Our Python is about 40 ms of it. The rest is the key's route from Flutter into the Python worker and back, which is fixed: the empty page still takes 58 ms. The throttle slows the browser's main thread (Flutter) and not the worker, and the switch grows five-fold while the Python part does not. So on a phone Flutter's side, not the page code, is what to watch.
 - The time Flutter then takes to draw the new page is not included.
-- Not yet run on a phone. The data pages join the cycle as they are built (3b, 4b).
+- The sheet page is drawn at once from its kept view (its cells as the engine last formatted them), with no wait for the engine, and costs less than a Calculator page: the grid is four canvases (grid, heads, cells, cursor), not a control per line.
+- Not yet run on a phone. Graphs joins the cycle when it is built (4b).
 
 ## Emulator evidence still needed
 

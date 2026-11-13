@@ -78,6 +78,8 @@ SHEET_ACTIONS = frozenset(
         "sheet_choose",
         "sheet_tap",
         "sheet_drag",
+        "sheet_ok",
+        "sheet_cancel",
     }
 )
 
