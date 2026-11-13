@@ -10,11 +10,11 @@ Flet runs the UI, the document model and every event handler in one Pyodide work
 
 | Part | Where | Role |
 |---|---|---|
-| `EngineCore` | `device/engine.py` | One `Session` per Problem id. `apply(problem, ops)` runs a list of ops and returns the last eval's result and a snapshot. `reset(journals)` rebuilds every session by replaying journals. Pure Python. |
+| `EngineCore` | `device/engine.py` | One `Session` per Problem id. `apply(problem, ops)` runs a list of ops and returns the last eval's result and the variables that changed since its last reply for that Problem (a delta; every variable after a settings change, for a new Problem and after `reset`). Ops are checked by `check_op` as they enter. `reset(journals)` rebuilds every session by replaying journals. Pure Python. |
 | `Engine` (protocol) | `device/engine.py` | Async transport: `run`, `reset`, `cancel`. |
 | `LocalEngine` | `device/engine.py` | `EngineCore` in-process. `cancel()` returns False. Used by tests and by `CASSIM_ENGINE=remote` on the desktop. |
 | `WorkerEngine`, `_Worker` | `app/web.py` | Browser only (`sys.platform == "emscripten"`). Spawns a module `Worker` from a Blob URL that boots its own Pyodide, unpacks `cassim.zip` (fetched while Pyodide starts; it holds SymPy and mpmath as bytecode) and creates an `EngineCore`. |
-| `RemoteSession` | `device/engine.py` | The UI's stand-in for a `Session`. Answers `is_function` and `variables` from the last snapshot, queues settings changes in an outbox, and keeps a journal of every op the engine has accepted. |
+| `RemoteSession` | `device/engine.py` | The UI's stand-in for a `Session`. Answers `is_function`, `variables` and `revision_of` from its `VariableStore`, which applies each delta and keeps a revision per name of its own (so revisions keep rising after a Cancel), queues settings changes in an outbox, and keeps a journal of every op the engine has accepted. |
 | `Runner` | `devices/nspire/runner.py` | Owns the status (`idle`, `busy`, `restarting`), sends the Calculator's pending entry, finishes it, and implements `cancel`, `sync` and `load`. |
 | Packaging | `tools/publish.py` | `write_engine_zip` builds `cassim.zip` (`cassim` without the UI, SymPy and mpmath, as bytecode) served beside the site. |
 | `local_session` | `device/engine.py` | Makes an in-process `Session` with a deferred import, so the UI worker never loads SymPy (0027). |
@@ -26,7 +26,7 @@ Everything crossing the worker boundary is JSON, so it survives `postMessage`.
 - **Op:** a dict. `{"op": "new_problem"}`, `{"op": "settings", "values": {...}}` (every field as a string), `{"op": "eval", "line": ..., "approximate": bool}`.
 - **Request** (page to worker): `{"id": n, "op": "boot", "pyodideUrl": ..., "zipUrl": ...}` once; then `{"id": n, "op": "message", "message": "<json>"}` where the inner message is `{"op": "run", "problem": id, "ops": [...]}` or `{"op": "reset", "journals": {...}}`.
 - **Reply:** `{"id": n, "ok": true, "value": "<json>"}` or `{"ok": false, "value": "<error text>"}`, which becomes an `EngineError`.
-- A `run` reply holds `result` (`text`, `latex`, `error`) and a snapshot (the variable list).
+- A `run` reply (`Reply`, a `TypedDict` checked by `check_reply` in `app/web.py`) holds `result` (`text`, `latex`, `error`, `full`), `full`, `changed` (variable rows) and `deleted` (names). Only the changed rows are formatted: formatting every variable on every reply cost more than the op itself for large lists (decision 0031, spike B).
 
 `_Worker` keeps a `pending` map from id to future, so replies are matched however they interleave.
 
@@ -34,7 +34,7 @@ Everything crossing the worker boundary is JSON, so it survives `postMessage`.
 
 1. The Calculator is on a `RemoteSession` (`deferred = True`), so Enter only sets `Calculator.pending`.
 2. `Runner.evaluate` takes the session's queued ops, appends the `eval` op, sets status to `busy` and awaits `engine.run`.
-3. The reply is passed to `session.accept(sent, reply)`, which adds the ops to the journal and stores the snapshot, then `calculator.finish` writes the history row.
+3. The reply is passed to `session.accept(sent, reply)`, which adds the ops to the journal and applies the delta to the store, then `calculator.finish` writes the history row.
 4. An `EngineError` (a crashed worker) becomes a result row with that text. A TI error is an ordinary result with `error` set.
 
 ## Cancel and restore

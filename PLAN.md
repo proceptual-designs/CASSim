@@ -55,7 +55,7 @@ cassim/
     sheet/                  [placeholder] Lists & Spreadsheet engine (cells, named columns = lists, formula columns, deps graph)
     stats/                  [placeholder] Data & Statistics plot models; the statistics maths is in core/ (pure Python and
                             mpmath, no SciPy: decision 0031)
-    graph/                  [placeholder] function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
+    graph/                  scene.py: the backend-neutral scene (FR-GRAPH-006, slice 3.0); to come: function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
                             emits a backend-neutral scene (paths, points, labels)
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)
@@ -365,7 +365,7 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 
 | # | Change | Trigger | Notes |
 |---|--------|---------|-------|
-| A1 | Typed action names (`keys.py` string pairs) and typed worker messages (`engine.py` `dict[str, Any]` to `TypedDict`s, validated at the worker boundary). | The next change to the worker protocol or the menu data. | First step needs no refactor: a test that every enabled menu or profile action resolves to a handler, not only that wizard names exist. Add that test with the next menu work. |
+| A1 | Typed action names (`keys.py` string pairs). (Typed worker messages were done in slice 3.0: `TypedDict`s checked by `check_op` and `check_reply`.) | The next change to the worker protocol or the menu data. | First step needs no refactor: a test that every enabled menu or profile action resolves to a handler, not only that wizard names exist. Add that test with the next menu work. |
 | A3 | Split `devices/nspire/ui/views.py` (about 1,100 lines: calculator view, keypad, sidebar, several dialogs) into cohesive modules; derive the compact tools menu and the toolbar from one shared action list (currently duplicated in `ui/app.py`). | Move code as each part is next touched; do the shared action list the next time either menu changes. | Duplicated lists drift, so the shared list matters more than the file split. |
 | A5 | Extend `tests/test_architecture.py` with new dependency rules as packages gain code (for example `sheet`, `graph`, `stats` must not import `device` or `app`). | Whenever a placeholder package gets its first module. | Also remove its `[placeholder]` tag in section 3. |
 | A6 | Re-check the spare engine (`app/web.py`, decisions 0016, 0027, SDD-02). Each load still boots three Pyodide runtimes (Flet, the engine, the spare). Remaining options: skip the spare on phones (Cancel would then restart in about 2 to 4 s since 0027), or share one runtime. | Phone memory trouble or key-press lag, or Cancel changes. | Simon's phone install (2026-11-12) works but was slow (about 11 s to load on a Pixel 6). Partly done in 0027 (2026-11-12): engine boot cut from 7 to 9 s to 2 to 4 s, and the spare now waits 3 s after the engine is ready (`SPARE_DELAY`). Key-press lag was cut earlier (keypad not rebuilt per press: 322 ms to 34 ms per refresh, 2026-11-09). Still to do: time start-up, memory and key presses on the Pixel 6 (`tools/loadtime.py` for desktop) and record them in 0027. |

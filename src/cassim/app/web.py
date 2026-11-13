@@ -18,7 +18,7 @@ from typing import Any
 import js  # ty: ignore[unresolved-import]
 from pyodide.ffi import create_proxy, to_js  # ty: ignore[unresolved-import]
 
-from cassim.device.engine import EngineError, Op, Reply
+from cassim.device.engine import EngineError, Op, Reply, check_reply
 
 ENGINE_JS = """
 let py = null;
@@ -146,7 +146,7 @@ class WorkerEngine:
             self._spare = _Worker(self._module)
 
     async def run(self, problem: int, ops: list[Op]) -> Reply:
-        return await self._active.send({"op": "run", "problem": problem, "ops": ops})
+        return check_reply(await self._active.send({"op": "run", "problem": problem, "ops": ops}))
 
     async def reset(self, journals: dict[int, list[Op]]) -> None:
         await self._active.send({"op": "reset", "journals": journals})
