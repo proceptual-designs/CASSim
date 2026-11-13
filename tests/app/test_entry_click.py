@@ -8,11 +8,11 @@ from collections.abc import Callable, Iterator, Sequence
 
 import flet as ft
 
-from cassim.app.entry import EntryLine
-from cassim.app.state import AppState
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor, Kind
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
+from cassim.devices.nspire.ui.entry import EntryLine
+from cassim.devices.nspire.ui.state import AppState
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
 

@@ -39,10 +39,10 @@ from typing import Any
 
 import yaml
 
-from cassim.app.state import AppState
 from cassim.core.session import Session, same_value
 from cassim.core.settings import PRESETS, Settings, updated
 from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.ui.state import AppState
 
 FLOWS = Path(__file__).parents[1] / "corpus" / "flows"
 DEFAULT_TOLERANCE = 1.0e-7

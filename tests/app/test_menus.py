@@ -4,15 +4,22 @@
 import flet as ft
 import pytest
 
-from cassim.app.main import BrowserOffers, browser_doc_items
-from cassim.app.state import AppState, Mode
-from cassim.app.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
-from cassim.app.ui import CalculatorView, DragSteps, icon_canvas, scroll_line, window_start
+from cassim.app.shell import BrowserOffers
 from cassim.core.catalog import registry
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import syntax as nspire_syntax
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of, calculator_on
+from cassim.devices.nspire.ui.app import browser_doc_items
+from cassim.devices.nspire.ui.state import AppState, Mode
+from cassim.devices.nspire.ui.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
+from cassim.devices.nspire.ui.views import (
+    CalculatorView,
+    DragSteps,
+    icon_canvas,
+    scroll_line,
+    window_start,
+)
 
 
 def test_doc_menu_opens_and_lists_rows() -> None:

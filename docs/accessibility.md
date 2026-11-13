@@ -9,7 +9,7 @@ NFR-USE-002 (Should) asks for keyboard-only operation in Computer mode and visib
 | Keyboard in Computer mode | Entry, menus (F2, F4, numbers, arrows, Enter, Esc), pages, undo and redo, copy and paste work from the keyboard (`devices/nspire/keymap.py`, `docs/user` and the wiki's Keys page). The toolbar chips, sidebar buttons and dialogs are Flet controls; whether each can be reached and used with Tab alone is **not checked**. |
 | Text size | Maths size and Zoom (50 to 200%) in Handheld Setup, saved per device. Interface text follows Zoom. The browser's own zoom also works. |
 | Touch targets | Handheld keys are sized by the layout code to fit the window; the smallest size on a 360 px phone is **not measured** (NFR-PORT-003 is tested for fit, not target size). |
-| Tooltips | Keys, status items and the splitter have tooltips (`app/ui.py`). |
+| Tooltips | Keys, status items and the splitter have tooltips (`devices/nspire/ui/views.py`). |
 | Theme | Dark is the default (`app/theme.py`). Other themes are not built (FR-THEME-002). |
 
 ## Known gaps

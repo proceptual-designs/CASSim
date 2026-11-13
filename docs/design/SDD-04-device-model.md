@@ -83,4 +83,4 @@ Many menu items with several arguments open a dialog on the handheld (distributi
 - Page types other than Calculator have no model (M3 to M7).
 - Typed-character capture on non-US layouts is open (decision 0024).
 - Action names and worker messages are strings (PLAN.md A1).
-- `app/state.py` imports `devices.nspire.keymap` as its default profile (FR-DEV-007 review item).
+- `devices/nspire/ui/state.py` imports `devices.nspire.keymap` as its default profile (FR-DEV-007 review item).

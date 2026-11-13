@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cassim.app.state import Mode
+from cassim.devices.nspire.ui.state import Mode
 
 NARROW = 600  # px: a short side below this starts a first visit in Handheld (decision 0013 item 3)
 MARGIN = 12  # px kept clear round the scaled calculator

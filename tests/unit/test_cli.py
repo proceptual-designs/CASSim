@@ -340,7 +340,7 @@ def test_the_app_is_the_default_and_takes_view_and_settings(
 ) -> None:
     """`cassim` opens the app; --web, --view, --course and --set go to it; --text is the REPL."""
     import cassim.app.main as app  # noqa: PLC0415
-    from cassim.app.state import Mode  # noqa: PLC0415
+    from cassim.devices.nspire.ui.state import Mode  # noqa: PLC0415
 
     started: list[tuple[bool, Mode | None, Settings | None]] = []
     monkeypatch.setattr(

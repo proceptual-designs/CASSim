@@ -55,7 +55,7 @@ Dialogs are plain `ft.AlertDialog`s opened with `page.show_dialog`. The device m
 
 - One theme; the user-editable theme file (FR-THEME-002) is not built.
 - Accessibility is unaudited (`docs/accessibility.md`).
-- `app/main.py` (about 650 lines) and `app/ui.py` (about 780) mix several concerns; the split is a recorded follow-up (PLAN.md A2, A3).
+- `app/main.py` (about 650 lines) and `devices/nspire/ui/views.py` (about 780) mix several concerns; the split is a recorded follow-up (PLAN.md A2, A3).
 - Dragging the splitter rebuilds the screen and keys and feels slow (PLAN.md note, 2026-11-08).
 - Tablet mode is not built. Graphs, Lists & Spreadsheet, Data & Statistics and Notes are stub pages: `Screen.stub` carries the page type's name (from `Profile.pages`) and the view draws a notice in place of the history and entry line.
 - Tested headless (`tests/app/`) and in Chromium (`tests/e2e/`). Safari, iOS and Chromebook are not (`docs/testing/browsers.md`).

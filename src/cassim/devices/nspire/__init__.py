@@ -12,5 +12,6 @@ DEVICE = Device(
     pages=PAGES,
     # The CAS engine is `core/` as it stands (decision 0032 item 7); SymPy needs mpmath.
     engine=Engine("cassim.device.engine", ("sympy", "mpmath")),
+    ui="cassim.devices.nspire.ui",
     storage="cassim.",  # today's keys (`cassim.autosave`), so saved documents are kept
 )

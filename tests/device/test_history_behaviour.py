@@ -1,11 +1,11 @@
 # Requirements traced here: FR-CALC-004
 """Behaviour from emulator check 3 (docs/testing/emulator-history-results.md, run 2026-11-10)."""
 
-from cassim.app.state import AppState
 from cassim.core.session import Session
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
 
 

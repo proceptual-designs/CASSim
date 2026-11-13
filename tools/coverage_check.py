@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def by_package(report: dict[str, object]) -> dict[str, float]:
-    """Percent covered per top-level package under `src/cassim/`."""
+    """Percent covered per top-level package under `src/cassim/`. A device's Flet views
+    (`devices/<id>/ui/`) are counted as `ui`, which has no floor: like `app`, they are covered
+    by Playwright."""
     totals: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     files = report["files"]
     assert isinstance(files, dict)
@@ -28,8 +30,9 @@ def by_package(report: dict[str, object]) -> dict[str, float]:
         if len(parts) < 2:
             continue
         summary = data["summary"]
-        totals[parts[0]][0] += summary["covered_lines"] + summary.get("covered_branches", 0)
-        totals[parts[0]][1] += summary["num_statements"] + summary.get("num_branches", 0)
+        package = "ui" if parts[0] == "devices" and "ui" in parts[1:-1] else parts[0]
+        totals[package][0] += summary["covered_lines"] + summary.get("covered_branches", 0)
+        totals[package][1] += summary["num_statements"] + summary.get("num_branches", 0)
     return {k: 100 * c / n if n else 100.0 for k, (c, n) in totals.items()}
 
 

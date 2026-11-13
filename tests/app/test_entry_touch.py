@@ -5,12 +5,12 @@ from collections.abc import Callable, Iterator, Sequence
 
 import flet as ft
 
-from cassim.app.entry import SELECTION, EntryLine, row_height
-from cassim.app.state import AppState
 from cassim.app.theme import DARK
-from cassim.app.ui import CalculatorView
 from cassim.device.editor import Editor, Kind
 from cassim.devices.nspire.pages.calculator import calculator_on
+from cassim.devices.nspire.ui.entry import SELECTION, EntryLine, row_height
+from cassim.devices.nspire.ui.state import AppState
+from cassim.devices.nspire.ui.views import CalculatorView
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
 

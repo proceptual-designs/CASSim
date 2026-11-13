@@ -1,6 +1,6 @@
 # 0032: The device interface and the bundle format (M2x)
 
-Status: accepted 2026-11-13, except item 7, which changes a sentence of PLAN.md section 3.2 and waits for Simon. Requirements: FR-PROF-001, FR-PROF-002, FR-PROF-006, FR-PROF-008, FR-PROF-009, FR-DEV-007. It is the ADR that PLAN.md section 15.4 step 1 asks for, and it replaces the one planned for 8a.
+Status: accepted 2026-11-13 (item 7 agreed by Simon the same day). Requirements: FR-PROF-001, FR-PROF-002, FR-PROF-006, FR-PROF-008, FR-PROF-009, FR-DEV-007. It is the ADR that PLAN.md section 15.4 step 1 asks for, and it replaces the one planned for 8a.
 
 ## Context
 
@@ -89,7 +89,7 @@ The Nspire's `App`, `AppState` and views move to `devices/nspire/ui/`. With one 
 - `app/` never imports `cassim.devices.<id>`.
 - Only `devices/<id>/ui/` and `app/` import Flet.
 
-### 7. `core/` is not split in M2x (needs Simon's yes)
+### 7. `core/` is not split in M2x (agreed by Simon, 2026-11-13)
 
 PLAN.md section 3.2 says the TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) move under `devices/nspire/` in this refactor. I propose to leave `core/` where it is for now and do that split in M8a, when the ClassPad is started:
 
@@ -125,11 +125,10 @@ Each step is its own PR and changes no behaviour. The gate for each: every corpu
 1. This file.
 2. `doc/` and registered page types (items 1, 3, 4).
 3. `devices/`, `devices/nspire/` with the profile data and the Calculator page model, `bundle.py`, and the rules of item 6 (items 1, 2).
-4. The shell and `devices/nspire/ui/` (item 5). This also does follow-ups A2 and A3 of PLAN.md section 12.
+4. The shell and `devices/nspire/ui/` (item 5). This also does follow-up A2 of PLAN.md section 12 (A3, splitting the views file, is left as it was).
 5. Bundle-aware `tools.publish`, the `tin` site and the size report (item 8).
 
 ## Not decided
 
-- Item 7.
 - Whether `Document > Problem > Page` suits the ClassPad or it needs its own container (M8).
 - The switcher's design (8b).

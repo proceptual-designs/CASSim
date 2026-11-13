@@ -320,7 +320,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if not text:
         from cassim.app.main import run  # noqa: PLC0415  (Flet is loaded only for the app)
-        from cassim.app.state import Mode  # noqa: PLC0415
+        from cassim.devices.nspire.ui.state import Mode  # noqa: PLC0415
 
         view = Mode(args.view) if args.view else None
         # --course and --set change the settings; with neither, the app keeps its own

@@ -3,10 +3,10 @@ device's Tab order, the text the engine reads, grid movement, and keeping them i
 
 import pytest
 
-from cassim.app.state import AppState, Mode
 from cassim.device.editor import Editor, Kind, Template
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.doc.serialize import dumps
 
 

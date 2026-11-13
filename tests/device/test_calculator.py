@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 
 from cassim import device
-from cassim.app.state import AppState
 from cassim.device.editor import Editor
 from cassim.device.keys import Binding, Keyboard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.screen import render
+from cassim.devices.nspire.ui.state import AppState
 
 
 def computer(*keys: str) -> Calculator:
