@@ -401,6 +401,9 @@ class Evaluator:
         stored = self._scope.get(name)
         if isinstance(stored, Function):
             return self._user_call(stored, node)
+        if stored is not None:
+            # `a:=5` then `a(2)` is not a product (emulator check 6, C5).
+            raise TIError(errors.NOT_A_FUNCTION)
         entry = catalog.lookup(node.func)
         if entry is None:
             return self._unresolved(name, node)
@@ -565,7 +568,7 @@ class Evaluator:
             return Expr(self._power(left.raw, right.raw))
         if op in cas.ARITHMETIC:
             return _combine(op, left, right)
-        if op in ("and", "or"):
+        if op in ("and", "or", "xor"):
             return _logic(op, left, right)
         if op == "&" and isinstance(left, Str) and isinstance(right, Str):
             return Str(left.value + right.value)

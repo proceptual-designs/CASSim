@@ -15,6 +15,8 @@ Code: `src/cassim/core/{settings,values,evaluator,session,format}.py`, `core/com
 
 ## To check on the simulator
 
+**Run on the simulator (emulator check 6, part B, 2026-11-13):** the rows below were typed on the simulator; the results are in `docs/testing/emulator-calc4-results.md`. The rows still open are in `docs/testing/simulator-todo.md`, which is now the one list; the tables here are kept as the record of what was guessed.
+
 | Entry | Now | Why it is a guess |
 |---|---|---|
 | `0.002` in Float 3, and `0.0009` | `0.002`, `9.ᴇ-4` | The switch to `ᴇ` below 0.001 fits `1.23ᴇ-4`, but one case does not fix it |

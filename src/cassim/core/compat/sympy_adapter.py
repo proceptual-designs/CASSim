@@ -190,13 +190,17 @@ def boolean(value: bool) -> Raw:
     return sp.true if value else sp.false
 
 
+_BITWISE = {"and": operator.and_, "or": operator.or_, "xor": operator.xor}
+_LOGICAL = {"and": sp.And, "or": sp.Or, "xor": sp.Xor}
+
+
 def logic(op: str, left: Raw, right: Raw) -> Raw | None:
-    """`and`/`or`: bitwise on two integers (`3 or 4` is 7), else logical; None if neither fits."""
+    """`and`/`or`/`xor`: bitwise on two integers (`3 or 4` is 7, `2 xor 3` is 1), else logical;
+    None if neither fits."""
     if left.is_Integer and right.is_Integer:
-        whole = (operator.and_ if op == "and" else operator.or_)(int(left), int(right))
-        return sp.Integer(whole)
+        return sp.Integer(_BITWISE[op](int(left), int(right)))
     try:
-        return sp.And(left, right) if op == "and" else sp.Or(left, right)
+        return _LOGICAL[op](left, right)
     except TypeError:  # a number or expression that is not true or false
         return None
 
@@ -424,6 +428,8 @@ class _Printer:
             (sp.Piecewise, self._when),
             (sp.And, lambda raw: self._logic("and", raw)),
             (sp.Or, lambda raw: self._logic("or", raw)),
+            # `a!` stays postfix, as typed (emulator check 6, A10 shows `a!=b`).
+            (sp.factorial, lambda raw: ast.Postfix("!", self.node(raw.args[0]))),
             ((sp.Function,), self._call),
         )
 

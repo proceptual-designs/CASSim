@@ -23,6 +23,8 @@ M1d is built in slices, one commit each, so that every slice leaves the corpus a
 
 ## To check on the simulator
 
+**Run on the simulator (emulator check 6, part B, 2026-11-13):** the rows below were typed on the simulator; the results are in `docs/testing/emulator-calc4-results.md`. The rows still open are in `docs/testing/simulator-todo.md`, which is now the one list; the tables here are kept as the record of what was guessed.
+
 | Entry | Now | Why it is a guess |
 |---|---|---|
 | Error codes and wording for "Singular matrix", "Memory", "Recursion is too deep" | ours, negative codes | not captured |

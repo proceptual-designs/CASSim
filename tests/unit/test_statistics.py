@@ -160,7 +160,7 @@ def test_two_var_matches_the_corpus_values():
     assert read(session, "stat.w") == 4
     assert read(session, "stat.ssy") == 6
     assert read(session, "stat.sy") == pytest.approx(1.2247449)
-    assert session.eval("stat.values").text.startswith('["Two-Variable Statistics",3.,15.,55.')
+    assert session.eval("stat.values").text.startswith('["Two-Variable Statistics";3.;15.;55.')
 
 
 def test_statistics_errors():

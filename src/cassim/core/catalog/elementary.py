@@ -116,7 +116,8 @@ def fractional_part(host: Host, args: list[Value]) -> Value:
 
 @eager("round", 1, 2)
 def round_value(host: Host, args: list[Value]) -> Value:
-    places = 0
+    # With no digits, round to 12 places: `round(2.5)` is 2.5 on the handheld (check 6, D4).
+    places = 12
     if len(args) > 1:
         wanted = cas.integer_value(raw_of(args[1]))
         if wanted is None:

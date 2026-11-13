@@ -92,7 +92,7 @@ def test_ascii_spelling_of_the_canonical_text():
 def test_user_names_cannot_take_an_inverse_spelling():
     assert error("arcsin:=3") == "Missing ("
     assert error("sin⁻¹:=3") == "Missing ("
-    assert "reserved" in (error("arcsin(x):=3") or "")
+    assert error("arcsin(x):=3") == "Invalid variable or function name"
 
 
 # ---- number bases and angles -----------------------------------------------------------------
@@ -339,7 +339,7 @@ def test_exponent_format_leaves_exact_results_alone():
 def test_trig_of_a_number_that_does_not_simplify_prints_as_typed():
     assert text("sin(1)", settings=DEGREE) == "sin(1)"
     assert text("sin(30)", settings=DEGREE) == "1/2"
-    assert text("approx(sin(1))", settings=DEGREE) == "0.017452406"
+    assert text("approx(sin(1))", settings=DEGREE) == "0.01745241"
     assert text("sin(1)", settings=Settings()) == "sin(1)"
     assert text("{sin(1),sin(30)}", settings=DEGREE) == "{sin(1),1/2}"
 
@@ -367,3 +367,17 @@ def test_and_or_on_a_decimal_is_a_data_type_error():
 
 def test_the_family_of_solutions_uses_an_integer_parameter():
     assert text("solve(sin(x)=1/2,x)") == "x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6"
+
+
+def test_dms_leaves_out_zero_minutes_and_seconds():
+    """Emulator check 6, B10 and B14: `30▶DMS` is `30°`, `30.25▶DMS` is `30°15'`."""
+    assert text("30▶DMS", settings=DEGREE) == "30°"
+    assert text("30.25▶DMS", settings=DEGREE) == "30°15'"
+
+
+def test_regression_titles_and_values_layout():
+    """Emulator check 6, D23 and D24: the logistic titles, and `stat.values` as one column."""
+    data = "{1,2,3,4,5,6,7,8},{2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}"
+    shown = text(f"Logistic {data}", "stat.results")
+    assert shown.startswith('["Title","Logistic Regression (d=0)";')
+    assert text("OneVar {1,2,3}", "stat.values").startswith('["One-Variable Statistics";2.;6.;')

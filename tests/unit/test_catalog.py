@@ -65,7 +65,8 @@ def same(line, wanted, settings=None):
         ("iPart(-7/3)", "-2"),
         ("fPart(-7/3)", "-1/3"),
         ("round(3.14159,2)", "3.14"),
-        ("round(-2.5)", "-3"),
+        ("round(-2.5)", "-2.5"),  # 12 places by default (emulator check 6, D4)
+        ("round(-2.5,0)", "-3"),
         ("log(1000)", "3"),
         ("log(8,2)", "3"),
         ("exact(0.75)", "3/4"),
@@ -187,7 +188,7 @@ def test_lists(line, wanted):
         ("seq(n,n,1,1ᴇ9)", "Memory"),
         ("sum({1,2,3},4)", "Domain error"),
         ("sum(5)", "Data type"),
-        ("mean({})", "Domain error"),
+        ("median({})", "Dimension error"),  # mean({}) is undef (emulator check 6, D7)
         ("stDevSamp({1})", "Domain error"),
         ("dim(5)", "Data type"),
     ],

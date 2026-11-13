@@ -150,6 +150,13 @@ def test_nested_matrix_spelling_flattens():
     assert parse_expression("[[1,2],[3,x]]") == Matrix(((n1, n2), (n3, x)))
 
 
+def test_a_typed_space_is_a_product_even_in_a_matrix():
+    """Emulator check 6, A1 and A4: `2 3` is 6, `[1 2 3]` is `[6]`, `[1 -2]` is `[-1]`."""
+    times = Binary("*", Binary("*", n1, n2), n3)
+    assert parse("[1 2 3]").statements[0] == Matrix(((times,),))
+    assert parse("2 3").statements[0] == Binary("*", n2, n3)
+
+
 def test_space_separated_row_from_display():
     assert parse_expression("[1 2 3]") == Matrix(((n1, n2, n3),))
     assert parse_expression("[1 2;3 x]") == Matrix(((n1, n2), (n3, x)))
@@ -245,7 +252,6 @@ def test_empty_statements_are_skipped():
         ("1+", SYNTAX),
         ("*2", SYNTAX),
         ("()", SYNTAX),
-        ("2 3", SYNTAX),
         ("1.2.3", SYNTAX),
         ("[]", SYNTAX),
         ("[1,]", SYNTAX),
