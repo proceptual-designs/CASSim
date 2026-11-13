@@ -18,10 +18,10 @@ from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.calculator import calculator_of
-from cassim.devices.nspire.screen import Line, Screen, thumbnail
+from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
-from cassim.devices.nspire.ui.state import MATH_SIZES, AppState, Mode
+from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT as ICON_H
 from cassim.devices.nspire.ui.template_icons import ICONS, Icon, Slot, Stroke
 from cassim.devices.nspire.ui.template_icons import WIDTH as ICON_W
@@ -233,6 +233,13 @@ class CalculatorView:
             for number, word in enumerate(screen.status.split())
         ]
         self.title.size = size
+        if screen.sorter is not None:  # the page sorter, in place of the page
+            self.history.controls = [self._sorter_bar(), *map(self._sorter_row, screen.sorter)]
+            self.history.auto_scroll = False
+            self._follow = True  # the highlighted tile stays in view
+            self._error(screen)
+            self._menu(screen.menu)
+            return
         if screen.stub is not None:  # a page type with nothing behind it yet
             self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
             self.history.auto_scroll = False
@@ -257,6 +264,75 @@ class CalculatorView:
         self._follow = picked is not None
         self._error(screen)
         self._menu(screen.menu)
+
+    def _sorter_unit(self) -> float:
+        """Pixels per sorter unit: the Handheld screen's scale, larger on the Computer screen."""
+        return self.state.px(1) * (1.6 if self.state.mode is Mode.COMPUTER else 1)
+
+    def _sorter_bar(self) -> ft.Control:
+        """Move the highlighted page earlier or later, delete it, undo, redo, and close."""
+        unit, theme, act = self._sorter_unit(), self.theme, self.on_action
+        buttons = (
+            (ft.Icons.ARROW_BACK, "Move page earlier", "move_page", "-1"),
+            (ft.Icons.ARROW_FORWARD, "Move page later", "move_page", "1"),
+            (ft.Icons.DELETE_OUTLINE, "Delete page (del)", "delete_page", ""),
+            (ft.Icons.UNDO, "Undo (ctrl+Z)", "undo_pages", ""),
+            (ft.Icons.REDO, "Redo (ctrl+Y)", "redo_pages", ""),
+            (ft.Icons.CLOSE, "Close the sorter (enter or esc)", "dialog", SORTER),
+        )
+        return ft.Container(
+            ft.Row(
+                [
+                    icon_chip(icon, tip, lambda a=a, g=g: act(a, g), theme, size=14 * unit)
+                    for icon, tip, a, g in buttons
+                ],
+                spacing=4 * unit,
+                wrap=True,
+            ),
+            padding=ft.Padding.only(left=4 * unit, top=4 * unit, right=4 * unit),
+        )
+
+    def _sorter_row(self, row: tuple[Tile, ...]) -> ft.Control:
+        """One Problem: its name, then its pages as tiles."""
+        unit, theme = self._sorter_unit(), self.theme
+        return ft.Container(
+            ft.Column(
+                [
+                    ft.Text(f"Problem {row[0].problem + 1}", size=9 * unit, color=theme.key_label),
+                    ft.Row([self._tile(tile) for tile in row], spacing=4 * unit, wrap=True),
+                ],
+                spacing=2 * unit,
+            ),
+            padding=ft.Padding.symmetric(horizontal=4 * unit),
+        )
+
+    def _tile(self, tile: Tile) -> ft.Control:
+        unit, theme = self._sorter_unit(), self.theme
+        return ft.Container(
+            ft.Column(
+                [
+                    ft.Text(
+                        f"{tile.problem + 1}.{tile.page + 1}", size=8 * unit, color=theme.key_label
+                    ),
+                    *(
+                        ft.Text(line, size=7 * unit, color=theme.screen_text, no_wrap=True)
+                        for line in tile.lines
+                    ),
+                ],
+                spacing=0,
+            ),
+            width=72 * unit,
+            height=50 * unit,
+            padding=3 * unit,
+            bgcolor=theme.selection if tile.current else theme.screen,
+            border=ft.Border.all(
+                2 * unit if tile.current else 1, theme.accent if tile.current else theme.title_bar
+            ),
+            border_radius=4 * unit,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            key=_scroll_key() if tile.current else None,
+            on_click=lambda _, t=tile: self.on_action("sorter_go", f"{t.problem}.{t.page}"),
+        )
 
     def follow_selection(self) -> None:
         """Scroll the history to the picked line. Called after the page has been updated."""
@@ -704,6 +780,21 @@ def key_tip(key: Key) -> str | None:
     return ", ".join(f"{layer}: {label}" for layer, label in layers if label) or None
 
 
+def icon_chip(
+    icon: ft.IconData, tip: str, on_click: Callable[[], None], theme: Theme, *, size: float = 16
+) -> ft.Control:
+    """A small button with a standard icon, the same shape as a `chip`."""
+    return ft.Container(
+        ft.Icon(icon, size=size, color=theme.key_text),
+        bgcolor=theme.key,
+        padding=ft.Padding.symmetric(horizontal=size / 2, vertical=size / 4),
+        border_radius=6,
+        ink=True,
+        tooltip=tip,
+        on_click=lambda _: on_click(),
+    )
+
+
 def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
     """A small text button for toolbars."""
     return ft.Container(
@@ -752,18 +843,26 @@ class Sidebar:
             )
         rows += [
             ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text),
-            ft.Row(
-                [
-                    chip(label, lambda a=action, g=arg: self._act(a, g), theme)
-                    for label, action, arg in (
-                        ("▲", "move_page", "-1"),
-                        ("▼", "move_page", "1"),
-                        ("undo", "undo_pages", ""),
-                        ("redo", "redo_pages", ""),
-                    )
-                ],
-                spacing=4,
-                wrap=True,
+            # Move the page up or down, and undo or redo directly under: two short rows that fit
+            # the sidebar (one row of four did not).
+            *(
+                ft.Row(
+                    [
+                        icon_chip(icon, tip, lambda a=action, g=arg: self._act(a, g), theme)
+                        for icon, tip, action, arg in pair
+                    ],
+                    spacing=4,
+                )
+                for pair in (
+                    (
+                        (ft.Icons.ARROW_UPWARD, "Move page earlier", "move_page", "-1"),
+                        (ft.Icons.ARROW_DOWNWARD, "Move page later", "move_page", "1"),
+                    ),
+                    (
+                        (ft.Icons.UNDO, "Undo page change", "undo_pages", ""),
+                        (ft.Icons.REDO, "Redo page change", "redo_pages", ""),
+                    ),
+                )
             ),
         ]
         for problem, page, kind in document.sorter():
@@ -899,89 +998,6 @@ def system_settings_dialog(
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),
             ],
-        )
-    )
-
-
-def sorter_dialog(
-    page: ft.Page, state: AppState, on_change: Callable[[], None], theme: Theme = DARK
-) -> None:
-    """The page sorter: every page as a tile, grouped by Problem. Click a tile to go to it, then
-    move or delete it with the buttons."""
-    document = state.document
-    names = state.profile.pages
-    body = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, width=520, height=360)
-
-    def act(action: str, arg: str = "") -> None:
-        state.run_action(action, arg)
-        build()
-        on_change()
-
-    def go(problem: int, index: int) -> None:
-        document.go(problem, index)
-        build()
-        on_change()
-
-    def tile(problem: int, index: int) -> ft.Control:
-        here = (problem, index) == (document.problem, document.page)
-        shown = document.problems[problem].pages[index]
-        return ft.Container(
-            ft.Column(
-                [
-                    ft.Text(f"{problem + 1}.{index + 1}", size=11, color=theme.key_label),
-                    *(
-                        ft.Text(line, size=11, color=theme.screen_text)
-                        for line in thumbnail(shown, names=names)
-                    ),
-                ],
-                spacing=1,
-            ),
-            width=110,
-            height=84,
-            padding=6,
-            bgcolor=theme.selection if here else theme.screen,
-            border=ft.Border.all(2, theme.accent if here else theme.title_bar),
-            border_radius=6,
-            clip_behavior=ft.ClipBehavior.HARD_EDGE,
-            on_click=lambda _, p=problem, q=index: go(p, q),
-        )
-
-    def build() -> None:
-        body.controls = [
-            ft.Row(
-                [
-                    ft.Text(f"Problem {p + 1}", color=theme.key_text, width=70),
-                    ft.Row([tile(p, q) for q in range(len(problem.pages))], wrap=True, expand=True),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.START,
-            )
-            for p, problem in enumerate(document.problems)
-        ]
-        page.update()
-
-    build()
-    buttons = [
-        ("◀ earlier", "move_page", "-1"),
-        ("later ▶", "move_page", "1"),
-        ("delete", "delete_page", ""),
-        ("undo", "undo_pages", ""),
-        ("redo", "redo_pages", ""),
-    ]
-    page.show_dialog(
-        ft.AlertDialog(
-            title=ft.Text("Page Sorter"),
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [chip(label, lambda a=a, g=g: act(a, g), theme) for label, a, g in buttons],
-                        spacing=4,
-                        wrap=True,
-                    ),
-                    body,
-                ],
-                tight=True,
-            ),
-            actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())],
         )
     )
 

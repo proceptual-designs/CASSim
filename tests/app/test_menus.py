@@ -131,13 +131,16 @@ def test_selection_wraps_and_explicit_keys_are_reserved() -> None:
     assert not menu.open
 
 
-def test_page_sorter_and_system_settings_ask_for_dialogs() -> None:
+def test_page_sorter_opens_on_the_screen_and_the_doc_menu_still_works() -> None:
+    """Doc > View > Page Sorter opens the sorter on the screen, not a dialog; the Doc menu still
+    opens over it (Handheld Setup asks for its dialog)."""
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append
     for key in ("F4", "3", "3", "F4", "7", "3"):  # View > Page Sorter, Handheld Setup
         state.key_event(key)
-    assert asked == ["page_sorter", "system_settings"]
+    assert state.sorting
+    assert asked == ["system_settings"]
 
 
 # ---- touch and mouse, hints, the profile's trees (FR-DEV-001, FR-CALC-005, FR-CAT-004) ----------

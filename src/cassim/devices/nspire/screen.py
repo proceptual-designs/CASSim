@@ -26,6 +26,16 @@ class Line:
 
 
 @dataclass(frozen=True)
+class Tile:
+    """One page in the page sorter."""
+
+    problem: int  # numbered from 0
+    page: int
+    lines: tuple[str, ...]  # its thumbnail
+    current: bool  # the highlighted page: Enter opens it, Delete removes it
+
+
+@dataclass(frozen=True)
 class Screen:
     title: str  # "1.1" (problem.page)
     status: str
@@ -36,6 +46,8 @@ class Screen:
     # The page type's name when the page has no model yet (Graphs, Notes...): the GUI shows a
     # notice instead of an entry line. None on a page that works.
     stub: str | None = None
+    # The page sorter, drawn on the screen in place of the page: a row of tiles per Problem.
+    sorter: tuple[tuple[Tile, ...], ...] | None = None
     sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
 
 
@@ -59,19 +71,38 @@ def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None)
     return tuple(lines[-rows:])
 
 
+def sorter_tiles(
+    document: Document, names: Mapping[str, str] | None = None
+) -> tuple[tuple[Tile, ...], ...]:
+    """Every page as a tile, a row per Problem; the current page is highlighted."""
+    here = (document.problem, document.page)
+    return tuple(
+        tuple(
+            Tile(p, q, thumbnail(page, names=names), (p, q) == here)
+            for q, page in enumerate(problem.pages)
+        )
+        for p, problem in enumerate(document.problems)
+    )
+
+
 def render(
     document: Document,
     status: str = "",
     menu: MenuView | None = None,
     names: Mapping[str, str] | None = None,
+    *,
+    sorter: bool = False,
 ) -> Screen:
-    """Describe the current page. A page without a model is a stub: only its type's name."""
+    """Describe the current page, or the page sorter over it. A page without a model is a stub:
+    only its type's name."""
     title = f"{document.problem + 1}.{document.page + 1}"
+    if sorter:
+        return Screen(title, status, (), "", None, menu, sorter=sorter_tiles(document, names))
     sheet = spreadsheet_of(document.current)
     if sheet is not None:
         # TODO(3b-2): the grid view; until then the page shows the stub notice
         name = page_name(document.current, names)
-        return Screen(title, status, (), "", None, menu, name, sheet.screen())
+        return Screen(title, status, (), "", None, menu, stub=name, sheet=sheet.screen())
     page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))

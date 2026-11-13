@@ -9,7 +9,8 @@ from importlib import metadata
 from cassim import bundle
 
 DISCLAIMER = (
-    "CASSim is a Computer Algebra System simulator made for educational purposes. It is not "
+    "CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational "
+    "purposes. It is not "
     "affiliated with, endorsed by or sponsored by any company, corporation or curriculum "
     "authority.\n"
     "It is not an approved exam calculator and must not be used in assessments that require an "

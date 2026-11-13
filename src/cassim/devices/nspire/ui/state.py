@@ -33,6 +33,21 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
 
 _MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
+# Keys the page sorter passes on: they act on the document or open a menu, never on a page.
+_SORTER_PASSES = frozenset(
+    {
+        "add_page",
+        "add_problem",
+        "move_page",
+        "move_problem",
+        "undo_pages",
+        "redo_pages",
+        "delete_page",
+        "new_document",
+        "dialog",
+    }
+)
+SORTER = "page_sorter"  # the sorter's name as a `dialog` action (ctrl+up, Doc > View)
 
 
 class Mode(StrEnum):
@@ -102,6 +117,9 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        # The page sorter is open on the screen (ctrl+up). The page it highlights is the current
+        # page, so moving the highlight goes to that page and Enter only closes the sorter.
+        self.sorting = False
         # set by the GUI: extra Doc menu items for what the browser offers (install, fullscreen)
         self.doc_extras: Callable[[], tuple[MenuItem, ...]] | None = None
         # Caps lock, set by the Caps Lock key or the keypad's ctrl+shift. Flet's key events do not
@@ -142,6 +160,7 @@ class AppState:
         """Open another document (a new one, a file or the autosave) and close any menu."""
         self.document = document
         self.menu = None
+        self.sorting = False
         self.keypad_keys.pending = ""
 
     @property
@@ -179,7 +198,7 @@ class AppState:
         view = self.menu.view() if self.menu is not None and self.menu.open else None
         status = self.profile.status(self.document.settings)
         status = f"{status} CAPS" if self.caps else status
-        return render(self.document, status, view, self.profile.pages)
+        return render(self.document, status, view, self.profile.pages, sorter=self.sorting)
 
     def page_name(self, kind: str) -> str:
         """The device's name for a page type ("Lists & Spreadsheet")."""
@@ -291,6 +310,10 @@ class AppState:
             self.caps = not self.caps
         elif self.menu is not None and self.menu.open:
             self._menu_key(binding)
+        elif self.sorting:
+            self._sorter_key(binding)
+        elif binding == Binding("dialog", SORTER):
+            self.sorting = True
         elif binding.action == "open_menu":
             name = binding.arg
             if name == "menu" and self.sheet is not None:
@@ -303,6 +326,55 @@ class AppState:
         else:
             return binding.action in _MENU_ONLY  # a menu click with no menu open does nothing
         return True
+
+    def _sorter_key(self, binding: Binding) -> None:
+        """While the page sorter is open it takes every key. The arrows move the highlight (left
+        and right through the pages in order, up and down between Problems), Enter, the centre
+        key, Esc and ctrl+up close it, and Delete or del removes the highlighted page. A tap on a
+        tile highlights it, and a tap on the highlighted tile opens it."""
+        document = self.document
+        action = binding.action
+        if action in ("enter", "select", "escape") or binding == Binding("dialog", SORTER):
+            self.sorting = False
+        elif action == "sorter_go":
+            self._sorter_tap(binding.arg)
+        elif action == "open_menu":
+            if binding.arg == "doc":  # a page's own Menu has nothing to do in the sorter
+                self._open_menu(binding.arg)
+        elif action in _SORTER_PASSES:
+            self._document_action(binding)
+        else:
+            keys: dict[str, Callable[[], object]] = {
+                "left": lambda: document.next_page(-1),
+                "right": document.next_page,
+                "up": lambda: self._sorter_problem(-1),
+                "down": lambda: self._sorter_problem(1),
+                "delete": document.delete_page,
+                "backspace": document.delete_page,
+                "undo": document.undo,
+                "redo": document.redo,
+            }
+            key = keys.get(action)
+            if key is not None:  # anything else (typing, the page's own keys) does nothing
+                key()
+
+    def _sorter_problem(self, step: int) -> None:
+        """Up or down in the sorter: the same page number in the Problem above or below, or its
+        last page when it has fewer."""
+        document = self.document
+        problem = document.problem + step
+        if 0 <= problem < len(document.problems):
+            document.go(problem, min(document.page, len(document.problems[problem].pages) - 1))
+
+    def _sorter_tap(self, where: str) -> None:
+        """A tap on tile `problem.page` (from 0) highlights it; a tap on the highlighted one opens
+        it."""
+        document = self.document
+        problem, page = (int(part) for part in where.split("."))
+        if (problem, page) == (document.problem, document.page):
+            self.sorting = False
+        else:
+            document.go(problem, page)
 
     def _open_menu(self, name: str) -> None:
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
