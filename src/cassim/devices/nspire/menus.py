@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from dataclasses import replace
 
 from cassim.core.compat import finance as fin
 from cassim.device.keys import Binding
@@ -877,7 +878,7 @@ DOC = MenuItem(
             # These four add a page that only says it is not built yet (PLAN.md, M3 and M4)
             MenuItem("Graphs", "add_page", "graphs", key="4", hint=STUB_PAGE),
             todo("Geometry", "5"),
-            MenuItem("Lists & Spreadsheet", "add_page", "spreadsheet", key="6", hint=STUB_PAGE),
+            MenuItem("Lists & Spreadsheet", "add_page", "spreadsheet", key="6"),
             MenuItem("Data & Statistics", "add_page", "statistics", key="7", hint=STUB_PAGE),
             MenuItem("Notes", "add_page", "notes", key="8", hint=STUB_PAGE),
             todo("Vernier DataQuest™", "9"),
@@ -1078,10 +1079,183 @@ CATALOG = MenuItem(
     ),
 )
 
+# ---- Lists & Spreadsheet ------------------------------------------------------------------------
+# Items and numbering from emulator check 6 (E2, E12 to E14, E18; run 2, E2). Every item a key
+# chord or right-click reaches on the emulator is here or in a context menu, so touch reaches it.
+
+
+def act(label: str, name: str, key: str = "", hint: str = "") -> MenuItem:
+    """A sheet page item: `name` is its action (`Spreadsheet.menu_action`)."""
+    return MenuItem(label, "sheet", name, key=key, hint=hint)
+
+
+def _sheet_formula(label: str, text: str, key: str) -> MenuItem:
+    """List Math and List Operations: the function goes into the column's formula row with the
+    cursor inside its brackets (check 6, E14)."""
+    return MenuItem(label, "sheet", f"formula:={text}(", key=key, hint=f"={text}(")
+
+
+_RESIZE = sub(
+    "Resize",
+    "2",
+    act("Resize Column Width", "resize", "1", "arrows, then Enter"),
+    act("Maximize Column Width", "maximize", "2"),
+    act("Minimize Column Width", "minimize", "3"),
+    todo("Resize Row Height", "4"),
+)
+
+SHEET_MENU = MenuItem(
+    "Menu",
+    items=(
+        sub(
+            "Actions",
+            "1",
+            act("Move Column", "move_column", "1", "arrows, then Enter"),
+            _RESIZE,
+            sub(
+                "Select",
+                "3",
+                act("Select Row", "select_row", "1"),
+                act("Select Column", "select_column", "2"),
+                todo("Select Formula Range", "3"),
+            ),
+            act("Go To", "goto", "4", "ctrl+G"),
+            act("Recalculate", "recalculate", "5", "ctrl+R"),
+            act("Sort", "sort", "6", "a block first"),
+        ),
+        sub(
+            "Insert",
+            "2",
+            act("Insert Cell", "insert_cell", "1"),
+            act("Insert Row", "insert_row", "2"),
+            act("Insert Column", "insert_column", "3"),
+        ),
+        sub(
+            "Data",
+            "3",
+            act("Generate Sequence…", "generate", "1"),
+            todo_sub("Data Capture", "2", "Automatic", "Manual"),
+            act("Fill", "fill", "3", "arrows, then Enter"),
+            act("Clear Data", "clear", "4"),
+            sub(
+                "Random",
+                "5",
+                _sheet_formula("Number", "rand", "1"),
+                _sheet_formula("Integer", "randInt", "2"),
+                _sheet_formula("Binomial", "randBin", "3"),
+                _sheet_formula("Normal", "randNorm", "4"),
+                _sheet_formula("Sample", "randSamp", "5"),
+            ),
+            sub(
+                "List Math",
+                "6",
+                _sheet_formula("Minimum", "min", "1"),
+                _sheet_formula("Maximum", "max", "2"),
+                _sheet_formula("Mean", "mean", "3"),
+                _sheet_formula("Median", "median", "4"),
+                _sheet_formula("Sum of Elements", "sum", "5"),
+                _sheet_formula("Product of Elements", "product", "6"),
+                _sheet_formula("Sample Standard Deviation", "stDevSamp", "7"),
+                _sheet_formula("Sample Variance", "varSamp", "8"),
+                _sheet_formula("Population Standard Deviation", "stDevPop", "9"),
+                _sheet_formula("Population Variance", "varPop", "A"),
+            ),
+            sub(
+                "List Operations",
+                "7",
+                _sheet_formula("Cumulative Sum List", "cumulativeSum", "1"),
+                _sheet_formula("Difference List", "deltaList", "2"),
+                _sheet_formula("Augment", "augment", "3"),
+                todo("Convert Matrix to List", "4"),
+                _sheet_formula("Left", "left", "5"),
+                _sheet_formula("Mid", "mid", "6"),
+                _sheet_formula("Right", "right", "7"),
+            ),
+            todo("Summary Plot", "8"),
+            todo("Quick Graph", "9"),
+        ),
+        todo_sub(
+            "Statistics",
+            "4",
+            "Stat Calculations",
+            "Distributions",
+            "Confidence Intervals",
+            "Stat Tests",
+        ),
+        todo("Table", "5"),
+        *CASSIM_ITEMS,
+    ),
+)
+
+_CUT_COPY_PASTE = (
+    act("Cut", "cut", "1", "ctrl+X"),
+    act("Copy", "copy", "2", "ctrl+C"),
+    act("Paste", "paste", "3", "ctrl+V"),
+)
+
+# Context menus: a long press (touch), a right-click, or ctrl+menu.
+SHEET_CELL = MenuItem(
+    "Cell",
+    items=(
+        *_CUT_COPY_PASTE,
+        act("Insert Cell", "insert_cell", "4"),
+        act("Delete Cell", "delete_cell", "5"),
+        act("Fill", "fill", "6"),
+        sub(
+            "Variables",
+            "7",
+            act("Store Var", "store_var", "1"),
+            act("Unlink", "unlink", "2"),
+        ),
+        replace(_RESIZE, key="8"),
+        todo("Summary Plot", "9"),
+        todo("Quick Graph", "A"),
+        todo("Color", "B"),
+    ),
+)
+SHEET_BLOCK = MenuItem(
+    "Cells",
+    items=(
+        *_CUT_COPY_PASTE,
+        act("Fill", "fill", "4"),
+        act("Delete Cells", "delete_cells", "5"),
+        act("Sort", "sort", "6"),
+        todo("Color", "7"),
+    ),
+)
+SHEET_ROW = MenuItem(
+    "Row",
+    items=(
+        *_CUT_COPY_PASTE,
+        todo("Resize Row", "4"),
+        act("Insert Row", "insert_row", "5"),
+        act("Delete Row", "delete_row", "6"),
+        todo("Color", "7"),
+    ),
+)
+SHEET_COLUMN = MenuItem(
+    "Column",
+    items=(
+        *_CUT_COPY_PASTE,
+        act("Insert Column", "insert_column", "4"),
+        act("Delete Column", "delete_column", "5"),
+        act("Move Column", "move_column", "6"),
+        replace(_RESIZE, key="7"),
+        todo("Data", "8"),
+        todo("Color", "9"),
+    ),
+)
+
+
 MENUS = {
     "doc": DOC,
     "menu": MENU,
     "menu_stub": STUB_MENU,
+    "menu_sheet": SHEET_MENU,
+    "sheet_cell": SHEET_CELL,
+    "sheet_block": SHEET_BLOCK,
+    "sheet_row": SHEET_ROW,
+    "sheet_column": SHEET_COLUMN,
     "trig": TRIG,
     "templates": TEMPLATES,
     "catalog": CATALOG,

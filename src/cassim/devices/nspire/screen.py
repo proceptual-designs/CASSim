@@ -11,6 +11,7 @@ from typing import Literal
 
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
+from cassim.devices.nspire.pages.spreadsheet import SheetScreen, spreadsheet_of
 from cassim.doc.document import Document, Page
 
 
@@ -47,6 +48,7 @@ class Screen:
     stub: str | None = None
     # The page sorter, drawn on the screen in place of the page: a row of tiles per Problem.
     sorter: tuple[tuple[Tile, ...], ...] | None = None
+    sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
 
 
 def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
@@ -56,6 +58,9 @@ def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
 
 def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None) -> tuple[str, ...]:
     """The last few lines of a page as plain text, for the page sorter."""
+    sheet = spreadsheet_of(page)
+    if sheet is not None:
+        return (page_name(page, names), f"{len(sheet.cells)} cells")
     if calculator_of(page) is None:
         return (page_name(page, names), "(not built yet)")
     lines = [
@@ -93,6 +98,11 @@ def render(
     title = f"{document.problem + 1}.{document.page + 1}"
     if sorter:
         return Screen(title, status, (), "", None, menu, sorter=sorter_tiles(document, names))
+    sheet = spreadsheet_of(document.current)
+    if sheet is not None:
+        # TODO(3b-2): the grid view; until then the page shows the stub notice
+        name = page_name(document.current, names)
+        return Screen(title, status, (), "", None, menu, stub=name, sheet=sheet.screen())
     page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))

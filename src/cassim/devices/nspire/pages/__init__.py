@@ -1,7 +1,7 @@
 """The Nspire's page types (FR-PROF-006).
 
-Only the Calculator page has a model so far. The others are registered with their names, so the
-menus can add them and a file can hold them, and they show as not built yet.
+The Calculator and Lists & Spreadsheet pages have models. The others are registered with their
+names, so the menus can add them and a file can hold them, and they show as not built yet.
 
 A saved Calculator page holds the entries as typed (the editor's nodes, so templates survive), not
 their results: loading replays them in order through the engine.
@@ -14,7 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 from cassim.device.editor import Kind, Node, Row, Template
 from cassim.device.keys import Binding
+from cassim.devices.nspire.pages import spreadsheet
 from cassim.devices.nspire.pages.calculator import Calculator
+from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
 from cassim.doc.document import PageType, PageTypes
 from cassim.doc.serialize import DocumentFileError
 
@@ -108,6 +110,26 @@ def _load_calculator(
     return calculator
 
 
+# ---- the Lists & Spreadsheet page ---------------------------------------------------------------
+
+
+def _new_sheet(problem: Problem) -> Spreadsheet:
+    sheet = Spreadsheet(problem.session, problem.clipboard)
+    sheet.link.alive(sheet.id)
+    return sheet
+
+
+def _load_sheet(
+    page_type: PageType, problem: Problem, data: dict[str, Any]
+) -> Generator[Spreadsheet, None, Spreadsheet]:
+    yield from ()
+    return spreadsheet.load(Spreadsheet(problem.session, problem.clipboard), data)
+
+
+def _after_sheet(sheet: Spreadsheet) -> None:
+    sheet.loaded()
+
+
 PAGES = PageTypes(
     DEVICE,
     (
@@ -115,7 +137,14 @@ PAGES = PageTypes(
             PageKind.CALCULATOR, "Calculator", _new_calculator, _dump_calculator, _load_calculator
         ),
         PageType(PageKind.GRAPHS, "Graphs"),
-        PageType(PageKind.SPREADSHEET, "Lists & Spreadsheet"),
+        PageType(
+            PageKind.SPREADSHEET,
+            "Lists & Spreadsheet",
+            _new_sheet,
+            spreadsheet.dump,
+            _load_sheet,
+            _after_sheet,
+        ),
         PageType(PageKind.STATISTICS, "Data & Statistics"),
         PageType(PageKind.NOTES, "Notes"),
         PageType(PageKind.PROGRAM, "Program Editor"),

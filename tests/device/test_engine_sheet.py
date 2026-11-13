@@ -4,11 +4,19 @@ kept in step with its variables. The corpus app cases are replayed here as ops, 
 expected values read from the corpus files."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 import yaml
 
-from cassim.device.engine import EngineCore, EngineError, check_op, check_reply
+from cassim.device.engine import (
+    EngineCore,
+    EngineError,
+    Op,
+    RemoteSession,
+    check_op,
+    check_reply,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = {
@@ -322,3 +330,63 @@ def test_a_reply_with_sheets_checks():
     assert check_reply(reply)["sheets"] == reply["sheets"]
     with pytest.raises(EngineError):
         check_reply({**reply, "sheets": [{"page": 1}]})
+
+
+# ----- what the page keeps: edits, put, move, compact (slice 3b) ----------------------------------
+
+
+def test_replies_carry_the_definitions_that_changed():
+    core = EngineCore()
+    reply = core.apply(1, [cell(0, 1, "5"), cell(0, 2, "=a1*2")])
+    assert reply["sheets"][0]["edits"] == [(0, 1, "entry", "5"), (0, 2, "formula", "a1*2")]
+    reply = core.apply(1, [cell(0, 1, "")])
+    assert reply["sheets"][0]["edits"] == [(0, 1, "", "")]
+
+
+def test_a_list_stored_from_the_calculator_comes_back_as_cell_edits():
+    core = linked_core()
+    reply = core.apply(1, [{"op": "eval", "line": "xs:={1/2,7}", "approximate": False}])
+    assert reply["sheets"][0]["edits"] == [
+        (0, 1, "entry", "1/2"),
+        (0, 2, "entry", "7"),
+        (0, 3, "", ""),
+    ]
+
+
+def test_columns_are_sent_when_they_change():
+    core = EngineCore()
+    reply = core.apply(1, [sheet("name", column=0, text="Xs")])
+    assert reply["sheets"][0]["columns"][0] == ("xs", "Xs", None)
+    assert core.apply(1, [cell(1, 1, "1")])["sheets"][0]["columns"] == []
+
+
+def test_put_sets_and_clears_cells():
+    core = EngineCore()
+    cells = [[0, 1, "entry", "3"], [0, 2, "formula", "a1+1"]]
+    core.apply(1, [sheet("put", cells=cells)])
+    reply = core.apply(1, [sheet("put", cells=[[0, 1, "entry", ""]]), view(0, 1, 0, 2)])
+    assert shown(reply) == {(0, 2): "_"}  # a blank cell read by a formula is `_` (a guess)
+
+
+def test_move_a_column():
+    core = EngineCore()
+    core.apply(1, [cell(1, 1, "4")])
+    reply = core.apply(1, [sheet("move", column=1, to=3), view(0, 1, 3, 1)])
+    assert shown(reply) == {(3, 1): "4"}
+
+
+def test_a_view_taken_before_a_change_in_the_same_batch_is_not_sent():
+    reply = EngineCore().apply(1, [view(0, 1, 0, 1), cell(0, 1, "8")])
+    assert reply["sheets"][0]["span"] == []
+
+
+def test_compact_keeps_one_op_per_sheet_where_its_last_was():
+    session = RemoteSession(0)
+    entry = {"op": "eval", "line": "a:=1", "approximate": False}
+    other = cell(0, 1, "1", page=3)
+    session.journal = cast("list[Op]", [cell(0, 1, "1"), entry, cell(0, 2, "2"), other])
+    restore = sheet("restore", cells=[], columns=[])
+    session.compact(2, restore)
+    assert session.journal == [entry, restore, other]
+    session.compact(9, restore)  # a page with nothing in the journal
+    assert len(session.journal) == 3

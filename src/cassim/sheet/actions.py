@@ -253,3 +253,20 @@ def delete_column(sheet: Sheet, column: int) -> list[Notice]:
         infos,
         lambda c: _moved_column(c, column + 1, -1),
     )
+
+
+def move_column(sheet: Sheet, column: int, to: int) -> list[Notice]:
+    """Actions > Move Column: the column, with its name and formula, goes to position `to` and
+    the ones between close up (check 6, E12: B moved right one ends in C). References follow
+    the cells they point at."""
+    order = list(range(COLUMNS))
+    order.insert(to, order.pop(column))  # order[new place] = old column
+    place = {old: new for new, old in enumerate(order)}
+    infos = [sheet.column(old) for old in order]
+    return _rebuild(
+        sheet,
+        lambda key: (place[key[0]], key[1]),
+        lambda ref: replace(ref, column=place[ref.column]),
+        infos,
+        lambda c: place[c],
+    )

@@ -73,6 +73,8 @@ type SheetAction = Literal[
     "view",
     "restore",
     "drop",
+    "put",
+    "move",
 ]
 
 
@@ -111,6 +113,8 @@ SHEET_ARGS: dict[str, dict[str, str]] = {
     "recalculate": {},
     "view": {"span": "span"},
     "restore": {"cells": "cells", "columns": "columns"},
+    "put": {"cells": "cells"},
+    "move": {"column": "int", "to": "int"},
     "drop": {},
 }
 _PARTS = ("cell", "row", "column")
@@ -136,7 +140,7 @@ def _arg_ok(kind: str, value: object) -> bool:  # noqa: PLR0911 (one case a kind
             return isinstance(value, dict) and all(
                 isinstance(k, str) and v in ("cell", "variable") for k, v in value.items()
             )
-        case "cells":  # [[column, row, "entry" | "formula", text], ...]
+        case "cells":  # [[column, row, "entry" | "formula", text], ...]; "" text clears
             return isinstance(value, list) and all(
                 isinstance(cell, list)
                 and len(cell) == 4  # noqa: PLR2004
@@ -206,13 +210,21 @@ class SheetErrorPayload(TypedDict):
     names: list[str]
 
 
+type ColumnPayload = tuple[str | None, str | None, str | None]
+
+
 class SheetReply(TypedDict):
     page: int
     revision: int  # raised whenever anything drawn on the sheet changes
     notices: list[NoticePayload]  # dialogs for changes that were kept
     error: SheetErrorPayload | None
     cells: list[tuple[int, int, str, bool, str]]  # a view: column, row, shown, right, entry text
-    columns: list[tuple[str | None, str | None]]  # a view: each column's name and formula
+    span: list[int]  # the view's [left, top, right, bottom]; [] when none was asked for
+    # The page's definitions as they changed since its last reply, for the UI's copy (it saves
+    # the document): cells as (column, row, kind, text) with kind "" for a cleared cell, and every
+    # column's (name, shown name, formula) when any of them changed.
+    edits: list[tuple[int, int, str, str]]
+    columns: list[ColumnPayload]
 
 
 class Reply(TypedDict):
@@ -310,7 +322,7 @@ def check_reply(raw: object) -> Reply:
     }
     if "sheets" in raw:
         sheets = raw["sheets"]
-        keys = {"page", "revision", "notices", "error", "cells", "columns"}
+        keys = {"page", "revision", "notices", "error", "cells", "span", "edits", "columns"}
         if not isinstance(sheets, list) or not all(
             isinstance(sheet, dict) and set(sheet) == keys for sheet in sheets
         ):
@@ -519,6 +531,8 @@ class RemoteSession:
         self.journal: list[Op] = []  # ops the engine has accepted: the state, as a replay
         self.outbox: list[Op] = []  # ops it has not seen yet
         self.store = VariableStore()
+        # Sheet replies by page id, until the page takes them (`cassim.device.sheet_link`)
+        self.sheet_inbox: dict[int, list[SheetReply]] = {}
         if self._settings != Settings():
             self.outbox.append(settings_op(self._settings))
 
@@ -574,5 +588,26 @@ class RemoteSession:
     def accept(self, sent: list[Op], reply: Reply) -> None:
         """The engine applied `sent`: move them to the journal and take its changes."""
         del self.outbox[: len(sent)]
-        self.journal.extend(sent)
+        self.journal.extend(op for op in sent if not _is_view(op))  # a view changes nothing
         self.store.apply(reply)
+        for sheet in reply.get("sheets", []):
+            self.sheet_inbox.setdefault(sheet["page"], []).append(sheet)
+
+    def compact(self, page: int, restore: SheetOp) -> None:
+        """Keep one op for a sheet in the journal: `restore` with its contents now, where its
+        last op was. A rebuild then replays the sheet as it is, not every edit (decision 0031).
+        An entry made between two of its edits replays against the sheet's later state."""
+        last = max(
+            (n for n, op in enumerate(self.journal) if op["op"] == "sheet" and op["page"] == page),
+            default=None,
+        )
+        if last is None:
+            return
+        self.journal[last] = restore
+        self.journal[:last] = [
+            op for op in self.journal[:last] if not (op["op"] == "sheet" and op["page"] == page)
+        ]
+
+
+def _is_view(op: Op) -> bool:
+    return op["op"] == "sheet" and op["action"] == "view"
