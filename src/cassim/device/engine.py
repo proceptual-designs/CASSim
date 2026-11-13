@@ -4,21 +4,22 @@ In the browser the UI and the document model live in Flet's Python worker and `c
 a second worker that Cancel terminates. Nothing synchronous can cross between them, so:
 
 - `EngineCore` runs where the maths runs: one `Session` per Problem, driven by JSON-ready *ops*
-  (`new_problem`, `settings`, `eval`) and answering with the result and a *snapshot* (the variable
-  list, which the UI cannot ask for synchronously).
+  (`new_problem`, `settings`, `store`, `ans`, `eval`) and answering with the result and the
+  variables that changed since its last reply (a *delta*, decision 0031).
 - `RemoteSession` stands in for a `Session` on the UI side. It answers `is_function` and
-  `variables` from the last snapshot, queues settings changes as ops, and keeps a journal of every
+  `variables` from its `VariableStore`, queues settings changes as ops, and keeps a journal of every
   op the engine has accepted. A fresh engine is rebuilt from the journals after a Cancel.
 - `Engine` is the async transport. `LocalEngine` (here) calls an `EngineCore` in-process, for tests
   and `CASSIM_ENGINE=remote` on the desktop; the browser's worker engine is in `cassim.app.web`.
 
-Ops and replies are plain dicts so they cross `postMessage` as JSON.
+Ops and replies are `TypedDict`s, so they cross `postMessage` as JSON; `check_op` checks each op
+where it enters the engine (PLAN.md section 12, A1).
 """
 
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from cassim.core.builtin_names import is_builtin
 from cassim.core.results import Result, VariableInfo
@@ -29,19 +30,155 @@ if TYPE_CHECKING:
 
     from cassim.core.session import Session
 
-type Op = dict[str, Any]
-type Reply = dict[str, Any]
+
+# ---- the protocol -------------------------------------------------------------------------------
 
 
-def settings_op(settings: Settings) -> Op:
+class NewProblemOp(TypedDict):
+    op: Literal["new_problem"]
+
+
+class SettingsOp(TypedDict):
+    op: Literal["settings"]
+    values: dict[str, str]
+
+
+class StoreOp(TypedDict):
+    op: Literal["store"]
+    numbers: dict[str, float]
+
+
+class AnsOp(TypedDict):
+    op: Literal["ans"]
+    line: str | None
+
+
+class EvalOp(TypedDict):
+    op: Literal["eval"]
+    line: str
+    approximate: bool
+
+
+type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp
+
+
+class ResultPayload(TypedDict):
+    text: str
+    latex: str
+    error: str | None
+    full: str
+
+
+class Row(TypedDict):
+    """One variable-list row (`VariableInfo` as JSON)."""
+
+    name: str
+    text: str
+    latex: str
+    is_function: bool
+
+
+class Reply(TypedDict):
+    result: ResultPayload | None  # the last `eval`'s result
+    full: bool  # `changed` is every variable: replace, do not merge
+    changed: list[Row]  # rows stored since the last reply
+    deleted: list[str]  # names deleted since the last reply
+
+
+class EngineError(RuntimeError):
+    """The engine could not run an op (a crashed worker, or an op it does not know); not a TI
+    error, which is in the result."""
+
+
+def _text(value: object, what: str) -> str:
+    if not isinstance(value, str):
+        msg = f"{what} must be text"
+        raise EngineError(msg)
+    return value
+
+
+def check_op(raw: object) -> Op:
+    """`raw` as an op, checked field by field: what arrives from another worker is only JSON."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("op"), str):
+        msg = f"not an engine op: {raw!r}"
+        raise EngineError(msg)
+    name = raw["op"]
+    if name == "new_problem":
+        return {"op": "new_problem"}
+    if name == "settings":
+        values = raw.get("values")
+        if not isinstance(values, dict):
+            msg = "settings values must be a mapping"
+            raise EngineError(msg)
+        return {
+            "op": "settings",
+            "values": {_text(k, "a setting"): _text(v, k) for k, v in values.items()},
+        }
+    if name == "store":
+        numbers = raw.get("numbers")
+        if not isinstance(numbers, dict) or not all(
+            isinstance(v, int | float) and not isinstance(v, bool) for v in numbers.values()
+        ):
+            msg = "store numbers must be a mapping of names to numbers"
+            raise EngineError(msg)
+        return {
+            "op": "store",
+            "numbers": {_text(k, "a name"): float(v) for k, v in numbers.items()},
+        }
+    if name == "ans":
+        line = raw.get("line")
+        return {"op": "ans", "line": None if line is None else _text(line, "the Ans line")}
+    if name == "eval":
+        approximate = raw.get("approximate")
+        if not isinstance(approximate, bool):
+            msg = "eval needs approximate: true or false"
+            raise EngineError(msg)
+        return {
+            "op": "eval",
+            "line": _text(raw.get("line"), "the entry"),
+            "approximate": approximate,
+        }
+    msg = f"unknown engine op {name!r}"
+    raise EngineError(msg)
+
+
+def check_reply(raw: object) -> Reply:
+    """`raw` as a reply, checked where it comes back from the engine's worker."""
+    if not (
+        isinstance(raw, dict)
+        and "result" in raw
+        and isinstance(raw.get("full"), bool)
+        and isinstance(raw.get("changed"), list)
+        and isinstance(raw.get("deleted"), list)
+        and (raw.get("result") is None or isinstance(raw.get("result"), dict))
+    ):
+        msg = f"not an engine reply: {str(raw)[:80]}"
+        raise EngineError(msg)
+    for row in raw["changed"]:
+        if not (isinstance(row, dict) and set(row) == {"name", "text", "latex", "is_function"}):
+            msg = f"not a variable row: {row!r}"
+            raise EngineError(msg)
+    result = raw["result"]
+    if result is not None and set(result) != {"text", "latex", "error", "full"}:
+        msg = f"not a result: {result!r}"
+        raise EngineError(msg)
+    return {
+        "result": result,
+        "full": raw["full"],
+        "changed": raw["changed"],
+        "deleted": [_text(name, "a deleted name") for name in raw["deleted"]],
+    }
+
+
+def settings_op(settings: Settings) -> SettingsOp:
     return {"op": "settings", "values": {k: str(v) for k, v in asdict(settings).items()}}
 
 
-def eval_op(line: str, *, approximate: bool) -> Op:
+def eval_op(line: str, *, approximate: bool) -> EvalOp:
     return {"op": "eval", "line": line, "approximate": approximate}
 
 
-def store_op(numbers: dict[str, float]) -> Op:
+def store_op(numbers: dict[str, float]) -> StoreOp:
     return {"op": "store", "numbers": numbers}
 
 
@@ -56,8 +193,7 @@ def local_session(settings: Settings | None = None) -> Session:
     return Session(settings)
 
 
-class EngineError(RuntimeError):
-    """The engine could not run an op (a crashed worker); not a TI error, which is in the result."""
+# ---- the engine side ----------------------------------------------------------------------------
 
 
 class EngineCore:
@@ -65,14 +201,20 @@ class EngineCore:
 
     def __init__(self) -> None:
         self.sessions: dict[int, Session] = {}
+        # Per Problem: the scope revision and settings of the last reply. A Problem with no entry
+        # (new, or after `reset`) gets every variable; a settings change does too, since the
+        # display text of every value may change with it.
+        self._sent: dict[int, tuple[int, Settings]] = {}
 
-    def apply(self, problem: int, ops: Iterable[Op]) -> Reply:
-        """Apply `ops` in order; the reply holds the last `eval`'s result and the snapshot."""
+    def apply(self, problem: int, ops: Iterable[object]) -> Reply:
+        """Apply `ops` in order; the reply holds the last `eval`'s result and the variables that
+        changed since the previous reply for this Problem."""
+        checked = [check_op(op) for op in ops]  # all of them before any runs
         session = self.sessions.get(problem)
         if session is None:
             session = self.sessions[problem] = local_session()
-        result: dict[str, Any] | None = None
-        for op in ops:
+        result: ResultPayload | None = None
+        for op in checked:
             match op["op"]:
                 case "new_problem":
                     session.new_problem()
@@ -83,28 +225,37 @@ class EngineCore:
                 case "ans":
                     session.set_ans(op["line"])
                 case "eval":
-                    done = session.eval(op["line"], approximate=bool(op["approximate"]))
+                    done = session.eval(op["line"], approximate=op["approximate"])
                     result = {
                         "text": done.text,
                         "latex": done.latex,
                         "error": done.error,
                         "full": done.full,
                     }
-                case other:
-                    msg = f"unknown engine op {other!r}"
-                    raise ValueError(msg)
-        rows = session.variables()
+        scope = session.scope
+        sent = self._sent.get(problem)
+        full = sent is None or sent[1] != session.settings
+        names = scope.names() if full else scope.changed_since(sent[0])
+        self._sent[problem] = (scope.revision, session.settings)
+        rows = session.rows(names)
+        present = {row.name for row in rows}
         return {
             "result": result,
-            "variables": [asdict(row) for row in rows],
-            "functions": sorted(row.name for row in rows if row.is_function),
+            "full": full,
+            "changed": [
+                {"name": r.name, "text": r.text, "latex": r.latex, "is_function": r.is_function}
+                for r in rows
+            ],
+            "deleted": [] if full else sorted(names - present),
         }
 
     def reset(self, journals: dict[int, list[Op]]) -> None:
-        """Forget everything and rebuild each Problem by replaying its journal."""
+        """Forget everything and rebuild each Problem by replaying its journal. The next reply for
+        each Problem is a full one, since the UI did not see the replay's replies."""
         self.sessions.clear()
         for problem, ops in journals.items():
             self.apply(problem, ops)
+        self._sent.clear()
 
 
 class Engine(Protocol):
@@ -136,6 +287,52 @@ class LocalEngine:
         return False
 
 
+# ---- the UI side --------------------------------------------------------------------------------
+
+
+class VariableStore:
+    """The UI's copy of one Problem's variable list, kept up to date from the engine's replies.
+
+    Each name has a revision of the store's own, raised when its row changes, so a page can record
+    what it drew and redraw only when a revision it used is newer (FR-DOC-008). The store's
+    revisions are its own, so they keep rising when a Cancel replaces the engine.
+    """
+
+    def __init__(self) -> None:
+        self._rows: dict[str, VariableInfo] = {}
+        self._revisions: dict[str, int] = {}
+        self.revision = 0
+
+    def _set(self, name: str, row: VariableInfo | None) -> None:
+        if self._rows.get(name) == row:
+            return
+        if row is None:
+            del self._rows[name]
+        else:
+            self._rows[name] = row
+        self.revision += 1
+        self._revisions[name] = self.revision
+
+    def apply(self, reply: Reply) -> None:
+        rows = {row["name"]: VariableInfo(**row) for row in reply["changed"]}
+        gone = set(reply["deleted"])
+        if reply["full"]:
+            gone |= set(self._rows) - set(rows)
+        for name in sorted(gone & set(self._rows)):
+            self._set(name, None)
+        for name, row in rows.items():
+            self._set(name, row)
+
+    def variables(self) -> list[VariableInfo]:
+        return [self._rows[name] for name in sorted(self._rows)]
+
+    def revision_of(self, name: str) -> int:
+        return self._revisions.get(name, 0)
+
+    def get(self, name: str) -> VariableInfo | None:
+        return self._rows.get(name)
+
+
 class RemoteSession:
     """The UI's view of one Problem's session while the maths runs elsewhere.
 
@@ -150,8 +347,7 @@ class RemoteSession:
         self._settings = settings if settings is not None else Settings()
         self.journal: list[Op] = []  # ops the engine has accepted: the state, as a replay
         self.outbox: list[Op] = []  # ops it has not seen yet
-        self._rows: list[VariableInfo] = []
-        self._functions: set[str] = set()
+        self.store = VariableStore()
         if self._settings != Settings():
             self.outbox.append(settings_op(self._settings))
 
@@ -181,17 +377,22 @@ class RemoteSession:
         msg = "a RemoteSession evaluates through the app's Runner, not synchronously"
         raise NotImplementedError(msg)
 
+    def _row(self, name: str) -> VariableInfo | None:
+        return self.store.get(variable_key(self._settings, name))
+
     def is_function(self, name: str) -> bool:
-        return is_builtin(name.casefold()) or (
-            variable_key(self._settings, name) in self._functions
-        )
+        row = self._row(name)
+        return is_builtin(name.casefold()) or (row is not None and row.is_function)
 
     def is_defined(self, name: str) -> bool:
-        key = variable_key(self._settings, name)
-        return any(variable_key(self._settings, row.name) == key for row in self._rows)
+        return self._row(name) is not None
 
     def variables(self) -> list[VariableInfo]:
-        return list(self._rows)
+        return self.store.variables()
+
+    def revision_of(self, name: str) -> int:
+        """When the variable `name` last changed, by the store's count (FR-DOC-008)."""
+        return self.store.revision_of(variable_key(self._settings, name))
 
     # ---- the Runner's side ------------------------------------------------------------------
 
@@ -200,8 +401,7 @@ class RemoteSession:
         return list(self.outbox)
 
     def accept(self, sent: list[Op], reply: Reply) -> None:
-        """The engine applied `sent`: move them to the journal and keep its snapshot."""
+        """The engine applied `sent`: move them to the journal and take its changes."""
         del self.outbox[: len(sent)]
         self.journal.extend(sent)
-        self._rows = [VariableInfo(**row) for row in reply["variables"]]
-        self._functions = set(reply["functions"])
+        self.store.apply(reply)

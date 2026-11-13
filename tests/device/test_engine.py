@@ -2,12 +2,11 @@
 """The engine split: a RemoteSession, the Runner and Cancel (decisions 0005, 0016)."""
 
 import asyncio
-from typing import Any
 
 import pytest
 
 from cassim.core.settings import Settings
-from cassim.device.engine import EngineCore, LocalEngine, Op, RemoteSession
+from cassim.device.engine import EngineCore, LocalEngine, Op, RemoteSession, Reply
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, loads
 from cassim.devices.nspire.pages import PAGES
@@ -149,7 +148,7 @@ class StuckEngine:
         self.stuck = False
         self.resets: list[dict[int, list[Op]]] = []
 
-    async def run(self, problem: int, ops: list[Op]) -> dict[str, Any]:
+    async def run(self, problem: int, ops: list[Op]) -> Reply:
         if self.stuck:
             await asyncio.Event().wait()
         return self.core.apply(problem, ops)

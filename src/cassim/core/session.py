@@ -1,5 +1,6 @@
 """The engine's public API: one calculator session, as specified in docs/testing/TESTING.md."""
 
+from collections.abc import Iterable
 from dataclasses import replace
 
 from cassim.core import ast, catalog, errors
@@ -99,8 +100,13 @@ class Session:
 
     def variables(self) -> list[VariableInfo]:
         """The Problem's variables and user functions, sorted by name (the variable list)."""
+        return self.rows(self.scope.names())
+
+    def rows(self, names: Iterable[str]) -> list[VariableInfo]:
+        """The variable-list rows of `names` (already folded), sorted; names not defined are left
+        out. Only these are formatted, which is most of the cost (decision 0031, spike B)."""
         rows: list[VariableInfo] = []
-        for name in sorted(self.scope.names()):
+        for name in sorted(names):
             item = self.scope.get(name)
             if isinstance(item, Function):
                 head = f"{name}({','.join(item.params)})"
@@ -110,6 +116,10 @@ class Session:
             elif item is not None:
                 rows.append(VariableInfo(name, to_text(item, self.settings), to_latex(item), False))
         return rows
+
+    def revision_of(self, name: str) -> int:
+        """When the variable `name` last changed (FR-DOC-008); 0 if it never has."""
+        return self.scope.revision_of(variable_key(self.settings, name))
 
     def store_numbers(self, numbers: dict[str, float]) -> None:
         """Set variables to numbers from outside the entry line, as a dialog does (`tvm.n`).

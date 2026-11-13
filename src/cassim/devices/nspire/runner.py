@@ -75,8 +75,11 @@ class Runner:
                 self.status = Status.IDLE
         session.accept(sent, reply)
         found = reply["result"]
+        if found is None:  # an eval op always has a result; a crashed engine has none
+            msg = "the engine sent no result"
+            raise EngineError(msg)
         calculator.finish(
-            Result(found["text"], found["latex"], None, found["error"], found.get("full", "")),
+            Result(found["text"], found["latex"], None, found["error"], found["full"]),
             pending.text,
             pending.approximate,
         )
