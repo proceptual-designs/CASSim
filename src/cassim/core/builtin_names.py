@@ -2,8 +2,9 @@
 
 The catalog registers its functions on import and that loads SymPy. In the browser the UI's worker
 never does (decision 0027), but the editor still needs to know that `sin` is a function, and
-that `SIN` is spelled `sin`. The table below is generated: run `python -m tools.builtin_names`
+that `SIN` is spelled `sin`. The tables below are generated: run `python -m tools.builtin_names`
 after adding or removing a function (`tests/unit/test_builtin_names.py` fails until you do).
+`PLANNED` holds the Reference Guide functions not built yet (from `docs/command_matrix.csv`).
 """
 
 import re
@@ -19,6 +20,12 @@ def canonical(name: str) -> str:
 
 def is_builtin(name: str) -> bool:
     return canonical(name) in NAMES
+
+
+def is_function_name(name: str) -> bool:
+    """A Reference Guide function, built or `PLANNED`: its name cannot be stored to."""
+    key = canonical(name)
+    return key in NAMES or key in PLANNED
 
 
 def spelling(name: str) -> str | None:
@@ -184,3 +191,78 @@ SPELLINGS: dict[str, str] = {
     "∫": "∫",
 }
 NAMES = frozenset(SPELLINGS)
+PLANNED = frozenset(
+    {
+        "approxrational",
+        "arccoth",
+        "arccsch",
+        "arcsech",
+        "centraldiff",
+        "char",
+        "colaugment",
+        "coldim",
+        "colnorm",
+        "constructmat",
+        "corrmat",
+        "count",
+        "countif",
+        "cpolyroots",
+        "dbd",
+        "delvoid",
+        "diag",
+        "dominantterm",
+        "euler",
+        "format",
+        "frequency",
+        "getdenom",
+        "getkey",
+        "getlanginfo",
+        "getlockinfo",
+        "getmode",
+        "getnum",
+        "gettype",
+        "getvarinfo",
+        "iffn",
+        "instring",
+        "intdiv",
+        "interpolate",
+        "irr",
+        "isvoid",
+        "libshortcut",
+        "mid",
+        "mirr",
+        "mrow",
+        "mrowadd",
+        "newlist",
+        "newmat",
+        "nfmax",
+        "nfmin",
+        "npv",
+        "ord",
+        "polycoeffs",
+        "polydegree",
+        "polygcd",
+        "polyquotient",
+        "polyremainder",
+        "randmat",
+        "randpoly",
+        "randsamp",
+        "ref",
+        "rk23",
+        "rotate",
+        "rowadd",
+        "rowdim",
+        "rownorm",
+        "rowswap",
+        "seqgen",
+        "seqn",
+        "series",
+        "setmode",
+        "shift",
+        "sumif",
+        "system",
+        "tmpcnv",
+        "trace",
+        "warncodes",
+    }
+)

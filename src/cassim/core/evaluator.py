@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from itertools import pairwise
 from typing import Any
 
-from cassim.core import angles, ast, catalog, errors
+from cassim.core import angles, ast, builtin_names, catalog, errors
 from cassim.core.catalog.conversions import polar_form
 from cassim.core.catalog.matrices import matrix_power
 from cassim.core.compat import sympy_adapter as cas
@@ -221,7 +221,12 @@ class Evaluator:
         else:
             raise _unsupported("indexed assignment")
         folded = text.casefold()
-        if folded in _RESERVED or cas.is_constant(folded) or catalog.is_builtin(folded):
+        function = catalog.is_builtin(folded) or builtin_names.is_function_name(folded)
+        if function and isinstance(node, ast.Name):
+            # The handheld reads a function's name as the start of a call: `count:={5,3,1,1}`
+            # gives "Missing (" (emulator check 6), for functions CASSim has not built too.
+            raise TIError(errors.MISSING_OPEN_PAREN)
+        if function or folded in _RESERVED or cas.is_constant(folded):
             raise TIError(errors.RESERVED_NAME)
         return self._key(text)
 
