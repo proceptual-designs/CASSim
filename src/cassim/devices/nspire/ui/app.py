@@ -108,6 +108,7 @@ class App:
         self.runner = runner  # None: the maths runs in this process, synchronously
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
+        self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
         self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
@@ -224,14 +225,27 @@ class App:
             return  # a damaged autosave is ignored, and overwritten by the next change
 
     def refresh(self) -> None:
+        start = time.perf_counter()
         self.autosave()
         self.view.refresh()
         self.keypad.refresh()
         if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
             self.sidebar.refresh()
         self.toolbar.controls = [*self.toolbar_controls(), self.status]
+        built = time.perf_counter()
         self.page.update()
         self.view.follow_selection()
+        if self.debug:  # tools/switchtime.py times a page change by this line (NFR-PERF-006)
+            document = self.state.document
+            here = (document.problem, document.page)
+            if here != self.shown:
+                self.shown = here
+                build = (built - start) * 1000
+                send = (time.perf_counter() - built) * 1000
+                print(
+                    f"CASSIM: PAGE {here[0] + 1}.{here[1] + 1} build={build:.0f} send={send:.0f}",
+                    flush=True,
+                )
         self.kick()
 
     # ---- the engine -------------------------------------------------------------------------

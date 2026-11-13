@@ -106,7 +106,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-PERF-001 | Could | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
 | NFR-PERF-002 | Should | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
 | NFR-PERF-003 | Should | measured and reported, not asserted (SRS: no fixed budgets) |
-| NFR-PERF-006 | Should | not built (M3, tools/switchtime.py); measured and reported, not asserted |
+| NFR-PERF-006 | Should | measured and reported by tools/switchtime.py (decision 0031), not asserted |
 | NFR-PERF-005 | Could | measured and reported, not asserted (SRS: no fixed budgets) |
 | NFR-REL-003 | Should | autosave failure reporting is not built |
 | NFR-SEC-002 | Must | not built yet (pages with user code, text-size setting, localisation, native builds) |

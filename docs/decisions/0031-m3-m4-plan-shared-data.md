@@ -192,6 +192,21 @@ A circle's points are within 0.04 px of the true circle at 4 px cells, because t
 - A relation with a jump (`y=tan(x)`) gets a false line along each asymptote. Slice 4d has to drop a crossing where the values on either side are large.
 - Not tested: inequalities as filled regions (the cells are known, so a fill by cell is possible), and joining the segments into polylines.
 
+### Page switch timings (tools/switchtime.py, 2026-11-13)
+
+The first measurement of NFR-PERF-006, on today's Calculator pages: two pages of 15 `expand` entries and an empty one, 20 switches with alt+arrow, from the key press to the app's `CASSIM: PAGE` line (sent once `page.update` returns). Headless Edge on the laptop.
+
+| To | Median | Max | Our Python: build controls / `page.update` |
+|---|---|---|---|
+| A page with 15 entries | 126 to 130 ms | 147 ms | 9 to 10 ms / 30 to 33 ms |
+| The empty page | 58 ms | 62 ms | 3 ms / 12 ms |
+| The same, with Chromium's CPU throttle at 4 | 450 to 730 ms | 1,280 ms | 4 to 12 ms / 15 to 38 ms |
+
+- On the desktop a full page is a little over the 100 ms aim; an empty one is well under.
+- Our Python is about 40 ms of it. The rest is the key's route from Flutter into the Python worker and back, which is fixed: the empty page still takes 58 ms. The throttle slows the browser's main thread (Flutter) and not the worker, and the switch grows five-fold while the Python part does not. So on a phone Flutter's side, not the page code, is what to watch.
+- The time Flutter then takes to draw the new page is not included.
+- Not yet run on a phone. The data pages join the cycle as they are built (3b, 4b).
+
 ## Emulator evidence still needed
 
 Check 6 (`docs/testing/emulator-pages-capture.md`) parts E and F are needed before slices 3a and 3b settle, part D before 4b. Check 6 did not cover sharing, so parts G (shared data), H (split pages), J (categorical charts) and N (Notes) are in `docs/testing/emulator-sharing-capture.md`.
