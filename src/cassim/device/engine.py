@@ -19,7 +19,7 @@ where it enters the engine (PLAN.md section 12, A1).
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict, cast
 
 from cassim.core.builtin_names import is_builtin
 from cassim.core.results import Result, VariableInfo
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from cassim.core.session import Session
+    from cassim.device.sheets import ProblemSheets
 
 
 # ---- the protocol -------------------------------------------------------------------------------
@@ -59,7 +60,119 @@ class EvalOp(TypedDict):
     approximate: bool
 
 
-type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp
+type SheetAction = Literal[
+    "cell",
+    "formula",
+    "name",
+    "fill",
+    "sort",
+    "insert",
+    "delete",
+    "generate",
+    "recalculate",
+    "view",
+    "restore",
+    "drop",
+]
+
+
+class SheetOp(TypedDict):
+    """An action on the Lists & Spreadsheet page `page` of the Problem (slice 3a). `args` are
+    checked against `SHEET_ARGS` for the action; the engine side is `cassim.device.sheets`."""
+
+    op: Literal["sheet"]
+    page: int
+    action: SheetAction
+    args: dict[str, object]
+
+
+type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | SheetOp
+
+# What each sheet action takes. "span" is [left, top, right, bottom] (columns from 0, rows from
+# 1); "choose" maps a name to "cell" or "variable" (Conflict Detected).
+SHEET_ARGS: dict[str, dict[str, str]] = {
+    "cell": {"column": "int", "row": "int", "text": "str", "choose": "choose"},
+    "formula": {"column": "int", "text": "str", "choose": "choose"},
+    "name": {"column": "int", "text": "str"},
+    "fill": {"source": "span", "target": "span"},
+    "sort": {"span": "span", "by": "int", "descending": "bool", "confirm": "bool"},
+    "insert": {"what": "part", "column": "int", "row": "int"},
+    "delete": {"what": "part", "column": "int", "row": "int"},
+    "generate": {
+        "column": "int",
+        "formula": "str",
+        "initial": "str",
+        "first": "int",
+        "last": "int",
+        "step": "int",
+        "ceiling": "str",
+        "confirm": "bool",
+    },
+    "recalculate": {},
+    "view": {"span": "span"},
+    "restore": {"cells": "cells", "columns": "columns"},
+    "drop": {},
+}
+_PARTS = ("cell", "row", "column")
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _arg_ok(kind: str, value: object) -> bool:  # noqa: PLR0911 (one case a kind)
+    match kind:
+        case "int":
+            return _is_int(value)
+        case "str":
+            return isinstance(value, str)
+        case "bool":
+            return isinstance(value, bool)
+        case "part":
+            return value in _PARTS
+        case "span":
+            return isinstance(value, list) and len(value) == 4 and all(map(_is_int, value))  # noqa: PLR2004
+        case "choose":
+            return isinstance(value, dict) and all(
+                isinstance(k, str) and v in ("cell", "variable") for k, v in value.items()
+            )
+        case "cells":  # [[column, row, "entry" | "formula", text], ...]
+            return isinstance(value, list) and all(
+                isinstance(cell, list)
+                and len(cell) == 4  # noqa: PLR2004
+                and _is_int(cell[0])
+                and _is_int(cell[1])
+                and cell[2] in ("entry", "formula")
+                and isinstance(cell[3], str)
+                for cell in value
+            )
+        case _:  # "columns": [[name, shown name, formula], ...], each text or null
+            return isinstance(value, list) and all(
+                isinstance(info, list)
+                and len(info) == 3  # noqa: PLR2004
+                and all(part is None or isinstance(part, str) for part in info)
+                for info in value
+            )
+
+
+def _check_sheet_op(raw: dict[str, object]) -> SheetOp:
+    action, page, args = raw.get("action"), raw.get("page"), raw.get("args")
+    if not isinstance(action, str) or action not in SHEET_ARGS:
+        msg = f"unknown sheet action {action!r}"
+        raise EngineError(msg)
+    if not isinstance(page, int) or isinstance(page, bool) or not isinstance(args, dict):
+        msg = "a sheet op needs a page number and args"
+        raise EngineError(msg)
+    wanted = SHEET_ARGS[action]
+    if set(args) != set(wanted) or not all(_arg_ok(wanted[k], args[k]) for k in wanted):
+        msg = f"bad args for sheet {action}: {args!r}"
+        raise EngineError(msg)
+    return {
+        "op": "sheet",
+        "page": page,
+        "action": cast("SheetAction", action),
+        "args": {str(k): v for k, v in args.items()},
+    }
 
 
 class ResultPayload(TypedDict):
@@ -79,11 +192,35 @@ class Row(TypedDict):
     is_function: bool
 
 
+class NoticePayload(TypedDict):
+    title: str
+    message: str
+
+
+class SheetErrorPayload(TypedDict):
+    """A sheet action refused: the dialog to show. `names` lists the Cell-or-Variable choices
+    for Conflict Detected; "Data Loss" asks OK before the action is sent again confirmed."""
+
+    title: str
+    message: str
+    names: list[str]
+
+
+class SheetReply(TypedDict):
+    page: int
+    revision: int  # raised whenever anything drawn on the sheet changes
+    notices: list[NoticePayload]  # dialogs for changes that were kept
+    error: SheetErrorPayload | None
+    cells: list[tuple[int, int, str, bool, str]]  # a view: column, row, shown, right, entry text
+    columns: list[tuple[str | None, str | None]]  # a view: each column's name and formula
+
+
 class Reply(TypedDict):
     result: ResultPayload | None  # the last `eval`'s result
     full: bool  # `changed` is every variable: replace, do not merge
     changed: list[Row]  # rows stored since the last reply
     deleted: list[str]  # names deleted since the last reply
+    sheets: NotRequired[list[SheetReply]]  # the sheets that changed or were asked about
 
 
 class EngineError(RuntimeError):
@@ -139,6 +276,8 @@ def check_op(raw: object) -> Op:
             "line": _text(raw.get("line"), "the entry"),
             "approximate": approximate,
         }
+    if name == "sheet":
+        return _check_sheet_op(raw)
     msg = f"unknown engine op {name!r}"
     raise EngineError(msg)
 
@@ -163,12 +302,22 @@ def check_reply(raw: object) -> Reply:
     if result is not None and set(result) != {"text", "latex", "error", "full", "warnings"}:
         msg = f"not a result: {result!r}"
         raise EngineError(msg)
-    return {
+    checked: Reply = {
         "result": result,
         "full": raw["full"],
         "changed": raw["changed"],
         "deleted": [_text(name, "a deleted name") for name in raw["deleted"]],
     }
+    if "sheets" in raw:
+        sheets = raw["sheets"]
+        keys = {"page", "revision", "notices", "error", "cells", "columns"}
+        if not isinstance(sheets, list) or not all(
+            isinstance(sheet, dict) and set(sheet) == keys for sheet in sheets
+        ):
+            msg = f"not sheet replies: {str(sheets)[:80]}"
+            raise EngineError(msg)
+        checked["sheets"] = sheets
+    return checked
 
 
 def settings_op(settings: Settings) -> SettingsOp:
@@ -202,6 +351,7 @@ class EngineCore:
 
     def __init__(self) -> None:
         self.sessions: dict[int, Session] = {}
+        self.sheets: dict[int, ProblemSheets] = {}  # the Problems that have a sheet
         # Per Problem: the scope revision and settings of the last reply. A Problem with no entry
         # (new, or after `reset`) gets every variable; a settings change does too, since the
         # display text of every value may change with it.
@@ -215,7 +365,9 @@ class EngineCore:
         if session is None:
             session = self.sessions[problem] = local_session()
         result: ResultPayload | None = None
+        sheet_replies: dict[int, SheetReply] = {}
         for op in checked:
+            settings = session.settings
             match op["op"]:
                 case "new_problem":
                     session.new_problem()
@@ -234,6 +386,11 @@ class EngineCore:
                         "full": done.full,
                         "warnings": list(done.warnings),
                     }
+                case "sheet":
+                    self._sheets_of(problem, session).run(op, sheet_replies)
+            if problem in self.sheets:
+                changed = session.settings != settings
+                self.sheets[problem].settle(sheet_replies, recalculate=changed)
         scope = session.scope
         sent = self._sent.get(problem)
         full = sent is None or sent[1] != session.settings
@@ -241,7 +398,7 @@ class EngineCore:
         self._sent[problem] = (scope.revision, session.settings)
         rows = session.rows(names)
         present = {row.name for row in rows}
-        return {
+        reply: Reply = {
             "result": result,
             "full": full,
             "changed": [
@@ -250,11 +407,23 @@ class EngineCore:
             ],
             "deleted": [] if full else sorted(names - present),
         }
+        if sheet_replies:
+            reply["sheets"] = [sheet_replies[page] for page in sorted(sheet_replies)]
+        return reply
+
+    def _sheets_of(self, problem: int, session: Session) -> ProblemSheets:
+        if problem not in self.sheets:
+            from cassim.device.sheets import ProblemSheets  # noqa: PLC0415 (loads SymPy)
+
+            self.sheets[problem] = ProblemSheets(session)
+        return self.sheets[problem]
 
     def reset(self, journals: dict[int, list[Op]]) -> None:
         """Forget everything and rebuild each Problem by replaying its journal. The next reply for
-        each Problem is a full one, since the UI did not see the replay's replies."""
+        each Problem is a full one, since the UI did not see the replay's replies. A sheet's
+        random numbers are drawn again, as Ctrl+R draws them (decision 0031)."""
         self.sessions.clear()
+        self.sheets.clear()
         for problem, ops in journals.items():
             self.apply(problem, ops)
         self._sent.clear()

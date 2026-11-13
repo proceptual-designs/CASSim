@@ -277,8 +277,11 @@ The finish-off rows after run 2 (`emulator-finish-results.md`, no screenshots) c
   - The sheet follows Document Settings (Float 3 shows `0.333`, Fix 2 `0.33`), and exact `1/3` stays exact.
   - The handheld's sheet ends at row 2500 and column Z; Go To beyond either gives "Invalid reference". **CASSim does not copy these limits** (Simon, 2026-11-13). Its sheet may be larger, and its size is bounded only by memory and speed (spike B). Go To still gives "Invalid reference" for a cell that cannot exist.
 
+## Decided in slice 3a (2026-11-14)
+
+- A cell holding `=rand()` is not kept across a rebuild after Cancel: the replay recalculates, so it draws a new value, as Ctrl+R does on the handheld (check 6, E23). Keeping it would mean journalling values for one rare case.
+
 ## Not decided
 
-- How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G did not test other events. Decide in slice 3a.
 - Timings on the Pixel 6 for all four spikes (deferred by Simon, 2026-11-13: wait for `tools/switchtime.py`).
 - Where the autosave size limit sits for a document with large lists; share links already fall back to a file above about 2,000 characters.

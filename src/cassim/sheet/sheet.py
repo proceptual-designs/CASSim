@@ -331,6 +331,11 @@ class Sheet:
         self._recalculate(set(self._inputs), outcome)
         return outcome.notices
 
+    @property
+    def locks(self) -> tuple[set[str], set[str]]:
+        """The names this sheet holds: (linked lists, formula columns' variables)."""
+        return self._locks
+
     def contents(self) -> dict[Key, Content]:
         """Every cell's content, for an action that moves cells (`sheet.actions`) or a save."""
         return dict(self._contents)

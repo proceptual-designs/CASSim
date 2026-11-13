@@ -160,10 +160,10 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 1 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
-| FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/unit/test_sheet.py` |
+| FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py`, `tests/unit/test_sheet.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
-| FR-SHEET-001 | Must | `tests/unit/test_seqgen.py`, `tests/unit/test_sheet.py`, `tests/unit/test_sheet_actions.py` |
-| FR-SHEET-002 | Must | `tests/unit/test_sheet.py`, `tests/unit/test_sheet_refs.py` |
+| FR-SHEET-001 | Must | `tests/device/test_engine_sheet.py`, `tests/unit/test_seqgen.py`, `tests/unit/test_sheet.py` and 1 more |
+| FR-SHEET-002 | Must | `tests/device/test_engine_sheet.py`, `tests/unit/test_sheet.py`, `tests/unit/test_sheet_refs.py` |
 | FR-STAT-002 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-004 | Must | `tests/unit/test_distributions_finance.py` |

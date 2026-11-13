@@ -15,4 +15,4 @@ app_cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.sheet.sort-column.jpg, note: 'Sort is greyed out in the Actions menu until a column is selected. The Sort dialog has Range, Sort By (a column) and Sort order
       (Ascending/Descending). The sheet may show the old order for a moment before refreshing.'}
-  status: pending
+  status: pass
