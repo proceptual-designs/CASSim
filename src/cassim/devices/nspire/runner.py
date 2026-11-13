@@ -18,7 +18,7 @@ from cassim.device.engine import Engine, EngineError, RemoteSession, Reply, eval
 from cassim.doc.serialize import parse, replay_steps
 
 if TYPE_CHECKING:
-    from cassim.device.calculator import Calculator
+    from cassim.devices.nspire.pages.calculator import Calculator
     from cassim.doc.document import Document, PageTypes
 
 

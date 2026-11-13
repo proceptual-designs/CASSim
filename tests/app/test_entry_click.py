@@ -11,8 +11,8 @@ import flet as ft
 from cassim.app.entry import EntryLine
 from cassim.app.state import AppState
 from cassim.app.theme import DARK
-from cassim.device.calculator import calculator_of, calculator_on
 from cassim.device.editor import Editor, Kind
+from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
 

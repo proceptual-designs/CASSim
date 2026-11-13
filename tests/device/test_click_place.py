@@ -1,8 +1,8 @@
 """Placing the cursor from a click target (FR-CALC-004, decision 0019): no GUI needed."""
 
-from cassim.device.calculator import Calculator
 from cassim.device.editor import Editor, Kind, format_target, parse_target
 from cassim.device.keys import Binding
+from cassim.devices.nspire.pages.calculator import Calculator
 
 
 def fraction_editor() -> Editor:

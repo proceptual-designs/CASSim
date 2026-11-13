@@ -4,9 +4,9 @@ from dataclasses import replace
 
 from cassim.app.state import MATH_SIZES, AppState, Mode, System
 from cassim.core.settings import Angle
-from cassim.device.calculator import calculator_of, calculator_on
-from cassim.device.screen import thumbnail
-from cassim.profiles.nspire_menus import DOC
+from cassim.devices.nspire.menus import DOC
+from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
+from cassim.devices.nspire.screen import thumbnail
 
 
 def enter(state: AppState, text: str) -> None:

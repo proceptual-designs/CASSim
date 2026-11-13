@@ -60,15 +60,15 @@ cassim/
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
-                            editor, wizard, screen buffer; and, until M2x step 3 and slice 3.0, the Calculator page model and the
-                            engine protocol (engine.py, runner.py)
+                            editor, wizard, clipboard, the Profile type; and, until slice 3.0, the engine protocol (engine.py)
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
   src/cassim/app/            FLET: App orchestration (main.py), views and dialogs (ui.py), layouts, keypad, storage, share links, PWA bits.
                             (Earlier drafts called this cassim_app.) Not thin yet: see section 12
-  src/cassim/profiles/       the Nspire profile as data: keymap, menus, syntax hints (the M2 guard; see 3.2). Moves to
-                            devices/nspire/ in M2x step 3
-  src/cassim/devices/        one plug-in package per calculator (decision 0032). devices/nspire/ holds its page types and
-                            its Document so far; a device never imports another device
+  src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
+                            load(id). A device never imports another device, and imports without Flet
+    nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types and the Calculator
+                            model); screen.py, runner.py, document.py. Its Flet views join it in M2x step 4 (ui/)
+  src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M7b, built)
   tests/  unit/  corpus/  device/  e2e/
   corpus/                   golden cases (YAML) + simulator screenshots as evidence

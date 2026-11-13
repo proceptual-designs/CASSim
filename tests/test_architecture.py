@@ -14,21 +14,20 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "cassim"
 RULES = [
     (
         "core",
-        {"flet", "cassim.device", "cassim.app", "cassim.profiles", "cassim.devices", "cassim.doc"},
+        {"flet", "cassim.device", "cassim.app", "cassim.devices", "cassim.doc", "cassim.bundle"},
         "core is pure Python",
     ),
     (
         "device",
-        {"flet", "cassim.app", "cassim.profiles", "cassim.devices"},
-        "FR-DEV-007: device is headless",
+        {"flet", "cassim.app", "cassim.devices", "cassim.bundle"},
+        "FR-DEV-007: device is headless and holds no device's data",
     ),
     (
         "runtime",
-        {"flet", "cassim.app", "cassim.device", "cassim.devices"},
+        {"flet", "cassim.app", "cassim.device", "cassim.devices", "cassim.bundle"},
         "the runtime is UI-free",
     ),
-    ("profiles", {"flet", "cassim.app"}, "profiles are data"),
-    ("doc", {"flet", "cassim.app", "cassim.profiles", "cassim.devices"}, "decision 0032 item 6"),
+    ("doc", {"flet", "cassim.app", "cassim.devices", "cassim.bundle"}, "decision 0032 item 6"),
     ("devices", {"flet", "cassim.app"}, "a device imports without Flet (decision 0032)"),
 ]
 

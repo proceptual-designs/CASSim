@@ -1,4 +1,7 @@
-"""Device profiles: the data that makes the framework in `cassim.device` a particular device."""
+"""A profile: the data that makes the framework in `cassim.device` a particular keypad device.
+
+Each device package builds one, as part of its `Device` (decision 0032).
+"""
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field

@@ -9,8 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from cassim.device.calculator import calculator_of, calculator_on
 from cassim.device.menu import MenuView
+from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 from cassim.doc.document import Document, Page
 
 

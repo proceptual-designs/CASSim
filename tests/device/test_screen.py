@@ -1,10 +1,10 @@
 """The screen buffer (FR-DEV-001)."""
 
-from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding, Keyboard, keypad_units
-from cassim.device.screen import render
+from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document, PageKind
-from cassim.profiles import nspire
+from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.screen import render
 
 
 def test_screen_shows_history_entry_and_status() -> None:

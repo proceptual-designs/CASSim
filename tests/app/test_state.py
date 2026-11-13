@@ -1,8 +1,8 @@
 """The app state drives the document from keypad and physical keys (FR-DEV-004, FR-DEV-006)."""
 
 from cassim.app.state import AppState, Mode, System
-from cassim.device.calculator import calculator_of
-from cassim.profiles import nspire
+from cassim.devices.nspire import keymap as nspire
+from cassim.devices.nspire.pages.calculator import calculator_of
 
 
 def entry_latex(state: AppState) -> str:

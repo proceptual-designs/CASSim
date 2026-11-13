@@ -3,9 +3,9 @@
 
 import pytest
 
-from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, PageKind
+from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.doc.document import MAX_PAGES
 
 

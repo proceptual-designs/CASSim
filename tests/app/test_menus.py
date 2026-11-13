@@ -9,9 +9,10 @@ from cassim.app.state import AppState, Mode
 from cassim.app.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
 from cassim.app.ui import CalculatorView, DragSteps, icon_canvas, scroll_line, window_start
 from cassim.core.catalog import registry
-from cassim.device.calculator import Calculator, calculator_of, calculator_on
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
-from cassim.profiles import nspire, nspire_syntax
+from cassim.devices.nspire import keymap as nspire
+from cassim.devices.nspire import syntax as nspire_syntax
+from cassim.devices.nspire.pages.calculator import Calculator, calculator_of, calculator_on
 
 
 def test_doc_menu_opens_and_lists_rows() -> None:

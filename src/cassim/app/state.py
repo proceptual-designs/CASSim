@@ -10,16 +10,17 @@ from typing import TYPE_CHECKING
 
 from cassim.app.keyboard import key_name
 from cassim.core.settings import Settings
-from cassim.device.calculator import calculator_of
 from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
-from cassim.device.screen import Screen, render
+from cassim.device.profile import Profile
 from cassim.device.wizard import Wizard
+from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
+from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.screen import Screen, render
 from cassim.doc.document import Document
-from cassim.profiles import Profile, nspire
 
 if TYPE_CHECKING:
     from cassim.core.session import Session

@@ -6,10 +6,10 @@ import json
 import pytest
 
 from cassim.core.settings import Angle
-from cassim.device import runner
-from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding
+from cassim.devices.nspire import runner
 from cassim.devices.nspire.document import Document, PageKind, loads
+from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.doc import serialize
 from cassim.doc.serialize import SCHEMA, DocumentFileError, dumps, migrate, to_dict
 

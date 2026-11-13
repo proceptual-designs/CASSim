@@ -1,25 +1,25 @@
 # SDD-04. Device model
 
-Status: describes `src/cassim/device/` and `src/cassim/profiles/` at 2026-11-08 (M2a to M2h). Requirements: FR-DEV-001, FR-DEV-007 to FR-DEV-009, FR-CALC-001 to FR-CALC-006, FR-DOC-001 to FR-DOC-004, FR-DOC-007, FR-SCOPE-002. Decisions: 0013, 0015, 0017, 0019, 0022, 0023, 0025.
+Status: describes `src/cassim/device/` and the Nspire data, now in `src/cassim/devices/nspire/` (decision 0032), as at 2026-11-08 (M2a to M2h). Requirements: FR-DEV-001, FR-DEV-007 to FR-DEV-009, FR-CALC-001 to FR-CALC-006, FR-DOC-001 to FR-DOC-004, FR-DOC-007, FR-SCOPE-002. Decisions: 0013, 0015, 0017, 0019, 0022, 0023, 0025.
 
 ## Purpose and rule
 
 The device model is everything a TI-Nspire does that is not drawing: which key does what, what a menu holds, what the entry line contains, what is on the screen, and how a document is built and saved. It is driven by key names and returns data, so it is tested headless (`tests/device/`, `tests/flows/`) and the GUI is a thin renderer over it.
 
-The model has no Flet and no Nspire constants (the M2 guard, PLAN.md 3.2). The Nspire is a `Profile` of data (`profiles/nspire.py`, `nspire_menus.py`) handed to `AppState`. `tests/test_architecture.py` enforces the import rules.
+The model has no Flet and no Nspire constants (the M2 guard, PLAN.md 3.2). The Nspire is a `Profile` of data (`devices/nspire/keymap.py`, `nspire_menus.py`) handed to `AppState`. `tests/test_architecture.py` enforces the import rules.
 
 ## Layers
 
 ```
-profiles/nspire*.py   keymaps, keypad, menu trees, wizards, status text   (data)
+devices/nspire/      keymaps, keypad, menu trees, wizards, status text   (data)
         |
 device/keys.py        Binding, Keymap, Keyboard (modifier state)
 device/menu.py        MenuItem tree, MenuState (walking it), MenuView (what to draw)
 device/wizard.py      Field, Wizard (a dialog as data)
 device/editor.py      Row/Node/Template tree, cursor path, linear() and latex()
-device/calculator.py  Calculator page: Editor + history + Session + undo
+devices/nspire/pages/calculator.py  Calculator page: Editor + history + Session + undo
 doc/document.py    Document > Problem > Page, settings, page order
-device/screen.py      render(): the Screen a GUI draws
+devices/nspire/screen.py      render(): the Screen a GUI draws
 device/engine.py, runner.py   see SDD-02
 doc/serialize.py, share.py, clipboard.py
 ```
@@ -83,4 +83,4 @@ Many menu items with several arguments open a dialog on the handheld (distributi
 - Page types other than Calculator have no model (M3 to M7).
 - Typed-character capture on non-US layouts is open (decision 0024).
 - Action names and worker messages are strings (PLAN.md A1).
-- `app/state.py` imports `profiles.nspire` as its default profile (FR-DEV-007 review item).
+- `app/state.py` imports `devices.nspire.keymap` as its default profile (FR-DEV-007 review item).

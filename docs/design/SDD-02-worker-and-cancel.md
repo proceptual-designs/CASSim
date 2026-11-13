@@ -15,7 +15,7 @@ Flet runs the UI, the document model and every event handler in one Pyodide work
 | `LocalEngine` | `device/engine.py` | `EngineCore` in-process. `cancel()` returns False. Used by tests and by `CASSIM_ENGINE=remote` on the desktop. |
 | `WorkerEngine`, `_Worker` | `app/web.py` | Browser only (`sys.platform == "emscripten"`). Spawns a module `Worker` from a Blob URL that boots its own Pyodide, unpacks `cassim.zip` (fetched while Pyodide starts; it holds SymPy and mpmath as bytecode) and creates an `EngineCore`. |
 | `RemoteSession` | `device/engine.py` | The UI's stand-in for a `Session`. Answers `is_function` and `variables` from the last snapshot, queues settings changes in an outbox, and keeps a journal of every op the engine has accepted. |
-| `Runner` | `device/runner.py` | Owns the status (`idle`, `busy`, `restarting`), sends the Calculator's pending entry, finishes it, and implements `cancel`, `sync` and `load`. |
+| `Runner` | `devices/nspire/runner.py` | Owns the status (`idle`, `busy`, `restarting`), sends the Calculator's pending entry, finishes it, and implements `cancel`, `sync` and `load`. |
 | Packaging | `tools/publish.py` | `write_engine_zip` builds `cassim.zip` (`cassim` without the UI, SymPy and mpmath, as bytecode) served beside the site. |
 | `local_session` | `device/engine.py` | Makes an in-process `Session` with a deferred import, so the UI worker never loads SymPy (0027). |
 

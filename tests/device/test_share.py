@@ -6,9 +6,9 @@ import zlib
 import pytest
 
 from cassim.core.settings import Settings
-from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, decode
+from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.doc.serialize import DocumentFileError, dumps
 from cassim.doc.share import MAX_FRAGMENT, LinkTooLongError, encode
 

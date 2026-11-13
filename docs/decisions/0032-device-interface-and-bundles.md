@@ -21,12 +21,14 @@ PLAN.md section 15 decides that each calculator is a plug-in, that the all-in-on
 src/cassim/
   devices/__init__.py     the Device interface, the table of sites, load(id); no device code
   devices/nspire/         DEVICE; keymap.py, menus.py, syntax.py (from profiles/);
-                          pages/ (page models, starting with calculator.py); ui/ (its Flet views)
+                          pages/ (page models, starting with calculator.py); screen.py and runner.py
+                          (what a Calculator page shows, and its entries sent to the engine: both moved
+                          here in step 3, since they are about Calculator pages); ui/ (its Flet views)
   bundle.py               NAME and DEVICES for this build; written by tools.publish
   doc/                    document.py, serialize.py, share.py: Document > Problem > Page, with
                           page types that are registered, not named
-  device/                 the framework only: keys, menu, editor, wizard, screen, clipboard, profile
-                          (and engine.py, runner.py until slice 3.0 reworks them)
+  device/                 the framework only: keys, menu, editor, wizard, clipboard, profile
+                          (and engine.py until slice 3.0 reworks it)
   app/                    the shell only
 ```
 

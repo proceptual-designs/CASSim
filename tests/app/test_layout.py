@@ -21,7 +21,7 @@ from cassim.app.layout import (
 )
 from cassim.app.state import AppState, Mode, System
 from cassim.device.keys import keypad_units
-from cassim.profiles import nspire
+from cassim.devices.nspire import keymap as nspire
 
 UNITS = keypad_units(nspire.KEYPAD)  # five keys across
 PAD = keypad_size(*UNITS)

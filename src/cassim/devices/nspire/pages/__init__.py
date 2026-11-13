@@ -12,9 +12,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from cassim.device.calculator import Calculator
 from cassim.device.editor import Kind, Node, Row, Template
 from cassim.device.keys import Binding
+from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.doc.document import PageType, PageTypes
 from cassim.doc.serialize import DocumentFileError
 

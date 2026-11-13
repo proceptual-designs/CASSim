@@ -3,9 +3,9 @@
 
 from cassim.app.state import AppState
 from cassim.core.session import Session
-from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import loads
+from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.doc.serialize import dumps
 
 
