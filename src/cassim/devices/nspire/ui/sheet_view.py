@@ -1,0 +1,183 @@
+"""The Lists & Spreadsheet page drawn with Flet (slice 3b): the grid, the bar and dialogs.
+
+The grid is a `Scene` (`cassim.devices.nspire.sheet_scene`) on one canvas per layer. A refresh
+rebuilds only the layers that changed, so a cursor move sends the cursor layer and no text
+(spike A, decision 0031).
+
+Touch first (decision 0031 item 7): a tap picks a cell (a row number picks the row, a column head
+the name cell), a double tap edits, a long press or a right-click opens the context menu, a
+one-finger drag scrolls and a mouse drag selects a block (run 2, E4), and the wheel scrolls.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+import flet as ft
+import flet.canvas as cv
+
+from cassim.app.scene_canvas import layer_shapes
+from cassim.app.theme import Theme
+from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
+from cassim.devices.nspire.sheet_scene import ROW, cell_at, fit, sheet_scene
+from cassim.graph.scene import Layer
+
+BAR = 22  # the bar under the grid, in the handheld's pixels
+
+
+class SheetView:
+    def __init__(
+        self,
+        theme: Theme,
+        on_action: Callable[[str, str], None],
+        scale: Callable[[], float],
+    ) -> None:
+        self.theme = theme
+        self.on_action = on_action
+        self.scale = scale
+        self.sheet: Spreadsheet | None = None
+        self._layers: dict[str, tuple[Layer, cv.Canvas]] = {}
+        self._drag = 0.0  # pixels dragged and not yet turned into rows
+        self._mouse = False  # the drag in progress is a mouse's: it selects
+        self.grid = ft.Stack([], expand=True)
+        detector = ft.GestureDetector(
+            content=ft.Container(self.grid, expand=True),
+            on_tap_down=self._tap,
+            on_double_tap_down=self._double_tap,
+            on_long_press_start=self._long_press,
+            on_secondary_tap_down=self._secondary_tap,
+            on_pan_start=self._pan_start,
+            on_pan_update=self._pan,
+            on_scroll=self._scroll,
+            drag_interval=16,
+            expand=True,
+        )
+        self.address = ft.Text("", color="#ffffff", weight=ft.FontWeight.BOLD)
+        self.entry = ft.Text("", color="#ffffff", no_wrap=True, expand=True)
+        self.bar = ft.Container(
+            ft.Row([self.address, self.entry], spacing=8),
+            bgcolor=theme.title_bar,
+            padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+        )
+        self.dialog = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
+        self.control = ft.Column(
+            [ft.Stack([detector, self.dialog], expand=True), self.bar], spacing=0, expand=True
+        )
+
+    # ---- drawing ---------------------------------------------------------------------------------
+
+    def refresh(self, sheet: Spreadsheet, width: float, height: float) -> None:
+        """Draw `sheet` in a body `width` by `height` (the bar included)."""
+        self.sheet = sheet
+        scale = self.scale()
+        grid_height = max(height - BAR * scale, ROW * scale)
+        rows, columns = fit(width, grid_height, sheet, scale)
+        if (rows, columns) != (sheet.rows_shown, sheet.columns_shown):
+            sheet.set_window(rows, columns)
+            sheet.update()  # the window grew: ask for the cells now on show
+        screen = sheet.screen()
+        scene = sheet_scene(screen, scale, width, grid_height)
+        canvases: list[ft.Control] = []
+        for layer in scene.layers:
+            kept = self._layers.get(layer.name)
+            if kept is None or kept[0] != layer:
+                kept = (layer, cv.Canvas(layer_shapes(layer), width=width, height=grid_height))
+                self._layers[layer.name] = kept
+            canvases.append(kept[1])
+        self.grid.controls = canvases
+        size = 12 * scale
+        self.address.value, self.address.size = screen.address, size
+        self.entry.value = screen.entry
+        self.entry.size = size
+        self.bar.height = BAR * scale
+        self._show_dialog(screen.dialog, scale)
+
+    def _show_dialog(self, dialog: Dialog | None, scale: float) -> None:
+        self.dialog.visible = dialog is not None
+        if dialog is None:
+            return
+        buttons: list[ft.Control] = [
+            ft.TextButton("OK", on_click=lambda _: self.on_action("sheet_ok", ""))
+        ]
+        if dialog.cancel:
+            buttons.append(
+                ft.TextButton("Cancel", on_click=lambda _: self.on_action("sheet_cancel", ""))
+            )
+        self.dialog.content = ft.Container(
+            ft.Column(
+                [
+                    ft.Text(dialog.title, size=14 * scale, weight=ft.FontWeight.BOLD),
+                    ft.Text(dialog.message, size=13 * scale),
+                    ft.Row(buttons, alignment=ft.MainAxisAlignment.END),
+                ],
+                spacing=6,
+                tight=True,
+            ),
+            bgcolor=self.theme.error,
+            padding=12,
+            border_radius=6,
+            width=280 * scale,
+        )
+
+    # ---- touch and mouse -------------------------------------------------------------------------
+
+    def _cell(self, x: float, y: float) -> tuple[int, int] | None:
+        if self.sheet is None:
+            return None
+        return cell_at(x, y, self.sheet.screen(), self.scale())
+
+    def _pick(self, position: ft.Offset | None, *, extend: bool = False) -> bool:
+        """Put the cursor on the cell at `position`; a row number selects its row."""
+        if position is None:
+            return False
+        cell = self._cell(position.x, position.y)
+        if cell is None:
+            return False
+        column, row = cell
+        if column < 0:
+            self.on_action("sheet_tap", f"0,{row}")
+            self.on_action("sheet", "select_row")
+            return True
+        self.on_action("sheet_tap", f"{column},{row}{',extend' if extend else ''}")
+        return True
+
+    def _tap(self, event: ft.TapEvent) -> None:
+        self._pick(event.local_position)
+
+    def _double_tap(self, event: ft.TapEvent) -> None:
+        if self._pick(event.local_position):
+            self.on_action("enter", "")
+
+    def _long_press(self, event: ft.LongPressStartEvent) -> None:
+        if self._pick(event.local_position):
+            self.on_action("context_menu", "")
+
+    def _secondary_tap(self, event: ft.TapEvent) -> None:
+        if self._pick(event.local_position):
+            self.on_action("context_menu", "")
+
+    def _pan_start(self, event: ft.DragStartEvent) -> None:
+        self._drag = 0.0
+        self._mouse = event.kind == ft.PointerDeviceType.MOUSE
+        if self._mouse:
+            self._pick(event.local_position)
+
+    def _pan(self, event: ft.DragUpdateEvent) -> None:
+        if self._mouse:
+            self._pick(event.local_position, extend=True)
+            return
+        delta = event.local_delta
+        if delta is not None:
+            self._scroll_by(-delta.y)
+
+    def _scroll(self, event: ft.ScrollEvent) -> None:
+        self._scroll_by(event.scroll_delta.y)
+
+    def _scroll_by(self, pixels: float) -> None:
+        """Scroll whole rows: the pixels add up until they make a row."""
+        self._drag += pixels
+        row = ROW * self.scale()
+        rows = int(self._drag / row)
+        if rows:
+            self._drag -= rows * row
+            self.on_action("sheet_drag", f"0,{rows}")

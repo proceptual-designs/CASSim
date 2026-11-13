@@ -65,6 +65,9 @@ from cassim.doc.share import LinkTooLongError, encode, unpack
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
+SIDEBAR_W = 170  # the Computer view's sidebar
+TITLE_H = 20  # the screen's title bar, in the handheld's pixels
+
 # The keys of the two texts kept in browser storage, after the device's prefix (`cassim.`).
 AUTOSAVE_KEY = "autosave"
 SYSTEM_KEY = "system"
@@ -113,6 +116,7 @@ class App:
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
+        self.sheet_line = ""  # the debug SHEET line last printed
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
         self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
@@ -126,6 +130,7 @@ class App:
         self.view = CalculatorView(
             state, self.theme, self.act, lambda: self.shift, self.cycle_setting
         )
+        self.view.body_size = self.body_size
         self.keypad = Keypad(state, self.press, self.theme)
         self.sidebar = Sidebar(
             state, self.refresh, self.theme, lambda: self.act("open_menu", "menu")
@@ -234,6 +239,18 @@ class App:
         except DocumentFileError:
             return  # a damaged autosave is ignored, and overwritten by the next change
 
+    def body_size(self) -> tuple[float, float]:
+        """The screen's room under its title bar, for a page that draws to size (the sheet)."""
+        state = self.state
+        title = state.px(TITLE_H)
+        if state.mode is Mode.HANDHELD:
+            return state.px(SCREEN_W), state.px(SCREEN_H) - title
+        width = (self.page.width or 1000) - 2 * MARGIN - SIDEBAR_W - 12
+        if state.system.computer_keypad:
+            width -= keypad_size(*keypad_units(state.keypad))[0] * state.pad_scale
+        height = self.view.control.height or computer_screen_height(self.page.height)
+        return max(width, 200.0), max(height - title, 120.0)
+
     def refresh(self) -> None:
         start = time.perf_counter()
         self.state.prepare()  # a sheet takes the engine's replies first
@@ -257,7 +274,20 @@ class App:
                     f"CASSIM: PAGE {here[0] + 1}.{here[1] + 1} build={build:.0f} send={send:.0f}",
                     flush=True,
                 )
+            self.print_sheet()
         self.kick()
+
+    def print_sheet(self) -> None:
+        """`CASSIM: SHEET A2 16`: the cursor's cell and what it shows, when that changes. The
+        end-to-end tests read the sheet this way; its canvas has nothing to read."""
+        sheet = self.state.sheet
+        if sheet is None:
+            return
+        screen = sheet.screen()
+        line = f"{screen.address} {screen.cells.get(sheet.cursor, ('', False))[0]}".strip()
+        if line != self.sheet_line:
+            self.sheet_line = line
+            print(f"CASSIM: SHEET {line}", flush=True)
 
     # ---- the engine -------------------------------------------------------------------------
 
@@ -603,7 +633,7 @@ class App:
             # menu drawn on it would be clipped.
             view.height = computer_screen_height(self.page.height)
             parts: list[ft.Control] = [
-                ft.Container(self.sidebar.control, width=170, padding=8),
+                ft.Container(self.sidebar.control, width=SIDEBAR_W, padding=8),
                 view,
             ]
             if state.system.computer_keypad:

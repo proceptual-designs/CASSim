@@ -33,6 +33,8 @@ COLOURS: Mapping[str, str] = {
     "grid": "#3a3a3a",
     "cursor": "#6aa9ff",
     "selection": "#2d5fa8",
+    "header": "#2a2d33",  # a sheet's column heads and row numbers
+    "edit": "#101826",  # the cell being typed in
     "curve1": "#4f9dff",
     "curve2": "#ff6b6b",
     "curve3": "#5fd068",

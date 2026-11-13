@@ -1,6 +1,7 @@
 # Requirements traced here: FR-DOC-001, FR-DEV-007
-"""Stub pages: Graphs, Lists & Spreadsheet, Data & Statistics and Notes can be added from
-Doc > Insert. They have no model yet (M3, M4), so the page only says it is still to be built."""
+"""Stub pages: Graphs, Data & Statistics and Notes can be added from Doc > Insert. They have no
+model yet (M3, M4), so the page only says it is still to be built. Lists & Spreadsheet was one
+until slice 3b; it still appears here for the sidebar and the page menus."""
 
 import pytest
 
@@ -12,7 +13,6 @@ from cassim.doc.serialize import dumps
 
 STUBS = [
     ("4", PageKind.GRAPHS, "Graphs"),
-    ("6", PageKind.SPREADSHEET, "Lists & Spreadsheet"),
     ("7", PageKind.STATISTICS, "Data & Statistics"),
     ("8", PageKind.NOTES, "Notes"),
 ]
