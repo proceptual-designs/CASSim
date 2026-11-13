@@ -62,7 +62,7 @@ def test_an_undefined_name_still_echoes():
     ["pi:=3", "ⅇ:=1", "true:=1", "ans:=2", "5→pi", "Define sin(x)=x", "count(x):=x"],
 )
 def test_reserved_names_cannot_be_stored(line):
-    assert "reserved" in fails(line)
+    assert fails(line) == "Invalid variable or function name"
 
 
 @pytest.mark.parametrize(
@@ -142,8 +142,8 @@ def test_bad_parameter_lists_are_syntax_errors(line):
 
 
 def test_runaway_recursion_is_an_error_not_a_crash():
-    assert fails("f(n):=f(n+1)", "f(0)") == "Recursion is too deep"
-    assert fails("f(n):=g(n)", "g(n):=f(n)", "f(0)") == "Recursion is too deep"
+    assert fails("f(n):=f(n+1)", "f(0)") == "Recursion too deep"
+    assert fails("f(n):=g(n)", "g(n):=f(n)", "f(0)") == "Recursion too deep"
     # and the Session still works afterwards
     session = Session()
     session.eval("f(n):=f(n)")
@@ -268,3 +268,30 @@ def test_indexed_store_raises_the_revision():
     before = session.revision_of("xs")
     session.eval("xs[1]:=9")
     assert session.revision_of("xs") > before
+
+
+def test_calling_a_variable_that_is_not_a_function():
+    """Emulator check 6, C5: `a:=5` then `a(2)` is an error, not 10."""
+    assert fails("a:=5", "a(2)") == "Name is not a function"
+    assert run("b(2)") == "b(2)"
+
+
+@pytest.mark.parametrize(
+    ("line", "shown"),
+    [
+        # Emulator check 6, part B.
+        ("mean({})", "undef"),
+        ("round(2.5)", "2.5"),
+        ("2 xor 3", "1"),
+        ("true xor false", "true"),
+        ("a!", "a!"),
+        ("a!=b", "a!=b"),
+        ("2+3▶Rad", "5ʳ"),
+    ],
+)
+def test_check6_part_b_results(line, shown):
+    assert run(line) == shown
+
+
+def test_a_conversion_ends_the_entry():
+    assert fails("2+3▶Rad+4") == "Syntax error"

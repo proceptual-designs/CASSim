@@ -98,11 +98,17 @@ eager("min", 1, 2)(_extreme(cas.smallest))
 eager("max", 1, 2)(_extreme(cas.largest))
 
 
-def _summary(function: Callable[[list[Raw]], Raw]) -> Callable[[Host, list[Value]], Value]:
+def _summary(
+    function: Callable[[list[Raw]], Raw], *, empty: Raw | int = errors.DOMAIN
+) -> Callable[[Host, list[Value]], Value]:
+    """`empty` is what an empty list gives: a value, or an error code."""
+
     def run(host: Host, args: list[Value]) -> Value:
         items = raw_list(args[0])
         if not items:
-            raise TIError(errors.DOMAIN)
+            if isinstance(empty, int):
+                raise TIError(empty)
+            return Expr(empty)
         return Expr(function(items))
 
     return run
@@ -117,8 +123,9 @@ def _sample(function: Callable[..., Raw], *, sample: bool) -> Callable[[list[Raw
     return run
 
 
-eager("mean", 1)(_summary(cas.mean))
-eager("median", 1)(_summary(cas.median))
+# An empty list: `mean({})` is undef and `median({})` a Dimension error (emulator check 6, D7).
+eager("mean", 1)(_summary(cas.mean, empty=cas.constant("undef")))
+eager("median", 1)(_summary(cas.median, empty=errors.DIMENSION))
 eager("varSamp", 1)(_summary(_sample(cas.variance, sample=True)))
 eager("varPop", 1)(_summary(_sample(cas.variance, sample=False)))
 eager("stDevSamp", 1)(_summary(_sample(cas.standard_deviation, sample=True)))

@@ -81,11 +81,14 @@ def _infix_prec(op: str) -> int:
 
 
 class _Parser:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, *, display: bool = False) -> None:
         self._tokens = tokenize(text)
         self._i = 0
         self._depth = 0
-        # True directly inside [ ], where a space may separate elements as in `[1 2 3]`.
+        # A displayed result separates matrix elements with spaces (`[√(2) ∠π/4 1]`); a typed
+        # entry never does: `[1 2 3]` is `[6]` on the handheld (emulator check 6, A4).
+        self._display = display
+        # True directly inside [ ] of a displayed result, where a space separates elements.
         self._in_row = False
 
     @property
@@ -249,9 +252,14 @@ class _Parser:
         if self._tok.kind is not Kind.NAME:
             raise self._syntax_error()
         name = self._advance().text
+        target: Expr = Name(name)
         if self._accept("("):
-            return Convert(value, Call(name, self._items(")", MISSING_CLOSE_PAREN)))
-        return Convert(value, Name(name))
+            target = Call(name, self._items(")", MISSING_CLOSE_PAREN))
+        # A conversion ends the entry: `2+3▶Rad+4` is a syntax error (emulator check 6, A9).
+        token = self._tok
+        if token.kind is Kind.OP and token.text in BINARY_PREC.keys() | COMPARE_OPS:
+            raise self._syntax_error()
+        return Convert(value, target)
 
     def _index(self, base: Expr) -> Index:
         self._advance()
@@ -266,8 +274,8 @@ class _Parser:
         return Binary("*", left, self._expr(Prec.MUL + 1))
 
     def _starts_factor(self, token: Token) -> bool:
-        if token.kind is Kind.NUMBER:  # `2 3` is an error, but `x 3` and `(x)3` are products
-            return self._tokens[self._i - 1].kind is not Kind.NUMBER
+        if token.kind is Kind.NUMBER:  # `x 3`, `(x)3` and, with a space, `2 3` are products
+            return self._tokens[self._i - 1].kind is not Kind.NUMBER or token.space_before
         if token.kind in (Kind.DMS, Kind.NAME):
             return True
         return token.kind is Kind.OP and token.text in _PRIMARY_OPENERS
@@ -330,7 +338,7 @@ class _Parser:
         return tuple(items)
 
     def _matrix(self) -> Matrix:
-        in_row, self._in_row = self._in_row, True
+        in_row, self._in_row = self._in_row, self._display
         rows: list[tuple[Expr, ...]] = []
         row: list[Expr] = [self._expr(0)]
         while not self._accept("]"):
@@ -365,4 +373,4 @@ def parse(text: str) -> Line:
 
 def parse_expression(text: str) -> Expr:
     """Parse text that must be a single expression, such as a displayed result."""
-    return _Parser(text).only_expression()
+    return _Parser(text, display=True).only_expression()

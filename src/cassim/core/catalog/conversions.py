@@ -117,9 +117,11 @@ def _sexagesimal(degrees: float) -> str:
     total = round(abs(degrees) * 3600, _SECONDS_PRECISION)
     whole, rest = divmod(total, 3600)
     minutes, seconds = divmod(rest, _SEXAGESIMAL)
-    shown_seconds = f"{seconds:g}" if seconds else ""
-    tail = f'{shown_seconds}"' if shown_seconds else ""
-    return f"{sign}{int(whole)}°{int(minutes)}'{tail}"
+    # Trailing zero parts are left out: `30▶DMS` is `30°` (emulator check 6, B10).
+    tail = f"{int(minutes)}'" if minutes or seconds else ""
+    if seconds:
+        tail += f'{seconds:g}"'
+    return f"{sign}{int(whole)}°{tail}"
 
 
 @conversion("DMS")

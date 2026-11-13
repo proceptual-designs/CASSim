@@ -9,11 +9,13 @@ Code: `src/cassim/core/{scope,evaluator,session}.py`. Tests: `tests/unit/test_sc
 - **`:=`, `→` and `Define` share one path.** A variable target evaluates the value and stores it; a function target `f(x,y)` stores the parameter names and the body *as typed*. Variable assignments return the stored value, function definitions and `Define` return `Done`.
 - **`Done` is a value** (`Void`). It prints as `Done`, and it does not replace `Ans`.
 - **Functions are evaluated at each call.** The body is evaluated with the parameters bound to the evaluated arguments, so `g(a+1)` substitutes a symbolic argument, and global variables are read at the call (`a:=3` after defining `f(x):=a*x` changes `f`). A body cannot see the caller's parameters, only its own and the Problem's variables.
-- **Recursion is capped** at 50 open user-function calls (`Recursion is too deep`), so a runaway definition fails cleanly instead of overflowing the Python stack, which is smaller under Pyodide.
+- **Recursion is capped** at 50 open user-function calls ("Recursion too deep", the simulator's wording), so a runaway definition fails cleanly instead of overflowing the Python stack, which is smaller under Pyodide.
 - **`expr|x=value`** evaluates `expr` with each named variable temporarily bound (`and` joins several). The binding is made before evaluation, so `sin(x)|x=30` is right in Degree mode and a stored `x` is overridden for that entry only. Inequality, `or` and other constraints report "Not implemented yet" until `solve` and friends exist (M1d), because they are consumed by those functions.
-- **Reserved names** (`pi`, `ⅇ`, `true`, `ans`, built-in functions, ...) cannot be stored to. `DelVar` takes names only; `ClearAZ` deletes the single letters a to z, functions included.
+- **Reserved names** (`pi`, `ⅇ`, `true`, `ans`, built-in functions, ...) cannot be stored to. The error is "Invalid variable or function name"; a function's name alone (`count:=1`) gives "Missing (", as on the simulator. Calling a variable that is not a function (`a:=5`, `a(2)`) gives "Name is not a function". **To change:** the simulator evaluates a stored expression again when it is used (`a:=x+1`, `x:=2`, `a` gives 3), where CASSim keeps the value fixed when stored (simulator-todo C4). `DelVar` takes names only; `ClearAZ` deletes the single letters a to z, functions included.
 
 ## To check on the simulator
+
+**Run on the simulator (emulator check 6, part B, 2026-11-13):** the rows below were typed on the simulator; the results are in `docs/testing/emulator-calc4-results.md`. The rows still open are in `docs/testing/simulator-todo.md`, which is now the one list; the tables here are kept as the record of what was guessed.
 
 | Entry | Now | Why it is a guess |
 |---|---|---|

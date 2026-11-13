@@ -29,6 +29,8 @@ Code: `src/cassim/core/{lexer,parser,ast,errors}.py`. Tests: `tests/unit/test_{l
 
 ## To check on the simulator
 
+**Run on the simulator (emulator check 6, part B, 2026-11-13):** the rows below were typed on the simulator; the results are in `docs/testing/emulator-calc4-results.md`. The rows still open are in `docs/testing/simulator-todo.md`, which is now the one list; the tables here are kept as the record of what was guessed.
+
 The guide does not settle these. None is pinned by a corpus case, so each is a guess at TI's behaviour. Each row is one entry to type.
 
 | Entry | Parser now reads it as | Why it matters |

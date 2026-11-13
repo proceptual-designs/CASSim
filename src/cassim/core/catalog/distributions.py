@@ -118,6 +118,12 @@ def _binomial_term(n: int, p: Raw, k: int) -> Raw:
     return cas.combinations(cas.integer(n), cas.integer(k)) * p**k * (1 - p) ** (n - k)
 
 
+def _as_decimal(raw: Raw) -> Raw:
+    """binomPdf and binomCdf give decimals even for exact arguments: `binomPdf(10,1/2,5)` is
+    0.24609375 on the handheld (emulator check 6, D20)."""
+    return cas.approximate(raw)
+
+
 def _cumulative(term: Callable[[int], Raw], lower: int, upper: int) -> Raw:
     return cas.add_all([term(k) for k in range(lower, upper + 1)])
 
@@ -128,8 +134,8 @@ def binom_pdf(host: Host, args: list[Value]) -> Value:
     n, p, *rest = args
     count, chance = _count(n), _probability(p)
     if not rest:
-        return list_of([_binomial_term(count, chance, k) for k in range(count + 1)])
-    return map_value(lambda x: Expr(_binomial_term(count, chance, _count(x))), rest[0])
+        return list_of([_as_decimal(_binomial_term(count, chance, k)) for k in range(count + 1)])
+    return map_value(lambda x: Expr(_as_decimal(_binomial_term(count, chance, _count(x)))), rest[0])
 
 
 @eager("binomCdf", 2, 4)
@@ -142,11 +148,14 @@ def binom_cdf(host: Host, args: list[Value]) -> Value:
         return _binomial_term(count, chance, k)
 
     if not rest:
-        return list_of(cas.running_sums([term(k) for k in range(count + 1)]))
+        sums = cas.running_sums([term(k) for k in range(count + 1)])
+        return list_of([_as_decimal(total) for total in sums])
     if len(rest) == 1:
-        return map_value(lambda x: Expr(_cumulative(term, 0, min(_count(x), count))), rest[0])
+        return map_value(
+            lambda x: Expr(_as_decimal(_cumulative(term, 0, min(_count(x), count)))), rest[0]
+        )
     lower, upper = _count(rest[0]), _count(rest[1])
-    return Expr(_cumulative(term, lower, min(upper, count)))
+    return Expr(_as_decimal(_cumulative(term, lower, min(upper, count))))
 
 
 @eager("invBinom", 3)

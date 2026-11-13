@@ -18,8 +18,7 @@ from cassim.core.values import (
     Void,
 )
 
-# Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
-_SMALLEST_FLOAT_EXPONENT = -3
+# Fix mode keeps fixed form up to this size.
 _LARGEST_FIX = Decimal(10) ** 12
 _ENGINEERING_STEP = 3
 
@@ -83,9 +82,15 @@ def _trimmed(value: Decimal) -> str:
 
 
 def _float_text(value: Decimal, places: int) -> str:
+    """Float n: n significant digits from 1 up; below 1, n decimal places down to 10^-n, so the
+    zeros after the point count (`0.02666667` in Float 8); smaller still, scientific form.
+    Emulator checks 5 and 6: `0.0000012` and `-0.0010101` in Float 8, `9.ᴇ-4` in Float 3."""
+    smallest = Decimal(1).scaleb(-places)
+    if smallest <= value < 1:
+        return _trimmed(value.quantize(smallest, ROUND_HALF_UP))
     rounded = _round_significant(value, places)
     exponent = rounded.adjusted()
-    if _SMALLEST_FLOAT_EXPONENT <= exponent < places:
+    if 0 <= exponent < places:
         return _trimmed(rounded)
     return f"{_trimmed(rounded.scaleb(-exponent))}ᴇ{exponent}"
 

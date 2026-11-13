@@ -10,7 +10,7 @@ cases:
   steps:
   - {in: 'x:={1,2,3,4,5}', out: '{1,2,3,4,5}', compare: ignore}
   - {in: 'y:={2,4,5,4,5}', out: '{2,4,5,4,5}', compare: ignore}
-  - {in: 'TwoVar x,y,1:stat.values', out: '["Two-Variable Statistics",3.,15.,55.,1.5811388,1.4142136,5.,4.,20.,86.,1.2247449,1.0954451,66.,0.77459667,1.,1.5,3.,4.5,5.,2.,3.,4.,5.,5.,10.,6.]', compare: numeric}
+  - {in: 'TwoVar x,y,1:stat.values', out: '["Two-Variable Statistics";3.;15.;55.;1.5811388;1.4142136;5.;4.;20.;86.;1.2247449;1.0954451;66.;0.77459667;1.;1.5;3.;4.5;5.;2.;3.;4.;5.;5.;10.;6.]', compare: numeric}
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude
       (screenshot transcription); human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/m10.stats.twovar-1.jpg, shots/m10.stats.twovar-2.jpg, shots/m10.stats.twovar-3.jpg', note: 'For TwoVar the results are in stat.values
       (a column with a title, not stat.results as for OneVar and the regressions). Order, read from the simulator: title, x̄, Σx, Σx², sx, σx, n, ȳ, Σy, Σy², sy, σy, Σxy, r, MinX, Q1X, MedianX, Q3X, MaxX,

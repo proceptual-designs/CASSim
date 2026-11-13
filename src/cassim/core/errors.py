@@ -20,7 +20,8 @@ TOO_MANY_ARGUMENTS = 940
 CAS_RESTRICTED = -1
 # Ours, for language that a later milestone will implement.
 NOT_IMPLEMENTED = -2
-# Ours: the simulator's wording and number for these were not captured (decision 0009).
+# Ours: the simulator shows no number for these. The wording of RESERVED_NAME, RECURSION and
+# NOT_A_FUNCTION is the simulator's (emulator check 6, part B); the rest are not captured.
 RESERVED_NAME = -3
 RECURSION = -4
 MEMORY = -5
@@ -28,6 +29,7 @@ SINGULAR = -6
 VARIABLE_NAME_NEEDED = -7
 USE_DERIVATIVE_AT_POINT = -8
 NO_SOLUTION = -9
+NOT_A_FUNCTION = -10
 NON_REAL = 800  # TI's number for a non-real result in Real mode
 
 _MESSAGES = {
@@ -45,8 +47,9 @@ _MESSAGES = {
     TOO_FEW_ARGUMENTS: "Too few arguments",
     TOO_MANY_ARGUMENTS: "Too many arguments",
     CAS_RESTRICTED: "CAS computations are restricted in CAS Off and Exact Arithmetic modes.",
-    RESERVED_NAME: "Invalid variable name: that name is reserved",
-    RECURSION: "Recursion is too deep",
+    RESERVED_NAME: "Invalid variable or function name",
+    RECURSION: "Recursion too deep",
+    NOT_A_FUNCTION: "Name is not a function",
     MEMORY: "Memory",
     SINGULAR: "Singular matrix",
     VARIABLE_NAME_NEEDED: "Argument must be a variable name",

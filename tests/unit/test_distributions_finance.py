@@ -190,8 +190,14 @@ def test_discrete_errors(line, message):
 
 
 def test_binomial_probabilities_add_to_one():
-    assert text("sum(binomPdf(10,1/3))") == "1"
+    assert text("sum(binomPdf(10,1/3))") == "1."
     assert text("sum(binomPdf(7,0.2))") == "1."
+
+
+def test_binomial_results_are_decimals_for_exact_arguments():
+    """Emulator check 6, D20: `binomPdf(10,1/2,5)` is 0.24609375, not 63/256."""
+    assert text("binomPdf(10,1/2,5)") == "0.24609375"
+    assert text("binomCdf(10,1/2,5)") == "0.62304688"
 
 
 @pytest.mark.parametrize(

@@ -114,7 +114,8 @@ class _Results:
             _store(host, name, _decimal(value))
         _store(host, "results", MatrixValue(tuple(cells)))
         values: tuple[Cell, ...] = (Str(self.title), *(_decimal(v) for _, _, v in self.rows))
-        _store(host, "values", MatrixValue((values,)))  # the calculator shows it as one row
+        # One column, title first, so element k is `stat.values[k,1]` (emulator check 6, D24).
+        _store(host, "values", MatrixValue(tuple((value,) for value in values)))
 
 
 def _single_variable_rows(results: _Results, summary: stats.Summary, axis: str) -> None:
@@ -278,10 +279,13 @@ _REGRESSIONS = {
     "LnReg": Regression("Logarithmic Regression", "a+b*ln(x)", "r²", _logarithmic),
     "MedMed": Regression("Median-Median Line", "m*x+b", "r²", _median_median),
     "Logistic": Regression(
-        "Logistic Regression", "c/(1+a*e^(-b*x))", "r²", lambda x, y: _logistic(x, y, shifted=False)
+        "Logistic Regression (d=0)",
+        "c/(1+a*e^(-b*x))",
+        "r²",
+        lambda x, y: _logistic(x, y, shifted=False),
     ),
     "LogisticD": Regression(
-        "Logistic Regression (d)",
+        "Logistic Regression (d≠0)",
         "c/(1+a*e^(-b*x))+d",
         "r²",
         lambda x, y: _logistic(x, y, shifted=True),
