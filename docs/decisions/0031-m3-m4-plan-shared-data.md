@@ -258,6 +258,25 @@ The second run (2026-11-13) did parts G, H and J and part of D: `emulator-sharin
   - Relations: inequalities are shaded with a solid boundary, even for `<`.
   - In a Degree document, Graphing Angle Auto graphs in degrees.
 
+The finish-off rows after run 2 (`emulator-finish-results.md`, no screenshots) completed part G and most of the E leftovers:
+
+- **Undo.**
+  - Sheet edits undo and redo one step at a time. Typing a cell is two steps: undo first reopens the cell with the typed text, then empties it.
+  - A store made on the Calculator (`xs[1]:=55`) was not undone by ctrl+Z on the sheet. Undo moved to another page and changed nothing.
+- **What a page keeps.**
+  - Kept when the page is left and shown again: the sheet's cursor and scroll (a Go To scrolls as little as it can), a half-typed Calculator line with a picked history row, a trace point (it keeps its x and steps on from there), and a selected point with the regression line.
+  - Not kept: a half-typed Graphs entry line comes back open but empty, and an Analyze Graph prompt is dropped partway, though its tool stays chosen.
+  - While a menu is open the page cannot be changed.
+- **Window.** A pan keeps the window's width and height. Window Settings shows 14 significant figures whatever the Float setting.
+- **A formula column cannot be stored to,** even when it was made by Generate Sequence: `big:=big+1` and `big[1]:=7` give "Cannot accept change: Invalid input." A plain list of 500 elements (`seq(n^2,n,1,500)`) updated, and its sheet was shown, with no visible delay.
+- **Sheet.**
+  - A block's context menu has Cut, Copy, Paste, Fill, Delete Cells, Sort and Color.
+  - Inserting a row moves cell references below it (`=c3` becomes `=c4`); linked columns get a void in the new row.
+  - A formula naming something that is both a cell and a variable (`=d1+qq`) asks "Cell or Variable?" (dialog "Conflict Detected"). Choosing Variable writes `'d1`, so slice 3a's cell parser needs the `'name` form.
+  - A formula column whose lists differ in length gives "Dimension mismatch" and `#ERR` in every cell.
+  - The sheet follows Document Settings (Float 3 shows `0.333`, Fix 2 `0.33`), and exact `1/3` stays exact.
+  - The sheet ends at row 2500 and column Z; Go To beyond either gives "Invalid reference".
+
 ## Not decided
 
 - How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G did not test other events. Decide in slice 3a.
