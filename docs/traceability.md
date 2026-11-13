@@ -162,7 +162,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
 | FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/unit/test_sheet.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
-| FR-SHEET-001 | Must | `tests/unit/test_sheet.py` |
+| FR-SHEET-001 | Must | `tests/unit/test_sheet.py`, `tests/unit/test_sheet_actions.py` |
 | FR-SHEET-002 | Must | `tests/unit/test_sheet.py`, `tests/unit/test_sheet_refs.py` |
 | FR-STAT-002 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |

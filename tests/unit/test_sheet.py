@@ -485,12 +485,12 @@ def test_a_range_holding_an_error_is_an_error():
     assert sheet.shown(B, 1).text == "#ERR"
 
 
-def test_a_list_with_a_gap_leaves_a_blank_cell():
+def test_a_gap_in_a_linked_list_shows_as_an_empty_element():
     session = Session()
     session.eval("xs:={1,_,3}")
     sheet = Sheet(session)
     sheet.set_name(A, "xs")
-    assert texts(sheet, A, [1, 2, 3]) == ["1", "", "3"]
+    assert texts(sheet, A, [1, 2, 3]) == ["1", "_", "3"]  # check run 2, E12
     assert session.eval("xs").text == "{1,_,3}"
 
 

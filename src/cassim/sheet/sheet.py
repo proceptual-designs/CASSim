@@ -184,7 +184,9 @@ class Sheet:
         """A cell as drawn (check 6, E5, E20, E21)."""
         value = self.value(column, row)
         if value is None:
-            return Shown("")
+            # A gap inside a linked list is an empty element (check run 2, E12; G).
+            linked = self._columns[column].name is not None
+            return Shown("_" if linked and row < self.last_row(column) else "")
         if isinstance(value, Failed):
             return Shown("#ERR")
         content = self._contents.get((column, row))
@@ -319,6 +321,41 @@ class Sheet:
             if isinstance(content, Entry):  # `1/3` becomes 0.333… in Approximate mode
                 self._store_value(key, self._content_value(content), outcome)
         self._recalculate(set(self._inputs), outcome)
+        return outcome.notices
+
+    def contents(self) -> dict[Key, Content]:
+        """Every cell's content, for an action that moves cells (`sheet.actions`) or a save."""
+        return dict(self._contents)
+
+    def put(self, contents: dict[Key, Content | None]) -> list[Notice]:
+        """Set several cells at once, as Fill and Paste do, then recalculate. None clears."""
+        if any(self._columns[column].formula is not None for column, _ in contents):
+            raise SheetError(SYNTAX_ERROR, INVALID_INPUT)  # guess, as in `set_cell`
+        return self._replace(contents)
+
+    def restore(self, contents: dict[Key, Content], columns: list[ColumnInfo]) -> list[Notice]:
+        """Replace the whole sheet, as after an insert, delete or sort, or when a document is
+        opened, and compute it all again. Named columns are written to their lists."""
+        old = set(self._contents) | set(self._values)
+        for key in list(self._inputs):
+            self._unlink(key)
+        self._contents = dict(contents)
+        self._values = {}
+        self._columns = [ColumnInfo(info.name, info.shown_name, info.formula) for info in columns]
+        outcome = _Outcome(changed=old | set(contents))
+        for key, content in self._contents.items():
+            if isinstance(content, Formula):
+                self._link(key, self._read_inputs(content.text))
+            else:
+                self._store_value(key, self._content_value(content), outcome)
+        for column, info in enumerate(self._columns):
+            if info.formula is not None:
+                self._link((column, 0), self._read_inputs(info.formula))
+        self._recalculate(set(self._inputs), outcome)
+        for column, info in enumerate(self._columns):
+            if info.name is not None:
+                self._write(column)
+        self.revision += 1
         return outcome.notices
 
     def sync(self) -> list[Notice]:

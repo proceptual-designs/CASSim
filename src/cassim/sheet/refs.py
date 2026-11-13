@@ -200,9 +200,12 @@ def shifted(text: str, columns: int, rows: int) -> str | None:
     return rewrite(text, found, lambda item: str(moved[positions[id(item)]]))
 
 
-def remapped(text: str, move: Callable[[Ref], Ref]) -> str:
-    """A formula with every cell reference passed through `move`, as when a row or column is
-    inserted or deleted (emulator check 6, E12: `=c3` becomes `=c4` after a row above it)."""
+def remapped(
+    text: str, move: Callable[[Ref], Ref], move_column: Callable[[int], int] | None = None
+) -> str:
+    """A formula with every cell reference passed through `move`, and every whole column
+    through `move_column`, as when a row or column is inserted or deleted (emulator check run 2,
+    E12: `=c3` becomes `=c4` after a row above it)."""
     found = scan(text)
 
     def again(item: Found) -> str:
@@ -211,6 +214,8 @@ def remapped(text: str, move: Callable[[Ref], Ref]) -> str:
             return str(move(reference))
         if isinstance(reference, Span):
             return str(Span(move(reference.start), move(reference.end)))
+        if isinstance(reference, Column) and move_column is not None:
+            return str(Column(move_column(reference.column)))
         return str(reference)
 
     return rewrite(text, found, again)
