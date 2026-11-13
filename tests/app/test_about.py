@@ -15,6 +15,10 @@ def test_disclaimer_says_what_nfr_leg_002_requires() -> None:
     """NFR-LEG-002 and NFR-LEG-005: not affiliated with or endorsed by any company (TI, Casio, HP
     included); not an approved exam calculator."""
     text = about.DISCLAIMER
+    assert text.startswith(
+        "CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational "
+        "purposes."
+    )
     assert "not affiliated with, endorsed by or sponsored by any company" in text
     assert "curriculum authority" in text
     assert "not an approved exam calculator" in text
