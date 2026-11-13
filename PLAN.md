@@ -55,7 +55,7 @@ cassim/
     sheet/                  [placeholder] Lists & Spreadsheet engine (cells, named columns = lists, formula columns, deps graph)
     stats/                  [placeholder] Data & Statistics plot models; the statistics maths is in core/ (pure Python and
                             mpmath, no SciPy: decision 0031)
-    graph/                  [placeholder] function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
+    graph/                  scene.py: the backend-neutral scene (FR-GRAPH-006, slice 3.0); to come: function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
                             emits a backend-neutral scene (paths, points, labels)
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)

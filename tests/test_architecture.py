@@ -28,6 +28,11 @@ RULES = [
         "the runtime is UI-free",
     ),
     ("doc", {"flet", "cassim.app", "cassim.devices", "cassim.bundle"}, "decision 0032 item 6"),
+    (
+        "graph",
+        {"flet", "cassim.app", "cassim.device", "cassim.devices", "cassim.doc", "cassim.bundle"},
+        "PLAN.md 12 A5: the scene and sampler are headless",
+    ),
     ("devices", {"flet", "cassim.app"}, "a device imports without Flet (decision 0032)"),
 ]
 
