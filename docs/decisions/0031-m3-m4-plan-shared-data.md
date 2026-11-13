@@ -275,7 +275,7 @@ The finish-off rows after run 2 (`emulator-finish-results.md`, no screenshots) c
   - A formula naming something that is both a cell and a variable (`=d1+qq`) asks "Cell or Variable?" (dialog "Conflict Detected"). Choosing Variable writes `'d1`, so slice 3a's cell parser needs the `'name` form.
   - A formula column whose lists differ in length gives "Dimension mismatch" and `#ERR` in every cell.
   - The sheet follows Document Settings (Float 3 shows `0.333`, Fix 2 `0.33`), and exact `1/3` stays exact.
-  - The sheet ends at row 2500 and column Z; Go To beyond either gives "Invalid reference".
+  - The handheld's sheet ends at row 2500 and column Z; Go To beyond either gives "Invalid reference". **CASSim does not copy these limits** (Simon, 2026-11-13). Its sheet may be larger, and its size is bounded only by memory and speed (spike B). Go To still gives "Invalid reference" for a cell that cannot exist.
 
 ## Not decided
 
