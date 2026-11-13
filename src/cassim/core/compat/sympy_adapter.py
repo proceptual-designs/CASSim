@@ -246,6 +246,11 @@ def is_symbolic(raw: Raw) -> bool:
     return bool(raw.free_symbols or raw.atoms(AppliedUndef))
 
 
+def is_undefined(raw: Raw) -> bool:
+    """Whether `raw` is `undef`, as from 1/0 (a spreadsheet cell shows #UNDEF)."""
+    return raw is sp.nan
+
+
 def number_value(raw: Raw) -> complex | None:
     """Return a numeric value as a complex number, or None if `raw` is not a finite number."""
     if not raw.is_number or raw.has(sp.oo, sp.nan, sp.zoo, -sp.oo):
