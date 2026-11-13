@@ -90,8 +90,9 @@ def test_ascii_spelling_of_the_canonical_text():
 
 
 def test_user_names_cannot_take_an_inverse_spelling():
-    assert "reserved" in (error("arcsin:=3") or "")
-    assert "reserved" in (error("sin⁻¹:=3") or "")
+    assert error("arcsin:=3") == "Missing ("
+    assert error("sin⁻¹:=3") == "Missing ("
+    assert "reserved" in (error("arcsin(x):=3") or "")
 
 
 # ---- number bases and angles -----------------------------------------------------------------

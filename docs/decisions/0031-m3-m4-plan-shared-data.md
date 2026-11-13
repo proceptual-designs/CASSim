@@ -57,6 +57,7 @@ The triggers of PLAN.md section 12 rows A1, A4 and A5 are met by slice 3.0:
 
 - The emulator captures record behaviour. CASSim matches what a function does (which cells move, what a dialog asks, what is recalculated), not how the emulator draws it: cursor shapes, the hand pointer while resizing, the I-beam and similar are not copied.
 - Every function the emulator reaches by a key chord, right-click or mouse gesture gets a conventional touch route in CASSim: tap, long-press for the context menu, swipe, drag handles and on-screen menus. Key chords stay as shortcuts where a keyboard is present.
+- **Keep the animation.** When its data or plot type changes, a Data & Statistics plot moves its points to their new places over about a second (a linear interpolation), as the emulator does. This is behaviour, not look: it shows the student where each case went.
 
 ## Spikes
 
@@ -222,8 +223,43 @@ The first run of check 6 (2026-11-13) did most of parts E and F: `docs/testing/e
 - Ctrl+R recalculates the sheet, and a `randint` cell gets a new value each time.
 - Data & Statistics: a regression adds `stat.freqreg`, `stat.resid`, `stat.xreg` and `stat.yreg` to the variable lists; Sort (List, Value, Alpha order) is live only on categorical charts; points selected on one plot show as selected on the other plots of the Problem.
 
+The second run (2026-11-13) did parts G, H and J and part of D: `emulator-sharing-results.md`, `emulator-split-results.md`, `emulator-categorical-results.md` and `emulator-graphs3-results.md`, with what is left in `emulator-check6-run2-remaining.md`. Parts H and D, and J12 to J19, have no screenshots (Cowork read zooms of the screen). They confirm decision 1 and add:
+
+- **Sharing (G).**
+  - A page that is not on show is brought up to date when it is shown. The sheet, plots, regression labels and graphs follow every change to a list or function, whichever page made it.
+  - A linked variable cannot change type: `xs:=5`, `xs:="hello"` and `xs:=[1,2;3,4]` give "Cannot accept change, variable in use", and `xs` stays the list. A list of mixed elements is accepted; the plots leave out the elements that are not numbers.
+  - `DelVar xs` unlinks column A, which keeps its values as constants; plots lose the variable, and the Graphs scatter comes back when `xs` exists again.
+  - A formula column (`sq`, `=xs^2`) is a variable the Calculator can read but not store to: "Cannot accept change: Invalid input."
+  - Renaming column A from `xs` to `ws` leaves both variables, not linked to each other. Two sheets can link the same list. Variables belong to one Problem: a column named `xs` in Problem 2 starts empty. Copy and paste across Problems carries values only.
+  - Indexed store (needed by slice 3a): `ys[9]:=18` on an eight-element list appends; `ys[12]:=5` gives "Dimension error".
+  - Graph functions are Problem variables: `f1(2)` works on the Calculator, and redefining `f` or `f1` there redraws the graph. `DelVar f1` leaves its curve drawn with the label `y=…`; `DelVar f` hides `f1(x)=f(x)` until `f` is defined again.
+  - A graph entry with an undefined variable (`a*x`) offers "Create Sliders"; OK makes the variable (1, slider from -5 to 5), Cancel keeps the entry undrawn.
+  - Linear Regression from the sheet saves its equation to the next free `fN`, which is not drawn but is recalculated when the data change.
+  - Dragging a point on a scatter plot writes unrounded values (4.498, 9.875) into both lists.
+  - Float 3 changes new Calculator results only: earlier history lines keep their digits (CASSim already does), and the Data & Statistics labels and the Graphs axes keep theirs (Data & Statistics has its own Display Digits, Float 6).
+  - Undo is document-wide: it goes to the page of the last change first, then undoes it.
+  - A page keeps its state while another is shown: the sheet's cursor, scroll and block selection, a half-typed cell, a selected point and a shown regression.
+- **Split pages (H).** Doc > Page Layout has eight layouts; decision 3 stands (two panes in M3). A tap gives a pane the focus and an empty pane offers the list of applications. Menu is the focused pane's own menu; Undo is not tied to the focused pane. Delete Application gives the pane's space to its neighbour. The residual plot is part of the Data & Statistics application, below its plot, not a second pane, and the Graphs table (Ctrl+T) is a split page.
+- **Categorical charts (J).**
+  - Categories are in alphabetical order by default. Sort offers List Order (first appearance), Value Order (largest first, ties alphabetical) and Alpha Order, and a category keeps its colour when it moves. Dragging a category label reorders by hand; the order goes back to alphabetical when the data change.
+  - The pie runs clockwise from 3 o'clock, with the names outside the slices.
+  - A summary plot (X List and Summary List) keeps the list's order, has no Dot Chart, and needs a numeric summary list.
+  - Splitting by a second variable gives clustered bars, side by side, with a legend; Pie Chart is greyed while split.
+  - There is no percent axis: percentages appear only in the tooltip (`5 cases (50.0%)`) and with Show All Labels (`5 (50.0%)`).
+  - An empty string is not drawn. A void cell in the middle of a list stays as `_`; clearing the last cell shortens the list.
+  - Selected cases are shared by every plot of the Problem and survive a change of plot type; a bar with some selected cases is drawn in two parts.
+  - A numeric list can be forced categorical (Force Categorical X); a categorical x with a numeric y gives one dot plot or box plot per category.
+- **Graphs (D, part).**
+  - Auto tick marks are a power of ten, about a tenth or a twentieth of the window; only the first tick and the two end values are labelled.
+  - Trace steps 0.3 in the standard window.
+  - The table starts at 0 with step 1.
+  - There is no line across a jump (`1/x`, `tan(x)`, `floor(x)`) and no open or closed end circles.
+  - A restricted function (`x^2|x>0`) is labelled in brace form.
+  - Relations: inequalities are shaded with a solid boundary, even for `<`.
+  - In a Degree document, Graphing Angle Auto graphs in degrees.
+
 ## Not decided
 
-- How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G shows what other events recalculate. Decide in slice 3a.
+- How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G did not test other events. Decide in slice 3a.
 - Timings on the Pixel 6 for all four spikes (deferred by Simon, 2026-11-13: wait for `tools/switchtime.py`).
 - Where the autosave size limit sits for a document with large lists; share links already fall back to a file above about 2,000 characters.

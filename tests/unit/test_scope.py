@@ -58,10 +58,25 @@ def test_an_undefined_name_still_echoes():
 
 
 @pytest.mark.parametrize(
-    "line", ["pi:=3", "ⅇ:=1", "true:=1", "ans:=2", "sin:=1", "5→pi", "Define sin(x)=x"]
+    "line",
+    ["pi:=3", "ⅇ:=1", "true:=1", "ans:=2", "5→pi", "Define sin(x)=x", "count(x):=x"],
 )
 def test_reserved_names_cannot_be_stored(line):
     assert "reserved" in fails(line)
+
+
+@pytest.mark.parametrize(
+    "line", ["count:={5,3,1,1}", "sin:=1", "MEAN:=2", "5→seqGen", "colDim:=1", "sech⁻¹:=1"]
+)
+def test_a_function_name_reads_as_a_call(line):
+    """The handheld refuses `count:={5,3,1,1}` with "Missing (" (check 6, part J),
+    for the Reference Guide's functions that CASSim has not built yet as well."""
+    assert fails(line) == "Missing ("
+
+
+def test_names_near_a_function_name_are_free():
+    assert run("counts:={1,2}", "counts") == "{1,2}"
+    assert run("d:=4", "d") == "4"
 
 
 def test_ans_ignores_statements_that_print_done():

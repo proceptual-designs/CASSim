@@ -4,13 +4,22 @@ catalog's, and nothing it imports at start-up loads the engine."""
 import subprocess
 import sys
 
-from cassim.core.builtin_names import NAMES, is_builtin
+from tools.builtin_names import planned
+
+from cassim.core.builtin_names import NAMES, PLANNED, is_builtin
 from cassim.core.catalog import registry
 
 
 def test_names_match_the_catalog() -> None:
     """Run `python -m tools.builtin_names` when this fails."""
     assert registry.canonical_names() == NAMES
+
+
+def test_planned_names_match_the_command_matrix() -> None:
+    """Run `python -m tools.builtin_names` when this fails."""
+    assert sorted(PLANNED) == planned(NAMES)
+    assert {"count", "seqgen", "coldim", "arcsech"} <= PLANNED
+    assert not PLANNED & NAMES
 
 
 def test_is_builtin_agrees_with_the_catalog() -> None:
