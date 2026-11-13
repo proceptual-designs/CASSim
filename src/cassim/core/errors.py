@@ -10,6 +10,7 @@ MISSING_QUOTE = 700
 MISSING_CLOSE_BRACKET = 710
 MISSING_CLOSE_BRACE = 720
 DATA_TYPE = 210
+DIMENSION = 230  # an index past the end of a list (emulator check 6, G7)
 DIMENSION_MISMATCH = 240
 DOMAIN = 260
 INVALID_LIST_OR_MATRIX = 510
@@ -37,6 +38,7 @@ _MESSAGES = {
     MISSING_CLOSE_BRACKET: "Missing ]",
     MISSING_CLOSE_BRACE: "Missing }",
     DATA_TYPE: "Data type",
+    DIMENSION: "Dimension error",
     DIMENSION_MISMATCH: "Dimension mismatch",
     DOMAIN: "Domain error",
     INVALID_LIST_OR_MATRIX: "Invalid list or matrix",

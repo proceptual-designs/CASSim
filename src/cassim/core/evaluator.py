@@ -219,7 +219,7 @@ class Evaluator:
         elif isinstance(node, ast.Call):
             text = node.func
         else:
-            raise _unsupported("indexed assignment")
+            raise TIError(errors.SYNTAX)
         folded = text.casefold()
         function = catalog.is_builtin(folded) or builtin_names.is_function_name(folded)
         if function and isinstance(node, ast.Name):
@@ -232,6 +232,8 @@ class Evaluator:
 
     def _assign(self, target: ast.Expr, body: ast.Expr) -> Value:
         """`target:=body` and `body→target`: a variable gets the value, a function the body."""
+        if isinstance(target, ast.Index):
+            return self._assign_index(target, body)
         name = self._variable_name(target)
         if isinstance(target, ast.Call):
             self._scope.define(name, self._make_function(target, body))
@@ -380,16 +382,44 @@ class Evaluator:
         """Convert an angle typed in `unit` to the document's angle mode."""
         return angles.convert(raw, unit, self._settings.angle)
 
+    def _position(self, node: ast.Expr) -> int:
+        """A subscript as a whole number; a fraction or symbol is a Domain error."""
+        position = cas.number_value(as_expr(self.expr(node)).raw)
+        if position is None or position.imag or int(position.real) != position.real:
+            raise TIError(errors.DOMAIN)
+        return int(position.real)
+
     def _index(self, node: ast.Index) -> Value:
         base = self.expr(node.base)
         if not isinstance(base, ListValue) or len(node.subscripts) != 1:
             raise _unsupported("this subscript")
-        position = cas.number_value(as_expr(self.expr(node.subscripts[0])).raw)
-        if position is None or position.imag or int(position.real) != position.real:
-            raise TIError(errors.DOMAIN)
-        if not 1 <= position.real <= len(base.items):
-            raise TIError(errors.DOMAIN)
-        return base.items[int(position.real) - 1]
+        position = self._position(node.subscripts[0])
+        if not 1 <= position <= len(base.items):
+            raise TIError(errors.DIMENSION)
+        return base.items[position - 1]
+
+    def _assign_index(self, target: ast.Index, body: ast.Expr) -> Value:
+        """`xs[k]:=v`: replaces element k, or appends when k is one past the end (emulator
+        check 6, G7); further on is a Dimension error. A new name starts as an empty list."""
+        if not isinstance(target.base, ast.Name) or len(target.subscripts) != 1:
+            raise _unsupported("indexed assignment to this")
+        name = self._variable_name(target.base)
+        stored = self._scope.get(name)
+        if stored is not None and not isinstance(stored, ListValue):
+            raise TIError(errors.DATA_TYPE)
+        items = list(stored.items) if stored is not None else []
+        position = self._position(target.subscripts[0])
+        if not 1 <= position <= len(items) + 1:
+            raise TIError(errors.DIMENSION)
+        value = self._evaluated(body)
+        if isinstance(value, ListValue | MatrixValue | Void):
+            raise TIError(errors.DATA_TYPE)  # a list element is a single value
+        if position > len(items):
+            items.append(value)
+        else:
+            items[position - 1] = value
+        self._scope.define(name, ListValue(tuple(items)))
+        return value
 
     def _matrix(self, node: ast.Matrix) -> Value:
         if len({len(row) for row in node.rows}) != 1:
