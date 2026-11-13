@@ -8,6 +8,7 @@ from cassim.core.errors import TIError
 from cassim.core.values import (
     Bool,
     Cell,
+    Empty,
     Expr,
     ListValue,
     MatrixValue,
@@ -33,12 +34,15 @@ def raw_of(value: Value) -> Raw:
 
 
 def cell_of(value: Value) -> Cell:
-    """A value as a matrix cell: a string stays a string, anything else must be a number."""
-    return value if isinstance(value, Str) else as_expr(value)
+    """A value as a matrix cell: a string or `_` stays as it is, anything else must be a number."""
+    return value if isinstance(value, Str | Empty) else as_expr(value)
 
 
 def map_value(function: Callable[[Value], Value], value: Value) -> Value:
-    """Apply `function` to a value, or to each element of a list or matrix."""
+    """Apply `function` to a value, or to each element of a list or matrix. An empty element
+    stays empty (Reference Guide, Empty (Void) Elements)."""
+    if isinstance(value, Empty):
+        return value
     if isinstance(value, ListValue):
         return ListValue(tuple(map_value(function, item) for item in value.items))
     if isinstance(value, MatrixValue):

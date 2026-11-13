@@ -11,7 +11,7 @@ from cassim.core.compat import statistics as stats
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.valueops import list_of
-from cassim.core.values import Cell, Expr, ListValue, MatrixValue, Str, Value, Void
+from cassim.core.values import Cell, Empty, Expr, ListValue, MatrixValue, Str, Value, Void
 
 
 def _fraction(value: Value) -> Fraction:
@@ -56,12 +56,30 @@ def _read(
         values = values[1:]
     if len(values) < lists:
         raise TIError(errors.TOO_FEW_ARGUMENTS)
+    values = _without_empty_rows(values[: lists + 1])
     data = [_numbers(value) for value in values[:lists]]
     if len({len(column) for column in data}) != 1:
         raise TIError(errors.DIMENSION_MISMATCH)
     if len(values) == lists:
         return data, None
     return data, _frequencies(values[lists], len(data[0]))
+
+
+def _without_empty_rows(values: list[Value]) -> list[Value]:
+    """Leave out every position where one of the lists has an empty element, as the handheld
+    does for a void in X, Y or the frequencies (Reference Guide, Empty (Void) Elements)."""
+    lists = [value for value in values if isinstance(value, ListValue)]
+    if not lists or len({len(value.items) for value in lists}) != 1:
+        return values
+    gaps = {i for value in lists for i, item in enumerate(value.items) if isinstance(item, Empty)}
+    if not gaps:
+        return values
+    return [
+        ListValue(tuple(item for i, item in enumerate(value.items) if i not in gaps))
+        if isinstance(value, ListValue)
+        else value
+        for value in values
+    ]
 
 
 def _decimal(number: float | Fraction) -> Expr:

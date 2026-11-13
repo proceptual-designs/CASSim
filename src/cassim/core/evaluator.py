@@ -15,6 +15,7 @@ from cassim.core.settings import Angle, CasMode, Domain, Settings, variable_key
 from cassim.core.valueops import as_expr, cell_of, map_value, raw_of, raw_rows
 from cassim.core.values import (
     Bool,
+    Empty,
     Expr,
     ListValue,
     MatrixValue,
@@ -28,8 +29,33 @@ from cassim.core.values import (
 _ELEMENTWISE = {".+": "+", ".-": "-", ".*": "*", "./": "/", ".^": "^"}
 # The unit each angle post operator means.
 _POST_UNITS = {"°": Angle.DEGREE, "ᵍ": Angle.GRADIAN, "ʳ": Angle.RADIAN}
+# The two spellings of an empty (void) element.
+_EMPTY_NAMES = frozenset({"_", "void"})
 # Names that mean something already, so a variable or function cannot take them.
-_RESERVED = frozenset({"true", "false", "ans"})
+_RESERVED = frozenset({"true", "false", "ans"}) | _EMPTY_NAMES
+# Functions that leave out the empty elements of their list arguments (Reference Guide, Empty
+# (Void) Elements); the commands OneVar, TwoVar and the regressions do the same in `_read`.
+_SKIP_EMPTY = frozenset(
+    {
+        "count",
+        "countif",
+        "freqtable▶list",
+        "frequency",
+        "max",
+        "mean",
+        "median",
+        "min",
+        "product",
+        "stdevpop",
+        "stdevsamp",
+        "sum",
+        "sumif",
+        "varpop",
+        "varsamp",
+    }
+)
+# Functions that look at empty elements themselves rather than giving `_` for one.
+_TAKE_EMPTY = frozenset({"cumulativesum", "delvoid", "dim", "isvoid"})
 # How many user-function calls may be open at once. Each takes several Python frames.
 _MAX_CALL_DEPTH = 50
 
@@ -54,6 +80,8 @@ def _logic(op: str, left: Value, right: Value) -> Value:
         return map_value(lambda item: _logic(op, item, right), left)
     if isinstance(right, ListValue):
         return map_value(lambda item: _logic(op, left, item), right)
+    if isinstance(left, Empty) or isinstance(right, Empty):
+        return Empty()
     result = cas.logic(op, as_expr(left).raw, as_expr(right).raw)
     if result is None:
         raise TIError(errors.DATA_TYPE)
@@ -61,6 +89,8 @@ def _logic(op: str, left: Value, right: Value) -> Value:
 
 
 def _arithmetic(op: str, left: Value, right: Value) -> Value:
+    if isinstance(left, Empty) or isinstance(right, Empty):
+        return Empty()  # 3+_ is _
     return Expr(cas.ARITHMETIC[op](as_expr(left).raw, as_expr(right).raw))
 
 
@@ -115,6 +145,13 @@ def _combine(op: str, left: Value, right: Value) -> Value:
     if isinstance(right, ListValue | MatrixValue):
         return map_value(lambda item: _combine(op, left, item), right)
     return _arithmetic(op, left, right)
+
+
+def _without_empty(value: Value) -> Value:
+    """A list with its empty elements left out; anything else as it is."""
+    if isinstance(value, ListValue):
+        return ListValue(tuple(item for item in value.items if not isinstance(item, Empty)))
+    return value
 
 
 def _transpose(value: Value) -> Value:
@@ -307,6 +344,8 @@ class Evaluator:
         folded = node.text.casefold()
         if folded in {"true", "false"}:
             return Bool(folded == "true")
+        if folded in _EMPTY_NAMES:
+            return Empty()
         if cas.is_constant(folded):
             return Expr(cas.constant(folded))
         name = self._key(node.text)
@@ -350,7 +389,13 @@ class Evaluator:
             raise TIError(errors.TOO_MANY_ARGUMENTS)
         if isinstance(entry, catalog.LazyEntry):
             return entry.run(self, node.args)
-        return entry.run(self, self._arguments(node))
+        args = self._arguments(node)
+        folded = entry.name.casefold()
+        if folded in _SKIP_EMPTY:
+            args = [_without_empty(arg) for arg in args]
+        elif folded not in _TAKE_EMPTY and any(isinstance(arg, Empty) for arg in args):
+            return Empty()  # gcd(100,_) is _
+        return entry.run(self, args)
 
     def _unresolved(self, name: str, node: ast.Call) -> Value:
         """A call to a name that is not a function stays as typed, with its arguments evaluated."""
