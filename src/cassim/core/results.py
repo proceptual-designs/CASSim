@@ -16,6 +16,7 @@ class Result:
     value: Value | None
     error: str | None
     full: str = ""  # the text at 14 digits: what `Ans` stands for in a history line
+    warnings: tuple[str, ...] = ()  # shown by the entry's warning triangle (FR-CALC-007)
 
 
 @dataclass(frozen=True, slots=True)

@@ -57,7 +57,8 @@ class Session:
             line = "ans"
         try:
             tree: ast.Line = parse(line)
-            value = Evaluator(self.settings, self._ans, self.scope).line(tree)
+            evaluator = Evaluator(self.settings, self._ans, self.scope)
+            value = evaluator.line(tree)
             if value is None:
                 return Result("", "", None, None)
             if approximate:
@@ -78,7 +79,7 @@ class Session:
             return Result(message, "", None, message)
         if not isinstance(value, Void):
             self._ans = value
-        return Result(text, latex, value, None, full)
+        return Result(text, latex, value, None, full, tuple(evaluator.warnings))
 
     def set_ans(self, line: str | None) -> None:
         """Make `Ans` the value of `line`, the last result left in the history after an undo or a

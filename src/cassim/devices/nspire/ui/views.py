@@ -10,6 +10,7 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app.theme import DARK, Theme
+from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
@@ -325,10 +326,18 @@ class CalculatorView:
         place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
-        shown = ft.Container(
+        shown: ft.Control = ft.Container(
             math(line.latex, self.theme, self.state.math_size),
             bgcolor=self.theme.selection if line.selected and not line.part else None,
         )
+        if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
+            mark = warning_mark(line.warnings, self.state.px(14))
+            shown = ft.Row(
+                [mark, shown],
+                spacing=4,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
         return ft.Container(
             shown,
             on_click=lambda _: self.on_action("recall_at", spec),

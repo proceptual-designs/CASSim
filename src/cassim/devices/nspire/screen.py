@@ -21,6 +21,7 @@ class Line:
     text: str
     selected: bool = False  # Up has picked this row for recall
     part: bool = False  # the LaTeX draws its own cursor and selection (the row was moved into)
+    warnings: tuple[str, ...] = ()  # an entry row's warning triangle (FR-CALC-007)
 
 
 @dataclass(frozen=True)
@@ -74,7 +75,9 @@ def render(
             part = picked and page.recall_touched and editor is not None
             if part and editor is not None:  # drawn from its editor: its cursor and selection show
                 latex = editor.latex(is_defined=page.session.is_defined)
-            lines.append(Line(kind, latex or rf"\text{{{text}}}", text, picked, bool(part)))
+            warnings = entry.result.warnings if kind == "entry" else ()
+            shown = latex or rf"\text{{{text}}}"
+            lines.append(Line(kind, shown, text, picked, bool(part), warnings))
     return Screen(
         title,
         status,

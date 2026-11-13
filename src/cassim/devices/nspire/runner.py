@@ -79,7 +79,14 @@ class Runner:
             msg = "the engine sent no result"
             raise EngineError(msg)
         calculator.finish(
-            Result(found["text"], found["latex"], None, found["error"], found["full"]),
+            Result(
+                found["text"],
+                found["latex"],
+                None,
+                found["error"],
+                found["full"],
+                tuple(found["warnings"]),
+            ),
             pending.text,
             pending.approximate,
         )

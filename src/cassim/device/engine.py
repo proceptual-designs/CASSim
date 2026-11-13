@@ -67,6 +67,7 @@ class ResultPayload(TypedDict):
     latex: str
     error: str | None
     full: str
+    warnings: list[str]
 
 
 class Row(TypedDict):
@@ -159,7 +160,7 @@ def check_reply(raw: object) -> Reply:
             msg = f"not a variable row: {row!r}"
             raise EngineError(msg)
     result = raw["result"]
-    if result is not None and set(result) != {"text", "latex", "error", "full"}:
+    if result is not None and set(result) != {"text", "latex", "error", "full", "warnings"}:
         msg = f"not a result: {result!r}"
         raise EngineError(msg)
     return {
@@ -231,6 +232,7 @@ class EngineCore:
                         "latex": done.latex,
                         "error": done.error,
                         "full": done.full,
+                        "warnings": list(done.warnings),
                     }
         scope = session.scope
         sent = self._sent.get(problem)

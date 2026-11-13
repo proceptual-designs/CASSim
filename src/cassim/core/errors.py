@@ -54,6 +54,11 @@ _MESSAGES = {
 }
 
 
+# Warnings: the entry succeeds, and its history row gets a triangle that shows the text
+# (FR-CALC-007, decision 0026).
+NON_REAL_CALCULATION = "Non-real calculation"
+
+
 class TIError(Exception):
     """An error the calculator would report to the user."""
 
