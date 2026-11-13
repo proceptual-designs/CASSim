@@ -135,6 +135,26 @@ def undefined_function(name: str, args: tuple[Raw, ...]) -> Raw:
     return function(*args)
 
 
+def replace_calls(raw: Raw, name: str, value_of: Callable[[Raw], Raw | None]) -> Raw:
+    """`raw` with each call `name(k)` of an undefined function replaced by `value_of(k)`, where
+    that is not None: the earlier terms in a recursive sequence, `u(n-1)` in `seqgen`."""
+
+    def wanted(node: Raw) -> bool:
+        return (
+            isinstance(node, AppliedUndef)
+            and str(node.func) == name
+            and len(node.args) == 1
+            and value_of(node.args[0]) is not None
+        )
+
+    return raw.replace(wanted, lambda node: value_of(node.args[0]))
+
+
+def calls(raw: Raw, name: str) -> bool:
+    """Whether `raw` still holds a call to the undefined function `name`."""
+    return any(str(node.func) == name for node in raw.atoms(AppliedUndef))
+
+
 def integer(value: int) -> Raw:
     return sp.Integer(value)
 

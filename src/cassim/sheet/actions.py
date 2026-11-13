@@ -68,6 +68,29 @@ def fill(sheet: Sheet, source: Span, target: Span) -> list[Notice]:
     return sheet.put(changes)
 
 
+def generate_sequence(  # noqa: PLR0913 (the dialog's fields)
+    sheet: Sheet,
+    column: int,
+    formula: str,
+    *,
+    initial: str = "",
+    first: int = 1,
+    last: int = 255,
+    step: int = 1,
+    ceiling: str = "",
+    confirm: bool = False,
+) -> list[Notice]:
+    """Menu > Data > Generate Sequence: the dialog's fields (Formula u(n)=, Initial Terms, n0,
+    nMax 255, nStep 1, Ceiling Value) become the column formula `seqgen(...)` (check 6, E14;
+    corpus `app.sheet.generate-sequence-recursive`). A column that holds data asks first."""
+    if sheet.last_row(column) and not confirm:
+        raise DataLossError
+    terms = initial.strip() or "_"
+    text = f"seqgen({formula},n,u,{{{first},{last}}},{{{terms}}},{step}"
+    text += f",{ceiling})" if ceiling.strip() else ")"
+    return sheet.set_column_formula(column, text)  # replaces what the column held
+
+
 # ----- Sort ---------------------------------------------------------------------------------------
 
 
