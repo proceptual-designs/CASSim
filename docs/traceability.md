@@ -22,7 +22,6 @@ CI runs `--check` (NFR-MAINT-006).
 | FID-6 | Should | TI solution forms are corpus cases (for example @n1 constants); no case or test names this ID |
 | FID-7 | Should | applies to the second device profile (M8); the Nspire corpus is the only one |
 | FR-CAT-003 | Could | Tier 3 is tracked in docs/command_matrix.md; no test names the tier |
-| FR-DOC-008 | Must | not built (M3, shared data between pages; decision 0031) |
 | FR-DOC-009 | Must | not built (M3, split pages; decision 0031) |
 | FR-DOC-005 | Must | not built yet (stub pages, Tablet mode, themes file, programs, Python or exam mode); see PLAN.md |
 | FR-SHEET-001 | Must | not built (M3, Lists & Spreadsheet and Data & Statistics pages) |
@@ -163,6 +162,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DOC-003 | Must | `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
+| FR-DOC-008 | Must | `tests/device/test_engine_delta.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
 | FR-STAT-002 | Must | `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |
