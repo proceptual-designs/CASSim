@@ -3,9 +3,10 @@
 
 from cassim.app.state import AppState
 from cassim.core.session import Session
-from cassim.device.calculator import Calculator
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.keys import Binding
-from cassim.device.serialize import dumps, loads
+from cassim.devices.nspire.document import loads
+from cassim.doc.serialize import dumps
 
 
 def make() -> Calculator:
@@ -125,12 +126,12 @@ def test_ans_follows_the_history_after_undo() -> None:
 
 def test_a_saved_document_keeps_ans_in_the_entry_and_has_no_undo() -> None:
     state = AppState()
-    calc = state.document.current.calculator
+    calc = calculator_of(state.document.current)
     assert calc is not None
     enter(calc, "2+3")
     enter(calc, "ans*2")
     loaded = loads(dumps(state.document))
-    again = loaded.current.calculator
+    again = calculator_of(loaded.current)
     assert again is not None
     assert [e.text for e in again.history] == ["2+3", "5*2"]
     assert not again.can_undo  # loading is not something to undo
@@ -141,7 +142,7 @@ def test_a_saved_document_keeps_ans_in_the_entry_and_has_no_undo() -> None:
 def test_home_with_a_history_line_picked_goes_to_the_first_line() -> None:
     """H2 c."""
     state = AppState()
-    calc = state.document.current.calculator
+    calc = calculator_of(state.document.current)
     assert calc is not None
     enter(calc, "1")
     enter(calc, "2")

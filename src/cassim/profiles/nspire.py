@@ -8,6 +8,7 @@ values with a `ctrl+`, `shift+` or `alt+` prefix.
 from cassim.core.settings import Settings
 from cassim.device.editor import MARK
 from cassim.device.keys import Binding, Key, Keymap, Keypad, gap
+from cassim.devices.nspire import pages
 from cassim.profiles import Profile
 from cassim.profiles.nspire_menus import DOC, MENU, MENUS, WIZARDS
 
@@ -276,16 +277,7 @@ KEYPAD_QWERTY: Keypad = (*_MAIN, *_QWERTY)
 KEYPADS = {"ABC": KEYPAD, "QWERTY": KEYPAD_QWERTY}  # the letter layouts, by setting name
 
 # The device's names for its page types (`PageKind` values)
-PAGES = {
-    "calculator": "Calculator",
-    "graphs": "Graphs",
-    "spreadsheet": "Lists & Spreadsheet",
-    "statistics": "Data & Statistics",
-    "notes": "Notes",
-    "program": "Program Editor",
-    "python": "Python",
-    "pseudocode": "Pseudocode",
-}
+PAGES = {str(page_type.kind): page_type.title for page_type in pages.PAGES}
 
 PROFILE = Profile(
     "TI-Nspire CX CAS",

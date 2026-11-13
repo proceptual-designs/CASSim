@@ -19,6 +19,7 @@ from cassim.app.template_icons import WIDTH as ICON_W
 from cassim.app.theme import DARK, Theme
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
+from cassim.device.calculator import calculator_of
 from cassim.device.editor import format_target
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
@@ -272,7 +273,7 @@ class CalculatorView:
 
     def _entry(self, screen: Screen) -> ft.Control:
         """The entry line as clickable controls; a page without a calculator shows its LaTeX."""
-        calculator = self.state.document.current.calculator
+        calculator = calculator_of(self.state.document.current)
         if calculator is None:
             return math(screen.entry, self.theme, self.state.math_size)
         return EntryLine(

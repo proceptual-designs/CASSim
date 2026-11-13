@@ -1,14 +1,15 @@
 """The screen buffer (FR-DEV-001)."""
 
-from cassim.device.document import Document, PageKind
+from cassim.device.calculator import calculator_of
 from cassim.device.keys import Binding, Keyboard, keypad_units
 from cassim.device.screen import render
+from cassim.devices.nspire.document import Document, PageKind
 from cassim.profiles import nspire
 
 
 def test_screen_shows_history_entry_and_status() -> None:
     document = Document()
-    page = document.current.calculator
+    page = calculator_of(document.current)
     assert page is not None
     for char in "1+2":
         page.perform(Binding("insert", char))
@@ -23,7 +24,7 @@ def test_screen_shows_history_entry_and_status() -> None:
 
 def test_recalled_row_is_marked_selected() -> None:
     document = Document()
-    page = document.current.calculator
+    page = calculator_of(document.current)
     assert page is not None
     page.perform(Binding("insert", "5"))
     page.perform(Binding("enter"))

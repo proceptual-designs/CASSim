@@ -18,10 +18,10 @@ device/menu.py        MenuItem tree, MenuState (walking it), MenuView (what to d
 device/wizard.py      Field, Wizard (a dialog as data)
 device/editor.py      Row/Node/Template tree, cursor path, linear() and latex()
 device/calculator.py  Calculator page: Editor + history + Session + undo
-device/document.py    Document > Problem > Page, settings, page order
+doc/document.py    Document > Problem > Page, settings, page order
 device/screen.py      render(): the Screen a GUI draws
 device/engine.py, runner.py   see SDD-02
-device/serialize.py, share.py, clipboard.py
+doc/serialize.py, share.py, clipboard.py
 ```
 
 ## Keys

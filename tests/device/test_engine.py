@@ -7,11 +7,13 @@ from typing import Any
 import pytest
 
 from cassim.core.settings import Settings
-from cassim.device.document import Document
+from cassim.device.calculator import calculator_of
 from cassim.device.engine import EngineCore, LocalEngine, Op, RemoteSession
 from cassim.device.keys import Binding
 from cassim.device.runner import Runner, Status
-from cassim.device.serialize import dumps, loads, to_dict
+from cassim.devices.nspire.document import Document, loads
+from cassim.devices.nspire.pages import PAGES
+from cassim.doc.serialize import dumps, to_dict
 
 
 def make() -> tuple[Runner, Document]:
@@ -20,7 +22,7 @@ def make() -> tuple[Runner, Document]:
 
 
 async def enter(runner: Runner, document: Document, text: str) -> None:
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     for char in text:
         calculator.perform(Binding("insert", char))
@@ -30,7 +32,7 @@ async def enter(runner: Runner, document: Document, text: str) -> None:
 
 
 def last(document: Document) -> str:
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     return calculator.history[-1].result.text
 
@@ -43,7 +45,7 @@ def test_enter_is_deferred_until_the_runner_evaluates() -> None:
 
     asyncio.run(go())
     assert last(document) == "5"
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     assert calculator.pending is None
     assert calculator.editor.linear() == ""
@@ -51,7 +53,7 @@ def test_enter_is_deferred_until_the_runner_evaluates() -> None:
 
 def test_keys_are_ignored_while_an_entry_is_pending() -> None:
     _, document = make()
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     for char in "1+1":
         calculator.perform(Binding("insert", char))
@@ -90,7 +92,7 @@ def test_an_error_becomes_a_dialog_and_a_quoted_history_entry() -> None:
         await enter(runner, document, "solve(")
 
     asyncio.run(go())
-    calculator = document.current.calculator
+    calculator = calculator_of(document.current)
     assert calculator is not None
     assert calculator.error is not None
     assert [entry.text for entry in calculator.history] == ["solve()"]
@@ -171,7 +173,7 @@ def test_cancel_stops_the_run_and_keeps_every_problem() -> None:
         document.add_problem()
         await enter(runner, document, "b:=7")
         engine.stuck = True
-        calculator = document.current.calculator
+        calculator = calculator_of(document.current)
         assert calculator is not None
         for char in "expand(x*y+1)":
             calculator.perform(Binding("insert", char))
@@ -221,13 +223,13 @@ def test_load_replays_through_the_engine_like_the_synchronous_loader() -> None:
 
     text = asyncio.run(go())
     fresh = Runner(LocalEngine())
-    loaded = asyncio.run(fresh.load(text))
+    loaded = asyncio.run(fresh.load(text, PAGES))
     assert to_dict(loaded) == to_dict(loads(text))
     results = [
         [e.result.text for e in calculator.history]
         for problem in loaded.problems
         for page in problem.pages
-        if (calculator := page.calculator) is not None
+        if (calculator := calculator_of(page)) is not None
     ]
     assert results == [["5"], ["6"], ["1024"]]
 
@@ -245,7 +247,7 @@ def test_ans_follows_the_history_through_the_engine_after_an_undo() -> None:
     async def go() -> None:
         await enter(runner, document, "5")
         await enter(runner, document, "7")
-        calculator = document.current.calculator
+        calculator = calculator_of(document.current)
         assert calculator is not None
         calculator.perform(Binding("undo"))
         calculator.editor.clear()

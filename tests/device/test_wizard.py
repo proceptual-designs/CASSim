@@ -4,14 +4,14 @@
 import pytest
 
 from cassim.app.state import AppState
-from cassim.device.calculator import Calculator
+from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.wizard import CURSOR, Field, Wizard
 from cassim.profiles.nspire_menus import WIZARDS, polynomial
 
 
 def _calculator(state: AppState) -> Calculator:
-    calculator = state.document.current.calculator
+    calculator = calculator_of(state.document.current)
     assert calculator is not None
     return calculator
 

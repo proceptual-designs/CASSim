@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING
 
 from cassim.app.keyboard import key_name
 from cassim.core.settings import Settings
-from cassim.device.document import Document, PageKind
+from cassim.device.calculator import calculator_of
 from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.screen import Screen, render
 from cassim.device.wizard import Wizard
+from cassim.devices.nspire.document import Document as NspireDocument
+from cassim.devices.nspire.document import PageKind
+from cassim.doc.document import Document
 from cassim.profiles import Profile, nspire
 
 if TYPE_CHECKING:
@@ -80,7 +83,7 @@ class AppState:
         sessions: Callable[[Settings], Session | RemoteSession] = local_session,
     ) -> None:
         self.sessions = sessions  # RemoteSessions when the maths runs in another worker
-        self.document = document if document is not None else Document(sessions=sessions)
+        self.document = document if document is not None else NspireDocument(sessions=sessions)
         self.mode = mode
         self.profile = profile
         self.keypad_keys = Keyboard(profile.handheld, profile.modifiers)
@@ -135,7 +138,9 @@ class AppState:
 
     def new_document(self) -> None:
         """A blank document with the current Document Settings."""
-        self.replace_document(Document(settings=self.document.settings, sessions=self.sessions))
+        self.replace_document(
+            NspireDocument(settings=self.document.settings, sessions=self.sessions)
+        )
 
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None
@@ -143,9 +148,9 @@ class AppState:
         status = f"{status} CAPS" if self.caps else status
         return render(self.document, status, view, self.profile.pages)
 
-    def page_name(self, kind: PageKind) -> str:
+    def page_name(self, kind: str) -> str:
         """The device's name for a page type ("Lists & Spreadsheet")."""
-        return self.profile.pages.get(kind.value, kind.value)
+        return self.profile.pages.get(str(kind), str(kind))
 
     def press_keypad(self, name: str) -> None:
         self._perform(self.keypad_keys, name)
@@ -199,7 +204,7 @@ class AppState:
         """Do a binding: document actions here, everything else on the current page."""
         if self._shell_action(binding) or self._document_action(binding):
             return
-        calculator = self.document.current.calculator
+        calculator = calculator_of(self.document.current)
         if binding.action in ("undo", "redo") and self._page_undo(binding.action):
             return
         if calculator is None:
@@ -212,7 +217,7 @@ class AppState:
         """Undo or redo with nothing left to step in the entry line falls through to the document
         (emulator run S7 f: ctrl+Z on a fresh page undoes the page insert, ctrl+Y brings it back).
         True if the document took the key."""
-        calculator = self.document.current.calculator
+        calculator = calculator_of(self.document.current)
         if calculator is not None and (
             calculator.error is not None or calculator.pending is not None
         ):
@@ -232,7 +237,7 @@ class AppState:
         elif self.menu is not None and self.menu.open:
             self._menu_key(binding)
         elif binding.action == "open_menu":
-            stub = binding.arg == "menu" and self.document.current.calculator is None
+            stub = binding.arg == "menu" and calculator_of(self.document.current) is None
             self._open_menu("menu_stub" if stub else binding.arg)  # a stub has only About, Help
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)
@@ -251,7 +256,7 @@ class AppState:
 
     def _variables_menu(self) -> MenuItem | None:
         """The var key: the current Problem's variables, each typed by choosing it."""
-        calculator = self.document.current.calculator
+        calculator = calculator_of(self.document.current)
         if calculator is None:
             return None
         rows = sorted(calculator.session.variables(), key=lambda row: row.name.casefold())
@@ -278,7 +283,7 @@ class AppState:
 
     def store_wizard(self, wizard: Wizard, values: dict[str, str]) -> None:
         """Leave a live dialog's results in variables (the Finance Solver's `tvm.` set)."""
-        calculator = self.document.current.calculator
+        calculator = calculator_of(self.document.current)
         if wizard.store is not None and calculator is not None:
             calculator.session.store_numbers(wizard.store(values))
 
