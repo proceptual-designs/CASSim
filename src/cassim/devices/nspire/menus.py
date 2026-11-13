@@ -16,7 +16,7 @@ from cassim.core.compat import finance as fin
 from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
-from cassim.profiles.nspire_syntax import COMMANDS, CONVERSIONS, FUNCTIONS
+from cassim.devices.nspire.syntax import COMMANDS, CONVERSIONS, FUNCTIONS
 
 NOT_YET = "Not in CASSim yet"
 STUB_PAGE = "Adds a placeholder: this page type is not built yet"

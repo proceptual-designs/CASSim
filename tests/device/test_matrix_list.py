@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from cassim.device.calculator import Calculator
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.keys import Binding
-from cassim.profiles.nspire import COMPUTER
+from cassim.devices.nspire.keymap import COMPUTER
+from cassim.devices.nspire.pages.calculator import Calculator
 
 
 def matrix(rows: int, cols: int, *cells: str) -> Editor:

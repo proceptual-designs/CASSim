@@ -42,7 +42,7 @@ import yaml
 from cassim.app.state import AppState
 from cassim.core.session import Session, same_value
 from cassim.core.settings import PRESETS, Settings, updated
-from cassim.device.calculator import calculator_of
+from cassim.devices.nspire.pages.calculator import calculator_of
 
 FLOWS = Path(__file__).parents[1] / "corpus" / "flows"
 DEFAULT_TOLERANCE = 1.0e-7

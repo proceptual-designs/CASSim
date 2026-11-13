@@ -9,8 +9,8 @@ from cassim.app.entry import SELECTION, EntryLine, row_height
 from cassim.app.state import AppState
 from cassim.app.theme import DARK
 from cassim.app.ui import CalculatorView
-from cassim.device.calculator import calculator_on
 from cassim.device.editor import Editor, Kind
+from cassim.devices.nspire.pages.calculator import calculator_on
 
 type Target = tuple[tuple[tuple[int, int], ...], int]
 

@@ -7,12 +7,12 @@ from typing import Any
 import pytest
 
 from cassim.core.settings import Settings
-from cassim.device.calculator import calculator_of
 from cassim.device.engine import EngineCore, LocalEngine, Op, RemoteSession
 from cassim.device.keys import Binding
-from cassim.device.runner import Runner, Status
 from cassim.devices.nspire.document import Document, loads
 from cassim.devices.nspire.pages import PAGES
+from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.runner import Runner, Status
 from cassim.doc.serialize import dumps, to_dict
 
 

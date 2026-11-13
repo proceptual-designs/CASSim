@@ -35,8 +35,6 @@ FR-DEV-010: "System Settings are persisted (SYSTEM_KEY in app/main.py); no test 
 FR-TCH-001: "not built yet (stub pages, Tablet mode, themes file, programs, Python or exam mode); see PLAN.md"
 FR-TCH-002: "not built yet (stub pages, Tablet mode, themes file, programs, Python or exam mode); see PLAN.md"
 FR-TCH-003: "sharing by file and link is covered by the FR-DOC-004 and FR-DOC-007 tests"
-FR-PROF-001: "M8 or M9 (device profiles); only the M2 guard applies now"
-FR-PROF-002: "the Nspire runs on the profile interface; the whole corpus replaying is the evidence, no test names the ID"
 FR-PROF-003: "M8 or M9 (device profiles); only the M2 guard applies now"
 FR-PROF-004: "M8 or M9 (device profiles); only the M2 guard applies now"
 FR-PROF-005: "M8 or M9 (device profiles); only the M2 guard applies now"

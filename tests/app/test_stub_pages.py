@@ -6,8 +6,8 @@ import pytest
 
 from cassim.app.state import AppState
 from cassim.app.ui import STUB_NOTICE, CalculatorView, Sidebar
-from cassim.device.screen import thumbnail
 from cassim.devices.nspire.document import PageKind, loads
+from cassim.devices.nspire.screen import thumbnail
 from cassim.doc.serialize import dumps
 
 STUBS = [

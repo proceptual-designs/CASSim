@@ -3,8 +3,8 @@
 S7 e to g, S5 b2, S8 a follow-up)."""
 
 from cassim.app.state import AppState, Mode
-from cassim.device.calculator import calculator_of
 from cassim.device.editor import Editor, Kind, Template
+from cassim.devices.nspire.pages.calculator import calculator_of
 
 
 def typed(state: AppState, keys: str) -> None:

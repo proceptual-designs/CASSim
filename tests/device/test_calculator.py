@@ -7,12 +7,12 @@ import pytest
 
 from cassim import device
 from cassim.app.state import AppState
-from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.editor import Editor
 from cassim.device.keys import Binding, Keyboard
-from cassim.device.screen import render
+from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document
-from cassim.profiles import nspire
+from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.screen import render
 
 
 def computer(*keys: str) -> Calculator:
@@ -178,9 +178,9 @@ def test_unknown_action_is_an_error():
 
 
 def test_framework_does_not_import_a_profile():
-    """FR-DEV-007: profiles depend on the device package, never the reverse."""
+    """FR-DEV-007: devices depend on the device framework, never the reverse."""
     for module in Path(device.__file__).parent.glob("*.py"):
-        assert "cassim.profiles" not in module.read_text(encoding="utf-8"), module.name
+        assert "cassim.devices" not in module.read_text(encoding="utf-8"), module.name
 
 
 def test_defined_names_are_bold_and_catalog_names_upright() -> None:

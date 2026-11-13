@@ -43,14 +43,14 @@ from cassim.app.ui import (
     wizard_dialog,
 )
 from cassim.core.settings import Settings, next_choice
-from cassim.device.calculator import Calculator, calculator_of
 from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
 from cassim.device.menu import MenuItem
-from cassim.device.runner import Runner, Status
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
+from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.runner import Runner, Status
 from cassim.doc.document import Document
 from cassim.doc.serialize import (
     OPEN_EXTENSIONS,

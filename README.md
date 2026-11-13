@@ -138,7 +138,7 @@ python -m tools.replay                # corpus progress
 - Core engine (`src/cassim/core`) is pure Python, never imports Flet and passes Ty strict.
   SymPy is touched only in `core/compat/sympy_adapter.py`.
 - Every behaviour change ships with a test that cites the SRS requirement ID where one applies.
-- Layout: `core` (engine), `device` and `profiles` (the Nspire as data), `app` (Flet UI),
+- Layout: `core` (engine), `device` (framework), `doc` (documents), `devices/nspire` (the Nspire), `app` (Flet UI),
   `runtime` (pseudocode), `tools` (build and corpus scripts), `corpus` (golden cases).
 
 ## Documents

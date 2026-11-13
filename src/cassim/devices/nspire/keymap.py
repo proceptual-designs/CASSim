@@ -8,9 +8,9 @@ values with a `ctrl+`, `shift+` or `alt+` prefix.
 from cassim.core.settings import Settings
 from cassim.device.editor import MARK
 from cassim.device.keys import Binding, Key, Keymap, Keypad, gap
+from cassim.device.profile import Profile
 from cassim.devices.nspire import pages
-from cassim.profiles import Profile
-from cassim.profiles.nspire_menus import DOC, MENU, MENUS, WIZARDS
+from cassim.devices.nspire.menus import DOC, MENU, MENUS, WIZARDS
 
 __all__ = ["DOC", "MENU", "PROFILE"]
 

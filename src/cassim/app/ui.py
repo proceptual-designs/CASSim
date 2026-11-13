@@ -19,12 +19,12 @@ from cassim.app.template_icons import WIDTH as ICON_W
 from cassim.app.theme import DARK, Theme
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
-from cassim.device.calculator import calculator_of
 from cassim.device.editor import format_target
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
-from cassim.device.screen import Line, Screen, thumbnail
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.screen import Line, Screen, thumbnail
 
 # Arrows and shapes are not in the default font, and the browser's fallback font comes from a
 # Google server, which the offline build cannot reach (FR-PWA-002). They are set in a vendored font.
