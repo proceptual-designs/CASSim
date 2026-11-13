@@ -28,6 +28,11 @@ class Scope:
         self._items: dict[str, Variable] = {}
         self.revision = 0  # raised by every change
         self._changed: dict[str, int] = {}  # each name's revision when last stored or deleted
+        # Names a spreadsheet holds (check run 2, G): a linked list must stay a list, and a
+        # formula column's variable takes no store from an entry. Entries check these; the
+        # sheet itself stores past them.
+        self.lists: set[str] = set()
+        self.read_only: set[str] = set()
 
     def _touch(self, name: str) -> None:
         self.revision += 1

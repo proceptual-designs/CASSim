@@ -64,6 +64,61 @@ def seq(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return ListValue(tuple(items))
 
 
+def _whole(host: Host, node: ast.Expr) -> int:
+    number = cas.integer_value(_number(host.expr(node)))
+    if number is None:
+        raise TIError(errors.DOMAIN)
+    return number
+
+
+@lazy("seqgen", 4, 7)
+def seqgen(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`seqgen(expr, var, depVar, {var0, varMax}[, initialTerms[, varStep[, ceiling]]])`: a
+    sequence where `expr` may use earlier terms as `depVar(var-1)`. The initial terms give the
+    first values; an empty element there is left out (the template's empty box, check 6 E14).
+    Terms stop past varMax, or before the first whose size exceeds the ceiling."""
+    body, var, dependent, bounds, *rest = args
+    if not isinstance(var, ast.Name) or not isinstance(dependent, ast.Name):
+        raise TIError(errors.SYNTAX)
+    if not isinstance(bounds, ast.ListLit) or len(bounds.items) != 2:  # noqa: PLR2004
+        raise TIError(errors.DIMENSION_MISMATCH)
+    first, last = (_whole(host, item) for item in bounds.items)
+    initial: list[Raw] = []
+    if rest:
+        given = host.expr(rest[0])
+        items = given.items if isinstance(given, ListValue) else (given,)
+        initial = [raw_of(item) for item in items if not isinstance(item, Empty)]
+    step = _whole(host, rest[1]) if len(rest) > 1 else 1
+    if step <= 0:
+        raise TIError(errors.DOMAIN)
+    ceiling = cas.number_value(_number(host.expr(rest[2]))) if len(rest) > 2 else None  # noqa: PLR2004
+    name = variable_key(host.settings, dependent.text)
+    terms: dict[int, Raw] = {}
+
+    def term(position: Raw) -> Raw | None:
+        index = cas.integer_value(position)
+        return None if index is None else terms.get(index)
+
+    items_out: list[Value] = []
+    for count, n in enumerate(range(first, last + 1, step)):
+        if count >= _MAX_LIST_LENGTH:
+            raise TIError(errors.MEMORY)
+        if count < len(initial):
+            raw = initial[count]
+        else:
+            with host.bound({variable_key(host.settings, var.text): Expr(cas.integer(n))}):
+                raw = raw_of(host.expr(body))
+            raw = cas.replace_calls(raw, name, term)
+            if cas.calls(raw, name):
+                raise TIError(errors.DOMAIN)  # a term before the first one
+        size = cas.number_value(raw)
+        if ceiling is not None and size is not None and abs(size) > abs(ceiling):
+            break
+        terms[n] = raw
+        items_out.append(Expr(raw))
+    return ListValue(tuple(items_out))
+
+
 def _slice(host: Host, args: list[Value]) -> list[Raw]:
     """The list in `args[0]`, cut to the optional 1-based start and end in `args[1:]`."""
     items = raw_list(args[0])

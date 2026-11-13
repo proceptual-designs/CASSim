@@ -710,8 +710,8 @@ cases:
     captured: '2026-11-13'
     reviewed_by: claude (transcribed from Cowork's check 6 part B results); human review pending
     evidence: ../docs/testing/pages-shots-6/B-D31-seqgen.png
-  status: xfail
-  xfail_reason: seqGen is not built.
+    note: Generate Sequence on the sheet writes this formula.
+  status: pass
 - id: c6.cmd.units
   course: none
   settings: *id001

@@ -485,12 +485,12 @@ def test_a_range_holding_an_error_is_an_error():
     assert sheet.shown(B, 1).text == "#ERR"
 
 
-def test_a_list_with_a_gap_leaves_a_blank_cell():
+def test_a_gap_in_a_linked_list_shows_as_an_empty_element():
     session = Session()
     session.eval("xs:={1,_,3}")
     sheet = Sheet(session)
     sheet.set_name(A, "xs")
-    assert texts(sheet, A, [1, 2, 3]) == ["1", "", "3"]
+    assert texts(sheet, A, [1, 2, 3]) == ["1", "_", "3"]  # check run 2, E12
     assert session.eval("xs").text == "{1,_,3}"
 
 
@@ -500,3 +500,80 @@ def test_replacing_a_formula_drops_its_old_inputs():
     sheet.set_cell(B, 1, "=a2")
     sheet.set_cell(A, 1, "7")
     assert sheet.shown(B, 1).text == "2"
+
+
+# ----- what the Calculator may store to (check run 2, G4, G9, G14, G20) ---------------------------
+
+VARIABLE_IN_USE = "Cannot accept change, variable in use: Cannot change to requested variable type."
+
+
+def linked(values=(1, 2, 3)):
+    session = Session()
+    sheet = sheet_with(A, values, session)
+    sheet.set_name(A, "xs")
+    return session, sheet
+
+
+@pytest.mark.parametrize("line", ["xs:=5", 'xs:="hello"', "xs:=[1,2;3,4]", "xs(t):=t"])
+def test_a_linked_list_stays_a_list(line):
+    session, _ = linked()
+    assert session.eval(line).error == VARIABLE_IN_USE
+    assert session.eval("xs").text == "{1,2,3}"
+
+
+@pytest.mark.parametrize("line", ["xs:={4,5}", "xs[1]:=9", 'xs:={1,"x",1/3}', "SortA xs"])
+def test_a_linked_list_takes_other_lists(line):
+    session, _ = linked()
+    assert session.eval(line).error is None
+
+
+@pytest.mark.parametrize("line", ["sq[1]:=3", "sq:={1,2}", "DelVar sq", "sq:=5"])
+def test_a_formula_columns_variable_takes_no_store(line):
+    session, sheet = linked()
+    sheet.set_name(B, "sq")
+    sheet.set_column_formula(B, "=xs^2")
+    assert session.eval(line).error == "Cannot accept change: Invalid input."
+    assert session.eval("sq").text == "{1,4,9}"
+
+
+def test_unlinking_frees_the_name():
+    session, sheet = linked()
+    sheet.set_name(A, "")
+    assert session.eval("xs:=5").error is None
+
+
+def test_clearing_a_column_formula_turns_its_variable_into_a_list():
+    session, sheet = linked()
+    sheet.set_name(B, "sq")
+    sheet.set_column_formula(B, "=xs^2")
+    sheet.set_column_formula(B, "")
+    assert session.eval("sq:={7}").error is None
+    assert session.eval("sq:=7").error == VARIABLE_IN_USE
+
+
+def test_delvar_of_a_linked_list_unlinks_and_frees_it():
+    session, sheet = linked()
+    assert session.eval("DelVar xs").error is None
+    sheet.sync()
+    assert session.eval("xs:=5").error is None
+
+
+def test_an_empty_linked_column_is_a_list_of_one_empty_element():
+    session = Session()
+    Sheet(session).set_name(A, "x")
+    assert session.eval("x").text == "{_}"
+
+
+def test_a_stat_variable_cannot_name_a_column():
+    with pytest.raises(SheetError) as raised:
+        Sheet(Session()).set_name(A, "stat.x")
+    assert raised.value.title == "Link Error"
+    assert "Stat variable" in raised.value.message
+
+
+def test_restore_puts_the_locks_back():
+    _, sheet = linked()
+    saved = sheet.contents(), [sheet.column(c) for c in range(26)]
+    other = Session()
+    Sheet(other).restore(*saved)
+    assert other.eval("xs:=5").error == VARIABLE_IN_USE

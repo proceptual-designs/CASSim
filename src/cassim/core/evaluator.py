@@ -276,15 +276,26 @@ class Evaluator:
             raise TIError(errors.RESERVED_NAME)
         return self._key(text)
 
+    def _check_store(self, name: str, value: Value | Function | None) -> None:
+        """Refuse a store the spreadsheet does not allow: none to a formula column's variable,
+        and nothing but a list to a linked list (check run 2, G4, G9, G14). None is a delete."""
+        if name in self._scope.read_only:
+            raise TIError(errors.INVALID_INPUT)
+        if name in self._scope.lists and value is not None and not isinstance(value, ListValue):
+            raise TIError(errors.VARIABLE_IN_USE)
+
     def _assign(self, target: ast.Expr, body: ast.Expr) -> Value:
         """`target:=body` and `body→target`: a variable gets the value, a function the body."""
         if isinstance(target, ast.Index):
             return self._assign_index(target, body)
         name = self._variable_name(target)
         if isinstance(target, ast.Call):
-            self._scope.define(name, self._make_function(target, body))
+            function = self._make_function(target, body)
+            self._check_store(name, function)
+            self._scope.define(name, function)
             return Void()
         value = self._evaluated(body)
+        self._check_store(name, value)
         self._scope.define(name, value)
         return value
 
@@ -305,6 +316,7 @@ class Evaluator:
             for arg in statement.args:
                 if not isinstance(arg, ast.Name):
                     raise TIError(errors.SYNTAX)
+                self._check_store(self._key(arg.text), None)
                 self._scope.delete(self._key(arg.text))
             return Void()
         if statement.name == "ClearAZ":
@@ -461,6 +473,8 @@ class Evaluator:
         if not isinstance(target.base, ast.Name) or len(target.subscripts) != 1:
             raise _unsupported("indexed assignment to this")
         name = self._variable_name(target.base)
+        if name in self._scope.read_only:
+            raise TIError(errors.INVALID_INPUT)  # check run 2, G14: `sq[1]:=3`
         stored = self._scope.get(name)
         if stored is not None and not isinstance(stored, ListValue):
             raise TIError(errors.DATA_TYPE)
