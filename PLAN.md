@@ -245,7 +245,7 @@ Still open, each waiting on something:
 - Exit: build the static site, install on phone, complete the golden "exam-style" scripted flows via device-model tests and Playwright.
   - **Flows done 2026-11-08 (decision 0025):** `corpus/flows/exam.yaml` holds 12 exam-style flows (Methods, Specialist, General, handheld keypad), played key by key by `tools/flows.py` through `AppState` (`tests/flows/`) and, for the 5 marked `browser`, typed into the built site by Playwright (`tests/e2e/test_flows_browser.py`, all pass). Installed on Simon's phone, with save and load, on 2026-11-12.
 
-**M2x — Device interface and bundles (M), before M3 (decided 2026-11-13).** Section 15.4 steps 1 to 3: the ADR on the device interface and bundle format; the Nspire moved to `devices/nspire/` behind it (this is 8a, brought forward, and it carries decision 0031's A4 move of the document model); a bundle-aware `tools.publish` with the `tin` bundle and its site. No behaviour changes. Exit: every corpus case replays unchanged, the e2e suite passes, coverage floors hold, and download size is reported per bundle.
+**M2x — Device interface and bundles (M), before M3 (decided 2026-11-13). Done 2026-11-13 (PRs 83 to 87 and the bundles PR).** Section 15.4 steps 1 to 3: the ADR on the device interface and bundle format; the Nspire moved to `devices/nspire/` behind it (this is 8a, brought forward, and it carries decision 0031's A4 move of the document model); a bundle-aware `tools.publish` with the `tin` bundle and its site. No behaviour changes. Exit: every corpus case replays unchanged, the e2e suite passes, coverage floors hold, and download size is reported per bundle.
 
 **M3 — Data pages: Lists & Spreadsheet, Data & Statistics, Finance (L)**
 
@@ -443,7 +443,7 @@ Steps 1 to 3 are milestone M2x and come **before M3** (decided 2026-11-13), whil
 
 1. ADR on the device interface and bundle format: `docs/decisions/0032` (written 2026-11-13). It replaces the ADR planned for 8a, and splits step 2 into three PRs: `doc/` and registered page types; `devices/nspire/` with the profile data and the Calculator page model; the shell and `devices/nspire/ui/`. Its item 7 leaves the split of `core/` to M8a (agreed 2026-11-13).
 2. Move the Nspire into `devices/nspire/` behind the interface, together with decision 0031's A4 (the document model moves to `doc/`, page types are registered). Gate: every corpus case replays unchanged, the e2e suite passes, and coverage targets hold.
-3. Bundle-aware `tools.publish`, the `tin` bundle and its site, and download-size reporting.
+3. Bundle-aware `tools.publish`, the `tin` bundle and its site, and download-size reporting. **Steps 1 to 3 done 2026-11-13** (decision 0032). `cassim-tin` gets its first content at the next release. The `tin` and `all` bundles are the same size today (90 MB, of which Flutter 57, Pyodide 16, the engine archive 11 and the app archive 2); the sizes differ once a second device is built.
 4. (M7) The `pseudocode` device, from the built `runtime/` plus the M7 editor and trace views, as the second device and the first small bundle.
 5. (M8) The switcher in the all-in-one app (8b), then ClassPad, and Prime (M9) as plug-ins.
 

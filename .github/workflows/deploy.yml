@@ -2,6 +2,7 @@ name: Deploy
 # Cloudflare Pages, three projects (PLAN.md section 14):
 #   cassim-calc  testing: every push to main
 #   cassim-app   stable: a published GitHub release, or a manual run with target "stable"
+#   cassim-tin   the Nspire alone (bundle tin), stable only: with cassim-app (decision 0032)
 #   cassim-wiki  help pages from docs/wiki: every push to main
 # Needs the repository secrets CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit) and
 # CLOUDFLARE_ACCOUNT_ID.
@@ -55,9 +56,16 @@ jobs:
         with:
           node-version: "22"
       - run: uv sync --locked --group web
-      - run: uv run python -m tools.publish
+      - run: uv run python -m tools.publish --bundle all
       - run: >-
           $WRANGLER pages deploy build/web --project-name ${{ steps.target.outputs.project }}
+          --branch main --commit-hash ${{ github.sha }}
+      # Single-device sites are stable only (PLAN.md section 15.1).
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: uv run python -m tools.publish --bundle tin --dist build/tin
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: >-
+          $WRANGLER pages deploy build/tin --project-name cassim-tin
           --branch main --commit-hash ${{ github.sha }}
 
   wiki:

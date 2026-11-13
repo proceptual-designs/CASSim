@@ -77,7 +77,7 @@ uv run cassim --view handheld         # choose the view (handheld or computer)
 uv run cassim --course methods        # the app with the Methods settings
 uv run cassim --text                  # text interface, like the Calculator page
 uv run cassim -c "solve(x^2=2,x)"     # one entry, then exit
-uv run python -m tools.publish        # build the installable offline site into build/web
+uv run python -m tools.publish        # build the installable offline site into build/web (--bundle all|tin)
 ```
 
 The text interface is described in [docs/user/repl.md](docs/user/repl.md).
@@ -99,9 +99,10 @@ The sites are Cloudflare Pages projects, deployed by `.github/workflows/deploy.y
 
 | Project | Built from | Deployed when |
 |---|---|---|
-| `cassim-calc` (testing) | `python -m tools.publish` | every merge to `main` |
+| `cassim-calc` (testing) | `python -m tools.publish --bundle all` | every merge to `main` |
 | `cassim-wiki` (help) | `python -m tools.wiki_site`, from `docs/wiki/` | every merge to `main` |
-| `cassim-app` (stable) | `python -m tools.publish` | a published GitHub release |
+| `cassim-app` (stable) | `python -m tools.publish --bundle all` | a published GitHub release |
+| `cassim-tin` (the Nspire alone, stable) | `python -m tools.publish --bundle tin` | a published GitHub release |
 
 **Testing and help.** Merge a pull request into `main` (CI's `check` job must pass). The Deploy
 workflow then builds and publishes both. Edit the help pages in `docs/wiki/`; a `[[Page name]]` link
