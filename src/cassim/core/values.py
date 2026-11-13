@@ -51,11 +51,17 @@ class Void:
 
 
 @dataclass(frozen=True, slots=True)
+class Empty:
+    """An empty (void) element, typed `_` or `void` and shown `_`: a gap in a list or a blank
+    spreadsheet cell. Most calculations with it give `_`; the list statistics skip it."""
+
+
+@dataclass(frozen=True, slots=True)
 class ListValue:
     items: tuple[Value, ...]
 
 
-type Cell = Expr | Str
+type Cell = Expr | Str | Empty
 """A matrix cell. Strings are allowed because `stat.results` mixes labels and numbers."""
 
 
@@ -64,4 +70,4 @@ class MatrixValue:
     rows: tuple[tuple[Cell, ...], ...]
 
 
-type Value = Expr | Str | Bool | ListValue | MatrixValue | Void | Unevaluated | Shown
+type Value = Expr | Str | Bool | ListValue | MatrixValue | Void | Empty | Unevaluated | Shown

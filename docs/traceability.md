@@ -137,7 +137,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-LANG-002 | Must | `tests/unit/test_lexer.py` |
 | FR-LANG-003 | Must | `tests/unit/test_printer.py` |
 | FR-LANG-004 | Must | `tests/unit/test_lexer.py` |
-| FR-EVAL-001 | Must | `tests/unit/test_session.py` |
+| FR-EVAL-001 | Must | `tests/unit/test_empty_elements.py`, `tests/unit/test_session.py` |
 | FR-EVAL-002 | Must | `tests/unit/test_session.py` |
 | FR-EVAL-003 | Must | `tests/unit/test_session.py` |
 | FR-EVAL-004 | Must | `tests/unit/test_session.py` |

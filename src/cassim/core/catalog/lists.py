@@ -8,7 +8,17 @@ from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.settings import variable_key
 from cassim.core.valueops import as_expr, list_of, raw_list, raw_of
-from cassim.core.values import Expr, ListValue, MatrixValue, Raw, Str, Value, Void
+from cassim.core.values import (
+    Bool,
+    Empty,
+    Expr,
+    ListValue,
+    MatrixValue,
+    Raw,
+    Str,
+    Value,
+    Void,
+)
 
 # A list this long would not fit in the calculator's memory either.
 _MAX_LIST_LENGTH = 100_000
@@ -117,7 +127,29 @@ eager("stDevPop", 1)(_summary(_sample(cas.standard_deviation, sample=False)))
 
 @eager("cumulativeSum", 1)
 def cumulative_sum(host: Host, args: list[Value]) -> Value:
-    return list_of(cas.running_sums(raw_list(args[0])))
+    """Running sums; an empty element stays empty and adds nothing: {1,2,_,4} gives {1,3,_,7}."""
+    if not isinstance(args[0], ListValue):
+        raise TIError(errors.DATA_TYPE)
+    items = args[0].items
+    sums = iter(cas.running_sums([raw_of(item) for item in items if not isinstance(item, Empty)]))
+    return ListValue(tuple(item if isinstance(item, Empty) else Expr(next(sums)) for item in items))
+
+
+@eager("isVoid", 1)
+def is_void(host: Host, args: list[Value]) -> Value:
+    """Whether a value is an empty element; for a list, element by element."""
+    value = args[0]
+    if isinstance(value, ListValue):
+        return ListValue(tuple(Bool(isinstance(item, Empty)) for item in value.items))
+    return Bool(isinstance(value, Empty))
+
+
+@eager("delVoid", 1)
+def del_void(host: Host, args: list[Value]) -> Value:
+    """The list without its empty elements."""
+    if not isinstance(args[0], ListValue):
+        raise TIError(errors.DATA_TYPE)
+    return ListValue(tuple(item for item in args[0].items if not isinstance(item, Empty)))
 
 
 def _take(args: list[Value], *, from_left: bool) -> Value:
@@ -155,14 +187,23 @@ def dim(host: Host, args: list[Value]) -> Value:
     raise TIError(errors.DATA_TYPE)
 
 
-def _stored_list(host: Host, node: ast.Expr) -> tuple[str, list[Raw]]:
+def _stored_list(host: Host, node: ast.Expr) -> tuple[str, tuple[Value, ...]]:
     if not isinstance(node, ast.Name):
         raise TIError(errors.VARIABLE_NAME_NEEDED)
     name = variable_key(host.settings, node.text)
     stored = host.scope.get(name)
     if not isinstance(stored, ListValue):
         raise TIError(errors.DATA_TYPE)
-    return name, raw_list(stored)
+    return name, stored.items
+
+
+def sorted_order(items: tuple[Value, ...], *, descending: bool) -> list[int]:
+    """The positions of `items` in sorted order, with the empty elements last (Reference Guide,
+    Empty (Void) Elements). The rest must be numbers or expressions."""
+    filled = [i for i, item in enumerate(items) if not isinstance(item, Empty)]
+    order = cas.sort_order([raw_of(items[i]) for i in filled], descending=descending)
+    empty = [i for i, item in enumerate(items) if isinstance(item, Empty)]
+    return [filled[i] for i in order] + empty
 
 
 def _sort(host: Host, args: tuple[ast.Expr, ...], *, descending: bool) -> Value:
@@ -170,11 +211,11 @@ def _sort(host: Host, args: tuple[ast.Expr, ...], *, descending: bool) -> Value:
     if not args:
         raise TIError(errors.TOO_FEW_ARGUMENTS)
     lists = [_stored_list(host, arg) for arg in args]
-    order = cas.sort_order(lists[0][1], descending=descending)
+    order = sorted_order(lists[0][1], descending=descending)
     if any(len(items) != len(order) for _, items in lists):
         raise TIError(errors.DIMENSION_MISMATCH)
     for name, items in lists:
-        host.scope.define(name, list_of([items[i] for i in order]))
+        host.scope.define(name, ListValue(tuple(items[i] for i in order)))
     return Void()
 
 

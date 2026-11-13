@@ -6,7 +6,17 @@ from decimal import ROUND_HALF_UP, Decimal
 from cassim.core import ast, pretty
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.settings import Settings
-from cassim.core.values import Bool, Expr, ListValue, Shown, Str, Unevaluated, Value, Void
+from cassim.core.values import (
+    Bool,
+    Empty,
+    Expr,
+    ListValue,
+    Shown,
+    Str,
+    Unevaluated,
+    Value,
+    Void,
+)
 
 # Below this, Float mode changes to scientific form. Fix mode keeps fixed form up to this size.
 _SMALLEST_FLOAT_EXPONENT = -3
@@ -110,7 +120,9 @@ def decimal_text(value: Decimal, digits: str, exp_format: str = "normal") -> str
     return _fix_text(value, places) if is_fix else _float_text(value, places)
 
 
-def _atom_node(value: Str | Bool | Void | Shown) -> ast.Expr:
+def _atom_node(value: Str | Bool | Void | Empty | Shown) -> ast.Expr:
+    if isinstance(value, Empty):
+        return ast.Name("_")
     if isinstance(value, Shown):
         return ast.Name(value.text)
     if isinstance(value, Str):
@@ -125,7 +137,7 @@ def _node(value: Value, settings: Settings) -> ast.Expr:
         return cas.to_ast(
             value.raw, lambda d: decimal_text(d, settings.digits, settings.exp_format)
         )
-    if isinstance(value, Str | Bool | Void | Shown):
+    if isinstance(value, Str | Bool | Void | Empty | Shown):
         return _atom_node(value)
     if isinstance(value, Unevaluated):
         return ast.Call(value.name, tuple(_node(arg, settings) for arg in value.args))
@@ -144,7 +156,9 @@ def to_pretty(value: Value, settings: Settings, *, unicode: bool = True) -> str:
     return pretty.draw(_node(value, settings), unicode=unicode)
 
 
-def _atom_latex(value: Str | Bool | Void | Shown) -> str:
+def _atom_latex(value: Str | Bool | Void | Empty | Shown) -> str:
+    if isinstance(value, Empty):
+        return r"\_"
     if isinstance(value, Shown):
         return rf"\text{{{value.text}}}"
     if isinstance(value, Str):
@@ -160,7 +174,7 @@ def to_latex(value: Value, *, logic_symbols: bool = False) -> str:
 
     if isinstance(value, Expr):
         return cas.latex(value.raw, logic_symbols=logic_symbols)
-    if isinstance(value, Str | Bool | Void | Shown):
+    if isinstance(value, Str | Bool | Void | Empty | Shown):
         return _atom_latex(value)
     if isinstance(value, Unevaluated):
         arguments = ",".join(again(arg) for arg in value.args)
