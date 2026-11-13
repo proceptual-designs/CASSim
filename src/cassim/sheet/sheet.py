@@ -47,6 +47,7 @@ DURING_INSERTION = "Syntax error during insertion."
 CIRCULAR = "Circular definition"
 LINK_ERROR = "Link Error"
 LINKED_TWICE = "Cannot link to same list/variable twice"
+STAT_VARIABLE = "Variable Error. You cannot use the Stat variable in the Lists & Spreadsheet."
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,7 @@ class Sheet:
         self._name_readers: dict[str, set[Key]] = {}
         self._seen = session.scope.revision  # the Problem's revision this sheet is up to date at
         self.revision = 0  # raised by every change to what is drawn
+        self._locks: tuple[set[str], set[str]] = (set(), set())  # (lists, read-only) it holds
 
     # ----- reading -------------------------------------------------------------------------
 
@@ -269,6 +271,7 @@ class Sheet:
             }
             self._contents.update(kept)
             self.revision += 1
+            self._relock()
             return []
         formula = self._checked_formula(key, text, choose or {})
         old = [(c, r) for (c, r) in self._contents if c == column]
@@ -279,6 +282,7 @@ class Sheet:
         self._link(key, self._read_inputs(formula))
         outcome = _Outcome(changed=set(old))
         self._recalculate({key}, outcome)
+        self._relock()
         return outcome.notices
 
     def set_name(self, column: int, text: str) -> list[Notice]:
@@ -290,7 +294,10 @@ class Sheet:
         if not text:
             info.name = info.shown_name = None
             self.revision += 1
+            self._relock()
             return []
+        if text.casefold().startswith("stat."):
+            raise SheetError(LINK_ERROR, STAT_VARIABLE)  # check run 2, G20
         try:
             node = parse(text).statements
             if len(node) != 1 or not isinstance(node[0], ast.Name):
@@ -312,6 +319,7 @@ class Sheet:
             self._recalculate(set(), outcome)
             self._write(column)
         self.revision += 1
+        self._relock()
         return outcome.notices
 
     def recalculate(self) -> list[Notice]:
@@ -356,6 +364,7 @@ class Sheet:
             if info.name is not None:
                 self._write(column)
         self.revision += 1
+        self._relock()
         return outcome.notices
 
     def sync(self) -> list[Notice]:
@@ -383,6 +392,7 @@ class Sheet:
         nodes = {key for name in changed for key in self._name_readers.get(name, ())}
         self._recalculate(nodes, outcome)
         self._seen = scope.revision
+        self._relock()
         return outcome.notices
 
     # ----- formulas --------------------------------------------------------------------------
@@ -691,10 +701,25 @@ class Sheet:
         assert name is not None
         scope = self._session.scope
         values = self.column_values(column)
+        if not values.items:
+            values = ListValue((Empty(),))  # an empty linked column is {_} (check run 2, G20)
         if scope.get(name) != values:
             scope.define(name, values)
         if self._seen == scope.revision - 1:
             self._seen = scope.revision  # the sheet's own write is not news to it
+
+    def _relock(self) -> None:
+        """Tell the Problem which names this sheet holds: a linked list must stay a list, and a
+        formula column's variable takes no store (check run 2, G4, G9, G14)."""
+        scope = self._session.scope
+        scope.lists -= self._locks[0]
+        scope.read_only -= self._locks[1]
+        named = [info for info in self._columns if info.name is not None]
+        lists = {info.name for info in named if info.formula is None and info.name}
+        read_only = {info.name for info in named if info.formula is not None and info.name}
+        scope.lists |= lists
+        scope.read_only |= read_only
+        self._locks = (lists, read_only)
 
     def _fill_from_list(self, column: int, items: ListValue, outcome: _Outcome) -> None:
         """Replace a linked column's cells with a list's elements."""

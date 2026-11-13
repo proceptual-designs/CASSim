@@ -28,6 +28,10 @@ SINGULAR = -6
 VARIABLE_NAME_NEEDED = -7
 USE_DERIVATIVE_AT_POINT = -8
 NO_SOLUTION = -9
+# A store to a list that a spreadsheet column is linked to, or to a formula column's variable
+# (emulator check run 2, G4, G9, G14).
+VARIABLE_IN_USE = -10
+INVALID_INPUT = -11
 NON_REAL = 800  # TI's number for a non-real result in Real mode
 
 _MESSAGES = {
@@ -52,6 +56,10 @@ _MESSAGES = {
     VARIABLE_NAME_NEEDED: "Argument must be a variable name",
     USE_DERIVATIVE_AT_POINT: "Use Derivative at a Point",
     NO_SOLUTION: "No solution found",
+    VARIABLE_IN_USE: (
+        "Cannot accept change, variable in use: Cannot change to requested variable type."
+    ),
+    INVALID_INPUT: "Cannot accept change: Invalid input.",
     NON_REAL: "Non-real result",
 }
 
