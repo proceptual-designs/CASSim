@@ -258,12 +258,12 @@ Still open, each waiting on something:
 
 **M4 — Graphs and Tables (L)**
 
-**Status (2026-11-13):** planned (decision 0031); no code yet. Waiting on M3 slice 3.0, emulator check 6 part D (with rows D26 to D33 of `emulator-sharing-capture.md`), part N for Notes, and spikes C and D.
+**Status (2026-11-13):** planned (decision 0031); no code yet. Waiting on M3 slice 3.0, emulator check 6 part D (with rows D26 to D33 of `emulator-sharing-capture.md`), and part N for Notes. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells).
 
 - 4a Sampler and scene, headless (`graph/`): compile a function to `math` source for sampling in the UI worker, adaptive sampling, branch splitting at discontinuities (FR-GRAPH-004), restricted domains, the window, zoom and tick rules; scene snapshot tests (the scene as data, not pixels).
 - 4b Graphs page: the `f1` to `f99` entry line on the template editor, pan and zoom with throttled gestures, labels, attributes, Hide/Show.
 - 4c Trace and Analyze Graph: zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, bounded area. Replays the `app_graph_analysis` corpus cases.
-- 4d Other entry types, in this order: scatter plot, parametric, relations and conics (spike D), polar, sequence, differential equations.
+- 4d Other entry types, in this order: scatter plot, parametric, relations and conics (marching squares, spike D; drop false lines at jumps), polar, sequence, differential equations.
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
 - 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
 - Greyed, not built: Plane Geometry, 3D Graphing and the Geometry menu.
