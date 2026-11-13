@@ -25,5 +25,6 @@ Each site keeps its own saved work: a document made on one site is not on the ot
 - [[Settings]]: Document Settings and Handheld Setup
 - [[Documents and sharing]]: pages, saving, opening and share links
 - [[What works and what does not yet]]
+- [[Other calculators and CAS software]]: the makers' own apps, emulators and free CAS programs
 - [[Text interface]]: for people who like a terminal
 - [[Reporting a problem]]

@@ -1,6 +1,6 @@
 # Text interface
 
-If you have the CASSim source and `uv` installed, a text version of the Calculator page runs in a terminal. It is handy for checking an answer or running a file of entries.
+This is mainly for CASSim's developers: the source is not public at the moment. If you have the source and `uv` installed, a text version of the Calculator page runs in a terminal. It is handy for checking an answer or running a file of entries.
 
 ```
 uv run cassim --text

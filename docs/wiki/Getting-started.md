@@ -2,7 +2,7 @@
 
 ## Open it
 
-Open <https://cassim-app.pages.dev/> in a recent version of Chrome, Safari, Edge or Firefox. (The other CASSim sites are listed on the [[Home]] page.) The first load takes a few seconds while the calculator engine starts. A message says when it is ready.
+Open <https://cassim-app.pages.dev/> in a recent version of Chrome, Safari, Edge or Firefox. (The other CASSim sites are listed on the [[Home]] page.) The first visit downloads the whole app (about 90 MB) and can take a minute or more on a slow connection; a message says when it is ready. Later visits are much quicker.
 
 ## Install it (optional)
 

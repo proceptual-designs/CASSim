@@ -1,6 +1,6 @@
 # Documents and sharing
 
-A **document** holds Problems; a Problem holds Pages. At the moment every Page is a Calculator page. Variables belong to a Problem, so a new Problem starts clean.
+A **document** holds Problems; a Problem holds Pages. At the moment only the Calculator page works; Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages can be inserted, but they only say they are not built yet. Variables belong to a Problem, so a new Problem starts clean.
 
 - Add a page with Ctrl+I (on the keypad: ctrl then doc), or Doc, Insert.
 - Move between pages with Alt+Left and Alt+Right, or click the page list.

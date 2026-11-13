@@ -52,6 +52,13 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 - **Files.** Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot be
   opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
 
+## Related software
+
+The calculator makers sell their own computer and phone versions, and there are free CAS programs
+too. The help page [Other calculators and CAS software](https://cassim-wiki.pages.dev/Other-calculators-and-CAS-software)
+compares them for the TI-Nspire CX CAS, ClassPad II and HP Prime G2, and for the computer-based
+exam options (Mathematica, Maple, MATLAB).
+
 ## How it is tested
 
 A corpus of 186 and counting calculator cases was tested on the TI-Nspire CX CAS and reviewed, 
