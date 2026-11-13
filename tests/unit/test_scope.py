@@ -218,6 +218,53 @@ def test_a_condition_nothing_uses_leaves_the_result_alone(line):
     assert run(line) == "x^2"
 
 
-@pytest.mark.parametrize("line", ["Define LibPub f(x)=x", "l[1]:=5"])
+@pytest.mark.parametrize("line", ["Define LibPub f(x)=x", "{1,2}[1]:=5"])
 def test_unsupported_forms_say_so(line):
     assert "Not implemented yet" in fails(line)
+
+
+# Indexed store, emulator check 6 G7 (slice 3a: a sheet column linked to `xs` takes these).
+@pytest.mark.parametrize(
+    ("lines", "text"),
+    [
+        (("xs:={1,2,3}", "xs[2]:=20"), "20"),
+        (("xs:={1,2,3}", "xs[2]:=20", "xs"), "{1,20,3}"),
+        (("xs:={1,2,3}", "7→xs[1]", "xs"), "{7,2,3}"),
+        (("xs:={1,2,3}", "xs[4]:=9", "xs"), "{1,2,3,9}"),  # one past the end appends
+        (("xs:={1,2,3}", "xs[1+1]:=x^2", "xs"), "{1,x^2,3}"),
+        (("XS:={1,2}", "xs[1]:=5", "Xs"), "{5,2}"),
+        (("new[1]:=4", "new"), "{4}"),
+    ],
+)
+def test_indexed_store(lines, text):
+    assert run(*lines) == text
+
+
+@pytest.mark.parametrize(
+    ("lines", "message"),
+    [
+        (("xs:={1,2,3}", "xs[5]:=5"), "Dimension error"),
+        (("xs:={1,2,3}", "xs[0]:=5"), "Dimension error"),
+        (("xs:={1,2,3}", "xs[1.5]:=5"), "Domain error"),
+        (("xs:={1,2,3}", "xs[1]:={4,5}"), "Data type"),
+        (("k:=5", "k[1]:=2"), "Data type"),
+        (("sin[1]:=2",), "Missing ("),
+    ],
+)
+def test_indexed_store_errors(lines, message):
+    assert message in fails(*lines)
+
+
+def test_a_failed_indexed_store_leaves_the_list():
+    session = Session()
+    session.eval("xs:={1,2,3}")
+    session.eval("xs[5]:=5")
+    assert session.eval("xs").text == "{1,2,3}"
+
+
+def test_indexed_store_raises_the_revision():
+    session = Session()
+    session.eval("xs:={1,2,3}")
+    before = session.revision_of("xs")
+    session.eval("xs[1]:=9")
+    assert session.revision_of("xs") > before

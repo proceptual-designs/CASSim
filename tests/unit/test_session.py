@@ -207,7 +207,7 @@ def test_digits_setting_reaches_results():
         ("[1,2;3]", "Invalid list or matrix"),
         ('"a"+1', "Data type"),
         ("5@t", "Data type"),
-        ("{1,2}[3]", "Domain error"),
+        ("{1,2}[3]", "Dimension error"),
         ("{1,2}[1.5]", "Domain error"),
     ],
 )
