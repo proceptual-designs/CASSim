@@ -169,6 +169,7 @@ class Bridge:
         self.standalone = False  # already running as an installed app (or fullscreen)
         self.can_fullscreen = False
         self.in_fullscreen = False  # the page is fullscreen now, so the menu offers to leave it
+        self.installed = False  # running as the installed app, so the menu offers Uninstall
         self._changed = changed
         self._channel = js.BroadcastChannel.new("cassim")
         self._callback = create_proxy(self._on_message)
@@ -184,6 +185,7 @@ class Bridge:
             self.standalone = bool(event.data.standalone)
             self.can_fullscreen = bool(event.data.fullscreen)
             self.in_fullscreen = bool(event.data.inFullscreen)
+            self.installed = bool(event.data.installed)
             self._changed()
 
     def _send(self, op: str) -> None:

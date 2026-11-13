@@ -24,10 +24,13 @@ from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.layout import (
     GAP,
+    MARGIN,
     NARROW,
+    PHONE_MARGIN,
     SCREEN_H,
     SCREEN_W,
     SPLITTER,
+    STATUS_H,
     HandheldPlan,
     Sizing,
     clamp_share,
@@ -71,19 +74,21 @@ SYSTEM_KEY = "system"
 AUTOSAVE_DELAY = 0.5  # seconds
 
 
-def browser_doc_items(
-    *, handheld: bool, phone: bool, offers: BrowserOffers
-) -> tuple[MenuItem, ...]:
+def browser_doc_items(*, handheld: bool, offers: BrowserOffers) -> tuple[MenuItem, ...]:
     """The Doc menu's last three items, always in this order so the keys never move (muscle
-    memory): the view switch, Fullscreen and Install. One the browser or device cannot do is
-    greyed, and Fullscreen reads Exit Fullscreen while the page is fullscreen."""
+    memory): the view switch, Fullscreen and Install. One the browser cannot do is greyed,
+    Fullscreen reads Exit Fullscreen while the page is fullscreen, and Install reads Uninstall in
+    the installed app. Both views are offered on a phone too."""
+    install = (
+        MenuItem("Uninstall CASSim", "dialog", "uninstall", hint="CASSim")
+        if offers.installed
+        else MenuItem(
+            "Install CASSim", "dialog", "install", hint="CASSim", enabled=offers.installable
+        )
+    )
     return (
         MenuItem(
-            f"{'Computer' if handheld else 'Handheld'} view",
-            "dialog",
-            "switch_view",
-            hint="CASSim",
-            enabled=not phone,
+            f"{'Computer' if handheld else 'Handheld'} view", "dialog", "switch_view", hint="CASSim"
         ),
         MenuItem(
             "Exit Fullscreen" if offers.in_fullscreen else "Fullscreen",
@@ -92,7 +97,7 @@ def browser_doc_items(
             hint="CASSim",
             enabled=offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone),
         ),
-        MenuItem("Install CASSim", "dialog", "install", hint="CASSim", enabled=offers.installable),
+        install,
     )
 
 
@@ -128,6 +133,10 @@ class App:
         )
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
+        self.frame = ft.Column([self.toolbar, self.layout], expand=True)
+        # The margin round everything. Not `page.padding`: a change to that after start-up does
+        # not reach the page, and a phone needs a thinner margin than a computer.
+        self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
         state.clipboard_out = shell.copy  # copy and cut also fill the system clipboard
         state.show_dialog = self.show_dialog
         state.doc_extras = self.doc_extras
@@ -146,7 +155,7 @@ class App:
         page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
         page.theme_mode = ft.ThemeMode.DARK
         page.bgcolor = self.theme.background
-        page.padding = 12
+        page.padding = 0
         page.on_keyboard_event = self.on_key
         page.on_resize = self.on_resize
         page.on_app_lifecycle_state_change = self.on_lifecycle
@@ -155,7 +164,7 @@ class App:
         # shift+click (decision 0019).
         page.add(
             ft.KeyboardListener(
-                ft.Column([self.toolbar, self.layout], expand=True),
+                self.outer,
                 autofocus=True,
                 expand=True,
                 on_key_down=lambda e: self.track_shift(e.key, down=True),
@@ -206,7 +215,9 @@ class App:
         saved = await self.shell.read(SYSTEM_KEY)
         if saved is not None:
             self.state.system = System.loads(saved)
-            self.state.mode = self.state.system.start_mode
+            # A phone opens in Handheld (Doc > Computer view switches for the session): the saved
+            # start view defaults to Computer even where it was never chosen.
+            self.state.mode = Mode.HANDHELD if self.phone else self.state.system.start_mode
             self.arrange()
         else:
             self.first_visit = True
@@ -376,7 +387,8 @@ class App:
 
     @property
     def phone(self) -> bool:
-        """A phone-sized window (its short side is narrow): only Handheld mode is usable there."""
+        """A phone-sized window (its short side is narrow): it opens in Handheld, which has no
+        splitter there and a thinner margin."""
         sides = [side for side in (self.page.width, self.page.height) if side]
         return bool(sides) and min(sides) < NARROW
 
@@ -399,9 +411,8 @@ class App:
 
     def doc_extras(self) -> tuple[MenuItem, ...]:
         """The Doc menu's last three items (see `browser_doc_items`)."""
-        return browser_doc_items(
-            handheld=self.state.mode is Mode.HANDHELD, phone=self.phone, offers=self.shell.offers
-        )
+        handheld = self.state.mode is Mode.HANDHELD
+        return browser_doc_items(handheld=handheld, offers=self.shell.offers)
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -446,6 +457,8 @@ class App:
             self.go_fullscreen()
         elif name == "install":
             self.install()
+        elif name == "uninstall":
+            self.shell.uninstall()
         elif name == "switch_view":
             self.set_mode(Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD)
         elif name == "save_file":
@@ -532,30 +545,28 @@ class App:
         view = self.view.control
         state = self.state
         system = state.system
-        if self.phone:
-            state.mode = Mode.HANDHELD  # Computer mode is not usable on a phone
+        phone = self.phone
         offer = self.installable and state.mode is Mode.HANDHELD
         self.keypad.install = (
             self.install if offer else None
         )  # Install takes the empty top-right cell
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
+            margin = PHONE_MARGIN if phone else MARGIN
+            self.outer.padding = margin
+            self.frame.spacing = 0  # the toolbar holds only the status line
             plan = handheld_plan(
                 self.page.width,
                 self.page.height,
                 keypad_units(state.keypad)[0],
                 keypad_units(state.keypad)[1],
-                Sizing(
-                    None if self.phone else share,
-                    system.zoom,
-                    0,
-                ),
+                Sizing(None if phone else share, system.zoom, STATUS_H, margin, not phone),
             )
             self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
             view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
             view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, self.phone, system.zoom > 1, offer)
+            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer)
             if shape == self.shape:
                 # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
                 # the drag, which is why it used to stop after a few pixels.
@@ -563,7 +574,7 @@ class App:
                 return
             self.shape = shape
             parts: list[ft.Control] = [view, self.keypad.control]
-            if not self.phone:  # the splitter is for a tablet or a projected window
+            if not phone:  # the splitter is for a tablet or a projected window
                 parts.insert(1, self.splitter(plan))
             gap = GAP / 2
             self.layout.alignment = ft.Alignment.CENTER
@@ -584,6 +595,8 @@ class App:
                 )
         else:
             self.shape = None
+            self.outer.padding = MARGIN
+            self.frame.spacing = 10
             state.scale = state.pad_scale = system.zoom
             self.layout.alignment = None
             view.width = None

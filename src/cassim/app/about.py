@@ -6,11 +6,14 @@ import platform
 from dataclasses import dataclass
 from importlib import metadata
 
+from cassim import bundle
+
 DISCLAIMER = (
-    "CASSim is an independent educational simulator. It is not affiliated with, endorsed by or "
-    "sponsored by Texas Instruments. It is not an approved exam calculator and must not be used "
-    "in assessments that require an approved device. TI-Nspire is a trademark of Texas "
-    "Instruments."
+    "CASSim is a Computer Algebra System simulator made for educational purposes. It is not "
+    "affiliated with, endorsed by or sponsored by any company, corporation or curriculum "
+    "authority.\n"
+    "It is not an approved exam calculator and must not be used in assessments that require an "
+    "approved device."
 )
 
 PRIVACY = (
@@ -20,7 +23,8 @@ PRIVACY = (
 )
 
 LICENCE = (
-    "CASSim is released under the Unlicense: free and unencumbered software in the public domain."
+    "CASSim is vibe-coded and thus released under the Unlicense: free and unencumbered software "
+    "in the public domain."
 )
 
 # The help pages: `docs/wiki/`, built by `tools.wiki_site` and deployed to their own site.
@@ -44,22 +48,29 @@ NOTICES = (
     Notice("Noto Sans, Math, Symbols 2 and SC", "SIL OFL 1.1", "glyphs the browser lacks"),
 )
 
+UNKNOWN = "not available"
+
+# Shown in this order; the distribution each is read from when the build did not record it.
+SHOWN = (("CASSim", "cassim"), ("Flet", "flet"), ("SymPy", "sympy"), ("mpmath", "mpmath"))
+
 
 def _version(package: str) -> str:
     try:
         return metadata.version(package)
     except metadata.PackageNotFoundError:
-        return "not available"
+        return UNKNOWN
 
 
-def versions() -> list[tuple[str, str]]:
-    """Name and version pairs for the About dialog."""
-    return [
-        ("CASSim", _version("cassim")),
-        ("Python", platform.python_version()),
-        ("Flet", _version("flet")),
-        ("SymPy", _version("sympy")),
-    ]
+def versions(shipped: dict[str, str] | None = None) -> list[tuple[str, str]]:
+    """Name and version pairs for the About dialog: what the build recorded (`bundle.VERSIONS`),
+    else the installed packages (the desktop app and the tests)."""
+    shipped = bundle.VERSIONS if shipped is None else shipped
+    found = [("CASSim", shipped.get("CASSim") or _version("cassim"))]
+    found.append(("Python", platform.python_version()))
+    if "Pyodide" in shipped:
+        found.append(("Pyodide", shipped["Pyodide"]))
+    found += [(name, shipped.get(name) or _version(dist)) for name, dist in SHOWN[1:]]
+    return found
 
 
 def build_info() -> str:

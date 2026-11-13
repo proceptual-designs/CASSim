@@ -36,8 +36,8 @@ def test_doc_menu_opens_and_lists_rows() -> None:
         ("5", "Page Layout"),
         ("6", "Refresh Libraries"),
         ("7", "Settings & Status"),
-        ("8", "Login…"),
-        ("9", "Press-to-Test"),
+        ("8", "About CASSim…"),
+        ("9", "Help (wiki)…"),
     ]
     assert view.rows[0].selected
     assert view.rows[0].submenu
@@ -475,19 +475,24 @@ def test_doc_menu_browser_items_never_move() -> None:
     one that is not available is greyed and Fullscreen turns into Exit Fullscreen."""
 
     def items(**offers: bool) -> list[tuple[str, bool]]:
-        view = {"handheld": offers.pop("handheld", True), "phone": offers.pop("phone", False)}
+        handheld = offers.pop("handheld", True)
         given = BrowserOffers(**{"can_fullscreen": True, **offers})
-        return [(i.label, i.enabled) for i in browser_doc_items(**view, offers=given)]
+        return [(i.label, i.enabled) for i in browser_doc_items(handheld=handheld, offers=given)]
 
     assert items() == [("Computer view", True), ("Fullscreen", True), ("Install CASSim", False)]
     assert items(in_fullscreen=True, standalone=True)[1] == ("Exit Fullscreen", True)
     assert items(standalone=True)[1] == ("Fullscreen", False)
-    assert items(phone=True, installable=True) == [
-        ("Computer view", False),
-        ("Fullscreen", True),
-        ("Install CASSim", True),
-    ]
+    assert items(installable=True)[2] == ("Install CASSim", True)
     assert items(handheld=False)[0] == ("Handheld view", True)
+
+
+def test_the_installed_app_offers_uninstall() -> None:
+    """In the installed app the Install row reads Uninstall, in the same place, and asks first."""
+    labels = [
+        (i.label, i.arg, i.enabled)
+        for i in browser_doc_items(handheld=True, offers=BrowserOffers(installed=True))
+    ]
+    assert labels[2] == ("Uninstall CASSim", "uninstall", True)
 
 
 def test_template_cells_are_drawn_as_pictures() -> None:

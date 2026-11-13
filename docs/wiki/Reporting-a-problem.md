@@ -8,4 +8,4 @@ Helpful details:
 - What the TI-Nspire CX CAS gives, if you know
 - The Document Settings (angle, calculation mode, real or complex, digits)
 - Which site you were using (see [[Home]]), and your device and browser
-- The version, from Doc, Settings & Status, **About CASSim**
+- The version, from Doc, **About CASSim**

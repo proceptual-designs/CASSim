@@ -32,6 +32,19 @@ class BrowserOffers:
     can_fullscreen: bool = False
     standalone: bool = False  # already installed, or fullscreen
     in_fullscreen: bool = False
+    installed: bool = False  # running as the installed app (not a fullscreen tab)
+
+
+# A web app cannot remove itself: the browser or the system does it, so Uninstall says how.
+UNINSTALL_STEPS = (
+    "A web app cannot remove itself; your device does it. Your saved documents stay in this "
+    "browser until you clear the site's data.\n\n"
+    "• Android: touch and hold the CASSim icon, then Uninstall (or App info, Uninstall).\n"
+    "• Chrome or Edge on a computer: in the CASSim window, open the ⋮ menu, then Uninstall "
+    "CASSim.\n"
+    "• Chromebook: right-click CASSim in the launcher, then Uninstall.\n"
+    "• iPhone or iPad: touch and hold the CASSim icon, then Remove App."
+)
 
 
 def about_dialog(page: ft.Page) -> None:
@@ -224,12 +237,29 @@ class Shell:
         if bridge is None:
             return BrowserOffers()
         return BrowserOffers(
-            bridge.installable, bridge.can_fullscreen, bridge.standalone, bridge.in_fullscreen
+            bridge.installable,
+            bridge.can_fullscreen,
+            bridge.standalone,
+            bridge.in_fullscreen,
+            bridge.installed,
         )
 
     def install(self) -> None:
         if self.bridge is not None:
             self.bridge.install()
+
+    def uninstall(self) -> None:
+        """Doc > Uninstall CASSim: asks first, then shows how (no web API removes the app)."""
+
+        async def show_steps() -> None:
+            self.notice("Uninstall CASSim", UNINSTALL_STEPS)
+
+        self.confirm(
+            "Uninstall CASSim?",
+            "CASSim stays usable in the browser at the same address.",
+            "Continue",
+            show_steps,
+        )
 
     def toggle_fullscreen(self) -> None:
         """Fullscreen, or back out of it while the page is fullscreen."""

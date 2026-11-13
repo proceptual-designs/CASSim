@@ -14,6 +14,8 @@ from cassim.devices.nspire.ui.layout import (
     MIN_SHARE,
     MIN_ZOOM,
     NARROW,
+    PHONE_MARGIN,
+    STATUS_H,
     Sizing,
     computer_screen_height,
     handheld_plan,
@@ -96,9 +98,28 @@ def test_the_computer_screen_fills_the_window_height() -> None:
     assert computer_screen_height(200) == 300
 
 
-def test_the_keypad_is_drawn_smaller_than_the_screen_by_default() -> None:
+def test_a_phone_in_portrait_fills_the_width_and_height() -> None:
+    """NFR-PORT-003: on a Pixel-sized window the screen and the keys both reach across (the keys
+    used to be drawn at 0.8 of the screen, leaving blank space at the sides and the bottom)."""
+    sizing = Sizing(bar=STATUS_H, margin=PHONE_MARGIN, splitter=False)
+    plan = handheld_plan(412, 915, *UNITS, sizing)
+    room_w, room_h = 412 - 2 * PHONE_MARGIN, 915 - 2 * PHONE_MARGIN - STATUS_H
+    assert not plan.side_by_side
+    assert 320 * plan.scale == pytest.approx(room_w)
+    assert PAD[0] * plan.pad_scale > 0.85 * room_w
+    used = 240 * plan.scale + sizing.between + PAD[1] * plan.pad_scale
+    assert used == pytest.approx(room_h, abs=1)
+
+
+def test_the_keypad_gives_way_before_the_screen() -> None:
+    """When the parts do not fit along the split the keypad shrinks first, but not below
+    DEFAULT_RATIO of the screen; then both shrink together."""
     plan = handheld_plan(844, 390, *UNITS)
-    assert plan.pad_scale == pytest.approx(plan.scale * DEFAULT_RATIO)
+    assert plan.side_by_side
+    assert 240 * plan.scale == pytest.approx(390 - 2 * 12 - 44)  # the screen fills the height
+    tight = handheld_plan(360, 640, *UNITS)
+    assert tight.pad_scale >= tight.scale * DEFAULT_RATIO - 1e-9
+    assert tight.scale * 240 + tight.pad_scale * PAD[1] + 22 <= 640 - 24 - 44 + 1
 
 
 def test_the_splitter_can_take_the_keypad_from_small_to_large() -> None:
