@@ -39,7 +39,7 @@ from cassim.devices.nspire.ui.layout import (
     keypad_size,
     starting_mode,
 )
-from cassim.devices.nspire.ui.state import AppState, Mode, System
+from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.views import (
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
@@ -48,7 +48,6 @@ from cassim.devices.nspire.ui.views import (
     Sidebar,
     chip,
     settings_dialog,
-    sorter_dialog,
     system_settings_dialog,
     wizard_dialog,
 )
@@ -445,7 +444,7 @@ class App:
             chip("+ problem", lambda: self.act("add_problem"), theme),
             chip("delete page", lambda: self.act("delete_page"), theme),
             chip("Doc", lambda: self.act("open_menu", "doc"), theme),
-            chip("Sorter", lambda: self.show_dialog("page_sorter"), theme),
+            chip("Sorter", lambda: self.act("dialog", SORTER), theme),
             chip("settings", self.open_settings, theme),
             chip("Help", lambda: self.show_dialog("help"), theme),
             chip("About", lambda: self.show_dialog("about"), theme),
@@ -475,8 +474,6 @@ class App:
             self.shell.help()
         elif name == "about":
             self.shell.about()
-        elif name == "page_sorter":
-            sorter_dialog(self.page, self.state, self.refresh, self.theme)
 
     async def save_file(self) -> None:
         """Download the document as `.cassim.json` (FR-DOC-004, FR-DOC-006)."""

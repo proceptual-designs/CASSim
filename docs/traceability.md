@@ -154,7 +154,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |
-| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_stub_pages.py`, `tests/device/test_document.py` |
+| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_sorter.py`, `tests/app/test_stub_pages.py` and 1 more |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 1 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
