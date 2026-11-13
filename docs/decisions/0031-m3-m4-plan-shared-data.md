@@ -27,7 +27,7 @@ Two parts of today's code do not scale to sheet data and change in slice 3.0: `E
 
 - **Each page's data is kept alive: its model and its cached scene.** Switching pages builds the new page's controls from that data. It never waits for the engine. If a dependency has a newer revision the page refreshes after it is shown, with the busy mark. *(Changed by spike A: the first draft kept the controls alive and changed `visible`, which is slower.)*
 - **The sheet and the plots are drawn on a canvas, visible cells only, one text shape per column** (spike A). Decision 0004 measured about 0.7 ms per shape, so a control per cell for 2,500 rows is not possible.
-- **Graphs are sampled in the UI worker.** The engine compiles each function once to source that uses only Python's `math`; the UI worker evaluates it for pan, zoom and trace with no round trip. A function that will not compile is sampled by an engine op.
+- **Graphs are sampled in the UI worker.** The engine compiles each function once to source that uses only Python's `math`; the UI worker evaluates it for pan, zoom and trace with no round trip, at one point a pixel column, and redraws inside the gesture's event handler (spike C). A function that will not compile is sampled by an engine op.
 - **Measured, not enforced** (NFR-PERF-006): `tools/switchtime.py`, beside `tools/loadtime.py`. The aim is 100 ms on a desktop and 250 ms on a mid-range phone from the key press to the new page drawn.
 
 ### 3. Split pages
@@ -60,7 +60,7 @@ The triggers of PLAN.md section 12 rows A1, A4 and A5 are met by slice 3.0:
 
 ## Spikes
 
-Each is a short script under `spikes/` with its numbers added to this file. **A and B are done (results below); C and D are not.**
+Each is a short script under `spikes/` with its numbers added to this file. **All four are done (results below).**
 
 | Spike | Question | Decides |
 |---|---|---|
@@ -128,6 +128,70 @@ Whole numbers and exact fractions are about a third faster. At 500 elements ever
 - A fast path for plain numbers is not built now. Squaring 2,500 Python floats and formatting them takes 6 ms natively against 290 ms through SymPy, so it is available if a phone needs it; it would have to keep exact fractions and symbolic elements on the present path.
 - Found on the way: `xs[2]:=20` gives "Not implemented yet: indexed assignment". Slice 3a needs it.
 
+### Spike C: sampling in the UI worker, fills and gestures
+
+`spikes/spike_c_web`, run by `spikes/run_web_spike_c.py`, which drags the mouse, pinches with two touches (through the DevTools protocol) and turns the wheel while the app redraws. `spikes/spike_c_compile.py` is the engine side. Headless Edge on the laptop; the browser held 60 frames a second in every phase.
+
+Sampling 2,000 points of one function, in Flet's Pyodide worker:
+
+| Function | Time |
+|---|---|
+| `sin(x)+0.3*sin(7x)` | 0.5 ms |
+| `x^3/10-x`, `1/x`, `exp(-x^2/2)`, `tan(x)` | 0.1 to 0.3 ms |
+| `sqrt(x)` with half the points outside the domain | 1.3 ms |
+
+The source is pasted into one generated list comprehension, and a loop with a `try` around each point is used only when a point raises. Calling a function for each point is about half as fast again. Making the source from SymPy takes under 1 ms a function (15 ms for the first, which loads the printer), and compiling six sources in the UI worker takes 2 ms.
+
+One frame of three curves (sample, map to the screen, send):
+
+| What is drawn | Per frame |
+|---|---|
+| Three curves, 2,000 points each | 19 to 21 ms |
+| Three curves, 640 points each (one a pixel) | **6 to 7 ms** |
+| The same at 2,000 points, with two filled `Path` regions of 600 and 2,000 points | 60 to 67 ms |
+| The same at 640 points, fills of 190 and 640 points | 21 to 25 ms |
+| Curves at 640 points, fills at 160 points | **12 ms** |
+| 3,000 separate line segments in one `Points` shape (an implicit curve) | 12 to 15 ms |
+| 600 separate segments | 3 to 4 ms |
+
+Sampling is under a tenth of the frame. The rest is building the shapes and Flet's `update()`, and a `Path` costs about four times as much a point as a `Points` shape.
+
+Following the pointer (120 mouse moves, 118 pinch events or 60 wheel turns, sent every 16 ms):
+
+| Handling | Redraw | Result |
+|---|---|---|
+| Redraw inside each event, 640 points | 6 to 7 ms | Keeps up for pan, pinch and wheel; 4 to 8 ms behind at the end |
+| Redraw inside each event, 2,000 points | 14 to 18 ms | Falls behind: the 1.9 s drag took 3.0 to 3.4 s to send |
+| The same with `drag_interval=33` | 12 to 14 ms | Keeps up at half the events |
+| Events only mark the view; one task redraws the latest (2,000 points) | 13 ms | Worse: the task waited 45 ms for its turn each time and finished 2.7 s late |
+| The same at 640 points | 5 ms | 0.5 s late over the drag |
+| Move the drawn canvas with `left` and `top`, resample at the end | 32 to 38 ms | Slower than redrawing: the update compares the canvas's unchanged points |
+
+**Outcome.**
+- Local sampling is confirmed. Curves are sampled at one point a pixel column of the plot (about 320 on the Handheld, 640 on the Computer), not a fixed 2,000; more points are added only where a curve is steep.
+- A pan, pinch or wheel event resamples and redraws inside its handler. No redraw task, and no moving of the drawn canvas. Pinch comes through the scale events, which also carry a one-finger drag, so the Graphs page uses those. `drag_interval` is the remedy if a phone falls behind.
+- Fills use a quarter of the curve's points, and a filled region is drawn only while it is on show.
+- The compiled source must come from CASSim's own printer over a fixed list of names, not from `sympy.pycode` as it stands, since the UI worker runs it with `exec`: only `math` functions, arithmetic and conditional expressions, checked before it is sent.
+- Not tested: the asymptote rule (the spike breaks a curve where it jumps more than the window height), trace and analysis points, and touch input on a real phone.
+
+### Spike D: implicit curves
+
+`spikes/spike_d_implicit.py`: marching squares in pure Python, with the same generated-comprehension sampling over a grid, natively and in Pyodide. In Pyodide:
+
+| Window and cell | Grid | Circle | `sin(x)+cos(y)=1/2` | `sqrt(x)+sqrt(y)=2` (points outside the domain) |
+|---|---|---|---|---|
+| Handheld (320 by 212), 4 px | 80 by 53 | 2 ms | 2 ms | 7 ms |
+| Handheld, 2 px | 160 by 106 | 7 ms | 8 ms | 21 ms |
+| Computer (640 by 424), 4 px | 160 by 106 | 6 ms | 8 ms | 20 ms |
+| Computer, 2 px | 320 by 212 | 24 ms | 31 ms | 82 ms |
+
+A circle's points are within 0.04 px of the true circle at 4 px cells, because the crossing is interpolated along each cell edge. A relation gives 100 to 2,000 segments, which draw in under 15 ms (spike C).
+
+**Outcome.**
+- Marching squares in pure Python is fast enough: 4 px cells while a gesture is in progress, 2 px when it ends. No compiled code and no NumPy.
+- A relation with a jump (`y=tan(x)`) gets a false line along each asymptote. Slice 4d has to drop a crossing where the values on either side are large.
+- Not tested: inequalities as filled regions (the cells are known, so a fill by cell is possible), and joining the segments into polylines.
+
 ## Emulator evidence still needed
 
 Check 6 (`docs/testing/emulator-pages-capture.md`) parts E and F are needed before slices 3a and 3b settle, part D before 4b. Check 6 did not cover sharing, so parts G (shared data), H (split pages), J (categorical charts) and N (Notes) are in `docs/testing/emulator-sharing-capture.md`.
@@ -146,5 +210,5 @@ The first run of check 6 (2026-11-13) did most of parts E and F: `docs/testing/e
 ## Not decided
 
 - How a cell holding `=rand()` keeps its value across a rebuild after Cancel (the journal replays it to a new value). Check 6 showed that the handheld draws a new value on every recalculation (Ctrl+R); part G shows what other events recalculate. Decide in slice 3a.
-- Timings on the Pixel 6 for both spikes.
+- Timings on the Pixel 6 for all four spikes (deferred by Simon, 2026-11-13: wait for `tools/switchtime.py`).
 - Where the autosave size limit sits for a document with large lists; share links already fall back to a file above about 2,000 characters.
