@@ -140,6 +140,7 @@ class Evaluator:
         # The `|` bindings in force, which also reach into stored values and Ans.
         self._substitutions: list[dict[str, Value]] = []
         self._non_real = False
+        self.warnings: list[str] = []  # for the entry's warning triangle (FR-CALC-007)
         self._dispatch: dict[type, Callable[[Any], Value]] = {
             ast.Number: self._number,
             ast.Dms: self._dms,
@@ -269,6 +270,9 @@ class Evaluator:
         finished = Expr(cas.finish(value.raw, self._settings))
         if self._non_real and cas.is_non_real_number(finished.raw):
             raise TIError(errors.NON_REAL)  # only ever set in Real mode
+        if self._non_real and errors.NON_REAL_CALCULATION not in self.warnings:
+            # a non-real step with a real answer, as in √(-1)·√(-1): kept, with a warning
+            self.warnings.append(errors.NON_REAL_CALCULATION)
         # In Polar mode a complex number is written as r*ⅇ^(ⅈ*θ).
         if self._settings.domain == Domain.POLAR:
             return polar_form(finished, self._settings)
