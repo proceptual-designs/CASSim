@@ -905,13 +905,12 @@ DOC = MenuItem(
             MenuItem("Document Settings…", "dialog", "document_settings", key="2"),
             MenuItem("Handheld Setup…", "dialog", "system_settings", key="3", hint="CASSim"),
             todo("Status…", "4"),
-            todo("Login…", "5"),
             todo("Restore Factory Defaults…", "6"),
-            MenuItem("About CASSim…", "dialog", "about", key="7", hint="CASSim"),
-            MenuItem("Help (wiki)…", "dialog", "help", key="8", hint="CASSim"),
         ),
-        todo("Login…", "8"),
-        todo_sub("Press-to-Test", "9", "Exit Press-to-Test", "Transfer Press-to-Test", "Help"),
+        # The device's Login and Press-to-Test (8 and 9) will not be built; CASSim's About and
+        # Help take their keys.
+        MenuItem("About CASSim…", "dialog", "about", key="8", hint="CASSim"),
+        MenuItem("Help (wiki)…", "dialog", "help", key="9", hint="CASSim"),
     ),
 )
 

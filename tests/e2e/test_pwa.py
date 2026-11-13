@@ -8,7 +8,9 @@ serves it below /CASSim/ as a GitHub Pages project site would, and drives it in 
 from __future__ import annotations
 
 import json
+import tarfile
 import time
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -106,6 +108,25 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     assert version.startswith(publish.project_version())
     assert f'"cassim-{version}"' in (dist / "flutter_service_worker.js").read_text(encoding="utf-8")
     assert "cassim-update" in (dist / "index.html").read_text(encoding="utf-8")
+
+
+def test_the_build_records_the_versions_it_ships(site: tuple[Path, str]) -> None:
+    """The About box's versions: the UI worker's `bundle.py` names what was shipped, SymPy
+    included, though only the engine worker holds SymPy."""
+    dist, _ = site
+    lock = publish.lock_file(dist)
+    with tarfile.open(dist / "app.tar.gz") as archive:
+        member = archive.extractfile("cassim/bundle.py")
+        assert member is not None
+        text = member.read().decode("utf-8")
+    assert f"'CASSim': '{publish.project_version()}'" in text
+    assert f"'SymPy': '{lock['packages']['sympy']['version']}'" in text
+    assert f"'Pyodide': '{publish.pyodide_version(dist)}'" in text
+    with zipfile.ZipFile(dist / "cassim.zip") as archive:  # the SymPy the engine really loads
+        assert any(
+            name.startswith(f"sympy-{lock['packages']['sympy']['version']}.dist-info/")
+            for name in archive.namelist()
+        )
 
 
 def test_cancel_ends_a_long_calculation_and_keeps_variables(

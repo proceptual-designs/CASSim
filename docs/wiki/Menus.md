@@ -15,7 +15,9 @@ Some items open a small form instead of expecting you to type the command, for e
 - **View:** Page Sorter and other views
 - **Insert:** add a Problem or a page (only Calculator pages work so far)
 - **Page Layout:** delete a page
-- **Settings & Status:** Document Settings, Handheld Setup and About CASSim
+- **Settings & Status:** Document Settings and Handheld Setup
+- **8 About CASSim** and **9 Help** (in the handheld's places for Login and Press-to-Test, which CASSim does not have)
+- Then CASSim's own: switch to the other view, **Fullscreen** (greyed where the browser cannot, or when CASSim is already installed and full screen), and **Install CASSim**, which reads **Uninstall CASSim** in the installed app and shows how to remove it
 
 ## Other menus
 
