@@ -249,6 +249,15 @@ class Evaluator:
     def note_non_real(self) -> None:
         self._non_real = True
 
+    def evaluated(self, node: ast.Expr) -> Value:
+        """One expression, finished as an entry's result is (a spreadsheet formula)."""
+        return self._evaluated(node)
+
+    def name_for_store(self, text: str) -> str:
+        """The key a variable called `text` is stored under, or the TIError a store to it gives
+        (a built-in name, a constant, `ans`): for naming a spreadsheet column."""
+        return self._variable_name(ast.Name(text))
+
     def _variable_name(self, node: ast.Expr) -> str:
         """The key for a name being stored to; constants and built-ins are refused."""
         if isinstance(node, ast.Name):
