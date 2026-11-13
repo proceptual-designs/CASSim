@@ -1,6 +1,6 @@
 # CASSim
 
-CASSim is a free simulator of the TI-Nspire CX CAS that runs in your browser. It is made for VCE Mathematical Methods and Specialist Mathematics, and works on a laptop, Chromebook, tablet or phone. There is nothing to sign up for, and your work stays on your device.
+CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational purposes. It is free, runs in your browser and simulates the TI-Nspire CX CAS. It is made for VCE Mathematical Methods and Specialist Mathematics, and works on a laptop, Chromebook, tablet or phone. There is nothing to sign up for, and your work stays on your device.
 
 > **CASSim is an independent educational simulator.** It is not affiliated with, endorsed by or sponsored by Texas Instruments. It is not an approved exam calculator and must not be used in assessments that require an approved device. TI-Nspire is a trademark of Texas Instruments.
 
