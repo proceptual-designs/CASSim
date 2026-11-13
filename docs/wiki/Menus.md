@@ -13,7 +13,7 @@ Some items open a small form instead of expecting you to type the command, for e
 - **File:** new document, open and save files, copy a share link
 - **Edit:** undo, redo, copy and paste
 - **View:** Page Sorter and other views
-- **Insert:** add a Problem or a Calculator page
+- **Insert:** add a Problem or a page (only Calculator pages work so far)
 - **Page Layout:** delete a page
 - **Settings & Status:** Document Settings, Handheld Setup and About CASSim
 

@@ -14,7 +14,8 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 - Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages (see below)
 - TI-Basic programs and the library functions (`mm_`, `sm_`, `gm_`)
 - Importing and exporting `.tns` files (not planned for now)
-- Python and pseudocode pages (planned)
+- Python and pseudocode (planned)
+- Other calculators, the Casio ClassPad and the HP Prime (planned, later). Each will also get its own smaller site
 
 ## Being built next
 
