@@ -183,7 +183,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-PROF-001 | Could | `tests/device/test_devices.py` |
 | FR-PROF-002 | Must | `tests/device/test_devices.py` |
 | FR-PROF-006 | Should | `tests/device/test_serialize.py` |
-| FR-PROF-008 | Could | `tests/device/test_devices.py`, `tests/test_architecture.py` |
+| FR-PROF-008 | Could | `tests/device/test_devices.py`, `tests/test_architecture.py`, `tests/unit/test_bundles.py` |
 | FR-PROF-009 | Could | `tests/device/test_serialize.py` |
 | FR-RUN-005 | Should | `tests/runtime/test_pseudocode.py` |
 | FR-RUN-006 | Should | `tests/runtime/test_pseudocode_corpus.py` |
