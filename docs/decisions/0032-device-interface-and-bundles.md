@@ -125,7 +125,7 @@ Each step is its own PR and changes no behaviour. The gate for each: every corpu
 1. This file.
 2. `doc/` and registered page types (items 1, 3, 4).
 3. `devices/`, `devices/nspire/` with the profile data and the Calculator page model, `bundle.py`, and the rules of item 6 (items 1, 2).
-4. The shell and `devices/nspire/ui/` (item 5). This also does follow-ups A2 and A3 of PLAN.md section 12.
+4. The shell and `devices/nspire/ui/` (item 5). This also does follow-up A2 of PLAN.md section 12 (A3, splitting the views file, is left as it was).
 5. Bundle-aware `tools.publish`, the `tin` site and the size report (item 8).
 
 ## Not decided

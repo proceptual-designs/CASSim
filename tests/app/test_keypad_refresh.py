@@ -2,8 +2,8 @@
 """The keypad is rebuilt only when its look changes: a rebuild of ~40 controls on every key press
 made a phone feel slow (about 70 ms of building and 200 ms of diffing, measured at 4x throttle)."""
 
-from cassim.app.state import AppState
-from cassim.app.ui import Keypad
+from cassim.devices.nspire.ui.state import AppState
+from cassim.devices.nspire.ui.views import Keypad
 
 
 def test_keypad_is_not_rebuilt_for_an_unchanged_look() -> None:

@@ -21,7 +21,8 @@ def test_is_builtin_agrees_with_the_catalog() -> None:
 def test_the_app_imports_without_sympy() -> None:
     """The browser's UI worker never has SymPy: importing it there took 4 s on every start."""
     code = (
-        "import sys, cassim.app.main, cassim.app.ui, cassim.app.entry\n"
+        "import sys, cassim.app.main, cassim.devices.nspire.ui.app\n"
+        "import cassim.devices.nspire.ui.views, cassim.devices.nspire.ui.entry\n"
         "heavy = sorted(m for m in sys.modules if m.split('.')[0] in ('sympy', 'mpmath', 'yaml')"
         " or m.startswith(('cassim.core.session', 'cassim.core.catalog')))\n"
         "print(heavy)\n"

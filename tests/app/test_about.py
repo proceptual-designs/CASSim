@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from cassim.app import about
-from cassim.app.state import AppState
+from cassim.devices.nspire.ui.state import AppState
 
 
 def test_disclaimer_says_what_nfr_leg_002_requires() -> None:

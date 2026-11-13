@@ -2,7 +2,9 @@
 
 import pytest
 
-from cassim.app.layout import (
+from cassim.device.keys import keypad_units
+from cassim.devices.nspire import keymap as nspire
+from cassim.devices.nspire.ui.layout import (
     DEFAULT_RATIO,
     KEY_GAP,
     MAX_SCALE,
@@ -19,9 +21,7 @@ from cassim.app.layout import (
     keypad_size,
     starting_mode,
 )
-from cassim.app.state import AppState, Mode, System
-from cassim.device.keys import keypad_units
-from cassim.devices.nspire import keymap as nspire
+from cassim.devices.nspire.ui.state import AppState, Mode, System
 
 UNITS = keypad_units(nspire.KEYPAD)  # five keys across
 PAD = keypad_size(*UNITS)

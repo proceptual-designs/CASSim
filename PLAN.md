@@ -62,12 +62,14 @@ cassim/
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
                             editor, wizard, clipboard, the Profile type; and, until slice 3.0, the engine protocol (engine.py)
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
-  src/cassim/app/            FLET: App orchestration (main.py), views and dialogs (ui.py), layouts, keypad, storage, share links, PWA bits.
-                            (Earlier drafts called this cassim_app.) Not thin yet: see section 12
+  src/cassim/app/            FLET: the shell only (decision 0032): main.py picks the device from bundle.py and mounts its UI;
+                            shell.py is what a device's UI may use (storage, files, clipboard, links, notices, About, install
+                            and full screen, the engine worker); web.py, about.py, theme.py, keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
                             load(id). A device never imports another device, and imports without Flet
     nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types and the Calculator
-                            model); screen.py, runner.py, document.py. Its Flet views join it in M2x step 4 (ui/)
+                            model); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py, entry.py,
+                            layout.py; the only part of a device that imports Flet)
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M7b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -363,8 +365,7 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 | # | Change | Trigger | Notes |
 |---|--------|---------|-------|
 | A1 | Typed action names (`keys.py` string pairs) and typed worker messages (`engine.py` `dict[str, Any]` to `TypedDict`s, validated at the worker boundary). | The next change to the worker protocol or the menu data. | First step needs no refactor: a test that every enabled menu or profile action resolves to a handler, not only that wizard names exist. Add that test with the next menu work. |
-| A2 | Separate orchestration from browser services in `app/main.py` (about 620 lines: rendering, keyboard, worker, autosave, files, sharing, dialogs). Extract storage/file operations and engine coordination behind small interfaces; `App` only connects them. | The next feature or bug touching autosave, files, sharing or the worker in `main.py`. | Behaviour-preserving. Benefit is headless tests of failure handling. Do not refactor speculatively. |
-| A3 | Split `app/ui.py` (about 770 lines: calculator view, keypad, sidebar, several dialogs) into cohesive modules; derive the compact tools menu and the toolbar from one shared action list (currently duplicated in `main.py`). | Move code as each part is next touched; do the shared action list the next time either menu changes. | Duplicated lists drift, so the shared list matters more than the file split. |
+| A3 | Split `devices/nspire/ui/views.py` (about 1,100 lines: calculator view, keypad, sidebar, several dialogs) into cohesive modules; derive the compact tools menu and the toolbar from one shared action list (currently duplicated in `ui/app.py`). | Move code as each part is next touched; do the shared action list the next time either menu changes. | Duplicated lists drift, so the shared list matters more than the file split. |
 | A5 | Extend `tests/test_architecture.py` with new dependency rules as packages gain code (for example `sheet`, `graph`, `stats` must not import `device` or `app`). | Whenever a placeholder package gets its first module. | Also remove its `[placeholder]` tag in section 3. |
 | A6 | Re-check the spare engine (`app/web.py`, decisions 0016, 0027, SDD-02). Each load still boots three Pyodide runtimes (Flet, the engine, the spare). Remaining options: skip the spare on phones (Cancel would then restart in about 2 to 4 s since 0027), or share one runtime. | Phone memory trouble or key-press lag, or Cancel changes. | Simon's phone install (2026-11-12) works but was slow (about 11 s to load on a Pixel 6). Partly done in 0027 (2026-11-12): engine boot cut from 7 to 9 s to 2 to 4 s, and the spare now waits 3 s after the engine is ready (`SPARE_DELAY`). Key-press lag was cut earlier (keypad not rebuilt per press: 322 ms to 34 ms per refresh, 2026-11-09). Still to do: time start-up, memory and key presses on the Pixel 6 (`tools/loadtime.py` for desktop) and record them in 0027. |
 | A7 | Lazy-load catalog areas in the engine: register each function's name and arity up front, and import its module (calculus, matrices, distributions, finance and so on) on first use. | The phone timing (A6) shows the engine, not the UI, is what the user waits for, or a new area (SciPy statistics, M4) makes engine start-up slower. | Deferred in 0027: the engine boots in the background in about 2 s, and lazy loading moves that wait to the first use of a feature, perhaps mid-question. `core/builtin_names.py` already holds every name, so the registry change is small. Measure with `tools/loadtime.py` and a first-use timing per area; SciPy must stay lazy whatever is decided (PLAN section 3, `stats/`). |

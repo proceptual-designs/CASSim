@@ -10,8 +10,10 @@ from typing import Any, cast
 
 import flet as ft
 
-from cassim.app.main import App
-from cassim.app.state import AppState, Mode
+from cassim.app.shell import Shell
+from cassim.devices.nspire import DEVICE
+from cassim.devices.nspire.ui.app import App
+from cassim.devices.nspire.ui.state import AppState, Mode
 
 
 class FakePage(SimpleNamespace):
@@ -35,7 +37,7 @@ class FakePage(SimpleNamespace):
 
 def handheld_app(width: float = 1200, height: float = 700) -> tuple[App, FakePage]:
     page = FakePage(width, height)
-    app = App(cast("ft.Page", page), AppState(mode=Mode.HANDHELD))
+    app = App(Shell(cast("ft.Page", page), DEVICE), AppState(mode=Mode.HANDHELD))
     app.arrange()
     page.tasks.clear()
     return app, page

@@ -3,11 +3,11 @@
 
 import pytest
 
-from cassim.app.state import AppState
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.wizard import CURSOR, Field, Wizard
 from cassim.devices.nspire.menus import WIZARDS, polynomial
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.ui.state import AppState
 
 
 def _calculator(state: AppState) -> Calculator:

@@ -347,7 +347,9 @@ def copy_cassim(target: Path, dist: Path, runs_at: str, *, ui: bool) -> None:
     shutil.copytree(
         ROOT / "src" / "cassim",
         target / "cassim",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "assets", *([] if ui else ["app"])),
+        ignore=shutil.ignore_patterns(
+            "__pycache__", "*.pyc", "assets", *([] if ui else ["app", "ui"])
+        ),
     )
     if same_python(dist):
         compile_tree(target / "cassim", f"{runs_at}/cassim", keep_source=True)

@@ -1,4 +1,4 @@
-"""The browser engine: `cassim.device.engine.EngineCore` in its own Pyodide worker (decision 0005).
+"""The browser engine: a device's `EngineCore` in its own Pyodide worker (decision 0005).
 
 Flet runs the UI, the document model and its event handlers in one Pyodide worker, so a long
 calculation there would freeze Cancel too. The engine therefore gets a second worker, spawned from
@@ -35,7 +35,7 @@ self.onmessage = async (e) => {
       py.runPython(`
 import sys, json
 sys.path.insert(0, "/cassim_lib")
-from cassim.device.engine import EngineCore
+from __ENGINE_MODULE__ import EngineCore
 core = EngineCore()
 def handle(message):
     m = json.loads(message)
@@ -68,9 +68,10 @@ def _absolute(path: str) -> str:
 class _Worker:
     """One engine worker and the requests waiting on it."""
 
-    def __init__(self) -> None:
+    def __init__(self, module: str) -> None:
+        source = ENGINE_JS.replace("__ENGINE_MODULE__", module)
         blob = js.Blob.new(
-            [ENGINE_JS], to_js({"type": "text/javascript"}, dict_converter=js.Object.fromEntries)
+            [source], to_js({"type": "text/javascript"}, dict_converter=js.Object.fromEntries)
         )
         self._url = js.URL.createObjectURL(blob)
         self._worker = js.Worker.new(
@@ -126,8 +127,9 @@ class _Worker:
 class WorkerEngine:
     """The `Engine` for the browser: an active worker and, once that has booted, a spare."""
 
-    def __init__(self) -> None:
-        self._active = _Worker()
+    def __init__(self, module: str) -> None:
+        self._module = module  # the device's engine module: it exposes `EngineCore`
+        self._active = _Worker(module)
         self._spare: _Worker | None = None
         self._spare_task: asyncio.Future[None]  # kept so the task is not collected
         self._spare_task = asyncio.ensure_future(self._start_spare(SPARE_DELAY))
@@ -141,7 +143,7 @@ class WorkerEngine:
         except asyncio.CancelledError, EngineError:
             return
         if self._active is active and self._spare is None:
-            self._spare = _Worker()
+            self._spare = _Worker(self._module)
 
     async def run(self, problem: int, ops: list[Op]) -> Reply:
         return await self._active.send({"op": "run", "problem": problem, "ops": ops})
@@ -153,7 +155,7 @@ class WorkerEngine:
     def cancel(self) -> bool:
         """End the busy worker at once and make the spare the active engine."""
         self._active.terminate()
-        self._active = self._spare if self._spare is not None else _Worker()
+        self._active = self._spare if self._spare is not None else _Worker(self._module)
         self._spare = None
         return True
 

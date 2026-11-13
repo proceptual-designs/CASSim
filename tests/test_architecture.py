@@ -47,9 +47,25 @@ def test_package_does_not_import_forbidden_modules(
     package: str, forbidden: set[str], why: str
 ) -> None:
     for path in (SRC / package).rglob("*.py"):
+        if package == "devices" and "ui" in path.relative_to(SRC).parts:
+            continue  # a device's views: their own rule is below
         for name in imports(path):
             hit = any(name == bad or name.startswith(bad + ".") for bad in forbidden)
             assert not hit, f"{path.relative_to(SRC)} imports {name} ({why})"
+
+
+def test_the_shell_never_imports_a_device_by_name() -> None:
+    """Decision 0032 item 5: the shell loads devices through `cassim.devices.load` only."""
+    for path in (SRC / "app").rglob("*.py"):
+        for name in imports(path):
+            assert not name.startswith("cassim.devices."), f"{path.relative_to(SRC)} imports {name}"
+
+
+def test_a_device_ui_uses_the_shell_but_not_its_entry_point() -> None:
+    """A device's views may import the shell's modules; the shell mounts them, not the reverse."""
+    for path in (SRC / "devices").glob("*/ui/**/*.py"):
+        for name in imports(path):
+            assert name != "cassim.app.main", f"{path.relative_to(SRC)} imports {name}"
 
 
 def test_a_device_never_imports_another_device() -> None:

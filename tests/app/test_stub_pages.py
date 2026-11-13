@@ -4,10 +4,10 @@ Doc > Insert. They have no model yet (M3, M4), so the page only says it is still
 
 import pytest
 
-from cassim.app.state import AppState
-from cassim.app.ui import STUB_NOTICE, CalculatorView, Sidebar
 from cassim.devices.nspire.document import PageKind, loads
 from cassim.devices.nspire.screen import thumbnail
+from cassim.devices.nspire.ui.state import AppState
+from cassim.devices.nspire.ui.views import STUB_NOTICE, CalculatorView, Sidebar
 from cassim.doc.serialize import dumps
 
 STUBS = [

@@ -4,10 +4,10 @@ from collections.abc import Callable, Iterator
 
 import flet as ft
 
-from cassim.app.state import AppState, Mode
 from cassim.app.theme import DARK
-from cassim.app.ui import STATUS_FIELDS, CalculatorView
 from cassim.core.settings import next_choice
+from cassim.devices.nspire.ui.state import AppState, Mode
+from cassim.devices.nspire.ui.views import STATUS_FIELDS, CalculatorView
 
 
 def walk(control: ft.Control) -> Iterator[ft.Control]:
