@@ -1056,7 +1056,8 @@ class Keypad:
         keypad = self.state.keypad
         rows: list[ft.Control] = []
         for number, row in enumerate(keypad):
-            keys = [self._key(key) for key in row]
+            tallest = self.state.kpx(key_span(max(key.height for key in row), KEY_H))
+            keys = [self._key(key, tallest) for key in row]
             # Install takes the empty cell at the top right of the keypad, so it needs no row
             if number == 0 and self.install is not None and not row[-1].name:
                 keys[-1] = self._install_key(row[-1])
@@ -1078,7 +1079,7 @@ class Keypad:
             on_click=lambda _: install(),
         )
 
-    def _key(self, key: Key) -> ft.Control:
+    def _key(self, key: Key, row_height: float = 0.0) -> ft.Control:
         state, theme = self.state, self.theme
         width = state.kpx(key_span(key.width))
         height = state.kpx(key_span(key.height, KEY_H))
@@ -1124,7 +1125,7 @@ class Keypad:
             height=height,
             alignment=ft.Alignment.CENTER,
             bgcolor=colour,
-            # x, y and z wear a ring in the shift layer's colour
+            # x, y, z and enter wear a ring in the shift layer's colour
             border=ft.Border.all(state.kpx(2), theme.shift_label) if key.outline else None,
             border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
             ink=not stick,
@@ -1136,8 +1137,14 @@ class Keypad:
                 left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=colour
             )
             # sized to the piece, so the seam overflows into the gap without growing the row
-            return ft.Stack(
+            piece = ft.Stack(
                 [box, seam], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
+            )
+            if row_height <= height:
+                return piece
+            # a piece shorter than its row (return's tab) sits at the row's foot, by the gap
+            return ft.Container(
+                piece, width=width, height=row_height, alignment=ft.Alignment.BOTTOM_CENTER
             )
         return self._stick(box, width) if stick else box
 
