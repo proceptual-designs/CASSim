@@ -490,6 +490,12 @@ def test_doc_menu_browser_items_never_move() -> None:
     assert items(handheld=False)[0] == ("Handheld view", True)
 
 
+def test_a_phone_cannot_switch_to_computer_view() -> None:
+    """A phone has no room for Computer view and the on-screen keyboard: the switch is greyed."""
+    items = browser_doc_items(handheld=True, offers=BrowserOffers(), phone=True)
+    assert (items[0].label, items[0].enabled) == ("Computer view", False)
+
+
 def test_the_installed_app_offers_uninstall() -> None:
     """In the installed app the Install row reads Uninstall, in the same place, and asks first."""
     labels = [
