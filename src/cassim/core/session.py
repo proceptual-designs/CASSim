@@ -77,6 +77,9 @@ class Session:
             # A result with thousands of terms nests deeper than Python's stack allows.
             message = TIError(errors.MEMORY).message
             return Result(message, "", None, message)
+        except Exception as error:  # a bug, perhaps in formatting: shown, not raised
+            message = errors.internal(error).message
+            return Result(message, "", None, message)
         if not isinstance(value, Void):
             self._ans = value
         return Result(text, latex, value, None, full, tuple(evaluator.warnings))
