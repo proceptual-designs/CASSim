@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 
 # Schema 2 writes a Calculator row as runs of text (`"solve(x"`), not one string per character.
 # A schema 1 file reads unchanged, since its one-character strings are runs too; schema 2 stops an
-# older CASSim from misreading the runs.
+# older CASSim from misreading the runs. At the v1.0 release the format restarts at 1 and
+# pre-release files are no longer opened (PLAN.md section 12, A8).
 SCHEMA = 2
 FORMAT = "cassim-document"
 FIRST_DEVICE = "nspire"  # files written before files named their device

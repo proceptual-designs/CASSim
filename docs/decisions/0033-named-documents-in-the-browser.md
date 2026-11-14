@@ -15,6 +15,7 @@ Until now Save downloaded a `.cassim.json` file and Open read one. The autosave 
 5. **Discarding.** New Document, Open and Import ask before they drop unsaved changes. A new document counts as saved, because it has nothing to lose. An imported file or a share link counts as unsaved, because it is not in the library yet.
 6. **Files.** File > Import File… and Export File… read and write `.cassim.json`. If `.tns` is ever built, it goes under Import and Export too (FR-DOC-006 is unchanged on that point).
 7. **Compact text (schema 2).** A Calculator row is saved as runs of text between templates, not as one string per character, and an exact entry is only its row. Storage and share links use JSON without spaces. Exported files stay indented. Schema 1 files open unchanged.
+8. **Reset at v1 (Simon, 2026-11-14).** Pre-release files stay readable only until the v1.0 release. At v1 the format restarts at schema 1, the pre-release readers and migrations are removed, and older files, autosaves and saved documents are no longer opened (PLAN.md section 12, A8). From v1 on, every format change keeps older files opening through a migration (FR-DOC-004).
 
 ## Consequences
 

@@ -97,6 +97,38 @@ def test_right_and_left_walk_through_an_integral() -> None:
     assert back == [*reversed(visited[:-1]), ((), 0)]
 
 
+@pytest.mark.parametrize(
+    ("kind", "slots"),
+    [
+        (Kind.SUM, ("k", "1", "9", "k")),
+        (Kind.PRODUCT, ("k", "1", "9", "k")),
+        (Kind.LIMIT, ("x", "0", "+", "x")),
+        (Kind.DERIVATIVE, ("x", "x")),
+        (Kind.DERIVATIVE2, ("x", "x")),
+        (Kind.DERIVATIVE_N, ("3", "x", "x")),
+        (Kind.ANTIDERIVATIVE, ("x", "x")),
+    ],
+)
+def test_sums_limits_and_derivatives_walk_like_the_integral(
+    kind: Kind, slots: tuple[str, ...]
+) -> None:
+    """Every slot is visited in Tab order, one character at a time, then Right leaves; Left
+    walks back the same way."""
+    editor = _fill(kind, *slots)
+    editor.home()
+    visited = []
+    for _ in range(2 * len(slots) + 1):
+        editor.right()
+        visited.append((tuple(editor.path), editor.pos))
+    expected = [((((0, n),), p)) for n in range(len(slots)) for p in (0, 1)]
+    assert visited == [*expected, ((), 1)]
+    back = []
+    for _ in range(2 * len(slots) + 1):
+        editor.left()
+        back.append((tuple(editor.path), editor.pos))
+    assert back == [*reversed(expected), ((), 0)]
+
+
 def test_right_still_leaves_a_fraction_slot() -> None:
     """Decision 0017: other templates are left at once."""
     editor = _fill(Kind.FRACTION, "1", "2")

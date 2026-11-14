@@ -70,9 +70,21 @@ _SLOTS = {
 # Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
 # The second number is the fixed width (0: chosen when the template is made).
 GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1, Kind.LIST: 0}
-# Templates whose slots Left and Right walk through in Tab order before leaving (an integral reads
-# left to right: lower, upper, integrand, variable). Right leaves any other slot at once.
-WALKED = frozenset({Kind.INTEGRAL, Kind.ANTIDERIVATIVE})
+# Templates whose slots Left and Right walk through in Tab order before leaving (an integral:
+# lower, upper, integrand, variable; a sum: variable, lower, upper, expression). Right leaves any
+# other slot (a fraction's, a power's) at once.
+WALKED = frozenset(
+    {
+        Kind.INTEGRAL,
+        Kind.ANTIDERIVATIVE,
+        Kind.SUM,
+        Kind.PRODUCT,
+        Kind.LIMIT,
+        Kind.DERIVATIVE,
+        Kind.DERIVATIVE2,
+        Kind.DERIVATIVE_N,
+    }
+)
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
@@ -613,7 +625,8 @@ class Editor:
 
     def right(self) -> None:
         """Right leaves the slot it is in, even the numerator of a fraction (0017). In an
-        integral it walks the slots instead: lower, upper, integrand, variable, then out."""
+        integral, sum, product, limit or derivative it walks the slots in Tab order instead
+        (`WALKED`), then leaves."""
         if self.cell_sel is not None:
             self.cell_sel = None
             return
