@@ -12,8 +12,8 @@ Looks like the calculator: a screen with the on-screen keypad below it. Tap or c
 
 A larger layout for a laptop or desktop with a hardware keyboard, with a page list and the variables beside the screen. The keypad can be shown beside the screen when you want it.
 
-On a phone or tablet, tap the entry line (or a spreadsheet cell) and the device's own on-screen keyboard opens, so you can type there too.
+On a tablet, tap the entry line (or a spreadsheet cell) and the device's own on-screen keyboard opens, so you can type there too.
 
 ## Switching
 
-Choose the view you start in under **Doc, Settings & Status, Handheld Setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. Doc, **Computer view** (or **Handheld view**) switches at any time. A phone always opens in Handheld, but Computer view works there too.
+Choose the view you start in under **Doc, Settings & Status, Handheld Setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. Doc, **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so Doc, **Computer view** is greyed there.

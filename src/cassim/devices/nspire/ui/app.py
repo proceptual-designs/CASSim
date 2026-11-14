@@ -99,11 +99,14 @@ AUTOSAVE_DELAY = 0.5  # seconds
 FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
 
 
-def browser_doc_items(*, handheld: bool, offers: BrowserOffers) -> tuple[MenuItem, ...]:
+def browser_doc_items(
+    *, handheld: bool, offers: BrowserOffers, phone: bool = False
+) -> tuple[MenuItem, ...]:
     """The Doc menu's last three items, always in this order so the keys never move (muscle
     memory): the view switch, Fullscreen and Install. One the browser cannot do is greyed,
     Fullscreen reads Exit Fullscreen while the page is fullscreen, and Install reads Uninstall in
-    the installed app. Both views are offered on a phone too."""
+    the installed app. A phone has only Handheld view (there is no room for Computer view and the
+    on-screen keyboard), so the view switch is greyed there."""
     install = (
         MenuItem("Uninstall CASSim", "dialog", "uninstall", hint="CASSim")
         if offers.installed
@@ -113,7 +116,11 @@ def browser_doc_items(*, handheld: bool, offers: BrowserOffers) -> tuple[MenuIte
     )
     return (
         MenuItem(
-            f"{'Computer' if handheld else 'Handheld'} view", "dialog", "switch_view", hint="CASSim"
+            f"{'Computer' if handheld else 'Handheld'} view",
+            "dialog",
+            "switch_view",
+            hint="CASSim",
+            enabled=not phone,
         ),
         MenuItem(
             "Exit Fullscreen" if offers.in_fullscreen else "Fullscreen",
@@ -210,6 +217,10 @@ class App:
         page.on_keyboard_event = self.on_key
         page.on_resize = self.on_resize
         page.on_app_lifecycle_state_change = self.on_lifecycle
+        # Pick the view before the first draw, so the page never shows one view and then swaps
+        await self.recover_system()
+        if view is not None:
+            self.state.mode = view
         self.arrange()
         # The page's key event never reports Shift on its own, so a listener tracks it for
         # shift+click (decision 0019).
@@ -231,9 +242,6 @@ class App:
         finally:
             self.starting = False
             self.status.value = ""
-        if view is not None:
-            self.state.mode = view
-            self.arrange()
         if settings is not None:
             self.state.document.use(settings)
         self.refresh()
@@ -289,19 +297,20 @@ class App:
         self.dirty = document_fingerprint(self.state.document) != current.saved
         self.state.doc_title = self.doc_title()
 
-    async def recover(self) -> None:
-        """Reopen the saved System Settings and the autosaved document, if they are readable."""
+    async def recover_system(self) -> None:
+        """Reopen the saved System Settings, if any, and pick the view to start in. A phone is
+        always in Handheld, whatever start view was saved; with nothing saved, the window's size
+        picks the view (and keeps picking it as the window changes, until a view is chosen)."""
         saved = await self.shell.read(SYSTEM_KEY)
         if saved is not None:
             self.state.system = System.loads(saved)
-            # A phone opens in Handheld (Doc > Computer view switches for the session): the saved
-            # start view defaults to Computer even where it was never chosen.
             self.state.mode = Mode.HANDHELD if self.phone else self.state.system.start_mode
-            self.arrange()
         else:
             self.first_visit = True
             self.state.mode = starting_mode(self.page.width, self.page.height)
-            self.arrange()
+
+    async def recover(self) -> None:
+        """Reopen the autosaved document, if it is readable."""
         await self.library.index()  # read once now, so the dialogs can check names at once
         self.state.doc_title = self.doc_title()
         text = await self.shell.read(AUTOSAVE_KEY)
@@ -592,16 +601,19 @@ class App:
         self.refresh()
 
     def on_resize(self, e: ft.PageResizeEvent) -> None:
-        """Keep the layout fitted to the window; a first visit follows its size until chosen."""
+        """Keep the layout fitted to the window; a first visit follows its size until chosen, and
+        a window that shrinks to phone size goes to Handheld."""
         if self.first_visit:
             self.state.mode = starting_mode(e.width, e.height)
+        elif starting_mode(e.width, e.height) is Mode.HANDHELD:  # phone-sized now
+            self.state.mode = Mode.HANDHELD
         self.arrange()
         self.refresh()
 
     @property
     def phone(self) -> bool:
-        """A phone-sized window (its short side is narrow): it opens in Handheld, which has no
-        splitter there and a thinner margin."""
+        """A phone-sized window (its short side is narrow): only Handheld view is offered, with no
+        splitter and a thinner margin."""
         sides = [side for side in (self.page.width, self.page.height) if side]
         return bool(sides) and min(sides) < NARROW
 
@@ -625,7 +637,7 @@ class App:
     def doc_extras(self) -> tuple[MenuItem, ...]:
         """The Doc menu's last three items (see `browser_doc_items`)."""
         handheld = self.state.mode is Mode.HANDHELD
-        return browser_doc_items(handheld=handheld, offers=self.shell.offers)
+        return browser_doc_items(handheld=handheld, offers=self.shell.offers, phone=self.phone)
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -635,6 +647,8 @@ class App:
         self.on_system_change()
 
     def set_mode(self, mode: Mode) -> None:
+        if mode is Mode.COMPUTER and self.phone:
+            return  # no room on a phone for Computer view and the on-screen keyboard
         self.first_visit = False
         self.state.mode = mode
         self.arrange()
