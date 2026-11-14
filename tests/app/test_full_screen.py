@@ -69,9 +69,9 @@ def test_the_app_grows_the_screen_and_moves_the_status_in_full_screen() -> None:
     assert (app.view.control.height or 0) > normal
     assert not app.toolbar.visible
     app.say("Calculating... press Esc to cancel")
-    assert app.overlay.visible
+    assert app.view.doc_name.value == "Calculating... press Esc to cancel"  # in the title bar
     app.say("")
-    assert not app.overlay.visible
+    assert app.view.doc_name.value == "Untitled"
     shell.bridge = offers(standalone=False)
     app.arrange()
     app.place_status()

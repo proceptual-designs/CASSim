@@ -156,17 +156,8 @@ class App:
         )
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
-        # In full screen the Handheld view has no toolbar row: the status line (Calculating...,
-        # Saved) is drawn over the top of the screen instead, so the screen can reach the top
-        self.overlay = ft.Container(
-            top=0,
-            left=0,
-            right=0,
-            alignment=ft.Alignment.TOP_CENTER,
-            visible=False,
-        )
-        # Computer view on a phone or tablet: a hidden text box takes the focus when typing is
-        # expected, so the on-screen keyboard opens (see soft_keys)
+        # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
+        # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
             value=SENTINEL,
             autocorrect=False,
@@ -177,15 +168,10 @@ class App:
             on_blur=lambda _: setattr(self, "sink_focused", False),
         )
         self.sink_focused = False
-        hidden = ft.Container(self.sink, left=0, top=0, width=1, height=1, opacity=0)
-        self.frame = ft.Column(
-            [
-                self.toolbar,
-                ft.Stack([self.layout, self.overlay, hidden], fit=ft.StackFit.EXPAND, expand=True),
-            ],
-            expand=True,
-        )
-        # Handheld in full screen or the installed app: the screen fills the height
+        self.sink_box = ft.Container(self.sink, width=1, height=1, opacity=0)
+        self.frame = ft.Column([self.toolbar, self.layout], expand=True)
+        # Handheld in full screen or the installed app: the screen fills the height, there is no
+        # toolbar row, and a status message (Calculating..., Saved) shows in the title bar
         self.full = False
         # The margin round everything. Not `page.padding`: a change to that after start-up does
         # not reach the page, and a phone needs a thinner margin than a computer.
@@ -283,6 +269,10 @@ class App:
             self.page.update()
 
     def doc_title(self) -> str:
+        """The title bar's middle: the document's name, or in full screen (no toolbar row) a
+        status message while there is one."""
+        if self.full and self.status.value:
+            return str(self.status.value)
         return title(self.state.document.name, dirty=self.dirty)
 
     def remember(self, current: Current) -> None:
@@ -367,20 +357,15 @@ class App:
         self.kick()
 
     def place_status(self) -> None:
-        """The status line goes in the toolbar row, or over the screen in full screen, where it
-        shows only while it has something to say."""
+        """The status line goes in the toolbar row, or in full screen (which has no toolbar row)
+        in the middle of the screen's title bar, in place of the name while it has something to
+        say."""
         if self.full:
             self.toolbar.controls = []
-            self.overlay.content = ft.Container(
-                self.status,
-                bgcolor=self.theme.title_bar,
-                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
-            )
-            self.overlay.visible = bool(self.status.value)
         else:
-            self.overlay.content = None
-            self.overlay.visible = False
-            self.toolbar.controls = [*self.toolbar_controls(), self.status]
+            self.toolbar.controls = [*self.toolbar_controls(), self.status, self.sink_box]
+        self.state.doc_title = self.doc_title()
+        self.view.doc_name.value = self.state.doc_title
 
     def print_sheet(self) -> None:
         """`CASSIM: SHEET A2 16`: the cursor's cell and what it shows, when that changes. The
@@ -517,6 +502,8 @@ class App:
 
     def offer_keyboard(self, action: str) -> None:
         """After a tap where typing goes, open the on-screen keyboard."""
+        if self.debug and action in TYPING_ACTIONS:
+            print(f"CASSIM: KEYBOARD {action} touch={self.soft_keyboard}", flush=True)
         if action in TYPING_ACTIONS and self.soft_keyboard:
             self.page.run_task(self.sink.focus)
 
