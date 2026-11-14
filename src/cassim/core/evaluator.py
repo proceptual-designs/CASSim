@@ -231,8 +231,13 @@ class Evaluator:
 
     def line(self, line: ast.Line) -> Value | None:
         result: Value | None = None
-        for statement in line.statements:
-            result = self._statement(statement)
+        try:
+            for statement in line.statements:
+                result = self._statement(statement)
+        except TIError, RecursionError:
+            raise
+        except Exception as error:
+            raise errors.internal(error) from error
         return result
 
     def _statement(self, statement: ast.Stmt) -> Value:
@@ -255,7 +260,12 @@ class Evaluator:
 
     def evaluated(self, node: ast.Expr) -> Value:
         """One expression, finished as an entry's result is (a spreadsheet formula)."""
-        return self._evaluated(node)
+        try:
+            return self._evaluated(node)
+        except TIError, RecursionError:
+            raise
+        except Exception as error:
+            raise errors.internal(error) from error
 
     def name_for_store(self, text: str) -> str:
         """The key a variable called `text` is stored under, or the TIError a store to it gives

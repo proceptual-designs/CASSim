@@ -3,6 +3,10 @@
 Codes and wording come from the Error Codes appendix of the TI-Nspire CAS Reference Guide.
 """
 
+import logging
+
+_log = logging.getLogger(__name__)
+
 SYNTAX = 910
 MISSING_OPEN_PAREN = 680
 MISSING_CLOSE_PAREN = 690
@@ -34,6 +38,8 @@ NO_SOLUTION = -9
 VARIABLE_IN_USE = -10
 INVALID_INPUT = -11
 NOT_A_FUNCTION = -12
+# Ours: a Python exception that no TI error covers, a bug in CASSim (see `internal`).
+INTERNAL = -13
 NON_REAL = 800  # TI's number for a non-real result in Real mode
 
 _MESSAGES = {
@@ -79,6 +85,25 @@ class TIError(Exception):
         self.code = code
         self.message = message if message is not None else _MESSAGES[code]
         super().__init__(self.message)
+
+
+_MOST_SHOWN = 300  # characters of an internal error's message, which can quote a long formula
+
+
+def internal(error: Exception) -> TIError:
+    """A TIError for an unexpected exception, such as one SymPy raises that we did not foresee.
+
+    The entry shows the exception's type and message, so a user can report it; the traceback goes
+    to the log (the browser console), not the screen.
+    """
+    _log.error("unexpected error during evaluation", exc_info=error)
+    detail = str(error)
+    if len(detail) > _MOST_SHOWN:
+        detail = detail[: _MOST_SHOWN - 1] + "…"
+    name = type(error).__name__
+    return TIError(
+        INTERNAL, f"Internal error: {name}: {detail}" if detail else f"Internal error: {name}"
+    )
 
 
 class TISyntaxError(TIError):
