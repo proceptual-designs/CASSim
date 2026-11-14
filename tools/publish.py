@@ -158,6 +158,7 @@ self.addEventListener("fetch", (event) => {{
 """
 
 HEAD_TAGS = f"""<link rel="manifest" href="manifest.webmanifest">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="{THEME}">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -183,6 +184,16 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
   var status = document.getElementById("cassim-status");
   var bar = document.getElementById("cassim-progress");
   function done() { var s = document.getElementById("cassim-splash"); if (s) s.remove(); }
+  // Let full screen and the installed app draw under a phone's camera cutout. Flutter writes its
+  // own viewport tag when it starts, so the setting is added back whenever the tag changes.
+  function cover() {
+    document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
+      if (m.content.indexOf("viewport-fit") < 0) m.content += ", viewport-fit=cover";
+    });
+  }
+  cover();
+  new MutationObserver(cover).observe(document.head,
+    {childList: true, subtree: true, attributes: true, attributeFilter: ["content"]});
   new MutationObserver(function (_, obs) {
     if (document.querySelector("flt-glass-pane, flutter-view")) {
       setTimeout(done, 400);

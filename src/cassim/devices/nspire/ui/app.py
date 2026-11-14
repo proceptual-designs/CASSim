@@ -11,6 +11,7 @@ import json
 import os
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime
 
 import flet as ft
@@ -26,6 +27,7 @@ from cassim.devices.nspire.pages import PAGES
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.layout import (
+    FULL_RESERVE,
     GAP,
     MARGIN,
     NARROW,
@@ -38,6 +40,7 @@ from cassim.devices.nspire.ui.layout import (
     Sizing,
     clamp_share,
     computer_screen_height,
+    full_screen_height,
     handheld_plan,
     keypad_size,
     starting_mode,
@@ -133,7 +136,7 @@ class App:
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.sheet_line = ""  # the debug SHEET line last printed
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
-        self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
+        self.shape: tuple[Mode, bool, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
         )
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
@@ -152,7 +155,25 @@ class App:
         )
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
-        self.frame = ft.Column([self.toolbar, self.layout], expand=True)
+        # In full screen the Handheld view has no toolbar row: the status line (Calculating...,
+        # Saved) is drawn over the top of the screen instead, so the screen can reach the top
+        self.overlay = ft.Container(
+            top=0,
+            left=0,
+            right=0,
+            alignment=ft.Alignment.TOP_CENTER,
+            visible=False,
+        )
+        self.frame = ft.Column(
+            [
+                self.toolbar,
+                ft.Stack([self.layout, self.overlay], fit=ft.StackFit.EXPAND, expand=True),
+            ],
+            expand=True,
+        )
+        self.full = (
+            False  # Handheld in full screen or the installed app: the screen fills the height
+        )
         # The margin round everything. Not `page.padding`: a change to that after start-up does
         # not reach the page, and a phone needs a thinner margin than a computer.
         self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
@@ -298,7 +319,7 @@ class App:
         state = self.state
         title = state.px(TITLE_H)
         if state.mode is Mode.HANDHELD:
-            return state.px(SCREEN_W), state.px(SCREEN_H) - title
+            return state.px(SCREEN_W), (self.view.control.height or state.px(SCREEN_H)) - title
         width = (self.page.width or 1000) - 2 * MARGIN - SIDEBAR_W - 12
         if state.system.computer_keypad:
             width -= keypad_size(*keypad_units(state.keypad))[0] * state.pad_scale
@@ -314,7 +335,7 @@ class App:
         self.keypad.refresh()
         if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
             self.sidebar.refresh()
-        self.toolbar.controls = [*self.toolbar_controls(), self.status]
+        self.place_status()
         built = time.perf_counter()
         self.page.update()
         self.view.follow_selection()
@@ -331,6 +352,22 @@ class App:
                 )
             self.print_sheet()
         self.kick()
+
+    def place_status(self) -> None:
+        """The status line goes in the toolbar row, or over the screen in full screen, where it
+        shows only while it has something to say."""
+        if self.full:
+            self.toolbar.controls = []
+            self.overlay.content = ft.Container(
+                self.status,
+                bgcolor=self.theme.title_bar,
+                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
+            )
+            self.overlay.visible = bool(self.status.value)
+        else:
+            self.overlay.content = None
+            self.overlay.visible = False
+            self.toolbar.controls = [*self.toolbar_controls(), self.status]
 
     def print_sheet(self) -> None:
         """`CASSIM: SHEET A2 16`: the cursor's cell and what it shows, when that changes. The
@@ -377,8 +414,7 @@ class App:
 
     async def run_pending(self, calculator: Calculator) -> None:
         assert self.runner is not None
-        self.status.value = "Calculating... press Esc to cancel"
-        self.status.update()
+        self.say("Calculating... press Esc to cancel")
         finished = await self.runner.evaluate(calculator)
         if self.debug:  # the end-to-end tests read the canvas app through the console
             history = calculator.history
@@ -394,8 +430,7 @@ class App:
 
     async def cancel(self) -> None:
         assert self.runner is not None
-        self.status.value = "Cancelling... restarting the calculator"
-        self.status.update()
+        self.say("Cancelling... restarting the calculator")
         await self.runner.cancel()
         self.status.value = ""
         if self.debug:
@@ -582,16 +617,20 @@ class App:
         if self.debug:
             print(f"CASSIM: SAVED {name}", flush=True)
 
+    def say(self, text: str) -> None:
+        """Show `text` in the status line now, without redrawing the rest."""
+        self.status.value = text
+        self.place_status()
+        self.page.update()
+
     def flash(self, text: str) -> None:
         """Show `text` in the status line for a moment."""
-        self.status.value = text
-        self.page.update()
+        self.say(text)
 
         async def clear() -> None:
             await asyncio.sleep(FLASH_SECONDS)
             if self.status.value == text:
-                self.status.value = ""
-                self.page.update()
+                self.say("")
 
         self.page.run_task(clear)
 
@@ -817,23 +856,38 @@ class App:
         self.keypad.install = (
             self.install if offer else None
         )  # Install takes the empty top-right cell
+        # Full screen, or the installed app: the Handheld screen takes the spare height, up to
+        # the top edge (and under a camera cutout: `viewport-fit=cover` in tools/publish.py)
+        full = state.mode is Mode.HANDHELD and self.shell.offers.standalone and system.zoom <= 1
+        self.full = full
+        self.toolbar.visible = not full
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             margin = PHONE_MARGIN if phone else MARGIN
-            self.outer.padding = margin
-            self.frame.spacing = 0  # the toolbar holds only the status line
-            plan = handheld_plan(
-                self.page.width,
-                self.page.height,
-                keypad_units(state.keypad)[0],
-                keypad_units(state.keypad)[1],
-                Sizing(None if phone else share, system.zoom, STATUS_H, margin, not phone),
+            self.outer.padding = (
+                ft.Padding.only(left=margin, right=margin, bottom=margin) if full else margin
             )
+            self.frame.spacing = 0  # the toolbar holds only the status line
+            units = keypad_units(state.keypad)
+            sizing = Sizing(
+                None if phone else share,
+                system.zoom,
+                FULL_RESERVE if full else STATUS_H,
+                margin,
+                not phone,
+            )
+            plan = handheld_plan(self.page.width, self.page.height, units[0], units[1], sizing)
+            sizing = replace(sizing, bar=0) if full else sizing  # the screen may use that band
             self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
-            view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
+            view.width = state.px(SCREEN_W)
+            view.height = (
+                full_screen_height(plan, self.page.height, units[1], sizing)
+                if full
+                else state.px(SCREEN_H)
+            )
             view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer)
+            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer, full)
             if shape == self.shape:
                 # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
                 # the drag, which is why it used to stop after a few pixels.
