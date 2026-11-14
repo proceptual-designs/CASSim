@@ -155,6 +155,10 @@ def test_integral_in_cas_off():
         ("lim(sign(x),x,0)", "undef"),
         ("lim(sign(x),x,0,1)", "1"),
         ("lim(sin(x)/x,x,0)", "1"),
+        # oscillating: SymPy gives a range (AccumBounds), TI gives undef (simulator, 2026-11-14)
+        ("limit(sin(x),x,∞)", "undef"),
+        ("limit(sin(1/x),x,0)", "undef"),
+        ("limit(sin(1/x),x,0,1)", "undef"),
     ],
 )
 def test_limit(line, wanted):

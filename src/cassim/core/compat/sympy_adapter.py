@@ -1027,6 +1027,8 @@ def limit(expression: Raw, variable: Raw, point: Raw, direction: int | None) -> 
         result = sp.limit(expression, variable, point, side)
     except ValueError:  # the one-sided limits differ, as for sign(x) at 0: TI gives undef
         return sp.nan
+    if result.has(sp.AccumBounds):  # it oscillates, as sin(x) at ∞ does: TI gives undef
+        return sp.nan
     return None if result.has(sp.Limit) else result
 
 
@@ -1087,7 +1089,10 @@ def extremum(
             if end.is_finite and not is_open:
                 candidates.append(end)
             elif not end.is_finite:
-                reaches.append(float(sp.limit(expression, variable, end).evalf()))
+                reach = sp.limit(expression, variable, end)
+                if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
+                    return None
+                reaches.append(float(reach.evalf()))
     if not candidates:
         return None
     values = {c: float(expression.subs(variable, c).evalf()) for c in candidates}
