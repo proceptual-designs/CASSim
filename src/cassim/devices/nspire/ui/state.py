@@ -126,6 +126,13 @@ class AppState:
         # say whether the lock is on, so it is tracked here from its own key presses.
         self.caps = False
         self.system = System(mode)
+        # The document's name as the title bar shows it, with `*` for unsaved changes (set by the
+        # GUI, which knows the saved copies)
+        self.doc_title = ""
+        # Set by the GUI: runs the given step at once, or after asking, when it would throw away
+        # unsaved changes (a new document)
+        self.ask_discard: Callable[[Callable[[], None]], None] | None = None
+        self.on_new_document: Callable[[], None] | None = None  # set by the GUI
         self.pad_scale = 1.0  # the keypad's own scale: the screen's times the splitter's ratio
         self.scale = 1.0  # Handheld mode draws everything this many times larger (FR-DEV-004)
 
@@ -189,10 +196,19 @@ class AppState:
             self.show_wizard(wizard)
 
     def new_document(self) -> None:
-        """A blank document with the current Document Settings."""
+        """A blank document with the current Document Settings, once any unsaved changes have
+        been let go (the GUI asks)."""
+        if self.ask_discard is not None:
+            self.ask_discard(self._new_document)
+        else:
+            self._new_document()
+
+    def _new_document(self) -> None:
         self.replace_document(
             NspireDocument(settings=self.document.settings, sessions=self.sessions)
         )
+        if self.on_new_document is not None:
+            self.on_new_document()
 
     def screen(self) -> Screen:
         view = self.menu.view() if self.menu is not None and self.menu.open else None

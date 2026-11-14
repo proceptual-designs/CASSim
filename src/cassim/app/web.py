@@ -170,6 +170,7 @@ class Bridge:
         self.can_fullscreen = False
         self.in_fullscreen = False  # the page is fullscreen now, so the menu offers to leave it
         self.installed = False  # running as the installed app, so the menu offers Uninstall
+        self.touch = False  # the main pointer is a finger: a phone or tablet
         self._changed = changed
         self._channel = js.BroadcastChannel.new("cassim")
         self._callback = create_proxy(self._on_message)
@@ -186,6 +187,7 @@ class Bridge:
             self.can_fullscreen = bool(event.data.fullscreen)
             self.in_fullscreen = bool(event.data.inFullscreen)
             self.installed = bool(event.data.installed)
+            self.touch = bool(getattr(event.data, "touch", False))
             self._changed()
 
     def _send(self, op: str) -> None:
@@ -257,3 +259,7 @@ class TextStore:
         await _request(
             db.transaction(self.STORE, "readwrite").objectStore(self.STORE).put(text, key)
         )
+
+    async def delete(self, key: str) -> None:
+        db = await self._open()
+        await _request(db.transaction(self.STORE, "readwrite").objectStore(self.STORE).delete(key))

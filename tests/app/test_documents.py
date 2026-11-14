@@ -138,9 +138,11 @@ def test_file_menu_asks_for_the_file_dialogs() -> None:
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append
-    for key in ("F4", "1", "2", "F4", "1", "4"):  # File > 2 Open, File > 4 Save
+    for key in ("F4", "1", "2", "F4", "1", "4", "F4", "1", "5"):  # Open, Save, Save As
         state.key_event(key)
-    assert asked == ["open_file", "save_file"]
+    for key in ("s", "o"):
+        state.key_event(key, ctrl=True)
+    assert asked == ["open_document", "save", "save_as", "save", "open_document"]
 
 
 def test_system_settings_round_trip_and_fall_back() -> None:
@@ -153,7 +155,10 @@ def test_system_settings_round_trip_and_fall_back() -> None:
 
 
 def test_file_menu_has_no_tns_entry() -> None:
-    """FR-DOC-006: `.tns` is not built, so the File menu offers no Import or Export of it."""
+    """FR-DOC-006: `.tns` is not built, so nothing offers it; files on disk (`.cassim.json`) come
+    in and go out through Import and Export, while Open and Save use the browser (FR-DOC-010)."""
     file_menu = next(item for item in DOC.items if item.label == "File")
     labels = [item.label for item in file_menu.items]
-    assert not any("tns" in label.lower() or "import" in label.lower() for label in labels)
+    assert not any("tns" in label.lower() for label in labels)
+    files = {item.label: item.arg for item in file_menu.items if "File" in item.label}
+    assert files == {"Import File…": "import_file", "Export File…": "export_file"}

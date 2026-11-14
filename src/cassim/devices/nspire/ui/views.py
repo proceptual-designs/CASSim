@@ -107,6 +107,7 @@ MENU_ROWS_WIDE = 16  # rows of a menu shown at once in Computer mode; the rest f
 # Handheld menus must fit the 240 px screen, so their rows are counted from what is left of it
 # (all in handheld pixels): the title bar, a panel's padding, header, hint line and ▲ ▼ rows.
 TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 19.5
+DOC_NAME_CLEAR = 105  # handheld px kept clear each side of the name: the settings' width
 MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
@@ -210,8 +211,20 @@ class CalculatorView:
             on_vertical_drag_update=self._drag_menu,
             on_vertical_drag_end=lambda _: self._drag.reset(),
         )
+        # The document's name sits in the middle of the title bar, `*` in front while it has
+        # unsaved changes; the page number stays left and the settings right (FR-DOC-010)
+        self.doc_name = ft.Text(
+            size=12, color="#ffffff", no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
+        )
+        # kept clear of the settings either side, so a long name ends in … instead of under them
+        self.doc_box = ft.Container(self.doc_name, alignment=ft.Alignment.CENTER)
         title_bar = ft.Container(
-            ft.Row([self.title, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Stack(
+                [
+                    self.doc_box,
+                    ft.Row([self.title, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ]
+            ),
             bgcolor=theme.title_bar,
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         )
@@ -238,6 +251,9 @@ class CalculatorView:
             for number, word in enumerate(screen.status.split())
         ]
         self.title.size = size
+        self.doc_name.value = self.state.doc_title
+        self.doc_name.size = size
+        self.doc_box.padding = ft.Padding.symmetric(horizontal=self.state.px(DOC_NAME_CLEAR))
         sheet = self.state.sheet
         if sheet is not None and screen.sheet is not None:
             self.body.controls = [self.sheet_view.control]

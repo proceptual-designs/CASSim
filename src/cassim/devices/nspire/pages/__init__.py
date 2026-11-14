@@ -42,11 +42,17 @@ class PageKind(StrEnum):
 # ---- the Calculator page ------------------------------------------------------------------------
 
 
-def dump_nodes(nodes: Row | tuple[Node, ...]) -> list[Any]:
+def dump_nodes(nodes: Row | tuple[Node, ...]) -> str | list[Any]:
+    """A row as compact JSON (schema 2): plain text when it holds no template, else a list in
+    which each run of characters is one string and each template an object, so `solve(x^2=4,x)`
+    is `["solve(x", {"kind": "power", "slots": ["2"]}, "=4,x)"]`."""
     out: list[Any] = []
     for node in nodes:
         if isinstance(node, str):
-            out.append(node)
+            if out and isinstance(out[-1], str):
+                out[-1] += node
+            else:
+                out.append(node)
         else:
             item: dict[str, Any] = {
                 "kind": node.kind.value,
@@ -55,14 +61,22 @@ def dump_nodes(nodes: Row | tuple[Node, ...]) -> list[Any]:
             if node.cols:
                 item["cols"] = node.cols
             out.append(item)
+    if not out:
+        return ""
+    if len(out) == 1 and isinstance(out[0], str):
+        return out[0]
     return out
 
 
-def load_nodes(items: list[Any]) -> Row:
+def load_nodes(items: str | list[Any]) -> Row:
+    """The inverse of `dump_nodes`. Schema 1 files wrote one character per string, which reads
+    the same way."""
+    if isinstance(items, str):
+        return list(items)
     row: Row = []
     for item in items:
         if isinstance(item, str):
-            row.append(item)
+            row.extend(item)
         elif isinstance(item, dict):
             row.append(
                 Template(
@@ -81,10 +95,17 @@ def _new_calculator(problem: Problem) -> Calculator:
     return Calculator(problem.session, problem.clipboard)
 
 
+def _dump_entry(nodes: tuple[Node, ...], *, approximate: bool) -> str | list[Any] | dict[str, Any]:
+    """An entry as typed: its row alone, or `{"nodes": row, "approximate": true}` for one
+    entered with ctrl+enter."""
+    row = dump_nodes(nodes)
+    return {"nodes": row, "approximate": True} if approximate else row
+
+
 def _dump_calculator(calculator: Calculator) -> dict[str, Any]:
     return {
         "entries": [
-            {"nodes": dump_nodes(entry.source or entry.nodes), "approximate": entry.approximate}
+            _dump_entry(entry.source or entry.nodes, approximate=entry.approximate)
             for entry in calculator.history
         ],
         "entry": dump_nodes(calculator.editor.root),
@@ -95,7 +116,9 @@ def _load_calculator(
     page_type: PageType, problem: Problem, data: dict[str, Any]
 ) -> Generator[Calculator, None, Calculator]:
     calculator = _new_calculator(problem)
-    for entry in data.get("entries", []):
+    for saved in data.get("entries", []):
+        # schema 2: an exact entry is only its row
+        entry = saved if isinstance(saved, dict) else {"nodes": saved}
         calculator.editor.clear()
         calculator.editor.root = load_nodes(entry["nodes"])
         calculator.editor.pos = len(calculator.editor.root)

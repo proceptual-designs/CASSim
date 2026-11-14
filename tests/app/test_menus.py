@@ -198,7 +198,7 @@ def test_the_highlighted_row_shows_its_syntax() -> None:
 def test_menu_keys_follow_the_handheld() -> None:
     """Spot checks of real menu numbers (decision 0022)."""
     routes = {
-        ("4", "3"): "∫(,,,)",  # the definite-integral template
+        ("4", "3"): "∫(,)",  # the definite-integral template (empty limits: indefinite)
         ("4", "4"): "limit(,,)",  # the limit template
         ("2", "8", "1"): "round(",
         ("6", "3", "3"): "mean(",

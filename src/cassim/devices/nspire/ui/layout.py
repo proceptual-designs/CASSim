@@ -46,6 +46,10 @@ MIN_PART_SCALE = 0.2
 
 PHONE_MARGIN = 4  # px round the calculator on a phone, where every pixel counts
 STATUS_H = 20  # px: the status line kept above the calculator in Handheld mode
+# In full screen the keys are sized as if this much were still taken at the top (the status line
+# and a phone's camera cutout), and the screen gets it: on a phone in portrait the keypad would
+# otherwise grow into all of the extra height.
+FULL_RESERVE = STATUS_H + 40
 
 
 @dataclass(frozen=True)
@@ -153,6 +157,25 @@ def _fill(frame: Frame) -> tuple[float, float]:
         low, high = (middle, high) if length(middle) <= along else (low, middle)
     scale = max(MIN_SCALE, low)
     return scale, max(MIN_SCALE * DEFAULT_RATIO, min(scale * DEFAULT_RATIO, pad_top))
+
+
+def full_screen_height(
+    plan: HandheldPlan,
+    viewport_h: float | None,
+    height_units: float,
+    sizing: Sizing,
+) -> float:
+    """The Handheld screen's height in full screen (or the installed app): taller than 240 px at
+    its scale, to take the height the keypad leaves (keys below it), or the window's whole height
+    (keys beside it). The width is unchanged, so the screen shows more lines."""
+    natural = SCREEN_H * plan.scale
+    if not viewport_h:
+        return natural
+    room_h = viewport_h - 2 * sizing.margin - sizing.bar
+    if plan.side_by_side:
+        return max(natural, room_h)
+    pad_h = keypad_size(1, height_units)[1] * plan.pad_scale
+    return max(natural, room_h - sizing.between - pad_h)
 
 
 def computer_screen_height(viewport_h: float | None) -> float:

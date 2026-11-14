@@ -31,7 +31,7 @@ def test_changes_close_together_are_saved_once(monkeypatch: pytest.MonkeyPatch) 
     page.run_queued()
     assert len(saved) == 1
     assert saved[0][0] == "autosave"
-    assert json.loads(saved[0][1])["problems"][0]["pages"][0]["entry"] == ["1", "2"]  # both keys
+    assert json.loads(saved[0][1])["problems"][0]["pages"][0]["entry"] == "12"  # both keys
 
 
 def test_nothing_is_written_when_nothing_changed(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -239,10 +239,18 @@ class Calculator:
             return
         self._undo.append(self._snapshot())
         self._redo.clear()
-        del self.history[self.recall[0]]
-        self.recall = None
+        index = self.recall[0]
+        del self.history[index]
         self._group = None
         self._sync_ans()
+        # The line above is picked next, so Del again deletes it too (the first line is followed
+        # by the one that moved up into its place)
+        if not self.history:
+            self._pick(None)
+        elif index:
+            self._pick((index - 1, "result"))
+        else:
+            self._pick((0, "entry"))
 
     # ---- editing, with undo groups ----------------------------------------------------------
 

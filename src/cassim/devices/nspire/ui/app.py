@@ -7,8 +7,12 @@ and full screen, the engine worker) is reached through the `Shell` it is mounted
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import time
+from collections.abc import Callable
+from dataclasses import replace
+from datetime import datetime
 
 import flet as ft
 
@@ -23,6 +27,7 @@ from cassim.devices.nspire.pages import PAGES
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.layout import (
+    FULL_RESERVE,
     GAP,
     MARGIN,
     NARROW,
@@ -35,10 +40,12 @@ from cassim.devices.nspire.ui.layout import (
     Sizing,
     clamp_share,
     computer_screen_height,
+    full_screen_height,
     handheld_plan,
     keypad_size,
     starting_mode,
 )
+from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.views import (
     SYMBOL_FONT,
@@ -52,12 +59,23 @@ from cassim.devices.nspire.ui.views import (
     wizard_dialog,
 )
 from cassim.doc.document import Document
+from cassim.doc.library import (
+    CURRENT_KEY,
+    UNTITLED,
+    Current,
+    Store,
+    clean_name,
+    document_fingerprint,
+    fingerprint,
+    title,
+)
 from cassim.doc.serialize import (
     OPEN_EXTENSIONS,
     DocumentFileError,
     dumps,
     file_name,
     parse,
+    to_dict,
 )
 from cassim.doc.share import LinkTooLongError, encode, unpack
 
@@ -74,6 +92,7 @@ SYSTEM_KEY = "system"
 # The document is saved this long after the last change, not on every key (decision 0031): saving
 # writes the whole document, and with sheet data that is too slow to do per key.
 AUTOSAVE_DELAY = 0.5  # seconds
+FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
 
 
 def browser_doc_items(*, handheld: bool, offers: BrowserOffers) -> tuple[MenuItem, ...]:
@@ -118,7 +137,7 @@ class App:
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.sheet_line = ""  # the debug SHEET line last printed
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
-        self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
+        self.shape: tuple[Mode, bool, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
         )
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
@@ -137,7 +156,23 @@ class App:
         )
         self.toolbar = ft.Row(spacing=6, wrap=True)
         self.layout = ft.Container(expand=True)
+        # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
+        # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
+        self.sink = ft.TextField(
+            value=SENTINEL,
+            autocorrect=False,
+            enable_suggestions=False,
+            on_change=self.on_sink,
+            on_submit=self.on_sink_submit,
+            on_focus=lambda _: setattr(self, "sink_focused", True),
+            on_blur=lambda _: setattr(self, "sink_focused", False),
+        )
+        self.sink_focused = False
+        self.sink_box = ft.Container(self.sink, width=1, height=1, opacity=0)
         self.frame = ft.Column([self.toolbar, self.layout], expand=True)
+        # Handheld in full screen or the installed app: the screen fills the height, there is no
+        # toolbar row, and a status message (Calculating..., Saved) shows in the title bar
+        self.full = False
         # The margin round everything. Not `page.padding`: a change to that after start-up does
         # not reach the page, and a phone needs a thinner margin than a computer.
         self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
@@ -150,6 +185,12 @@ class App:
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
         self.save_at = 0.0  # when the waiting autosave runs (time.monotonic)
         self.save_waiting = False  # a save task is waiting for that time
+        # Documents saved by name in this browser (FR-DOC-010), and the open one's link to them
+        self.library = Store(shell.read, shell.write, shell.remove)
+        self.current = Current(None, document_fingerprint(state.document))
+        self.dirty = False  # the document differs from its saved copy (or has none)
+        state.ask_discard = self.ask_discard
+        state.on_new_document = self.on_new_document
 
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
@@ -208,11 +249,39 @@ class App:
         self.save_now()
 
     def save_now(self) -> None:
-        """Save the document at once, if it changed since the last save."""
-        text = dumps(self.state.document)
+        """Autosave the document at once, if it changed since the last autosave, and update the
+        unsaved-changes marker. This is the working state only: the named copy changes only on
+        Save (FR-DOC-010)."""
+        data = to_dict(self.state.document)
+        text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
         if text != self.saved:
             self.saved = text
             self.shell.write(AUTOSAVE_KEY, text)
+        self.mark(fingerprint(data))
+
+    def mark(self, printed: str) -> None:
+        """Show whether the document (with fingerprint `printed`) has unsaved changes."""
+        dirty = printed != self.current.saved
+        if dirty != self.dirty:
+            self.dirty = dirty
+            self.state.doc_title = self.doc_title()
+            self.view.doc_name.value = self.state.doc_title
+            self.page.update()
+
+    def doc_title(self) -> str:
+        """The title bar's middle: the document's name, or in full screen (no toolbar row) a
+        status message while there is one."""
+        if self.full and self.status.value:
+            return str(self.status.value)
+        return title(self.state.document.name, dirty=self.dirty)
+
+    def remember(self, current: Current) -> None:
+        """Link the open document to its saved copy (or to none) and keep that with the
+        autosave, so the name and the marker survive a reload."""
+        self.current = current
+        self.shell.write(CURRENT_KEY, current.dumps())
+        self.dirty = document_fingerprint(self.state.document) != current.saved
+        self.state.doc_title = self.doc_title()
 
     async def recover(self) -> None:
         """Reopen the saved System Settings and the autosaved document, if they are readable."""
@@ -227,12 +296,21 @@ class App:
             self.first_visit = True
             self.state.mode = starting_mode(self.page.width, self.page.height)
             self.arrange()
+        await self.library.index()  # read once now, so the dialogs can check names at once
+        self.state.doc_title = self.doc_title()
         text = await self.shell.read(AUTOSAVE_KEY)
         if text is None:
             return
         try:
             self.replace(await self.read(text))
             self.saved = text
+            link = await self.shell.read(CURRENT_KEY)
+            current = Current.loads(link)
+            if link is None:  # an autosave from before named documents: count it as saved
+                current.saved = document_fingerprint(self.state.document)
+            self.current = current
+            self.dirty = document_fingerprint(self.state.document) != current.saved
+            self.state.doc_title = self.doc_title()
             if self.debug:  # the end-to-end tests check what came back
                 count = sum(len(problem.pages) for problem in self.state.document.problems)
                 print(f"CASSIM: RECOVERED {count} pages", flush=True)
@@ -244,7 +322,7 @@ class App:
         state = self.state
         title = state.px(TITLE_H)
         if state.mode is Mode.HANDHELD:
-            return state.px(SCREEN_W), state.px(SCREEN_H) - title
+            return state.px(SCREEN_W), (self.view.control.height or state.px(SCREEN_H)) - title
         width = (self.page.width or 1000) - 2 * MARGIN - SIDEBAR_W - 12
         if state.system.computer_keypad:
             width -= keypad_size(*keypad_units(state.keypad))[0] * state.pad_scale
@@ -254,12 +332,13 @@ class App:
     def refresh(self) -> None:
         start = time.perf_counter()
         self.state.prepare()  # a sheet takes the engine's replies first
+        self.state.doc_title = self.doc_title()
         self.autosave()
         self.view.refresh()
         self.keypad.refresh()
         if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
             self.sidebar.refresh()
-        self.toolbar.controls = [*self.toolbar_controls(), self.status]
+        self.place_status()
         built = time.perf_counter()
         self.page.update()
         self.view.follow_selection()
@@ -276,6 +355,17 @@ class App:
                 )
             self.print_sheet()
         self.kick()
+
+    def place_status(self) -> None:
+        """The status line goes in the toolbar row, or in full screen (which has no toolbar row)
+        in the middle of the screen's title bar, in place of the name while it has something to
+        say."""
+        if self.full:
+            self.toolbar.controls = []
+        else:
+            self.toolbar.controls = [*self.toolbar_controls(), self.status, self.sink_box]
+        self.state.doc_title = self.doc_title()
+        self.view.doc_name.value = self.state.doc_title
 
     def print_sheet(self) -> None:
         """`CASSIM: SHEET A2 16`: the cursor's cell and what it shows, when that changes. The
@@ -322,8 +412,7 @@ class App:
 
     async def run_pending(self, calculator: Calculator) -> None:
         assert self.runner is not None
-        self.status.value = "Calculating... press Esc to cancel"
-        self.status.update()
+        self.say("Calculating... press Esc to cancel")
         finished = await self.runner.evaluate(calculator)
         if self.debug:  # the end-to-end tests read the canvas app through the console
             history = calculator.history
@@ -339,8 +428,7 @@ class App:
 
     async def cancel(self) -> None:
         assert self.runner is not None
-        self.status.value = "Cancelling... restarting the calculator"
-        self.status.update()
+        self.say("Cancelling... restarting the calculator")
         await self.runner.cancel()
         self.status.value = ""
         if self.debug:
@@ -382,10 +470,42 @@ class App:
             if binding.action == "escape" and self.running:
                 await self.cancel()
             return
+        if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
+            return  # typed into the hidden box: on_sink turns it into keys
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.shell.pasted())
         state.run(binding)
         self.refresh()
+
+    # ---- the on-screen keyboard (Computer view on a phone or tablet) --------------------------
+
+    @property
+    def soft_keyboard(self) -> bool:
+        return self.state.mode is Mode.COMPUTER and self.shell.offers.touch
+
+    def on_sink(self, _: object = None) -> None:
+        """Keys typed on the on-screen keyboard reach the calculator."""
+        keys = keys_for(self.sink.value or "")
+        self.sink.value = SENTINEL
+        if self.busy:
+            return
+        for binding in keys:
+            self.state.run(binding)
+        self.refresh()
+
+    def on_sink_submit(self, _: object = None) -> None:
+        self.on_sink()
+        if not self.busy:
+            self.state.run(Binding("enter"))
+            self.refresh()
+        self.page.run_task(self.sink.focus)  # Enter would otherwise close the keyboard
+
+    def offer_keyboard(self, action: str) -> None:
+        """After a tap where typing goes, open the on-screen keyboard."""
+        if self.debug and action in TYPING_ACTIONS:
+            print(f"CASSIM: KEYBOARD {action} touch={self.soft_keyboard}", flush=True)
+        if action in TYPING_ACTIONS and self.soft_keyboard:
+            self.page.run_task(self.sink.focus)
 
     def request_paste(self) -> None:
         self.page.run_task(self.paste_from_clipboard)
@@ -400,6 +520,7 @@ class App:
             return
         self.state.run_action(action, arg)
         self.refresh()
+        self.offer_keyboard(action)
 
     def cycle_setting(self, name: str) -> None:
         """A click on Rad/Deg, Auto/Approx or Real/Rect/Polar in the title bar."""
@@ -483,40 +604,227 @@ class App:
         ]
 
     def show_dialog(self, name: str) -> None:
-        if name == "fullscreen":
-            self.go_fullscreen()
-        elif name == "install":
-            self.install()
-        elif name == "uninstall":
-            self.shell.uninstall()
-        elif name == "switch_view":
-            self.set_mode(Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD)
-        elif name == "save_file":
-            self.page.run_task(self.save_file)
-        elif name == "open_file":
-            self.page.run_task(self.open_file)
-        elif name == "share_link":
-            self.share_link()
-        elif name == "document_settings":
-            self.open_settings()
-        elif name == "system_settings":
-            system_settings_dialog(self.page, self.state, self.on_system_change, self.theme)
-        elif name == "help":
-            self.shell.help()
-        elif name == "about":
-            self.shell.about()
+        dialogs: dict[str, Callable[[], object]] = {
+            "fullscreen": self.go_fullscreen,
+            "install": self.install,
+            "uninstall": self.shell.uninstall,
+            "switch_view": lambda: self.set_mode(
+                Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD
+            ),
+            "save": self.save,
+            "save_as": self.save_as,
+            "open_document": self.open_document,
+            "export_file": lambda: self.page.run_task(self.export_file),
+            "import_file": lambda: self.ask_discard(lambda: self.page.run_task(self.import_file)),
+            "share_link": self.share_link,
+            "document_settings": self.open_settings,
+            "system_settings": lambda: system_settings_dialog(
+                self.page, self.state, self.on_system_change, self.theme
+            ),
+            "help": self.shell.help,
+            "about": self.shell.about,
+        }
+        dialog = dialogs.get(name)
+        if dialog is not None:
+            dialog()
 
-    async def save_file(self) -> None:
-        """Download the document as `.cassim.json` (FR-DOC-004, FR-DOC-006)."""
+    # ---- documents saved by name in this browser (FR-DOC-010) --------------------------------
+
+    def save(self) -> None:
+        """Save: under the document's name, or ask for one if it has never been saved here."""
+        if self.current.stored is None:
+            self.save_as()
+        else:
+            self.page.run_task(self.store_as, self.current.stored)
+
+    async def store_as(self, name: str) -> None:
         document = self.state.document
-        await self.shell.save_file(file_name(document), dumps(document))
+        document.name = name
+        data = to_dict(document)
+        await self.library.save(name, json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+        self.remember(Current(name, fingerprint(data)))
+        self.refresh()
+        self.flash(f"Saved “{name}”")
+        if self.debug:
+            print(f"CASSIM: SAVED {name}", flush=True)
 
-    async def open_file(self) -> None:
+    def say(self, text: str) -> None:
+        """Show `text` in the status line now, without redrawing the rest."""
+        self.status.value = text
+        self.place_status()
+        self.page.update()
+
+    def flash(self, text: str) -> None:
+        """Show `text` in the status line for a moment."""
+        self.say(text)
+
+        async def clear() -> None:
+            await asyncio.sleep(FLASH_SECONDS)
+            if self.status.value == text:
+                self.say("")
+
+        self.page.run_task(clear)
+
+    def save_as(self) -> None:
+        """Ask for a name, then save under it (asking first before replacing another one)."""
+        library = self.library
+        start = "" if self.state.document.name == UNTITLED else self.state.document.name
+        field = ft.TextField(value=start, label="Name", autofocus=True, max_length=60)
+
+        def done(_: object = None) -> None:
+            name = clean_name(field.value or "")
+            if not name:
+                field.error = "Type a name"
+                field.update()
+                return
+            self.page.pop_dialog()
+            self.typing_dialog = None
+            index = library.cached
+            other = index.spelled(name) if index is not None else None
+            if other is not None and other.casefold() != (self.current.stored or "").casefold():
+
+                async def replace() -> None:
+                    await self.store_as(name)
+
+                self.shell.confirm(
+                    "Replace saved document?",
+                    f"“{other}” is already saved in this browser. Replace it with this document?",
+                    "Replace",
+                    replace,
+                )
+                return
+            self.page.run_task(self.store_as, name)
+
+        def cancel(_: object) -> None:
+            self.page.pop_dialog()
+            self.typing_dialog = None
+
+        field.on_submit = done
+        dialog = ft.AlertDialog(
+            title=ft.Text("Save As"),
+            content=ft.Column(
+                [ft.Text("Saved in this browser. Doc > File > Export File… saves a file."), field],
+                tight=True,
+                width=360,
+            ),
+            actions=[
+                ft.TextButton("Save", on_click=done),
+                ft.TextButton("Cancel", on_click=cancel),
+            ],
+        )
+        self.typing_dialog = dialog  # the keys go to the name box, not the calculator
+        self.page.show_dialog(dialog)
+
+    def open_document(self) -> None:
+        """Open: the documents saved in this browser, newest first; each can be deleted."""
+        index = self.library.cached
+        items = index.items if index is not None else []
+        if not items:
+            self.notice(
+                "No saved documents",
+                "Nothing is saved in this browser yet. Doc > File > Save keeps a document here; "
+                "Import File… opens a .cassim.json file.",
+            )
+            return
+
+        def opened(name: str) -> Callable[[object], None]:
+            def go(_: object) -> None:
+                self.page.pop_dialog()
+                self.ask_discard(lambda: self.page.run_task(self.open_saved, name))
+
+            return go
+
+        def deleted(name: str) -> Callable[[object], None]:
+            def go(_: object) -> None:
+                self.page.pop_dialog()
+
+                async def gone() -> None:
+                    await self.library.delete(name)
+                    if self.current.stored == name:  # the open copy is now saved nowhere
+                        self.remember(Current(None, ""))
+                    self.refresh()
+                    self.open_document()
+
+                self.shell.confirm(
+                    f"Delete “{name}”?",
+                    "It is removed from this browser. This cannot be undone.",
+                    "Delete",
+                    gone,
+                )
+
+            return go
+
+        rows: list[ft.Control] = [
+            ft.ListTile(
+                title=ft.Text(item.name),
+                subtitle=ft.Text(datetime.fromtimestamp(item.when).strftime("%d %b %Y, %H:%M")),
+                on_click=opened(item.name),
+                trailing=ft.IconButton(
+                    ft.Icons.DELETE_OUTLINE, tooltip="Delete", on_click=deleted(item.name)
+                ),
+            )
+            for item in items
+        ]
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Open Document"),
+                content=ft.Column(rows, tight=True, scroll=ft.ScrollMode.AUTO, width=380),
+                actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())],
+            )
+        )
+
+    async def open_saved(self, name: str) -> None:
+        text = await self.library.text(name)
         try:
-            text = await self.shell.pick_file(OPEN_EXTENSIONS)
+            if text is None:
+                msg = "it is no longer in this browser's storage"
+                raise DocumentFileError(msg)
+            self.replace(await self.read(text))
+            self.state.document.name = name
+            self.remember(Current(name, document_fingerprint(self.state.document)))
+        except DocumentFileError as error:
+            self.notice(f"Cannot open “{name}”", str(error))
+        self.refresh()
+
+    def ask_discard(self, then: Callable[[], object]) -> None:
+        """Do `then` (which replaces the document) at once, or after asking when the open
+        document has changes that are not saved."""
+        if document_fingerprint(self.state.document) == self.current.saved:
+            then()
+            return
+
+        async def discard() -> None:
+            then()
+            self.refresh()
+
+        self.shell.confirm(
+            "Discard changes?",
+            f"“{self.state.document.name}” has changes that are not saved. "
+            "Doc > File > Save keeps them.",
+            "Discard",
+            discard,
+        )
+
+    def on_new_document(self) -> None:
+        """A new document is saved nowhere, and has nothing to lose yet."""
+        self.remember(Current(None, document_fingerprint(self.state.document)))
+
+    # ---- files on disk: Import and Export (FR-DOC-004, FR-DOC-006) ----------------------------
+
+    async def export_file(self) -> None:
+        """Download the document as `.cassim.json`."""
+        document = self.state.document
+        await self.shell.save_file(file_name(document), dumps(document), "Export document")
+
+    async def import_file(self) -> None:
+        """Open a `.cassim.json` file. It is not in the browser's library until it is saved,
+        so it shows as unsaved."""
+        try:
+            text = await self.shell.pick_file(OPEN_EXTENSIONS, "Import document")
             if text is None:
                 return
             self.replace(await self.read(text))
+            self.remember(Current(None, ""))
         except (DocumentFileError, UnicodeDecodeError) as error:
             self.notice("Cannot open that file", str(error))
         self.refresh()
@@ -546,6 +854,7 @@ class App:
         async def accept() -> None:
             try:
                 self.replace(await self.read(text))
+                self.remember(Current(None, ""))  # not saved in this browser yet
             except DocumentFileError as error:
                 self.notice("Cannot open that link", str(error))
             self.refresh()
@@ -578,23 +887,38 @@ class App:
         self.keypad.install = (
             self.install if offer else None
         )  # Install takes the empty top-right cell
+        # Full screen, or the installed app: the Handheld screen takes the spare height, up to
+        # the top edge (and under a camera cutout: `viewport-fit=cover` in tools/publish.py)
+        full = state.mode is Mode.HANDHELD and self.shell.offers.standalone and system.zoom <= 1
+        self.full = full
+        self.toolbar.visible = not full
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             margin = PHONE_MARGIN if phone else MARGIN
-            self.outer.padding = margin
-            self.frame.spacing = 0  # the toolbar holds only the status line
-            plan = handheld_plan(
-                self.page.width,
-                self.page.height,
-                keypad_units(state.keypad)[0],
-                keypad_units(state.keypad)[1],
-                Sizing(None if phone else share, system.zoom, STATUS_H, margin, not phone),
+            self.outer.padding = (
+                ft.Padding.only(left=margin, right=margin, bottom=margin) if full else margin
             )
+            self.frame.spacing = 0  # the toolbar holds only the status line
+            units = keypad_units(state.keypad)
+            sizing = Sizing(
+                None if phone else share,
+                system.zoom,
+                FULL_RESERVE if full else STATUS_H,
+                margin,
+                not phone,
+            )
+            plan = handheld_plan(self.page.width, self.page.height, units[0], units[1], sizing)
+            sizing = replace(sizing, bar=0) if full else sizing  # the screen may use that band
             self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
-            view.width, view.height = state.px(SCREEN_W), state.px(SCREEN_H)
+            view.width = state.px(SCREEN_W)
+            view.height = (
+                full_screen_height(plan, self.page.height, units[1], sizing)
+                if full
+                else state.px(SCREEN_H)
+            )
             view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer)
+            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer, full)
             if shape == self.shape:
                 # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
                 # the drag, which is why it used to stop after a few pixels.

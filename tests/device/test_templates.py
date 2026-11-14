@@ -59,6 +59,84 @@ def test_each_template_reads_and_evaluates(
     assert calculator.history[-1].result.text == result
 
 
+def test_an_integral_with_empty_limits_is_indefinite() -> None:
+    """FR-CALC-005: the definite-integral template with both limits left empty reads as ∫(f,x)."""
+    editor = _fill(Kind.INTEGRAL, "", "", "2x", "x")
+    assert editor.linear() == "∫(2x,x)"
+    state = AppState()
+    calculator = _calculator(state)
+    calculator.editor = editor
+    state.run_action("enter")
+    assert calculator.history[-1].result.text == "x^2"
+    assert _fill(Kind.INTEGRAL, "0", "", "x", "x").linear() == "∫(x,x,0,)"  # one limit: an error
+
+
+def test_right_and_left_walk_through_an_integral() -> None:
+    """Right from before the template: lower, upper, integrand, variable, then out; Left back."""
+    editor = _fill(Kind.INTEGRAL, "0", "1", "x", "x")
+    editor.home()
+    visited = []
+    for _ in range(9):
+        editor.right()
+        visited.append((tuple(editor.path), editor.pos))
+    assert visited == [
+        (((0, 0),), 0),  # into the lower limit
+        (((0, 0),), 1),
+        (((0, 1),), 0),  # the upper limit
+        (((0, 1),), 1),
+        (((0, 2),), 0),  # the integrand
+        (((0, 2),), 1),
+        (((0, 3),), 0),  # the variable
+        (((0, 3),), 1),
+        ((), 1),  # out of the template
+    ]
+    back = []
+    for _ in range(9):
+        editor.left()
+        back.append((tuple(editor.path), editor.pos))
+    assert back == [*reversed(visited[:-1]), ((), 0)]
+
+
+@pytest.mark.parametrize(
+    ("kind", "slots"),
+    [
+        (Kind.SUM, ("k", "1", "9", "k")),
+        (Kind.PRODUCT, ("k", "1", "9", "k")),
+        (Kind.LIMIT, ("x", "0", "+", "x")),
+        (Kind.DERIVATIVE, ("x", "x")),
+        (Kind.DERIVATIVE2, ("x", "x")),
+        (Kind.DERIVATIVE_N, ("3", "x", "x")),
+        (Kind.ANTIDERIVATIVE, ("x", "x")),
+    ],
+)
+def test_sums_limits_and_derivatives_walk_like_the_integral(
+    kind: Kind, slots: tuple[str, ...]
+) -> None:
+    """Every slot is visited in Tab order, one character at a time, then Right leaves; Left
+    walks back the same way."""
+    editor = _fill(kind, *slots)
+    editor.home()
+    visited = []
+    for _ in range(2 * len(slots) + 1):
+        editor.right()
+        visited.append((tuple(editor.path), editor.pos))
+    expected = [((((0, n),), p)) for n in range(len(slots)) for p in (0, 1)]
+    assert visited == [*expected, ((), 1)]
+    back = []
+    for _ in range(2 * len(slots) + 1):
+        editor.left()
+        back.append((tuple(editor.path), editor.pos))
+    assert back == [*reversed(expected), ((), 0)]
+
+
+def test_right_still_leaves_a_fraction_slot() -> None:
+    """Decision 0017: other templates are left at once."""
+    editor = _fill(Kind.FRACTION, "1", "2")
+    editor.path, editor.pos = [(0, 0)], 1
+    editor.right()
+    assert (editor.path, editor.pos) == ([], 1)
+
+
 def test_piecewise_and_system_are_grids() -> None:
     piecewise = _fill(Kind.PIECEWISE, "x^2", "x<0", "x", "x>=0", shape=(2, 2))
     assert piecewise.linear() == "piecewise(x^(2),x<0,x,x>=0)"

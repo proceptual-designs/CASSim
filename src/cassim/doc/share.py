@@ -21,7 +21,7 @@ class LinkTooLongError(ValueError):
 
 def encode(document: Document) -> str:
     """The URL fragment (without `#`) for `document`."""
-    packed = zlib.compress(dumps(document).encode("utf-8"), 9)
+    packed = zlib.compress(dumps(document, compact=True).encode("utf-8"), 9)
     fragment = PREFIX + base64.urlsafe_b64encode(packed).decode("ascii").rstrip("=")
     if len(fragment) > MAX_FRAGMENT:
         msg = f"the link would be {len(fragment)} characters (the limit is {MAX_FRAGMENT})"

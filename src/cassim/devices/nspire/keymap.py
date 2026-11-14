@@ -125,6 +125,9 @@ COMPUTER: Keymap = {
     "shift+End": Binding("select_to_end"),
     "ctrl+a": Binding("select_all"),
     "ctrl+i": Binding("add_page"),
+    "ctrl+s": Binding("dialog", "save"),
+    "ctrl+o": Binding("dialog", "open_document"),
+    "ctrl+n": Binding("new_document"),  # most browsers keep ctrl+N for a new window
     "ctrl+l": Binding("open_menu", "variables"),
     "ctrl+ArrowUp": Binding("dialog", "page_sorter"),
     "alt+ArrowRight": Binding("next_page"),

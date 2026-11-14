@@ -837,12 +837,16 @@ DOC = MenuItem(
             "File",
             "1",
             MenuItem("New Document", "new_document", key="1", hint="ctrl+N"),
-            MenuItem("Open Document", "dialog", "open_file", key="2", hint="ctrl+O"),
+            # Open and Save use the documents kept in this browser, by name (FR-DOC-010); files
+            # on disk come in and go out through Import and Export (FR-DOC-004, FR-DOC-006)
+            MenuItem("Open Document", "dialog", "open_document", key="2", hint="ctrl+O"),
             todo("Close", "3"),
-            MenuItem("Save", "dialog", "save_file", key="4", hint="ctrl+S"),
-            MenuItem("Save As…", "dialog", "save_file", key="5"),
+            MenuItem("Save", "dialog", "save", key="4", hint="ctrl+S"),
+            MenuItem("Save As…", "dialog", "save_as", key="5"),
             todo("Send", "6"),
             todo("View copyright information", "7"),
+            MenuItem("Import File…", "dialog", "import_file", hint="CASSim"),
+            MenuItem("Export File…", "dialog", "export_file", hint="CASSim"),
             MenuItem("Copy share link", "dialog", "share_link", hint="CASSim"),
         ),
         sub(
