@@ -15,7 +15,7 @@ from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.spreadsheet import NAME_ROW
 from cassim.devices.nspire.sheet_scene import FORMULA, HEAD, ROW, ROW_LABELS
 from cassim.devices.nspire.ui.app import App
-from cassim.devices.nspire.ui.sheet_view import SheetView
+from cassim.devices.nspire.ui.sheet_view import SheetView, sheet_colours
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.views import CalculatorView
 
@@ -204,3 +204,12 @@ def test_a_sheet_view_on_its_own():
     )
     view._tap(at(10, 10))  # no sheet drawn yet: nothing
     assert actions == []
+
+
+def test_the_sheet_uses_the_screens_colours():
+    """Cell text was drawn in the dark theme's light ink on the light screen, so it did not
+    show (fixed after slice 3b)."""
+    theme = CalculatorView(AppState()).theme
+    colours = sheet_colours(theme)
+    assert colours["ink"] == theme.screen_text
+    assert colours["ink"] != theme.screen

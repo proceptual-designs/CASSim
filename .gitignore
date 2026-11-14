@@ -12,6 +12,7 @@ __pycache__/
 .coverage
 .coverage.*
 coverage.xml
+coverage.json
 htmlcov/
 
 # Build output (Flet static sites, wheels, vendored Pyodide packages)

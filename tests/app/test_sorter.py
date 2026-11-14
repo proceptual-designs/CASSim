@@ -14,9 +14,9 @@ def _sorter(pages: tuple[int, ...]) -> AppState:
     document = state.document
     for number, count in enumerate(pages):
         if number:
-            state.run_action("add_problem")
+            state.run_action("add_problem", "calculator")
         for _ in range(count - 1):
-            state.run_action("add_page")
+            state.run_action("add_page", "calculator")
     document.go(0, 0)
     state.key_event("ArrowUp", ctrl=True)
     assert state.sorting

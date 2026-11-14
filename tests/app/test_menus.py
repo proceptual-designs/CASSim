@@ -46,7 +46,7 @@ def test_doc_menu_opens_and_lists_rows() -> None:
 def test_doc_insert_problem_by_keys() -> None:
     """Doc > 4 Insert > 1 Problem, the route used on the simulator."""
     state = AppState()
-    for key in ("F4", "4", "1"):
+    for key in ("F4", "4", "1", "1"):  # then 1 Add Calculator
         state.key_event(key)
     assert state.screen().menu is None
     assert state.screen().title == "2.1"
@@ -70,6 +70,7 @@ def test_arrows_and_enter_choose() -> None:
     assert view is not None
     assert view.title == "Doc > Insert"
     state.key_event("Enter")  # Problem
+    state.key_event("Enter")  # Add Calculator, the first application
     assert state.screen().title == "2.1"
 
 
@@ -571,3 +572,34 @@ def test_each_scroll_step_moves_the_window_one_line() -> None:
     assert window_start(line, lines, shown) == 3
     assert scroll_line(19, lines, shown, 1) == 19
     assert scroll_line(0, lines, shown, -1) == 0
+
+
+def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
+    """The emulator's list for a new page or Problem (graphs2 D, graphs3, sharing G, split H)."""
+    state = AppState()
+    state.key_event("i", ctrl=True)
+    view = _menu(state)
+    assert [(row.key, row.label) for row in view.rows] == [
+        ("1", "Add Calculator"),
+        ("2", "Add Graphs"),
+        ("3", "Add Geometry"),
+        ("4", "Add Lists & Spreadsheet"),
+        ("5", "Add Data & Statistics"),
+        ("6", "Add Notes"),
+        ("7", "Add Vernier DataQuest™"),
+        ("8", "Add Widget"),
+        ("9", "Add Program Editor"),
+        ("A", "Add Python"),
+    ]
+    assert not view.rows[2].enabled  # Geometry is not in CASSim
+    state.key_event("Escape")
+    assert state.screen().title == "1.1"  # nothing added
+    state.press_keypad("ctrl")
+    state.press_keypad("doc")
+    state.key_event("4")
+    assert (state.screen().title, state.document.current.kind) == ("1.2", "spreadsheet")
+    for key in ("F4", "4", "1", "4"):  # Doc > Insert > Problem > Add Lists & Spreadsheet
+        state.key_event(key)
+    assert (state.screen().title, state.document.current.kind) == ("2.1", "spreadsheet")
+    state.run_action("add_page")  # the toolbar's + page
+    assert _menu(state).title == "Add a page"

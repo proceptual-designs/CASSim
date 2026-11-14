@@ -54,6 +54,7 @@ def test_undo_with_nothing_typed_undoes_the_page_insert() -> None:
     """S7 f: on a fresh page ctrl+Z takes the page away and ctrl+Y brings it back."""
     state = AppState()
     state.key_event("i", ctrl=True)
+    state.key_event("1")  # Add Calculator
     assert state.screen().title == "1.2"
     state.key_event("z", ctrl=True)
     assert len(state.document.sorter()) == 1
@@ -64,6 +65,7 @@ def test_undo_with_nothing_typed_undoes_the_page_insert() -> None:
 def test_undo_goes_through_the_typing_before_the_page() -> None:
     state = AppState()
     state.key_event("i", ctrl=True)
+    state.key_event("1")  # Add Calculator
     typed(state, "5")
     state.key_event("z", ctrl=True)
     assert line(state) == ""
@@ -76,6 +78,7 @@ def test_undo_steps_back_over_the_evaluation_before_the_page_insert() -> None:
     """H1 a, b: the first ctrl+Z takes the result away, the typing and then the page follow."""
     state = AppState()
     state.key_event("i", ctrl=True)
+    state.key_event("1")  # Add Calculator
     typed(state, "2+3")
     state.key_event("Enter")
     state.key_event("z", ctrl=True)

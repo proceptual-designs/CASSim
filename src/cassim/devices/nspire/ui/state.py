@@ -488,6 +488,10 @@ class AppState:
             "dialog": lambda: self.show_dialog and self.show_dialog(binding.arg),
             "new_document": self.new_document,
         }
+        if binding.action in ("add_page", "add_problem") and not binding.arg:
+            # ctrl+I, ctrl+doc, Doc > Insert > Page or Problem: choose the application first
+            self._open_menu(binding.action)
+            return True
         action = actions.get(binding.action)
         if action is None:
             return False

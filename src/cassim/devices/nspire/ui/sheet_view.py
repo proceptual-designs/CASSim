@@ -25,6 +25,20 @@ from cassim.graph.scene import Layer
 BAR = 22  # the bar under the grid, in the handheld's pixels
 
 
+def sheet_colours(theme: Theme) -> dict[str, str]:
+    """The scene's colour names for the screen the sheet sits on. The screen is light, so the
+    scene's dark-theme defaults (light ink) would not show (fixed after slice 3b)."""
+    return {
+        "ink": theme.screen_text,
+        "axis": "#4d5a49",  # formulas and row numbers
+        "grid": "#a3ad9c",
+        "header": "#cfd8c7",
+        "cursor": theme.accent,
+        "selection": theme.selection,
+        "edit": "#ffffff",
+    }
+
+
 class SheetView:
     def __init__(
         self,
@@ -33,6 +47,7 @@ class SheetView:
         scale: Callable[[], float],
     ) -> None:
         self.theme = theme
+        self.colours = sheet_colours(theme)
         self.on_action = on_action
         self.scale = scale
         self.sheet: Spreadsheet | None = None
@@ -81,7 +96,8 @@ class SheetView:
         for layer in scene.layers:
             kept = self._layers.get(layer.name)
             if kept is None or kept[0] != layer:
-                kept = (layer, cv.Canvas(layer_shapes(layer), width=width, height=grid_height))
+                shapes = layer_shapes(layer, self.colours)
+                kept = (layer, cv.Canvas(shapes, width=width, height=grid_height))
                 self._layers[layer.name] = kept
             canvases.append(kept[1])
         self.grid.controls = canvases

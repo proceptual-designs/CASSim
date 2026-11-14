@@ -170,7 +170,7 @@ class Player:
             for name in step["keypad"].split():
                 self.state.press_keypad(name)
         if "action" in step:
-            self.state.run_action(step["action"])
+            self.state.run_action(step["action"], step.get("arg", ""))
         if "settings" in step:
             self.settings = updated(self.settings, step["settings"])
             self.state.document.use(replace(self.settings))
