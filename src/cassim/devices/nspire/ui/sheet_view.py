@@ -160,6 +160,10 @@ class SheetView:
     def _tap(self, event: ft.TapEvent) -> None:
         self._pick(event.local_position)
 
+    def click_at(self, x: float, y: float) -> bool:
+        """A click by the keypad's pointer at (`x`, `y`) in the sheet's frame, as a tap there."""
+        return self._pick(ft.Offset(x, y))
+
     def _double_tap(self, event: ft.TapEvent) -> None:
         if self._pick(event.local_position):
             self.on_action("enter", "")

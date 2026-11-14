@@ -33,6 +33,8 @@ The keypad has the same keys as the handheld, with the second functions (the **c
 - ctrl then **shift**: Caps lock
 - ctrl then **enter**: answer as a decimal
 
+The round key in the middle of the arrows works like a joystick. Press it and slide your finger away from the centre: a pointer appears on the screen and moves that way, faster the further you slide. It hides about a second after it stops, or when you press another key. Tap the key while the pointer shows to click where it points. On a Lists & Spreadsheet page that picks the cell; on other pages a tap still chooses the highlighted item, as it does when the pointer is hidden.
+
 ## Typing symbols
 
 Use the on-screen keypad or the symbols menu for π, ∞, ⅇ, ⅈ, ° and similar. As on the handheld, ⅇ and ⅈ are different from the letters `e` and `i`, so `e` is an ordinary variable. The plain keyboard spellings are listed in [[Text interface]].

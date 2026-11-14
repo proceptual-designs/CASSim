@@ -16,6 +16,7 @@ from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
 from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
+from cassim.device.pointer import Pointer
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.screen import Line, Screen, Tile
@@ -109,6 +110,46 @@ MENU_ROWS_WIDE = 16  # rows of a menu shown at once in Computer mode; the rest f
 TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 19.5
 DOC_NAME_CLEAR = 105  # handheld px kept clear each side of the name: the settings' width
 MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
+
+
+STICK_KEY = "click"  # the touchpad's centre key, which also steers the pointer
+type Stick = Callable[[str, float, float], None]  # see `Keypad.on_stick`
+
+# The pointer's arrow in handheld pixels, tip at (0, 0): CASSim's own drawing
+POINTER_SHAPE = ((0, 0), (0, 13), (3.5, 10), (6, 15.5), (8, 14.6), (5.6, 9.4), (10, 9.4))
+POINTER_TICK = 1 / 30  # seconds between the pointer's moves
+
+
+def pointer_mark(scale: float) -> ft.Container:
+    """The pointer's arrow, hidden until the centre key moves it. Its tip is the place a click
+    goes to; a short glide between steps keeps the motion smooth at a low step rate."""
+    (x, y), *rest = POINTER_SHAPE
+    outline: list[cv.Path.PathElement] = [cv.Path.MoveTo(x * scale, y * scale)]
+    outline.extend(cv.Path.LineTo(x * scale, y * scale) for x, y in rest)
+    outline.append(cv.Path.Close())
+    canvas = cv.Canvas(
+        [
+            cv.Path(outline, paint=ft.Paint(color="#ffffff", style=ft.PaintingStyle.FILL)),
+            cv.Path(
+                outline,
+                paint=ft.Paint(
+                    color="#000000",
+                    stroke_width=max(1.0, scale),
+                    style=ft.PaintingStyle.STROKE,
+                    stroke_join=ft.StrokeJoin.ROUND,
+                ),
+            ),
+        ],
+        width=11 * scale,
+        height=16 * scale,
+    )
+    return ft.Container(
+        canvas,
+        left=0,
+        top=0,
+        visible=False,
+        animate_position=ft.Animation(int(POINTER_TICK * 1000), ft.AnimationCurve.LINEAR),
+    )
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -233,9 +274,14 @@ class CalculatorView:
         self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
         body = ft.Column([self.history], expand=True, spacing=0)
         self.body = body
+        # The pointer the keypad's centre key moves. Its place is in pixels of this layer, the
+        # body's own frame under the title bar, which is also the sheet's frame.
+        self._pointer_scale = state.px(1)
+        self.pointer = pointer_mark(self._pointer_scale)
         self.control = ft.Container(
             ft.Column(
-                [title_bar, ft.Stack([body, self.error, menu_layer], expand=True)], spacing=0
+                [title_bar, ft.Stack([body, self.error, menu_layer, self.pointer], expand=True)],
+                spacing=0,
             ),
             bgcolor=theme.screen,
             border_radius=6,
@@ -363,6 +409,23 @@ class CalculatorView:
             key=_scroll_key() if tile.current else None,
             on_click=lambda _, t=tile: self.on_action("sorter_go", f"{t.problem}.{t.page}"),
         )
+
+    def show_pointer(self, pointer: Pointer) -> None:
+        """Put the arrow's tip at the pointer's place, or hide it."""
+        mark = self.pointer
+        scale = self.state.px(1)
+        if pointer.visible and scale != self._pointer_scale:  # zoomed: redraw the arrow
+            mark.content = pointer_mark(scale).content
+            self._pointer_scale = scale
+        mark.visible = pointer.visible
+        mark.left, mark.top = pointer.x, pointer.y
+
+    def click_at(self, x: float, y: float) -> bool:
+        """A click by the keypad's pointer at (`x`, `y`) in the body's frame. Returns whether the
+        page took it; a page that cannot place a click yet leaves it to the key's `select`."""
+        if self.state.sheet is not None and self.body.controls == [self.sheet_view.control]:
+            return self.sheet_view.click_at(x, y)
+        return False
 
     def follow_selection(self) -> None:
         """Scroll the history to the picked line. Called after the page has been updated."""
@@ -708,9 +771,14 @@ class Keypad:
         on_key: Callable[[str], None],
         theme: Theme = DARK,
         install: Callable[[], None] | None = None,
+        on_stick: Stick | None = None,
     ) -> None:
         self.state = state
         self.on_key = on_key
+        # The centre key as a joystick: told "start", "move" (with the travel in key widths),
+        # "end" and "tap". Without it the key is a plain button.
+        self.on_stick = on_stick
+        self._down = (0.0, 0.0)  # where the finger pressed on the centre key
         self.install = install  # set while the browser offers to install; None otherwise
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
@@ -785,7 +853,8 @@ class Keypad:
             no_wrap=True,
         )
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
-        return ft.Container(
+        stick = key.name == STICK_KEY and self.on_stick is not None
+        box = ft.Container(
             ft.Column(
                 body,
                 spacing=0,
@@ -798,9 +867,35 @@ class Keypad:
             alignment=ft.Alignment.CENTER,
             bgcolor=theme.modifier_on if pending == key.name else fill,
             border_radius=height / 2 if key.style == "pad" else state.kpx(7),
-            ink=True,
+            ink=not stick,
             tooltip=key_tip(key),
-            on_click=lambda _, name=key.name: self.on_key(name),
+            on_click=None if stick else lambda _, name=key.name: self.on_key(name),
+        )
+        return self._stick(box, width) if stick else box
+
+    def _stick(self, box: ft.Control, width: float) -> ft.Control:
+        """The centre key: a tap is a tap, and a drag steers the pointer like a joystick, by how
+        far the finger has gone from where it pressed (in key widths, so the feel does not
+        change with the keypad's scale)."""
+        on_stick = cast("Stick", self.on_stick)
+
+        def down(event: ft.DragDownEvent) -> None:
+            self._down = (event.local_position.x, event.local_position.y)
+
+        def move(event: ft.DragUpdateEvent) -> None:
+            x, y = self._down
+            here = event.local_position
+            on_stick("move", (here.x - x) / width, (here.y - y) / width)
+
+        return ft.GestureDetector(
+            box,
+            on_tap=lambda _: on_stick("tap", 0.0, 0.0),
+            on_pan_down=down,
+            on_pan_start=lambda _: on_stick("start", 0.0, 0.0),
+            on_pan_update=move,
+            on_pan_end=lambda _: on_stick("end", 0.0, 0.0),
+            on_pan_cancel=lambda _: on_stick("end", 0.0, 0.0),
+            drag_interval=16,
         )
 
 
