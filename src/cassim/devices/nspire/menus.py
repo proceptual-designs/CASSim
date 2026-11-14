@@ -872,8 +872,8 @@ DOC = MenuItem(
         sub(
             "Insert",
             "4",
-            MenuItem("Problem", "add_problem", key="1"),
-            MenuItem("Page", "add_page", "calculator", key="2", hint="ctrl+I"),
+            MenuItem("Problem", "add_problem", key="1", hint="then choose an application"),
+            MenuItem("Page", "add_page", key="2", hint="ctrl+I, then choose an application"),
             MenuItem("Calculator", "add_page", "calculator", key="3"),
             # These four add a page that only says it is not built yet (PLAN.md, M3 and M4)
             MenuItem("Graphs", "add_page", "graphs", key="4", hint=STUB_PAGE),
@@ -1247,11 +1247,42 @@ SHEET_COLUMN = MenuItem(
 )
 
 
+def _app_picker(action: str, title: str) -> MenuItem:
+    """The list of applications a new page or Problem offers (emulator checks: graphs2 D, graphs3,
+    sharing G, split H): the device's ten items and numbers; Geometry, Vernier DataQuest and
+    Widget are greyed, and the Graphs, Data & Statistics, Notes, Program Editor and Python pages
+    say they are not built yet."""
+
+    def add(label: str, kind: str, key: str, *, stub: bool = False) -> MenuItem:
+        return MenuItem(f"Add {label}", action, kind, key=key, hint=STUB_PAGE if stub else "")
+
+    return MenuItem(
+        title,
+        items=(
+            add("Calculator", "calculator", "1"),
+            add("Graphs", "graphs", "2", stub=True),
+            todo("Add Geometry", "3"),
+            add("Lists & Spreadsheet", "spreadsheet", "4"),
+            add("Data & Statistics", "statistics", "5", stub=True),
+            add("Notes", "notes", "6", stub=True),
+            todo("Add Vernier DataQuest™", "7"),
+            todo("Add Widget", "8"),
+            add("Program Editor", "program", "9", stub=True),
+            add("Python", "python", "A", stub=True),
+        ),
+    )
+
+
+ADD_PAGE = _app_picker("add_page", "Add a page")
+ADD_PROBLEM = _app_picker("add_problem", "Add a Problem")
+
 MENUS = {
     "doc": DOC,
     "menu": MENU,
     "menu_stub": STUB_MENU,
     "menu_sheet": SHEET_MENU,
+    "add_page": ADD_PAGE,
+    "add_problem": ADD_PROBLEM,
     "sheet_cell": SHEET_CELL,
     "sheet_block": SHEET_BLOCK,
     "sheet_row": SHEET_ROW,

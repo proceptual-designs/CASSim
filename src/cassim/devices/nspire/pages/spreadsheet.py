@@ -125,6 +125,8 @@ class SheetScreen:
     """The page as data for the view: the visible columns and rows, what each cell shows, where
     the cursor and selection are, what is being typed, and the bar under the grid."""
 
+    # The window's columns and rows, and one more of each, part hidden at the right and the
+    # bottom, as a hint that the sheet goes on.
     columns: tuple[tuple[int, str, str, str, int], ...]  # index, letter, name, formula, width
     rows: tuple[int, ...]  # the data rows on show
     cells: dict[Key, tuple[str, bool]]  # (text, right) of the cells on show
@@ -136,6 +138,7 @@ class SheetScreen:
     address: str  # "A1", "A1:C4", "A" or "1": the bar's left side
     entry: str  # the bar's text: what the cursor's cell holds
     dialog: Dialog | None
+    sliver: int | None = None  # the column off to the left, a sliver of it shown (check 6, E13)
 
 
 def letter(column: int) -> str:
@@ -346,6 +349,7 @@ class Spreadsheet:
 
     def screen(self) -> SheetScreen:
         left, top, right, bottom = self._window()
+        right, bottom = min(right + 1, COLUMNS - 1), min(bottom + 1, ROWS)  # the part-hidden ones
         columns = tuple(
             (
                 c,
@@ -379,6 +383,7 @@ class Spreadsheet:
             self.address(),
             self.editing if self.editing is not None else self.entry_text(self.cursor),
             self.dialogs[0] if self.dialogs else None,
+            left - 1 if left > 0 else None,
         )
 
     def _marker(self) -> tuple[int, int, int, int] | None:

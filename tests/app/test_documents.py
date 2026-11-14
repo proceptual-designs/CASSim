@@ -18,6 +18,7 @@ def enter(state: AppState, text: str) -> None:
 def test_ctrl_i_adds_a_page_and_alt_arrows_move() -> None:
     state = AppState()
     state.key_event("i", ctrl=True)
+    state.key_event("1")  # Add Calculator
     assert state.screen().title == "1.2"
     state.key_event("Arrow Left", alt=True)
     assert state.screen().title == "1.1"
@@ -40,13 +41,13 @@ def test_variable_list_shows_values_and_functions() -> None:
 def test_variables_belong_to_the_problem() -> None:
     state = AppState()
     enter(state, "a:=5")
-    state.run_action("add_problem")
+    state.run_action("add_problem", "calculator")
     assert state.document.problems[1].session.variables() == []
 
 
 def test_document_settings_dialog_applies_everywhere() -> None:
     state = AppState()
-    state.run_action("add_problem")
+    state.run_action("add_problem", "calculator")
     state.document.use(replace(state.document.settings, angle=Angle.DEGREE))
     assert all(p.session.settings.angle is Angle.DEGREE for p in state.document.problems)
     assert state.screen().status.startswith("DEG")
@@ -54,7 +55,7 @@ def test_document_settings_dialog_applies_everywhere() -> None:
 
 def test_delete_page_action() -> None:
     state = AppState()
-    state.run_action("add_page")
+    state.run_action("add_page", "calculator")
     state.run_action("delete_page")
     assert len(state.document.sorter()) == 1
 
@@ -63,9 +64,9 @@ def test_page_move_and_undo_redo() -> None:
     """Pages reorder within a Problem, and every structural change can be undone (FR-DOC-001)."""
     state = AppState()
     enter(state, "a:=1")
-    state.run_action("add_page")
+    state.run_action("add_page", "calculator")
     enter(state, "2")
-    state.run_action("add_page")
+    state.run_action("add_page", "calculator")
     enter(state, "3")
     document = state.document
     texts = lambda: [  # noqa: E731
@@ -91,7 +92,7 @@ def test_page_move_and_undo_redo() -> None:
 def test_undo_restores_a_deleted_problem_and_is_empty_at_start() -> None:
     state = AppState()
     assert not state.document.undo()
-    state.run_action("add_problem")
+    state.run_action("add_problem", "calculator")
     state.run_action("delete_page")  # removes the new Problem
     assert len(state.document.problems) == 1
     state.run_action("undo_pages")
@@ -105,7 +106,7 @@ def test_page_thumbnail_shows_the_last_lines() -> None:
     for text in ("1+1", "2+2"):
         enter(state, text)
     assert thumbnail(state.document.current)[-1] == "4"
-    state.run_action("add_page")
+    state.run_action("add_page", "calculator")
     assert thumbnail(state.document.current) == ()
 
 

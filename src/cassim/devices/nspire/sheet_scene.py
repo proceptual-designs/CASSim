@@ -31,6 +31,7 @@ FONT = 11
 CHAR = 0.62  # a character's width, as a share of the font size (for cutting long text)
 PAD = 3
 CARET = "|"
+SLIVER = 10  # how much of the column off to the left shows, when there is one
 
 
 @dataclass(frozen=True)
@@ -49,10 +50,11 @@ class Grid:
 
 
 def fit(width: float, height: float, sheet: Spreadsheet, scale: float) -> tuple[int, int]:
-    """The data rows and columns a view `width` by `height` shows, from the sheet's left column."""
+    """The whole data rows and columns a view `width` by `height` shows, from the sheet's left
+    column (one more of each shows in part)."""
     grid = Grid(scale)
     rows = max(int((height - grid.top) // grid.px(ROW)), 1)
-    room = width - grid.px(ROW_LABELS)
+    room = width - grid.px(ROW_LABELS) - (grid.px(SLIVER) if sheet.left > 0 else 0)
     columns = 0
     for column in range(sheet.left, COLUMNS):
         room -= grid.px(sheet.width(column))
@@ -71,9 +73,13 @@ def _clip(text: str, width: float, size: float) -> str:
 
 
 def _columns_x(screen: SheetScreen, grid: Grid) -> list[tuple[int, float, float]]:
-    """Each visible column's index, left edge and width."""
+    """Each visible column's index, left edge and width; the sliver of the column off to the
+    left comes first, mostly hidden behind the row numbers."""
     x = grid.px(ROW_LABELS)
     found = []
+    if screen.sliver is not None:
+        x += grid.px(SLIVER)
+        found.append((screen.sliver, grid.px(ROW_LABELS), grid.px(SLIVER)))
     for column, _, _, _, width in screen.columns:
         found.append((column, x, grid.px(width)))
         x += grid.px(width)
@@ -83,13 +89,14 @@ def _columns_x(screen: SheetScreen, grid: Grid) -> list[tuple[int, float, float]
 def sheet_scene(screen: SheetScreen, scale: float, width: float, height: float) -> Scene:
     grid = Grid(scale)
     xs = _columns_x(screen, grid)
+    shown = xs[1:] if screen.sliver is not None else xs  # the sliver has lines but no text
     return Scene(
         width,
         height,
         (
             _lines(screen, grid, xs, width, height),
-            _heads(screen, grid, xs),
-            _cells(screen, grid, xs),
+            _heads(screen, grid, shown),
+            _cells(screen, grid, shown),
             _cursor(screen, grid, xs),
         ),
     )
@@ -98,7 +105,7 @@ def sheet_scene(screen: SheetScreen, scale: float, width: float, height: float) 
 def _lines(
     screen: SheetScreen, grid: Grid, xs: list[tuple[int, float, float]], width: float, height: float
 ) -> Layer:
-    right = xs[-1][1] + xs[-1][2] if xs else width
+    right = min(xs[-1][1] + xs[-1][2] if xs else width, width)
     bottom = min(height, grid.top + grid.px(ROW) * len(screen.rows))
     head = (
         (0.0, 0.0),
