@@ -189,6 +189,9 @@ def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
 _ALPHA = 5 / 9  # nine letter keys across the five-unit keypad
 _LETTER_H = 0.75  # the letter keys are shorter than the others
 _RETURN_TAB = 0.3  # how far return's upright rises into the row above (Simon, 2026-11-14)
+# Letter widths of return's foot: a symmetric L, its foot as long as its upright is tall
+# (tests/app/test_keypad_shapes.py checks the two, in pixels)
+_RETURN_FOOT = 1.3
 _OUTLINED = frozenset("xyz")  # the usual variable names stand out
 # The accent key, in the place of the handheld's flag key. The keypad draws it as a flag icon
 # (`ui.views`); this text label, a letter with marks above and below, names it elsewhere.
@@ -281,12 +284,12 @@ _ABC: Keypad = (
         # only a short tab of return rises into this row: it is a small key, not enter
         Key("return", "", width=_ALPHA, height=_RETURN_TAB, style="alpha", join="down"),
     ),
-    # Space and the foot of the L-shaped return share the corner equally
+    # Space and the foot of the L-shaped return fill the corner; space takes what the foot leaves
     (
         gap(_ALPHA, _LETTER_H),
         *(_alpha(c) for c in "vwxyz"),
-        _alpha("space", "␣", ctrl="_", width=_ALPHA * 1.5),
-        Key("return", "⏎", width=_ALPHA * 1.5, height=_LETTER_H, style="alpha", join="up"),
+        _alpha("space", "␣", ctrl="_", width=_ALPHA * (3 - _RETURN_FOOT)),
+        Key("return", "⏎", width=_ALPHA * _RETURN_FOOT, height=_LETTER_H, style="alpha", join="up"),
     ),
 )
 _Q = 0.5  # ten QWERTY keys across

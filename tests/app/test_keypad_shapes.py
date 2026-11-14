@@ -44,13 +44,17 @@ def test_every_row_of_the_letter_block_is_the_same_width():
         assert len(widths) == 1
 
 
-def test_space_and_the_return_foot_share_the_corner_equally():
+def test_space_and_a_symmetric_l_shaped_return_fill_the_corner():
     last = keymap.KEYPAD[-1]
     space, foot = last[-2], last[-1]
     assert (space.name, foot.name, foot.join) == ("space", "return", "up")
-    assert space.width == foot.width == pytest.approx(keymap._ALPHA * 1.5)
+    assert space.width + foot.width == pytest.approx(keymap._ALPHA * 3)
     top = keymap.KEYPAD[-2][-1]
     assert (top.name, top.join) == ("return", "down")
+    # Simon, 2026-11-14: a symmetric L, the foot as long as the upright is tall (within a pixel)
+    upright = key_span(foot.height, KEY_H) + KEY_GAP + key_span(top.height, KEY_H)
+    assert key_span(foot.width) == pytest.approx(upright, abs=1)
+    assert foot.width > top.width  # still an L: the foot reaches left of the upright
     # the pieces line up at the right edge: both rows end there
     assert sum(k.width for k in keymap.KEYPAD[-2]) == pytest.approx(sum(k.width for k in last))
 
