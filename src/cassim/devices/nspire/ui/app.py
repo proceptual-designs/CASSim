@@ -7,6 +7,7 @@ and full screen, the engine worker) is reached through the `Shell` it is mounted
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import time
@@ -21,6 +22,7 @@ from cassim.core.settings import Settings, next_choice
 from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
 from cassim.device.menu import MenuItem
+from cassim.device.pointer import Pointer
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
@@ -48,6 +50,8 @@ from cassim.devices.nspire.ui.layout import (
 from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.views import (
+    POINTER_TICK,
+    STICK_KEY,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
@@ -150,7 +154,9 @@ class App:
             state, self.theme, self.act, lambda: self.shift, self.cycle_setting
         )
         self.view.body_size = self.body_size
-        self.keypad = Keypad(state, self.press, self.theme)
+        self.pointer = Pointer()  # steered by the keypad's centre key
+        self.ticking = False  # the pointer's timer is running
+        self.keypad = Keypad(state, self.press, self.theme, on_stick=self.on_stick)
         self.sidebar = Sidebar(
             state, self.refresh, self.theme, lambda: self.act("open_menu", "menu")
         )
@@ -335,6 +341,7 @@ class App:
         self.state.doc_title = self.doc_title()
         self.autosave()
         self.view.refresh()
+        self.view.show_pointer(self.pointer)
         self.keypad.refresh()
         if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
             self.sidebar.refresh()
@@ -440,8 +447,56 @@ class App:
             if name == "esc" and self.running:
                 self.page.run_task(self.cancel)
             return
+        self.pointer.hide()  # a key press puts the pointer away
         self.state.press_keypad(name)
         self.refresh()
+
+    # ---- the pointer that the keypad's centre key steers -----------------------------------
+
+    def on_stick(self, event: str, dx: float, dy: float) -> None:
+        """The centre key as a joystick (see `Keypad.on_stick`). A tap with the pointer showing
+        clicks where it is; with it hidden, the key does its usual `select`."""
+        pointer = self.pointer
+        if event == "tap":
+            place = pointer.click()
+            if place is None:
+                self.press(STICK_KEY)
+            elif not self.busy:
+                if not self.view.click_at(*place):
+                    self.state.press_keypad(STICK_KEY)  # no hit test here yet: select as before
+                self.refresh()
+            return
+        if event == "start":
+            pointer.resize(*self.body_size())
+            pointer.press()
+            self.show_pointer()
+            if not self.ticking:
+                self.page.run_task(self.steer)
+        elif event == "move":
+            pointer.drag(dx, dy)
+        else:
+            pointer.release()
+
+    def show_pointer(self) -> None:
+        """Send only the arrow: a whole refresh per step would be far too slow on a phone."""
+        self.view.show_pointer(self.pointer)
+        with contextlib.suppress(RuntimeError):  # not on a page (the tests' stand-in page)
+            self.view.pointer.update()
+
+    async def steer(self) -> None:
+        """Move the pointer while it shows; the loop ends when it hides."""
+        self.ticking = True
+        try:
+            last = time.monotonic()
+            while self.pointer.visible:
+                await asyncio.sleep(POINTER_TICK)
+                now = time.monotonic()
+                if self.pointer.step(now - last):
+                    self.show_pointer()
+                last = now
+            self.show_pointer()  # hidden by a key press between steps
+        finally:
+            self.ticking = False
 
     def on_lifecycle(self, e: ft.AppLifecycleStateChangeEvent) -> None:
         """A key-up is lost when the window loses focus, so drop Shift then. A tab that is hidden
@@ -474,6 +529,7 @@ class App:
             return  # typed into the hidden box: on_sink turns it into keys
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.shell.pasted())
+        self.pointer.hide()
         state.run(binding)
         self.refresh()
 
