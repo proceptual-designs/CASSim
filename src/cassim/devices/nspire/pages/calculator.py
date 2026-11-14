@@ -141,6 +141,7 @@ class Calculator:
             ),
             template=self._template,
             power=self._power,
+            accent=lambda _: self._edit("operand", self.editor.cycle_accent),
             backspace=lambda _: self._delete(self.editor.backspace),
             delete=lambda _: self._delete(self.editor.delete),
             clear=lambda _: self._edit("other", self.editor.clear),

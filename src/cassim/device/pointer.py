@@ -6,8 +6,13 @@ still off centre keeps it moving. It hides `HIDE` seconds after it last moved. A
 is a click at its place; a tap while it is hidden is the key's usual `select`.
 
 Distances on the key are in key widths (1.0 is the width of the centre key), so the feel does not
-change with the keypad's scale; the pointer's place is in screen pixels. This is CASSim's own
-behaviour, to be checked against the touchpad of the device (emulator check 6, part P).
+change with the keypad's scale; the pointer's place is in screen pixels.
+
+The joystick and the hiding are CASSim's own design, chosen on purpose (Simon, 2026-11-14). The
+device's touchpad is a touchpad: the pointer moves only while the finger moves, it stays on the
+screen until something else happens, and a key press does not hide it (emulator check 6, part P,
+`docs/testing/emulator-pointer-results.md`). As there, the pointer stops at the screen edges and
+comes back where it was. A later setting could offer the touchpad behaviour beside the joystick.
 """
 
 from __future__ import annotations

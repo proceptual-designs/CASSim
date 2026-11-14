@@ -60,7 +60,12 @@ class Key:
     other layers (empty when the layer does nothing).
 
     `width` and `height` are in key units (a row is as tall as its tallest key); `style` is a name
-    the theme gives colours to (`digit`, `alpha`, `nav`...). A key with no name is a gap."""
+    the theme gives colours to (`digit`, `alpha`, `nav`...). A key with no name is a gap.
+
+    `join` makes one key of two pieces in rows next to each other, as a computer keyboard's
+    return key is an L: the upper piece says `down` and the lower one, with the same name and no
+    label, says `up`. The pieces line up at their right edges and are drawn with no gap between
+    them. `bold` sets the label heavier, to make a key stand out."""
 
     name: str
     label: str
@@ -69,11 +74,14 @@ class Key:
     width: float = 1.0
     height: float = 1.0
     style: str = ""
+    join: str = ""  # "", "down" or "up"
+    bold: bool = False
 
 
-def gap(width: float = 1.0) -> Key:
-    """Empty space in a keypad row."""
-    return Key("", "", width=width)
+def gap(width: float = 1.0, height: float = 1.0) -> Key:
+    """Empty space in a keypad row. Give it the row's key height: a taller gap makes the row
+    taller and pushes its keys down."""
+    return Key("", "", width=width, height=height)
 
 
 type Keypad = tuple[tuple[Key, ...], ...]

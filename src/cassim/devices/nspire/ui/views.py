@@ -849,11 +849,12 @@ class Keypad:
             layer or key.label,
             size=state.kpx(13 if key.height < 1 or key.width < 1 else 15),
             color=text,
-            weight=ft.FontWeight.W_600,
+            weight=key_weight(key),
             no_wrap=True,
         )
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
         stick = key.name == STICK_KEY and self.on_stick is not None
+        colour = theme.modifier_on if pending == key.name else fill
         box = ft.Container(
             ft.Column(
                 body,
@@ -865,12 +866,20 @@ class Keypad:
             width=width,
             height=height,
             alignment=ft.Alignment.CENTER,
-            bgcolor=theme.modifier_on if pending == key.name else fill,
-            border_radius=height / 2 if key.style == "pad" else state.kpx(7),
+            bgcolor=colour,
+            border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
             ink=not stick,
             tooltip=key_tip(key),
             on_click=None if stick else lambda _, name=key.name: self.on_key(name),
         )
+        if key.join == "down":  # fill the gap down to the lower piece, so the two read as one
+            seam = ft.Container(
+                left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=colour
+            )
+            # sized to the piece, so the seam overflows into the gap without growing the row
+            return ft.Stack(
+                [box, seam], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
+            )
         return self._stick(box, width) if stick else box
 
     def _stick(self, box: ft.Control, width: float) -> ft.Control:
@@ -897,6 +906,24 @@ class Keypad:
             on_pan_cancel=lambda _: on_stick("end", 0.0, 0.0),
             drag_interval=16,
         )
+
+
+def key_weight(key: Key) -> ft.FontWeight:
+    """The label's weight. The app's font has only regular and bold (600 and over draw the same),
+    so the letter block is set regular to let its `bold` keys (x, y, z) stand out."""
+    if key.bold:
+        return ft.FontWeight.BOLD
+    return ft.FontWeight.W_400 if key.style == "alpha" else ft.FontWeight.W_600
+
+
+def key_corners(key: Key, radius: float) -> ft.BorderRadius:
+    """Rounded corners, except where a key's two pieces meet (an L-shaped return key): the upper
+    piece is square below, and the lower, wider piece square at its top right."""
+    if key.join == "down":
+        return ft.BorderRadius(radius, radius, 0, 0)
+    if key.join == "up":
+        return ft.BorderRadius(radius, 0, radius, radius)
+    return ft.BorderRadius.all(radius)
 
 
 def key_tip(key: Key) -> str | None:
