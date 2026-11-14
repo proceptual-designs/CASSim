@@ -385,7 +385,37 @@ def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
         calc.perform(Binding("up"))  # the entry `2+2`
         calc.perform(Binding(key))
         assert [entry.text for entry in calc.history] == ["1+1", "3+3"]
-        assert calc.recall is None
+        assert calc.recall == (0, "result")  # the line above is picked next
+
+
+def test_del_again_deletes_the_lines_above_in_turn() -> None:
+    """After a delete the line above is picked, so pressing Del again clears upwards; from the
+    first line the one that moves up is picked, until the history is empty."""
+    calc = Calculator()
+    for line in ("1+1", "2+2", "3+3"):
+        _type(calc, line)
+        calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))  # the result of `3+3`
+    calc.perform(Binding("delete"))
+    assert [entry.text for entry in calc.history] == ["1+1", "2+2"]
+    assert calc.recall == (1, "result")
+    calc.perform(Binding("delete"))
+    calc.perform(Binding("delete"))
+    assert not calc.history
+    assert calc.recall is None
+    calc.perform(Binding("undo"))
+    assert [entry.text for entry in calc.history] == ["1+1"]
+
+
+def test_deleting_the_first_line_picks_the_next() -> None:
+    calc = Calculator()
+    for line in ("1+1", "2+2"):
+        _type(calc, line)
+        calc.perform(Binding("enter"))
+    calc.perform(Binding("first_line"))
+    calc.perform(Binding("delete"))
+    assert [entry.text for entry in calc.history] == ["2+2"]
+    assert calc.recall == (0, "entry")
 
 
 def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:

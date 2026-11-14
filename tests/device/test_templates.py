@@ -59,6 +59,52 @@ def test_each_template_reads_and_evaluates(
     assert calculator.history[-1].result.text == result
 
 
+def test_an_integral_with_empty_limits_is_indefinite() -> None:
+    """FR-CALC-005: the definite-integral template with both limits left empty reads as ∫(f,x)."""
+    editor = _fill(Kind.INTEGRAL, "", "", "2x", "x")
+    assert editor.linear() == "∫(2x,x)"
+    state = AppState()
+    calculator = _calculator(state)
+    calculator.editor = editor
+    state.run_action("enter")
+    assert calculator.history[-1].result.text == "x^2"
+    assert _fill(Kind.INTEGRAL, "0", "", "x", "x").linear() == "∫(x,x,0,)"  # one limit: an error
+
+
+def test_right_and_left_walk_through_an_integral() -> None:
+    """Right from before the template: lower, upper, integrand, variable, then out; Left back."""
+    editor = _fill(Kind.INTEGRAL, "0", "1", "x", "x")
+    editor.home()
+    visited = []
+    for _ in range(9):
+        editor.right()
+        visited.append((tuple(editor.path), editor.pos))
+    assert visited == [
+        (((0, 0),), 0),  # into the lower limit
+        (((0, 0),), 1),
+        (((0, 1),), 0),  # the upper limit
+        (((0, 1),), 1),
+        (((0, 2),), 0),  # the integrand
+        (((0, 2),), 1),
+        (((0, 3),), 0),  # the variable
+        (((0, 3),), 1),
+        ((), 1),  # out of the template
+    ]
+    back = []
+    for _ in range(9):
+        editor.left()
+        back.append((tuple(editor.path), editor.pos))
+    assert back == [*reversed(visited[:-1]), ((), 0)]
+
+
+def test_right_still_leaves_a_fraction_slot() -> None:
+    """Decision 0017: other templates are left at once."""
+    editor = _fill(Kind.FRACTION, "1", "2")
+    editor.path, editor.pos = [(0, 0)], 1
+    editor.right()
+    assert (editor.path, editor.pos) == ([], 1)
+
+
 def test_piecewise_and_system_are_grids() -> None:
     piecewise = _fill(Kind.PIECEWISE, "x^2", "x<0", "x", "x>=0", shape=(2, 2))
     assert piecewise.linear() == "piecewise(x^(2),x<0,x,x>=0)"

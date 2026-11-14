@@ -70,6 +70,9 @@ _SLOTS = {
 # Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
 # The second number is the fixed width (0: chosen when the template is made).
 GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1, Kind.LIST: 0}
+# Templates whose slots Left and Right walk through in Tab order before leaving (an integral reads
+# left to right: lower, upper, integrand, variable). Right leaves any other slot at once.
+WALKED = frozenset({Kind.INTEGRAL, Kind.ANTIDERIVATIVE})
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
@@ -586,7 +589,12 @@ class Editor:
             else:
                 self.pos -= 1
         elif self.path:
-            index, _ = self.path.pop()  # Left from the start of any slot leaves on the left
+            index, slot = self.path[-1]
+            if slot and self._parent().kind in WALKED:
+                self.path[-1] = (index, slot - 1)
+                self.pos = len(self.row())
+                return
+            self.path.pop()  # Left from the start of any other slot leaves on the left
             self.pos = index
 
     def shift_tab(self) -> None:
@@ -604,7 +612,8 @@ class Editor:
             self.pos = index
 
     def right(self) -> None:
-        """Right leaves the slot it is in, even the numerator of a fraction (0017)."""
+        """Right leaves the slot it is in, even the numerator of a fraction (0017). In an
+        integral it walks the slots instead: lower, upper, integrand, variable, then out."""
         if self.cell_sel is not None:
             self.cell_sel = None
             return
@@ -621,7 +630,13 @@ class Editor:
             else:
                 self.pos += 1
         elif self.path:
-            index, _ = self.path.pop()
+            index, slot = self.path[-1]
+            parent = self._parent()
+            if parent.kind in WALKED and slot + 1 < len(parent.slots):
+                self.path[-1] = (index, slot + 1)
+                self.pos = 0
+                return
+            self.path.pop()
             self.pos = index + 1
 
     def tab(self) -> None:
@@ -939,6 +954,13 @@ def _matching_open(row: Row, close: int) -> int:
     return 0
 
 
+def _integral(s: list[str]) -> str:
+    """The definite-integral template; with both limits left empty it is the indefinite one."""
+    if not s[0].strip() and not s[1].strip():
+        return f"∫({s[2]},{s[3]})"
+    return f"∫({s[2]},{s[3]},{s[0]},{s[1]})"
+
+
 # The text the parser reads for the function-like templates, from their slots in Tab order.
 _CALLS: dict[Kind, Callable[[list[str]], str]] = {
     Kind.NTH_ROOT: lambda s: f"root({s[1]},{s[0]})",
@@ -950,7 +972,7 @@ _CALLS: dict[Kind, Callable[[list[str]], str]] = {
     Kind.DERIVATIVE2: lambda s: f"derivative({s[1]},{s[0]},2)",
     Kind.DERIVATIVE_N: lambda s: f"derivative({s[2]},{s[1]},{s[0]})",
     Kind.DMS: lambda s: f"({s[0]}°{s[1]}'{s[2]}\")",
-    Kind.INTEGRAL: lambda s: f"∫({s[2]},{s[3]},{s[0]},{s[1]})",
+    Kind.INTEGRAL: _integral,
     Kind.ANTIDERIVATIVE: lambda s: f"∫({s[0]},{s[1]})",
     Kind.SUM: lambda s: f"Σ({s[3]},{s[0]},{s[1]},{s[2]})",
     Kind.PRODUCT: lambda s: f"Π({s[3]},{s[0]},{s[1]},{s[2]})",
