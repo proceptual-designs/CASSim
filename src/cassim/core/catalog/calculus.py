@@ -106,6 +106,7 @@ def prod_seq(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 
 @lazy("limit", 3, 4, cas=True)
+@lazy("lim", 3, 4, cas=True)
 def limit(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`limit(expr, x, point[, direction])`: direction 1 is from the right, -1 from the left."""
     name = _name_of(host, args[1])

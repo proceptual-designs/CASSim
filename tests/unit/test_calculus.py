@@ -148,6 +148,13 @@ def test_integral_in_cas_off():
         ("limit(1/x,x,0,-1)", "-∞"),
         ("limit(1/x,x,0)", "undef"),
         ("limit(x*ln(x),x,0,1)", "0"),
+        # the one-sided limits differ, so the limit is undef (simulator, 2026-11-14)
+        ("limit(sign(x),x,0)", "undef"),
+        ("limit(sign(x),x,0,1)", "1"),
+        ("limit(sign(x),x,0,-1)", "-1"),
+        ("lim(sign(x),x,0)", "undef"),
+        ("lim(sign(x),x,0,1)", "1"),
+        ("lim(sin(x)/x,x,0)", "1"),
     ],
 )
 def test_limit(line, wanted):
