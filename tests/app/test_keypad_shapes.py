@@ -8,7 +8,7 @@ import flet as ft
 import pytest
 
 from cassim.devices.nspire import keymap
-from cassim.devices.nspire.ui.layout import KEY_GAP, key_span
+from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, key_span
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import Keypad, key_corners, key_weight
 
@@ -59,8 +59,46 @@ def test_both_pieces_press_return():
     keypad = Keypad(AppState(), pressed.append)
     (_, top), (_, foot) = keys_named(keypad, "return")
     top.controls[0].on_click(None)
-    foot.on_click(None)
-    assert pressed == ["return", "return"]
+    piece, label = foot.controls
+    piece.on_click(None)
+    label.on_click(None)  # the ⏎ lies over the foot, so it presses return too
+    assert pressed == ["return", "return", "return"]
+
+
+def test_the_return_symbol_sits_on_the_upright_of_the_l_across_both_rows():
+    state = AppState()
+    keypad = Keypad(state, lambda _: None)
+    (top_key, top), (_, foot) = keys_named(keypad, "return")
+    assert texts_of(top) == [""]  # the upper piece draws no label of its own
+    _, label = foot.controls
+    above = state.kpx(key_span(top_key.height, KEY_H)) + state.kpx(KEY_GAP)
+    assert label.top == -above
+    assert label.right == 0
+    assert label.width == pytest.approx(state.kpx(key_span(top_key.width)))
+    assert label.height == pytest.approx(above + foot.height)
+    assert "".join(span.text for span in label.content.spans) == "⏎"  # in the symbols font
+
+
+def texts_of(control: Any) -> list[str]:
+    found = []
+    stack = [control]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, ft.Text):
+            found.append(item.value or "")
+        for name in ("content", "controls"):
+            inner = getattr(item, name, None)
+            stack.extend(inner if isinstance(inner, list) else [inner] if inner else [])
+    return found
+
+
+def test_the_accent_key_shows_a_loop_beside_its_letter():
+    keypad = Keypad(AppState(), lambda _: None)
+    ((_, control),) = keys_named(keypad, "accent")
+    row = control.content.controls[0]
+    letter, loop = row.controls
+    assert letter.value == keymap.ACCENT_LABEL
+    assert loop.icon == ft.Icons.AUTORENEW
 
 
 def test_x_y_and_z_are_bold_and_the_accent_key_is_drawn():

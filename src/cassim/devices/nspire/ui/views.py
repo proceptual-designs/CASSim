@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
@@ -113,6 +114,7 @@ MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
 STICK_KEY = "click"  # the touchpad's centre key, which also steers the pointer
+ACCENT_KEY = "accent"  # drawn with a small loop: it cycles a letter's accents
 type Stick = Callable[[str, float, float], None]  # see `Keypad.on_stick`
 
 # The pointer's arrow in handheld pixels, tip at (0, 0): CASSim's own drawing
@@ -150,6 +152,70 @@ def pointer_mark(scale: float) -> ft.Container:
         visible=False,
         animate_position=ft.Animation(int(POINTER_TICK * 1000), ft.AnimationCurve.LINEAR),
     )
+
+
+@dataclass(frozen=True)
+class MenuBox:
+    """Where one menu panel was drawn, in the body's pixels, and what its parts are: enough to
+    turn a pointer click into the action a tap on that part sends."""
+
+    depth: int
+    left: float
+    top: float
+    width: float
+    pad: float
+    header: float
+    arrow: float
+    line: float  # a list row, or a grid line
+    cell: float  # a grid cell and the space after it
+    columns: int  # 0 for a list
+    count: int  # rows (or cells) in the panel
+    start: int  # the first line shown
+    stop: int  # one past the last line shown
+    lines: int
+    step: int  # rows that ▲ and ▼ page by
+    active: bool  # the deepest panel, the only one that pages
+    back: str  # a submenu header's `menu_pick` target; "" on the top panel
+    hint: float  # the hint line's height under the rows, or 0
+
+    @property
+    def shown(self) -> int:
+        return self.stop - self.start
+
+    @property
+    def height(self) -> float:
+        more = (self.start > 0) + (self.stop < self.lines)
+        return 2 * self.pad + self.header + more * self.arrow + self.shown * self.line + self.hint
+
+    def hit(self, x: float, y: float) -> tuple[str, str] | None:
+        """The action for a click at (`x`, `y`) inside this panel, or None for a dead part."""
+        y -= self.top + self.pad
+        up = self.arrow if self.start else 0.0
+        rows = self.shown * self.line
+        page = ("menu_page", str(self.step)) if self.active else None
+        if y < 0:
+            hit = None
+        elif y < self.header:
+            hit = ("menu_pick", self.back) if self.back else None
+        elif y < self.header + up:
+            hit = ("menu_page", str(-self.step)) if self.active else None
+        elif y < self.header + up + rows:
+            hit = self._row(x, int((y - self.header - up) // self.line))
+        elif self.stop < self.lines and y < self.header + up + rows + self.arrow:
+            hit = page
+        else:
+            hit = None
+        return hit
+
+    def _row(self, x: float, line: int) -> tuple[str, str] | None:
+        """A list row, or a grid cell found from `x`."""
+        index = self.start + line
+        if self.columns:
+            column = int((x - self.left - self.pad) // self.cell)
+            if not 0 <= column < self.columns:
+                return None
+            index = index * self.columns + column
+        return ("menu_pick", f"{self.depth}:{index}") if index < self.count else None
 
 
 def math(latex: str, theme: Theme, size: float = 20) -> ft.Markdown:
@@ -245,6 +311,14 @@ class CalculatorView:
         # none). The detector wraps the lasting menu layer, so a drag outlives each redraw.
         self._drag = DragSteps()
         self._menu_view: MenuView | None = None
+        self._boxes: list[MenuBox] = []  # where each open panel was drawn, for pointer clicks
+        # While the pointer is in use the history reports its sizes (see `_measure`)
+        self.measuring = False
+        self._calculator_shown = False
+        self._heights: dict[int, float] = {}  # history child -> height
+        self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
+        self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
+        self._scroll: float | None = None  # the history's scroll offset, once reported
         self._shown = 1  # lines the deepest open panel shows
         menu_layer = ft.GestureDetector(
             self.menu,
@@ -302,6 +376,7 @@ class CalculatorView:
         self.doc_box.padding = ft.Padding.symmetric(horizontal=self.state.px(DOC_NAME_CLEAR))
         sheet = self.state.sheet
         if sheet is not None and screen.sheet is not None:
+            self._calculator_shown = False
             self.body.controls = [self.sheet_view.control]
             self.sheet_view.refresh(sheet, *self.body_size())
             self._follow = False
@@ -311,6 +386,7 @@ class CalculatorView:
         self.body.controls = [self.history]
         if screen.sorter is not None:  # the page sorter, in place of the page
             self.history.controls = [self._sorter_bar(), *map(self._sorter_row, screen.sorter)]
+            self._calculator_shown = False
             self.history.auto_scroll = False
             self._follow = True  # the highlighted tile stays in view
             self._error(screen)
@@ -318,12 +394,14 @@ class CalculatorView:
             return
         if screen.stub is not None:  # a page type with nothing behind it yet
             self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
+            self._calculator_shown = False
             self.history.auto_scroll = False
             self._follow = False
             self._error(screen)
             self._menu(screen.menu)
             return
         self.entry.content = self._entry(screen)
+        self._side_by_side.clear()
         pairs = [
             self._pair(screen.lines[number], screen.lines[number + 1], number)
             for number in range(0, len(screen.lines) - 1, 2)
@@ -335,6 +413,8 @@ class CalculatorView:
             self.entry,
             ft.Container(height=self.state.px(ENTRY_ROOM)),
         ]
+        self._calculator_shown = True
+        self._measure()
         # While a line is picked the view follows it; otherwise it stays at the entry line
         self.history.auto_scroll = picked is None
         self._follow = picked is not None
@@ -422,15 +502,93 @@ class CalculatorView:
 
     def click_at(self, x: float, y: float) -> bool:
         """A click by the keypad's pointer at (`x`, `y`) in the body's frame. Returns whether the
-        page took it; a page that cannot place a click yet leaves it to the key's `select`."""
+        page took it; a page that cannot place a click yet leaves it to the key's `select`.
+        An open menu lies over the page and takes every click, as a tap would."""
+        if self._menu_view is not None:
+            hit = self.menu_click(x, y)
+            if hit is not None:
+                self.on_action(*hit)
+            return True
         if self.state.sheet is not None and self.body.controls == [self.sheet_view.control]:
             return self.sheet_view.click_at(x, y)
-        return False
+        return self.history_click(x, y)
+
+    # ---- pointer clicks on the history: sizes reported by Flet while the pointer is in use --
+
+    def _measure(self) -> None:
+        """While the pointer is in use, ask Flet for the size of every history row and line and
+        for the scroll offset, so a pointer click can find the row under it. Otherwise ask for
+        nothing: each report is a message from the browser, too many to send on every key."""
+        self._heights.clear()
+        self._line_sizes.clear()
+        self._scroll = None
+        on = self.measuring
+        self.history.on_scroll = self._scrolled if on else None
+        for index, control in enumerate(self.history.controls):
+            if isinstance(control, ft.LayoutControl):
+                control.on_size_change = self._sized(index) if on else None
+
+    def _sized(self, index: int) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def store(event: ft.LayoutSizeChangeEvent) -> None:
+            self._heights[index] = event.height
+
+        return store
+
+    def _line_sized(self, spec: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def store(event: ft.LayoutSizeChangeEvent) -> None:
+            self._line_sizes[spec] = (event.width, event.height)
+
+        return store
+
+    def _scrolled(self, event: ft.OnScrollEvent) -> None:
+        self._scroll = event.pixels
+
+    def history_click(self, x: float, y: float) -> bool:
+        """A pointer click on the Calculator's history, as a tap there: a history line is picked
+        (and a second click recalls it), and the entry line takes the cursor at its end. False
+        when the page is not the Calculator or the sizes have not arrived yet."""
+        controls = self.history.controls
+        if not self._calculator_shown or len(self._heights) < len(controls):
+            return False
+        heights = [self._heights[index] for index in range(len(controls))]
+        spacing = float(self.history.spacing or 0)
+        content = sum(heights) + spacing * (len(heights) - 1)
+        offset = self._scroll  # none yet: the history sits at its end, as it scrolls itself
+        if offset is None:
+            offset = max(0.0, content - self.body_size()[1])
+        y += offset
+        top = 0.0
+        for index, height in enumerate(heights):
+            if top <= y < top + height:
+                return self._history_hit(index, x, y - top)
+            top += height + spacing
+        return True
+
+    def _history_hit(self, index: int, x: float, y: float) -> bool:
+        pairs = len(self._side_by_side)
+        if 1 <= index <= pairs:
+            row = index - 1
+            entry = self._line_sizes.get(f"{row}:entry")
+            if entry is None:
+                return False
+            width, height = entry
+            in_entry = x < width if self._side_by_side[row] else y < height
+            self.on_action("recall_at", f"{row}:{'entry' if in_entry else 'result'}")
+        elif index == pairs + 1:
+            calculator = calculator_of(self.state.document.current)
+            if calculator is not None:  # the end of the entry: the pointer cannot aim at a letter
+                self.on_action("place", format_target([], len(calculator.editor.root)))
+        return True
 
     def follow_selection(self) -> None:
         """Scroll the history to the picked line. Called after the page has been updated."""
-        if self._follow and self.history.page is not None:
-            self.history.page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
+        if not self._follow:
+            return
+        try:
+            page = self.history.page
+        except RuntimeError:  # not on a page yet (Flet raises rather than give None)
+            return
+        page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -480,6 +638,7 @@ class CalculatorView:
         """An entry and its result with a thin rule under them: one line if both are short."""
         first = self._line(entry, number)
         second = self._line(result, number + 1)
+        self._side_by_side[number // 2] = self._fits(entry, result)
         if self._fits(entry, result):
             second.expand = True  # takes the rest of the line, result at the right edge
             body: ft.Control = ft.Row([first, second], spacing=0)
@@ -510,6 +669,7 @@ class CalculatorView:
         return ft.Container(
             shown,
             on_click=lambda _: self.on_action("recall_at", spec),
+            on_size_change=self._line_sized(spec) if self.measuring else None,
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
             key=_scroll_key() if line.selected else None,
@@ -522,6 +682,7 @@ class CalculatorView:
         Computer mode, where there is room)."""
         self.menu.visible = view is not None
         self._menu_view = view
+        self._boxes = []
         if view is None:
             return
         wide = self.state.mode is Mode.COMPUTER
@@ -530,12 +691,16 @@ class CalculatorView:
         step_x, step_y = (
             (px(MENU_W_WIDE) / 2, px(MENU_STEP_Y)) if wide else (px(22), px(MENU_STEP_Y))
         )
+        places = [
+            # a wide grid stays on screen
+            (px(4) + (0 if panel.columns else depth * step_x), px(4) + depth * step_y)
+            for depth, panel in enumerate(view.panels)
+        ]
         panels = [
             ft.Container(
-                self._panel(view, depth, panel, wide=wide),
-                left=px(4)
-                + (0 if panel.columns else depth * step_x),  # a wide grid stays on screen
-                top=px(4) + depth * step_y,
+                self._panel(view, depth, panel, wide=wide, at=places[depth]),
+                left=places[depth][0],
+                top=places[depth][1],
             )
             for depth, panel in enumerate(view.panels)
         ]
@@ -569,7 +734,27 @@ class CalculatorView:
         if moved != line:
             self.on_action("menu_page", str((moved - line) * columns))
 
-    def _panel(self, view: MenuView, depth: int, panel: Panel, *, wide: bool) -> ft.Control:
+    def menu_click(self, x: float, y: float) -> tuple[str, str] | None:
+        """What a click at (`x`, `y`) in the body's frame does to the open menu, worked out from
+        the panels as drawn: pick a row, page with ▲ or ▼, go back with a submenu's header, or
+        close the menu from outside it. None when no menu is open, or the click lands on a part
+        of a panel that does nothing (its padding, the hint)."""
+        if self._menu_view is None:
+            return None
+        for box in reversed(self._boxes):  # the deepest panel is drawn on top
+            if box.left <= x < box.left + box.width and box.top <= y < box.top + box.height:
+                return box.hit(x, y)
+        return ("escape", "")
+
+    def _panel(
+        self,
+        view: MenuView,
+        depth: int,
+        panel: Panel,
+        *,
+        wide: bool,
+        at: tuple[float, float] = (0.0, 0.0),
+    ) -> ft.Control:
         theme, px = self.theme, self.state.px
         last = depth == len(view.panels) - 1
         columns = panel.columns or 1
@@ -591,7 +776,36 @@ class CalculatorView:
             items.extend(self._menu_row(depth, panel, n, wide=wide, active=last) for n in window)
         if window.stop < lines:
             items.append(self._more("▼", shown * columns, active=last))
-        if last and view.hint and (not wide or panel.columns):
+        hinted = last and view.hint and (not wide or panel.columns)
+        pad, gap = px(4), px(1)
+        self._boxes.append(
+            MenuBox(
+                depth=depth,
+                left=at[0],
+                top=at[1],
+                width=2 * pad
+                + (
+                    columns * px(GRID_CELL) + (columns - 1) * gap
+                    if panel.columns
+                    else px(MENU_W_WIDE if wide else MENU_W) - 2 * pad
+                ),
+                pad=pad,
+                header=px(HEADER_H),
+                arrow=px(ARROW_H),
+                line=px(GRID_CELL - 4) if panel.columns else px(LIST_ROW_H),
+                cell=px(GRID_CELL) + gap,
+                columns=panel.columns,
+                count=len(panel.rows),
+                start=start,
+                stop=window.stop,
+                lines=lines,
+                step=shown * columns,
+                active=last,
+                back=f"{depth - 1}:{selected_index(view.panels[depth - 1])}" if depth else "",
+                hint=px(HINT_H) if hinted else 0.0,
+            )
+        )
+        if hinted:
             items.append(
                 ft.Container(
                     ft.Text(view.hint, size=px(10), color=theme.menu_hint, italic=True),
@@ -634,7 +848,9 @@ class CalculatorView:
                 weight=ft.FontWeight.BOLD,
                 color=self.theme.key_label,
             ),
-            padding=ft.Padding.symmetric(horizontal=self.state.px(4), vertical=self.state.px(2)),
+            padding=ft.Padding.symmetric(horizontal=self.state.px(4)),
+            height=self.state.px(HEADER_H),  # fixed, so a pointer click can find the rows
+            alignment=ft.Alignment.CENTER_LEFT,
             on_click=(lambda _: self.on_action("menu_pick", back)) if back else None,
         )
 
@@ -704,7 +920,9 @@ class CalculatorView:
         return ft.Container(
             ft.Row(parts, spacing=px(4)),
             bgcolor=(theme.accent if active and row.enabled else theme.key) if on else None,
-            padding=ft.Padding.symmetric(horizontal=px(4), vertical=px(1)),
+            padding=ft.Padding.symmetric(horizontal=px(4)),
+            height=px(LIST_ROW_H),  # fixed, so a pointer click can find the row
+            alignment=ft.Alignment.CENTER_LEFT,
             border_radius=px(3),
             tooltip=row.hint or None,
             ink=True,
@@ -779,6 +997,7 @@ class Keypad:
         # "end" and "tap". Without it the key is a plain button.
         self.on_stick = on_stick
         self._down = (0.0, 0.0)  # where the finger pressed on the centre key
+        self._uppers: dict[str, Key] = {}  # set by `refresh`
         self.install = install  # set while the browser offers to install; None otherwise
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
@@ -802,6 +1021,8 @@ class Keypad:
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
         keypad = self.state.keypad
+        # the upper pieces of two-piece keys: the lower piece draws their label (see `_key`)
+        self._uppers = {key.name: key for row in keypad for key in row if key.join == "down"}
         rows: list[ft.Control] = []
         for number, row in enumerate(keypad):
             keys = [self._key(key) for key in row]
@@ -845,13 +1066,22 @@ class Keypad:
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         )
-        main = label_text(
-            layer or key.label,
-            size=state.kpx(13 if key.height < 1 or key.width < 1 else 15),
+        size = state.kpx(13 if key.height < 1 or key.width < 1 else 15)
+        main: ft.Control = label_text(
+            # a two-piece key's label sits across both pieces, drawn with the lower one
+            "" if key.join == "down" else layer or key.label,
+            size=size,
             color=text,
             weight=key_weight(key),
             no_wrap=True,
         )
+        if key.name == ACCENT_KEY:  # a small loop says that it steps through forms
+            main = ft.Row(
+                [main, ft.Icon(ft.Icons.AUTORENEW, size=size * 0.75, color=text)],
+                spacing=state.kpx(1),
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
         stick = key.name == STICK_KEY and self.on_stick is not None
         colour = theme.modifier_on if pending == key.name else fill
@@ -879,6 +1109,22 @@ class Keypad:
             # sized to the piece, so the seam overflows into the gap without growing the row
             return ft.Stack(
                 [box, seam], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
+            )
+        upper = self._uppers.get(key.name) if key.join == "up" else None
+        if upper is not None:  # the label, centred on the upright of the L across both rows
+            above = state.kpx(key_span(upper.height, KEY_H)) + state.kpx(KEY_GAP)
+            label = ft.Container(
+                label_text(upper.label, size=size, color=text, weight=key_weight(upper)),
+                right=0,
+                top=-above,
+                width=state.kpx(key_span(upper.width)),
+                height=above + height,
+                alignment=ft.Alignment.CENTER,
+                # the label lies over the key, so it takes the key's taps where it is drawn
+                on_click=lambda _, name=key.name: self.on_key(name),
+            )
+            return ft.Stack(
+                [box, label], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
             )
         return self._stick(box, width) if stick else box
 

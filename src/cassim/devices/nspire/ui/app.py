@@ -463,13 +463,18 @@ class App:
                 self.press(STICK_KEY)
             elif not self.busy:
                 if not self.view.click_at(*place):
-                    self.state.press_keypad(STICK_KEY)  # no hit test here yet: select as before
+                    # no hit test on this page, or its sizes not in yet: select as before
+                    self.state.press_keypad(STICK_KEY)
                 self.refresh()
             return
         if event == "start":
             pointer.resize(*self.body_size())
             pointer.press()
-            self.show_pointer()
+            if self.view.measuring:
+                self.show_pointer()
+            else:  # redraw once with the history reporting its sizes, for clicks
+                self.view.measuring = True
+                self.refresh()
             if not self.ticking:
                 self.page.run_task(self.steer)
         elif event == "move":
@@ -497,6 +502,7 @@ class App:
             self.show_pointer()  # hidden by a key press between steps
         finally:
             self.ticking = False
+            self.view.measuring = False  # the next refresh stops the size reports
 
     def on_lifecycle(self, e: ft.AppLifecycleStateChangeEvent) -> None:
         """A key-up is lost when the window loses focus, so drop Shift then. A tab that is hidden
