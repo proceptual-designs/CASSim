@@ -8,14 +8,18 @@ serves it below /CASSim/ as a GitHub Pages project site would, and drives it in 
 from __future__ import annotations
 
 import json
+import os
 import tarfile
 import time
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+from PIL import Image, ImageChops
 from playwright.sync_api import Browser, Page
+from test_flows_browser import AppPage
 from tools import publish
 
 pytestmark = pytest.mark.e2e
@@ -209,6 +213,80 @@ def test_install_and_fullscreen_go_through_the_page(
     values = [m["value"] for m in result["heard"] if m["op"] == "installable"]
     assert values == [False, True, False]  # nothing offered, offered, used
     page.close()
+
+
+def test_safe_area_is_reported_through_the_page(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DEV-004: the page reports all four measured insets and updates them after a resize."""
+    _, url = site
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    page.goto(url, wait_until="load")
+    values = page.evaluate(
+        """async () => {
+          const app = new BroadcastChannel('cassim');
+          const heard = [];
+          app.onmessage = (m) => { if (m.data.op === 'env') heard.push(m.data.safeArea); };
+          const wait = () => new Promise((resolve) => setTimeout(resolve, 200));
+          const probe = document.getElementById('cassim-safe-area');
+          probe.style.padding = '30px 25px 10px 20px';
+          app.postMessage({op: 'hello'});
+          await wait();
+          probe.style.padding = '5px 15px 0px 35px';
+          window.dispatchEvent(new Event('resize'));
+          await wait();
+          app.close();
+          return heard;
+        }"""
+    )
+    assert values[0] == {"top": 30, "right": 25, "bottom": 10, "left": 20}
+    assert values[-1] == {"top": 5, "right": 15, "bottom": 0, "left": 35}
+    page.close()
+
+
+@pytest.mark.parametrize("size", [(390, 844), (844, 390)])
+def test_installed_phone_toggles_the_safe_area_in_the_running_app(
+    browser: Browser, site: tuple[Path, str], size: tuple[int, int]
+) -> None:
+    """FR-DEV-004: the Doc item changes the rendered layout without leaving the installed app."""
+    context = browser.new_context(viewport={"width": size[0], "height": size[1]})
+    page = context.new_page()
+    page.add_init_script(
+        """(() => {
+          const nativeMatchMedia = window.matchMedia.bind(window);
+          window.matchMedia = (query) => query === '(display-mode: fullscreen)'
+            ? nativeMatchMedia('(min-width: 0px)') : nativeMatchMedia(query);
+        })()"""
+    )
+    AppPage(page, site[1])
+    page.add_style_tag(content="#cassim-safe-area { padding: 50px 35px 10px 25px !important; }")
+    page.evaluate("window.dispatchEvent(new Event('resize'))")
+    page.wait_for_timeout(1000)
+    page.mouse.click(100, 100)
+
+    def top() -> Image.Image:
+        image = Image.open(BytesIO(page.screenshot())).convert("RGB")
+        return image.crop((0, 0, size[0], 40))
+
+    def toggle() -> None:
+        page.keyboard.press("F4")
+        page.keyboard.press("ArrowUp")
+        page.keyboard.press("ArrowUp")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(1000)
+
+    covering = top()
+    shots = os.environ.get("CASSIM_SHOTS")
+    if shots:
+        page.screenshot(path=str(Path(shots) / f"cutout-{size[0]}-use.png"))
+    toggle()
+    avoiding = top()
+    if shots:
+        page.screenshot(path=str(Path(shots) / f"cutout-{size[0]}-avoid.png"))
+    assert ImageChops.difference(covering, avoiding).getbbox() is not None
+    toggle()
+    covering_again = top()
+    assert ImageChops.difference(avoiding, covering_again).getbbox() is not None
+    assert page.evaluate("matchMedia('(display-mode: fullscreen)').matches")
+    context.close()
 
 
 @pytest.mark.parametrize("size", [(1280, 720), (390, 844), (844, 390)])

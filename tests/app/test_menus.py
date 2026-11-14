@@ -480,7 +480,12 @@ def test_doc_menu_browser_items_never_move() -> None:
 
     def items(**offers: bool) -> list[tuple[str, bool]]:
         handheld = offers.pop("handheld", True)
-        given = BrowserOffers(**{"can_fullscreen": True, **offers})
+        given = BrowserOffers(
+            can_fullscreen=True,
+            in_fullscreen=offers.get("in_fullscreen", False),
+            standalone=offers.get("standalone", False),
+            installable=offers.get("installable", False),
+        )
         return [(i.label, i.enabled) for i in browser_doc_items(handheld=handheld, offers=given)]
 
     assert items() == [("Computer view", True), ("Fullscreen", True), ("Install CASSim", False)]
@@ -494,6 +499,26 @@ def test_a_phone_cannot_switch_to_computer_view() -> None:
     """A phone has no room for Computer view and the on-screen keyboard: the switch is greyed."""
     items = browser_doc_items(handheld=True, offers=BrowserOffers(), phone=True)
     assert (items[0].label, items[0].enabled) == ("Computer view", False)
+
+
+def test_installed_phone_offers_cutout_toggle_in_both_states() -> None:
+    offers = BrowserOffers(installed=True, standalone=True)
+    for use_cutout, label in ((True, "Avoid cutout"), (False, "Use cutout")):
+        for handheld in (True, False):
+            items = browser_doc_items(
+                handheld=handheld, offers=offers, phone=True, use_cutout=use_cutout
+            )
+            if handheld:
+                assert (items[1].label, items[1].enabled) == (label, True)
+            else:
+                assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
+    items = browser_doc_items(handheld=True, offers=offers, phone=False)
+    assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
+    browser_fullscreen = BrowserOffers(
+        can_fullscreen=True, standalone=True, in_fullscreen=True, installed=False
+    )
+    items = browser_doc_items(handheld=True, offers=browser_fullscreen, phone=True)
+    assert (items[1].label, items[1].enabled) == ("Exit Fullscreen", True)
 
 
 def test_the_installed_app_offers_uninstall() -> None:

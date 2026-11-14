@@ -170,9 +170,13 @@ justify-content:center;gap:16px;background:{THEME};color:#e8e8e8;font:16px syste
 #cassim-update{{position:fixed;left:0;right:0;bottom:0;z-index:10;display:none;padding:10px 16px;
 background:#2d5fa8;color:#fff;font:14px system-ui,sans-serif;align-items:center;gap:12px}}
 #cassim-update button{{font:inherit;padding:4px 12px;border-radius:4px;border:0;cursor:pointer}}
+#cassim-safe-area{{position:fixed;visibility:hidden;pointer-events:none;
+padding:env(safe-area-inset-top) env(safe-area-inset-right)
+env(safe-area-inset-bottom) env(safe-area-inset-left)}}
 </style>"""
 
-BODY_TAGS = """<div id="cassim-splash" role="status">
+BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
+<div id="cassim-splash" role="status">
 <div>CASSim <span id="cassim-version"></span></div>
 <progress id="cassim-progress" max="100"></progress>
 <div id="cassim-status">Loading the calculator (first load can take a while)...</div>
@@ -220,9 +224,12 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
     }) || navigator.standalone === true;
     // A tab made fullscreen also matches display-mode: fullscreen, so it is not "installed".
     var installed = appMode && !inFullscreen;
+    var inset = getComputedStyle(document.getElementById("cassim-safe-area"));
     bus.postMessage({op: "env", standalone: appMode || inFullscreen, inFullscreen: inFullscreen,
       installed: installed, fullscreen: !!(d.requestFullscreen || d.webkitRequestFullscreen),
-      touch: window.matchMedia("(pointer: coarse)").matches});
+      touch: window.matchMedia("(pointer: coarse)").matches,
+      safeArea: {top: parseFloat(inset.paddingTop), right: parseFloat(inset.paddingRight),
+        bottom: parseFloat(inset.paddingBottom), left: parseFloat(inset.paddingLeft)}});
   }
   // requestFullscreen needs a recent tap. The app's answer comes back from a worker and a slow
   // phone can take longer than the browser allows, so a refusal arms the next tap instead.
@@ -244,6 +251,7 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
     if (fullscreenArmed) { fullscreenArmed = false; goFullscreen(); }
   }, true);
   document.addEventListener("fullscreenchange", tell);
+  window.addEventListener("resize", function () { requestAnimationFrame(tell); });
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     window.cassimInstallEvent = e;
