@@ -65,7 +65,7 @@ class Key:
     `join` makes one key of two pieces in rows next to each other, as a computer keyboard's
     return key is an L: the upper piece says `down` and the lower one, with the same name and no
     label, says `up`. The pieces line up at their right edges and are drawn with no gap between
-    them. `bold` sets the label heavier, to make a key stand out."""
+    them. `outline` draws a ring round the key, to make it stand out."""
 
     name: str
     label: str
@@ -75,7 +75,7 @@ class Key:
     height: float = 1.0
     style: str = ""
     join: str = ""  # "", "down" or "up"
-    bold: bool = False
+    outline: bool = False
 
 
 def gap(width: float = 1.0, height: float = 1.0) -> Key:

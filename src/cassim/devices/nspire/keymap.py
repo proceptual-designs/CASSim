@@ -178,7 +178,7 @@ def _alpha(name: str, label: str = "", ctrl: str = "", width: float = 0.0, join:
         height=_LETTER_H,
         style="alpha",
         join=join,
-        bold=name in _BOLD,
+        outline=name in _OUTLINED,
     )
 
 
@@ -188,8 +188,9 @@ def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
 
 _ALPHA = 5 / 9  # nine letter keys across the five-unit keypad
 _LETTER_H = 0.75  # the letter keys are shorter than the others
-_BOLD = frozenset("xyz")  # the usual variable names stand out
-# The accent key, in the place of the handheld's flag key: a letter with marks above and below
+_OUTLINED = frozenset("xyz")  # the usual variable names stand out
+# The accent key, in the place of the handheld's flag key. The keypad draws it as a flag icon
+# (`ui.views`); this text label, a letter with marks above and below, names it elsewhere.
 ACCENT_LABEL = "ệ"
 _SIDE = 1.0  # the columns either side of the touchpad
 _PAD = 1.0  # each touchpad cell
@@ -275,14 +276,14 @@ _ABC: Keypad = (
     ),
     (
         *(_alpha(n, label) for n, label in ((",", ","), *((c, c) for c in "opqrstu"))),
-        _alpha("return", "⏎", join="down"),
+        Key("return", "", width=_ALPHA, height=_LETTER_H, style="alpha", join="down"),
     ),
     # Space and the foot of the L-shaped return share the corner equally
     (
         gap(_ALPHA, _LETTER_H),
         *(_alpha(c) for c in "vwxyz"),
         _alpha("space", "␣", ctrl="_", width=_ALPHA * 1.5),
-        Key("return", "", width=_ALPHA * 1.5, height=_LETTER_H, style="alpha", join="up"),
+        Key("return", "⏎", width=_ALPHA * 1.5, height=_LETTER_H, style="alpha", join="up"),
     ),
 )
 _Q = 0.5  # ten QWERTY keys across

@@ -114,7 +114,7 @@ MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
 STICK_KEY = "click"  # the touchpad's centre key, which also steers the pointer
-ACCENT_KEY = "accent"  # drawn with a small loop: it cycles a letter's accents
+ACCENT_KEY = "accent"  # drawn as a flag icon: it cycles a letter's accents
 type Stick = Callable[[str, float, float], None]  # see `Keypad.on_stick`
 
 # The pointer's arrow in handheld pixels, tip at (0, 0): CASSim's own drawing
@@ -303,6 +303,7 @@ class CalculatorView:
             auto_scroll=True,
             auto_scroll_animation=ft.Animation(duration=0),
             spacing=2,
+            on_scroll=self._scrolled,  # where it is scrolled to, for pointer clicks
         )
         self.entry = ft.Container(padding=ft.Padding.symmetric(horizontal=6, vertical=2))
         self.error = ft.Container(visible=False, alignment=ft.Alignment.CENTER, expand=True)
@@ -315,7 +316,12 @@ class CalculatorView:
         # While the pointer is in use the history reports its sizes (see `_measure`)
         self.measuring = False
         self._calculator_shown = False
-        self._heights: dict[int, float] = {}  # history child -> height
+        # history child (by identity: the entry line is the same control every redraw, and
+        # Flet reports a size only when it changes) -> height
+        self._heights: dict[int, float] = {}
+        self._clicked = False  # the next pick came from a click: the line is in view already
+        self._held: int | None = None  # the line a click picked, which the view does not follow
+        self._keep: float | None = None  # the scroll offset when that click was made
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
         self._scroll: float | None = None  # the history's scroll offset, once reported
@@ -417,7 +423,16 @@ class CalculatorView:
         self._measure()
         # While a line is picked the view follows it; otherwise it stays at the entry line
         self.history.auto_scroll = picked is None
-        self._follow = picked is not None
+        if picked is None:  # the redraw takes the view to its end, which Flet may not report
+            self._scroll = None
+        # follow a picked line (Up, ctrl+7), but not one picked by a click: it is under the
+        # finger or the pointer, and scrolling would move it away. A click is followed by more
+        # than one redraw, so remember the line it picked until another line is picked.
+        if self._clicked:
+            self._clicked, self._held = False, picked
+        elif picked != self._held:  # another line, or none: the click's line is let go
+            self._held = self._keep = None
+        self._follow = picked is not None and picked != self._held
         self._error(screen)
         self._menu(screen.menu)
 
@@ -516,21 +531,24 @@ class CalculatorView:
     # ---- pointer clicks on the history: sizes reported by Flet while the pointer is in use --
 
     def _measure(self) -> None:
-        """While the pointer is in use, ask Flet for the size of every history row and line and
-        for the scroll offset, so a pointer click can find the row under it. Otherwise ask for
-        nothing: each report is a message from the browser, too many to send on every key."""
-        self._heights.clear()
+        """While the pointer is in use, ask Flet for the size of every history row and line, so
+        a pointer click can find the row under it. Otherwise ask for nothing: each report is a
+        message from the browser, too many to send on every key. The scroll offset is always
+        followed (`_scrolled`): it is reported only while the history moves, and a redraw that
+        scrolls to a picked line must not leave a stale offset behind."""
+        here = {id(control) for control in self.history.controls}
+        self._heights = {key: h for key, h in self._heights.items() if key in here}
         self._line_sizes.clear()
-        self._scroll = None
         on = self.measuring
-        self.history.on_scroll = self._scrolled if on else None
-        for index, control in enumerate(self.history.controls):
+        for control in self.history.controls:
             if isinstance(control, ft.LayoutControl):
-                control.on_size_change = self._sized(index) if on else None
+                control.on_size_change = self._sized(control) if on else None
 
-    def _sized(self, index: int) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+    def _sized(self, control: ft.Control) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        key = id(control)
+
         def store(event: ft.LayoutSizeChangeEvent) -> None:
-            self._heights[index] = event.height
+            self._heights[key] = event.height
 
         return store
 
@@ -548,14 +566,16 @@ class CalculatorView:
         (and a second click recalls it), and the entry line takes the cursor at its end. False
         when the page is not the Calculator or the sizes have not arrived yet."""
         controls = self.history.controls
-        if not self._calculator_shown or len(self._heights) < len(controls):
+        known = [self._heights.get(id(control)) for control in controls]
+        if not self._calculator_shown or None in known:
             return False
-        heights = [self._heights[index] for index in range(len(controls))]
+        heights = [height or 0.0 for height in known]
         spacing = float(self.history.spacing or 0)
         content = sum(heights) + spacing * (len(heights) - 1)
         offset = self._scroll  # none yet: the history sits at its end, as it scrolls itself
         if offset is None:
             offset = max(0.0, content - self.body_size()[1])
+        self._keep = offset  # where the view must stay if the click picks a line
         y += offset
         top = 0.0
         for index, height in enumerate(heights):
@@ -563,6 +583,12 @@ class CalculatorView:
                 return self._history_hit(index, x, y - top)
             top += height + spacing
         return True
+
+    def _click_line(self, spec: str) -> None:
+        """A tap on a history line picks it where it is, without scrolling."""
+        self._clicked = True
+        self._keep = self._scroll
+        self.on_action("recall_at", spec)
 
     def _history_hit(self, index: int, x: float, y: float) -> bool:
         pairs = len(self._side_by_side)
@@ -573,6 +599,7 @@ class CalculatorView:
                 return False
             width, height = entry
             in_entry = x < width if self._side_by_side[row] else y < height
+            self._clicked = True
             self.on_action("recall_at", f"{row}:{'entry' if in_entry else 'result'}")
         elif index == pairs + 1:
             calculator = calculator_of(self.state.document.current)
@@ -581,14 +608,21 @@ class CalculatorView:
         return True
 
     def follow_selection(self) -> None:
-        """Scroll the history to the picked line. Called after the page has been updated."""
-        if not self._follow:
+        """Scroll the history to the picked line, or, for a line picked by a click, keep the
+        view where it was: Flet resets the scroll position when the history stops keeping
+        itself at its end, which is what picking a line does. Called after the page update."""
+        keep = self._keep if self._held is not None and not self._follow else None
+        if not self._follow and keep is None:
             return
         try:
             page = self.history.page
         except RuntimeError:  # not on a page yet (Flet raises rather than give None)
             return
-        page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
+        if keep is not None:
+            self._scroll = keep
+            page.run_task(self.history.scroll_to, offset=keep, duration=0)
+        else:
+            page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -668,7 +702,7 @@ class CalculatorView:
             )
         return ft.Container(
             shown,
-            on_click=lambda _: self.on_action("recall_at", spec),
+            on_click=lambda _: self._click_line(spec),
             on_size_change=self._line_sized(spec) if self.measuring else None,
             alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
             padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
@@ -997,7 +1031,6 @@ class Keypad:
         # "end" and "tap". Without it the key is a plain button.
         self.on_stick = on_stick
         self._down = (0.0, 0.0)  # where the finger pressed on the centre key
-        self._uppers: dict[str, Key] = {}  # set by `refresh`
         self.install = install  # set while the browser offers to install; None otherwise
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
@@ -1021,8 +1054,6 @@ class Keypad:
         gap = self.state.kpx(KEY_GAP)
         self.control.spacing = gap
         keypad = self.state.keypad
-        # the upper pieces of two-piece keys: the lower piece draws their label (see `_key`)
-        self._uppers = {key.name: key for row in keypad for key in row if key.join == "down"}
         rows: list[ft.Control] = []
         for number, row in enumerate(keypad):
             keys = [self._key(key) for key in row]
@@ -1068,20 +1099,16 @@ class Keypad:
         )
         size = state.kpx(13 if key.height < 1 or key.width < 1 else 15)
         main: ft.Control = label_text(
-            # a two-piece key's label sits across both pieces, drawn with the lower one
-            "" if key.join == "down" else layer or key.label,
+            layer or key.label,
             size=size,
             color=text,
-            weight=key_weight(key),
+            weight=ft.FontWeight.W_600,
             no_wrap=True,
         )
-        if key.name == ACCENT_KEY:  # a small loop says that it steps through forms
-            main = ft.Row(
-                [main, ft.Icon(ft.Icons.AUTORENEW, size=size * 0.75, color=text)],
-                spacing=state.kpx(1),
-                tight=True,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            )
+        if key.name == ACCENT_KEY:
+            # Material's flag icon for now (Simon, 2026-11-14). TODO: find a better mark for a
+            # key that cycles a letter's accents (options tried: ệ with a loop, arrows, è é ê).
+            main = ft.Icon(ft.Icons.FLAG, size=size * 1.1, color=text)
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
         stick = key.name == STICK_KEY and self.on_stick is not None
         colour = theme.modifier_on if pending == key.name else fill
@@ -1097,6 +1124,8 @@ class Keypad:
             height=height,
             alignment=ft.Alignment.CENTER,
             bgcolor=colour,
+            # x, y and z wear a ring in the shift layer's colour
+            border=ft.Border.all(state.kpx(2), theme.shift_label) if key.outline else None,
             border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
             ink=not stick,
             tooltip=key_tip(key),
@@ -1109,22 +1138,6 @@ class Keypad:
             # sized to the piece, so the seam overflows into the gap without growing the row
             return ft.Stack(
                 [box, seam], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
-            )
-        upper = self._uppers.get(key.name) if key.join == "up" else None
-        if upper is not None:  # the label, centred on the upright of the L across both rows
-            above = state.kpx(key_span(upper.height, KEY_H)) + state.kpx(KEY_GAP)
-            label = ft.Container(
-                label_text(upper.label, size=size, color=text, weight=key_weight(upper)),
-                right=0,
-                top=-above,
-                width=state.kpx(key_span(upper.width)),
-                height=above + height,
-                alignment=ft.Alignment.CENTER,
-                # the label lies over the key, so it takes the key's taps where it is drawn
-                on_click=lambda _, name=key.name: self.on_key(name),
-            )
-            return ft.Stack(
-                [box, label], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
             )
         return self._stick(box, width) if stick else box
 
@@ -1152,14 +1165,6 @@ class Keypad:
             on_pan_cancel=lambda _: on_stick("end", 0.0, 0.0),
             drag_interval=16,
         )
-
-
-def key_weight(key: Key) -> ft.FontWeight:
-    """The label's weight. The app's font has only regular and bold (600 and over draw the same),
-    so the letter block is set regular to let its `bold` keys (x, y, z) stand out."""
-    if key.bold:
-        return ft.FontWeight.BOLD
-    return ft.FontWeight.W_400 if key.style == "alpha" else ft.FontWeight.W_600
 
 
 def key_corners(key: Key, radius: float) -> ft.BorderRadius:

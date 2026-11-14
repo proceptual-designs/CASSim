@@ -5,7 +5,7 @@ line or a sheet cell, as a tap there would (emulator check 6, part P4)."""
 
 import asyncio
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import flet as ft
 import pytest
@@ -223,7 +223,7 @@ def test_history_sizes_are_asked_for_only_while_the_pointer_is_in_use():
     app.press("1")
     app.press("enter")
     assert all(handler is None for handler in size_handlers(app))
-    assert app.view.history.on_scroll is None
+    assert app.view.history.on_scroll is not None  # the scroll offset is always followed
     app.on_stick("start", 0, 0)
     page.tasks.clear()
     assert all(handler is not None for handler in size_handlers(app))
@@ -240,3 +240,64 @@ def test_before_the_sizes_arrive_a_tap_still_selects():
     app.on_stick("start", 0, 0)
     page.tasks.clear()
     assert not app.view.history_click(10, 10)
+
+
+def test_a_clicked_line_is_picked_where_it_is_but_a_line_picked_by_keys_is_followed():
+    """Picking a line scrolls the history to it, except when a click picked it: the line is under
+    the pointer or the finger, and scrolling would move it away (found in the browser)."""
+    app, _ = handheld_app()
+    for key in ("1", "enter", "2", "enter"):
+        app.press(key)
+    app.view._click_line("0:entry")
+    assert app.view._follow is False
+    app.refresh()  # a pointer click redraws twice: the second must not follow either
+    assert app.view._follow is False
+    app.press("down")  # the keys pick another line: the view follows it
+    assert app.view._follow is True
+
+
+def test_the_entry_lines_size_is_kept_across_redraws():
+    """The entry line is one control for the page's life, and Flet reports a size only when it
+    changes, so its last report must survive a redraw."""
+    app, page = handheld_app()
+    app.press("1")
+    app.press("enter")
+    app.on_stick("start", 0, 0)
+    page.tasks.clear()
+    report_sizes(app)
+    app.refresh()  # a redraw: the rows are new controls, the entry line is not
+    for control in app.view.history.controls:
+        handler = getattr(control, "on_size_change", None)
+        if control is not app.view.entry and handler is not None:
+            height = getattr(control, "height", None) or 30.0
+            handler(SimpleNamespace(width=300.0, height=height))
+    assert app.view.history_click(10, 2) is not False
+
+
+def test_a_redraw_at_the_end_forgets_an_old_scroll_report():
+    """A user scroll is reported, but the jump back to the end on the next redraw may not be: so
+    a redraw with no line picked drops the old offset and the end is assumed (found in the
+    browser: a click after a wheel scroll picked the line above)."""
+    app, _ = handheld_app()
+    app.press("1")
+    app.press("enter")
+    app.view._scrolled(cast("ft.OnScrollEvent", SimpleNamespace(pixels=40.0)))
+    assert app.view._scroll == 40.0
+    app.press("2")  # any redraw with no line picked
+    assert app.view._scroll is None
+
+
+def test_a_click_keeps_the_view_where_it_was_until_another_line_is_picked():
+    """Picking a line makes the history stop keeping itself at its end, and Flet then resets the
+    scroll position, so after a click the view is put back where the click was made."""
+    app, _ = handheld_app()
+    for key in ("1", "enter", "2", "enter"):
+        app.press(key)
+    view = app.view
+    view._scrolled(cast("ft.OnScrollEvent", SimpleNamespace(pixels=12.0)))
+    view._click_line("0:entry")
+    assert (view._held, view._keep) == (0, 12.0)
+    app.refresh()
+    assert (view._held, view._keep) == (0, 12.0)  # still the clicked line: still kept
+    app.press("esc")  # nothing picked: let go
+    assert (view._held, view._keep) == (None, None)
