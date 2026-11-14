@@ -188,6 +188,7 @@ def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
 
 _ALPHA = 5 / 9  # nine letter keys across the five-unit keypad
 _LETTER_H = 0.75  # the letter keys are shorter than the others
+_RETURN_TAB = 0.3  # how far return's upright rises into the row above (Simon, 2026-11-14)
 _OUTLINED = frozenset("xyz")  # the usual variable names stand out
 # The accent key, in the place of the handheld's flag key. The keypad draws it as a flag icon
 # (`ui.views`); this text label, a letter with marks above and below, names it elsewhere.
@@ -260,7 +261,8 @@ _MAIN: Keypad = (
         _digit("0"),
         _digit("."),
         Key("neg", "(−)", ctrl="ans", style="digit"),
-        Key("enter", "enter", ctrl="≈", style="enter"),
+        # the ring says this is the key that evaluates, not the small return (Simon, 2026-11-14)
+        Key("enter", "enter", ctrl="≈", style="enter", outline=True),
     ),
 )
 
@@ -276,7 +278,8 @@ _ABC: Keypad = (
     ),
     (
         *(_alpha(n, label) for n, label in ((",", ","), *((c, c) for c in "opqrstu"))),
-        Key("return", "", width=_ALPHA, height=_LETTER_H, style="alpha", join="down"),
+        # only a short tab of return rises into this row: it is a small key, not enter
+        Key("return", "", width=_ALPHA, height=_RETURN_TAB, style="alpha", join="down"),
     ),
     # Space and the foot of the L-shaped return share the corner equally
     (

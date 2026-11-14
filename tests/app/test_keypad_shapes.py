@@ -9,7 +9,7 @@ import pytest
 
 from cassim.app.theme import DARK
 from cassim.devices.nspire import keymap
-from cassim.devices.nspire.ui.layout import KEY_GAP, key_span
+from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, key_span
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import Keypad, key_corners
 
@@ -59,8 +59,15 @@ def test_the_return_pieces_are_drawn_as_one_l_with_the_symbol_in_the_foot():
     state = AppState()
     keypad = Keypad(state, lambda _: None)
     (top_key, top), (foot_key, foot) = keys_named(keypad, "return")
-    assert isinstance(top, ft.Stack)  # the piece and the seam that fills the gap below it
-    piece, seam = top.controls
+    # the short tab sits at the foot of its row, in a box as tall as the row
+    row_height = state.kpx(key_span(keymap._LETTER_H, KEY_H))
+    assert top.height == pytest.approx(row_height)
+    assert top.alignment == ft.Alignment.BOTTOM_CENTER
+    stack = top.content
+    assert isinstance(stack, ft.Stack)  # the piece and the seam that fills the gap below it
+    piece, seam = stack.controls
+    assert piece.height == pytest.approx(state.kpx(key_span(keymap._RETURN_TAB, KEY_H)))
+    assert piece.height < row_height / 2  # Simon, 2026-11-14: a small key, not enter
     assert seam.top == piece.height - 1  # overlaps by a pixel, so no hairline shows
     assert seam.height == pytest.approx(state.kpx(KEY_GAP) + 2)
     assert seam.bgcolor == piece.bgcolor
@@ -75,7 +82,7 @@ def test_both_pieces_press_return():
     pressed: list[str] = []
     keypad = Keypad(AppState(), pressed.append)
     (_, top), (_, foot) = keys_named(keypad, "return")
-    top.controls[0].on_click(None)
+    top.content.controls[0].on_click(None)
     foot.on_click(None)
     assert pressed == ["return", "return"]
 
@@ -89,9 +96,9 @@ def test_the_accent_key_shows_a_flag():
     assert keymap.HANDHELD["accent"].action == "accent"
 
 
-def test_x_y_and_z_have_an_orange_ring_and_every_letter_is_bold():
+def test_x_y_z_and_enter_have_an_orange_ring_and_every_letter_is_bold():
     keypad = Keypad(AppState(), lambda _: None)
-    for name in "xyz":
+    for name in ("x", "y", "z", "enter"):
         ((key, control),) = keys_named(keypad, name)
         assert key.outline
         assert control.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_label)
