@@ -8,12 +8,13 @@ from cassim.devices.nspire.sheet_scene import (
     HEAD,
     ROW,
     ROW_LABELS,
+    SLIVER,
     cell_at,
     fit,
     sheet_scene,
 )
 from cassim.devices.nspire.ui.state import AppState
-from cassim.graph.scene import Align, Box, Fill, Label
+from cassim.graph.scene import Align, Box, Fill, Label, Segments
 
 W, H = 320.0, 200.0
 
@@ -42,8 +43,8 @@ def test_layers_and_one_label_a_column_side():
     assert [layer.name for layer in scene.layers] == ["grid", "heads", "cells", "cursor"]
     cells = labels(scene, "cells")
     assert [(label.align, label.text) for label in cells] == [
-        (Align.LEFT, "\nabc\n\n\n"),
-        (Align.RIGHT, "5\n\n7\n\n"),
+        (Align.LEFT, "\nabc\n\n\n\n"),  # five rows and a sixth, part hidden
+        (Align.RIGHT, "5\n\n7\n\n\n"),
     ]
     assert cells[0].line_height == ROW
 
@@ -59,7 +60,7 @@ def test_heads_show_letters_names_and_formulas():
     state.prepare()
     heads = [label.text for label in labels(sheet_scene(sheet.screen(), 1.0, W, H), "heads")]
     assert heads[:3] == ["A", "B sq", "=a[]^2"]
-    assert heads[-1] == "1\n2\n3\n4\n5"
+    assert heads[-1] == "1\n2\n3\n4\n5\n6"
 
 
 def test_long_text_is_cut_with_dots():
@@ -131,3 +132,32 @@ def test_fit_counts_rows_and_columns_at_a_scale():
     assert fit(640, 2 * (HEAD + FORMULA + 5 * ROW), sheet, 2.0) == (5, 4)
     sheet.widths[0] = 1000
     assert fit(320, 200, sheet, 1.0)[1] == 1  # one column always shows
+
+
+def test_a_part_hidden_row_and_column_hint_at_more():
+    _, sheet = sheet_with()
+    screen = sheet.screen()
+    assert screen.rows == (1, 2, 3, 4, 5, 6)
+    assert [c for c, *_ in screen.columns] == [0, 1, 2, 3, 4]
+    assert screen.sliver is None
+    grid = sheet_scene(screen, 1.0, W, H).layer("grid")
+    assert grid is not None
+    lines = next(s for s in grid.shapes if isinstance(s, Segments))
+    assert max(x for x, _ in lines.points) == W  # the fifth column runs off the right edge
+
+
+def test_a_sliver_of_the_column_off_to_the_left():
+    """Check 6, E13: scrolled right, a sliver of the column to the left still shows."""
+    _, sheet = sheet_with()
+    sheet.go((7, 1))  # H: the view scrolls right
+    screen = sheet.screen()
+    assert screen.sliver == sheet.left - 1
+    row1 = HEAD + FORMULA + 2
+    assert cell_at(ROW_LABELS + SLIVER / 2, row1, screen, 1.0) == (screen.sliver, 1)
+    first = screen.columns[0][0]
+    assert cell_at(ROW_LABELS + SLIVER + 5, row1, screen, 1.0) == (first, 1)
+    heads = labels(sheet_scene(screen, 1.0, W, H), "heads")
+    assert heads[0].text == screen.columns[0][1]  # the sliver has no text
+    assert fit(285, 200, sheet, 1.0)[1] == 3  # the sliver takes room from the whole columns
+    sheet.go((0, 1))
+    assert fit(285, 200, sheet, 1.0)[1] == 4  # without it, four fit

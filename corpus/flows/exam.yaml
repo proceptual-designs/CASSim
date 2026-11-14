@@ -99,7 +99,7 @@ flows:
   steps:
   - {type: "a:=5", expect: '5'}
   - {type: "b:=a*2", expect: '10'}
-  - {action: add_problem}
+  - {action: add_problem, arg: calculator}
   - {type: "a", expect: a, note: "an undefined variable echoes unchanged"}
   - {type: "a:=7", expect: '7', variable: {name: a, text: '7'}}
   - {variable: {problem: 1, name: a, text: '5'}}

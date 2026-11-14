@@ -287,6 +287,22 @@ KEYPADS = {"ABC": KEYPAD, "QWERTY": KEYPAD_QWERTY}  # the letter layouts, by set
 # The device's names for its page types (`PageKind` values)
 PAGES = {str(page_type.kind): page_type.title for page_type in pages.PAGES}
 
+
+def _shortcuts(keymap: Keymap) -> Keymap:
+    """The ctrl shortcuts with a letter or a digit (ctrl+I, ctrl+7)."""
+    return {
+        name: binding
+        for name, binding in keymap.items()
+        if name.startswith("ctrl+") and len(name) == len("ctrl+i") and name[-1].isalnum()
+    }
+
+
+# A ctrl shortcut with a letter or a digit works from both keyboards: on the keypad as ctrl, then
+# the key (ctrl, I adds a page), on a computer as one chord (ctrl+7 is the first row). Where both
+# bind a chord already they agree (tests/unit/test_keymap_shortcuts.py).
+HANDHELD = {**_shortcuts(COMPUTER), **HANDHELD}
+COMPUTER = {**_shortcuts(HANDHELD), **COMPUTER}
+
 PROFILE = Profile(
     "TI-Nspire CX CAS",
     HANDHELD,
