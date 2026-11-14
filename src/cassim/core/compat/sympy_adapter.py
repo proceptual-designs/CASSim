@@ -241,7 +241,8 @@ def finish(raw: Raw, settings: Settings) -> Raw:
     if raw.has(sp.zoo, sp.nan):
         return sp.nan
     if _is_decimal_result(raw, settings):
-        return raw.evalf()
+        # evalf() turns a decimal zero into an exact 0; the handheld shows `0.` (check 6, D19).
+        return raw if raw.is_Float else raw.evalf()
     if raw.is_number and raw.is_real is False:
         return _complex_form(raw)
     # Numbers are always in simplest form: (1+ⅈ)^2 is 2*ⅈ, while (x+1)^2 stays as typed.

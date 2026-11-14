@@ -304,7 +304,7 @@ class _Parser:
             raise TISyntaxError(SYNTAX, token.pos)
         call_allowed = not (self._in_row and self._tok.space_before)
         if call_allowed and self._accept("("):
-            return Call(token.text, self._items(")", MISSING_CLOSE_PAREN))
+            return Call(token.text, self._items(")", MISSING_CLOSE_PAREN, gaps=True))
         if token.text in _NEEDS_PARENS:
             raise TISyntaxError(MISSING_OPEN_PAREN, self._tok.pos)
         return Name(token.text)
@@ -325,14 +325,22 @@ class _Parser:
         self._in_row = in_row
         return expr
 
-    def _items(self, closer: str, code: int) -> tuple[Expr, ...]:
-        """Parse comma-separated expressions up to `closer`, which may come straight away."""
+    def _items(self, closer: str, code: int, *, gaps: bool = False) -> tuple[Expr, ...]:
+        """Parse comma-separated expressions up to `closer`, which may come straight away. With
+        `gaps` (a call's arguments), a left-out argument is the empty element `_`, as in
+        `amortTbl(3,12,5,5000,,0)`."""
         in_row, self._in_row = self._in_row, False
+
+        def item() -> Expr:
+            if gaps and self._at(","):
+                return Name("_")
+            return self._expr(0)
+
         items: list[Expr] = []
         if not self._at(closer):
-            items.append(self._expr(0))
+            items.append(item())
             while self._accept(","):
-                items.append(self._expr(0))
+                items.append(item())
         self._expect(closer, code)
         self._in_row = in_row
         return tuple(items)

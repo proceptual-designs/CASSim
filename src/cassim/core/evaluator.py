@@ -54,8 +54,12 @@ _SKIP_EMPTY = frozenset(
         "varsamp",
     }
 )
-# Functions that look at empty elements themselves rather than giving `_` for one.
-_TAKE_EMPTY = frozenset({"cumulativesum", "delvoid", "dim", "isvoid"})
+# Functions that look at empty elements themselves rather than giving `_` for one. The loan
+# functions read an empty argument as left out: `amortTbl(3,12,5,5000,,0,12,12,1)` works the
+# payment out (emulator check 6, D19).
+_TAKE_EMPTY = frozenset(
+    {"cumulativesum", "delvoid", "dim", "isvoid", "amorttbl", "bal", "σint", "σprn"}
+)
 # How many user-function calls may be open at once. Each takes several Python frames.
 _MAX_CALL_DEPTH = 50
 
@@ -477,14 +481,16 @@ class Evaluator:
             raise TIError(errors.INVALID_INPUT)  # check run 2, G14: `sq[1]:=3`
         stored = self._scope.get(name)
         if stored is not None and not isinstance(stored, ListValue):
-            raise TIError(errors.DATA_TYPE)
+            raise TIError(errors.DIMENSION)  # `k:=5` then `k[1]:=2` (emulator check 6, S13)
         items = list(stored.items) if stored is not None else []
         position = self._position(target.subscripts[0])
         if not 1 <= position <= len(items) + 1:
             raise TIError(errors.DIMENSION)
         value = self._evaluated(body)
-        if isinstance(value, ListValue | MatrixValue | Void):
-            raise TIError(errors.DATA_TYPE)  # a list element is a single value
+        if isinstance(value, ListValue | MatrixValue):
+            raise TIError(errors.DOMAIN)  # a list element is a single value (check 6, S13)
+        if isinstance(value, Void):
+            raise TIError(errors.DATA_TYPE)
         if position > len(items):
             items.append(value)
         else:

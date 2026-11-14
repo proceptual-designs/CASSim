@@ -47,22 +47,54 @@ def _frequencies(value: Value, length: int) -> list[int]:
 def _read(
     host: Host, args: tuple[ast.Expr, ...], lists: int
 ) -> tuple[list[list[Fraction]], list[int] | None]:
-    """`[count,] X[, Y][, Freq]`: the data lists, and the frequencies if there are any.
-
-    A leading number is TI's count of lists and is ignored. A frequency of 1 changes nothing.
+    """`[count,] X[, Y][, Freq[, Category, Include]]`: the data lists, and the frequencies if
+    there are any. A leading number is TI's count of lists and is ignored. A frequency of 1
+    changes nothing. With a category list and the categories to include, only those rows count:
+    `OneVar d1,1,cat,{"a"}` (emulator check 6, S9).
     """
     values = [host.expr(arg) for arg in args]
     if values and isinstance(values[0], Expr) and cas.to_fraction(values[0].raw) is not None:
         values = values[1:]
     if len(values) < lists:
         raise TIError(errors.TOO_FEW_ARGUMENTS)
-    values = _without_empty_rows(values[: lists + 1])
+    values = _in_categories(values[: lists + 1], values[lists + 1 : lists + 3])
+    values = _without_empty_rows(values)
     data = [_numbers(value) for value in values[:lists]]
     if len({len(column) for column in data}) != 1:
         raise TIError(errors.DIMENSION_MISMATCH)
     if len(values) == lists:
         return data, None
     return data, _frequencies(values[lists], len(data[0]))
+
+
+def _category_key(item: Value) -> object:
+    if isinstance(item, Str):
+        return ("text", item.value)
+    if isinstance(item, Expr):
+        return ("number", item.raw)
+    return ("other", repr(item))
+
+
+# A category run takes the category list and the categories to include.
+_CATEGORY_ARGUMENTS = 2
+
+
+def _in_categories(values: list[Value], categories: list[Value]) -> list[Value]:
+    """Keep the rows whose category is one of those to include."""
+    if len(categories) < _CATEGORY_ARGUMENTS:
+        return values
+    category, include = categories
+    if not isinstance(category, ListValue) or not isinstance(include, ListValue):
+        raise TIError(errors.DATA_TYPE)
+    wanted = {_category_key(item) for item in include.items}
+    rows = [i for i, item in enumerate(category.items) if _category_key(item) in wanted]
+    lists = [value for value in values if isinstance(value, ListValue)]
+    if any(len(value.items) != len(category.items) for value in lists):
+        raise TIError(errors.DIMENSION_MISMATCH)
+    return [
+        ListValue(tuple(value.items[i] for i in rows)) if isinstance(value, ListValue) else value
+        for value in values
+    ]
 
 
 def _without_empty_rows(values: list[Value]) -> list[Value]:
@@ -280,13 +312,13 @@ _REGRESSIONS = {
     "MedMed": Regression("Median-Median Line", "m*x+b", "r²", _median_median),
     "Logistic": Regression(
         "Logistic Regression (d=0)",
-        "c/(1+a*e^(-b*x))",
+        "c/(1+a*ⅇ^(-b*x))",
         "r²",
         lambda x, y: _logistic(x, y, shifted=False),
     ),
     "LogisticD": Regression(
         "Logistic Regression (d≠0)",
-        "c/(1+a*e^(-b*x))+d",
+        "c/(1+a*ⅇ^(-b*x))+d",
         "r²",
         lambda x, y: _logistic(x, y, shifted=True),
     ),

@@ -246,8 +246,9 @@ def test_indexed_store(lines, text):
         (("xs:={1,2,3}", "xs[5]:=5"), "Dimension error"),
         (("xs:={1,2,3}", "xs[0]:=5"), "Dimension error"),
         (("xs:={1,2,3}", "xs[1.5]:=5"), "Domain error"),
-        (("xs:={1,2,3}", "xs[1]:={4,5}"), "Data type"),
-        (("k:=5", "k[1]:=2"), "Data type"),
+        # Emulator check 6, S13: a list into an element, and an element of a number.
+        (("xs:={1,2,3}", "xs[1]:={4,5}"), "Domain error"),
+        (("k:=5", "k[1]:=2"), "Dimension error"),
         (("sin[1]:=2",), "Missing ("),
     ],
 )
@@ -295,3 +296,16 @@ def test_check6_part_b_results(line, shown):
 
 def test_a_conversion_ends_the_entry():
     assert fails("2+3▶Rad+4") == "Syntax error"
+
+
+def test_check6_run4_results():
+    """Emulator check 6 run 4: category rows (S9), empty loan arguments and decimal zeros
+    (D19), and `ⅇ` in the logistic RegEqn (D26)."""
+    data = 'OneVar {2,4,4,4,5,5,7,9},1,{"a","b","a","c","b","a","c","a"},{"a"}'
+    assert run(data, "stat.n") == "4."
+    assert run(data, "stat.SSX") == "26."
+    table = run("amortTbl(3,12,5,5000,,0,12,12,0,4)")
+    assert table.startswith("[0,0.,0.,5000.;1,-20.8333,-407.2041,4592.7959;")
+    assert fails("f(1,)") == "Syntax error"
+    data = "{1,2,3,4,5,6,7,8},{2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}"
+    assert "ⅇ" in run(f"Logistic {data}", "stat.RegEqn")
