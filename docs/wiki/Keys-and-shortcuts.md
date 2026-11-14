@@ -35,7 +35,7 @@ The keypad has the same keys as the handheld, with the second functions (the **c
 
 The round key in the middle of the arrows works like a joystick. Press it and slide your finger away from the centre: a pointer appears on the screen and moves that way, faster the further you slide. It hides about a second after it stops, or when you press another key. Tap the key while the pointer shows to click where it points: a menu item, a line of the history (click it again to copy it to the entry line), the entry line, or a spreadsheet cell. With the pointer hidden, a tap chooses the highlighted item. The real handheld's touchpad works differently (the pointer moves only while your finger moves, and stays on the screen); CASSim's joystick is its own design.
 
-The **ệ** key, at the end of the h to n row, adds accents: type a letter, then press it to change the letter to è, then é, ê, ë and so on, and back to the plain letter. It works on the entry line and while typing in a spreadsheet cell. Return is the L-shaped key in the bottom corner, beside a wider space bar.
+The **flag** key, at the end of the h to n row, adds accents: type a letter, then press it to change the letter to è, then é, ê, ë and so on, and back to the plain letter. It works on the entry line and while typing in a spreadsheet cell. Return is the L-shaped key in the bottom corner, beside a wider space bar.
 
 ## Typing symbols
 
