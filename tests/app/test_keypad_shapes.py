@@ -1,16 +1,17 @@
 # Requirements traced here: FR-DEV-005
 """The letter block's corner: an L-shaped return key and a wider space key share it equally; the
-accent key sits where the handheld has its flag key; x, y and z are bold."""
+accent key sits where the handheld has its flag key; x, y and z wear an orange ring."""
 
 from typing import Any
 
 import flet as ft
 import pytest
 
+from cassim.app.theme import DARK
 from cassim.devices.nspire import keymap
 from cassim.devices.nspire.ui.layout import KEY_GAP, key_span
 from cassim.devices.nspire.ui.state import AppState
-from cassim.devices.nspire.ui.views import Keypad, key_corners, key_weight
+from cassim.devices.nspire.ui.views import Keypad, key_corners
 
 
 def keys_named(keypad: Keypad, name: str) -> list[Any]:
@@ -20,6 +21,20 @@ def keys_named(keypad: Keypad, name: str) -> list[Any]:
         for control, key in zip(drawn_row.controls, row, strict=True):  # ty: ignore[unresolved-attribute]
             if key.name == name:
                 found.append((key, control))
+    return found
+
+
+def texts_of(control: Any) -> list[str]:
+    """Every text drawn in `control`, spans joined."""
+    found = []
+    stack = [control]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, ft.Text):
+            found.append(item.value or "".join(span.text or "" for span in item.spans or []))
+        for name in ("content", "controls"):
+            inner = getattr(item, name, None)
+            stack.extend(inner if isinstance(inner, list) else [inner] if inner else [])
     return found
 
 
@@ -40,7 +55,7 @@ def test_space_and_the_return_foot_share_the_corner_equally():
     assert sum(k.width for k in keymap.KEYPAD[-2]) == pytest.approx(sum(k.width for k in last))
 
 
-def test_the_return_pieces_are_drawn_as_one_l():
+def test_the_return_pieces_are_drawn_as_one_l_with_the_symbol_in_the_foot():
     state = AppState()
     keypad = Keypad(state, lambda _: None)
     (top_key, top), (foot_key, foot) = keys_named(keypad, "return")
@@ -52,6 +67,8 @@ def test_the_return_pieces_are_drawn_as_one_l():
     assert key_corners(top_key, 7) == ft.BorderRadius(7, 7, 0, 0)
     assert key_corners(foot_key, 7) == ft.BorderRadius(7, 0, 7, 7)  # square where they meet
     assert foot.width == pytest.approx(state.kpx(key_span(foot_key.width)))
+    assert texts_of(top) == [""]
+    assert texts_of(foot) == ["⏎"]  # Simon, 2026-11-14: in the foot, where the arrow points
 
 
 def test_both_pieces_press_return():
@@ -63,15 +80,26 @@ def test_both_pieces_press_return():
     assert pressed == ["return", "return"]
 
 
-def test_x_y_and_z_are_bold_and_the_accent_key_is_drawn():
+def test_the_accent_key_shows_a_flag():
     keypad = Keypad(AppState(), lambda _: None)
-    for name in "xyz":
-        ((key, _),) = keys_named(keypad, name)
-        assert key.bold
-    assert key_weight(key) == ft.FontWeight.BOLD
-    ((key, _),) = keys_named(keypad, "a")
-    assert not key.bold
-    assert key_weight(key) == ft.FontWeight.W_400  # the rest of the letters are regular
-    ((key, _),) = keys_named(keypad, "accent")
+    ((key, control),) = keys_named(keypad, "accent")
+    (icon,) = control.content.controls
+    assert icon.icon == ft.Icons.FLAG  # for now: PLAN.md section 12, row A9
     assert key.label == keymap.ACCENT_LABEL
     assert keymap.HANDHELD["accent"].action == "accent"
+
+
+def test_x_y_and_z_have_an_orange_ring_and_every_letter_is_bold():
+    keypad = Keypad(AppState(), lambda _: None)
+    for name in "xyz":
+        ((key, control),) = keys_named(keypad, name)
+        assert key.outline
+        assert control.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_label)
+    for name in "aw":
+        ((key, control),) = keys_named(keypad, name)
+        assert not key.outline
+        assert control.border is None
+    for name in "axz":
+        ((_, control),) = keys_named(keypad, name)
+        (label,) = control.content.controls
+        assert label.weight == ft.FontWeight.W_600
