@@ -119,6 +119,56 @@ def test_bad_files_are_refused_with_a_reason(text: str) -> None:
         loads(text)
 
 
+def test_rows_are_saved_as_runs_of_text() -> None:
+    """Schema 2: a row is one string, or runs of text between templates, not one per character;
+    an exact entry is only its row."""
+    document = Document()
+    type_line(document, "solve(x=4,x)")
+    calculator = calculator_of(document.current)
+    assert calculator is not None
+    calculator.perform(Binding("insert", "3"))
+    calculator.perform(Binding("template", "fraction"))
+    calculator.perform(Binding("insert", "4"))
+    calculator.perform(Binding("approximate"))
+    page = to_dict(document)["problems"][0]["pages"][0]
+    assert page["entries"][0] == "solve(x=4,x)"
+    assert page["entries"][1] == {
+        "nodes": [{"kind": "fraction", "slots": ["3", "4"]}],
+        "approximate": True,
+    }
+    assert page["entry"] == ""
+    assert "\n" not in dumps(document, compact=True)
+
+
+def test_a_schema_1_file_still_opens() -> None:
+    """Schema 1 wrote one string per character and every entry as an object."""
+    old = {
+        "format": "cassim-document",
+        "schema": 1,
+        "name": "Old",
+        "problems": [
+            {
+                "pages": [
+                    {
+                        "kind": "calculator",
+                        "entries": [
+                            {"nodes": ["1", "+", "1"], "approximate": False},
+                            {"nodes": [{"kind": "fraction", "slots": [["1"], ["4"]]}],
+                             "approximate": True},
+                        ],
+                        "entry": ["2", "+"],
+                    }
+                ]
+            }
+        ],
+    }  # fmt: skip
+    loaded = loads(json.dumps(old))
+    calculator = calculator_of(loaded.current)
+    assert calculator is not None
+    assert [entry.result.text for entry in calculator.history] == ["2", "0.25"]
+    assert calculator.editor.linear() == "2+"
+
+
 def test_a_newer_schema_says_so() -> None:
     with pytest.raises(DocumentFileError, match="newer"):
         migrate({"format": "cassim-document", "schema": SCHEMA + 1})

@@ -20,7 +20,10 @@ from cassim.doc.document import Document, Page, PageTypes
 if TYPE_CHECKING:
     from cassim.core.session import Session
 
-SCHEMA = 1
+# Schema 2 writes a Calculator row as runs of text (`"solve(x"`), not one string per character.
+# A schema 1 file reads unchanged, since its one-character strings are runs too; schema 2 stops an
+# older CASSim from misreading the runs.
+SCHEMA = 2
 FORMAT = "cassim-document"
 FIRST_DEVICE = "nspire"  # files written before files named their device
 SUFFIX = ".cassim.json"
@@ -66,13 +69,17 @@ def to_dict(document: Document) -> dict[str, Any]:
     }
 
 
-def dumps(document: Document) -> str:
+def dumps(document: Document, *, compact: bool = False) -> str:
+    """The document's text: indented for an exported file, which people may read, or with no
+    spaces at all for browser storage (`compact`)."""
+    if compact:
+        return json.dumps(to_dict(document), ensure_ascii=False, separators=(",", ":"))
     return json.dumps(to_dict(document), ensure_ascii=False, indent=1)
 
 
 def migrate(data: dict[str, Any]) -> dict[str, Any]:
-    """Bring older files up to `SCHEMA`. There is only one schema so far; each later one adds a
-    step here (FR-DOC-004)."""
+    """Bring older files up to `SCHEMA` (FR-DOC-004). Schema 1 needs no change (see `SCHEMA`);
+    each later schema adds a step here."""
     if data.get("format") != FORMAT:
         msg = "this is not a CASSim document"
         raise DocumentFileError(msg)
