@@ -257,3 +257,7 @@ class TextStore:
         await _request(
             db.transaction(self.STORE, "readwrite").objectStore(self.STORE).put(text, key)
         )
+
+    async def delete(self, key: str) -> None:
+        db = await self._open()
+        await _request(db.transaction(self.STORE, "readwrite").objectStore(self.STORE).delete(key))

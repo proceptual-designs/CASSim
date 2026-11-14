@@ -10,7 +10,7 @@ Some items open a small form instead of expecting you to type the command, for e
 
 ## Doc (F4)
 
-- **File:** new document, open and save files, copy a share link
+- **File:** new document, open and save documents kept in this browser, import and export `.cassim.json` files, copy a share link
 - **Edit:** undo, redo, copy and paste
 - **View:** Page Sorter and other views
 - **Insert:** add a Problem or a page (only Calculator pages work so far)

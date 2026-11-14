@@ -14,7 +14,7 @@ CASSim is still being built. See [[What works and what does not yet]] before you
 | CASSim testing | <https://cassim-calc.pages.dev/> | The newest changes, for trying things early. It may break. |
 | Help | <https://cassim-wiki.pages.dev/> | These pages. |
 
-Each site keeps its own saved work: a document made on one site is not on the other. To move it, save it to a file or copy a share link (see [[Documents and sharing]]).
+Each site keeps its own saved work: a document made on one site is not on the other. To move it, export it to a file or copy a share link (see [[Documents and sharing]]).
 
 ## Pages
 

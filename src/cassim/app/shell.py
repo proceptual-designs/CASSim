@@ -148,6 +148,17 @@ class Shell:
 
         self.page.run_task(put)
 
+    def remove(self, key: str) -> None:
+        """Forget the text saved under `key` (a deleted document)."""
+        full = self.device.storage + key
+
+        async def drop() -> None:
+            if self.texts is not None:
+                await self.texts.delete(full)
+            await self.prefs.remove(full)
+
+        self.page.run_task(drop)
+
     # ---- the system clipboard -----------------------------------------------------------------
 
     def copy(self, text: str) -> None:

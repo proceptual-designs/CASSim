@@ -38,6 +38,6 @@ Last updated 2026-11-12.
 2. Type `solve(x^2-2=0,x)`, press Enter, and check the answer. Then `1/3` with Ctrl+Enter (or the keypad's ctrl and enter) for a decimal.
 3. Define `a:=5`, then enter `seq(k,k,1,99999999)` (far too big to finish) and press Esc after a few seconds. The app must stay usable and `a` must still be 5.
 4. Install the app, close it, turn the network off, and reopen it.
-5. Doc, File, Save to file; reload; Open file. Copy a share link and open it in a new tab.
+5. Doc, File, Save (give a name); reload (the name is still shown); Open Document. Export File…, then Import File…. Copy a share link and open it in a new tab.
 6. Rotate the device (phones and tablets) and resize the window (computers).
 7. Record the date, device, OS and browser versions, and any problem in the table above.

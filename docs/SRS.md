@@ -150,9 +150,10 @@ This cross-cuts every functional area.
 | FR-DOC-004 | Export/import native plain-text `.cassim.json` with a versioned schema and migrations. | M | T |
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-008 | Within a Problem, every page shares one set of variables. A spreadsheet column linked to a list, a plot of that list and a graph of a function are views of the same variable: a change made on one page shows on every other page of the Problem when it is next seen, and nothing crosses between Problems (decision 0031). | M | T |
+| FR-DOC-010 | Documents are saved by name in browser storage: Save (asks for a name the first time), Save As and Open (a list of the saved documents, each of which can be deleted). The title bar shows the document's name, centred, with `*` while it has unsaved changes. The autosave keeps the working state (with the name and the marker) but never writes the named copy. New, Open and Import ask before dropping unsaved changes (decision 0033). | S | T |
 | FR-DOC-009 | A page can be split into two panes, each holding one app (side by side, or one above the other), with focus moved between them; Quick Graph, Summary Plot and the Graphs table use it. Custom Split and layouts of three or four panes are greyed. | M | T/D |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M7 (FR-RUN-010). Geometry excluded. | M | I |
-| FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save only ever read and write the native `.cassim.json` format. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
+| FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save work on the documents kept in the browser (FR-DOC-010); files on disk are native `.cassim.json` through Import and Export. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
 
 ### 4.5 Lists & Spreadsheet — M3
 | ID | Requirement | Pri | Ver |
@@ -416,7 +417,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 
 ## 6. External interfaces
 - **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
-- **Files**: Open and Save use only the native `.cassim.json` (versioned). CSV and optionally xlsx come in and go out through Import and Export, which is the general home for foreign formats; `.tns` is deferred and, if built, goes there too (FR-DOC-006).
+- **Files**: Open and Save work on documents kept by name in the browser; files on disk are the native `.cassim.json` (versioned), through Import and Export (decision 0033). CSV and optionally xlsx come in and go out through Import and Export, which is the general home for foreign formats; `.tns` is deferred and, if built, goes there too (FR-DOC-006).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
 - **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; the 2D editor is CASSim's own template editor drawn from Flet controls (decisions 0015, 0018, 0019); MathLive and MathQuill are not used.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
