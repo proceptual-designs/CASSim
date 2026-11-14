@@ -54,6 +54,7 @@ def offers(*, standalone: bool) -> SimpleNamespace:
         standalone=standalone,
         in_fullscreen=standalone,
         installed=False,
+        touch=False,
     )
 
 

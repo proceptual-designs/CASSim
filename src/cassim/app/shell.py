@@ -33,6 +33,7 @@ class BrowserOffers:
     standalone: bool = False  # already installed, or fullscreen
     in_fullscreen: bool = False
     installed: bool = False  # running as the installed app (not a fullscreen tab)
+    touch: bool = False  # the main pointer is a finger: typing needs the on-screen keyboard
 
 
 # A web app cannot remove itself: the browser or the system does it, so Uninstall says how.
@@ -253,6 +254,7 @@ class Shell:
             bridge.standalone,
             bridge.in_fullscreen,
             bridge.installed,
+            bridge.touch,
         )
 
     def install(self) -> None:

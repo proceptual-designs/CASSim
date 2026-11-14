@@ -6,10 +6,13 @@ Looks like the calculator: a screen with the on-screen keypad below it. Tap or c
 
 - Drag the bar between the screen and the keypad to change their sizes.
 - The keypad letters can be ABC or QWERTY (see [[Settings]]).
+- In full screen (Doc, **Fullscreen**) or the installed app, the calculator's screen grows taller to use the whole height, up to the top edge of the phone.
 
 ## Computer
 
 A larger layout for a laptop or desktop with a hardware keyboard, with a page list and the variables beside the screen. The keypad can be shown beside the screen when you want it.
+
+On a phone or tablet, tap the entry line (or a spreadsheet cell) and the device's own on-screen keyboard opens, so you can type there too.
 
 ## Switching
 

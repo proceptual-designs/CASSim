@@ -45,6 +45,7 @@ from cassim.devices.nspire.ui.layout import (
     keypad_size,
     starting_mode,
 )
+from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.views import (
     SYMBOL_FONT,
@@ -164,16 +165,28 @@ class App:
             alignment=ft.Alignment.TOP_CENTER,
             visible=False,
         )
+        # Computer view on a phone or tablet: a hidden text box takes the focus when typing is
+        # expected, so the on-screen keyboard opens (see soft_keys)
+        self.sink = ft.TextField(
+            value=SENTINEL,
+            autocorrect=False,
+            enable_suggestions=False,
+            on_change=self.on_sink,
+            on_submit=self.on_sink_submit,
+            on_focus=lambda _: setattr(self, "sink_focused", True),
+            on_blur=lambda _: setattr(self, "sink_focused", False),
+        )
+        self.sink_focused = False
+        hidden = ft.Container(self.sink, left=0, top=0, width=1, height=1, opacity=0)
         self.frame = ft.Column(
             [
                 self.toolbar,
-                ft.Stack([self.layout, self.overlay], fit=ft.StackFit.EXPAND, expand=True),
+                ft.Stack([self.layout, self.overlay, hidden], fit=ft.StackFit.EXPAND, expand=True),
             ],
             expand=True,
         )
-        self.full = (
-            False  # Handheld in full screen or the installed app: the screen fills the height
-        )
+        # Handheld in full screen or the installed app: the screen fills the height
+        self.full = False
         # The margin round everything. Not `page.padding`: a change to that after start-up does
         # not reach the page, and a phone needs a thinner margin than a computer.
         self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
@@ -472,10 +485,40 @@ class App:
             if binding.action == "escape" and self.running:
                 await self.cancel()
             return
+        if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
+            return  # typed into the hidden box: on_sink turns it into keys
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.shell.pasted())
         state.run(binding)
         self.refresh()
+
+    # ---- the on-screen keyboard (Computer view on a phone or tablet) --------------------------
+
+    @property
+    def soft_keyboard(self) -> bool:
+        return self.state.mode is Mode.COMPUTER and self.shell.offers.touch
+
+    def on_sink(self, _: object = None) -> None:
+        """Keys typed on the on-screen keyboard reach the calculator."""
+        keys = keys_for(self.sink.value or "")
+        self.sink.value = SENTINEL
+        if self.busy:
+            return
+        for binding in keys:
+            self.state.run(binding)
+        self.refresh()
+
+    def on_sink_submit(self, _: object = None) -> None:
+        self.on_sink()
+        if not self.busy:
+            self.state.run(Binding("enter"))
+            self.refresh()
+        self.page.run_task(self.sink.focus)  # Enter would otherwise close the keyboard
+
+    def offer_keyboard(self, action: str) -> None:
+        """After a tap where typing goes, open the on-screen keyboard."""
+        if action in TYPING_ACTIONS and self.soft_keyboard:
+            self.page.run_task(self.sink.focus)
 
     def request_paste(self) -> None:
         self.page.run_task(self.paste_from_clipboard)
@@ -490,6 +533,7 @@ class App:
             return
         self.state.run_action(action, arg)
         self.refresh()
+        self.offer_keyboard(action)
 
     def cycle_setting(self, name: str) -> None:
         """A click on Rad/Deg, Auto/Approx or Real/Rect/Polar in the title bar."""

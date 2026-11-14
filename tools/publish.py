@@ -221,7 +221,8 @@ BODY_TAGS = """<div id="cassim-splash" role="status">
     // A tab made fullscreen also matches display-mode: fullscreen, so it is not "installed".
     var installed = appMode && !inFullscreen;
     bus.postMessage({op: "env", standalone: appMode || inFullscreen, inFullscreen: inFullscreen,
-      installed: installed, fullscreen: !!(d.requestFullscreen || d.webkitRequestFullscreen)});
+      installed: installed, fullscreen: !!(d.requestFullscreen || d.webkitRequestFullscreen),
+      touch: window.matchMedia("(pointer: coarse)").matches});
   }
   // requestFullscreen needs a recent tap. The app's answer comes back from a worker and a slow
   // phone can take longer than the browser allows, so a refusal arms the next tap instead.
