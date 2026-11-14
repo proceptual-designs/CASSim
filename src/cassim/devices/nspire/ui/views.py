@@ -339,11 +339,19 @@ class CalculatorView:
         )
         # kept clear of the settings either side, so a long name ends in … instead of under them
         self.doc_box = ft.Container(self.doc_name, alignment=ft.Alignment.CENTER)
+        page_number = ft.Container(
+            self.title,
+            on_click=lambda _: self.on_action("dialog", SORTER),
+            ink=True,
+            tooltip="Page Sorter",
+        )
         title_bar = ft.Container(
             ft.Stack(
                 [
                     self.doc_box,
-                    ft.Row([self.title, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Row(
+                        [page_number, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ),
                 ]
             ),
             bgcolor=theme.title_bar,
