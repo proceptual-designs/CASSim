@@ -1,0 +1,332 @@
+# Emulator check 6 run 4: Calculator rows of part B (D17, D19, D25 to D27, C2, units) and the
+# Calculator rows of part S (S9, S13). Captured on the simulator 2026-11-14 by Claude Cowork;
+# build 6.0.3.374. Transcribed from docs/testing/emulator-calc5-results.md and
+# emulator-sheet4-results.md. Human review pending.
+schema_version: 1
+cases:
+- id: c6r4.finance.tvm-payment-timing
+  course: none
+  settings: &id001
+    angle: degree
+    calc: auto
+    domain: real
+    digits: float8
+  tier: 2
+  tags:
+  - finance
+  steps:
+  - in: tvmFV(12,5,0,-100,0,12,12,0)
+    error: true
+    error_contains: Too many arguments
+  - in: tvmFV(12,5,0,-100,12,12,0)
+    out: '1227.8855'
+    compare: text
+  - in: tvmFV(12,5,0,-100,12,12,1)
+    out: '1233.0017'
+    compare: text
+  - in: tvmPmt(12,5,5000,0,12,12,1)
+    out: '-426.26132'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D19a-tvmFV-too-many-args.png, ../docs/testing/pages-shots-6/R4-D19b-tvmFV-end.png,
+      ../docs/testing/pages-shots-6/R4-D19c-tvmFV-begin.png, ../docs/testing/pages-shots-6/R4-D19d-tvmPmt-begin.png
+  status: pass
+- id: c6r4.finance.amorttbl-empty-pmt
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - finance
+  steps:
+  - in: amortTbl(3,12,5,5000,,0,12,12,1)
+    out: '[0,0.,0.,5000.;1,0.,-426.26,4573.74;2,-19.06,-407.2,4166.54;3,-17.36,-408.9,3757.64]'
+    compare: text
+  - in: amortTbl(3,12,5,5000,,0,12,12,0,4)
+    out: '[0,0.,0.,5000.;1,-20.8333,-407.2041,4592.7959;2,-19.1366,-408.9008,4183.8951;3,-17.4329,-410.6045,3773.2906]'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D19e-amortTbl-PmtAt1.png, ../docs/testing/pages-shots-6/R4-D19f-amortTbl-round4.png
+    note: An empty Pmt is worked out; decimal zeros show as 0.
+  status: pass
+- id: c6r4.stats.medmed-group-sizes
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - statistics
+  steps:
+  - in: xs:={1,2,3,4,5,6,7,8}
+    out: '{1,2,3,4,5,6,7,8}'
+    compare: text
+  - in: ys:={2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}
+    out: '{2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}'
+    compare: text
+  - in: MedMed xs,ys
+    out: Done
+    compare: text
+  - in: stat.m
+    out: '1.98'
+    compare: text
+  - in: stat.b
+    out: '-0.02666667'
+    compare: text
+  - in: MedMed left(xs,7),left(ys,7)
+    out: Done
+    compare: text
+  - in: stat.m
+    out: '2.'
+    compare: text
+  - in: stat.b
+    out: '-0.06666667'
+    compare: text
+  - in: MedMed seq(k,k,1,10),seq(k^2,k,1,10)
+    out: Done
+    compare: text
+  - in: stat.m
+    out: '11.'
+    compare: text
+  - in: stat.b
+    out: '-22.'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D25a-medmed-n8.png, ../docs/testing/pages-shots-6/R4-D25b-medmed-n7.png, ../docs/testing/pages-shots-6/R4-D25d-medmed-n10.png
+  status: pass
+- id: c6r4.stats.transformed-fits
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - statistics
+  steps:
+  - in: xs:={1,2,3,4,5,6,7,8}
+    out: '{1,2,3,4,5,6,7,8}'
+    compare: text
+  - in: ys:={2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}
+    out: '{2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}'
+    compare: text
+  - in: ExpReg xs,ys
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '2.2253902'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '1.3128637'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.92465993'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.9615924'
+    compare: numeric
+    tol: 1.0e-07
+  - in: PowerReg xs,ys
+    out: Done
+    compare: text
+  - in: stat.a
+    out: '2.0522894'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.b
+    out: '0.98517582'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r²
+    out: '0.99872502'
+    compare: numeric
+    tol: 1.0e-07
+  - in: stat.r
+    out: '0.99936231'
+    compare: numeric
+    tol: 1.0e-07
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D27a-expreg-linear-data.png, ../docs/testing/pages-shots-6/R4-D27b-powerreg-linear-data.png
+    note: r and r² are those of the straightened fit.
+  status: pass
+- id: c6r4.stats.logistic-noisy
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - statistics
+  steps:
+  - in: Logistic seq(k,k,1,10),{1.2,1.9,3.1,5.2,7.9,10.6,12.5,13.3,13.8,14.1}
+    out: Done
+    compare: text
+  - in: stat.RegEqn
+    out: '"c/(1+a*ⅇ^(-b*x))"'
+    compare: text
+  - in: stat.a
+    out: '33.107433'
+    compare: numeric
+    tol: 1.0e-06
+  - in: stat.b
+    out: '0.74461186'
+    compare: numeric
+    tol: 1.0e-06
+  - in: stat.c
+    out: '14.457285'
+    compare: numeric
+    tol: 1.0e-06
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D26a-logistic-noisy.png
+    note: 'The simulator draws the RegEqn string with · and a minus sign: "c/(1+a·ⅇ^(−b·x))".'
+  status: pass
+- id: c6r4.stats.onevar-categories
+  course: none
+  settings: &id002
+    angle: radian
+    calc: auto
+    domain: real
+    digits: float8
+  tier: 2
+  tags:
+  - statistics
+  steps:
+  - in: OneVar {2,4,4,4,5,5,7,9},1,{"a","b","a","c","b","a","c","a"},{"a"}
+    out: Done
+    compare: text
+  - in: stat.n
+    out: '4.'
+    compare: text
+  - in: stat.SSX
+    out: '26.'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/S9e-calculator-onevar-category-done.png, ../docs/testing/pages-shots-6/S9g-stat-n-and-ssx.png
+  status: pass
+- id: c6r4.vars.indexed-store-errors
+  course: none
+  settings: *id002
+  tier: 2
+  tags:
+  - variables
+  - lists
+  steps:
+  - in: new1[1]:=4
+    out: '4'
+    compare: text
+  - in: new1
+    out: '{4}'
+    compare: text
+  - in: k:=5
+    out: '5'
+    compare: text
+  - in: k[1]:=2
+    error: true
+    error_contains: Dimension error
+  - in: xs:={0,2,3,4,5,6,7,8}
+    out: '{0,2,3,4,5,6,7,8}'
+    compare: text
+  - in: xs[1]:={1,2}
+    error: true
+    error_contains: Domain error
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/S13a-new1-k-assign.png, ../docs/testing/pages-shots-6/S13b-xs-domain-error.png,
+      ../docs/testing/pages-shots-6/S13c-new1-created.png
+  status: pass
+- id: c6r4.degree.calculus
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - calculus
+  - degree
+  steps:
+  - in: derivative(sin(x),x)
+    out: π*cos(x)/180
+    compare: canonical
+  - in: integral(sin(x),x,0,90)
+    out: 180/π
+    compare: canonical
+  - in: derivative(sin(x),x)|x=90
+    out: '0'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-D17a-derivative-sin-degree.png, ../docs/testing/pages-shots-6/R4-D17b-integral-sin-0-90-degree.png,
+      ../docs/testing/pages-shots-6/R4-D17c-derivative-at-90-degree.png
+  status: xfail
+  xfail_reason: CASSim treats trig as radians inside calculus in Degree mode (simulator-todo D17).
+- id: c6r4.vars.recursion-depth
+  course: none
+  settings: *id002
+  tier: 2
+  tags:
+  - variables
+  steps:
+  - in: f(n):=when(n=0,0,f(n-1))
+    out: Done
+    compare: text
+  - in: f(254)
+    out: '0'
+    compare: text
+  - in: f(255)
+    error: true
+    error_contains: Recursion too deep
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-C2d-recursion-f254-ok.png, ../docs/testing/pages-shots-6/R4-C2e-recursion-f255-dialog.png
+  status: xfail
+  xfail_reason: CASSim stops at depth 50 (simulator-todo C2).
+- id: c6r4.units.constants
+  course: none
+  settings: *id001
+  tier: 2
+  tags:
+  - units
+  steps:
+  - in: 5_c
+    out: 1.4989623ᴇ9*_m/_s
+    compare: text
+  - in: 5_g
+    out: 49.03325*_m/_s^2
+    compare: text
+  - in: 5_c+3_g
+    error: true
+    error_contains: Inconsistent units
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view
+    captured: '2026-11-14'
+    reviewed_by: claude (transcribed from Cowork's check 6 run 4 results); human review pending
+    evidence: ../docs/testing/pages-shots-6/R4-B8-units-c-g-mixed.png
+  status: xfail
+  xfail_reason: CASSim has no unit constants yet (simulator-todo D32).

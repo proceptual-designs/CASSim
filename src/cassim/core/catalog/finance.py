@@ -8,7 +8,7 @@ from cassim.core.compat import finance as fin
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.valueops import matrix_of, raw_of
-from cassim.core.values import Expr, Raw, Value
+from cassim.core.values import Empty, Expr, Raw, Value
 
 # What the TI functions assume for the optional PpY, CpY and PmtAt arguments of `tvm*`.
 _TIMING_DEFAULTS = (1.0, 1.0, 0.0)
@@ -118,19 +118,31 @@ _PMT, _FV, _PP, _CP, _AT, _PLACES = range(6)
 _LOAN_MAXIMUM = 6
 
 
-def _nth(values: list[float], index: int, default: float) -> float:
-    return values[index] if index < len(values) else default
+def _nth(values: list[float | None], index: int, default: float) -> float:
+    value = values[index] if index < len(values) else None
+    return default if value is None else value
 
 
-def _loan(numbers: list[float]) -> fin.Loan:
-    """A loan from `N, I, PV[, Pmt, FV, PpY, CpY, PmtAt, round]`."""
+def _loan_numbers(args: list[Value]) -> list[float | None]:
+    """The arguments of a loan function, with None for one left empty (`amortTbl(...,,0)`)."""
+    return [None if isinstance(arg, Empty) else _real(arg) for arg in args]
+
+
+def _given(value: float | None) -> float:
+    if value is None:
+        raise TIError(errors.DATA_TYPE)
+    return value
+
+
+def _loan(numbers: list[float | None]) -> fin.Loan:
+    """A loan from `N, I, PV[, Pmt, FV, PpY, CpY, PmtAt, round]`; an empty Pmt is worked out."""
     n, percent, pv, *rest = numbers
     if len(rest) > _LOAN_MAXIMUM:
         raise TIError(errors.TOO_MANY_ARGUMENTS)
     return fin.Loan(
-        n=n,
-        percent=percent,
-        pv=pv,
+        n=_given(n),
+        percent=_given(percent),
+        pv=_given(pv),
         pmt=rest[_PMT] if len(rest) > _PMT else None,
         fv=_nth(rest, _FV, 0.0),
         pp=_nth(rest, _PP, 1.0),
@@ -155,22 +167,22 @@ def _decimals(*numbers: float) -> list[Raw]:
 def amort_tbl(host: Host, args: list[Value]) -> Value:
     """`amortTbl(NPmt, N, I, PV[, Pmt, FV, PpY, CpY, PmtAt, round])`: payment number, interest,
     principal and balance, one row for each payment from 0."""
-    numbers = _numbers(args)
-    rows = _rows(_loan(numbers[1:]), int(numbers[0]))
+    numbers = _loan_numbers(args)
+    rows = _rows(_loan(numbers[1:]), int(_given(numbers[0])))
     return matrix_of([[cas.integer(number), *_decimals(*row)] for number, *row in rows])
 
 
 @eager("bal", 4, 10)
 def bal(host: Host, args: list[Value]) -> Value:
     """`bal(NPmt, N, I, PV, ...)`: the balance after NPmt payments."""
-    numbers = _numbers(args)
-    rows = _rows(_loan(numbers[1:]), int(numbers[0]))
+    numbers = _loan_numbers(args)
+    rows = _rows(_loan(numbers[1:]), int(_given(numbers[0])))
     return Expr(cas.from_float(rows[-1][3]))
 
 
 def _total(args: list[Value], column: int) -> Value:
-    numbers = _numbers(args)
-    first, last = int(numbers[0]), int(numbers[1])
+    numbers = _loan_numbers(args)
+    first, last = int(_given(numbers[0])), int(_given(numbers[1]))
     if not 1 <= first <= last:
         raise TIError(errors.DOMAIN)
     rows = _rows(_loan(numbers[2:]), last)
