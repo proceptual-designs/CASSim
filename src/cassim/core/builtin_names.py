@@ -108,6 +108,7 @@ SPELLINGS: dict[str, str] = {
     "isvoid": "isVoid",
     "lcm": "lcm",
     "left": "left",
+    "lim": "lim",
     "limit": "limit",
     "linsolve": "linSolve",
     "list▶mat": "list▶mat",

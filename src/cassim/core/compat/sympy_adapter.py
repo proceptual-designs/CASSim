@@ -1023,7 +1023,10 @@ def series_total(
 def limit(expression: Raw, variable: Raw, point: Raw, direction: int | None) -> Raw | None:
     """A limit; `direction` is 1 from the right, -1 from the left and None for both sides."""
     side = "+-" if direction is None else "+" if direction > 0 else "-"
-    result = sp.limit(expression, variable, point, side)
+    try:
+        result = sp.limit(expression, variable, point, side)
+    except ValueError:  # the one-sided limits differ, as for sign(x) at 0: TI gives undef
+        return sp.nan
     return None if result.has(sp.Limit) else result
 
 
