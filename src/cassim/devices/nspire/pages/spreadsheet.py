@@ -23,6 +23,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from cassim.device.accents import next_accent
 from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession
 from cassim.device.keys import Binding
@@ -502,6 +503,7 @@ class Spreadsheet:
             "insert": self._insert,
             "insert_linear": self._insert,
             "power": lambda arg: self._insert(f"^{arg}"),
+            "accent": lambda _: self._accent(),
             "left": lambda _: self._caret(self.caret - 1),
             "right": lambda _: self._caret(self.caret + 1),
             "home": lambda _: self._caret(0),
@@ -629,6 +631,13 @@ class Spreadsheet:
         plain = text.replace(MARK, "")
         self.editing = self.editing[: self.caret] + plain + self.editing[self.caret :]
         self.caret += place if place >= 0 else len(plain)
+
+    def _accent(self) -> None:
+        """The accent key on the letter before the caret (see `device.accents`)."""
+        text = self.editing or ""
+        changed = next_accent(text[self.caret - 1]) if self.caret else None
+        if changed is not None:
+            self.editing = text[: self.caret - 1] + changed + text[self.caret :]
 
     def _set_text(self, text: str) -> None:
         self.editing, self.caret = text, len(text)

@@ -62,8 +62,10 @@ def test_keypad_rows_are_equally_wide() -> None:
 
 def test_both_letter_layouts_have_every_letter_once() -> None:
     for keypad in nspire.KEYPADS.values():
-        names = [key.name for row in keypad for key in row if key.name]
+        # the lower piece of a two-piece key (the L-shaped return) shares the upper one's name
+        names = [key.name for row in keypad for key in row if key.name and key.join != "up"]
         assert sorted(name for name in names if len(name) == 1 and name.isalpha()) == list(
             "abcdefghijklmnopqrstuvwxyz"
         )
         assert len(names) == len(set(names))
+        assert "accent" in names

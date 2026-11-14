@@ -19,6 +19,7 @@ from enum import StrEnum
 
 from cassim.core.builtin_names import is_builtin, spelling
 from cassim.core.parser import COMMANDS
+from cassim.device.accents import next_accent
 
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
 
@@ -208,6 +209,17 @@ class Editor:
         else:
             self.row().insert(self.pos, char)
             self.pos += 1
+
+    def cycle_accent(self) -> None:
+        """The accent key: the letter just before the cursor becomes its next accented form
+        (`e`, `è`, `é`, ...). Anything else before the cursor, or a selection, is left alone."""
+        row = self.row()
+        if self.anchor is not None or self.pos == 0:
+            return
+        before = row[self.pos - 1]
+        changed = next_accent(before) if isinstance(before, str) else None
+        if changed is not None:
+            row[self.pos - 1] = changed
 
     def insert_template(self, kind: Kind, shape: tuple[int, int] = (2, 2)) -> None:
         """A template from the palette: empty slots, cursor in the first.

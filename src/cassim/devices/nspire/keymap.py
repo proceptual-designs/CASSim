@@ -78,6 +78,7 @@ HANDHELD: Keymap = {
     "ctrl+space": Binding("insert", "_"),
     "EE": Binding("insert", "ᴇ"),
     "punct": Binding("open_menu", "punctuation"),
+    "accent": Binding("accent"),  # the flag key's place: cycles the letter's accents
     "pi": Binding("open_menu", "symbols"),
     "ctrl+c": Binding("copy"),  # as on the handheld: ctrl, then the letter
     "ctrl+x": Binding("cut"),
@@ -168,8 +169,17 @@ def _digit(name: str, ctrl: str = "") -> Key:
     return Key(name, name, ctrl=ctrl, style="digit")
 
 
-def _alpha(name: str, label: str = "", ctrl: str = "", width: float = 0.0) -> Key:
-    return Key(name, label or name, ctrl=ctrl, width=width or _ALPHA, height=0.75, style="alpha")
+def _alpha(name: str, label: str = "", ctrl: str = "", width: float = 0.0, join: str = "") -> Key:
+    return Key(
+        name,
+        label or name,
+        ctrl=ctrl,
+        width=width or _ALPHA,
+        height=_LETTER_H,
+        style="alpha",
+        join=join,
+        bold=name in _BOLD,
+    )
 
 
 def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
@@ -177,12 +187,16 @@ def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
 
 
 _ALPHA = 5 / 9  # nine letter keys across the five-unit keypad
+_LETTER_H = 0.75  # the letter keys are shorter than the others
+_BOLD = frozenset("xyz")  # the usual variable names stand out
+# The accent key, in the place of the handheld's flag key: a letter with marks above and below
+ACCENT_LABEL = "ệ"
 _SIDE = 1.0  # the columns either side of the touchpad
 _PAD = 1.0  # each touchpad cell
 
 # The handheld's key layout and secondary labels (FR-DEV-005), in CASSim's own drawing: no TI
-# artwork. Units: a digit key is 1 wide; the keypad is 5 units across. Scratchpad, home and the
-# flag key have nothing to do yet, so they are gaps.
+# artwork. Units: a digit key is 1 wide; the keypad is 5 units across. Scratchpad and home have
+# nothing to do yet, so they are gaps.
 _MAIN: Keypad = (
     (
         _nav("esc", "esc", ctrl="undo"),
@@ -255,15 +269,20 @@ _ABC: Keypad = (
         _alpha(n, label)
         for n, label in (("EE", "EE"), *((c, c) for c in "abcdefg"), ("punct", "?!▸"))
     ),
-    (*(_alpha(n, label) for n, label in (("pi", "π▸"), *((c, c) for c in "hijklmn"))), gap(_ALPHA)),
     tuple(
-        _alpha(n, label) for n, label in ((",", ","), *((c, c) for c in "opqrstu"), ("return", "⏎"))
+        _alpha(n, label)
+        for n, label in (("pi", "π▸"), *((c, c) for c in "hijklmn"), ("accent", ACCENT_LABEL))
     ),
     (
-        gap(_ALPHA),
+        *(_alpha(n, label) for n, label in ((",", ","), *((c, c) for c in "opqrstu"))),
+        _alpha("return", "⏎", join="down"),
+    ),
+    # Space and the foot of the L-shaped return share the corner equally
+    (
+        gap(_ALPHA, _LETTER_H),
         *(_alpha(c) for c in "vwxyz"),
-        _alpha("space", "␣", ctrl="_"),
-        gap(_ALPHA * 2),
+        _alpha("space", "␣", ctrl="_", width=_ALPHA * 1.5),
+        Key("return", "", width=_ALPHA * 1.5, height=_LETTER_H, style="alpha", join="up"),
     ),
 )
 _Q = 0.5  # ten QWERTY keys across
@@ -277,10 +296,11 @@ _QWERTY: Keypad = (
         _alpha("punct", "?!▸", width=_Q),
     ),
     (
-        gap(_Q),
+        gap(_Q, _LETTER_H),
         _alpha("pi", "π▸", width=_Q),
         _alpha("space", "␣", ctrl="_", width=_Q * 6),
-        gap(_Q * 2),
+        gap(_Q, _LETTER_H),
+        _alpha("accent", ACCENT_LABEL, width=_Q),
     ),
 )
 KEYPAD: Keypad = (*_MAIN, *_ABC)
