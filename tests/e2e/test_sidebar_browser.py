@@ -9,6 +9,8 @@ import pytest
 from playwright.sync_api import Browser, Locator, Page, expect
 from tests.e2e.test_flows_browser import AppPage
 
+from cassim.devices.nspire.ui.sidebar import LIST_BATCH
+
 pytestmark = pytest.mark.e2e
 
 
@@ -179,6 +181,39 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
     button(page, "Expand tvm variables").click()
     app.wait(lambda: "tvm.pv = 10000" in variables.inner_text(), "expanded finance variables")
     page.close()
+
+
+def test_long_variable_list_batches_and_scrolls(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DOC-008: a long variable list can be expanded and navigated in batches."""
+    app = open_app(browser, site)
+    page = app.page
+    app.type_text(f"xs:=seq(x,x,1,{LIST_BATCH + 2})")
+    app.press("Enter")
+    app.wait(lambda: bool(app.results), "long list result")
+    button(page, "Expand xs").click()
+    variables = button(page, "Collapse xs").locator("..")
+    app.wait(lambda: f"{LIST_BATCH}: {LIST_BATCH}" in variables.inner_text(), "first batch")
+    assert f"{LIST_BATCH + 1}: {LIST_BATCH + 1}" not in variables.inner_text()
+    box = variables.bounding_box()
+    assert box
+    page.mouse.move(box["x"] + 20, box["y"] + box["height"] - 10)
+    page.mouse.wheel(0, 1500)
+    app.wait(
+        lambda: variables.evaluate("(element) => element.scrollTop") > 0,
+        "list to scroll",
+        seconds=10,
+    )
+    more = button(page, "Show more (2)")
+    more.scroll_into_view_if_needed()
+    more.click()
+    app.wait(lambda: f"{LIST_BATCH + 2}: {LIST_BATCH + 2}" in variables.inner_text(), "last item")
+    expect(more).not_to_be_attached()
+    button(page, "Collapse xs").click()
+    expect(button(page, "Expand xs")).to_be_attached()
+    collapsed = button(page, "Expand xs").locator("..")
+    assert f"{LIST_BATCH + 2}: {LIST_BATCH + 2}" not in collapsed.inner_text()
+    button(page, "Expand xs").click()
+    expect(button(page, "Show more (2)")).to_be_attached()
 
 
 def test_keypad_palette_switching_and_cycling_in_browser(
