@@ -17,6 +17,7 @@ from cassim.sheet.sheet import (
     ColumnInfo,
     Constant,
     Content,
+    DataLossError,
     Failed,
     Formula,
     Key,
@@ -24,19 +25,6 @@ from cassim.sheet.sheet import (
     Sheet,
     SheetError,
 )
-
-DATA_LOSS = "Data Loss"
-DATA_LOSS_MESSAGE = (
-    "This operation may overwrite data in the current column(s). Do you wish to proceed?"
-)
-
-
-class DataLossError(SheetError):
-    """The action needs an OK first: "Data Loss" with OK and Cancel. Call again with
-    `confirm=True` after OK."""
-
-    def __init__(self) -> None:
-        super().__init__(DATA_LOSS, DATA_LOSS_MESSAGE)
 
 
 def _bounds(span: Span) -> tuple[int, int, int, int]:

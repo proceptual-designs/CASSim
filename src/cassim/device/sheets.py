@@ -92,7 +92,9 @@ class ProblemSheets:
         choose = cast("dict[str, str]", args.get("choose", {}))
         match op["action"]:
             case "cell":
-                return sheet.set_cell(column, row, cast("str", args["text"]), choose=choose)
+                text = cast("str", args["text"])
+                confirm = bool(args["confirm"])
+                return sheet.set_cell(column, row, text, choose=choose, confirm=confirm)
             case "formula":
                 return sheet.set_column_formula(column, cast("str", args["text"]), choose=choose)
             case "name":
@@ -128,7 +130,7 @@ class ProblemSheets:
             case "move":
                 return actions.move_column(sheet, column, cast("int", args["to"]))
             case "put":
-                return sheet.put(_contents(args["cells"]))
+                return sheet.put(_contents(args["cells"]), confirm=bool(args["confirm"]))
             case _:  # "view" changes nothing
                 return []
 

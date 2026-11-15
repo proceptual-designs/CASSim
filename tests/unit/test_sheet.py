@@ -8,7 +8,14 @@ Expected behaviour is from emulator check 6 (`docs/testing/emulator-sheet3-resul
 import pytest
 
 from cassim.core.session import Session
-from cassim.sheet.sheet import ConflictError, Constant, Entry, Sheet, SheetError
+from cassim.sheet.sheet import (
+    ConflictError,
+    Constant,
+    DataLossError,
+    Entry,
+    Sheet,
+    SheetError,
+)
 
 A, B, C, D, E, F, G, H, COL_I, COL_J = range(10)
 
@@ -160,7 +167,6 @@ def test_an_error_spreads_to_formulas_that_read_it():
     ("formula", "message"),
     [
         ("=i5", "Circular definition"),
-        ("=undefinedname", "Syntax error during insertion."),
         ("=1+", "Syntax error during insertion."),
         ("=a2501", "Syntax error during insertion."),
     ],
@@ -237,13 +243,6 @@ def test_clearing_a_column_formula_keeps_its_values():
     assert sheet.content(B, 1) == Constant(sheet.value(B, 1))
 
 
-def test_typing_into_a_formula_column_is_refused():
-    sheet = sheet_with(A, [1])
-    sheet.set_column_formula(B, "=a[]")
-    with pytest.raises(SheetError):
-        sheet.set_cell(B, 1, "5")
-
-
 # ----- linked columns (check 6, E7; check run 2, G) ----------------------------------------------
 
 
@@ -279,7 +278,7 @@ def test_a_calculator_store_reaches_the_column_and_its_readers():
     sheet = sheet_with(A, [2, 4, 6], session)
     sheet.set_name(A, "xs")
     sheet.set_column_formula(B, "=a[]^2")
-    sheet.set_cell(C, 1, "=mean(xs)")
+    sheet.set_cell(C, 1, "=mean(xs)", choose={"xs": "variable"})
     session.eval("xs[2]:=20")
     sheet.sync()
     assert sheet.shown(A, 2).text == "20"
@@ -324,7 +323,7 @@ def test_a_named_formula_column_is_a_variable():
     sheet = sheet_with(A, [1, 2, 3], session)
     sheet.set_name(A, "xs")
     sheet.set_name(B, "sq")
-    sheet.set_column_formula(B, "=xs^2")
+    sheet.set_column_formula(B, "=xs^2", choose={"xs": "variable"})
     assert session.eval("sq").text == "{1,4,9}"
     session.eval("xs:={5,6}")
     sheet.sync()
@@ -453,11 +452,52 @@ def test_a_column_formula_replaces_the_cells_it_covers():
     assert texts(sheet, B, [1, 2, 3, 4]) == ["1", "2", "", ""]
 
 
-def test_a_column_formula_that_is_not_a_list_is_an_error():
+def test_a_column_formula_of_one_value_fills_the_column():
+    """Run 4, S15: `=5` shows 5 all the way down."""
     sheet = Sheet(Session())
-    notices = sheet.set_column_formula(B, "=5")
-    assert [n.title for n in notices] == ["Syntax Error in Column: b"]
-    assert sheet.shown(B, 1).text == "#ERR"
+    assert sheet.set_column_formula(B, "=5") == []
+    assert texts(sheet, B, [1, 18, 2500]) == ["5", "5", "5"]
+
+
+def test_a_name_nothing_defines_stays_a_name():
+    """Check 5, E20: `=zzq` shows the text `zzq`."""
+    sheet = Sheet(Session())
+    assert sheet.set_cell(A, 1, "=zzq") == []
+    assert sheet.shown(A, 1).text == "zzq"
+
+
+def test_typing_into_a_formula_column_asks_then_drops_the_formula():
+    """Check 5, E8; run 4, S6 and S16: Data Loss, then only what was typed is left."""
+    sheet = sheet_with(A, [1, 2, 3])
+    sheet.set_name(B, "sq")
+    sheet.set_column_formula(B, "=a[]^2")
+    with pytest.raises(DataLossError):
+        sheet.set_cell(B, 3, "99")
+    assert texts(sheet, B, [1, 2, 3]) == ["1", "4", "9"]  # Cancel changes nothing
+    sheet.set_cell(B, 3, "99", confirm=True)
+    assert texts(sheet, B, [1, 2, 3]) == ["_", "_", "99"]  # B is linked: gaps are voids (S8)
+    assert sheet.column(B).formula is None
+    pasted = sheet_with(A, [1])
+    pasted.set_column_formula(B, "=a[]")
+    with pytest.raises(DataLossError):  # a paste into it asks too
+        pasted.put({(B, 1): Entry("1")})
+
+
+def test_a_linked_columns_name_in_a_formula_asks_column_or_variable():
+    """Run 4, S11: `u : Column or Variable?`; Column Reference is written `u[]` on the
+    emulator (here the column's letter), Variable Reference `'u`."""
+    sheet = sheet_with(A, [5, 1, 8])
+    sheet.set_name(A, "u")
+    with pytest.raises(ConflictError) as raised:
+        sheet.set_column_formula(B, "=u*2")
+    assert raised.value.names == ("u",)
+    sheet.set_column_formula(B, "=u*2", choose={"u": "cell"})
+    assert sheet.column(B).formula == "a[]*2"
+    sheet.set_column_formula(C, "=u*3", choose={"u": "variable"})
+    assert sheet.column(C).formula == "'u*3"
+    assert texts(sheet, C, [1, 2, 3]) == ["15", "3", "24"]
+    assert texts(sheet, B, [1, 2, 3]) == ["10", "2", "16"]
+    sheet.set_cell(D, 1, "='u[2]")  # already the variable: no question
 
 
 def test_unlinking_a_column_keeps_the_list_and_the_values():
@@ -531,7 +571,7 @@ def test_a_linked_list_takes_other_lists(line):
 def test_a_formula_columns_variable_takes_no_store(line):
     session, sheet = linked()
     sheet.set_name(B, "sq")
-    sheet.set_column_formula(B, "=xs^2")
+    sheet.set_column_formula(B, "=xs^2", choose={"xs": "variable"})
     assert session.eval(line).error == "Cannot accept change: Invalid input."
     assert session.eval("sq").text == "{1,4,9}"
 
@@ -545,7 +585,7 @@ def test_unlinking_frees_the_name():
 def test_clearing_a_column_formula_turns_its_variable_into_a_list():
     session, sheet = linked()
     sheet.set_name(B, "sq")
-    sheet.set_column_formula(B, "=xs^2")
+    sheet.set_column_formula(B, "=xs^2", choose={"xs": "variable"})
     sheet.set_column_formula(B, "")
     assert session.eval("sq:={7}").error is None
     assert session.eval("sq:=7").error == VARIABLE_IN_USE
