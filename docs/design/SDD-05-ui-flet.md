@@ -33,6 +33,12 @@ The first visit chooses by window size; afterwards `System.start_mode` wins. `--
 
 Results and history are LaTeX drawn by `ft.Markdown` with a LaTeX style (decision 0014). The entry is not LaTeX, because the Flutter canvas gives Python no layout from which to map a click to a place in the tree; it is built from controls (above). `core.format.latex_for_markdown` adapts TI-style LaTeX to Flet's transport. One `Points` canvas shape per curve is the rule for graphs (decision 0004, M4).
 
+The active Calculator page reuses unchanged history-pair controls between redraws. A change to
+either line, selection, scale, maths size or theme rebuilds the affected pair; switching pages or
+opening the sorter releases the cache. Pointer measurement also rebuilds the pairs, because Flet
+reports sizes on change and pointer hit-testing needs fresh measurements. This caches history
+rows only, not hidden page trees.
+
 Arrows and shapes are drawn in a vendored Noto Sans Symbols 2 (`assets/fonts`, names in `ui.SYMBOLS`) because the browser's fallback fonts come from Google, which the offline build cannot reach. The publish step vendors the other fallback fonts (SDD-10).
 
 ## Input
