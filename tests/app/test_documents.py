@@ -26,6 +26,23 @@ def test_ctrl_i_adds_a_page_and_alt_arrows_move() -> None:
     assert state.screen().title == "1.2"
 
 
+def test_ctrl_arrows_move_between_pages_on_keyboard_and_keypad() -> None:
+    state = AppState()
+    state.run_action("add_page", "calculator")
+
+    state.key_event("Arrow Left", ctrl=True)
+    assert state.document.page == 0
+    state.key_event("Arrow Right", ctrl=True)
+    assert state.document.page == 1
+
+    state.press_keypad("ctrl")
+    state.press_keypad("left")
+    assert state.document.page == 0
+    state.press_keypad("ctrl")
+    state.press_keypad("right")
+    assert state.document.page == 1
+
+
 def test_variable_list_shows_values_and_functions() -> None:
     state = AppState()
     enter(state, "a:=5")
