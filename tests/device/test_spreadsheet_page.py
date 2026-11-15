@@ -833,3 +833,122 @@ def test_the_name_cell_has_its_own_context_menu():
         "Color",
     ]
     assert not rows[0].enabled
+
+
+# ----- Statistics from the sheet (slice 3c) -----------------------------------------------------
+
+
+def stats_sheet():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((C, 1))
+    for value in (2, 4, 4, 4, 5, 5, 7, 9):
+        type_cell(state, str(value))
+    sheet.go((C, 1))
+    return state, sheet
+
+
+def test_one_variable_asks_how_many_lists_then_for_the_fields():
+    """Check 5 E15; run 4, S1: Num of Lists, then X1 List (this column), Frequency List 1,
+    Category List, Include Categories, 1st Result Column (the next free column)."""
+    state, sheet = stats_sheet()
+    for key in ("4", "1", "1"):  # Menu 4 Statistics, 1 Stat Calculations, 1 One-Variable
+        state.run(Binding("open_menu", "menu")) if key == "4" else None
+        state.run(Binding("insert", key))
+    assert state.wizards[-1].fields[0].label == "Num of Lists:"
+    finish_wizard(state)
+    wizard = state.wizards[-1]
+    assert wizard.title == "One-Variable Statistics"
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("X1 List", "c[]"),
+        ("Frequency List", "1"),
+        ("Category List", ""),
+        ("Include Categories", ""),
+        ("1st Result Column", "d[]"),
+    ]
+    finish_wizard(state)
+    sheet.go((D, 1))
+    assert column(state, D, [1, 2]) == ["Title", "x̄"]
+    assert column(state, E, [1, 2, 7]) == ["One-Variable Statistics", "5.", "8."]
+
+
+def test_two_lists_have_only_the_lists_and_the_result_column():
+    """Run 4, S5."""
+    state, _ = stats_sheet()
+    state.run(Binding("sheet", "stat:OneVar:2"))
+    assert [f.label for f in state.wizards[-1].fields] == [
+        "X1 List",
+        "X2 List",
+        "1st Result Column",
+    ]
+
+
+def test_a_regression_saves_to_the_next_free_function():
+    """Run 4, S2, S4: Save RegEqn to f1, then f2."""
+    state, sheet = stats_sheet()
+    state.run(Binding("sheet", "stat:LinRegMx"))
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields][:3] == [
+        ("X List", "c[]"),
+        ("Y List", ""),
+        ("Save RegEqn to", "f1"),
+    ]
+    finish_wizard(state, x2="c[]")
+    assert sheet.session.is_defined("f1")
+    state.run(Binding("sheet", "stat:QuadReg"))
+    assert state.wizards[-1].fields[2].default == "f2"
+
+
+def test_dialog_checks():
+    """Run 4, S2 (an empty Y List) and S10 (a result column of more than one letter)."""
+    state, sheet = stats_sheet()
+    state.run(Binding("sheet", "stat:TwoVar"))
+    finish_wizard(state)
+    assert sheet.dialogs.pop().title == "Input Error"
+    state.run(Binding("sheet", "stat:TwoVar"))
+    finish_wizard(state, x2="c[]", results="pz[]")
+    assert sheet.dialogs.pop().message == "Cannot accept change: Invalid input."
+
+
+def test_over_data_it_asks_first():
+    state, sheet = stats_sheet()
+    sheet.go((D, 1))
+    type_cell(state, "1")
+    sheet.go((C, 1))
+    state.run(Binding("sheet", "stat:OneVar:1"))
+    finish_wizard(state, results="d[]")
+    assert sheet.dialogs[0].title == "Data Loss"
+    keys(state, "enter")
+    assert column(state, E, [2]) == ["5."]
+
+
+def test_a_distribution_puts_its_formula_in_the_cell():
+    """Run 4, S10: the formula waits in the cell's entry line; Return enters it."""
+    state, sheet = stats_sheet()
+    sheet.go((F, 2))
+    state.run(Binding("wizard", "normCdf"))
+    finish_wizard(state, lower="-1", upper="1")
+    assert sheet.editing is not None
+    assert sheet.editing.startswith("=normCdf(-1,1")
+    keys(state, "enter")
+    assert shown(state, F, 2).startswith("0.6826")
+
+
+def test_the_statistics_menu():
+    state, _ = stats_sheet()
+    state.run(Binding("open_menu", "menu"))
+    state.run(Binding("insert", "4"))
+    assert state.menu is not None
+    assert [row.label for row in state.menu.view().rows] == [
+        "Stat Calculations",
+        "Distributions",
+        "Confidence Intervals",
+        "Stat Tests",
+    ]
+    state.run(Binding("insert", "1"))
+    rows = state.menu.view().rows
+    assert (rows[0].label, rows[2].label, rows[-1].enabled) == (
+        "One-Variable Statistics…",
+        "Linear Regression (mx+b)…",
+        False,
+    )

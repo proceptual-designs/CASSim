@@ -64,7 +64,7 @@ app_cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.one-variable-statistics-1.jpg, shots/app.sheet.one-variable-statistics-2.jpg, shots/app.sheet.one-variable-statistics-3.jpg', note: 'Labels are in
       column E, values in column F, with a title row first. Values are shown as decimals (232., 8.) because the spreadsheet evaluates approximately. Quartiles use the median-of-halves method.'}
-  status: pending
+  status: pass
 - id: app.sheet.two-variable-statistics
   app: spreadsheet
   course: methods
@@ -100,7 +100,7 @@ app_cases:
       human reviewed 2026-11-02 (Simon Tyler), evidence: 'shots/app.sheet.two-variable-statistics-1.jpg, shots/app.sheet.two-variable-statistics-2.jpg, shots/app.sheet.two-variable-statistics-3.jpg, shots/app.sheet.two-variable-statistics-4.jpg,
       shots/app.sheet.two-variable-statistics-5.jpg, shots/app.sheet.two-variable-statistics-6.jpg, shots/app.sheet.two-variable-statistics-7.jpg', note: 'All values were cross-checked in numpy except the
       quartile convention, which follows TI (median of lower/upper half, excluding the median when n is odd).'}
-  status: pending
+  status: pass
 - id: app.sheet.linear-regression
   app: spreadsheet
   course: methods
@@ -113,4 +113,4 @@ app_cases:
   provenance: {source: simulator, simulator_version: 'TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view', captured: '2026-11-01', reviewed_by: claude (screenshot transcription);
       human reviewed 2026-11-02 (Simon Tyler), evidence: shots/app.sheet.linear-regression.jpg, note: 'RegEqn is shown as m*x+b; title row first, then RegEqn, m, b, r², r, Resid in column L with labels in K. r² displayed
       truncated as 0.90759… (= 0.95267940001644²).'}
-  status: pending
+  status: pass
