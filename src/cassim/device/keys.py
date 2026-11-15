@@ -9,13 +9,28 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
+
+type Action = Literal[
+    "accent", "add_page", "add_problem", "approximate", "backspace", "caps", "clear",
+    "context_menu", "copy", "cut", "delete", "delete_page", "dialog", "down", "end", "enter",
+    "escape", "extend", "first_line", "goto", "home", "home_key", "insert", "insert_linear",
+    "last_line", "left", "menu_back", "menu_page", "menu_pick", "move_page", "move_problem",
+    "new_document", "next_page", "open_menu", "page_down", "page_up", "paste", "place", "power",
+    "prev_page", "recall_at", "recall_extend", "recall_place", "recalculate", "redo", "redo_pages",
+    "right", "select", "select_all", "select_cells", "select_left", "select_right",
+    "select_to_end", "select_to_start", "select_word_left", "select_word_right", "sheet",
+    "sheet_cancel", "sheet_choose", "sheet_drag", "sheet_goto", "sheet_ok", "sheet_op",
+    "sheet_tap", "shift_tab", "sorter_go", "tab", "template", "undo", "undo_pages", "up",
+    "wizard", "word_left", "word_right",
+]  # fmt: skip
 
 
 @dataclass(frozen=True)
 class Binding:
     """What a key does: an action the page understands, with one optional argument."""
 
-    action: str
+    action: Action
     arg: str = ""
 
 

@@ -13,7 +13,7 @@ from cassim.app.theme import THEMES, valid_theme_overrides
 from cassim.core.settings import Settings
 from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession, local_session
-from cassim.device.keys import Binding, Keyboard, Keypad
+from cassim.device.keys import Action, Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.profile import Profile
 from cassim.device.sheet_link import link_for
@@ -280,7 +280,7 @@ class AppState:
             return Binding("insert", binding.arg.swapcase())
         return binding
 
-    def run_action(self, action: str, arg: str = "") -> None:
+    def run_action(self, action: Action, arg: str = "") -> None:
         """Do an action by name, for GUI buttons and menus."""
         self.run(Binding(action, arg))
 
@@ -408,7 +408,7 @@ class AppState:
         elif action in _SORTER_PASSES:
             self._document_action(binding)
         else:
-            keys: dict[str, Callable[[], object]] = {
+            keys: dict[Action, Callable[[], object]] = {
                 "left": lambda: document.next_page(-1),
                 "right": document.next_page,
                 "up": lambda: self._sorter_problem(-1),
@@ -528,7 +528,7 @@ class AppState:
             else None
         )
         steps = int(binding.arg or 1) if binding.action.startswith("move") else 0
-        actions: dict[str, Callable[[], object]] = {
+        actions: dict[Action, Callable[[], object]] = {
             "add_page": lambda: (
                 document.can_add_page() and document.add_page(kind or PageKind.CALCULATOR)
             ),

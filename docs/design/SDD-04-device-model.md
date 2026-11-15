@@ -32,7 +32,7 @@ A `Binding` is an action name and one optional argument. A profile supplies two 
 - A computer keyboard sends `ctrl+Enter` as one name and never uses the modifier state.
 - A printable character with no binding is typed (`insert`). Shift then a letter types a capital.
 
-The action names are the interface between profile and page. `Calculator._actions()` maps each to a method (move, select, edit, enter, undo, templates, menus). An unknown action raises `ValueError`, so a typo in a keymap fails in tests, not in use. Typed action names are a recorded follow-up (PLAN.md A1).
+The action names are the interface between profile and page. `Action` in `device/keys.py` types the names used by bindings, menu leaves, GUI callbacks and page dispatch tables; the argument remains a string. `AppState` handles shell and document actions and routes page actions to the Calculator or Spreadsheet. Tests follow that routing for every enabled menu and profile action. An unknown Calculator action, or an enabled menu leaf without an action, raises `ValueError`.
 
 ## Menus
 

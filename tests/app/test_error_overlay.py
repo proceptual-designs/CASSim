@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterator
 import flet as ft
 
 from cassim.app.theme import DARK
-from cassim.device.keys import Binding
+from cassim.device.keys import Action, Binding
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import CalculatorView
 
@@ -42,7 +42,7 @@ def test_clicking_the_red_error_message_dismisses_it() -> None:
     state.run(Binding("enter"))
     view: CalculatorView
 
-    def act(action: str, arg: str) -> None:
+    def act(action: Action, arg: str) -> None:
         state.run_action(action, arg)
         view.refresh()
 

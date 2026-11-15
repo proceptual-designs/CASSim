@@ -7,6 +7,7 @@ import flet as ft
 import pytest
 from tests.app.test_status_click import walk
 
+from cassim.device.keys import Action
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.views import CalculatorView
 
@@ -17,7 +18,7 @@ def test_page_number_opens_and_closes_sorter(mode: Mode, kind: str) -> None:
     state = AppState(mode=mode)
     state.run_action("add_problem", kind)
 
-    def act(action: str, arg: str) -> None:
+    def act(action: Action, arg: str) -> None:
         state.run_action(action, arg)
         view.refresh()
 

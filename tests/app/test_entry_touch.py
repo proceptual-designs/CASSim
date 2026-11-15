@@ -7,6 +7,7 @@ import flet as ft
 
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor, Kind
+from cassim.device.keys import Action
 from cassim.devices.nspire.pages.calculator import calculator_on
 from cassim.devices.nspire.ui.entry import SELECTION, EntryLine, row_height
 from cassim.devices.nspire.ui.state import AppState
@@ -56,7 +57,7 @@ def test_a_long_press_extends_the_selection_from_the_cursor() -> None:
     state = AppState()
     for key in "abcd":
         state.key_event(key)
-    actions: list[tuple[str, str]] = []
+    actions: list[tuple[Action, str]] = []
     view = CalculatorView(state, on_action=lambda action, arg: actions.append((action, arg)))
     view.refresh()
     view._hold([], 1)

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from cassim.device.accents import next_accent
 from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession
-from cassim.device.keys import Binding
+from cassim.device.keys import Action, Binding
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
 from cassim.sheet import refs
@@ -477,7 +477,7 @@ class Spreadsheet:
         elif action in ("escape", "sheet_cancel") or not dialog.cancel:
             self.dialogs.pop(0)
 
-    def _keys(self) -> dict[str, Callable[[str], None]]:
+    def _keys(self) -> dict[Action, Callable[[str], None]]:
         return {
             "left": lambda _: self.move(-1, 0),
             "right": lambda _: self.move(1, 0),
@@ -521,7 +521,7 @@ class Spreadsheet:
             "sheet_drag": self.drag,
         }
 
-    def _edit_keys(self) -> dict[str, Callable[[str], None]]:
+    def _edit_keys(self) -> dict[Action, Callable[[str], None]]:
         return {
             "insert": self._insert,
             "insert_linear": self._insert,
