@@ -13,7 +13,7 @@ from cassim.device.keys import Binding
 SENTINEL = "\u200b"  # a zero-width space: what the box holds between keys
 
 # Actions after which typing is expected: a tap in the entry line or on a cell
-TYPING_ACTIONS = frozenset({"place", "extend", "sheet_tap"})
+TYPING_ACTIONS = frozenset({"place", "extend", "sheet_tap", "sheet_bar"})
 
 
 def keys_for(value: str) -> list[Binding]:

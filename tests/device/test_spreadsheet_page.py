@@ -117,6 +117,138 @@ def test_the_bar_shows_the_cell_name_and_its_content():
     assert screen.cells[(A, 1)] == ("6", True)
 
 
+def test_formula_arrows_select_references_and_keep_the_destination():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "7")
+    sheet.go((B, 1))
+    keys(state, "=", "left")
+    assert (sheet.cursor, sheet.editing, sheet.screen().reference) == ((B, 1), "=a1", (A, 1, A, 1))
+    keys(state, "+", "left", "down")
+    assert sheet.editing == "=a1+a2"
+    keys(state, "enter")
+    assert sheet.entry_text((B, 1)) == "=a1+a2"
+    assert sheet.entry_text((A, 1)) == "7"
+
+
+def test_formula_range_by_arrow_and_mouse():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((C, 1))
+    state.run(Binding("insert", "=sum("))
+    keys(state, "left")
+    state.run(Binding("select_cells", "row:2"))
+    assert sheet.editing == "=sum(b1:b3"
+    assert sheet.screen().reference == (B, 1, B, 3)
+    state.run(Binding("sheet_tap", "0,1"))
+    state.run(Binding("sheet_tap", "0,3,extend"))
+    assert sheet.editing == "=sum(a1:a3"
+    keys(state, ")", "enter")
+    assert sheet.entry_text((C, 1)) == "=sum(a1:a3)"
+
+
+def test_pointing_after_a_comparison_but_not_inside_a_string():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=2>"))
+    keys(state, "left")
+    assert sheet.editing == "=2>a1"
+    keys(state, "escape")
+    state.run(Binding("insert", '="a+'))
+    keys(state, "left")
+    assert sheet.editing == '="a+'
+    assert sheet.caret == 3
+
+
+def test_formula_point_mode_can_be_toggled_and_fixed_references_cycled():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 2))
+    keys(state, "=", "left")
+    assert sheet.editing == "=a2"
+    for expected in ("=$a$2", "=a$2", "=$a2", "=a2"):
+        assert state.key_event("F4")
+        assert sheet.editing == expected
+    assert state.key_event("F4")
+    keys(state, "up")
+    assert sheet.editing == "=$a$1"
+    for _ in range(3):
+        assert state.key_event("F4")
+    assert state.key_event("F2")
+    keys(state, "left")
+    assert sheet.caret == 2
+    assert sheet.cursor == (B, 2)
+    assert state.key_event("F2")
+    keys(state, "down")
+    assert sheet.editing == "=a2"
+    keys(state, "escape")
+    assert sheet.entry_text((B, 2)) == ""
+
+
+def test_shift_arrow_while_editing_cannot_write_into_another_cell():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, 2))
+    type_cell(state, "9")
+    sheet.go((B, 2))
+    state.run(Binding("insert", "=2"))
+    state.run(Binding("select_left"))
+    keys(state, "enter")
+    assert sheet.entry_text((A, 2)) == "9"
+    assert sheet.entry_text((B, 2)) == "=2"
+
+
+def test_shift_arrow_selects_text_when_not_pointing():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=12"))
+    state.run(Binding("select_left"))
+    assert sheet.screen().edit_selection == (2, 3)
+    state.run(Binding("insert", "3"))
+    assert sheet.editing == "=13"
+    state.run(Binding("select_all"))
+    state.run(Binding("insert", "=4"))
+    keys(state, "enter")
+    assert sheet.entry_text((A, 1)) == "=4"
+
+
+def test_copy_cut_and_paste_selected_formula_text():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=123"))
+    state.run(Binding("select_left"))
+    state.run(Binding("select_left"))
+    state.run(Binding("copy"))
+    assert state.document.clipboard.text == "23"
+    state.run(Binding("cut"))
+    assert sheet.editing == "=1"
+    state.run(Binding("paste"))
+    assert sheet.editing == "=123"
+
+
+def test_deleting_a_pointed_reference_removes_it_as_a_unit():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=2+"))
+    keys(state, "left", "backspace")
+    assert sheet.editing == "=2+"
+    assert sheet.cursor == (B, 1)
+
+
+def test_clicking_bar_edits_existing_formula_without_replacing_it():
+    state = sheet_app()
+    type_cell(state, "=2+3")
+    keys(state, "up")
+    state.run(Binding("sheet_bar"))
+    sheet = sheet_of(state)
+    assert (sheet.editing, sheet.caret, sheet.selected) == ("=2+3", 4, False)
+    state.run(Binding("insert", "+1"))
+    keys(state, "enter")
+    assert sheet.entry_text((A, 1)) == "=2+3+1"
+
+
 def test_a_formula_column():
     """Corpus app.sheet.formula-column: =a[]^2 in B's formula row."""
     state = sheet_app()

@@ -71,7 +71,13 @@ class SheetView:
         self.address = ft.Text("", color=theme.title_text, weight=ft.FontWeight.BOLD)
         self.entry = ft.Text("", color=theme.title_text, no_wrap=True, expand=True)
         self.bar = ft.Container(
-            ft.Row([self.address, self.entry], spacing=8),
+            ft.Row(
+                [
+                    self.address,
+                    ft.Container(self.entry, expand=True, on_click=self._edit_bar),
+                ],
+                spacing=8,
+            ),
             bgcolor=theme.title_bar,
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         )
@@ -104,7 +110,11 @@ class SheetView:
         self.grid.controls = canvases
         size = 12 * scale
         self.address.value, self.address.size = screen.address, size
-        self.entry.value = screen.entry
+        self.entry.value = (
+            screen.entry[: sheet.caret] + "|" + screen.entry[sheet.caret :]
+            if sheet.editing is not None
+            else screen.entry
+        )
         self.entry.size = size
         self.bar.height = BAR * scale
         self._show_dialog(screen.dialog, scale)
@@ -138,6 +148,9 @@ class SheetView:
 
     # ---- touch and mouse -------------------------------------------------------------------------
 
+    def _edit_bar(self, _: object) -> None:
+        self.on_action("sheet_bar", "")
+
     def _cell(self, x: float, y: float) -> tuple[int, int] | None:
         if self.sheet is None:
             return None
@@ -166,7 +179,12 @@ class SheetView:
         return self._pick(ft.Offset(x, y))
 
     def _double_tap(self, event: ft.TapEvent) -> None:
-        if self._pick(event.local_position):
+        editing_formula = (
+            self.sheet is not None
+            and self.sheet.editing is not None
+            and self.sheet.editing.startswith("=")
+        )
+        if self._pick(event.local_position) and not editing_formula:
             self.on_action("enter", "")
 
     def _long_press(self, event: ft.LongPressStartEvent) -> None:

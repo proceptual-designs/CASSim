@@ -231,6 +231,10 @@ def _cursor(screen: SheetScreen, grid: Grid, xs: list[tuple[int, float, float]])
         block = _block(screen.marker, screen, grid, xs)
         if block is not None:
             shapes.append(Box(*block, Stroke("cursor", 1.5, dashed=True)))
+    if screen.reference is not None:
+        block = _block(screen.reference, screen, grid, xs)
+        if block is not None:
+            shapes.append(Box(*block, Stroke("cursor", 1.5, dashed=True)))
     cell = _cell_box(screen.cursor, screen, grid, xs)
     if cell is not None:
         if screen.editing is not None:
@@ -241,6 +245,23 @@ def _cursor(screen: SheetScreen, grid: Grid, xs: list[tuple[int, float, float]])
             room = int((w - 2 * grid.px(PAD)) / (size * CHAR))
             caret = text.index(CARET)
             start = max(0, caret - room + 1)  # keep the caret in view as the text grows
+            if screen.edit_selection is not None:
+                first, last = screen.edit_selection
+                first = max(first - start, 0)
+                last = min(last - start, room)
+                if last > first:
+                    shapes.append(
+                        Fill(
+                            _rect(
+                                x + grid.px(PAD) + first * size * CHAR,
+                                y,
+                                (last - first) * size * CHAR,
+                                h,
+                            ),
+                            "selection",
+                            0.45,
+                        )
+                    )
             shapes.append(
                 Label(x + grid.px(PAD), y + grid.px(2), text[start : start + room], size, "ink")
             )

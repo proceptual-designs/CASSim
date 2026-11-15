@@ -105,6 +105,17 @@ def test_the_fill_range_is_dashed():
     assert any(isinstance(s, Box) and s.stroke.dashed for s in cursor.shapes)
 
 
+def test_formula_reference_is_outlined_without_moving_the_edit_cursor():
+    state, sheet = sheet_with()
+    sheet.go((1, 1))
+    state.run(Binding("insert", "="))
+    state.run(Binding("left"))
+    cursor = sheet_scene(sheet.screen(), 1.0, W, H).layer("cursor")
+    assert cursor is not None
+    assert any(isinstance(s, Box) and s.stroke.dashed for s in cursor.shapes)
+    assert any(isinstance(s, Label) and s.text == "=a1|" for s in cursor.shapes)
+
+
 def test_a_cursor_off_screen_draws_no_box():
     _, sheet = sheet_with()
     sheet.cursor = (25, 1)  # not scrolled into view

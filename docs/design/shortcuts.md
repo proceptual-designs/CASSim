@@ -105,6 +105,12 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 ## Selection and clipboard in CASSim (computer keyboard)
 - shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move between pages. The word-selection and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
 - ctrl+C, ctrl+X, ctrl+V: the calculator's clipboard keeps templates, so a pasted fraction is stacked (S7), and it is shared by all pages of a document. The text is also put on the system clipboard; on paste, system text that matches the calculator's clipboard brings the templates back, any other text is typed in (newlines become spaces).
+- Spreadsheet formulas: after `=` or an operator, arrow keys point to a cell and Shift+arrow extends
+  the reference to a range. Click a cell to insert a reference at the caret. Mouse-drag range
+  selection is not yet reliable in the browser; use Shift+arrow to select a range.
+  F2 switches between pointing and editing text; F4 cycles a cell reference through relative,
+  absolute and mixed forms. These two keys retain their Menu/Doc roles outside formula editing.
+  Click the entry bar to edit the selected cell, with the caret initially at the end.
 
 ## Menus (M2c)
 - Computer: `F2` opens the Menu (commands), `F4` opens Doc, `Escape` closes. Pressing the other menu key switches directly between Menu and Doc. Up/Down move, Enter or Right opens, Left goes back, the item's number or letter chooses it. These keys are CASSim's own choice, not checked against the Nspire software (Unsure); shift+F10 opens the spreadsheet context menu.

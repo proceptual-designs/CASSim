@@ -59,3 +59,65 @@ def test_a_sheet_shares_its_column_with_the_calculator(
     sheet_line(app, "A1 10")
     app.press("Right")
     sheet_line(app, "B1 100")
+
+
+def test_pointing_to_a_range_while_entering_a_formula(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    enter(app, "2")
+    enter(app, "3")
+    app.press("Up")
+    app.press("Up")
+    app.press("Right")
+    app.type_text("=sum(")
+    app.press("Left")
+    app.page.keyboard.press("Shift+ArrowDown")
+    app.type_text(")")
+    app.press("Enter")
+    app.press("Up")
+    app.wait(lambda: "CASSIM: SHEET B1 5" in app.logs, "B1 5")
+    app.page.close()
+
+
+def test_shift_arrow_does_not_move_a_formula_into_another_cell(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    enter(app, "9")
+    app.press("Up")
+    app.press("Right")
+    app.type_text("=2")
+    app.page.keyboard.press("Shift+ArrowLeft")
+    app.press("Enter")
+    app.press("Up")
+    app.wait(lambda: "CASSIM: SHEET B1 2" in app.logs, "B1 2")
+    app.press("Left")
+    app.wait(lambda: "CASSIM: SHEET A1 9" in app.logs, "A1 9")
+    app.page.close()
+
+
+def test_clicking_a_cell_in_a_formula(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    enter(app, "2")
+    app.press("Up")
+    app.press("Right")
+    app.type_text("=")
+    app.page.mouse.click(250, 112)
+    app.page.wait_for_timeout(1000)
+    app.type_text("+1")
+    app.press("Enter")
+    app.press("Up")
+    app.wait(lambda: "CASSIM: SHEET B1 3" in app.logs, "B1 3", seconds=20)
+    app.page.close()

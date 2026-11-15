@@ -92,10 +92,13 @@ SHEET_ACTIONS = frozenset(
         "page_down",
         "context_menu",
         "sheet",
+        "sheet_bar",
         "sheet_op",
         "sheet_goto",
         "sheet_choose",
         "sheet_tap",
+        "sheet_ref_mode",
+        "sheet_ref_fixed",
         "sheet_drag",
         "sheet_ok",
         "sheet_cancel",
@@ -133,6 +136,14 @@ class Copied:
     name: bool = False
 
 
+@dataclass
+class ReferenceSelection:
+    anchor: Key
+    focus: Key
+    start: int
+    end: int
+
+
 @dataclass(frozen=True)
 class Snapshot:
     cells: dict[Key, tuple[str, str]]
@@ -158,6 +169,8 @@ class SheetScreen:
     entry: str  # the bar's text: what the cursor's cell holds
     dialog: Dialog | None
     sliver: int | None = None  # the column off to the left, a sliver of it shown (check 6, E13)
+    reference: tuple[int, int, int, int] | None = None
+    edit_selection: tuple[int, int] | None = None
 
 
 def letter(column: int) -> str:
@@ -193,6 +206,9 @@ class Spreadsheet:
         self.editing: str | None = None
         self.caret = 0
         self.selected = False  # the whole of `editing` is selected: a key typed replaces it
+        self.edit_anchor: int | None = None
+        self.reference: ReferenceSelection | None = None
+        self.reference_mode: bool | None = None  # None chooses from the formula at the caret
         self.mode: Literal["fill", "move", "resize"] | None = None
         self._fill_from: tuple[int, int, int, int] | None = None
         self._move_to = 0
@@ -405,6 +421,8 @@ class Spreadsheet:
             self.editing if self.editing is not None else self.entry_text(self.cursor),
             self.dialogs[0] if self.dialogs else None,
             left - 1 if left > 0 else None,
+            self._reference_span(),
+            self._text_selection(),
         )
 
     def _marker(self) -> tuple[int, int, int, int] | None:
@@ -460,8 +478,12 @@ class Spreadsheet:
             self._dialog_key(action)
         elif self.mode is not None:
             self._mode_key(action)
-        elif self.editing is not None and action in self._edit_keys():
-            self._edit_keys()[action](arg)
+        elif self.editing is not None:
+            handler = self._edit_keys().get(action)
+            if handler is not None:
+                handler(arg)
+            elif action in ("sheet_tap", "sheet_drag"):
+                self._keys()[action](arg)
         else:
             handler = self._keys().get(action)
             if handler is not None:
@@ -519,6 +541,7 @@ class Spreadsheet:
             "sheet_choose": self._resend,
             "sheet_tap": self.tap,
             "sheet_drag": self.drag,
+            "sheet_bar": lambda _: self.edit_bar(),
         }
 
     def _edit_keys(self) -> dict[Action, Callable[[str], None]]:
@@ -527,8 +550,8 @@ class Spreadsheet:
             "insert_linear": self._insert,
             "power": lambda arg: self._insert(f"^{arg}"),
             "accent": lambda _: self._accent(),
-            "left": lambda _: self._caret(self.caret - 1),
-            "right": lambda _: self._caret(self.caret + 1),
+            "left": lambda _: self._edit_arrow(-1, 0),
+            "right": lambda _: self._edit_arrow(1, 0),
             "home": lambda _: self._caret(0),
             "home_key": lambda _: self._caret(0),
             "end": lambda _: self._caret(len(self.editing or "")),
@@ -538,10 +561,22 @@ class Spreadsheet:
             "escape": lambda _: self.cancel_edit(),
             "enter": lambda _: self.commit(then=(0, 1)),
             "select": lambda _: self.commit(then=(0, 1)),
-            "up": lambda _: self.commit(then=(0, -1)),
-            "down": lambda _: self.commit(then=(0, 1)),
+            "up": lambda _: self._edit_arrow(0, -1),
+            "down": lambda _: self._edit_arrow(0, 1),
+            "select_left": lambda _: self._edit_arrow(-1, 0, extend=True),
+            "select_right": lambda _: self._edit_arrow(1, 0, extend=True),
+            "select_cells": self._edit_select_cells,
+            "select_to_start": lambda _: self._select_caret(0),
+            "select_to_end": lambda _: self._select_caret(len(self.editing or "")),
             "tab": lambda _: self.commit(then=(1, 0)),
-            "paste": lambda text: self._insert(text) if text else None,
+            "shift_tab": lambda _: self.commit(then=(-1, 0)),
+            "select_all": lambda _: self._select_editing(),
+            "copy": lambda _: self._copy_editing(),
+            "cut": lambda _: self._copy_editing(cut=True),
+            "paste": lambda text: self._insert(text or self.clipboard.text),
+            "sheet_ref_mode": lambda _: self.toggle_reference_mode(),
+            "sheet_ref_fixed": lambda _: self.toggle_reference_fixed(),
+            "sheet_bar": lambda _: self.edit_bar(),
         }
 
     # ---- moving and selecting -----------------------------------------------------------------
@@ -567,10 +602,10 @@ class Spreadsheet:
         self.cursor = (min(max(key[0], 0), COLUMNS - 1), min(max(key[1], NAME_ROW), ROWS))
         self._follow()
 
-    def _follow(self) -> None:
+    def _follow(self, key: Key | None = None) -> None:
         """Scroll as little as keeps the cursor on show (run 2, G39: Go To h40 shows rows 36 to
         40 with H at the right)."""
-        column, row = self.cursor
+        column, row = key if key is not None else self.cursor
         if row >= 1:
             if row < self.top:
                 self.top = row
@@ -605,16 +640,21 @@ class Spreadsheet:
         return max(used, default=0)
 
     def tap(self, arg: str) -> None:
-        """A tap or click on the grid: `column,row` (row -1 the name cell, 0 the formula cell).
-        A tap on the cell being edited keeps editing; elsewhere it enters what was typed first.
+        """A grid tap selects a cell, or points to a reference while editing a formula.
         `column,row,extend` extends the selection (shift+click, a drag)."""
         parts = arg.split(",")
         key = (int(parts[0]), int(parts[1]))
+        extend = bool(parts[2:])
+        if self._formula_editing() and key[1] >= 1:
+            self._point(key, extend=extend)
+            return
         if self.editing is not None:
             if key == self.cursor:
                 return
             self.commit(then=(0, 0))
-        if len(parts) > 2 and key[1] >= 1:  # noqa: PLR2004
+            if self.editing is not None or self.dialogs:
+                return
+        if extend and key[1] >= 1:
             if self.anchor is None:
                 self.anchor = self.cursor
             self.whole = None
@@ -628,6 +668,176 @@ class Spreadsheet:
         columns, rows = (int(part) for part in arg.split(","))
         self.top = min(max(self.top + rows, 1), ROWS - self.rows_shown + 1)
         self.left = min(max(self.left + columns, 0), COLUMNS - self.columns_shown)
+
+    def _formula_editing(self) -> bool:
+        return self.editing is not None and self.editing.startswith("=") and not self.selected
+
+    def _select_editing(self) -> None:
+        self.reference = None
+        self.reference_mode = False
+        self.selected = bool(self.editing)
+        self.edit_anchor = None
+
+    def _text_selection(self) -> tuple[int, int] | None:
+        if self.editing is None:
+            return None
+        if self.selected and self.editing:
+            return 0, len(self.editing)
+        if self.edit_anchor is not None and self.edit_anchor != self.caret:
+            return min(self.edit_anchor, self.caret), max(self.edit_anchor, self.caret)
+        return None
+
+    def _select_caret(self, place: int) -> None:
+        if self.selected:
+            self.edit_anchor = 0
+        elif self.edit_anchor is None:
+            self.edit_anchor = self.caret
+        self.selected = False
+        self.reference = None
+        self.reference_mode = False
+        self.caret = min(max(place, 0), len(self.editing or ""))
+
+    def _can_point(self) -> bool:
+        if not self._formula_editing():
+            return False
+        if self._text_selection() is not None:
+            return False
+        if self.reference is not None:
+            return True
+        if self.reference_mode is not None:
+            return self.reference_mode
+        assert self.editing is not None
+        prefix = self.editing[: self.caret]
+        return prefix.count('"') % 2 == 0 and prefix.rstrip().endswith(
+            ("=", "+", "-", "*", "/", "^", "(", ",", ":", "<", ">", "≤", "≥", "≠", "|")
+        )
+
+    def _reference_span(self) -> tuple[int, int, int, int] | None:
+        if self.reference is None:
+            return None
+        a, b = self.reference.anchor, self.reference.focus
+        return min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])
+
+    def _point(self, key: Key, *, extend: bool = False) -> None:
+        assert self.editing is not None
+        selected = self.reference
+        previous: refs.Ref | refs.Span | None = None
+        if selected is None:
+            self._delete_selection()
+            anchor = (self.cursor[0], max(self.cursor[1], 1)) if extend else key
+            selected = ReferenceSelection(anchor, key, self.caret, self.caret)
+            self.reference = selected
+        else:
+            found = refs.scan(self.editing[selected.start : selected.end])
+            if found and isinstance(found[0].reference, refs.Ref | refs.Span):
+                previous = found[0].reference
+            if not extend:
+                selected.anchor = key
+            selected.focus = key
+        old_start = previous.start if isinstance(previous, refs.Span) else previous
+        old_end = previous.end if isinstance(previous, refs.Span) else previous
+        start = refs.Ref(
+            *selected.anchor,
+            fixed_column=old_start.fixed_column if old_start else False,
+            fixed_row=old_start.fixed_row if old_start else False,
+        )
+        end = refs.Ref(
+            *selected.focus,
+            fixed_column=old_end.fixed_column if old_end else False,
+            fixed_row=old_end.fixed_row if old_end else False,
+        )
+        text = str(start) if start == end else str(refs.Span(start, end))
+        self.editing = self.editing[: selected.start] + text + self.editing[selected.end :]
+        selected.end = selected.start + len(text)
+        self.caret = selected.end
+        self.reference_mode = True
+        self._follow(key)
+
+    def _edit_arrow(self, columns: int, rows: int, *, extend: bool = False) -> None:
+        if self._can_point():
+            current = self.reference.focus if self.reference is not None else self.cursor
+            key = (
+                min(max(current[0] + columns, 0), COLUMNS - 1),
+                min(max(current[1] + rows, 1), ROWS),
+            )
+            self._point(key, extend=extend)
+        elif extend:
+            if columns:
+                self._select_caret(self.caret + columns)
+        elif columns:
+            selection = self._text_selection()
+            place = selection[0 if columns < 0 else 1] if selection else self.caret + columns
+            self._caret(place)
+        elif self._formula_editing() and self.reference_mode is False:
+            return
+        else:
+            self.commit(then=(0, rows))
+
+    def _edit_select_cells(self, arg: str) -> None:
+        axis, _, step = arg.partition(":")
+        amount = int(step or 1)
+        self._edit_arrow(
+            amount if axis == "col" else 0, amount if axis == "row" else 0, extend=True
+        )
+
+    def toggle_reference_mode(self) -> None:
+        self.selected = False
+        self.edit_anchor = None
+        if not self._formula_editing():
+            return
+        if self._can_point():
+            self.reference = None
+            self.reference_mode = False
+            return
+        self.reference_mode = True
+        assert self.editing is not None
+        for found in refs.scan(self.editing):
+            if found.start <= self.caret <= found.end and isinstance(
+                found.reference, refs.Ref | refs.Span
+            ):
+                ref = found.reference
+                start = ref.start if isinstance(ref, refs.Span) else ref
+                end = ref.end if isinstance(ref, refs.Span) else ref
+                self.reference = ReferenceSelection(start.key(), end.key(), found.start, found.end)
+                self._follow(end.key())
+                break
+
+    def toggle_reference_fixed(self) -> None:
+        self.selected = False
+        self.edit_anchor = None
+        if not self._formula_editing():
+            return
+        assert self.editing is not None
+        for found in refs.scan(self.editing):
+            if not (found.start <= self.caret <= found.end):
+                continue
+            ref = found.reference
+            if not isinstance(ref, refs.Ref | refs.Span):
+                return
+
+            def cycle(cell: refs.Ref) -> refs.Ref:
+                states = ((False, False), (True, True), (False, True), (True, False))
+                index = states.index((cell.fixed_column, cell.fixed_row))
+                fixed_column, fixed_row = states[(index + 1) % len(states)]
+                return refs.Ref(cell.column, cell.row, fixed_column, fixed_row)
+
+            changed = (
+                refs.Span(cycle(ref.start), cycle(ref.end))
+                if isinstance(ref, refs.Span)
+                else cycle(ref)
+            )
+            text = str(changed)
+            self.editing = self.editing[: found.start] + text + self.editing[found.end :]
+            self.caret = found.start + len(text)
+            if self.reference is not None:
+                self.reference.end = self.caret
+            return
+
+    def edit_bar(self) -> None:
+        if self.editing is None:
+            self.begin_edit(self.entry_text(self.cursor))
+        else:
+            self._caret(len(self.editing))
 
     def select_whole(self, what: Literal["row", "column"]) -> None:
         self.anchor = None
@@ -643,6 +853,9 @@ class Spreadsheet:
         self.editing = text
         self.caret = len(text)
         self.selected = selected and bool(text)
+        self.edit_anchor = None
+        self.reference = None
+        self.reference_mode = None
         self.anchor = None
         self.whole = None
 
@@ -653,8 +866,10 @@ class Spreadsheet:
 
     def _insert(self, text: str) -> None:
         assert self.editing is not None
-        if self.selected:
-            self._set_text("")
+        self.reference = None
+        self.reference_mode = None
+        self._delete_selection()
+        self.edit_anchor = None
         place = text.find(MARK)
         plain = text.replace(MARK, "")
         self.editing = self.editing[: self.caret] + plain + self.editing[self.caret :]
@@ -670,15 +885,26 @@ class Spreadsheet:
     def _set_text(self, text: str) -> None:
         self.editing, self.caret = text, len(text)
         self.selected = False
+        self.edit_anchor = None
+        self.reference = None
+        self.reference_mode = None
 
     def _caret(self, place: int) -> None:
         self.selected = False
+        self.edit_anchor = None
+        self.reference = None
+        self.reference_mode = False
         self.caret = min(max(place, 0), len(self.editing or ""))
 
     def _erase(self, *, before: bool) -> None:
-        if self.selected:
-            self._set_text("")
+        if self.reference is not None:
+            self.edit_anchor = self.reference.start
+            self.caret = self.reference.end
+        self.reference = None
+        self.reference_mode = None
+        if self._delete_selection():
             return
+        self.edit_anchor = None
         text = self.editing or ""
         if before and self.caret > 0:
             self.editing = text[: self.caret - 1] + text[self.caret :]
@@ -686,14 +912,48 @@ class Spreadsheet:
         elif not before and self.caret < len(text):
             self.editing = text[: self.caret] + text[self.caret + 1 :]
 
+    def _delete_selection(self) -> bool:
+        selection = self._text_selection()
+        if selection is None:
+            return False
+        assert self.editing is not None
+        start, end = selection
+        self.editing = self.editing[:start] + self.editing[end:]
+        self.caret = start
+        self.selected = False
+        self.edit_anchor = None
+        return True
+
+    def _copy_editing(self, *, cut: bool = False) -> None:
+        if self.reference is not None:
+            self.edit_anchor = self.reference.start
+            self.caret = self.reference.end
+            self.reference = None
+            self.reference_mode = False
+        selection = self._text_selection()
+        if selection is None or self.editing is None:
+            return
+        start, end = selection
+        self.clipboard.nodes = list(self.editing[start:end])
+        if cut:
+            self._delete_selection()
+
     def cancel_edit(self) -> None:
         self.editing = None
+        self.edit_anchor = None
+        self.selected = False
+        self.reference = None
+        self.reference_mode = None
 
     def commit(self, then: tuple[int, int] = (0, 0)) -> None:
         """Enter what was typed, then move (Enter moves down: run 2, E4). An unchanged cell is
         not sent again."""
         text = (self.editing or "").strip()
         self.editing = None
+        self.edit_anchor = None
+        self.selected = False
+        self.reference = None
+        self.reference_mode = None
         column, row = self.cursor
         if text != self.entry_text(self.cursor).strip():
             if row == NAME_ROW:
