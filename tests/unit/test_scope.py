@@ -308,4 +308,4 @@ def test_check6_run4_results():
     assert table.startswith("[0,0.,0.,5000.;1,-20.8333,-407.2041,4592.7959;")
     assert fails("f(1,)") == "Syntax error"
     data = "{1,2,3,4,5,6,7,8},{2.1,3.9,6.2,7.8,10.1,12.2,13.8,16.1}"
-    assert "ⅇ" in run(f"Logistic {data}", "stat.RegEqn")
+    assert "ⅇ" in run(f"Logistic {data}", "stat.RegEqn(x)")  # a function (run 4, S3)

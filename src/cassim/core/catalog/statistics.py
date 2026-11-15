@@ -1,7 +1,8 @@
 """Statistics commands: OneVar, TwoVar and the regressions. Results go to the `stat.` variables."""
 
 import math
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
 
@@ -10,6 +11,8 @@ from cassim.core.catalog.registry import Host, command
 from cassim.core.compat import statistics as stats
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
+from cassim.core.parser import parse_expression
+from cassim.core.scope import Function
 from cassim.core.valueops import list_of
 from cassim.core.values import Cell, Empty, Expr, ListValue, MatrixValue, Str, Value, Void
 
@@ -118,8 +121,22 @@ def _decimal(number: float | Fraction) -> Expr:
     return Expr(cas.from_float(float(number)))
 
 
-def _store(host: Host, name: str, value: Value) -> None:
+def _store(host: Host, name: str, value: Value | Function) -> None:
     host.scope.define(f"stat.{name}".casefold(), value)
+
+
+def _equation(equation: str, coefficients: Mapping[str, float | Fraction]) -> Function:
+    """`stat.RegEqn` as a function of x with the fitted numbers in it, so `stat.RegEqn(x)`
+    gives the equation and a fitted line can be copied to `f1` (emulator check 6, run 4, S2,
+    S3)."""
+
+    def number(match: re.Match[str]) -> str:
+        shown = format(float(coefficients[match.group()]), ".15g").replace("e", "ᴇ")
+        return f"({shown})"
+
+    names = "|".join(re.escape(name) for name in sorted(coefficients, key=len, reverse=True))
+    text = re.sub(rf"(?<![A-Za-z]){names}(?![A-Za-z])", number, equation)
+    return Function(("x",), parse_expression(text))
 
 
 # ---- OneVar and TwoVar -----------------------------------------------------------------------
@@ -338,7 +355,7 @@ def _run_regression(host: Host, args: tuple[ast.Expr, ...], kind: Regression) ->
         (Str("Title"), Str(kind.title)),
         (Str("RegEqn"), Str(kind.equation)),
     ]
-    stored: dict[str, Value] = {"regeqn": Str(kind.equation)}
+    stored: dict[str, Value | Function] = {"regeqn": _equation(kind.equation, fit.coefficients)}
     for name, number in fit.coefficients.items():
         cells.append((Str(name), _decimal(number)))
         stored[name] = _decimal(number)
@@ -366,3 +383,7 @@ def _register(name: str, kind: Regression) -> None:
 
 for _name, _kind in _REGRESSIONS.items():
     _register(_name, _kind)
+
+# The commands that leave their results in `stat.results`, a (label, value) matrix: what a
+# spreadsheet's Stat Calculations run and lay out in two columns (slice 3c).
+RESULT_COMMANDS = ("OneVar", "TwoVar", *_REGRESSIONS)
