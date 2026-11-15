@@ -5,6 +5,7 @@ import http.server
 import os
 import threading
 from collections.abc import Callable, Iterator
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlparse
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(scope="session")
-def browser() -> Iterator[Browser]:
+def _session_browser() -> Iterator[Browser]:
     """Use the installed Edge (no download), else Playwright's Chromium, else skip."""
     with sync_playwright() as p:
         for channel in ("msedge", "chrome", None):
@@ -25,10 +26,23 @@ def browser() -> Iterator[Browser]:
                 b = p.chromium.launch(headless=True, channel=channel)
             except Error:
                 continue
-            yield b
-            b.close()
+            try:
+                yield b
+            finally:
+                b.close()
             return
     pytest.skip("no Chromium-family browser available")
+
+
+@pytest.fixture
+def browser(_session_browser: Browser) -> Iterator[Browser]:
+    """Close each test's contexts, including those created by browser.new_page()."""
+    try:
+        yield _session_browser
+    finally:
+        with ExitStack() as stack:
+            for context in _session_browser.contexts:
+                stack.callback(context.close)
 
 
 @pytest.fixture(scope="session")
