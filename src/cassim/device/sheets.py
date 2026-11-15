@@ -85,7 +85,7 @@ class ProblemSheets:
             self._viewed_at[page] = sheet.revision
         self._relock()
 
-    def _act(self, sheet: Sheet, op: SheetOp) -> list[Notice]:  # noqa: PLR0911 (one per action)
+    def _act(self, sheet: Sheet, op: SheetOp) -> list[Notice]:  # noqa: PLR0911, PLR0912 (one per action)
         args = op["args"]
         column = cast("int", args.get("column", 0))
         row = cast("int", args.get("row", 0))
@@ -129,6 +129,19 @@ class ProblemSheets:
                 return _restore(sheet, args)
             case "move":
                 return actions.move_column(sheet, column, cast("int", args["to"]))
+            case "stat":
+                return actions.stat_calc(
+                    sheet,
+                    cast("str", args["command"]),
+                    cast("list[str]", args["lists"]),
+                    column=column,
+                    freq=cast("str", args["freq"]),
+                    category=cast("str", args["category"]),
+                    include=cast("str", args["include"]),
+                    save=cast("str", args["save"]),
+                    choose=choose,
+                    confirm=bool(args["confirm"]),
+                )
             case "put":
                 return sheet.put(_contents(args["cells"]), confirm=bool(args["confirm"]))
             case _:  # "view" changes nothing

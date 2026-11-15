@@ -104,7 +104,7 @@ def test_sort_turns_cell_formulas_into_values_and_puts_blanks_last():
     column_of(sheet, A, [3, "", 1, "=a1*2"])
     actions.sort(sheet, span(A, 1, A, 4), A)
     assert texts(sheet, A, range(1, 5)) == ["1", "3", "6", ""]
-    assert sheet.text(A, 3) == "6"
+    assert sheet.text(A, 3) == "=6"  # check 6, E18: the sorted formula leaves =6
 
 
 def test_sort_a_linked_column_sorts_its_list():

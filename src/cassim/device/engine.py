@@ -75,6 +75,7 @@ type SheetAction = Literal[
     "drop",
     "put",
     "move",
+    "stat",
 ]
 
 
@@ -121,6 +122,17 @@ SHEET_ARGS: dict[str, dict[str, str]] = {
     "restore": {"cells": "cells", "columns": "columns"},
     "put": {"cells": "cells", "confirm": "bool"},
     "move": {"column": "int", "to": "int"},
+    "stat": {
+        "command": "str",
+        "lists": "texts",
+        "freq": "str",
+        "category": "str",
+        "include": "str",
+        "save": "str",
+        "column": "int",
+        "choose": "choose",
+        "confirm": "bool",
+    },
     "drop": {},
 }
 _PARTS = ("cell", "row", "column")
@@ -142,6 +154,8 @@ def _arg_ok(kind: str, value: object) -> bool:  # noqa: PLR0911 (one case a kind
             return value in _PARTS
         case "span":
             return isinstance(value, list) and len(value) == 4 and all(map(_is_int, value))  # noqa: PLR2004
+        case "texts":
+            return isinstance(value, list) and all(isinstance(item, str) for item in value)
         case "choose":
             return isinstance(value, dict) and all(
                 isinstance(k, str) and v in ("cell", "variable") for k, v in value.items()

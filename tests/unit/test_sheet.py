@@ -412,7 +412,7 @@ def test_entry_line_text_for_a_value_from_a_list_and_a_formula_column():
     sheet = Sheet(session)
     sheet.set_name(A, "qq")
     sheet.set_column_formula(B, "=a[]*2")
-    assert sheet.text(A, 1) == "1/2"
+    assert sheet.text(A, 1) == "=1/2"  # a value, not typed text: =1/2 (check 5, E8)
     assert sheet.text(B, 2) == "14"
     assert sheet.text(C, 1) == ""
 

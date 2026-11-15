@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from cassim.app.keyboard import key_name
 from cassim.core.settings import Settings
+from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
@@ -446,7 +447,14 @@ class AppState:
         """Paste what a dialog built. Returns the problems instead if a field will not do."""
         problems = wizard.problems(values)
         if not problems:
-            for binding in wizard.bindings(values):
+            bindings = wizard.bindings(values)
+            if self.sheet is not None and wizard.steps is None:
+                # On a sheet a command's dialog (Distributions) puts `=its formula` in the
+                # selected cell's entry line, to be entered with Return (run 4, S10)
+                text = "".join(b.arg for b in bindings if b.action in ("insert", "insert_linear"))
+                text = text.replace(MARK, "")
+                bindings = [Binding("sheet", f"edit:={text}")] if text else []
+            for binding in bindings:
                 self.run(binding)
         return problems
 

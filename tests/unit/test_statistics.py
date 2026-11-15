@@ -205,7 +205,8 @@ def test_linear_regression_stat_variables():
     assert read(session, "stat.m") == pytest.approx(0.6)
     assert read(session, "stat.b") == pytest.approx(2.2)
     assert read(session, "stat.r²") == pytest.approx(0.6)
-    assert session.eval("stat.regeqn").text == '"m*x+b"'
+    assert session.eval("stat.regeqn(t)").text == "0.6*t+2.2"  # run 4, S3: a function
+    assert read(session, "stat.regeqn(2)") == pytest.approx(3.4)
     assert session.eval("stat.resid").text.startswith("{")
 
 
