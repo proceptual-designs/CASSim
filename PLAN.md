@@ -351,7 +351,7 @@ These came out of a review of PLAN.md, the SRS, CLAUDE.md and `docs/` against th
 3. **DONE 2026-11-09.** **`docs/accessibility.md` (NFR-USE-002).** Start with what is known: keyboard operation in Computer mode, focus, the canvas-renderer limit, and the Semantics hooks. Short is fine; the file's job is to record gaps.
 4. **DONE 2026-11-09.** **SDD-02, 04, 05, 10** from the decisions (section 10).
 5. **DONE 2026-11-09.** **Browser matrix.** A short `docs/testing/browsers.md`: what has been run on which browser and device, with dates, so NFR-PORT-001 has evidence. Do the Safari, iOS and Chromebook runs before the M2 exit.
-6. **Keep CLAUDE.md short.** Its "Current state" had grown into one 400-word paragraph that went stale within a day. It now lists the state in a few lines and points here; milestone detail belongs in this file only.
+6. **Keep AGENTS.md short.** Milestone detail belongs in this file, not in the agent working brief, where it quickly goes stale.
 7. **DONE 2026-11-09.** **Number the open "to check on the simulator" items in one place.** They are scattered across decisions 0007 to 0010, 0022 and the emulator results files. Collect them in `docs/testing/simulator-todo.md` so the next capture session has a single list.
 8. **Sequencing.** After M2 closes, take M3 (data pages) then M4 (graphs); both are Must for VCE use (planned in decision 0031, 2026-11-13). M5 is mostly Could (TI-Basic, library ports); consider doing only the `mm_`/`sm_`/`gm_` ports Simon actually uses and leaving the TI-Basic interpreter until after M7c to M7f, since the program tree built for pseudocode may be reusable.
 9. **Public release gate.** The third-party notices (NFR-LEG-003) have no owner or milestone. Add them to the M6 exit. (NFR-LEG-007, the VCAA cases, was settled on 2026-11-12: they stay, attributed; decision 0012.)
@@ -375,7 +375,7 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 | A9 | Find a better mark for the accent key (`ACCENT_KEY` in `devices/nspire/ui/views.py`), now Material's flag icon. | Any keypad or internationalisation work (Simon, 2026-11-14). | Tried and passed over: ệ with a loop arrow, other arrows, ellipsis, è é ê above. Many cycle arrows are missing from the vendored symbols font, so stay with Material icons or own drawing (offline, FR-PWA-002). |
 | A10 | A touchpad mode for the pointer beside the joystick: the pointer moves only while the finger moves and stays until something else happens, as on the device (`device/pointer.py`). | A user asks, or Tablet mode work. | The joystick is CASSim's own design by choice (emulator check 6, part P). |
 
-**Keeping the map in sync.** `tests/test_architecture.py` fails if a package under `src/cassim/` is missing from the map in section 3, or still tagged `[placeholder]` after it has code. CLAUDE.md tells Claude to update the map in the same commit as any package move. Review the table above when a trigger is met and delete the row when done.
+**Keeping the map in sync.** `tests/test_architecture.py` fails if a package under `src/cassim/` is missing from the map in section 3, or still tagged `[placeholder]` after it has code. AGENTS.md instructs agents to update the map in the same commit as any package move. Review the table above when a trigger is met and delete the row when done.
 
 ## 13. Future: native builds (Would, NFR-PORT-004)
 

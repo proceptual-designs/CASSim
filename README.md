@@ -157,7 +157,7 @@ python -m tools.replay                # corpus progress
 | [docs/SRS.md](docs/SRS.md) | Requirements with stable IDs and MoSCoW priorities |
 | [docs/decisions/](docs/decisions/) | Decision records and spike results |
 | [docs/testing/](docs/testing/) | Test method and emulator comparison results |
-| [CLAUDE.md](CLAUDE.md) | Working brief for AI-assisted development |
+| [AGENTS.md](AGENTS.md) | Shared working brief for AI-assisted development |
 
 ## Licence
 
