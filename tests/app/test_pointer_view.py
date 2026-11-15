@@ -15,14 +15,13 @@ from cassim.device import pointer as pointer_module
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.sheet_scene import FORMULA, HEAD, ROW, ROW_LABELS
 from cassim.devices.nspire.ui import app as app_module
+from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import key_span
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import (
     HEADER_H,
     LIST_ROW_H,
     MENU_STEP_Y,
-    STICK_KEY,
-    Keypad,
     selected_index,
 )
 

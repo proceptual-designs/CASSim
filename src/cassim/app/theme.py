@@ -20,6 +20,7 @@ class Theme:
     # A keypad key's style (`digit`, `fn`, `nav`...) -> (fill, label colour); others use `key`.
     key_styles: Mapping[str, tuple[str, str]] = field(default_factory=dict, compare=False)
     shift_label: str = "#e8b04a"  # the shift layer's small label (ctrl uses `key_label`)
+    key_outline: str = "#27603c"  # x, y, z and enter
     menu_hint: str = "#a9c4e0"
     menu_disabled: str = "#7d8894"  # a menu placeholder for a command CASSim does not have yet
 

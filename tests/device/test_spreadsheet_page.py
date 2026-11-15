@@ -441,7 +441,8 @@ def test_the_menu_and_context_menus():
         "Table",
     ]
     state.menu = None
-    keys(state, "context_menu")
+    state.press_keypad("ctrl")
+    state.press_keypad("menu")
     assert state.menu is not None
     assert state.menu.view().title.startswith("Cell")
     state.menu = None

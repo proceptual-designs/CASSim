@@ -28,6 +28,7 @@ from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
+from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
     FULL_RESERVE,
     GAP,
@@ -51,11 +52,9 @@ from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_fo
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.views import (
     POINTER_TICK,
-    STICK_KEY,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
-    Keypad,
     Sidebar,
     chip,
     settings_dialog,
