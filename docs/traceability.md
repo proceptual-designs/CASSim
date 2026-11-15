@@ -133,7 +133,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-EVAL-002 | Must | `tests/unit/test_session.py` |
 | FR-EVAL-003 | Must | `tests/unit/test_session.py` |
 | FR-EVAL-004 | Must | `tests/unit/test_session.py` |
-| FR-EVAL-005 | Must | `tests/unit/test_internal_errors.py`, `tests/unit/test_lexer.py` |
+| FR-EVAL-005 | Must | `tests/app/test_error_overlay.py`, `tests/unit/test_internal_errors.py`, `tests/unit/test_lexer.py` |
 | FR-EVAL-006 | Must | `tests/device/test_engine.py` |
 | FR-SCOPE-001 | Must | `tests/unit/test_scope.py` |
 | FR-SCOPE-002 | Must | `tests/device/test_document.py` |

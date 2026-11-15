@@ -108,7 +108,7 @@ MENU_ROWS_WIDE = 16  # rows of a menu shown at once in Computer mode; the rest f
 # Handheld menus must fit the 240 px screen, so their rows are counted from what is left of it
 # (all in handheld pixels): the title bar, a panel's padding, header, hint line and ▲ ▼ rows.
 TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 19.5
-DOC_NAME_CLEAR = 105  # handheld px kept clear each side of the name: the settings' width
+DOC_NAME_WIDTH = 105  # handheld px reserved for the document name beside the page number
 MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
 
@@ -327,13 +327,19 @@ class CalculatorView:
             on_vertical_drag_update=self._drag_menu,
             on_vertical_drag_end=lambda _: self._drag.reset(),
         )
-        # The document's name sits in the middle of the title bar, `*` in front while it has
-        # unsaved changes; the page number stays left and the settings right (FR-DOC-010)
+        # The page number and document name form one group on the left; settings stay right
+        # (FR-DOC-010), leaving the centre clear for phone cutouts.
         self.doc_name = ft.Text(
-            size=12, color=theme.title_text, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
+            size=12,
+            color=theme.title_text,
+            no_wrap=True,
+            overflow=ft.TextOverflow.ELLIPSIS,
+            expand=True,
         )
-        # kept clear of the settings either side, so a long name ends in … instead of under them
-        self.doc_box = ft.Container(self.doc_name, alignment=ft.Alignment.CENTER)
+        self.doc_box = ft.Container(
+            self.doc_name,
+            width=state.px(DOC_NAME_WIDTH),
+        )
         page_number = ft.Container(
             self.title,
             on_click=lambda _: self.on_action("dialog", SORTER),
@@ -341,13 +347,15 @@ class CalculatorView:
             tooltip="Page Sorter",
         )
         title_bar = ft.Container(
-            ft.Stack(
+            ft.Row(
                 [
+                    page_number,
                     self.doc_box,
-                    ft.Row(
-                        [page_number, self.status], alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                    ),
-                ]
+                    ft.Container(expand=True),
+                    self.status,
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                expand=True,
             ),
             bgcolor=theme.title_bar,
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
@@ -375,14 +383,19 @@ class CalculatorView:
         screen = self.state.screen()
         self.title.value = screen.title
         size = self.state.px(12)
+        status_words = screen.status.split()
+        settings = [word for word in status_words if word != "CAPS"]
         self.status.controls = [
-            self._status_field(word, size, number)
-            for number, word in enumerate(screen.status.split())
+            *(
+                [self._status_field("CAPS", size * 0.65, len(STATUS_FIELDS))]
+                if "CAPS" in status_words
+                else []
+            ),
+            *(self._status_field(word, size, number) for number, word in enumerate(settings)),
         ]
         self.title.size = size
-        self.doc_name.value = self.state.doc_title
-        self.doc_name.size = size
-        self.doc_box.padding = ft.Padding.symmetric(horizontal=self.state.px(DOC_NAME_CLEAR))
+        self.set_doc_title(self.state.doc_title)
+        self.doc_box.width = self.state.px(DOC_NAME_WIDTH)
         sheet = self.state.sheet
         if sheet is not None and screen.sheet is not None:
             self._calculator_shown = False
@@ -401,6 +414,7 @@ class CalculatorView:
             self._error(screen)
             self._menu(screen.menu)
             return
+
         if screen.stub is not None:  # a page type with nothing behind it yet
             self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
             self._calculator_shown = False
@@ -438,6 +452,13 @@ class CalculatorView:
         self._follow = picked is not None and picked != self._held
         self._error(screen)
         self._menu(screen.menu)
+
+    def set_doc_title(self, title: str) -> None:
+        """Append the unsaved marker to the displayed filename."""
+        dirty = title.startswith("*")
+        name = title[1:] if dirty else title
+        self.doc_name.value = f"{name}*" if dirty else name
+        self.doc_name.size = self.state.px(12)
 
     def _sorter_unit(self) -> float:
         """Pixels per sorter unit: the Handheld screen's scale, larger on the Computer screen."""
@@ -692,7 +713,14 @@ class CalculatorView:
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
         shown: ft.Control = ft.Container(
-            math(line.latex, self.theme, self.state.math_size),
+            ft.Text(
+                line.text,
+                size=self.state.math_size,
+                color=self.theme.screen_text,
+                font_family="serif",
+            )
+            if line.error and not line.part
+            else math(line.latex, self.theme, self.state.math_size),
             bgcolor=self.theme.selection if line.selected and not line.part else None,
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
@@ -979,7 +1007,7 @@ class CalculatorView:
                         "Error", size=self.state.px(14), weight=ft.FontWeight.BOLD, color="#ffffff"
                     ),
                     ft.Text(screen.error, size=self.state.px(14), color="#ffffff"),
-                    ft.Text("press any key", size=self.state.px(11), color="#ffd0cc"),
+                    ft.Text("click or press any key", size=self.state.px(11), color="#ffd0cc"),
                 ],
                 spacing=4,
                 tight=True,
@@ -987,6 +1015,8 @@ class CalculatorView:
             bgcolor=self.theme.error,
             padding=12,
             border_radius=6,
+            ink=True,
+            on_click=lambda _: self.on_action("escape", ""),
         )
 
 

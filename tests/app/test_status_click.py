@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterator
 
 import flet as ft
+import pytest
 
 from cassim.app.theme import DARK
 from cassim.core.settings import next_choice
@@ -101,6 +102,9 @@ def test_extra_status_words_are_not_clickable() -> None:
     h = Harness()
     h.state.caps = True
     h.view.refresh()
-    assert h.words()[-1] == "CAPS"
+    assert h.words() == ["CAPS", "RAD", "AUTO", "REAL"]
+    caps = h.view.status.controls[0]
+    assert isinstance(caps, ft.Text)
+    assert caps.size == pytest.approx(h.state.px(12) * 0.65)
     clickable = [c for c in walk(h.view.status) if isinstance(c, ft.Container) and c.on_click]
     assert len(clickable) == 3

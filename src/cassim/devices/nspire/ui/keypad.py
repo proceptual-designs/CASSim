@@ -72,6 +72,7 @@ class Keypad:
         look = (
             id(state.keypad),
             state.pending,
+            state.caps,
             state.pad_scale,
             self.install is not None,
             self.theme,
@@ -115,6 +116,9 @@ class Keypad:
             return ft.Container(width=width, height=height)
         pending = state.pending
         layer = {"ctrl": key.ctrl, "shift": key.shift}.get(pending, "")
+        if len(key.name) == 1 and key.name.isalpha():
+            uppercase = (pending == "shift") != state.caps
+            layer = key.name.upper() if uppercase else key.name
         fill, text = theme.key_colours(key.style)
         light_key = luminance(fill) > LIGHT_KEY_LUMINANCE
         ctrl_colour = theme.ctrl_label_light if light_key else theme.ctrl_label_dark

@@ -145,3 +145,23 @@ def test_key_outlines_follow_theme_colours():
     for name, colour in (("shift", theme.shift_outline), ("x", theme.key_outline)):
         ((_, control),) = keys_named(keypad, name)
         assert control.border == ft.Border.all(keypad.state.kpx(2), colour)
+
+
+@pytest.mark.parametrize(
+    ("modifier", "expected"),
+    [
+        ("plain", "a"),
+        ("shift", "A"),
+        ("caps", "A"),
+        ("shift+caps", "a"),
+    ],
+)
+def test_letter_key_shows_its_effective_case(modifier: str, expected: str) -> None:
+    state = AppState()
+    if "shift" in modifier:
+        state.press_keypad("shift")
+    if "caps" in modifier:
+        state.caps = True
+    keypad = Keypad(state, lambda _: None)
+    ((_, control),) = keys_named(keypad, "a")
+    assert texts_of(control) == [expected]
