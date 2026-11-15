@@ -121,6 +121,33 @@ def test_menu_key_shows_context_menu_legend_and_pending_layer():
     assert all(shape.paint.color == DARK.key_colours(key.style)[1] for shape in main.shapes)
 
 
+def test_doc_legend_changes_with_shift_and_creates_a_problem():
+    state = AppState()
+    keypad = Keypad(state, state.press_keypad)
+    ((_, control),) = keys_named(keypad, "doc")
+    labels, main = control.content.controls
+    assert [(label.value, label.color) for label in labels.controls] == [
+        ("+page", DARK.ctrl_label_light)
+    ]
+    assert main.value == "doc"
+
+    state.press_keypad("shift")
+    keypad.refresh()
+    ((_, control),) = keys_named(keypad, "doc")
+    labels, main = control.content.controls
+    assert [(label.value, label.color) for label in labels.controls] == [
+        ("+problem", DARK.shift_label_light)
+    ]
+    assert main.value == "doc"
+    state.press_keypad("doc")
+    assert state.pending == ""
+    menu = state.screen().menu
+    assert menu is not None
+    assert menu.title == "Add a Problem"
+    state.press_keypad("enter")
+    assert state.screen().title == "2.1"
+
+
 def test_shift_has_an_orange_ring_and_x_y_z_and_enter_have_a_green_ring():
     keypad = Keypad(AppState(), lambda _: None)
     ((_, shift),) = keys_named(keypad, "shift")

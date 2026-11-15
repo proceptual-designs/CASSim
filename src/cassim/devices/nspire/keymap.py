@@ -33,6 +33,7 @@ HANDHELD: Keymap = {
     "ctrl+esc": Binding("undo"),
     "doc": Binding("open_menu", "doc"),
     "ctrl+doc": Binding("add_page"),
+    "shift+doc": Binding("add_problem"),
     "menu": Binding("open_menu", "menu"),
     "tab": Binding("tab"),
     "shift+tab": Binding("shift_tab"),
@@ -126,6 +127,7 @@ COMPUTER: Keymap = {
     "shift+End": Binding("select_to_end"),
     "ctrl+a": Binding("select_all"),
     "ctrl+i": Binding("add_page"),
+    "ctrl+alt+i": Binding("add_problem"),
     "ctrl+s": Binding("dialog", "save"),
     "ctrl+o": Binding("dialog", "open_document"),
     "ctrl+n": Binding("new_document"),  # most browsers keep ctrl+N for a new window
@@ -182,8 +184,8 @@ def _alpha(name: str, label: str = "", ctrl: str = "", width: float = 0.0, join:
     )
 
 
-def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0) -> Key:
-    return Key(name, label, ctrl=ctrl, width=width, style="nav")
+def _nav(name: str, label: str, ctrl: str = "", width: float = 1.0, *, shift: str = "") -> Key:
+    return Key(name, label, shift=shift, ctrl=ctrl, width=width, style="nav")
 
 
 _ALPHA = 5 / 9  # nine letter keys across the five-unit keypad
@@ -215,7 +217,7 @@ _MAIN: Keypad = (
         Key("left", "◀", ctrl="◀ page", width=_PAD, style="pad"),
         Key("click", "●", width=_PAD, style="pad"),
         Key("right", "▶", ctrl="page ▶", width=_PAD, style="pad"),
-        _nav("doc", "doc", ctrl="+page"),
+        _nav("doc", "doc", ctrl="+page", shift="+problem"),
     ),
     (
         _nav("tab", "tab"),

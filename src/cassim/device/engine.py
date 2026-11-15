@@ -214,6 +214,7 @@ class Row(TypedDict):
     text: str
     latex: str
     is_function: bool
+    items: list[str] | None
 
 
 class NoticePayload(TypedDict):
@@ -327,7 +328,19 @@ def check_reply(raw: object) -> Reply:
         msg = f"not an engine reply: {str(raw)[:80]}"
         raise EngineError(msg)
     for row in raw["changed"]:
-        if not (isinstance(row, dict) and set(row) == {"name", "text", "latex", "is_function"}):
+        if not (
+            isinstance(row, dict)
+            and set(row) == {"name", "text", "latex", "is_function", "items"}
+            and all(isinstance(row[key], str) for key in ("name", "text", "latex"))
+            and isinstance(row["is_function"], bool)
+            and (
+                row["items"] is None
+                or (
+                    isinstance(row["items"], list)
+                    and all(isinstance(item, str) for item in row["items"])
+                )
+            )
+        ):
             msg = f"not a variable row: {row!r}"
             raise EngineError(msg)
     result = raw["result"]
@@ -434,7 +447,13 @@ class EngineCore:
             "result": result,
             "full": full,
             "changed": [
-                {"name": r.name, "text": r.text, "latex": r.latex, "is_function": r.is_function}
+                {
+                    "name": r.name,
+                    "text": r.text,
+                    "latex": r.latex,
+                    "is_function": r.is_function,
+                    "items": list(r.items) if r.items is not None else None,
+                }
                 for r in rows
             ],
             "deleted": [] if full else sorted(names - present),
@@ -517,7 +536,16 @@ class VariableStore:
         self._revisions[name] = self.revision
 
     def apply(self, reply: Reply) -> None:
-        rows = {row["name"]: VariableInfo(**row) for row in reply["changed"]}
+        rows = {
+            row["name"]: VariableInfo(
+                row["name"],
+                row["text"],
+                row["latex"],
+                row["is_function"],
+                tuple(row["items"]) if row["items"] is not None else None,
+            )
+            for row in reply["changed"]
+        }
         gone = set(reply["deleted"])
         if reply["full"]:
             gone |= set(self._rows) - set(rows)

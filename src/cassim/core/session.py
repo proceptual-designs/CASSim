@@ -118,7 +118,22 @@ class Session:
                     VariableInfo(name, head, rf"\mathbf{{{name}}}({','.join(item.params)})", True)
                 )
             elif item is not None:
-                rows.append(VariableInfo(name, to_text(item, self.settings), to_latex(item), False))
+                items = None
+                if isinstance(item, ListValue):
+                    items = tuple(to_text(value, self.settings) for value in item.items)
+                elif isinstance(item, MatrixValue):
+                    if len(item.rows) == 1:
+                        items = tuple(to_text(cell, self.settings) for cell in item.rows[0])
+                    else:
+                        items = tuple(
+                            to_text(row[0], self.settings)
+                            if len(row) == 1
+                            else to_text(MatrixValue((row,)), self.settings)
+                            for row in item.rows
+                        )
+                rows.append(
+                    VariableInfo(name, to_text(item, self.settings), to_latex(item), False, items)
+                )
         return rows
 
     def revision_of(self, name: str) -> int:

@@ -13,6 +13,14 @@ Looks like the calculator: a screen with the on-screen keypad below it. Tap or c
 
 A larger layout for a laptop or desktop with a hardware keyboard, with a page list and the variables beside the screen. The keypad can be shown beside the screen when you want it.
 
+Click **Pages** or **Variables** to hide or show each section. On a Problem's first page, use its
+button to collapse or expand the other pages. Both sections scroll when needed.
+
+Variables with the same dotted prefix, such as `stat.` or `tvm.`, can be collapsed together;
+they remain separate variables. Lists and matrices start on one line, and their **…** button
+expands them into numbered items or rows. Click the button again to collapse them. Long values show
+more items in batches with **Show more**.
+
 On a tablet, tap the entry line (or a spreadsheet cell) and the device's own on-screen keyboard opens, so you can type there too.
 
 ## Switching

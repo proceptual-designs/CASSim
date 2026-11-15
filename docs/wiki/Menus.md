@@ -13,7 +13,7 @@ Some items open a small form instead of expecting you to type the command, for e
 - **File:** new document, open and save documents kept in this browser, import and export `.cassim.json` files, copy a share link
 - **Edit:** undo, redo, copy and paste
 - **View:** Page Sorter and other views
-- **Insert:** add a Problem or a page (only Calculator pages work so far)
+- **Insert:** add a Problem or a page (Calculator and Lists & Spreadsheet work so far)
 - **Page Layout:** delete a page
 - **Settings & Status:** Document Settings and Handheld Setup
 - **8 About CASSim** and **9 Help** (in the handheld's places for Login and Press-to-Test, which CASSim does not have)
@@ -21,4 +21,7 @@ Some items open a small form instead of expecting you to type the command, for e
 
 ## Other menus
 
-Ctrl then Templates gives the template grid, ctrl then Catalog the symbols, and ctrl then = the relations (<, ≤, ≠ and so on). The Trig, Catalog and Punctuation keys open their own menus.
+Templates opens the template grid; ctrl then Templates inserts `:=`. Ctrl then Catalog opens the
+symbols, and ctrl then = opens the relations (<, ≤, ≠ and so on). The Trig, Catalog and
+Punctuation keys open their own menus. In the π, Trig or Templates grid, press the same key again
+to highlight the next item (wrapping at the end), then press Enter to choose it.

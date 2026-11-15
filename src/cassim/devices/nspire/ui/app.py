@@ -49,6 +49,7 @@ from cassim.devices.nspire.ui.layout import (
     keypad_size,
     starting_mode,
 )
+from cassim.devices.nspire.ui.sidebar import Sidebar
 from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
 from cassim.devices.nspire.ui.theme_settings import theme_settings_dialog
@@ -57,7 +58,6 @@ from cassim.devices.nspire.ui.views import (
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
-    Sidebar,
     chip,
     settings_dialog,
     system_settings_dialog,
@@ -992,9 +992,7 @@ class App:
         )
         self.view.body_size = self.body_size
         self.keypad = Keypad(self.state, self.press, theme, on_stick=self.on_stick)
-        self.sidebar = Sidebar(
-            self.state, self.refresh, theme, lambda: self.act("open_menu", "menu")
-        )
+        self.sidebar.theme = theme
         self.shape = None
 
     def open_settings(self) -> None:
@@ -1093,8 +1091,14 @@ class App:
             # A fixed height from the window: the screen otherwise shrinks to its lines, and a
             # menu drawn on it would be clipped.
             view.height = computer_screen_height(self.page.height)
+            self.sidebar.height = view.height
             parts: list[ft.Control] = [
-                ft.Container(self.sidebar.control, width=SIDEBAR_W, padding=8),
+                ft.Container(
+                    self.sidebar.control,
+                    width=SIDEBAR_W,
+                    height=computer_screen_height(self.page.height),
+                    padding=8,
+                ),
                 view,
             ]
             if state.system.computer_keypad:

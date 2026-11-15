@@ -165,6 +165,46 @@ def test_a_click_opens_a_submenu_and_runs_a_leaf() -> None:
     assert _calculator(state).editor.linear() == "solve("
 
 
+@pytest.mark.parametrize(
+    ("page", "menu_name"),
+    [("calculator", "menu"), ("spreadsheet", "menu_sheet"), ("graphs", "menu_stub")],
+)
+def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: str) -> None:
+    """FR-DEV-007: the other menu replaces the open one, for buttons and keys alike."""
+    state = AppState()
+    if page != "calculator":
+        state.run_action("add_page", page)
+    state.run_action("open_menu", "menu")
+    assert state.menu is not None
+    assert state.menu.root == state.profile.menus[menu_name]
+    if page != "graphs":
+        state.run_action("menu_pick", "0:0")
+        assert len(state.menu.levels) == 2
+    state.key_event("F4")
+    assert _menu(state).title == "Doc"
+    state.run_action("menu_pick", "0:0")
+    assert len(state.menu.levels) == 2
+    state.run_action("open_menu", "menu")
+    assert state.menu is not None
+    assert state.menu.root == state.profile.menus[menu_name]
+    assert len(state.menu.levels) == 1
+
+
+def test_menu_switch_does_not_change_sorter_or_other_menus() -> None:
+    state = AppState()
+    state.run_action("open_menu", "catalog")
+    original = state.menu
+    state.run_action("open_menu", "doc")
+    assert state.menu is original
+    state.run_action("escape")
+    state.sorting = True
+    state.run_action("open_menu", "doc")
+    doc = state.menu
+    state.run_action("open_menu", "menu")
+    assert state.menu is doc
+    assert state.sorting
+
+
 def test_clicking_a_parent_row_switches_submenu() -> None:
     state = AppState()
     state.run_action("open_menu", "menu")
@@ -313,6 +353,68 @@ def test_grid_menus_move_in_two_dimensions() -> None:
         state.press_keypad(key)
     state.press_keypad("enter")
     assert _calculator(state).editor.linear() == "cos⁻¹("
+
+
+@pytest.mark.parametrize(
+    ("key", "title"), [("pi", "Symbols"), ("trig", "Trig"), ("templates", "Templates")]
+)
+def test_palette_key_cycles_and_wraps_before_selecting(key: str, title: str) -> None:
+    """FR-DEV-007: repeated keypad presses move across the entire grid, then wrap."""
+    state = AppState(mode=Mode.HANDHELD)
+    state.press_keypad(key)
+    view = _menu(state)
+    assert view.title == title
+    labels = [row.label for row in view.rows]
+    for index in range(1, len(labels) + 1):
+        state.press_keypad(key)
+        view = _menu(state)
+        assert next(n for n, row in enumerate(view.rows) if row.selected) == index % len(labels)
+        assert [row.label for row in view.rows] == labels
+    state.press_keypad("enter")
+    assert state.menu is None
+    assert _calculator(state).editor.linear()
+
+
+@pytest.mark.parametrize("source", ["pi", "trig", "templates"])
+@pytest.mark.parametrize("target", ["pi", "trig", "templates"])
+def test_palette_keys_switch_or_cycle(source: str, target: str) -> None:
+    state = AppState()
+    state.press_keypad(source)
+    state.press_keypad(target)
+    view = _menu(state)
+    assert view.title == {"pi": "Symbols", "trig": "Trig", "templates": "Templates"}[target]
+    assert next(n for n, row in enumerate(view.rows) if row.selected) == (
+        1 if source == target else 0
+    )
+    assert _calculator(state).editor.linear() == ""
+
+
+@pytest.mark.parametrize("tab", ["4", "5"])
+@pytest.mark.parametrize("key", ["pi", "trig", "templates"])
+def test_palette_keys_replace_catalog_symbol_and_template_grids(tab: str, key: str) -> None:
+    state = AppState()
+    state.press_keypad("catalog")
+    state.key_event(tab)
+    assert len(_menu(state).panels) == 2
+    state.press_keypad(key)
+    view = _menu(state)
+    assert view.title == {"pi": "Symbols", "trig": "Trig", "templates": "Templates"}[key]
+    assert view.rows[0].selected
+    assert len(view.panels) == 1
+
+
+def test_ctrl_catalog_also_cycles_symbols_without_affecting_other_menus() -> None:
+    state = AppState()
+    for _ in range(2):
+        state.press_keypad("ctrl")
+        state.press_keypad("catalog")
+    assert _menu(state).title == "Symbols"
+    assert _menu(state).rows[1].selected
+    state.press_keypad("enter")
+    assert _calculator(state).editor.linear() == "ⅈ"
+    state.press_keypad("catalog")
+    state.press_keypad("trig")
+    assert _menu(state).title == "Catalog > Catalog"
 
 
 def test_variables_menu_lists_the_problem() -> None:

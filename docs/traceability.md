@@ -149,12 +149,12 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |
-| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_history_cache.py`, `tests/app/test_page_number_click.py` and 3 more |
+| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_history_cache.py`, `tests/app/test_page_number_click.py` and 5 more |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 2 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
-| FR-DOC-008 | Must | `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_spreadsheet_page.py` and 2 more |
+| FR-DOC-008 | Must | `tests/app/test_variable_sidebar.py`, `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py` and 4 more |
 | FR-DOC-010 | Should | `tests/app/test_documents.py`, `tests/app/test_library.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
 | FR-SHEET-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_sheet_scene.py` and 6 more |
@@ -171,7 +171,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-THEME-001 | Must | `tests/app/test_theme_settings.py`, `tests/e2e/test_theme_browser.py` |
 | FR-THEME-002 | Should | `tests/app/test_theme_settings.py`, `tests/e2e/test_theme_browser.py` |
 | FR-DEV-006 | Must | `tests/app/test_state.py` |
-| FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 2 more |
+| FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
 | FR-DEV-008 | Should | `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
 | FR-PWA-001 | Must | `tests/e2e/test_pwa.py` |
