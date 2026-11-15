@@ -6,6 +6,7 @@ import os
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
@@ -71,7 +72,8 @@ class PagesHandler(http.server.SimpleHTTPRequestHandler):
 @pytest.fixture(scope="session")
 def site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]:
     dist = tmp_path_factory.mktemp("pwa") / "dist"
-    publish.build(dist, BASE)
+    with patch.object(publish, "STAGE", tmp_path_factory.mktemp("stage") / "app"):
+        publish.build(dist, BASE)
     handler = functools.partial(PagesHandler, directory=str(dist))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()

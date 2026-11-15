@@ -27,6 +27,7 @@ class VariableInfo:
     text: str  # the value as linear text, or `f(x)` for a function
     latex: str
     is_function: bool
+    items: tuple[str, ...] | None = None  # formatted list items or matrix rows/cells
 
 
 def latex_for_markdown(latex: str) -> str:

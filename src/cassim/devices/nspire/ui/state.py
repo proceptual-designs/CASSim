@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
 
 _MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
+_KEY_PALETTES = frozenset({"symbols", "trig", "templates"})
 # Keys the page sorter passes on: they act on the document or open a menu, never on a page.
 _SORTER_PASSES = frozenset(
     {
@@ -344,7 +345,7 @@ class AppState:
         if binding.action == "caps":
             self.caps = not self.caps
         elif self.menu is not None and self.menu.open:
-            self._menu_key(binding)
+            self._active_menu_key(binding)
         elif self.sorting:
             self._sorter_key(binding)
         elif binding == Binding("dialog", SORTER):
@@ -361,6 +362,34 @@ class AppState:
         else:
             return binding.action in _MENU_ONLY  # a menu click with no menu open does nothing
         return True
+
+    def _active_menu_key(self, binding: Binding) -> None:
+        assert self.menu is not None
+        other = {"menu": "doc", "doc": "menu"}.get(binding.arg)
+        palette = binding.action == "open_menu" and binding.arg in _KEY_PALETTES
+        palette_roots = (self.profile.menus.get(name) for name in _KEY_PALETTES)
+        catalog_grid = self.menu.root is self.profile.menus.get(
+            "catalog"
+        ) and self.menu.level.item.label in {"Symbols", "Math Expression Templates"}
+        if (
+            not self.sorting
+            and palette
+            and (any(self.menu.root is root for root in palette_roots) or catalog_grid)
+        ):
+            if self.menu.root is self.profile.menus.get(binding.arg):
+                self._menu_key(Binding("right"))
+            else:
+                self._open_menu(binding.arg)
+        elif (
+            not self.sorting
+            and binding.action == "open_menu"
+            and other is not None
+            and self.menu.root.label == self.profile.menus[other].label
+        ):
+            self.menu = None
+            self.run(binding)
+        else:
+            self._menu_key(binding)
 
     def _sorter_key(self, binding: Binding) -> None:
         """While the page sorter is open it takes every key. The arrows move the highlight (left

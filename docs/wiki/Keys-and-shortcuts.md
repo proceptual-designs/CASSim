@@ -11,24 +11,64 @@
 | F4 | Open the Doc menu |
 | Up and down arrows | Move through earlier entries and answers |
 | Ctrl+/ | Fraction template |
-| Ctrl+I | Add a page |
+| Ctrl+I | Add a page (choose its type) |
+| Ctrl+Alt+I | Add a Problem (choose its first page's type) |
 | Alt+Left, Alt+Right | Previous and next page |
 | Ctrl+Up | Page Sorter |
 | Ctrl+L | Variables menu |
+| Ctrl+N, Ctrl+O, Ctrl+S | New, open, save document |
 | Ctrl+Z, Ctrl+Y | Undo and redo |
 | Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut and paste |
 | Ctrl+A | Select the whole entry |
-| Shift+arrows | Select part of an entry |
+| Tab, Shift+Tab | Next, previous field or template slot |
+| Shift+Left, Shift+Right | Select part of an entry |
 | Ctrl+Left, Ctrl+Right | Move by word |
+| Ctrl+Shift+Left, Ctrl+Shift+Right | Select by word |
+| Shift+Home, Shift+End | Select to the start, end of the entry |
+| Ctrl+Space | Insert an underscore |
+| Ctrl+= | Insert ≠ |
 | Caps Lock | Capital letters |
+
+Some browsers or operating systems intercept shortcuts such as Ctrl+N, Ctrl+S, Ctrl+L or
+Alt+Left/Right; use the on-screen controls or Doc menu when that happens. On some keyboard layouts, Ctrl+Alt also acts as AltGr, so Ctrl+Alt+I may conflict with typing.
+The Mac Command key is treated as Ctrl when the browser sends it to CASSim.
+
+### Lists & Spreadsheet
+
+| Key | What it does |
+|---|---|
+| Ctrl+G | Go to a cell |
+| Ctrl+R | Recalculate |
+| Page Up, Page Down | Move by a screen of rows |
+| Shift+Tab | Select all cells |
+| Shift+Up, Shift+Down | Extend the cell selection by a row |
+| Alt+Shift+Left, Alt+Shift+Right | Extend the cell selection by a column |
+| Context Menu key, Shift+F10 | Open the selected cells' context menu |
+
+These are spreadsheet shortcuts; browsers may intercept some combinations.
 
 ## On the on-screen keypad
 
 The keypad has the same keys as the handheld, with the second functions (the blue **ctrl** and orange **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key; the shift key has an orange outline to match its labels. While a modifier is waiting for the next key, a dot appears beside its name.
 
 - ctrl then **doc**: add a page
+- shift then **doc**: add a Problem. The blue **+page** legend changes to orange **+problem**
+  while shift is selected. Both shortcuts open a page-type picker.
 - ctrl then **esc**: undo
-- ctrl then the **divide** key: fraction; ctrl then the **square** key: square root; ctrl then the **10ˣ** key: logarithm with a base
+- ctrl then **Z** or **Y**: undo or redo; ctrl then **C**, **X** or **V**: copy, cut or paste
+- ctrl then **▲**: Page Sorter; ctrl then **◀** or **▶**: previous or next page
+- shift then **◀** or **▶**: select part of an entry; shift then **tab**: previous slot
+- ctrl then **7** or **1**: first history row or back to the entry line; ctrl then **8** or **2**: start or end of the entry
+- **var**: variables menu; ctrl then **var**: store arrow `→`; ctrl then **del**: clear the entry
+- **templates**: template grid; ctrl then **templates**: `:=`
+- In the **π**, **trig** or **templates** grid, press the same key again to move to the next
+  item, wrapping back to the start; press **enter** to choose it.
+- ctrl then the **divide** key: fraction; ctrl then the **square** key: square root; ctrl then **^**: nth root
+- shift then **+** or **−**: integral or derivative template
+- ctrl then **eˣ**: natural logarithm; ctrl then **10ˣ**: logarithm with a base
+- ctrl then **(** or **)**: insert paired square or curly brackets
+- ctrl then **×**: insert paired quotes; shift then **divide**: insert `\`
+- ctrl then **(−)**: insert `Ans`; ctrl then **space**: insert `_`
 - ctrl then **catalog**: symbols; ctrl then **=**: relations (<, ≤, ≠ and so on)
 - ctrl then **shift**: Caps lock
 - ctrl then **enter**: answer as a decimal

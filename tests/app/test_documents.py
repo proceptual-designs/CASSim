@@ -26,6 +26,17 @@ def test_ctrl_i_adds_a_page_and_alt_arrows_move() -> None:
     assert state.screen().title == "1.2"
 
 
+def test_ctrl_alt_i_adds_a_problem() -> None:
+    """FR-DOC-001: the shortcut opens the page-type picker for the new Problem."""
+    state = AppState()
+    assert state.key_event("i", ctrl=True, alt=True)
+    menu = state.screen().menu
+    assert menu is not None
+    assert menu.title == "Add a Problem"
+    state.key_event("1")
+    assert state.screen().title == "2.1"
+
+
 def test_variable_list_shows_values_and_functions() -> None:
     state = AppState()
     enter(state, "a:=5")

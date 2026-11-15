@@ -132,16 +132,21 @@ class Keypad:
         ctrl_label: ft.Control = label_text(key.ctrl, size=small, color=ctrl_colour, no_wrap=True)
         if key.name == "menu":
             ctrl_label = context_menu_icon(state.kpx(0.9), ctrl_colour)
+        shift_label = label_text(key.shift, size=small, color=shift_colour, no_wrap=True)
+        legends: list[ft.Control] = (
+            [shift_label if pending == "shift" else ctrl_label]
+            if key.name == "doc"
+            else [ctrl_label, shift_label]
+        )
         labels = ft.Row(
-            [
-                ctrl_label,
-                label_text(key.shift, size=small, color=shift_colour, no_wrap=True),
-            ],
+            legends,
             spacing=state.kpx(3),
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         )
         size = state.kpx(13 if key.height < 1 or key.width < 1 else 15)
+        if key.name == "doc" and pending == "shift":
+            layer = key.label
         main: ft.Control = label_text(
             f"{key.label} •" if pending == key.name else layer or key.label,
             size=size * 0.8 if pending == key.name else size,

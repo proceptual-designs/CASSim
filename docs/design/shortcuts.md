@@ -98,14 +98,20 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 ## Implementation notes
 - Bindings are data (profile registry), not code (FR-DEV-007). The editor exposes the actions: `insert_template(kind)`, `tab()`, `left()` and so on.
 - A computer keyboard has two forms of some keys (Return versus Enter, ctrl+Enter, alt+Enter); the Handheld and Computer maps are separate tables.
-- Do not bind browser-reserved combinations (ctrl+W, ctrl+N, ctrl+S, ctrl+P, ctrl+T) in the web build; use the on-screen menu for those. Record the list here when the key handler exists.
+- The computer map includes ctrl+N, ctrl+O, ctrl+S and ctrl+L, but browsers can intercept them;
+  use the on-screen menus when they do. Browser-reserved ctrl+W, ctrl+P and ctrl+T are not bound.
 
 ## Selection and clipboard in CASSim (computer keyboard)
 - shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move by word. These word and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
 - ctrl+C, ctrl+X, ctrl+V: the calculator's clipboard keeps templates, so a pasted fraction is stacked (S7), and it is shared by all pages of a document. The text is also put on the system clipboard; on paste, system text that matches the calculator's clipboard brings the templates back, any other text is typed in (newlines become spaces).
 
 ## Menus (M2c)
-- Computer: `F2` opens the Menu (commands), `F4` opens Doc, `Escape` goes back or closes. Up/Down move, Enter or Right opens, Left goes back, the item's number or letter chooses it. These keys are CASSim's own choice, not checked against the Nspire software (Unsure); F-keys other than F2 and F4 stay with the browser.
+- Computer: `F2` opens the Menu (commands), `F4` opens Doc, `Escape` closes. Pressing the other menu key switches directly between Menu and Doc. Up/Down move, Enter or Right opens, Left goes back, the item's number or letter chooses it. These keys are CASSim's own choice, not checked against the Nspire software (Unsure); shift+F10 opens the spreadsheet context menu.
 - Handheld keypad: the `esc`, `doc` and `menu` keys do the same.
 - Doc > 4 Insert > 1 Problem / 3 Calculator and Doc > 7 Settings & Status > 2 Document Settings follow the routes used on the simulator. The Calculator Menu follows the handheld's numbering (M2f, decision 0022; unverified), and every row can be clicked or tapped.
 - Keypad keys added in M2f (decision 0022): var, ctrl+var `→`, ctrl+del clear, ctrl+= relations, trig, templates, catalog, ctrl+catalog symbols, eˣ/ln, 10ˣ/log, ctrl+esc undo, ctrl+doc add page, ctrl+▲ sorter, ctrl+◀/▶ pages, ?!▸, π▸, shift+letter capitals. Computer: ctrl+L variables, ctrl+↑ sorter.
+- CASSim additions: keypad shift+doc and computer ctrl+alt+I open the new Problem page-type picker.
+  The doc key shows `+problem` in orange when shift is pending instead of the blue `+page`.
+  Ctrl+alt can overlap AltGr on some layouts; browser and platform shortcuts can also intercept keys.
+- CASSim addition: repeat the keypad π, trig or templates key to move to the next grid item,
+  wrapping to the first; Enter chooses it. Ctrl then catalog can also cycle the Symbols grid.

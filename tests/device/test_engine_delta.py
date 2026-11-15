@@ -120,7 +120,7 @@ def test_scope_revisions_rise_on_every_store_and_delete() -> None:
 
 def test_the_store_keeps_its_own_revisions_and_skips_unchanged_rows() -> None:
     store = VariableStore()
-    row: Row = {"name": "a", "text": "1", "latex": "1", "is_function": False}
+    row: Row = {"name": "a", "text": "1", "latex": "1", "is_function": False, "items": None}
     store.apply({"result": None, "full": True, "changed": [row], "deleted": []})
     first = store.revision_of("a")
     store.apply({"result": None, "full": True, "changed": [row], "deleted": []})
@@ -168,3 +168,53 @@ def test_a_reply_from_the_worker_is_checked() -> None:
     ):
         with pytest.raises(EngineError):
             check_reply(bad)
+
+
+def test_list_items_are_formatted_and_survive_the_worker_reply() -> None:
+    """FR-DOC-008: list rows retain their structure, even when elements contain commas."""
+    core = EngineCore()
+    reply = core.apply(
+        0,
+        [
+            eval_op('a:={1,{2,3},"x,y"}', approximate=False),
+            eval_op("b:={}", approximate=False),
+            eval_op("c:=5", approximate=False),
+        ],
+    )
+    checked = check_reply(reply)
+    store = VariableStore()
+    store.apply(checked)
+    rows = {row.name: row for row in store.variables()}
+    assert rows["a"].items == ("1", "{2,3}", '"x,y"')
+    assert rows["b"].items == ()
+    assert rows["c"].items is None
+
+
+def test_matrix_items_survive_the_worker_reply() -> None:
+    """FR-DOC-008: vectors show cells and a general matrix shows complete rows."""
+    core = EngineCore()
+    reply = core.apply(
+        0,
+        [
+            eval_op("row:=[1,2,3]", approximate=False),
+            eval_op("col:=[1;2;3]", approximate=False),
+            eval_op('matrix:=["a,b",2;3,4]', approximate=False),
+            eval_op("OneVar {1,2,3}", approximate=False),
+        ],
+    )
+    store = VariableStore()
+    store.apply(check_reply(reply))
+    rows = {row.name: row for row in store.variables()}
+    assert rows["row"].items == ("1", "2", "3")
+    assert rows["col"].items == ("1", "2", "3")
+    assert rows["matrix"].items == ('["a,b",2]', "[3,4]")
+    assert rows["stat.values"].items is not None
+    assert rows["stat.values"].items[0] == '"One-Variable Statistics"'
+
+
+@pytest.mark.parametrize("items", [4, [1], ["1", None]])
+def test_invalid_list_items_are_rejected(items) -> None:
+    reply = EngineCore().apply(0, [eval_op("a:=1", approximate=False)])
+    reply["changed"][0]["items"] = items
+    with pytest.raises(EngineError):
+        check_reply(reply)
