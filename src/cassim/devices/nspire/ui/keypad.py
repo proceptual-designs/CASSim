@@ -8,7 +8,7 @@ from typing import cast
 import flet as ft
 import flet.canvas as cv
 
-from cassim.app.theme import DARK, Theme
+from cassim.app.theme import DARK, Theme, luminance
 from cassim.device.keys import Key
 from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, key_span
 from cassim.devices.nspire.ui.state import AppState
@@ -16,6 +16,7 @@ from cassim.devices.nspire.ui.views import label_text
 
 STICK_KEY = "click"
 ACCENT_KEY = "accent"
+LIGHT_KEY_LUMINANCE = 0.3
 type Stick = Callable[[str, float, float], None]
 
 
@@ -95,7 +96,7 @@ class Keypad:
         install = self.install
         assert install is not None
         return ft.Container(
-            label_text("Install", size=self.state.kpx(12), color="#ffffff"),
+            label_text("Install", size=self.state.kpx(12), color=self.theme.accent_text),
             width=self.state.kpx(key_span(cell.width)),
             height=self.state.kpx(key_span(cell.height, KEY_H)),
             alignment=ft.Alignment.CENTER,
@@ -115,16 +116,22 @@ class Keypad:
         pending = state.pending
         layer = {"ctrl": key.ctrl, "shift": key.shift}.get(pending, "")
         fill, text = theme.key_colours(key.style)
+        light_key = luminance(fill) > LIGHT_KEY_LUMINANCE
+        ctrl_colour = theme.ctrl_label_light if light_key else theme.ctrl_label_dark
+        shift_colour = theme.shift_label_light if light_key else theme.shift_label
+        if pending == key.name == "ctrl":
+            fill, text = theme.ctrl_on, theme.ctrl_on_text
+        elif pending == key.name == "shift":
+            fill = theme.modifier_on
+            ctrl_colour = theme.ctrl_on_text
         small = state.kpx(8 if key.width < 1 else 9)
-        ctrl_label: ft.Control = label_text(
-            key.ctrl, size=small, color=theme.key_label, no_wrap=True
-        )
+        ctrl_label: ft.Control = label_text(key.ctrl, size=small, color=ctrl_colour, no_wrap=True)
         if key.name == "menu":
-            ctrl_label = context_menu_icon(state.kpx(0.9), theme.key_label)
+            ctrl_label = context_menu_icon(state.kpx(0.9), ctrl_colour)
         labels = ft.Row(
             [
                 ctrl_label,
-                label_text(key.shift, size=small, color=theme.shift_label, no_wrap=True),
+                label_text(key.shift, size=small, color=shift_colour, no_wrap=True),
             ],
             spacing=state.kpx(3),
             alignment=ft.MainAxisAlignment.CENTER,
@@ -132,8 +139,8 @@ class Keypad:
         )
         size = state.kpx(13 if key.height < 1 or key.width < 1 else 15)
         main: ft.Control = label_text(
-            layer or key.label,
-            size=size,
+            f"{key.label} •" if pending == key.name else layer or key.label,
+            size=size * 0.8 if pending == key.name else size,
             color=text,
             weight=ft.FontWeight.W_600,
             no_wrap=True,
@@ -146,8 +153,7 @@ class Keypad:
             main = context_menu_icon(state.kpx(1.3), text)
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
         stick = key.name == STICK_KEY and self.on_stick is not None
-        colour = theme.modifier_on if pending == key.name else fill
-        outline = theme.shift_label if key.name == "shift" else theme.key_outline
+        outline = theme.shift_outline if key.name == "shift" else theme.key_outline
         box = ft.Container(
             ft.Column(
                 body,
@@ -159,9 +165,11 @@ class Keypad:
             width=width,
             height=height,
             alignment=ft.Alignment.CENTER,
-            bgcolor=colour,
+            bgcolor=fill,
             border=ft.Border.all(state.kpx(2), outline)
             if key.outline or key.name == "shift"
+            else ft.Border.all(state.kpx(1), theme.key_edge)
+            if theme.key_edge != theme.background
             else None,
             border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
             ink=not stick,
@@ -170,7 +178,7 @@ class Keypad:
         )
         if key.join == "down":  # fill the gap down to the lower piece, so the two read as one
             seam = ft.Container(
-                left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=colour
+                left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=fill
             )
             # sized to the piece, so the seam overflows into the gap without growing the row
             piece = ft.Stack(

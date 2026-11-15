@@ -287,7 +287,7 @@ class CalculatorView:
         self.shift = shift
         self._follow = False
         self.status = ft.Row(spacing=8, tight=True)
-        self.title = ft.Text(size=12, color="#ffffff")
+        self.title = ft.Text(size=12, color=theme.title_text)
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
         # A Column, not a ListView: it builds every line, so `scroll_to` can find a line by key
@@ -330,7 +330,7 @@ class CalculatorView:
         # The document's name sits in the middle of the title bar, `*` in front while it has
         # unsaved changes; the page number stays left and the settings right (FR-DOC-010)
         self.doc_name = ft.Text(
-            size=12, color="#ffffff", no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
+            size=12, color=theme.title_text, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
         )
         # kept clear of the settings either side, so a long name ends in … instead of under them
         self.doc_box = ft.Container(self.doc_name, alignment=ft.Alignment.CENTER)
@@ -629,7 +629,7 @@ class CalculatorView:
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
-        text = ft.Text(word, size=size, color="#ffffff", weight=ft.FontWeight.BOLD)
+        text = ft.Text(word, size=size, color=self.theme.title_text, weight=ft.FontWeight.BOLD)
         if number >= len(STATUS_FIELDS):
             return text
         name = STATUS_FIELDS[number]
@@ -894,7 +894,7 @@ class CalculatorView:
     def _more(self, text: str, step: int, *, active: bool) -> ft.Control:
         """The ▲ or ▼ that says there is more above or below; a click pages that way."""
         return ft.Container(
-            label_text(text, size=self.state.px(11), color=self.theme.accent),
+            label_text(text, size=self.state.px(11), color=self.theme.menu_accent),
             alignment=ft.Alignment.CENTER,
             height=self.state.px(ARROW_H),
             on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
@@ -912,7 +912,9 @@ class CalculatorView:
     def _grid_cell(self, depth: int, index: int, row: Row, *, active: bool) -> ft.Control:
         theme, px = self.theme, self.state.px
         on = row.selected
-        colour = theme.menu_disabled if not row.enabled else "#ffffff" if on else theme.key_text
+        colour = (
+            theme.menu_disabled if not row.enabled else theme.accent_text if on else theme.key_text
+        )
         icon = ICONS.get(row.icon)
         return ft.Container(
             icon_canvas(icon, self.state.scale, colour)
@@ -937,7 +939,7 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         row, keys = panel.rows[index], not panel.keyless
         on = row.selected
-        colour = "#ffffff" if on else theme.key_text
+        colour = theme.accent_text if on else theme.key_text
         if not row.enabled:  # a placeholder keeps the device's numbering, greyed out
             colour = theme.menu_disabled
         parts: list[ft.Control] = [
@@ -1033,7 +1035,7 @@ def icon_chip(
 def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
     """A small text button for toolbars."""
     return ft.Container(
-        label_text(text, color="#ffffff" if on else theme.key_text, size=13),
+        label_text(text, color=theme.accent_text if on else theme.key_text, size=13),
         bgcolor=theme.accent if on else theme.key,
         padding=ft.Padding.symmetric(horizontal=10, vertical=5),
         border_radius=6,
@@ -1067,7 +1069,7 @@ class Sidebar:
             menu = self.on_menu
             rows.append(
                 ft.Container(
-                    label_text("Menu", size=16, color="#ffffff"),
+                    label_text("Menu", size=16, color=theme.accent_text),
                     height=48,
                     alignment=ft.Alignment.CENTER,
                     bgcolor=theme.accent,
@@ -1077,7 +1079,7 @@ class Sidebar:
                 )
             )
         rows += [
-            ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text),
+            ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.panel_text),
             # Move the page up or down, and undo or redo directly under: two short rows that fit
             # the sidebar (one row of four did not).
             *(
@@ -1105,19 +1107,23 @@ class Sidebar:
                 ft.Container(
                     label_text(
                         f"{problem + 1}.{page + 1}  {self.state.page_name(kind)}",
-                        color=theme.accent if (problem, page) == here else theme.key_text,
+                        color=theme.panel_accent if (problem, page) == here else theme.panel_text,
                     ),
                     padding=ft.Padding.symmetric(vertical=2),
                     on_click=lambda _, p=problem, q=page: self._go(p, q),
                 )
             )
-        rows.append(ft.Text("Variables", weight=ft.FontWeight.BOLD, color=theme.key_text))
+        rows.append(ft.Text("Variables", weight=ft.FontWeight.BOLD, color=theme.panel_text))
         session = document.problems[document.problem].session
         variables = session.variables()
         if not variables:
-            rows.append(ft.Text("none", color=theme.key_label, size=12))
+            rows.append(ft.Text("none", color=theme.panel_text, size=12))
         rows.extend(
-            ft.Text(f"{row.name} = {row.text}" if not row.is_function else row.text, size=12)
+            ft.Text(
+                f"{row.name} = {row.text}" if not row.is_function else row.text,
+                size=12,
+                color=theme.panel_text,
+            )
             for row in variables
         )
         self.control.controls = rows
@@ -1186,7 +1192,11 @@ def settings_dialog(
 
 
 def system_settings_dialog(
-    page: ft.Page, state: AppState, on_change: Callable[[], None], theme: Theme = DARK
+    page: ft.Page,
+    state: AppState,
+    on_change: Callable[[], None],
+    theme: Theme = DARK,
+    on_appearance: Callable[[], None] | None = None,
 ) -> None:
     """System Settings: the view the app starts in and the size of the maths."""
     system = state.system
@@ -1228,7 +1238,19 @@ def system_settings_dialog(
     page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("System Settings"),
-            content=ft.Column([start, size, zoom_row, letters], tight=True, spacing=12),
+            content=ft.Column(
+                [
+                    start,
+                    size,
+                    zoom_row,
+                    letters,
+                    ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
+                    if on_appearance is not None
+                    else ft.Container(),
+                ],
+                tight=True,
+                spacing=12,
+            ),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),

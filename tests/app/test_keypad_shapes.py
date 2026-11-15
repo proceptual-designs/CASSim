@@ -110,7 +110,7 @@ def test_menu_key_shows_context_menu_legend_and_pending_layer():
     assert control.tooltip == "ctrl: context menu"
     assert main.value == "menu"
     assert len(icon.shapes) == 4
-    assert all(shape.paint.color == DARK.key_label for shape in icon.shapes)
+    assert all(shape.paint.color == DARK.ctrl_label_light for shape in icon.shapes)
     assert keymap.HANDHELD["ctrl+menu"].action == "context_menu"
 
     state.press_keypad("ctrl")
@@ -124,7 +124,7 @@ def test_menu_key_shows_context_menu_legend_and_pending_layer():
 def test_shift_has_an_orange_ring_and_x_y_z_and_enter_have_a_green_ring():
     keypad = Keypad(AppState(), lambda _: None)
     ((_, shift),) = keys_named(keypad, "shift")
-    assert shift.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_label)
+    assert shift.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_outline)
     for name in ("x", "y", "z", "enter"):
         ((key, control),) = keys_named(keypad, name)
         assert key.outline
@@ -140,8 +140,8 @@ def test_shift_has_an_orange_ring_and_x_y_z_and_enter_have_a_green_ring():
 
 
 def test_key_outlines_follow_theme_colours():
-    theme = replace(DARK, shift_label="#aa5500", key_outline="#116633")
+    theme = replace(DARK, shift_outline="#aa5500", key_outline="#116633")
     keypad = Keypad(AppState(), lambda _: None, theme)
-    for name, colour in (("shift", theme.shift_label), ("x", theme.key_outline)):
+    for name, colour in (("shift", theme.shift_outline), ("x", theme.key_outline)):
         ((_, control),) = keys_named(keypad, name)
         assert control.border == ft.Border.all(keypad.state.kpx(2), colour)

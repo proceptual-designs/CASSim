@@ -24,7 +24,7 @@
 
 ## On the on-screen keypad
 
-The keypad has the same keys as the handheld, with the second functions (the blue **ctrl** and orange **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key; the shift key has an orange outline to match its labels.
+The keypad has the same keys as the handheld, with the second functions (the blue **ctrl** and orange **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key; the shift key has an orange outline to match its labels. While a modifier is waiting for the next key, a dot appears beside its name.
 
 - ctrl then **doc**: add a page
 - ctrl then **esc**: undo
