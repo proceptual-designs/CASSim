@@ -319,6 +319,10 @@ class CalculatorView:
         self._keep: float | None = None  # the scroll offset when that click was made
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
+        self._history_page: object | None = None
+        self._history_rows: dict[
+            int, tuple[tuple[Line, Line, float, float, Theme], ft.Control, bool]
+        ] = {}
         self._scroll: float | None = None  # the history's scroll offset, once reported
         self._shown = 1  # lines the deepest open panel shows
         menu_layer = ft.GestureDetector(
@@ -384,6 +388,7 @@ class CalculatorView:
         self.doc_name.size = size
         self.doc_box.padding = ft.Padding.symmetric(horizontal=self.state.px(DOC_NAME_CLEAR))
         sheet = self.state.sheet
+        self._prepare_history(screen)
         if sheet is not None and screen.sheet is not None:
             self._calculator_shown = False
             self.body.controls = [self.sheet_view.control]
@@ -412,9 +417,12 @@ class CalculatorView:
         self.entry.content = self._entry(screen)
         self._side_by_side.clear()
         pairs = [
-            self._pair(screen.lines[number], screen.lines[number + 1], number)
+            self._history_pair(screen.lines[number], screen.lines[number + 1], number)
             for number in range(0, len(screen.lines) - 1, 2)
         ]
+        self._history_rows = {
+            n: row for n, row in self._history_rows.items() if n < len(screen.lines)
+        }
         picked = next((n for n, line in enumerate(screen.lines) if line.selected), None)
         self.history.controls = [
             ft.Container(height=self.state.px(6)),  # the first line is not cut off by the title bar
@@ -438,6 +446,18 @@ class CalculatorView:
         self._follow = picked is not None and picked != self._held
         self._error(screen)
         self._menu(screen.menu)
+
+    def _prepare_history(self, screen: Screen) -> None:
+        page = self.state.document.current
+        if (
+            page is not self._history_page
+            or self.measuring
+            or screen.sorter is not None
+            or screen.stub is not None
+            or screen.sheet is not None
+        ):
+            self._history_rows.clear()
+            self._history_page = page
 
     def _sorter_unit(self) -> float:
         """Pixels per sorter unit: the Handheld screen's scale, larger on the Computer screen."""
@@ -685,6 +705,18 @@ class CalculatorView:
         return ft.Container(
             body, border=ft.Border(bottom=rule), padding=ft.Padding.only(bottom=self.state.px(2))
         )
+
+    def _history_pair(self, entry: Line, result: Line, number: int) -> ft.Control:
+        if self.measuring:
+            return self._pair(entry, result, number)
+        key = (entry, result, self.state.scale, self.state.math_size, self.theme)
+        old = self._history_rows.get(number)
+        if old is not None and old[0] == key:
+            self._side_by_side[number // 2] = old[2]
+            return old[1]
+        control = self._pair(entry, result, number)
+        self._history_rows[number] = (key, control, self._side_by_side[number // 2])
+        return control
 
     def _line(self, line: Line, number: int) -> ft.Container:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
