@@ -149,11 +149,11 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-001 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py`, `tests/device/test_calculator.py` and 7 more |
+| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py`, `tests/app/test_history_cache.py` and 8 more |
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |
-| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_page_number_click.py`, `tests/app/test_sorter.py` and 2 more |
+| FR-DOC-001 | Must | `tests/app/test_documents.py`, `tests/app/test_history_cache.py`, `tests/app/test_page_number_click.py` and 3 more |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 2 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
@@ -169,8 +169,8 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-006 | Must | `tests/device/test_sheet_scene.py`, `tests/unit/test_scene.py` |
 | FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 4 more |
-| FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_layout.py`, `tests/app/test_phone_view.py` and 5 more |
-| FR-DEV-005 | Should | `tests/app/test_keypad_refresh.py`, `tests/app/test_keypad_shapes.py`, `tests/app/test_pointer_view.py` and 3 more |
+| FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_history_cache.py`, `tests/app/test_layout.py` and 6 more |
+| FR-DEV-005 | Should | `tests/app/test_history_cache.py`, `tests/app/test_keypad_refresh.py`, `tests/app/test_keypad_shapes.py` and 4 more |
 | FR-DEV-006 | Must | `tests/app/test_state.py` |
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 2 more |
 | FR-DEV-008 | Should | `tests/app/test_menus.py` |
