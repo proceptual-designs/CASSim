@@ -60,6 +60,7 @@ Mac users substitute Cmd for ctrl. "Hand" is the handheld keypad (in CASSim, Han
 | ctrl+Z, ctrl+Y | Undo, redo | A, B, C | M2d | Confirmed (S7 d): entry-line undo grouped by operator (`ab+c` is 3 steps: `ab`, `+`, `c`); a template insert and each slot entry are separate steps; with an empty undo history ctrl+Z falls through and undoes the page insert |
 | shift+Esc | Redo (hand) | B | M2d, Could | Differs (S7): no redo; redo is ctrl+Y |
 | ctrl+I | Insert page | A, B, C | M2c | Used in the capture runs |
+| ctrl+Left / ctrl+Right | Previous / next page | CASSim | FR-DOC-001 | Keyboard and keypad |
 | ctrl+N, ctrl+O, ctrl+S, ctrl+W | New, open, save, close document | A, B, C | M2c | not needed on the emulator |
 | ctrl+L | Variable list (Calc); store or link a variable (L&S) | A, B, C | M2c | Confirmed (S2) for Calculator |
 | ctrl+R | Recalculate (L&S) | A, B, C | M5 | |
@@ -102,7 +103,7 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
   use the on-screen menus when they do. Browser-reserved ctrl+W, ctrl+P and ctrl+T are not bound.
 
 ## Selection and clipboard in CASSim (computer keyboard)
-- shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move by word. These word and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
+- shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move between pages. The word-selection and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
 - ctrl+C, ctrl+X, ctrl+V: the calculator's clipboard keeps templates, so a pasted fraction is stacked (S7), and it is shared by all pages of a document. The text is also put on the system clipboard; on paste, system text that matches the calculator's clipboard brings the templates back, any other text is typed in (newlines become spaces).
 
 ## Menus (M2c)

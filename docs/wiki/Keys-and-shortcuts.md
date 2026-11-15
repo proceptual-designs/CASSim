@@ -13,7 +13,7 @@
 | Ctrl+/ | Fraction template |
 | Ctrl+I | Add a page (choose its type) |
 | Ctrl+Alt+I | Add a Problem (choose its first page's type) |
-| Alt+Left, Alt+Right | Previous and next page |
+| Ctrl+Left, Ctrl+Right; Alt+Left, Alt+Right | Previous and next page |
 | Ctrl+Up | Page Sorter |
 | Ctrl+L | Variables menu |
 | Ctrl+N, Ctrl+O, Ctrl+S | New, open, save document |
@@ -22,7 +22,6 @@
 | Ctrl+A | Select the whole entry |
 | Tab, Shift+Tab | Next, previous field or template slot |
 | Shift+Left, Shift+Right | Select part of an entry |
-| Ctrl+Left, Ctrl+Right | Move by word |
 | Ctrl+Shift+Left, Ctrl+Shift+Right | Select by word |
 | Shift+Home, Shift+End | Select to the start, end of the entry |
 | Ctrl+Space | Insert an underscore |
