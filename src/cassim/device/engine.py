@@ -93,7 +93,13 @@ type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | SheetOp
 # What each sheet action takes. "span" is [left, top, right, bottom] (columns from 0, rows from
 # 1); "choose" maps a name to "cell" or "variable" (Conflict Detected).
 SHEET_ARGS: dict[str, dict[str, str]] = {
-    "cell": {"column": "int", "row": "int", "text": "str", "choose": "choose"},
+    "cell": {
+        "column": "int",
+        "row": "int",
+        "text": "str",
+        "choose": "choose",
+        "confirm": "bool",
+    },
     "formula": {"column": "int", "text": "str", "choose": "choose"},
     "name": {"column": "int", "text": "str"},
     "fill": {"source": "span", "target": "span"},
@@ -113,7 +119,7 @@ SHEET_ARGS: dict[str, dict[str, str]] = {
     "recalculate": {},
     "view": {"span": "span"},
     "restore": {"cells": "cells", "columns": "columns"},
-    "put": {"cells": "cells"},
+    "put": {"cells": "cells", "confirm": "bool"},
     "move": {"column": "int", "to": "int"},
     "drop": {},
 }

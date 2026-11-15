@@ -33,8 +33,9 @@ def sheet(action, page=2, **args):
     return {"op": "sheet", "page": page, "action": action, "args": args}
 
 
-def cell(column, row, text, page=2, choose=None):
-    return sheet("cell", page, column=column, row=row, text=text, choose=choose or {})
+def cell(column, row, text, page=2, *, choose=None):
+    args = {"column": column, "row": row, "text": text, "choose": choose or {}}
+    return sheet("cell", page, **args, confirm=False)
 
 
 def view(left, top, right, bottom, page=2):
@@ -363,8 +364,10 @@ def test_columns_are_sent_when_they_change():
 def test_put_sets_and_clears_cells():
     core = EngineCore()
     cells = [[0, 1, "entry", "3"], [0, 2, "formula", "a1+1"]]
-    core.apply(1, [sheet("put", cells=cells)])
-    reply = core.apply(1, [sheet("put", cells=[[0, 1, "entry", ""]]), view(0, 1, 0, 2)])
+    core.apply(1, [sheet("put", cells=cells, confirm=False)])
+    reply = core.apply(
+        1, [sheet("put", cells=[[0, 1, "entry", ""]], confirm=False), view(0, 1, 0, 2)]
+    )
     assert shown(reply) == {(0, 2): "_"}  # a blank cell read by a formula is `_` (a guess)
 
 

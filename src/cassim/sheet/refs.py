@@ -200,6 +200,21 @@ def shifted(text: str, columns: int, rows: int) -> str | None:
     return rewrite(text, found, lambda item: str(moved[positions[id(item)]]))
 
 
+def renamed(text: str, name: str, spelled: str) -> str:
+    """A formula with each use of the name `name` (any case, not inside a string, not part of a
+    longer name, not already written `'name`) written as `spelled` instead."""
+    strings = _strings(text)
+    pattern = re.compile(rf"(?<![\w.'$]){re.escape(name)}(?![\w(\[])", re.IGNORECASE)
+    parts: list[str] = []
+    last = 0
+    for match in pattern.finditer(text):
+        if any(start <= match.start() < end for start, end in strings):
+            continue
+        parts += [text[last : match.start()], spelled]
+        last = match.end()
+    return "".join([*parts, text[last:]])
+
+
 def remapped(
     text: str, move: Callable[[Ref], Ref], move_column: Callable[[int], int] | None = None
 ) -> str:

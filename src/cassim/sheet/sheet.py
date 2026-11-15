@@ -107,6 +107,20 @@ class SheetError(Exception):
         self.message = message
 
 
+DATA_LOSS = "Data Loss"
+DATA_LOSS_MESSAGE = (
+    "This operation may overwrite data in the current column(s). Do you wish to proceed?"
+)
+
+
+class DataLossError(SheetError):
+    """The action needs an OK first: "Data Loss" with OK and Cancel. Call again with
+    `confirm=True` after OK."""
+
+    def __init__(self) -> None:
+        super().__init__(DATA_LOSS, DATA_LOSS_MESSAGE)
+
+
 class ConflictError(SheetError):
     """A formula names something that is both a cell and a variable, such as `d1` (check run 2,
     E7). The caller asks "Cell or Variable?" for each name and enters the formula again with the
@@ -233,30 +247,27 @@ class Sheet:
     # ----- changing ------------------------------------------------------------------------
 
     def set_cell(
-        self, column: int, row: int, text: str, *, choose: dict[str, str] | None = None
+        self,
+        column: int,
+        row: int,
+        text: str,
+        *,
+        choose: dict[str, str] | None = None,
+        confirm: bool = False,
     ) -> list[Notice]:
         """Type `text` into a cell and press Enter. Raises SheetError when the handheld keeps
-        the cell in edit mode; returns the dialogs to show when it keeps the change."""
+        the cell in edit mode; returns the dialogs to show when it keeps the change. A name
+        nothing defines stays as a name (check 5, E20: `=zzq` shows `zzq`)."""
         key = (column, row)
         if not 1 <= row <= ROWS or not 0 <= column < COLUMNS:
             raise SheetError(SYNTAX_ERROR, INVALID_INPUT)
-        if self._columns[column].formula is not None:
-            # Guess: check 6 did not type into a column that has a column formula.
-            raise SheetError(SYNTAX_ERROR, INVALID_INPUT)
+        self._take_over({column}, confirm=confirm)
         text = text.strip()
         if not text:
             return self._replace({key: None})
         if text.startswith("="):
             formula = self._checked_formula(key, text[1:], choose or {})
-            before = self._contents.get(key)
-            notices = self._replace({key: Formula(formula)})
-            value = self._values.get(key)
-            if isinstance(value, Expr) and cas.is_symbolic(value.raw):
-                # A name nothing defines, as `=undefinedname` (check 6, E20): refused, and the
-                # cell goes back to what it held.
-                self._replace({key: before})
-                raise SheetError(SYNTAX_ERROR, DURING_INSERTION)
-            return notices
+            return self._replace({key: Formula(formula)})
         try:
             parse(text)
         except TIError as error:
@@ -320,7 +331,7 @@ class Sheet:
             raise SheetError(LINK_ERROR, LINKED_TWICE)
         stored = self._session.scope.get(name)
         if stored is not None and not isinstance(stored, ListValue):
-            raise SheetError(SYNTAX_ERROR, INVALID_INPUT)  # guess: not run on the emulator
+            raise SheetError(SYNTAX_ERROR, INVALID_INPUT)  # run 4, S14: k:=5, then a column named k
         info.name, info.shown_name = name, text
         outcome = _Outcome()
         if isinstance(stored, ListValue) and info.formula is None:
@@ -351,11 +362,30 @@ class Sheet:
         """Every cell's content, for an action that moves cells (`sheet.actions`) or a save."""
         return dict(self._contents)
 
-    def put(self, contents: dict[Key, Content | None]) -> list[Notice]:
+    def put(self, contents: dict[Key, Content | None], *, confirm: bool = False) -> list[Notice]:
         """Set several cells at once, as Fill and Paste do, then recalculate. None clears."""
-        if any(self._columns[column].formula is not None for column, _ in contents):
-            raise SheetError(SYNTAX_ERROR, INVALID_INPUT)  # guess, as in `set_cell`
+        self._take_over({column for column, _ in contents}, confirm=confirm)
         return self._replace(contents)
+
+    def _take_over(self, columns: set[int], *, confirm: bool) -> None:
+        """Typing into a column that has a column formula asks first (Data Loss); OK drops the
+        formula and the values it made, so only what is typed is left (check 5, E8; run 4, S6
+        and S16)."""
+        taken = sorted(c for c in columns if self._columns[c].formula is not None)
+        if not taken:
+            return
+        if not confirm:
+            raise DataLossError
+        for column in taken:
+            info = self._columns[column]
+            info.formula = None
+            info.failed = False
+            self._unlink((column, 0))
+            for key in [k for k in self._values if k[0] == column and k[1] > 0]:
+                del self._values[key]
+        outcome = _Outcome(changed={(c, 1) for c in taken})
+        self._recalculate(set(), outcome)
+        self._relock()
 
     def restore(self, contents: dict[Key, Content], columns: list[ColumnInfo]) -> list[Notice]:
         """Replace the whole sheet, as after an insert, delete or sort, or when a document is
@@ -434,8 +464,18 @@ class Sheet:
             and self._session.scope.get(self._key(item.reference.name)) is not None
             and item.reference.name not in choose
         )
+        conflicts += tuple(
+            name for name in self._column_names_in(text, found) if name not in choose
+        )
         if conflicts:
             raise ConflictError(text, conflicts)
+        for name, picked in choose.items():
+            column = self.find(name)
+            if column is not None and not refs.address(name):
+                # A column's name: `u[]`, the column itself, or `'u`, the list (run 4, S11)
+                spelled = f"{refs.column_letter(column)}[]" if picked == "cell" else f"'{name}"
+                text = refs.renamed(text, name, spelled)
+        found = refs.scan(text)
         text = refs.rewrite(
             text,
             found,
@@ -453,6 +493,24 @@ class Sheet:
         if self._reaches(key, inputs):
             raise SheetError(SYNTAX_ERROR, CIRCULAR)
         return text
+
+    def _column_names_in(self, text: str, found: list[Found]) -> list[str]:
+        """The names in a formula that are this sheet's linked columns: the handheld asks
+        "Column or Variable?" for each (run 4, S11)."""
+        try:
+            node = self._parsed(text, found)
+        except TIError:
+            return []
+        linked = {info.name: info.shown_name for info in self._columns if info.name is not None}
+        seen: list[str] = []
+        for name in _names(node):
+            key = self._key(name)
+            if name.startswith(_PLACEHOLDER) or key not in linked or name in seen:
+                continue
+            if any(isinstance(i.reference, Variable) and i.reference.name == name for i in found):
+                continue  # written `'name` already: the variable
+            seen.append(name)
+        return seen
 
     def _parsed(self, text: str, found: list[Found]) -> ast.Expr:
         rewritten = refs.rewrite(
@@ -647,8 +705,12 @@ class Sheet:
         message = None
         if isinstance(value, Failed):
             message = self._column_error((column, 0))
-        elif not isinstance(value, ListValue) or len(value.items) > ROWS:
-            message = "Syntax"  # guess: a column formula that does not give a list
+        elif not isinstance(value, ListValue):
+            # One value fills the whole column (run 4, S15: `=5` showed 5 as far down as was
+            # looked, row 18; the whole column is a guess beyond that).
+            value = ListValue((value,) * ROWS)
+        elif len(value.items) > ROWS:
+            message = "Syntax"  # guess: more rows than the sheet has
         if message is not None:
             info.failed = True
             title = f"Syntax Error in Column: {refs.column_letter(column)}"

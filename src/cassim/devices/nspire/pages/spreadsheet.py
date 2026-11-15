@@ -174,6 +174,7 @@ class Spreadsheet:
         self.rows_shown, self.columns_shown = 5, 4  # set by the view from its size
         self.editing: str | None = None
         self.caret = 0
+        self.selected = False  # the whole of `editing` is selected: a key typed replaces it
         self.mode: Literal["fill", "move", "resize"] | None = None
         self._fill_from: tuple[int, int, int, int] | None = None
         self._move_to = 0
@@ -280,7 +281,8 @@ class Spreadsheet:
             )
             return
         if error["names"] and last is not None:
-            self.wizard = _conflict_wizard(error, last)
+            columns = {shown.casefold() for _, shown, _ in self.columns if shown}
+            self.wizard = _conflict_wizard(error, last, columns)
             return
         self.dialogs.append(Dialog(error["title"], error["message"]))
         if last is not None and last["action"] in ("cell", "formula", "name"):
@@ -412,9 +414,12 @@ class Spreadsheet:
         return f"{letter(column).upper()}{row}"
 
     def context_menu(self) -> str:
-        """The context menu for where the cursor is (check 6, E2, E12; run 2, E2)."""
-        if self.whole == "column" or self.cursor[1] == NAME_ROW:
+        """The context menu for where the cursor is (check 6, E2, E12; run 2, E2; run 4, S12:
+        the name cell's differs from a selected column's)."""
+        if self.whole == "column":
             return "sheet_column"
+        if self.cursor[1] == NAME_ROW:
+            return "sheet_name"
         if self.whole == "row":
             return "sheet_row"
         if self.selection() is not None:
@@ -473,8 +478,8 @@ class Spreadsheet:
             "tab": lambda _: self.go((self.cursor[0], FORMULA_ROW)),
             "shift_tab": lambda _: self._select_all(),
             "select_all": lambda _: self._select_all(),
-            "enter": lambda _: self.begin_edit(self.entry_text(self.cursor)),
-            "select": lambda _: self.begin_edit(self.entry_text(self.cursor)),
+            "enter": lambda _: self.begin_edit(self.entry_text(self.cursor), selected=True),
+            "select": lambda _: self.begin_edit(self.entry_text(self.cursor), selected=True),
             "insert": self.type_text,
             "insert_linear": self.type_text,
             "template": lambda _: None,
@@ -614,9 +619,12 @@ class Spreadsheet:
 
     # ---- typing -------------------------------------------------------------------------------
 
-    def begin_edit(self, text: str) -> None:
+    def begin_edit(self, text: str, *, selected: bool = False) -> None:
+        """Edit the cursor's cell. `selected`: its content starts selected, so the first key
+        typed replaces it (run 4, S16: Return on a filled cell)."""
         self.editing = text
         self.caret = len(text)
+        self.selected = selected and bool(text)
         self.anchor = None
         self.whole = None
 
@@ -627,6 +635,8 @@ class Spreadsheet:
 
     def _insert(self, text: str) -> None:
         assert self.editing is not None
+        if self.selected:
+            self._set_text("")
         place = text.find(MARK)
         plain = text.replace(MARK, "")
         self.editing = self.editing[: self.caret] + plain + self.editing[self.caret :]
@@ -641,11 +651,16 @@ class Spreadsheet:
 
     def _set_text(self, text: str) -> None:
         self.editing, self.caret = text, len(text)
+        self.selected = False
 
     def _caret(self, place: int) -> None:
+        self.selected = False
         self.caret = min(max(place, 0), len(self.editing or ""))
 
     def _erase(self, *, before: bool) -> None:
+        if self.selected:
+            self._set_text("")
+            return
         text = self.editing or ""
         if before and self.caret > 0:
             self.editing = text[: self.caret - 1] + text[self.caret :]
@@ -670,7 +685,7 @@ class Spreadsheet:
                 self._send("formula", column=column, text=formula, choose={})
             else:
                 self.waiting[self.cursor] = text
-                self._send("cell", column=column, row=row, text=text, choose={})
+                self._send("cell", column=column, row=row, text=text, choose={}, confirm=False)
         if then != (0, 0) and not self.dialogs:
             self.move(*then)
 
@@ -693,7 +708,7 @@ class Spreadsheet:
             if left <= c <= right and top <= r <= bottom
         ]
         if cleared:
-            self._send("put", cells=cleared)
+            self._send("put", cells=cleared, confirm=False)
 
     def copy(self) -> None:
         column, row = self.cursor
@@ -763,7 +778,7 @@ class Spreadsheet:
                 cells[target] = [*target, kind, text_]
         valid = [cell for key, cell in cells.items() if 0 <= key[0] < COLUMNS and key[1] <= ROWS]
         if valid:
-            self._send("put", cells=valid)
+            self._send("put", cells=valid, confirm=False)
         self.anchor = (left, top)
         self.cursor = (min(left + copied.width - 1, COLUMNS - 1), top + copied.height - 1)
 
@@ -782,7 +797,7 @@ class Spreadsheet:
             if column + dc < COLUMNS
         ]
         if cells:
-            self._send("put", cells=cells)
+            self._send("put", cells=cells, confirm=False)
 
     def undo(self) -> None:
         if not self._undo:
@@ -1014,10 +1029,17 @@ def _generate_wizard(column: int) -> Wizard:
     )
 
 
-def _conflict_wizard(error: SheetErrorPayload, last: SheetOp) -> Wizard:
-    """Conflict Detected (run 2, E7): Cell Reference or Variable Reference for each name, then
-    the formula goes in again with the choices."""
-    choices = (("cell", "Cell Reference"), ("variable", "Variable Reference"))
+def _conflict_wizard(error: SheetErrorPayload, last: SheetOp, columns: set[str]) -> Wizard:
+    """Conflict Detected (run 2, E7; run 4, S11): for each name, Cell Reference or Variable
+    Reference (a name that is also a cell, `d1`), or Column Reference or Variable Reference (a
+    linked column's name, `u`); then the formula goes in again with the choices."""
+    cells = (("cell", "Cell Reference"), ("variable", "Variable Reference"))
+    lists = (("cell", "Column Reference"), ("variable", "Variable Reference"))
+
+    def field(name: str) -> Field:
+        if name.casefold() in columns:
+            return Field(name, f"{name} :  Column or Variable?", "cell", choices=lists)
+        return Field(name, f"{name} :  Cell or Variable?", "cell", choices=cells)
 
     def steps(values: Mapping[str, str]) -> list[Binding]:
         choose = {name: values.get(name, "cell") for name in error["names"]}
@@ -1026,10 +1048,7 @@ def _conflict_wizard(error: SheetErrorPayload, last: SheetOp) -> Wizard:
 
     return Wizard(
         "Conflict Detected",
-        tuple(
-            Field(name, f"{name} :  Cell or Variable?", "cell", choices=choices)
-            for name in error["names"]
-        ),
+        tuple(field(name) for name in error["names"]),
         steps=steps,
     )
 

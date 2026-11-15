@@ -550,6 +550,7 @@ def test_save_and_open_keep_the_sheet_and_its_values_win():
     type_cell(state, "20")  # after the Calculator's entry: the sheet's value is the newer
     sheet.go((B, FORMULA_ROW))
     type_cell(state, "=xs*2")
+    finish_wizard(state, xs="variable")  # xs is column A's name: Column or Variable? (S11)
     sheet.widths[B] = 100
     text = dumps(state.document)
     data = json.loads(text)["problems"][0]["pages"][1]
@@ -760,3 +761,74 @@ def test_a_sort_range_typed_wrong_sorts_the_selection():
     state.run(Binding("sheet", "sort"))
     finish_wizard(state, range="nonsense", order="descending")
     assert column(state, A, [1, 2, 3]) == ["3", "2", "1"]
+
+
+# ----- from emulator check 6 run 4, part S ------------------------------------------------------
+
+
+def test_return_on_a_filled_cell_selects_it_so_typing_replaces():
+    """Run 4, S16: Return on F1 holding 7, then 8: F1 is 8, not 78."""
+    state = sheet_app()
+    type_cell(state, "7")
+    keys(state, "up", "enter")
+    sheet = sheet_of(state)
+    assert (sheet.editing, sheet.selected) == ("7", True)
+    keys(state, "8", "enter")
+    assert shown(state, A, 1) == "8"
+    keys(state, "up", "enter", "right", "9")  # a move first: the caret goes to the end
+    assert sheet.editing == "89"
+    keys(state, "escape", "enter", "backspace")
+    assert sheet.editing == ""
+
+
+def test_typing_into_a_formula_column_asks_first():
+    """Check 5, E8; run 4, S16: Data Loss; OK leaves only the typed value."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, FORMULA_ROW))
+    type_cell(state, "=seq(n,n,1,3)")
+    sheet.go((B, 3))
+    type_cell(state, "99")
+    assert sheet.dialogs[0].title == "Data Loss"
+    keys(state, "enter")  # OK
+    assert column(state, B, [1, 2, 3]) == ["", "", "99"]
+    assert sheet.columns[B][2] is None
+
+
+def test_a_columns_name_in_a_formula_asks_column_or_variable():
+    """Run 4, S11."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    for value in ("5", "1"):
+        type_cell(state, value)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "u")
+    sheet.go((B, FORMULA_ROW))
+    type_cell(state, "=u*3")
+    wizard = state.wizards[-1]
+    assert wizard.fields[0].label == "u :  Column or Variable?"
+    assert [label for _, label in wizard.fields[0].choices] == [
+        "Column Reference",
+        "Variable Reference",
+    ]
+    finish_wizard(state, u="variable")
+    assert column(state, B, [1, 2]) == ["15", "3"]
+
+
+def test_the_name_cell_has_its_own_context_menu():
+    """Run 4, S12: Cut (grey), Paste, Variables, Resize, Summary Plot, Quick Graph, Color."""
+    state = sheet_app()
+    sheet_of(state).go((A, NAME_ROW))
+    keys(state, "context_menu")
+    assert state.menu is not None
+    rows = state.menu.view().rows
+    assert [row.label for row in rows] == [
+        "Cut",
+        "Paste",
+        "Variables",
+        "Resize",
+        "Summary Plot",
+        "Quick Graph",
+        "Color",
+    ]
+    assert not rows[0].enabled

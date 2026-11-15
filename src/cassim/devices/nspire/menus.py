@@ -1237,6 +1237,24 @@ SHEET_ROW = MenuItem(
         todo("Color", "7"),
     ),
 )
+# The name cell's context menu (run 4, S12): Cut greyed, no Copy, no Insert or Delete Column.
+SHEET_NAME = MenuItem(
+    "Column",
+    items=(
+        todo("Cut", "1"),
+        act("Paste", "paste", "2"),
+        sub(
+            "Variables",
+            "3",
+            act("Store Var", "store_var", "1"),
+            act("Unlink", "unlink", "2"),
+        ),
+        replace(_RESIZE, key="4"),
+        todo("Summary Plot", "5"),
+        todo("Quick Graph", "6"),
+        todo("Color", "7"),
+    ),
+)
 SHEET_COLUMN = MenuItem(
     "Column",
     items=(
@@ -1291,6 +1309,7 @@ MENUS = {
     "sheet_block": SHEET_BLOCK,
     "sheet_row": SHEET_ROW,
     "sheet_column": SHEET_COLUMN,
+    "sheet_name": SHEET_NAME,
     "trig": TRIG,
     "templates": TEMPLATES,
     "catalog": CATALOG,
