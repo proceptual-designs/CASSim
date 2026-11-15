@@ -23,6 +23,7 @@ class Line:
     selected: bool = False  # Up has picked this row for recall
     part: bool = False  # the LaTeX draws its own cursor and selection (the row was moved into)
     warnings: tuple[str, ...] = ()  # an entry row's warning triangle (FR-CALC-007)
+    error: bool = False  # error result text is drawn as ordinary text to keep ASCII quotes straight
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,17 @@ def render(
                 latex = editor.latex(is_defined=page.session.is_defined)
             warnings = entry.result.warnings if kind == "entry" else ()
             shown = latex or rf"\text{{{text}}}"
-            lines.append(Line(kind, shown, text, picked, bool(part), warnings))
+            lines.append(
+                Line(
+                    kind,
+                    shown,
+                    text,
+                    picked,
+                    bool(part),
+                    warnings,
+                    kind == "result" and entry.result.error is not None,
+                )
+            )
     return Screen(
         title,
         status,

@@ -25,3 +25,12 @@ def test_keypad_is_rebuilt_when_the_modifier_or_scale_changes() -> None:
     state.pad_scale *= 0.5
     keypad.refresh()
     assert keypad.control.controls is not second
+
+
+def test_keypad_is_rebuilt_when_caps_changes() -> None:
+    state = AppState()
+    keypad = Keypad(state, lambda _: None)
+    first = keypad.control.controls
+    state.caps = True
+    keypad.refresh()
+    assert keypad.control.controls is not first

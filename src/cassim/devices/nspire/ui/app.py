@@ -288,7 +288,7 @@ class App:
         if dirty != self.dirty:
             self.dirty = dirty
             self.state.doc_title = self.doc_title()
-            self.view.doc_name.value = self.state.doc_title
+            self.view.set_doc_title(self.state.doc_title)
             self.page.update()
 
     def doc_title(self) -> str:
@@ -390,7 +390,7 @@ class App:
         else:
             self.toolbar.controls = [*self.toolbar_controls(), self.status, self.sink_box]
         self.state.doc_title = self.doc_title()
-        self.view.doc_name.value = self.state.doc_title
+        self.view.set_doc_title(self.state.doc_title)
 
     def print_sheet(self) -> None:
         """`CASSIM: SHEET A2 16`: the cursor's cell and what it shows, when that changes. The
