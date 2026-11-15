@@ -2,12 +2,13 @@
 """The Calculator page driven by key names (FR-DEV-001, FR-CALC-004, FR-DEV-007)."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from cassim import device
 from cassim.device.editor import Editor
-from cassim.device.keys import Binding, Keyboard
+from cassim.device.keys import Action, Binding, Keyboard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
@@ -174,7 +175,7 @@ def test_undo_restores_a_template():
 
 def test_unknown_action_is_an_error():
     with pytest.raises(ValueError, match="unknown action"):
-        Calculator().perform(Binding("fly"))
+        Calculator().perform(Binding(cast("Action", "fly")))
 
 
 def test_framework_does_not_import_a_profile():

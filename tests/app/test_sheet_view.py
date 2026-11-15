@@ -10,7 +10,7 @@ import flet as ft
 from tests.app.test_splitter_drag import FakePage
 
 from cassim.app.shell import Shell
-from cassim.device.keys import Binding
+from cassim.device.keys import Action, Binding
 from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.spreadsheet import NAME_ROW
 from cassim.devices.nspire.sheet_scene import FORMULA, HEAD, ROW, ROW_LABELS
@@ -54,7 +54,7 @@ class Recorder:
         self.state = state
         self.done: list[tuple[str, str]] = []
 
-    def __call__(self, action: str, arg: str) -> None:
+    def __call__(self, action: Action, arg: str) -> None:
         self.done.append((action, arg))
         self.state.run_action(action, arg)
 

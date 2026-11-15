@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 
 from cassim.core.compat import finance as fin
-from cassim.device.keys import Binding
+from cassim.device.keys import Action, Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.spreadsheet import STAT_CALCULATIONS
@@ -1301,7 +1301,7 @@ SHEET_COLUMN = MenuItem(
 )
 
 
-def _app_picker(action: str, title: str) -> MenuItem:
+def _app_picker(action: Action, title: str) -> MenuItem:
     """The list of applications a new page or Problem offers (emulator checks: graphs2 D, graphs3,
     sharing G, split H): the device's ten items and numbers; Geometry, Vernier DataQuest and
     Widget are greyed, and the Graphs, Data & Statistics, Notes, Program Editor and Python pages

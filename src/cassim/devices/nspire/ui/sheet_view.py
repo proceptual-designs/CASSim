@@ -18,6 +18,7 @@ import flet.canvas as cv
 
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
+from cassim.device.keys import Action
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, fit, sheet_scene
 from cassim.graph.scene import Layer
@@ -43,7 +44,7 @@ class SheetView:
     def __init__(
         self,
         theme: Theme,
-        on_action: Callable[[str, str], None],
+        on_action: Callable[[Action, str], None],
         scale: Callable[[], float],
     ) -> None:
         self.theme = theme

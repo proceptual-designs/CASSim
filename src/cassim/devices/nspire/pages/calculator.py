@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from cassim.core.session import Session
-    from cassim.device.keys import Binding
+    from cassim.device.keys import Action, Binding
     from cassim.doc.document import Page
 
 type Row = Literal["entry", "result"]
@@ -115,8 +115,8 @@ class Calculator:
             raise ValueError(msg)
         action(binding.arg)
 
-    def _actions(self) -> dict[str, Callable[[str], None]]:
-        move = {
+    def _actions(self) -> dict[Action, Callable[[str], None]]:
+        move: dict[Action, Callable[[], None]] = {
             "left": self.editor.left,
             "right": self.editor.right,
             "tab": self.editor.tab,
@@ -133,39 +133,43 @@ class Calculator:
             "word_left": self.editor.word_left,
             "word_right": self.editor.word_right,
         }
-        actions: dict[str, Callable[[str], None]] = {name: self._recall_move(name) for name in move}
+        actions: dict[Action, Callable[[str], None]] = {
+            name: self._recall_move(name) for name in move
+        }
         actions.update(
-            insert=self._insert,
-            insert_linear=lambda text: self._edit(
-                "other", lambda: self.editor.insert_linear(text, MARK)
-            ),
-            template=self._template,
-            power=self._power,
-            accent=lambda _: self._edit("operand", self.editor.cycle_accent),
-            backspace=lambda _: self._delete(self.editor.backspace),
-            delete=lambda _: self._delete(self.editor.delete),
-            clear=lambda _: self._edit("other", self.editor.clear),
-            copy=lambda _: self._copy(),
-            cut=lambda _: self._cut(),
-            paste=self._paste,
-            up=lambda _: self._vertical(up=True),
-            down=lambda _: self._vertical(up=False),
-            enter=lambda _: self._enter(approximate=False),
-            approximate=lambda _: self._enter(approximate=True),
-            undo=lambda _: self._step(self._undo, self._redo),
-            redo=lambda _: self._step(self._redo, self._undo),
-            escape=lambda _: self._mover(lambda: None)(""),
-            home_key=lambda arg: (
-                self._first_line() if self.recall else self._recall_move("home")(arg)
-            ),
-            first_line=lambda _: self._first_line(),
-            last_line=lambda _: self._mover(lambda: None)(""),  # ctrl+1: back to the entry line
-            recall_at=self._recall_at,
-            select_cells=self._select_cells,
-            place=lambda arg: self._place(arg, extend=False),
-            extend=lambda arg: self._place(arg, extend=True),
-            recall_place=lambda arg: self._recall_place(arg, extend=False),
-            recall_extend=lambda arg: self._recall_place(arg, extend=True),
+            {
+                "insert": self._insert,
+                "insert_linear": lambda text: self._edit(
+                    "other", lambda: self.editor.insert_linear(text, MARK)
+                ),
+                "template": self._template,
+                "power": self._power,
+                "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
+                "backspace": lambda _: self._delete(self.editor.backspace),
+                "delete": lambda _: self._delete(self.editor.delete),
+                "clear": lambda _: self._edit("other", self.editor.clear),
+                "copy": lambda _: self._copy(),
+                "cut": lambda _: self._cut(),
+                "paste": self._paste,
+                "up": lambda _: self._vertical(up=True),
+                "down": lambda _: self._vertical(up=False),
+                "enter": lambda _: self._enter(approximate=False),
+                "approximate": lambda _: self._enter(approximate=True),
+                "undo": lambda _: self._step(self._undo, self._redo),
+                "redo": lambda _: self._step(self._redo, self._undo),
+                "escape": lambda _: self._mover(lambda: None)(""),
+                "home_key": lambda arg: (
+                    self._first_line() if self.recall else self._recall_move("home")(arg)
+                ),
+                "first_line": lambda _: self._first_line(),
+                "last_line": lambda _: self._mover(lambda: None)(""),  # ctrl+1: entry line
+                "recall_at": self._recall_at,
+                "select_cells": self._select_cells,
+                "place": lambda arg: self._place(arg, extend=False),
+                "extend": lambda arg: self._place(arg, extend=True),
+                "recall_place": lambda arg: self._recall_place(arg, extend=False),
+                "recall_extend": lambda arg: self._recall_place(arg, extend=True),
+            }
         )
         return actions
 

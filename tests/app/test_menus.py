@@ -1,15 +1,19 @@
 # Requirements traced here: FR-DEV-008
 """Menus walked from keys: the Doc and Menu trees come from the profile (FR-DEV-001, FR-DEV-007)."""
 
+from collections.abc import Mapping
+
 import flet as ft
 import pytest
 
 from cassim.app.shell import BrowserOffers
 from cassim.core.catalog import registry
+from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import syntax as nspire_syntax
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of, calculator_on
+from cassim.devices.nspire.pages.spreadsheet import SHEET_ACTIONS, Spreadsheet
 from cassim.devices.nspire.ui.app import browser_doc_items
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
@@ -123,7 +127,10 @@ def test_keypad_doc_and_esc_keys() -> None:
 
 def test_selection_wraps_and_explicit_keys_are_reserved() -> None:
     menu = MenuState(
-        MenuItem("m", items=(MenuItem("a", "x"), MenuItem("b", "y", key="1"), MenuItem("c", "z")))
+        MenuItem(
+            "m",
+            items=(MenuItem("a", "insert"), MenuItem("b", "enter", key="1"), MenuItem("c", "up")),
+        )
     )
     assert menu.keys() == ["2", "1", "3"]
     menu.press("up")
@@ -256,6 +263,108 @@ def _leaves(item: MenuItem) -> list[MenuItem]:
     if not item.items:
         return [item]
     return [leaf for child in item.items for leaf in _leaves(child)]
+
+
+def _enabled_leaves(item: MenuItem) -> list[MenuItem]:
+    if not item.enabled:
+        return []
+    if not item.items:
+        return [item]
+    return [leaf for child in item.items for leaf in _enabled_leaves(child)]
+
+
+def _assert_action_dispatches(
+    binding: Binding, *, sheet_page: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Follow AppState's real routing, checking the actual page handler tables on arrival."""
+    state = AppState()
+    if sheet_page:
+        state.run_action("add_page", "spreadsheet")
+    calculator = calculator_of(state.document.current)
+    sheet = state.sheet
+    handled: list[str] = []
+    shell_action = state._shell_action
+    document_action = state._document_action
+
+    def shell(candidate: Binding) -> bool:
+        result = shell_action(candidate)
+        if result:
+            handled.append("shell")
+        return result
+
+    def document(candidate: Binding) -> bool:
+        result = document_action(candidate)
+        if result:
+            handled.append("document")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(state, "_shell_action", shell)
+        patch.setattr(state, "_document_action", document)
+        if calculator is not None:
+
+            def calculator_action(candidate: Binding) -> None:
+                assert candidate.action in calculator._actions(), candidate
+                handled.append("calculator")
+
+            patch.setattr(calculator, "perform", calculator_action)
+        if sheet is not None:
+
+            def sheet_action(candidate: Binding) -> None:
+                assert candidate.action in sheet._keys(), candidate
+                handled.append("sheet")
+
+            patch.setattr(sheet, "perform", sheet_action)
+        state.run(binding)
+        if sheet is not None and binding.action == "context_menu":
+            assert state.menu is not None
+            handled.append("sheet context menu")
+    assert handled, binding
+
+
+@pytest.mark.parametrize("name", sorted(nspire.PROFILE.menus))
+def test_enabled_menu_actions_reach_handlers(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-DEV-007: every enabled leaf has an action handled on its applicable page."""
+    actions: dict[str, Binding] = {}
+    for leaf in _enabled_leaves(nspire.PROFILE.menus[name]):
+        assert leaf.action, (name, leaf.label)
+        actions.setdefault(leaf.action, Binding(leaf.action, leaf.arg))
+    for binding in actions.values():
+        _assert_action_dispatches(
+            binding,
+            sheet_page=name == "menu_sheet" or name.startswith("sheet_"),
+            monkeypatch=monkeypatch,
+        )
+
+
+@pytest.mark.parametrize("keymap", [nspire.PROFILE.handheld, nspire.PROFILE.computer])
+def test_profile_actions_reach_handlers(
+    keymap: Mapping[str, Binding], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-DEV-007: sheet-only shortcuts are checked on a sheet, other keys on a calculator."""
+    actions = {binding.action: binding for binding in keymap.values()}
+    for binding in actions.values():
+        _assert_action_dispatches(
+            binding, sheet_page=binding.action in SHEET_ACTIONS, monkeypatch=monkeypatch
+        )
+
+
+def test_missing_page_handler_fails_dispatch_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Calculator, "_actions", lambda self: {})
+    with pytest.raises(AssertionError):
+        _assert_action_dispatches(Binding("insert", "x"), sheet_page=False, monkeypatch=monkeypatch)
+
+
+def test_missing_sheet_handler_fails_dispatch_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Spreadsheet, "_keys", lambda self: {})
+    with pytest.raises(AssertionError):
+        _assert_action_dispatches(Binding("goto"), sheet_page=True, monkeypatch=monkeypatch)
+
+
+def test_enabled_leaf_without_action_is_an_error() -> None:
+    menu = MenuState(MenuItem("m", items=(MenuItem("missing"),)))
+    with pytest.raises(ValueError, match="has no action"):
+        menu.press("enter")
 
 
 @pytest.mark.parametrize("name", sorted(nspire.PROFILE.menus))

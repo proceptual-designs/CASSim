@@ -15,6 +15,7 @@ from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
+from cassim.device.keys import Action
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Field, Wizard
@@ -182,7 +183,7 @@ class MenuBox:
         more = (self.start > 0) + (self.stop < self.lines)
         return 2 * self.pad + self.header + more * self.arrow + self.shown * self.line + self.hint
 
-    def hit(self, x: float, y: float) -> tuple[str, str] | None:
+    def hit(self, x: float, y: float) -> tuple[Action, str] | None:
         """The action for a click at (`x`, `y`) inside this panel, or None for a dead part."""
         y -= self.top + self.pad
         up = self.arrow if self.start else 0.0
@@ -202,7 +203,7 @@ class MenuBox:
             hit = None
         return hit
 
-    def _row(self, x: float, line: int) -> tuple[str, str] | None:
+    def _row(self, x: float, line: int) -> tuple[Action, str] | None:
         """A list row, or a grid cell found from `x`."""
         index = self.start + line
         if self.columns:
@@ -276,7 +277,7 @@ class CalculatorView:
         self,
         state: AppState,
         theme: Theme = DARK,
-        on_action: Callable[[str, str], None] = lambda action, arg: None,
+        on_action: Callable[[Action, str], None] = lambda action, arg: None,
         shift: Callable[[], bool] = lambda: False,
         on_setting: Callable[[str], None] = lambda name: None,
     ) -> None:
@@ -834,7 +835,7 @@ class CalculatorView:
         if moved != line:
             self.on_action("menu_page", str((moved - line) * columns))
 
-    def menu_click(self, x: float, y: float) -> tuple[str, str] | None:
+    def menu_click(self, x: float, y: float) -> tuple[Action, str] | None:
         """What a click at (`x`, `y`) in the body's frame does to the open menu, worked out from
         the panels as drawn: pick a row, page with ▲ or ▼, go back with a submenu's header, or
         close the menu from outside it. None when no menu is open, or the click lands on a part

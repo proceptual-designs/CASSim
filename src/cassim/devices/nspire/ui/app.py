@@ -21,7 +21,7 @@ from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import themed
 from cassim.core.settings import Settings, next_choice
 from cassim.device.engine import LocalEngine, local_session
-from cassim.device.keys import Binding, keypad_units
+from cassim.device.keys import Action, Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Wizard
@@ -595,7 +595,7 @@ class App:
         self.state.paste_text(await self.shell.pasted())
         self.refresh()
 
-    def act(self, action: str, arg: str = "") -> None:
+    def act(self, action: Action, arg: str = "") -> None:
         if self.busy:
             return
         self.state.run_action(action, arg)

@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import string
 from dataclasses import dataclass, field
+from typing import Literal
 
-from cassim.device.keys import Binding
+from cassim.device.keys import Action, Binding
 
 KEYS = string.digits[1:] + string.ascii_uppercase  # 1 to 9, then A to Z
 
@@ -28,7 +29,7 @@ class MenuItem:
     place and number (so the numbering matches the device) but cannot be chosen."""
 
     label: str
-    action: str = ""
+    action: Action | Literal[""] = ""
     arg: str = ""
     items: tuple[MenuItem, ...] = ()
     key: str = ""
@@ -134,7 +135,7 @@ class MenuState:
         hint = level.item.items[level.index].hint if level.item.items else ""
         return MenuView(title, panels[-1].rows, panels, hint)
 
-    def press(self, action: str, arg: str = "") -> Binding | None:
+    def press(self, action: Action, arg: str = "") -> Binding | None:
         """Handle a navigation action (`up`, `down`, `left`, `right`, `enter`, `escape`) or an
         `insert` of an item key. Returns the binding to run when a leaf is chosen."""
         level = self.level
@@ -220,5 +221,8 @@ class MenuState:
             return None
         if only_submenu:
             return None
+        if not item.action:
+            msg = f"enabled menu leaf {item.label!r} has no action"
+            raise ValueError(msg)
         self.open = False
         return Binding(item.action, item.arg)

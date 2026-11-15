@@ -7,6 +7,7 @@ import flet as ft
 
 from cassim.app.theme import DARK, Theme
 from cassim.core.results import VariableInfo
+from cassim.device.keys import Action
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import chip, icon_chip, label_text
 
@@ -264,7 +265,7 @@ class Sidebar:
         expanded[name] += LIST_BATCH
         self.on_change()
 
-    def _act(self, action: str, arg: str) -> None:
+    def _act(self, action: Action, arg: str) -> None:
         self.state.run_action(action, arg)
         self.on_change()
 
