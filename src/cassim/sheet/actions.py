@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from cassim.core.compat import sympy_adapter as cas
-from cassim.core.values import Expr, Str, Value
+from cassim.core.values import Expr, MatrixValue, Str, Value
 from cassim.sheet import refs
 from cassim.sheet.refs import COLUMNS, ROWS, Ref, Span
 from cassim.sheet.sheet import (
@@ -25,6 +25,8 @@ from cassim.sheet.sheet import (
     Sheet,
     SheetError,
 )
+
+INVALID_INPUT = "Cannot accept change: Invalid input."
 
 
 def _bounds(span: Span) -> tuple[int, int, int, int]:
@@ -258,3 +260,52 @@ def move_column(sheet: Sheet, column: int, to: int) -> list[Notice]:
         infos,
         lambda c: place[c],
     )
+
+
+# ----- Stat Calculations ------------------------------------------------------------------------
+
+
+def stat_calc(  # noqa: PLR0913 (the dialog's fields)
+    sheet: Sheet,
+    command: str,
+    lists: list[str],
+    *,
+    column: int,
+    freq: str = "1",
+    category: str = "",
+    include: str = "",
+    save: str = "",
+    choose: dict[str, str] | None = None,
+    confirm: bool = False,
+) -> list[Notice]:
+    """Menu > Statistics > Stat Calculations (check 5, E15; run 4, S1 to S7): the results go in
+    `column` (the labels, plain text) and the column after it (the values, from one column
+    formula that runs the command, so they follow the data). One-Variable Statistics with
+    several lists has a value column for each and no frequency or category fields (S5). A name
+    that is also a cell asks Cell or Variable first, then a used column asks Data Loss (S7)."""
+    if command.casefold() == "onevar" and len(lists) > 1:
+        formulas = [f"{command} {name},1" for name in lists]
+    else:
+        args = [*lists, freq.strip() or "1", *([category, include] if category.strip() else [])]
+        formulas = [
+            f"{command} {','.join(args)}" + (f": CopyVar stat.RegEqn,{save}" if save else "")
+        ]
+    values = list(range(column + 1, column + 1 + len(formulas)))
+    if values[-1] >= COLUMNS:
+        raise SheetError("Syntax Error", INVALID_INPUT)
+    choose = choose or {}
+    for target, formula in zip(values, formulas, strict=True):
+        sheet.check_formula(target, formula, choose)
+    used = [c for c in (column, *values) if sheet.last_row(c) or sheet.column(c).formula]
+    if used and not confirm:
+        raise DataLossError
+    notices: list[Notice] = []
+    for target, formula in zip(values, formulas, strict=True):
+        notices += sheet.set_column_formula(target, f"={formula}", choose=choose)
+    results = sheet.variable("stat.results")
+    labels: dict[Key, Content | None] = {key: None for key in sheet.contents() if key[0] == column}
+    if isinstance(results, MatrixValue):
+        for row, cells in enumerate(results.rows, start=1):
+            if isinstance(cells[0], Str):
+                labels[(column, row)] = Constant(cells[0])
+    return notices + sheet.put(labels, confirm=True)

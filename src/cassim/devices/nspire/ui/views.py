@@ -15,14 +15,13 @@ from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
 from cassim.device.editor import format_target
-from cassim.device.keys import Key
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.ui.entry import EntryLine
-from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, SCREEN_H, key_span
+from cassim.devices.nspire.ui.layout import SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT as ICON_H
@@ -112,10 +111,6 @@ TITLE_H, PANEL_PAD, HEADER_H, HINT_H, ARROW_H, LIST_ROW_H = 20, 8, 18, 16, 14, 1
 DOC_NAME_CLEAR = 105  # handheld px kept clear each side of the name: the settings' width
 MENU_STEP_Y = 6  # each submenu sits this far lower than its parent
 
-
-STICK_KEY = "click"  # the touchpad's centre key, which also steers the pointer
-ACCENT_KEY = "accent"  # drawn as a flag icon: it cycles a letter's accents
-type Stick = Callable[[str, float, float], None]  # see `Keypad.on_stick`
 
 # The pointer's arrow in handheld pixels, tip at (0, 0): CASSim's own drawing
 POINTER_SHAPE = ((0, 0), (0, 13), (3.5, 10), (6, 15.5), (8, 14.6), (5.6, 9.4), (10, 9.4))
@@ -292,7 +287,7 @@ class CalculatorView:
         self.shift = shift
         self._follow = False
         self.status = ft.Row(spacing=8, tight=True)
-        self.title = ft.Text(size=12, color="#ffffff")
+        self.title = ft.Text(size=12, color=theme.title_text)
         # The entry line sits in the list with a blank line under it, so the end of the list always
         # leaves room below the entry. No animation: it lagged when the page was full.
         # A Column, not a ListView: it builds every line, so `scroll_to` can find a line by key
@@ -339,7 +334,7 @@ class CalculatorView:
         # The document's name sits in the middle of the title bar, `*` in front while it has
         # unsaved changes; the page number stays left and the settings right (FR-DOC-010)
         self.doc_name = ft.Text(
-            size=12, color="#ffffff", no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
+            size=12, color=theme.title_text, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS
         )
         # kept clear of the settings either side, so a long name ends in … instead of under them
         self.doc_box = ft.Container(self.doc_name, alignment=ft.Alignment.CENTER)
@@ -654,7 +649,7 @@ class CalculatorView:
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
-        text = ft.Text(word, size=size, color="#ffffff", weight=ft.FontWeight.BOLD)
+        text = ft.Text(word, size=size, color=self.theme.title_text, weight=ft.FontWeight.BOLD)
         if number >= len(STATUS_FIELDS):
             return text
         name = STATUS_FIELDS[number]
@@ -931,7 +926,7 @@ class CalculatorView:
     def _more(self, text: str, step: int, *, active: bool) -> ft.Control:
         """The ▲ or ▼ that says there is more above or below; a click pages that way."""
         return ft.Container(
-            label_text(text, size=self.state.px(11), color=self.theme.accent),
+            label_text(text, size=self.state.px(11), color=self.theme.menu_accent),
             alignment=ft.Alignment.CENTER,
             height=self.state.px(ARROW_H),
             on_click=(lambda _: self.on_action("menu_page", str(step))) if active else None,
@@ -949,7 +944,9 @@ class CalculatorView:
     def _grid_cell(self, depth: int, index: int, row: Row, *, active: bool) -> ft.Control:
         theme, px = self.theme, self.state.px
         on = row.selected
-        colour = theme.menu_disabled if not row.enabled else "#ffffff" if on else theme.key_text
+        colour = (
+            theme.menu_disabled if not row.enabled else theme.accent_text if on else theme.key_text
+        )
         icon = ICONS.get(row.icon)
         return ft.Container(
             icon_canvas(icon, self.state.scale, colour)
@@ -974,7 +971,7 @@ class CalculatorView:
         theme, px = self.theme, self.state.px
         row, keys = panel.rows[index], not panel.keyless
         on = row.selected
-        colour = "#ffffff" if on else theme.key_text
+        colour = theme.accent_text if on else theme.key_text
         if not row.enabled:  # a placeholder keeps the device's numbering, greyed out
             colour = theme.menu_disabled
         parts: list[ft.Control] = [
@@ -1052,184 +1049,6 @@ def stub_notice(name: str, theme: Theme, px: Callable[[float], float]) -> ft.Con
     )
 
 
-class Keypad:
-    """The on-screen keys, laid out as on the handheld (FR-DEV-005). Each key shows its ctrl and
-    shift labels small above it; the pending modifier lights up and its layer's labels move onto
-    the keys."""
-
-    def __init__(
-        self,
-        state: AppState,
-        on_key: Callable[[str], None],
-        theme: Theme = DARK,
-        install: Callable[[], None] | None = None,
-        on_stick: Stick | None = None,
-    ) -> None:
-        self.state = state
-        self.on_key = on_key
-        # The centre key as a joystick: told "start", "move" (with the travel in key widths),
-        # "end" and "tap". Without it the key is a plain button.
-        self.on_stick = on_stick
-        self._down = (0.0, 0.0)  # where the finger pressed on the centre key
-        self.install = install  # set while the browser offers to install; None otherwise
-        self.theme = theme
-        self.control = ft.Column(spacing=KEY_GAP, tight=True)
-        self._look: tuple[object, ...] | None = None
-        self.refresh()
-
-    def refresh(self) -> None:
-        state = self.state
-        # Everything that changes how a key looks. Rebuilding ~40 controls costs far more on a
-        # phone than the unchanged diff, so an unchanged keypad is left alone.
-        look = (
-            id(state.keypad),
-            state.pending,
-            state.pad_scale,
-            self.install is not None,
-            self.theme,
-        )
-        if look == self._look:
-            return
-        self._look = look
-        gap = self.state.kpx(KEY_GAP)
-        self.control.spacing = gap
-        keypad = self.state.keypad
-        rows: list[ft.Control] = []
-        for number, row in enumerate(keypad):
-            tallest = self.state.kpx(key_span(max(key.height for key in row), KEY_H))
-            keys = [self._key(key, tallest) for key in row]
-            # Install takes the empty cell at the top right of the keypad, so it needs no row
-            if number == 0 and self.install is not None and not row[-1].name:
-                keys[-1] = self._install_key(row[-1])
-            rows.append(ft.Row(keys, spacing=gap, tight=True))
-        self.control.controls = rows
-
-    def _install_key(self, cell: Key) -> ft.Control:
-        install = self.install
-        assert install is not None
-        return ft.Container(
-            label_text("Install", size=self.state.kpx(12), color="#ffffff"),
-            width=self.state.kpx(key_span(cell.width)),
-            height=self.state.kpx(key_span(cell.height, KEY_H)),
-            alignment=ft.Alignment.CENTER,
-            bgcolor=self.theme.accent,
-            border_radius=self.state.kpx(7),
-            ink=True,
-            tooltip="Install CASSim",
-            on_click=lambda _: install(),
-        )
-
-    def _key(self, key: Key, row_height: float = 0.0) -> ft.Control:
-        state, theme = self.state, self.theme
-        width = state.kpx(key_span(key.width))
-        height = state.kpx(key_span(key.height, KEY_H))
-        if not key.name:
-            return ft.Container(width=width, height=height)
-        pending = state.pending
-        layer = {"ctrl": key.ctrl, "shift": key.shift}.get(pending, "")
-        fill, text = theme.key_colours(key.style)
-        small = state.kpx(8 if key.width < 1 else 9)
-        labels = ft.Row(
-            [
-                label_text(key.ctrl, size=small, color=theme.key_label, no_wrap=True),
-                label_text(key.shift, size=small, color=theme.shift_label, no_wrap=True),
-            ],
-            spacing=state.kpx(3),
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        )
-        size = state.kpx(13 if key.height < 1 or key.width < 1 else 15)
-        main: ft.Control = label_text(
-            layer or key.label,
-            size=size,
-            color=text,
-            weight=ft.FontWeight.W_600,
-            no_wrap=True,
-        )
-        if key.name == ACCENT_KEY:
-            # Material's flag icon for now (Simon, 2026-11-14). TODO: find a better mark for a
-            # key that cycles a letter's accents (options tried: ệ with a loop, arrows, è é ê).
-            main = ft.Icon(ft.Icons.FLAG, size=size * 1.1, color=text)
-        body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]
-        stick = key.name == STICK_KEY and self.on_stick is not None
-        colour = theme.modifier_on if pending == key.name else fill
-        box = ft.Container(
-            ft.Column(
-                body,
-                spacing=0,
-                tight=True,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER,
-            ),
-            width=width,
-            height=height,
-            alignment=ft.Alignment.CENTER,
-            bgcolor=colour,
-            # x, y, z and enter wear a ring in the shift layer's colour
-            border=ft.Border.all(state.kpx(2), theme.shift_label) if key.outline else None,
-            border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
-            ink=not stick,
-            tooltip=key_tip(key),
-            on_click=None if stick else lambda _, name=key.name: self.on_key(name),
-        )
-        if key.join == "down":  # fill the gap down to the lower piece, so the two read as one
-            seam = ft.Container(
-                left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=colour
-            )
-            # sized to the piece, so the seam overflows into the gap without growing the row
-            piece = ft.Stack(
-                [box, seam], width=width, height=height, clip_behavior=ft.ClipBehavior.NONE
-            )
-            if row_height <= height:
-                return piece
-            # a piece shorter than its row (return's tab) sits at the row's foot, by the gap
-            return ft.Container(
-                piece, width=width, height=row_height, alignment=ft.Alignment.BOTTOM_CENTER
-            )
-        return self._stick(box, width) if stick else box
-
-    def _stick(self, box: ft.Control, width: float) -> ft.Control:
-        """The centre key: a tap is a tap, and a drag steers the pointer like a joystick, by how
-        far the finger has gone from where it pressed (in key widths, so the feel does not
-        change with the keypad's scale)."""
-        on_stick = cast("Stick", self.on_stick)
-
-        def down(event: ft.DragDownEvent) -> None:
-            self._down = (event.local_position.x, event.local_position.y)
-
-        def move(event: ft.DragUpdateEvent) -> None:
-            x, y = self._down
-            here = event.local_position
-            on_stick("move", (here.x - x) / width, (here.y - y) / width)
-
-        return ft.GestureDetector(
-            box,
-            on_tap=lambda _: on_stick("tap", 0.0, 0.0),
-            on_pan_down=down,
-            on_pan_start=lambda _: on_stick("start", 0.0, 0.0),
-            on_pan_update=move,
-            on_pan_end=lambda _: on_stick("end", 0.0, 0.0),
-            on_pan_cancel=lambda _: on_stick("end", 0.0, 0.0),
-            drag_interval=16,
-        )
-
-
-def key_corners(key: Key, radius: float) -> ft.BorderRadius:
-    """Rounded corners, except where a key's two pieces meet (an L-shaped return key): the upper
-    piece is square below, and the lower, wider piece square at its top right."""
-    if key.join == "down":
-        return ft.BorderRadius(radius, radius, 0, 0)
-    if key.join == "up":
-        return ft.BorderRadius(radius, 0, radius, radius)
-    return ft.BorderRadius.all(radius)
-
-
-def key_tip(key: Key) -> str | None:
-    """What the other layers of a key do, for a mouse hover or a long press."""
-    layers = (("ctrl", key.ctrl), ("shift", key.shift))
-    return ", ".join(f"{layer}: {label}" for layer, label in layers if label) or None
-
-
 def icon_chip(
     icon: ft.IconData, tip: str, on_click: Callable[[], None], theme: Theme, *, size: float = 16
 ) -> ft.Control:
@@ -1248,7 +1067,7 @@ def icon_chip(
 def chip(text: str, on_click: Callable[[], None], theme: Theme, *, on: bool = False) -> ft.Control:
     """A small text button for toolbars."""
     return ft.Container(
-        label_text(text, color="#ffffff" if on else theme.key_text, size=13),
+        label_text(text, color=theme.accent_text if on else theme.key_text, size=13),
         bgcolor=theme.accent if on else theme.key,
         padding=ft.Padding.symmetric(horizontal=10, vertical=5),
         border_radius=6,
@@ -1282,7 +1101,7 @@ class Sidebar:
             menu = self.on_menu
             rows.append(
                 ft.Container(
-                    label_text("Menu", size=16, color="#ffffff"),
+                    label_text("Menu", size=16, color=theme.accent_text),
                     height=48,
                     alignment=ft.Alignment.CENTER,
                     bgcolor=theme.accent,
@@ -1292,7 +1111,7 @@ class Sidebar:
                 )
             )
         rows += [
-            ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.key_text),
+            ft.Text("Pages", weight=ft.FontWeight.BOLD, color=theme.panel_text),
             # Move the page up or down, and undo or redo directly under: two short rows that fit
             # the sidebar (one row of four did not).
             *(
@@ -1320,19 +1139,23 @@ class Sidebar:
                 ft.Container(
                     label_text(
                         f"{problem + 1}.{page + 1}  {self.state.page_name(kind)}",
-                        color=theme.accent if (problem, page) == here else theme.key_text,
+                        color=theme.panel_accent if (problem, page) == here else theme.panel_text,
                     ),
                     padding=ft.Padding.symmetric(vertical=2),
                     on_click=lambda _, p=problem, q=page: self._go(p, q),
                 )
             )
-        rows.append(ft.Text("Variables", weight=ft.FontWeight.BOLD, color=theme.key_text))
+        rows.append(ft.Text("Variables", weight=ft.FontWeight.BOLD, color=theme.panel_text))
         session = document.problems[document.problem].session
         variables = session.variables()
         if not variables:
-            rows.append(ft.Text("none", color=theme.key_label, size=12))
+            rows.append(ft.Text("none", color=theme.panel_text, size=12))
         rows.extend(
-            ft.Text(f"{row.name} = {row.text}" if not row.is_function else row.text, size=12)
+            ft.Text(
+                f"{row.name} = {row.text}" if not row.is_function else row.text,
+                size=12,
+                color=theme.panel_text,
+            )
             for row in variables
         )
         self.control.controls = rows
@@ -1401,7 +1224,11 @@ def settings_dialog(
 
 
 def system_settings_dialog(
-    page: ft.Page, state: AppState, on_change: Callable[[], None], theme: Theme = DARK
+    page: ft.Page,
+    state: AppState,
+    on_change: Callable[[], None],
+    theme: Theme = DARK,
+    on_appearance: Callable[[], None] | None = None,
 ) -> None:
     """System Settings: the view the app starts in and the size of the maths."""
     system = state.system
@@ -1443,7 +1270,19 @@ def system_settings_dialog(
     page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("System Settings"),
-            content=ft.Column([start, size, zoom_row, letters], tight=True, spacing=12),
+            content=ft.Column(
+                [
+                    start,
+                    size,
+                    zoom_row,
+                    letters,
+                    ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
+                    if on_appearance is not None
+                    else ft.Container(),
+                ],
+                tight=True,
+                spacing=12,
+            ),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                 ft.TextButton("OK", on_click=apply),

@@ -1,7 +1,7 @@
 # Requirements traced here: FR-DEV-005
-"""The letter block's corner: an L-shaped return key and a wider space key share it equally; the
-accent key sits where the handheld has its flag key; x, y and z wear an orange ring."""
+"""The keypad's key shapes, legends and outlines (FR-DEV-005)."""
 
+from dataclasses import replace
 from typing import Any
 
 import flet as ft
@@ -9,9 +9,9 @@ import pytest
 
 from cassim.app.theme import DARK
 from cassim.devices.nspire import keymap
+from cassim.devices.nspire.ui.keypad import Keypad, key_corners
 from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, key_span
 from cassim.devices.nspire.ui.state import AppState
-from cassim.devices.nspire.ui.views import Keypad, key_corners
 
 
 def keys_named(keypad: Keypad, name: str) -> list[Any]:
@@ -100,12 +100,35 @@ def test_the_accent_key_shows_a_flag():
     assert keymap.HANDHELD["accent"].action == "accent"
 
 
-def test_x_y_z_and_enter_have_an_orange_ring_and_every_letter_is_bold():
+def test_menu_key_shows_context_menu_legend_and_pending_layer():
+    state = AppState()
+    keypad = Keypad(state, lambda _: None)
+    ((key, control),) = keys_named(keypad, "menu")
+    labels, main = control.content.controls
+    icon = labels.controls[0]
+    assert key.ctrl == "context menu"
+    assert control.tooltip == "ctrl: context menu"
+    assert main.value == "menu"
+    assert len(icon.shapes) == 4
+    assert all(shape.paint.color == DARK.ctrl_label_light for shape in icon.shapes)
+    assert keymap.HANDHELD["ctrl+menu"].action == "context_menu"
+
+    state.press_keypad("ctrl")
+    keypad.refresh()
+    ((_, control),) = keys_named(keypad, "menu")
+    labels, main = control.content.controls
+    assert len(main.shapes) == 4
+    assert all(shape.paint.color == DARK.key_colours(key.style)[1] for shape in main.shapes)
+
+
+def test_shift_has_an_orange_ring_and_x_y_z_and_enter_have_a_green_ring():
     keypad = Keypad(AppState(), lambda _: None)
+    ((_, shift),) = keys_named(keypad, "shift")
+    assert shift.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_outline)
     for name in ("x", "y", "z", "enter"):
         ((key, control),) = keys_named(keypad, name)
         assert key.outline
-        assert control.border == ft.Border.all(keypad.state.kpx(2), DARK.shift_label)
+        assert control.border == ft.Border.all(keypad.state.kpx(2), DARK.key_outline)
     for name in "aw":
         ((key, control),) = keys_named(keypad, name)
         assert not key.outline
@@ -114,3 +137,11 @@ def test_x_y_z_and_enter_have_an_orange_ring_and_every_letter_is_bold():
         ((_, control),) = keys_named(keypad, name)
         (label,) = control.content.controls
         assert label.weight == ft.FontWeight.W_600
+
+
+def test_key_outlines_follow_theme_colours():
+    theme = replace(DARK, shift_outline="#aa5500", key_outline="#116633")
+    keypad = Keypad(AppState(), lambda _: None, theme)
+    for name, colour in (("shift", theme.shift_outline), ("x", theme.key_outline)):
+        ((_, control),) = keys_named(keypad, name)
+        assert control.border == ft.Border.all(keypad.state.kpx(2), colour)

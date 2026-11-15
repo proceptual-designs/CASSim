@@ -222,7 +222,7 @@ _MAIN: Keypad = (
         gap(),
         Key("down", "▼", width=_PAD, style="pad"),
         gap(),
-        _nav("menu", "menu"),
+        _nav("menu", "menu", ctrl="context menu"),
     ),
     (
         Key("ctrl", "ctrl", width=_PAIR * 2, style="ctrl"),

@@ -5,6 +5,7 @@ expected values read from the corpus files."""
 
 from pathlib import Path
 from typing import cast
+from unicodedata import normalize
 
 import pytest
 import yaml
@@ -393,3 +394,86 @@ def test_compact_keeps_one_op_per_sheet_where_its_last_was():
     assert session.journal == [entry, restore, other]
     session.compact(9, restore)  # a page with nothing in the journal
     assert len(session.journal) == 3
+
+
+# ----- Stat Calculations: the statistics corpus app cases (slice 3c) -----------------------------
+
+# The corpus names each check in words; these are the labels the results carry.
+LABELS = {
+    "mean x": "x̄",
+    "sum x": "Σx",
+    "sum x^2": "Σx²",
+    "sx (sample sd)": "sx := sn-1x",
+    "sx": "sx := sn-1x",
+    "sigma x (population sd)": "σx := σnx",
+    "sigma x": "σx := σnx",
+    "mean y": "ȳ",
+    "sum y": "Σy",
+    "sum y^2": "Σy²",
+    "sy": "sy := sn-1y",
+    "sigma y": "σy := σny",
+    "sum xy": "Σxy",
+    "Q1X": "Q₁X",
+    "Q3X": "Q₃X",
+    "Q1Y": "Q₁Y",
+    "Q3Y": "Q₃Y",
+    "SSX": "SSX := Σ(x-x̄)²",
+    "SSY": "SSY := Σ(y-ȳ)²",
+    "r^2": "r²",
+}
+
+
+def stat(command, lists, column, **fields):
+    args = {"freq": "1", "category": "", "include": "", "save": "", "choose": {}}
+    return sheet(
+        "stat", command=command, lists=lists, column=column, confirm=False, **{**args, **fields}
+    )
+
+
+def results_of(reply, column):
+    """{label: value} from a view of the label column and the value column after it."""
+    cells = shown(reply)
+    rows = sorted(r for c, r in cells if c == column)
+    # NFC: a label such as ȳ may be one character or y and a combining macron
+    return {normalize("NFC", cells[(column, r)]): cells.get((column + 1, r), "") for r in rows}
+
+
+def check_case(case_id, found):
+    for check in CASES[case_id]["checks"]:
+        label = normalize("NFC", LABELS.get(check["what"], check["what"]))
+        tolerance = check.get("tol", 1e-9)
+        assert float(found[label]) == pytest.approx(check["expect"], abs=tolerance), label
+
+
+def a_and_c(core):
+    """A1:A8 = 2,4,4,4,5,5,7,9 and C1:C8 = n^2, as the cases set them up."""
+    ops = [cell(0, row, str(v)) for row, v in enumerate([2, 4, 4, 4, 5, 5, 7, 9], start=1)]
+    ops += [cell(2, row, str(row * row)) for row in range(1, 9)]
+    core.apply(1, ops)
+
+
+def test_one_variable_statistics():
+    """Corpus app.sheet.one-variable-statistics: X1 List a[], 1st Result Column e[]."""
+    core = EngineCore()
+    a_and_c(core)
+    reply = core.apply(1, [stat("OneVar", ["a[]"], 4), view(4, 1, 5, 14)])
+    check_case("app.sheet.one-variable-statistics", results_of(reply, 4))
+
+
+def test_two_variable_statistics():
+    """Corpus app.sheet.two-variable-statistics: X a[], Y c[], 1st Result Column h[]."""
+    core = EngineCore()
+    a_and_c(core)
+    reply = core.apply(1, [stat("TwoVar", ["a[]", "c[]"], 7), view(7, 1, 8, 27)])
+    check_case("app.sheet.two-variable-statistics", results_of(reply, 7))
+
+
+def test_linear_regression():
+    """Corpus app.sheet.linear-regression: X a[], Y c[], RegEqn to f1, 1st Result Column k[]."""
+    core = EngineCore()
+    a_and_c(core)
+    reply = core.apply(1, [stat("LinRegMx", ["a[]", "c[]"], 10, save="f1"), view(10, 1, 11, 8)])
+    check_case("app.sheet.linear-regression", results_of(reply, 10))
+    reply = core.apply(1, [{"op": "eval", "line": "f1(2)", "approximate": False}])
+    assert reply["result"] is not None
+    assert float(reply["result"]["text"]) == pytest.approx(10.0625 * 2 - 24.8125)

@@ -172,9 +172,13 @@ cases:
   - in: Logistic seq(k,k,1,10),{1.2,1.9,3.1,5.2,7.9,10.6,12.5,13.3,13.8,14.1}
     out: Done
     compare: text
-  - in: stat.RegEqn
-    out: '"c/(1+a*ⅇ^(-b*x))"'
-    compare: text
+  - in: stat.RegEqn(2)
+    out: '1.7074247'
+    compare: numeric
+    tol: 1.0e-06
+    note: 'stat.RegEqn is a function (run 4, S3: stat.RegEqn(x) gives the fitted equation); the
+      value is c/(1+a*ⅇ^(-b*2)) with the a, b, c the emulator showed. The form c/(1+a*ⅇ^(-b*x))
+      is the RegEqn row of stat.results.'
   - in: stat.a
     out: '33.107433'
     compare: numeric

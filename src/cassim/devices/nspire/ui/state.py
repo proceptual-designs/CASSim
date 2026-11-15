@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from cassim.app.keyboard import key_name
+from cassim.app.theme import THEMES, valid_theme_overrides
 from cassim.core.settings import Settings
+from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession, local_session
 from cassim.device.keys import Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
@@ -65,9 +67,14 @@ class System:
     keypad_share: float = 0.0  # Handheld: the keypad's share of the room (splitter); 0 is auto
     zoom: float = 1.0  # everything larger or smaller than the fitted size
     letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
+    theme_name: str = "Dark"
+    theme_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
+    theme_error: str = field(default="", compare=False, repr=False)
 
     def dumps(self) -> str:
-        return json.dumps(asdict(self))
+        data = asdict(self)
+        del data["theme_error"]
+        return json.dumps(data)
 
     @classmethod
     def loads(cls, text: str) -> System:
@@ -86,6 +93,18 @@ class System:
                     setattr(system, name, float(value))
             letters = data.get("letters", "")
             system.letters = letters if isinstance(letters, str) else ""
+            name = data.get("theme_name", "Dark")
+            overrides = data.get("theme_overrides", {})
+            if (
+                isinstance(name, str)
+                and name in THEMES
+                and isinstance(overrides, dict)
+                and all(k in THEMES and valid_theme_overrides(v) for k, v in overrides.items())
+            ):
+                system.theme_name = name
+                system.theme_overrides = overrides
+            else:
+                system.theme_error = "Saved theme settings are invalid; Dark defaults are in use."
         except ValueError, KeyError, TypeError:
             return cls()
         return system
@@ -446,7 +465,14 @@ class AppState:
         """Paste what a dialog built. Returns the problems instead if a field will not do."""
         problems = wizard.problems(values)
         if not problems:
-            for binding in wizard.bindings(values):
+            bindings = wizard.bindings(values)
+            if self.sheet is not None and wizard.steps is None:
+                # On a sheet a command's dialog (Distributions) puts `=its formula` in the
+                # selected cell's entry line, to be entered with Return (run 4, S10)
+                text = "".join(b.arg for b in bindings if b.action in ("insert", "insert_linear"))
+                text = text.replace(MARK, "")
+                bindings = [Binding("sheet", f"edit:={text}")] if text else []
+            for binding in bindings:
                 self.run(binding)
         return problems
 

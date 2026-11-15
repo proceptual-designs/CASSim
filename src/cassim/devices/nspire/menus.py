@@ -17,6 +17,7 @@ from cassim.core.compat import finance as fin
 from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire.pages.spreadsheet import STAT_CALCULATIONS
 from cassim.devices.nspire.syntax import COMMANDS, CONVERSIONS, FUNCTIONS
 
 NOT_YET = "Not in CASSim yet"
@@ -1178,13 +1179,44 @@ SHEET_MENU = MenuItem(
             todo("Summary Plot", "8"),
             todo("Quick Graph", "9"),
         ),
-        todo_sub(
+        sub(
             "Statistics",
             "4",
-            "Stat Calculations",
-            "Distributions",
-            "Confidence Intervals",
-            "Stat Tests",
+            sub(
+                "Stat Calculations",
+                "1",
+                act("One-Variable Statistics…", "onevar", "1"),
+                *(act(f"{label}…", f"stat:{name}", key) for label, name, key in STAT_CALCULATIONS),
+                todo("Multiple Linear Regression…", "F"),
+            ),
+            # From a sheet these write their formula into the selected cell (run 4, S10)
+            replace(DISTRIBUTIONS, key="2"),
+            todo_sub(
+                "Confidence Intervals",
+                "3",
+                "z Interval…",
+                "t Interval…",
+                "2-Sample z Interval…",
+                "2-Sample t Interval…",
+                "1-Prop z Interval…",
+                "2-Prop z Interval…",
+                "Linear Reg t Intervals…",
+                "Multiple Reg Intervals…",
+            ),
+            todo_sub(
+                "Stat Tests",
+                "4",
+                "z Test…",
+                "t Test…",
+                "2-Sample z Test…",
+                "2-Sample t Test…",
+                "1-Prop z Test…",
+                "2-Prop z Test…",
+                "χ² GOF…",
+                "χ² 2-way Test…",
+                "2-Sample F Test…",
+                "Linear Reg t Test…",
+            ),
         ),
         todo("Table", "5"),
         *CASSIM_ITEMS,

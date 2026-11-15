@@ -56,6 +56,24 @@ WIDTH_STEP = 12  # Resize Column Width: one arrow press (check 6, E13: about 12 
 MIN_WIDTH, MAX_WIDTH = 20, WIDE
 UNDO_DEPTH = 50
 
+# Statistics > Stat Calculations on a sheet, after One-Variable (check 4 E15; run 4, S4):
+# (label, command, menu key)
+STAT_CALCULATIONS = (
+    ("Two-Variable Statistics", "TwoVar", "2"),
+    ("Linear Regression (mx+b)", "LinRegMx", "3"),
+    ("Linear Regression (a+bx)", "LinRegBx", "4"),
+    ("Median-Median Line", "MedMed", "5"),
+    ("Quadratic Regression", "QuadReg", "6"),
+    ("Cubic Regression", "CubicReg", "7"),
+    ("Quartic Regression", "QuartReg", "8"),
+    ("Power Regression", "PowerReg", "9"),
+    ("Exponential Regression", "ExpReg", "A"),
+    ("Logarithmic Regression", "LnReg", "B"),
+    ("Sinusoidal Regression", "SinReg", "C"),
+    ("Logistic Regression (d=0)", "Logistic", "D"),
+    ("Logistic Regression (d≠0)", "LogisticD", "E"),
+)
+INVALID_INPUT = "Cannot accept change: Invalid input."
 GO_TO_INVALID = "Invalid reference. Please try again."
 CANNOT_PASTE = (
     "Cannot Paste",
@@ -879,10 +897,93 @@ class Spreadsheet:
         elif name == "store_var":  # var > Store Var: types `var` in the name cell, selected
             self.go((column, NAME_ROW))
             self.begin_edit("var")
+        elif name in ("onevar", "stat", "edit", "dialog"):
+            self._statistics_action(name, rest)
         elif name == "paste_ok":
             self.paste(confirm=True)
         elif name in ("copy", "cut", "paste"):
             {"copy": self.copy, "cut": self.cut, "paste": self.paste}[name]()
+
+    def _statistics_action(self, name: str, rest: str) -> None:
+        """The Statistics menu's items, and what their dialogs send back."""
+        if name == "onevar":  # One-Variable asks how many lists first (run 4, S1, S5)
+            self.wizard = Wizard(
+                "One-Variable Statistics",
+                (Field("count", "Num of Lists:", "1", whole=(1, 20)),),
+                steps=lambda values: [Binding("sheet", f"stat:OneVar:{values['count']}")],
+            )
+        elif name == "stat":
+            command, _, count = rest.partition(":")
+            self.wizard = self._stat_wizard(command, int(count or 1))
+        elif name == "edit":  # a Distributions dialog: its formula, in the cell (run 4, S10)
+            self.go((self.cursor[0], max(self.cursor[1], 1)))
+            self.begin_edit(rest)
+        else:  # "dialog": a dialog from a dialog's own check
+            title, _, message = rest.partition(":")
+            self.dialogs.append(Dialog(title, message))
+
+    def free_column(self) -> int:
+        """The first column after the cursor's that holds nothing: where results go unless the
+        dialog says otherwise (run 4, S1, S4)."""
+        used = {c for c, _ in self.cells} | {c for c, info in enumerate(self.columns) if any(info)}
+        used |= {c for c, _ in self.view}
+        return next((c for c in range(self.cursor[0] + 1, COLUMNS) if c not in used), COLUMNS - 1)
+
+    def free_function(self) -> str:
+        """The first of f1, f2, ... that is not defined: Save RegEqn to's default (run 4, S4)."""
+        return next(f"f{n}" for n in range(1, 100) if not self.session.is_defined(f"f{n}"))
+
+    def _stat_wizard(self, command: str, count: int) -> Wizard:
+        """A Stat Calculations dialog, with the emulator's fields and defaults (check 5, E15;
+        run 4, S1 to S5). OK sends the `stat` action."""
+        here = f"{letter(self.cursor[0])}[]"
+        results = f"{letter(self.free_column())}[]"
+        lists: tuple[Field, ...]
+        if command == "OneVar":
+            lists = tuple(
+                Field(f"x{n}", f"X{n} List", here if n == 1 else "") for n in range(1, count + 1)
+            )
+        else:
+            lists = (Field("x1", "X List", here), Field("x2", "Y List"))
+        regression = command not in ("OneVar", "TwoVar")
+        saving = (Field("save", "Save RegEqn to", self.free_function()),) if regression else ()
+        extra = (
+            (
+                Field("freq", "Frequency List", "1"),
+                Field("category", "Category List"),
+                Field("include", "Include Categories"),
+            )
+            if count == 1
+            else ()
+        )
+        titles = {"OneVar": "One-Variable Statistics", "TwoVar": "Two-Variable Statistics"}
+        title = titles.get(
+            command,
+            next((label for label, name, _ in STAT_CALCULATIONS if name == command), command),
+        )
+        names = [field.name for field in lists]
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            target = refs.address(values["results"].strip().removesuffix("[]") + "1")
+            if target is None or len(values["results"].strip().removesuffix("[]")) != 1:
+                return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
+            if any(not values.get(name, "").strip() for name in names):
+                return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
+            args = {
+                "command": command,
+                "lists": [values[name].strip() for name in names],
+                "freq": values.get("freq", "1"),
+                "category": values.get("category", ""),
+                "include": values.get("include", ""),
+                "save": values.get("save", "").strip(),
+                "column": target.column,
+                "choose": {},
+                "confirm": False,
+            }
+            return [Binding("sheet_op", json.dumps({"action": "stat", "args": args}))]
+
+        fields = (*lists, *saving, *extra, Field("results", "1st Result Column", results))
+        return Wizard(title, fields, steps=steps)
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(

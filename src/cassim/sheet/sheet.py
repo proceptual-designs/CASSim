@@ -20,12 +20,14 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 
-from cassim.core import ast
+from cassim.core import ast, errors
+from cassim.core.catalog.statistics import RESULT_COMMANDS
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.evaluator import Evaluator
 from cassim.core.format import to_text
 from cassim.core.parser import parse
+from cassim.core.scope import Function
 from cassim.core.session import Session
 from cassim.core.settings import variable_key
 from cassim.core.values import Empty, Expr, ListValue, MatrixValue, Str, Value
@@ -33,6 +35,12 @@ from cassim.sheet import refs
 from cassim.sheet.refs import COLUMNS, ROWS, Column, Found, Ref, Span, Variable
 
 type Key = tuple[int, int]  # (column, row); row 0 is the column formula
+
+# Stat Calculations: a column formula that is one of these commands fills the column with the
+# values of `stat.results`; `: CopyVar stat.RegEqn,f1` after it saves the equation (slice 3c).
+_RESULT_COMMANDS = frozenset(name.casefold() for name in RESULT_COMMANDS)
+_SAVE = ": CopyVar stat.RegEqn,"
+_SAVE_RE = re.compile(r"\s*:\s*CopyVar\s+stat\.RegEqn\s*,\s*(\w+)\s*$", re.IGNORECASE)
 
 # A placeholder for each reference in a formula: a name nobody types, read as one name.
 _PLACEHOLDER = "ϟ"
@@ -192,7 +200,9 @@ class Sheet:
         if isinstance(content, Formula):
             return f"={content.text}"
         if isinstance(content, Constant):
-            return to_text(content.value, self._session.settings)
+            # A value put there rather than typed reads as a formula of itself: `=7`,
+            # `="Title"` (check 5 E8, E11; run 2 G3; run 4 S1)
+            return "=" + to_text(content.value, self._session.settings)
         value = self._values.get((column, row))
         return "" if value is None or isinstance(value, Failed) else self._show(value).text
 
@@ -235,6 +245,10 @@ class Sheet:
             value = self.value(column, row)
             items.append(Empty() if value is None or isinstance(value, Failed) else value)
         return ListValue(tuple(items))
+
+    def variable(self, name: str) -> Value | Function | None:
+        """A variable of the sheet's Problem, such as `stat.results`."""
+        return self._session.scope.get(self._key(name))
 
     def find(self, name: str) -> int | None:
         """The column linked to the variable `name`, if any."""
@@ -451,9 +465,16 @@ class Sheet:
     def _evaluator(self) -> Evaluator:
         return Evaluator(self._session.settings, None, self._session.scope)
 
+    def check_formula(self, column: int, text: str, choose: dict[str, str]) -> str:
+        """A column formula as it would be kept, or the SheetError it would raise (Conflict
+        Detected first), without changing the sheet: Stat Calculations asks this before Data
+        Loss (run 4, S7)."""
+        return self._checked_formula((column, 0), text.strip().removeprefix("="), choose)
+
     def _checked_formula(self, key: Key, text: str, choose: dict[str, str]) -> str:
         """The formula to keep, with `'` before names chosen as variables; raises SheetError
         for a formula the handheld refuses while it is being typed."""
+        text, save = _split_save(text)
         found = refs.scan(text)
         if any(not item.reference.valid for item in found):
             raise SheetError(SYNTAX_ERROR, DURING_INSERTION)
@@ -492,7 +513,7 @@ class Sheet:
         inputs = self._read_inputs(text)
         if self._reaches(key, inputs):
             raise SheetError(SYNTAX_ERROR, CIRCULAR)
-        return text
+        return text + (f"{_SAVE}{save}" if save else "")
 
     def _column_names_in(self, text: str, found: list[Found]) -> list[str]:
         """The names in a formula that are this sheet's linked columns: the handheld asks
@@ -512,7 +533,7 @@ class Sheet:
             seen.append(name)
         return seen
 
-    def _parsed(self, text: str, found: list[Found]) -> ast.Expr:
+    def _parsed(self, text: str, found: list[Found]) -> ast.Expr | ast.Command:
         rewritten = refs.rewrite(
             text,
             found,
@@ -525,6 +546,7 @@ class Sheet:
         return _one_expression(rewritten)
 
     def _read_inputs(self, text: str) -> _Inputs:
+        text, save = _split_save(text)
         found = refs.scan(text)
         cells: set[Key] = set()
         columns: set[int] = set()
@@ -541,6 +563,7 @@ class Sheet:
             for name in _names(self._parsed(text, found))
             if not name.startswith(_PLACEHOLDER)
         }
+        del save  # the function a regression is saved to is written, not read
         return _Inputs(frozenset(cells), frozenset(columns), frozenset(names))
 
     def _evaluate(self, key: Key) -> Computed:
@@ -550,6 +573,15 @@ class Sheet:
             content = self._contents.get(key)
             assert isinstance(content, Formula)
             text = content.text
+        try:
+            return self._compute(text, skip_failed=False)
+        except TIError, RecursionError:
+            return Failed()
+
+    def _compute(self, text: str, *, skip_failed: bool) -> Computed:
+        """A formula's value; a TIError goes to the caller. A reference to a #ERR cell makes
+        the formula #ERR, unless `skip_failed` (to find the error message of a column)."""
+        text, save = _split_save(text)
         found = refs.scan(text)
         bindings: dict[str, Value] = {}
         for index, item in enumerate(found):
@@ -558,15 +590,32 @@ class Sheet:
                 continue
             value = self._reference_value(reference)
             if isinstance(value, Failed):
+                if skip_failed:
+                    continue
                 return value
             bindings[self._key(f"{_PLACEHOLDER}{index}")] = value
         evaluator = self._evaluator()
-        try:
-            node = self._parsed(text, found)
-            with evaluator.bound(bindings):
-                return evaluator.evaluated(node)
-        except TIError, RecursionError:
-            return Failed()
+        node = self._parsed(text, found)
+        with evaluator.bound(bindings):
+            if isinstance(node, ast.Command):
+                return self._statistics(evaluator, node, save)
+            return evaluator.evaluated(node)
+
+    def _statistics(self, evaluator: Evaluator, node: ast.Command, save: str | None) -> Value:
+        """A Stat Calculations column: run the command and take the values of `stat.results`
+        (the labels are written beside it once, by `actions.stat_calc`). The `stat.` variables
+        and a saved regression equation follow the data, since this runs again when they
+        change (run 4, S1 to S3)."""
+        evaluator.line(ast.Line((node,)))
+        scope = self._session.scope
+        results = scope.get("stat.results")
+        if not isinstance(results, MatrixValue):
+            raise TIError(errors.DOMAIN)
+        if save:
+            equation = scope.get("stat.regeqn")
+            if isinstance(equation, Function):
+                scope.define(self._key(save), equation)
+        return ListValue(tuple(row[1] for row in results.rows))
 
     def _reference_value(self, reference: Ref | Span | Column) -> Computed:
         if isinstance(reference, Ref):
@@ -675,11 +724,15 @@ class Sheet:
         dirty = self._dependents(outcome.changed | nodes) | nodes
         dirty &= set(self._inputs)
         order = self._order(dirty)
+        # A named column's list is written as soon as its cells change, so the formulas that
+        # read it by name (`=mean(xs)`, `OneVar 'd1`) see the new values, not the old.
+        self._write_named({c for c, _ in outcome.changed})
         for key in order:
             if key[1] == 0:
                 self._fill_column(key[0], outcome)
             else:
                 self._store_value(key, self._evaluate(key), outcome)
+            self._write_named({key[0]})
         for key in dirty - set(order):
             self._store_value(key, Failed(), outcome)  # a cycle through a variable: #ERR
         for column in sorted({c for c, _ in outcome.changed}):
@@ -687,6 +740,11 @@ class Sheet:
                 self._write(column)
         if outcome.changed:
             self.revision += 1
+
+    def _write_named(self, columns: set[int]) -> None:
+        for column in sorted(columns):
+            if self._columns[column].name is not None:
+                self._write(column)
 
     def _store_value(self, key: Key, value: Computed, outcome: _Outcome) -> None:
         if isinstance(value, ListValue | MatrixValue) and key[1] > 0:
@@ -730,16 +788,8 @@ class Sheet:
         """The message of the error a column formula gives, for its dialog."""
         info = self._columns[key[0]]
         assert info.formula is not None
-        found = refs.scan(info.formula)
         try:
-            bindings = {
-                self._key(f"{_PLACEHOLDER}{i}"): self._reference_value(item.reference)
-                for i, item in enumerate(found)
-                if not isinstance(item.reference, Variable)
-            }
-            evaluator = self._evaluator()
-            with evaluator.bound({k: v for k, v in bindings.items() if not isinstance(v, Failed)}):
-                evaluator.evaluated(self._parsed(info.formula, found))
+            self._compute(info.formula, skip_failed=True)
         except TIError as error:
             return error.message
         return "Syntax"
@@ -769,7 +819,10 @@ class Sheet:
             return content.value
         evaluator = self._evaluator()
         try:
-            return evaluator.evaluated(_one_expression(content.text))
+            node = _one_expression(content.text)
+            if isinstance(node, ast.Command):
+                return Failed()  # a statistics command is a column formula, not an entry
+            return evaluator.evaluated(node)
         except TIError:
             return Failed()
 
@@ -861,13 +914,25 @@ def _plain_number(text: str) -> bool:
     return isinstance(node, ast.Number)
 
 
-def _one_expression(text: str) -> ast.Expr:
-    """`text` as a single expression: a cell holds no store, definition or command."""
+def _one_expression(text: str) -> ast.Expr | ast.Command:
+    """`text` as a single expression: a cell holds no store, definition or command, except a
+    statistics command whose results fill a column (`OneVar d1,1`)."""
     statements = parse(text).statements
     node = statements[0] if len(statements) == 1 else None
+    if isinstance(node, ast.Command) and node.name.casefold() in _RESULT_COMMANDS:
+        return node
     if node is None or isinstance(node, ast.Assign | ast.Store | ast.Define | ast.Command):
         raise TIError(0, "Syntax")
     return node
+
+
+def _split_save(text: str) -> tuple[str, str | None]:
+    """A regression's column formula and the function its equation is saved to, from
+    `LinRegMx xs,ys,1: CopyVar stat.RegEqn,f1` (the emulator writes the same shape)."""
+    found = _SAVE_RE.search(text)
+    if found is None:
+        return text, None
+    return text[: found.start()], found.group(1)
 
 
 def _names(node: object) -> Iterator[str]:
