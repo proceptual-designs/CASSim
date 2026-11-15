@@ -33,7 +33,7 @@ The version string is `<pyproject version>+<content hash>`, so any change to any
 - **fetch:** same-origin GETs only. Navigations are network-first (so a new version is noticed even though hosts cache for minutes) and fall back to the cached `index.html` offline. Everything else is cache-first, filling the cache on a miss.
 - **update:** the page registers the worker, and when a new one is `installed` while another controls the page, the update bar appears. Reload posts `skipWaiting` and the page reloads on `controllerchange`.
 
-Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`).
+Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the Handheld Doc menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
 
 ## Offline rule and its test
 

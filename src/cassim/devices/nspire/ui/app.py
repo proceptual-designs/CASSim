@@ -100,13 +100,14 @@ FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
 
 
 def browser_doc_items(
-    *, handheld: bool, offers: BrowserOffers, phone: bool = False
+    *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
 ) -> tuple[MenuItem, ...]:
     """The Doc menu's last three items, always in this order so the keys never move (muscle
     memory): the view switch, Fullscreen and Install. One the browser cannot do is greyed,
-    Fullscreen reads Exit Fullscreen while the page is fullscreen, and Install reads Uninstall in
-    the installed app. A phone has only Handheld view (there is no room for Computer view and the
-    on-screen keyboard), so the view switch is greyed there."""
+    Fullscreen reads Exit Fullscreen while the page is fullscreen; on an installed phone it
+    toggles the cutout instead. Install reads Uninstall in the installed app. A phone has only
+    Handheld view, so the view switch is greyed there."""
+    cutout_toggle = phone and handheld and offers.installed
     install = (
         MenuItem("Uninstall CASSim", "dialog", "uninstall", hint="CASSim")
         if offers.installed
@@ -123,11 +124,14 @@ def browser_doc_items(
             enabled=not phone,
         ),
         MenuItem(
-            "Exit Fullscreen" if offers.in_fullscreen else "Fullscreen",
+            ("Avoid cutout" if use_cutout else "Use cutout")
+            if cutout_toggle
+            else ("Exit Fullscreen" if offers.in_fullscreen else "Fullscreen"),
             "dialog",
             "fullscreen",
             hint="CASSim",
-            enabled=offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone),
+            enabled=cutout_toggle
+            or (offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone)),
         ),
         install,
     )
@@ -154,6 +158,7 @@ class App:
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
         self.resizing = False  # a splitter redraw is queued: further drag steps only add up
         self.first_visit = False  # nothing saved yet: the window size picks the mode
+        self.use_cutout = True
         self.starting = False  # loading the autosave through a remote engine
         self.theme = shell.theme
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
@@ -626,8 +631,13 @@ class App:
         self.shell.install()
 
     def go_fullscreen(self) -> None:
-        """Doc > Fullscreen, which reads Exit Fullscreen while the page is fullscreen."""
-        self.shell.toggle_fullscreen()
+        """Toggle the cutout on an installed phone, or the browser's fullscreen elsewhere."""
+        if self.phone and self.state.mode is Mode.HANDHELD and self.shell.offers.installed:
+            self.use_cutout = not self.use_cutout
+            self.arrange()
+            self.refresh()
+        else:
+            self.shell.toggle_fullscreen()
 
     def on_bridge(self) -> None:
         """The page reported what the browser offers: the Install row may appear or go."""
@@ -637,7 +647,12 @@ class App:
     def doc_extras(self) -> tuple[MenuItem, ...]:
         """The Doc menu's last three items (see `browser_doc_items`)."""
         handheld = self.state.mode is Mode.HANDHELD
-        return browser_doc_items(handheld=handheld, offers=self.shell.offers, phone=self.phone)
+        return browser_doc_items(
+            handheld=handheld,
+            offers=self.shell.offers,
+            phone=self.phone,
+            use_cutout=self.use_cutout,
+        )
 
     def toggle_keypad(self) -> None:
         """Show or hide the keypad beside the screen in Computer mode (kept with the settings)."""
@@ -954,6 +969,25 @@ class App:
     def open_settings(self) -> None:
         settings_dialog(self.page, self.state, self.refresh, self.theme)
 
+    def handheld_room(
+        self, *, phone: bool, full: bool, margin: int
+    ) -> tuple[float | None, float | None]:
+        """Set the outer padding and return the viewport inside the selected safe area."""
+        top, right, bottom, left = (
+            self.shell.offers.safe_area
+            if phone and self.shell.offers.installed and not self.use_cutout
+            else (0, 0, 0, 0)
+        )
+        self.outer.padding = ft.Padding.only(
+            top=top + (0 if full else margin),
+            right=right + margin,
+            bottom=bottom + margin,
+            left=left + margin,
+        )
+        width = max(1, self.page.width - left - right) if self.page.width else None
+        height = max(1, self.page.height - top - bottom) if self.page.height else None
+        return width, height
+
     def arrange(self) -> None:
         view = self.view.control
         state = self.state
@@ -971,9 +1005,7 @@ class App:
         if state.mode is Mode.HANDHELD:
             share = system.keypad_share or None  # 0 is auto; a phone always uses it
             margin = PHONE_MARGIN if phone else MARGIN
-            self.outer.padding = (
-                ft.Padding.only(left=margin, right=margin, bottom=margin) if full else margin
-            )
+            width, height = self.handheld_room(phone=phone, full=full, margin=margin)
             self.frame.spacing = 0  # the toolbar holds only the status line
             units = keypad_units(state.keypad)
             sizing = Sizing(
@@ -983,15 +1015,13 @@ class App:
                 margin,
                 not phone,
             )
-            plan = handheld_plan(self.page.width, self.page.height, units[0], units[1], sizing)
+            plan = handheld_plan(width, height, units[0], units[1], sizing)
             sizing = replace(sizing, bar=0) if full else sizing  # the screen may use that band
             self.plan = plan
             state.scale, state.pad_scale = plan.scale, plan.pad_scale
             view.width = state.px(SCREEN_W)
             view.height = (
-                full_screen_height(plan, self.page.height, units[1], sizing)
-                if full
-                else state.px(SCREEN_H)
+                full_screen_height(plan, height, units[1], sizing) if full else state.px(SCREEN_H)
             )
             view.expand = False
             shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer, full)

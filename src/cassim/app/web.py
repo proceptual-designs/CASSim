@@ -171,6 +171,7 @@ class Bridge:
         self.in_fullscreen = False  # the page is fullscreen now, so the menu offers to leave it
         self.installed = False  # running as the installed app, so the menu offers Uninstall
         self.touch = False  # the main pointer is a finger: a phone or tablet
+        self.safe_area: tuple[float, float, float, float] = (0, 0, 0, 0)
         self._changed = changed
         self._channel = js.BroadcastChannel.new("cassim")
         self._callback = create_proxy(self._on_message)
@@ -188,6 +189,13 @@ class Bridge:
             self.in_fullscreen = bool(event.data.inFullscreen)
             self.installed = bool(event.data.installed)
             self.touch = bool(getattr(event.data, "touch", False))
+            inset = event.data.safeArea
+            self.safe_area = (
+                float(inset.top),
+                float(inset.right),
+                float(inset.bottom),
+                float(inset.left),
+            )
             self._changed()
 
     def _send(self, op: str) -> None:

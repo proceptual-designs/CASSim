@@ -30,6 +30,7 @@ def touch_app(*, touch: bool) -> Any:
         in_fullscreen=False,
         installed=False,
         touch=touch,
+        safe_area=(0, 0, 0, 0),
     )
     app.state.mode = Mode.COMPUTER
     app.arrange()
