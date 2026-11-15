@@ -139,6 +139,48 @@ def test_taps_long_presses_and_drags():
     assert ("sheet_tap", "-1,-1") not in recorder.done
 
 
+def test_clicking_the_entry_bar_starts_editing():
+    state = sheet_state()
+    view, recorder = view_for(state)
+    state.run(Binding("insert", "42"))
+    state.run(Binding("enter"))
+    state.run(Binding("up"))
+    view.refresh()
+    row = view.sheet_view.bar.content
+    assert isinstance(row, ft.Row)
+    entry = row.controls[1]
+    assert isinstance(entry, ft.Container)
+    assert entry.on_click is not None
+    view.sheet_view._edit_bar(event())
+    assert ("sheet_bar", "") in recorder.done
+    assert state.sheet is not None
+    assert state.sheet.editing == "42"
+
+
+def test_dragging_a_formula_range_keeps_the_edited_cell():
+    state = sheet_state()
+    view, _ = view_for(state)
+    sheet = state.sheet
+    assert sheet is not None
+    sheet.go((2, 1))
+    state.run(Binding("insert", "=sum("))
+    view.refresh()
+    start = event(
+        local_position=ft.Offset(ROW_LABELS + 5, HEAD + FORMULA + 2),
+        kind=ft.PointerDeviceType.MOUSE,
+    )
+    view.sheet_view._pan_start(start)
+    view.sheet_view._pan(
+        event(
+            local_position=ft.Offset(ROW_LABELS + 5, HEAD + FORMULA + 2 * ROW + 2),
+            local_delta=None,
+        )
+    )
+    assert sheet.cursor == (2, 1)
+    assert sheet.editing == "=sum(a1:a3"
+    assert sheet.screen().reference == (0, 1, 0, 3)
+
+
 def test_a_mouse_drag_selects():
     """Run 2, E4: a drag from C1 to D2 selects C1:D2."""
     state = sheet_state()

@@ -271,6 +271,17 @@ class AppState:
         """What a physical key does, without doing it (the GUI fetches the system clipboard
         before a paste)."""
         name = key_name(key, shift=shift, ctrl=ctrl, alt=alt, meta=meta)
+        sheet = self.sheet
+        if (
+            name in ("F2", "F4")
+            and sheet is not None
+            and sheet.editing is not None
+            and sheet.editing.startswith("=")
+            and not sheet.dialogs
+            and sheet.mode is None
+            and (self.menu is None or not self.menu.open)
+        ):
+            return Binding("sheet_ref_mode" if name == "F2" else "sheet_ref_fixed")
         return None if name is None else self._cased(self.computer_keys.press(name))
 
     def _cased(self, binding: Binding | None) -> Binding | None:
