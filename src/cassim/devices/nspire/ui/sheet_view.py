@@ -30,12 +30,12 @@ def sheet_colours(theme: Theme) -> dict[str, str]:
     scene's dark-theme defaults (light ink) would not show (fixed after slice 3b)."""
     return {
         "ink": theme.screen_text,
-        "axis": "#4d5a49",  # formulas and row numbers
-        "grid": "#a3ad9c",
-        "header": "#cfd8c7",
+        "axis": theme.sheet_axis,
+        "grid": theme.sheet_grid,
+        "header": theme.sheet_header,
         "cursor": theme.accent,
         "selection": theme.selection,
-        "edit": "#ffffff",
+        "edit": theme.sheet_edit,
     }
 
 
@@ -67,8 +67,8 @@ class SheetView:
             drag_interval=16,
             expand=True,
         )
-        self.address = ft.Text("", color="#ffffff", weight=ft.FontWeight.BOLD)
-        self.entry = ft.Text("", color="#ffffff", no_wrap=True, expand=True)
+        self.address = ft.Text("", color=theme.title_text, weight=ft.FontWeight.BOLD)
+        self.entry = ft.Text("", color=theme.title_text, no_wrap=True, expand=True)
         self.bar = ft.Container(
             ft.Row([self.address, self.entry], spacing=8),
             bgcolor=theme.title_bar,

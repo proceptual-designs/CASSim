@@ -24,7 +24,7 @@
 
 ## On the on-screen keypad
 
-The keypad has the same keys as the handheld, with the second functions (the **ctrl** and **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key.
+The keypad has the same keys as the handheld, with the second functions (the blue **ctrl** and orange **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key; the shift key has an orange outline to match its labels. While a modifier is waiting for the next key, a dot appears beside its name.
 
 - ctrl then **doc**: add a page
 - ctrl then **esc**: undo
@@ -32,10 +32,11 @@ The keypad has the same keys as the handheld, with the second functions (the **c
 - ctrl then **catalog**: symbols; ctrl then **=**: relations (<, ≤, ≠ and so on)
 - ctrl then **shift**: Caps lock
 - ctrl then **enter**: answer as a decimal
+- ctrl then **menu**: context menu for the selected spreadsheet cell or cells (the blue menu-and-pointer icon)
 
 The round key in the middle of the arrows works like a joystick. Press it and slide your finger away from the centre: a pointer appears on the screen and moves that way, faster the further you slide. It hides about a second after it stops, or when you press another key. Tap the key while the pointer shows to click where it points: a menu item, a line of the history (click it again to copy it to the entry line), the entry line, or a spreadsheet cell. With the pointer hidden, a tap chooses the highlighted item. The real handheld's touchpad works differently (the pointer moves only while your finger moves, and stays on the screen); CASSim's joystick is its own design.
 
-The **flag** key, at the end of the h to n row, adds accents: type a letter, then press it to change the letter to è, then é, ê, ë and so on, and back to the plain letter. It works on the entry line and while typing in a spreadsheet cell. The small ⏎ key in the bottom corner, beside a wider space bar, is return, which is not the same as **enter**: enter (with the orange ring) evaluates the entry line. The ring on x, y and z just makes the usual variables easy to find.
+The **flag** key, at the end of the h to n row, adds accents: type a letter, then press it to change the letter to è, then é, ê, ë and so on, and back to the plain letter. It works on the entry line and while typing in a spreadsheet cell. The small ⏎ key in the bottom corner, beside a wider space bar, is return, which is not the same as **enter**: enter (with a green ring) evaluates the entry line. The green rings on x, y and z just make the usual variables easy to find.
 
 ## Typing symbols
 

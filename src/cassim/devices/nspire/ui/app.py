@@ -18,6 +18,7 @@ from datetime import datetime
 import flet as ft
 
 from cassim.app.shell import BrowserOffers, Shell
+from cassim.app.theme import themed
 from cassim.core.settings import Settings, next_choice
 from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Binding, keypad_units
@@ -28,6 +29,7 @@ from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
+from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
     FULL_RESERVE,
     GAP,
@@ -49,13 +51,12 @@ from cassim.devices.nspire.ui.layout import (
 )
 from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
 from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
+from cassim.devices.nspire.ui.theme_settings import theme_settings_dialog
 from cassim.devices.nspire.ui.views import (
     POINTER_TICK,
-    STICK_KEY,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
-    Keypad,
     Sidebar,
     chip,
     settings_dialog,
@@ -224,6 +225,7 @@ class App:
         page.on_app_lifecycle_state_change = self.on_lifecycle
         # Pick the view before the first draw, so the page never shows one view and then swaps
         await self.recover_system()
+        self.apply_theme()
         if view is not None:
             self.state.mode = view
         self.arrange()
@@ -238,6 +240,8 @@ class App:
                 on_key_up=lambda e: self.track_shift(e.key, down=False),
             )
         )
+        if self.state.system.theme_error:
+            self.notice("Appearance settings", self.state.system.theme_error)
         print("CASSIM: UI", flush=True)  # the first screen is on its way (tools/loadtime.py)
         if self.runner is not None:
             self.starting = True
@@ -710,7 +714,7 @@ class App:
             "share_link": self.share_link,
             "document_settings": self.open_settings,
             "system_settings": lambda: system_settings_dialog(
-                self.page, self.state, self.on_system_change, self.theme
+                self.page, self.state, self.on_system_change, self.theme, self.open_appearance
             ),
             "help": self.shell.help,
             "about": self.shell.about,
@@ -963,8 +967,35 @@ class App:
 
     def on_system_change(self) -> None:
         self.shell.write(SYSTEM_KEY, self.state.system.dumps())
+        self.apply_theme()
         self.arrange()  # the letter layout changes the keypad's size
         self.refresh()
+
+    def open_appearance(self) -> None:
+        self.typing_dialog = theme_settings_dialog(
+            self.page, self.state.system, self.on_system_change
+        )
+
+    def apply_theme(self) -> None:
+        system = self.state.system
+        theme = themed(system.theme_name, system.theme_overrides.get(system.theme_name, {}))
+        self.page.theme_mode = (
+            ft.ThemeMode.LIGHT if system.theme_name == "Light" else ft.ThemeMode.DARK
+        )
+        self.page.bgcolor = theme.background
+        self.status.color = theme.status_text
+        if theme == self.theme:
+            return
+        self.theme = self.shell.theme = theme
+        self.view = CalculatorView(
+            self.state, theme, self.act, lambda: self.shift, self.cycle_setting
+        )
+        self.view.body_size = self.body_size
+        self.keypad = Keypad(self.state, self.press, theme, on_stick=self.on_stick)
+        self.sidebar = Sidebar(
+            self.state, self.refresh, theme, lambda: self.act("open_menu", "menu")
+        )
+        self.shape = None
 
     def open_settings(self) -> None:
         settings_dialog(self.page, self.state, self.refresh, self.theme)
