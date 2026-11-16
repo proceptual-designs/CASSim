@@ -5,8 +5,11 @@ until slice 3b; it still appears here for the sidebar and the page menus."""
 
 import pytest
 
+from cassim.app.shell import BrowserOffers
+from cassim.device.menu import MenuItem
 from cassim.devices.nspire.document import PageKind, loads
 from cassim.devices.nspire.screen import thumbnail
+from cassim.devices.nspire.ui.app import cassim_items
 from cassim.devices.nspire.ui.sidebar import Sidebar
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import STUB_NOTICE, CalculatorView
@@ -82,18 +85,21 @@ def test_typing_on_a_stub_page_does_nothing_and_it_has_no_menu() -> None:
     assert state.menu is not None
 
 
-@pytest.mark.parametrize(("key", "dialog"), [("8", "about"), ("9", "help")])
+@pytest.mark.parametrize(("index", "dialog"), [(-1, "about"), (-2, "help")])
 @pytest.mark.parametrize("page", ["calculator", "4", "6", "7", "8"])
-def test_about_and_help_are_in_doc_on_every_page(page: str, key: str, dialog: str) -> None:
-    """NFR-LEG-002: About (the disclaimer) and Help are Doc items on every page type, under the
-    same keys; the page Menus do not repeat them."""
+def test_about_and_help_are_in_cassim_on_every_page(page: str, index: int, dialog: str) -> None:
+    """NFR-LEG-002: About and Help are available on every page type."""
     state = AppState()
+    state.cassim_menu = lambda: MenuItem(
+        "CASSim", items=cassim_items(handheld=True, offers=BrowserOffers())
+    )
     asked: list[str] = []
     state.show_dialog = asked.append
     if page != "calculator":
         insert(state, page)
-    state.key_event("F4")
-    state.key_event(key)
+    state.run_action("open_menu", "cassim")
+    assert state.menu is not None
+    state.key_event(state.menu.keys()[index])
     assert asked == [dialog]
 
 

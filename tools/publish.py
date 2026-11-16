@@ -6,7 +6,7 @@ Steps (decisions 0002, 0016, 0018, 0027): stage the app, `flet publish --no-cdn`
 `index.html`, vendor the Pyodide packages loaded at run time, rebuild the app archive with Flet
 inside it and the engine archive with SymPy inside it (both as bytecode), write the web manifest
 and icons, and replace Flutter's self-unregistering service worker with a versioned precaching
-one. `index.html` gets a loading screen and an "update available" bar.
+one. `index.html` gets a loading screen and a browser-status bridge.
 
 A bundle (decision 0032 item 8) is the shell and a list of devices: `all` holds every built
 device (`cassim-app`, `cassim-calc`), and each device's short name (`tin`) builds that device
@@ -27,7 +27,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -233,12 +235,6 @@ HEAD_TAGS = f"""<link rel="manifest" href="manifest.webmanifest">
 #cassim-splash{{position:fixed;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;
 justify-content:center;gap:16px;background:{THEME};color:#e8e8e8;font:16px system-ui,sans-serif}}
 #cassim-splash progress{{width:min(320px,70vw);height:8px}}
-#cassim-update{{position:fixed;left:0;right:0;bottom:0;z-index:10;display:none;padding:10px 16px;
-background:#2d5fa8;color:#fff;font:14px system-ui,sans-serif;align-items:center;gap:12px}}
-#cassim-update button{{font:inherit;padding:4px 12px;border-radius:4px;border:0;cursor:pointer}}
-#cassim-offline{{position:fixed;right:8px;bottom:8px;z-index:8;padding:6px 10px;
-background:#242424;color:#fff;font:13px system-ui,sans-serif;border-radius:4px}}
-#cassim-offline button{{font:inherit;margin-left:8px}}
 #cassim-safe-area{{position:fixed;visibility:hidden;pointer-events:none;
 padding:env(safe-area-inset-top) env(safe-area-inset-right)
 env(safe-area-inset-bottom) env(safe-area-inset-left)}}
@@ -250,12 +246,9 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
 <progress id="cassim-progress" max="100"></progress>
 <div id="cassim-status">Loading the calculator (first load can take a while)...</div>
 </div>
-<div id="cassim-update" role="alert"><span>A new version of CASSim is available.</span>
-<button id="cassim-reload">Reload</button></div>
-<div id="cassim-offline" role="status" data-state="checking">
+<div id="cassim-offline" hidden data-state="checking">
 <span>Checking offline availability...</span>
-<button id="cassim-offline-retry" hidden>Retry</button>
-<button id="cassim-offline-close" aria-label="Dismiss offline status" hidden>×</button></div>
+</div>
 <script>
 (function () {
   var offlineSupported = /*CASSIM_OFFLINE_SUPPORTED*/;
@@ -289,6 +282,14 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
   // The Python app runs in a Web Worker and cannot touch the page, so install and fullscreen go
   // through a BroadcastChannel: the app asks, the page does it and reports what the browser offers.
   var bus = new BroadcastChannel("cassim");
+  var waitingUpdate = null;
+  var offline = document.getElementById("cassim-offline");
+  var offlineText = offline.querySelector("span");
+  var offlineRetry = false;
+  function tellStatus() {
+    bus.postMessage({op: "status", state: offline.dataset.state,
+      message: offlineText.textContent, retry: offlineRetry, updateReady: !!waitingUpdate});
+  }
   function tell() {
     bus.postMessage({op: "installable", value: !!window.cassimInstallEvent});
     var d = document.documentElement;
@@ -304,6 +305,7 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
       touch: window.matchMedia("(pointer: coarse)").matches,
       safeArea: {top: parseFloat(inset.paddingTop), right: parseFloat(inset.paddingRight),
         bottom: parseFloat(inset.paddingBottom), left: parseFloat(inset.paddingLeft)}});
+    tellStatus();
   }
   // requestFullscreen needs a recent tap. The app's answer comes back from a worker and a slow
   // phone can take longer than the browser allows, so a refusal arms the next tap instead.
@@ -346,18 +348,18 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
     } else if (op === "fullscreen") goFullscreen();
     else if (op === "exit_fullscreen") exitFullscreen();
     else if (op === "check_update") checkUpdate();
-  };
-  // The Reload banner for a newer version that has downloaded.
-  function offer(worker) {
-    var box = document.getElementById("cassim-update");
-    box.style.display = "flex";
-    document.getElementById("cassim-reload").onclick = function () {
+    else if (op === "retry_offline") retryOffline();
+    else if (op === "reload_update" && waitingUpdate) {
       window.cassimUpdateRequested = true;
-      worker.postMessage("skipWaiting");
-    };
+      waitingUpdate.postMessage("skipWaiting");
+    }
+  };
+  // Keep the waiting worker until the user chooses Reload in the CASSim menu.
+  function offer(worker) {
+    waitingUpdate = worker;
+    tellStatus();
   }
-  // Doc > Check for Updates: ask the server for a newer service worker now, rather than at the
-  // browser's next check. A newer one shows the Reload banner once it has downloaded.
+  // Ask the server for a newer service worker now, rather than at the browser's next check.
   function checkUpdate() {
     function answer(result) { bus.postMessage({op: "update", result: result}); }
     if (!("serviceWorker" in navigator)) { answer("unsupported"); return; }
@@ -370,17 +372,12 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
       });
     }).catch(function () { answer("offline"); });
   }
-  var offline = document.getElementById("cassim-offline");
-  var offlineText = offline.querySelector("span");
-  var retry = document.getElementById("cassim-offline-retry");
-  var closeOffline = document.getElementById("cassim-offline-close");
   var statusSupported = false;
   function offlineStatus(state, text, canRetry) {
     offline.dataset.state = state;
-    offline.hidden = false;
     offlineText.textContent = text;
-    retry.hidden = !canRetry;
-    closeOffline.hidden = state === "checking";
+    offlineRetry = canRetry;
+    tellStatus();
   }
   if (!("serviceWorker" in navigator)) {
     offlineStatus("unavailable", "Offline unavailable in this browser.", false);
@@ -425,11 +422,14 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
     function watch(worker) {
       function changed() {
         if (worker.state === "installed" && navigator.serviceWorker.controller) offer(worker);
+        if (worker.state === "redundant" && waitingUpdate === worker) {
+          waitingUpdate = null;
+          tellStatus();
+        }
         if (worker.state === "redundant" && !navigator.serviceWorker.controller)
           offlineStatus("unavailable", "Offline installation failed. Reconnect and retry.", true);
         else if (worker.state === "redundant" && offline.dataset.state === "ready") {
-          offline.hidden = false;
-          offlineText.textContent = "Update failed. Current version is ready offline.";
+          offlineStatus("update_failed", "Update failed. Current version is ready offline.", true);
         }
       }
       worker.addEventListener("statechange", changed);
@@ -446,7 +446,17 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
       offlineStatus("unavailable", "Offline installation failed. Reconnect and retry.", true);
     });
   }
-  retry.onclick = function () {
+  function retryOffline() {
+    if (offline.dataset.state === "update_failed") {
+      offlineStatus("checking", "Checking for an update...", false);
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        return reg.update();
+      }).then(checkOffline).catch(function (error) {
+        console.error("Update retry failed:", error);
+        offlineStatus("update_failed", "Update failed. Current version is ready offline.", true);
+      });
+      return;
+    }
     var worker = navigator.serviceWorker.controller;
     if (!worker) { register(); return; }
     if (!statusSupported) {
@@ -472,8 +482,7 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
       else offlineStatus("unavailable", "Offline repair failed. Reconnect and retry.", true);
     };
     worker.postMessage("offline-repair", [channel.port2]);
-  };
-  closeOffline.onclick = function () { offline.hidden = true; };
+  }
   register();
 })();
 </script>"""
@@ -548,6 +557,23 @@ def lock_file(dist: Path) -> dict[str, Any]:
     return json.loads((dist / "pyodide" / "pyodide-lock.json").read_text(encoding="utf-8"))
 
 
+def download_pyodide(url: str) -> bytes:
+    """Retry transient CDN failures; keep the final failure visible to the caller."""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if attempt == 2 or (error.code != 429 and error.code < 500):
+                raise
+        except urllib.error.URLError, TimeoutError:
+            if attempt == 2:
+                raise
+        print(f"Pyodide download failed; retrying {url}", file=sys.stderr)
+        time.sleep(2**attempt)
+    raise RuntimeError("Pyodide download exhausted its retries")
+
+
 def pyodide_wheel(dist: Path, name: str) -> Path:
     """A package from Pyodide's own distribution, downloaded once into `WHEELS`."""
     file_name = lock_file(dist)["packages"][name]["file_name"]
@@ -556,7 +582,7 @@ def pyodide_wheel(dist: Path, name: str) -> Path:
     if not target.exists():
         WHEELS.mkdir(parents=True, exist_ok=True)
         url = f"https://cdn.jsdelivr.net/pyodide/v{version}/full/{file_name}"
-        target.write_bytes(urllib.request.urlopen(url).read())
+        target.write_bytes(download_pyodide(url))
     return target
 
 

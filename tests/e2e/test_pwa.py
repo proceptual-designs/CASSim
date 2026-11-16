@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tarfile
 import time
 import zipfile
@@ -19,7 +20,7 @@ from urllib.parse import urlparse
 
 import pytest
 from PIL import Image, ImageChops
-from playwright.sync_api import Browser, Page
+from playwright.sync_api import Browser, Page, expect
 from test_flows_browser import AppPage
 from tools import publish
 from tools.flows import flow_settings, matches
@@ -81,10 +82,7 @@ def test_loads_and_works_offline(browser: Browser, site: tuple[Path, str]) -> No
     assert wait_for(page, "!document.getElementById('cassim-splash')"), "app never started"
     page.wait_for_timeout(20000)  # the Python worker starts after the first frame
     assert not errors, errors
-    assert (
-        page.evaluate("getComputedStyle(document.getElementById('cassim-update')).display")
-        == "none"
-    )
+    assert page.locator("#cassim-offline").is_hidden()
     n = len(json.loads((dist / "precache.json").read_text(encoding="utf-8")))
     assert wait_for(
         page,
@@ -259,7 +257,32 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     assert f'CACHE_PREFIX + "{version}"' in (dist / "flutter_service_worker.js").read_text(
         encoding="utf-8"
     )
-    assert "cassim-update" in (dist / "index.html").read_text(encoding="utf-8")
+    assert "reload_update" in (dist / "index.html").read_text(encoding="utf-8")
+
+
+def test_cassim_menu_shows_browser_attention_without_overlay(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-PWA-002/004: browser status reaches the app's menu and its attention indicator."""
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    page = app.page
+    assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+    page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    button = page.get_by_role("button", name=re.compile("CASSim menu"))
+    expect(button).to_be_attached()
+    page.evaluate("""() => {
+      const channel = new BroadcastChannel("cassim");
+      channel.postMessage({op: "status", state: "unavailable",
+        message: "Offline files are incomplete.", retry: true, updateReady: false});
+    }""")
+    expect(
+        page.get_by_role("button", name=re.compile("CASSim menu: attention required"))
+    ).to_be_attached()
+    assert page.locator("#cassim-offline").is_hidden()
+    button.click()
+    expect(page.get_by_text("Offline: Unavailable")).to_be_attached()
+    expect(page.get_by_text("Retry offline / update")).to_be_attached()
 
 
 def test_cached_navigation_offers_and_applies_update(
@@ -272,14 +295,22 @@ def test_cached_navigation_offers_and_applies_update(
         page = context.new_page()
         page.goto(url, wait_until="load")
         assert wait_for(page, "!!navigator.serviceWorker.controller")
+        page.evaluate("""() => {
+          window.testBus = new BroadcastChannel("cassim");
+          window.testBus.onmessage = e => {
+            if (e.data.op === "status") window.pwaStatus = e.data;
+          };
+          window.testBus.postMessage({op: "hello"});
+        }""")
         page.evaluate("caches.open('cassim-%2Fother%2F-other-version')")
         change("update")
         page.evaluate("navigator.serviceWorker.getRegistration().then(reg => reg.update())")
-        assert wait_for(
-            page, "getComputedStyle(document.getElementById('cassim-update')).display === 'flex'"
-        ), "new version was not offered"
+        assert wait_for(page, "window.pwaStatus && window.pwaStatus.updateReady"), (
+            "new version was not offered"
+        )
+        assert page.locator("#cassim-offline").is_hidden()
         with page.expect_navigation(wait_until="load", timeout=150000):
-            page.locator("#cassim-reload").click()
+            page.evaluate("window.testBus.postMessage({op: 'reload_update'})")
         assert wait_for(
             page,
             "caches.keys().then(keys => keys.includes('cassim-%2FCASSim%2F-test-update')"
@@ -313,7 +344,7 @@ def test_failed_precache_is_reported_and_can_be_retried(
         )
         assert not page.evaluate("!!navigator.serviceWorker.controller")
         fail("")
-        page.locator("#cassim-offline-retry").click()
+        page.evaluate("new BroadcastChannel('cassim').postMessage({op: 'retry_offline'})")
         assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
         context.set_offline(True)
         page.reload(wait_until="load")
@@ -401,9 +432,8 @@ def test_missing_cached_file_is_reported_and_repaired(
         assert wait_for(
             page, "document.getElementById('cassim-offline').dataset.state === 'unavailable'"
         )
-        page.locator("#cassim-offline-retry").click()
+        page.evaluate("new BroadcastChannel('cassim').postMessage({op: 'retry_offline'})")
         assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
-        page.locator("#cassim-offline-close").click()
         assert page.locator("#cassim-offline").is_hidden()
     finally:
         context.close()

@@ -31,6 +31,10 @@ def touch_app(*, touch: bool) -> Any:
         installed=False,
         touch=touch,
         safe_area=(0, 0, 0, 0),
+        offline_state="ready",
+        offline_message="Ready for offline use.",
+        offline_retry=False,
+        update_ready=False,
     )
     app.state.mode = Mode.COMPUTER
     app.arrange()

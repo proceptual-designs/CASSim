@@ -4,7 +4,7 @@ Menus are numbered as on the handheld: press a number to choose that item, or us
 
 ## Menu (F2)
 
-Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & Vector, Finance, Functions & Programs. About CASSim and Help are in Doc. Pages that are not built yet have no Menu.
+Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & Vector, Finance, Functions & Programs. Pages that are not built yet have no Menu.
 
 Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance Solver. Greyed-out items are on the handheld but not built yet in CASSim.
 
@@ -16,8 +16,19 @@ Some items open a small form instead of expecting you to type the command, for e
 - **Insert:** add a Problem or a page (Calculator and Lists & Spreadsheet work so far)
 - **Page Layout:** delete a page
 - **Settings & Status:** Document Settings and Handheld Setup
-- **8 About CASSim** and **9 Help** (in the handheld's places for Login and Press-to-Test, which CASSim does not have)
-- Then CASSim's own: switch to the other view, **Fullscreen** (greyed where the browser cannot, or when CASSim is already installed and full screen), and **Install CASSim**, which reads **Uninstall CASSim** in the installed app and shows how to remove it. Last is **Check for Updates**, which asks the site for a newer version now; if there is one, a banner offers **Reload**. In the installed app on a phone, **Avoid cutout** or **Use cutout** takes the Fullscreen item's place.
+- **8 Login** and **9 Press-to-Test** are unavailable placeholders.
+
+## CASSim
+
+The **CASSim** button is in the Computer toolbar and above **Doc** on the Handheld keypad.
+Its menu has the view switch, Fullscreen, Install or Uninstall, Check for Updates, offline status,
+Help and About. On an installed phone, **Avoid cutout** or **Use cutout** replaces Fullscreen.
+Unavailable actions are greyed out. On the Handheld keypad, ctrl then CASSim offers direct
+installation when the browser supports it.
+
+A red dot on the button means an offline problem, failed update or a downloaded update needs
+attention. Open the menu for details and, when available, Retry or Reload. Reload asks first if
+the document has unsaved changes; updates are never applied automatically.
 
 ## Other menus
 

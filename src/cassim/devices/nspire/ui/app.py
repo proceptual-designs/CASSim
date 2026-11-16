@@ -59,6 +59,7 @@ from cassim.devices.nspire.ui.views import (
     SYMBOL_FONT_FILE,
     CalculatorView,
     chip,
+    label_text,
     settings_dialog,
     system_settings_dialog,
     wizard_dialog,
@@ -100,10 +101,10 @@ AUTOSAVE_DELAY = 0.5  # seconds
 FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
 
 
-def browser_doc_items(
+def browser_menu_items(
     *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
 ) -> tuple[MenuItem, ...]:
-    """The Doc menu's last four items, always in this order so the keys never move (muscle
+    """The CASSim menu's browser items, always in this order so the keys never move (muscle
     memory): the view switch, Fullscreen, Install and Check for Updates. One the browser cannot
     do is greyed, Fullscreen reads Exit Fullscreen while the page is fullscreen; on an installed
     phone it toggles the cutout instead. Install reads Uninstall in the installed app. A phone
@@ -139,6 +140,31 @@ def browser_doc_items(
     )
 
 
+def cassim_items(
+    *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
+) -> tuple[MenuItem, ...]:
+    """App actions and browser status, shared by both CASSim menu entry points."""
+    status = {
+        "checking": "Offline: Preparing",
+        "ready": "Offline: Ready",
+        "unavailable": "Offline: Unavailable",
+        "update_failed": "Update failed",
+        "unsupported": "Offline: Unknown",
+    }.get(offers.offline_state, "Offline: Unknown")
+    return (
+        *browser_menu_items(handheld=handheld, offers=offers, phone=phone, use_cutout=use_cutout),
+        MenuItem(status, "dialog", "offline_status", hint=offers.offline_message),
+        *(
+            (MenuItem("Retry offline / update", "dialog", "retry_offline"),)
+            if offers.offline_retry
+            else ()
+        ),
+        *((MenuItem("Reload update…", "dialog", "reload_update"),) if offers.update_ready else ()),
+        MenuItem("Help (wiki)…", "dialog", "help"),
+        MenuItem("About CASSim…", "dialog", "about"),
+    )
+
+
 class App:
     """Wires the state to the views: the top bar, the screen, the keypad and the sidebar."""
 
@@ -154,7 +180,7 @@ class App:
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.sheet_line = ""  # the debug SHEET line last printed
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
-        self.shape: tuple[Mode, bool, bool, bool, bool, bool] | None = (
+        self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
         )
         self.holder: ft.Container | None = None  # the splitter's box in a portrait layout
@@ -170,7 +196,9 @@ class App:
         self.view.body_size = self.body_size
         self.pointer = Pointer()  # steered by the keypad's centre key
         self.ticking = False  # the pointer's timer is running
-        self.keypad = Keypad(state, self.press, self.theme, on_stick=self.on_stick)
+        self.keypad = Keypad(
+            state, self.press, self.theme, on_cassim=self.press_cassim, on_stick=self.on_stick
+        )
         self.sidebar = Sidebar(
             state, self.refresh, self.theme, lambda: self.act("open_menu", "menu")
         )
@@ -198,7 +226,7 @@ class App:
         self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
         state.clipboard_out = shell.copy  # copy and cut also fill the system clipboard
         state.show_dialog = self.show_dialog
-        state.doc_extras = self.doc_extras
+        state.cassim_menu = self.cassim_menu
         state.show_wizard = self.show_wizard
         state.request_paste = self.request_paste
         self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
@@ -470,6 +498,20 @@ class App:
         self.state.press_keypad(name)
         self.refresh()
 
+    def press_cassim(self) -> None:
+        if self.busy:
+            return
+        ctrl = self.state.pending == "ctrl"
+        self.state.clear_pending()
+        if ctrl:
+            if self.installable:
+                self.install()
+            else:
+                self.shell.notice("Install CASSim", "Install is not available in this browser.")
+        else:
+            self.state._open_menu("cassim")
+        self.refresh()
+
     # ---- the pointer that the keypad's centre key steers -----------------------------------
 
     def on_stick(self, event: str, dx: float, dy: float) -> None:
@@ -645,18 +687,24 @@ class App:
             self.shell.toggle_fullscreen()
 
     def on_bridge(self) -> None:
-        """The page reported what the browser offers: the Install row may appear or go."""
+        """The page reported a change in browser capabilities or offline/update status."""
+        if self.state.menu is not None and self.state.menu.root.label == "CASSim":
+            root = self.cassim_menu()
+            if self.state.menu.root != root:
+                self.state._open_menu("cassim")
         self.arrange()
         self.refresh()
 
-    def doc_extras(self) -> tuple[MenuItem, ...]:
-        """The Doc menu's last four items (see `browser_doc_items`)."""
+    def cassim_menu(self) -> MenuItem:
         handheld = self.state.mode is Mode.HANDHELD
-        return browser_doc_items(
-            handheld=handheld,
-            offers=self.shell.offers,
-            phone=self.phone,
-            use_cutout=self.use_cutout,
+        return MenuItem(
+            "CASSim",
+            items=cassim_items(
+                handheld=handheld,
+                offers=self.shell.offers,
+                phone=self.phone,
+                use_cutout=self.use_cutout,
+            ),
         )
 
     def toggle_keypad(self) -> None:
@@ -677,7 +725,7 @@ class App:
     def toolbar_controls(self) -> list[ft.Control]:
         theme, mode = self.theme, self.state.mode
         if mode is Mode.HANDHELD:
-            return []  # the keypad's Doc and Menu keys do everything (Install sits above the keys)
+            return []  # the keypad has the Doc, Menu and CASSim keys
         return [
             chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
             chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
@@ -691,12 +739,31 @@ class App:
             chip("+ page", lambda: self.act("add_page"), theme),
             chip("+ problem", lambda: self.act("add_problem"), theme),
             chip("delete page", lambda: self.act("delete_page"), theme),
+            ft.Container(
+                ft.Row(
+                    [
+                        label_text("CASSim", color=theme.key_text, size=13),
+                        *(
+                            [ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935")]
+                            if self.shell.offers.needs_attention
+                            else []
+                        ),
+                    ],
+                    spacing=4,
+                    tight=True,
+                ),
+                bgcolor=theme.key,
+                padding=ft.Padding.symmetric(horizontal=10, vertical=5),
+                border_radius=6,
+                ink=True,
+                tooltip="CASSim menu: attention required"
+                if self.shell.offers.needs_attention
+                else "CASSim menu",
+                on_click=lambda _: self.act("open_menu", "cassim"),
+            ),
             chip("Doc", lambda: self.act("open_menu", "doc"), theme),
             chip("Sorter", lambda: self.act("dialog", SORTER), theme),
             chip("settings", self.open_settings, theme),
-            chip("Help", lambda: self.show_dialog("help"), theme),
-            chip("About", lambda: self.show_dialog("about"), theme),
-            *([chip("Install", self.install, theme)] if self.installable else []),
         ]
 
     def show_dialog(self, name: str) -> None:
@@ -705,6 +772,11 @@ class App:
             "install": self.install,
             "uninstall": self.shell.uninstall,
             "check_updates": self.shell.check_for_updates,
+            "offline_status": lambda: self.shell.notice(
+                "Offline status", self.shell.offers.offline_message
+            ),
+            "retry_offline": self.shell.retry_offline,
+            "reload_update": self.reload_update,
             "switch_view": lambda: self.set_mode(
                 Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD
             ),
@@ -724,6 +796,21 @@ class App:
         dialog = dialogs.get(name)
         if dialog is not None:
             dialog()
+
+    def reload_update(self) -> None:
+        if document_fingerprint(self.state.document) == self.current.saved:
+            self.shell.reload_update()
+            return
+
+        async def reload() -> None:
+            self.shell.reload_update()
+
+        self.shell.confirm(
+            "Reload CASSim?",
+            "This document has unsaved changes. Reloading may interrupt recent changes.",
+            "Reload",
+            reload,
+        )
 
     # ---- documents saved by name in this browser (FR-DOC-010) --------------------------------
 
@@ -993,7 +1080,9 @@ class App:
             self.state, theme, self.act, lambda: self.shift, self.cycle_setting
         )
         self.view.body_size = self.body_size
-        self.keypad = Keypad(self.state, self.press, theme, on_stick=self.on_stick)
+        self.keypad = Keypad(
+            self.state, self.press, theme, on_cassim=self.press_cassim, on_stick=self.on_stick
+        )
         self.sidebar.theme = theme
         self.shape = None
 
@@ -1024,10 +1113,8 @@ class App:
         state = self.state
         system = state.system
         phone = self.phone
-        offer = self.installable and state.mode is Mode.HANDHELD
-        self.keypad.install = (
-            self.install if offer else None
-        )  # Install takes the empty top-right cell
+        self.keypad.installable = self.installable
+        self.keypad.needs_attention = self.shell.offers.needs_attention
         # Full screen, or the installed app: the Handheld screen takes the spare height, up to
         # the top edge (and under a camera cutout: `viewport-fit=cover` in tools/publish.py)
         full = state.mode is Mode.HANDHELD and self.shell.offers.standalone and system.zoom <= 1
@@ -1055,7 +1142,7 @@ class App:
                 full_screen_height(plan, height, units[1], sizing) if full else state.px(SCREEN_H)
             )
             view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, offer, full)
+            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, full)
             if shape == self.shape:
                 # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
                 # the drag, which is why it used to stop after a few pixels.

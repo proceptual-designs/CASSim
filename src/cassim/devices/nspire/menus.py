@@ -818,7 +818,7 @@ MENU = MenuItem(
     ),
 )
 
-# Doc (doc key, F4), as on the device. CASSim's own extras come after the device's items.
+# Doc (doc key, F4), as on the device.
 DOC = MenuItem(
     "Doc",
     items=(
@@ -901,10 +901,8 @@ DOC = MenuItem(
             todo("Status…", "4"),
             todo("Restore Factory Defaults…", "6"),
         ),
-        # The device's Login and Press-to-Test (8 and 9) will not be built; CASSim's About and
-        # Help take their keys.
-        MenuItem("About CASSim…", "dialog", "about", key="8", hint="CASSim"),
-        MenuItem("Help (wiki)…", "dialog", "help", key="9", hint="CASSim"),
+        todo("Login", "8"),
+        todo("Press-to-Test", "9"),
     ),
 )
 

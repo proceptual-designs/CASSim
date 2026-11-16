@@ -35,6 +35,14 @@ class BrowserOffers:
     installed: bool = False  # running as the installed app (not a fullscreen tab)
     touch: bool = False  # the main pointer is a finger: typing needs the on-screen keyboard
     safe_area: tuple[float, float, float, float] = (0, 0, 0, 0)  # top, right, bottom, left
+    offline_state: str = "unsupported"
+    offline_message: str = "Offline status is unavailable."
+    offline_retry: bool = False
+    update_ready: bool = False
+
+    @property
+    def needs_attention(self) -> bool:
+        return self.offline_state in ("unavailable", "update_failed") or self.update_ready
 
 
 # A web app cannot remove itself: the browser or the system does it, so Uninstall says how.
@@ -48,13 +56,13 @@ UNINSTALL_STEPS = (
     "• iPhone or iPad: touch and hold the CASSim icon, then Remove App."
 )
 
-# Doc > Check for Updates: what the page found, by its answer (see `checkUpdate` in
+# CASSim > Check for Updates: what the page found, by its answer (see `checkUpdate` in
 # tools/publish.py).
 UPDATE_TITLE = "Check for Updates"
 UPDATE_MESSAGES = {
     "current": "CASSim is up to date.",
-    "downloading": "A new version is downloading. Choose Reload in the banner when it appears.",
-    "ready": "A new version is ready. Choose Reload in the banner to use it.",
+    "downloading": "A new version is downloading. Reload will appear in the CASSim menu.",
+    "ready": "A new version is ready. Choose Reload in the CASSim menu to use it.",
     "offline": "CASSim could not reach its site. Check the connection and try again.",
     "unsupported": "This copy of CASSim cannot check for updates.",
 }
@@ -268,14 +276,26 @@ class Shell:
             bridge.installed,
             bridge.touch,
             bridge.safe_area,
+            bridge.offline_state,
+            bridge.offline_message,
+            bridge.offline_retry,
+            bridge.update_ready,
         )
 
     def install(self) -> None:
         if self.bridge is not None:
             self.bridge.install()
 
+    def retry_offline(self) -> None:
+        if self.bridge is not None:
+            self.bridge.retry_offline()
+
+    def reload_update(self) -> None:
+        if self.bridge is not None:
+            self.bridge.reload_update()
+
     def uninstall(self) -> None:
-        """Doc > Uninstall CASSim: asks first, then shows how (no web API removes the app)."""
+        """CASSim > Uninstall: asks first, then shows how (no web API removes the app)."""
 
         async def show_steps() -> None:
             self.notice("Uninstall CASSim", UNINSTALL_STEPS)
@@ -288,8 +308,7 @@ class Shell:
         )
 
     def check_for_updates(self) -> None:
-        """Doc > Check for Updates: the page asks the server for a newer version now and answers;
-        a newer one shows the page's Reload banner when it has downloaded."""
+        """Ask the server for a newer version; the menu offers Reload once it has downloaded."""
         bridge = self.bridge
         if bridge is None:
             self.notice(UPDATE_TITLE, UPDATE_MESSAGES["unsupported"])

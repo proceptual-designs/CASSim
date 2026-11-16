@@ -8,6 +8,9 @@ import sympy
 from tools import publish
 
 from cassim.app import about
+from cassim.app.shell import BrowserOffers
+from cassim.device.menu import MenuItem
+from cassim.devices.nspire.ui.app import cassim_items
 from cassim.devices.nspire.ui.state import AppState
 
 
@@ -73,22 +76,30 @@ def test_versions_include_cassim_and_python() -> None:
     assert "SymPy " in about.build_info()
 
 
-def test_about_is_in_the_doc_menu() -> None:
-    """Doc > 8 About CASSim asks for the about dialog."""
+def test_about_is_in_the_cassim_menu() -> None:
+    """CASSim > About asks for the about dialog."""
     state = AppState()
+    state.cassim_menu = lambda: MenuItem(
+        "CASSim", items=cassim_items(handheld=True, offers=BrowserOffers())
+    )
     asked: list[str] = []
     state.show_dialog = asked.append
-    for key in ("F4", "8"):
-        state.key_event(key)
+    state.run_action("open_menu", "cassim")
+    assert state.menu is not None
+    state.key_event(state.menu.keys()[-1])
     assert asked == ["about"]
 
 
 def test_help_menu_item_opens_the_wiki() -> None:
-    """Doc > 9 Help asks for the help dialog, which opens the wiki."""
+    """CASSim > Help asks for the help dialog, which opens the wiki."""
     assert about.WIKI_URL == "https://cassim-wiki.pages.dev/"
     state = AppState()
+    state.cassim_menu = lambda: MenuItem(
+        "CASSim", items=cassim_items(handheld=True, offers=BrowserOffers())
+    )
     asked: list[str] = []
     state.show_dialog = asked.append
-    for key in ("F4", "9"):
-        state.key_event(key)
+    state.run_action("open_menu", "cassim")
+    assert state.menu is not None
+    state.key_event(state.menu.keys()[-2])
     assert asked == ["help"]
