@@ -653,6 +653,95 @@ def factor(raw: Raw) -> Raw:
     return sp.factor(raw)
 
 
+_QUADRATIC_DEGREE = 2
+
+
+def _square_target(variable: Raw) -> tuple[Raw, Raw] | None:
+    if isinstance(variable, sp.Symbol):
+        return variable, sp.Integer(1)
+    if (
+        isinstance(variable, sp.Pow)
+        and isinstance(variable.base, sp.Symbol)
+        and variable.exp.is_Rational
+        and variable.exp != 0
+    ):
+        return variable.base, variable.exp
+    return None
+
+
+def _quadratic_coefficients(
+    expression: Raw, targets: list[tuple[Raw, Raw]]
+) -> dict[tuple[int, ...], Raw] | None:
+    coefficients: dict[tuple[int, ...], Raw] = {}
+    for term in sp.Add.make_args(sp.expand(expression)):
+        exponents: list[int] = []
+        monomial = sp.Integer(1)
+        powers = term.as_powers_dict()
+        for target, target_power in targets:
+            exponent = powers.get(target, sp.Integer(0))
+            degree = sp.cancel(exponent / target_power)
+            if degree.is_Integer is not True or degree < 0:
+                return None
+            exponents.append(int(degree))
+            monomial *= target**exponent
+        if sum(exponents) > _QUADRATIC_DEGREE:
+            return None
+        coefficient = sp.cancel(term / monomial)
+        if any(coefficient.has(target) for target, _ in targets):
+            return None
+        key = tuple(exponents)
+        coefficients[key] = coefficients.get(key, sp.Integer(0)) + coefficient
+    return coefficients
+
+
+def _complete_square_parts(
+    expression: Raw, targets: list[tuple[Raw, Raw]]
+) -> tuple[list[Raw], Raw] | None:
+    residual = sp.expand(expression)
+    squares: list[Raw] = []
+    for position, (base, power) in enumerate(targets):
+        coefficients = _quadratic_coefficients(residual, targets)
+        if coefficients is None:
+            return None
+        quadratic = tuple(_QUADRATIC_DEGREE if i == position else 0 for i in range(len(targets)))
+        linear = tuple(1 if i == position else 0 for i in range(len(targets)))
+        leading = sp.cancel(coefficients.get(quadratic, sp.Integer(0)))
+        middle = sp.cancel(coefficients.get(linear, sp.Integer(0)))
+        if leading == 0:
+            return None
+
+        term = base**power
+        squares.append(leading * (term + middle / (2 * leading)) ** 2)
+        residual = sp.expand(
+            residual - leading * term**2 - middle * term - middle**2 / (4 * leading)
+        )
+    return squares, residual
+
+
+def complete_square(raw: Raw, variables: list[Raw]) -> Raw | None:
+    """Complete each requested variable's pure quadratic terms, leaving cross terms intact."""
+    is_equation = isinstance(raw, sp.Equality)
+    if raw.is_Equality and not is_equation:
+        return None
+    expression = raw.lhs - raw.rhs if is_equation else raw
+
+    targets = [_square_target(variable) for variable in variables]
+    if not targets or any(target is None for target in targets):
+        return None
+    typed_targets = [target for target in targets if target is not None]
+    if len({base for base, _ in typed_targets}) != len(typed_targets):
+        return None
+
+    parts = _complete_square_parts(expression, typed_targets)
+    if parts is None:
+        return None
+    squares, residual = parts
+    left = sp.Add(*squares)
+    if is_equation:
+        return sp.Eq(left, -residual, evaluate=False)
+    return sp.Add(left, residual)
+
+
 def partial_fractions(raw: Raw) -> Raw:
     return sp.apart(raw)
 

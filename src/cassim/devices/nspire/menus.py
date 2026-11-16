@@ -458,7 +458,7 @@ MENU = MenuItem(
             fn("Factor", "factor", "2"),
             fn("Expand", "expand", "3"),
             fn("Zeros", "zeros", "4"),
-            todo("Complete the Square", "5"),
+            fn("Complete the Square", "completeSquare", "5"),
             fn("Numerical Solve", "nSolve", "6"),
             sub(
                 "Solve System of Equations",

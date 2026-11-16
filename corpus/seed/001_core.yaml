@@ -59,6 +59,36 @@ cases:
   provenance: {<<: *emu, evidence: shots/methods.algebra.factor-expand-propfrac.jpg}
   status: pass
 
+- id: methods.algebra.complete-square
+  course: methods
+  tier: 1
+  tags: [completeSquare]
+  steps:
+    - {in: "completeSquare(x^2+4*x+1,x)", out: "(x+2)^2-3"}
+  provenance:
+    source: simulator
+    simulator_version: "TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, CX II-T CAS handheld view"
+    captured: "2026-11-12"
+    evidence: shots/methods.algebra.complete-square.png
+    note: "Reused the simulator screenshot recorded in docs/testing/emulator-calc4-results.md, item 4."
+  status: pass
+
+- id: methods.algebra.complete-square.variants
+  course: methods
+  tier: 1
+  tags: [completeSquare, quadratic-form, multivariate]
+  steps:
+    - {in: "completeSquare(2*x^2-3*x,x)", out: "2*(x-3/4)^2-9/8"}
+    - {in: "completeSquare(-2*a^2-a,a)", out: "1/8-2*(a+1/4)^2"}
+    - {in: "completeSquare(-2*a^2-a+b^2-5*b+1,a,b)", out: "-2*(a+1/4)^2+(b-5/2)^2-41/8"}
+    - {in: "completeSquare(-2*a^2-a+b^2-5*b+1,{a,b})", out: "-2*(a+1/4)^2+(b-5/2)^2-41/8"}
+    - {in: "completeSquare(-2*a^2-a+b^2-5*b+a*b,{a,b})", out: "-2*(a+1/4)^2+(b-5/2)^2+(8*a*b-49)/8"}
+  provenance:
+    source: unverified_expectation
+    evidence: shots/methods.algebra.complete-square-variants.png
+    note: "Transcribed from a user-provided screenshot; calculator software and capture date were not provided."
+  status: pending
+
 - id: methods.calculus.basic
   course: methods
   tier: 1
