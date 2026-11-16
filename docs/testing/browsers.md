@@ -2,12 +2,13 @@
 
 Evidence for NFR-PORT-001: every release is tested on the primary targets (Chromebooks, Chrome, Safari on macOS, iOS and iPadOS); Edge and Firefox are smoke-tested. Update this table whenever a run is made. A blank means not run.
 
-Last updated 2026-11-12.
+Last updated 2026-11-16.
 
 ## Matrix
 
 | Target | Priority | Last run | What was run | Result |
 |---|---|---|---|---|
+| Chromium-family, headless, Windows | Primary (engine) | 2026-11-16 | Built site: failed updates (HTTP 503 and a 200 block page), offline CAS calculations, and applying an update | 2 passed. Browser-context simulation; not an OS-installed app or school-network test. |
 | Chromium, headless, on Windows 11 (Playwright picks Edge, then Chrome, then bundled Chromium; `tests/e2e/conftest.py`) | Primary (engine) | 2026-11-08 | `pytest -m e2e`: site build, install, offline reload, fonts at three viewport sizes, exam-style flows typed into the site, status-bar clicks, Cancel | 20 passed. The offline font test failed at 390 x 844 and 844 x 390 (a Noto Sans file was not vendored); fixed the same day and re-run for that test only (3 passed). The full suite has not been re-run since the fix. |
 | Chrome (desktop, headed) | Primary | not run | | |
 | Chromebook (ChromeOS) | Primary | not run | | Needs a device. Check install as a PWA, offline, touch, the hardware keyboard and Handheld at a Chromebook's window size. |
@@ -37,7 +38,8 @@ Last updated 2026-11-12.
 1. Open the site. The loading screen shows progress, then the calculator.
 2. Type `solve(x^2-2=0,x)`, press Enter, and check the answer. Then `1/3` with Ctrl+Enter (or the keypad's ctrl and enter) for a decimal.
 3. Define `a:=5`, then enter `seq(k,k,1,99999999)` (far too big to finish) and press Esc after a few seconds. The app must stay usable and `a` must still be 5.
-4. Install the app, close it, turn the network off, and reopen it.
+4. Install the app after the offline cache finishes downloading, close it, turn the network off,
+   reopen it and evaluate a calculation.
 5. Doc, File, Save (give a name); reload (the name is still shown); Open Document. Export File…, then Import File…. Copy a share link and open it in a new tab.
 6. Rotate the device (phones and tablets) and resize the window (computers).
 7. Record the date, device, OS and browser versions, and any problem in the table above.
