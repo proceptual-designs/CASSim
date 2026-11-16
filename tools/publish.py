@@ -122,6 +122,14 @@ const CACHE = CACHE_PREFIX + "{version}";
 const MANIFEST = /*CASSIM_MANIFEST*/;
 const HASHES = Object.fromEntries(Object.entries(MANIFEST).map(
   ([path, hash]) => [new URL(path, self.registration.scope).href, hash]));
+function navigationResponse(response) {{
+  // A followed index.html redirect cannot be returned directly to a navigation request.
+  return response.redirected
+    ? new Response(response.body, {{
+        status: response.status, statusText: response.statusText, headers: response.headers
+      }})
+    : response;
+}}
 async function verify(response, expected, path) {{
   if (!response.ok || response.type === "opaque") throw new Error("Cannot cache " + path);
   const bytes = await response.clone().arrayBuffer();
@@ -192,11 +200,11 @@ self.addEventListener("fetch", (event) => {{
     const cache = await caches.open(CACHE);
     if (isPage) {{
       const hit = await cache.match("index.html", {{ignoreSearch: true}});
-      if (hit) return hit;
+      if (hit) return navigationResponse(hit);
       const response = await fetch("index.html", {{cache: "no-store"}});
       await verify(response, MANIFEST["index.html"], "index.html");
       await cache.put("index.html", response.clone());
-      return response;
+      return navigationResponse(response);
     }}
     const hit = await cache.match(req, {{ignoreSearch: true}});
     if (hit) return hit;

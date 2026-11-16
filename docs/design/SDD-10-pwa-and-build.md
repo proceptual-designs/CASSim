@@ -31,7 +31,7 @@ The version string is `<pyproject version>+<content hash>`, covering site conten
 
 - **install:** fetch each asset without the HTTP cache and check it against the build's embedded SHA-256 manifest. An incomplete or mismatched installation is discarded.
 - **activate:** after successful installation, delete older CASSim caches for the same service-worker scope and claim clients; failed updates leave the active cache intact. Legacy unscoped caches are left untouched because their scope cannot be identified safely.
-- **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. Other resources are cache-first, filling the cache on a miss.
+- **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. If the host redirects `index.html` to the directory URL, the worker returns a new response without the redirect history: browsers otherwise reject that cached response for navigation. Other resources are cache-first, filling the cache on a miss.
 - **update:** the page registers the worker, and when a new one is `installed` while another controls the page, the update bar appears. Reload posts `skipWaiting` and the page reloads on `controllerchange`.
 - **readiness:** the page asks its controlling worker whether all verified assets remain present, and shows an offline-ready or retry status. The status can be dismissed once checking finishes. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
 
@@ -46,7 +46,9 @@ then verifies CAS calculations after the host returns HTTP 503, returns a block 
 and after the network is switched off. It explicitly forces a service-worker update check against
 each failing host response. A second test verifies that updates are still offered and applied.
 Additional tests cover corrupted and interrupted installs and updates, and repair of a missing
-cache entry. Chromium-family, Firefox and Playwright WebKit also calculated with the host down
+cache entry. A redirected-index test covers online and offline launches and cache repair at both
+the root and a sub-path, including Cloudflare Pages' directory redirect. Chromium-family,
+Firefox and Playwright WebKit also calculated with the host down
 and HTTP caching disabled; Playwright WebKit additionally passed browser-offline navigation.
 Playwright Firefox's browser-offline navigation failed with `NS_ERROR_OFFLINE` on both the
 unchanged baseline and this build, so that scenario remains unverified. These tests exercise
