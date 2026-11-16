@@ -27,7 +27,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -555,6 +557,23 @@ def lock_file(dist: Path) -> dict[str, Any]:
     return json.loads((dist / "pyodide" / "pyodide-lock.json").read_text(encoding="utf-8"))
 
 
+def download_pyodide(url: str) -> bytes:
+    """Retry transient CDN failures; keep the final failure visible to the caller."""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if attempt == 2 or (error.code != 429 and error.code < 500):
+                raise
+        except urllib.error.URLError, TimeoutError:
+            if attempt == 2:
+                raise
+        print(f"Pyodide download failed; retrying {url}", file=sys.stderr)
+        time.sleep(2**attempt)
+    raise RuntimeError("Pyodide download exhausted its retries")
+
+
 def pyodide_wheel(dist: Path, name: str) -> Path:
     """A package from Pyodide's own distribution, downloaded once into `WHEELS`."""
     file_name = lock_file(dist)["packages"][name]["file_name"]
@@ -563,7 +582,7 @@ def pyodide_wheel(dist: Path, name: str) -> Path:
     if not target.exists():
         WHEELS.mkdir(parents=True, exist_ok=True)
         url = f"https://cdn.jsdelivr.net/pyodide/v{version}/full/{file_name}"
-        target.write_bytes(urllib.request.urlopen(url).read())
+        target.write_bytes(download_pyodide(url))
     return target
 
 

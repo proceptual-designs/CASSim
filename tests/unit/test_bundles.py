@@ -3,10 +3,40 @@
 
 import hashlib
 import json
+import urllib.error
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from tools import publish
+
+
+def test_pyodide_download_retries_transient_server_failure() -> None:
+    """FR-PWA-002: a temporary CDN failure must not break an offline build."""
+    error = urllib.error.HTTPError("https://example.test", 503, "timeout", Message(), None)
+    with (
+        patch.object(
+            publish.urllib.request, "urlopen", side_effect=[error, BytesIO(b"wheel")]
+        ) as fetch,
+        patch.object(publish.time, "sleep") as sleep,
+    ):
+        assert publish.download_pyodide("https://example.test") == b"wheel"
+    assert fetch.call_count == 2
+    sleep.assert_called_once_with(1)
+
+
+@pytest.mark.parametrize(("code", "attempts"), [(404, 1), (503, 3)])
+def test_pyodide_download_reports_persistent_failure(code: int, attempts: int) -> None:
+    error = urllib.error.HTTPError("https://example.test", code, "failure", Message(), None)
+    with (
+        patch.object(publish.urllib.request, "urlopen", side_effect=error) as fetch,
+        patch.object(publish.time, "sleep"),
+        pytest.raises(urllib.error.HTTPError, match=str(code)),
+    ):
+        publish.download_pyodide("https://example.test")
+    assert fetch.call_count == attempts
 
 
 def test_all_and_one_bundle_per_built_device() -> None:
