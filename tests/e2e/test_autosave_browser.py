@@ -35,7 +35,10 @@ def reopen(app: AppPage, url: str) -> None:
     app.page.mouse.click(600, 150)
 
 
-def test_the_document_comes_back_after_a_reload(browser: Browser, site: tuple[Path, str]) -> None:
+@pytest.mark.parametrize("offline", [False, True])
+def test_the_document_comes_back_after_a_reload(
+    browser: Browser, site: tuple[Path, str], offline: bool
+) -> None:
     url = site[1]
     context = browser.new_context(viewport={"width": 1100, "height": 700})
     app = AppPage(context.new_page(), url)
@@ -45,6 +48,11 @@ def test_the_document_comes_back_after_a_reload(browser: Browser, site: tuple[Pa
         "() => Object.keys(localStorage).filter(k => k.includes('autosave'))"
     )
     assert stored == []  # the document is in IndexedDB, not localStorage
+    if offline:
+        app.page.wait_for_function(
+            "document.getElementById('cassim-offline').dataset.state === 'ready'", timeout=150000
+        )
+        context.set_offline(True)
     reopen(app, url)
     assert any("RECOVERED 1 pages" in line for line in app.logs), app.logs
     assert evaluate(app, "a+1") == "8"  # the variable was rebuilt by replaying the entry

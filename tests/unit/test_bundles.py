@@ -1,8 +1,11 @@
 # Requirements traced here: FR-PROF-008
 """Bundles in `tools.publish` (decision 0032 item 8): what each build holds, without building."""
 
+import hashlib
+import json
 from pathlib import Path
 
+import pytest
 from tools import publish
 
 
@@ -42,3 +45,43 @@ def test_the_ui_build_keeps_the_views(tmp_path: Path) -> None:
     publish.copy_package(tmp_path, publish.bundles()["all"], ui=True)
     assert (tmp_path / "cassim" / "devices" / "nspire" / "ui" / "app.py").exists()
     assert (tmp_path / "cassim" / "app" / "main.py").exists()
+
+
+def test_unused_rive_initializer_is_removed_or_build_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-PWA-002: unexpected generated code must not silently restore external requests."""
+    monkeypatch.setattr(publish, "flet_version", lambda: "1.0.5")
+    (tmp_path / "index.html").write_text('flet.webRenderer="canvaskit"', encoding="utf-8")
+    main = tmp_path / "main.dart.js"
+    original = 'case 0:s=3\nreturn A.p(A.b2F("wasm/rive_native.js","RiveNative"),$async$b34)'
+    main.write_text(original, encoding="utf-8")
+    publish.disable_unused_rive(tmp_path)
+    assert "rive_native.js" not in main.read_text(encoding="utf-8")
+    with pytest.raises(SystemExit, match="Rive initializer changed"):
+        publish.disable_unused_rive(tmp_path)
+    monkeypatch.setattr(publish, "flet_version", lambda: "1.1.0")
+    with pytest.raises(SystemExit, match="Review Rive initialization"):
+        publish.disable_unused_rive(tmp_path)
+
+
+def test_offline_manifest_hashes_the_published_files(tmp_path: Path) -> None:
+    """FR-PWA-002/004: each installation is verified against its own build."""
+    (tmp_path / "index.html").write_text("app", encoding="utf-8")
+    (tmp_path / "flutter_service_worker.js").write_text("old", encoding="utf-8")
+    publish.add_offline_cache(tmp_path, "test")
+    files = json.loads((tmp_path / "precache.json").read_text(encoding="utf-8"))
+    worker = (tmp_path / "flutter_service_worker.js").read_text(encoding="utf-8")
+    assert "flutter_service_worker.js" not in files
+    assert hashlib.sha256(b"app").hexdigest() in worker
+    first = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))
+    (tmp_path / "index.html").write_text("new app", encoding="utf-8")
+    publish.add_offline_cache(tmp_path, "test")
+    second = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))
+    assert first != second
+
+
+def test_missing_bootstrap_assets_reject_offline_build(tmp_path: Path) -> None:
+    """FR-PWA-002: a partial build must not be presented as an offline installation."""
+    with pytest.raises(SystemExit, match="missing required assets"):
+        publish.check_offline_assets(tmp_path)

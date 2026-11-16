@@ -224,7 +224,7 @@ This cross-cuts every functional area.
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-PWA-001 | Installable PWA (manifest, icons, service worker). | M | E |
-| FR-PWA-002 | Fully functional offline after first load, with no external network requests (Pyodide, wheels, CanvasKit, fonts all vendored). | M | E |
+| FR-PWA-002 | Fully functional offline after offline setup completes, with no external network requests (Pyodide, wheels, CanvasKit, fonts all vendored). The app indicates readiness and reports failed setup; browser storage can be cleared or evicted. | M | E |
 | FR-PWA-003 | Loading screen with progress during cold start. | M | D |
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 

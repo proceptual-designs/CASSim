@@ -2,6 +2,7 @@
 
 import functools
 import http.server
+import json
 import os
 import threading
 from collections.abc import Callable, Iterator
@@ -97,6 +98,28 @@ def site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]
     server.shutdown()
 
 
+@pytest.fixture(scope="session")
+def root_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]:
+    dist = tmp_path_factory.mktemp("pwa-root") / "dist"
+    with patch.object(publish, "STAGE", tmp_path_factory.mktemp("stage-root") / "app"):
+        publish.build(dist, "")
+
+    class RootHandler(PagesHandler):
+        def translate_path(self, path: str) -> str:
+            return http.server.SimpleHTTPRequestHandler.translate_path(self, path)
+
+    handler = functools.partial(RootHandler, directory=str(dist))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield dist, f"http://127.0.0.1:{server.server_address[1]}/"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 @pytest.fixture
 def failing_site(site: tuple[Path, str]) -> Iterator[tuple[str, list[str], Callable[[str], None]]]:
     """Serve the site, then simulate an outage, network filter or new worker."""
@@ -114,13 +137,32 @@ def failing_site(site: tuple[Path, str]) -> Iterator[tuple[str, list[str], Calla
                 self.send_header("Content-Type", "text/html")
                 self.end_headers()
                 self.wfile.write(b"Blocked by the network")
-            elif failure == "update" and urlparse(self.path).path.endswith(
-                "/flutter_service_worker.js"
-            ):
+            elif failure in {"update", "update-broken", "update-interrupted"} and urlparse(
+                self.path
+            ).path.endswith("/flutter_service_worker.js"):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/javascript")
                 self.end_headers()
-                self.wfile.write(publish.SERVICE_WORKER.format(version="test-update").encode())
+                original = (dist / "flutter_service_worker.js").read_text(encoding="utf-8")
+                version = json.loads((dist / "version.json").read_text(encoding="utf-8"))["version"]
+                self.wfile.write(
+                    original.replace(
+                        f'CACHE_PREFIX + "{version}"', 'CACHE_PREFIX + "test-update"'
+                    ).encode()
+                )
+            elif failure in {
+                "install-broken",
+                "update-broken",
+                "install-interrupted",
+                "update-interrupted",
+            } and urlparse(self.path).path.endswith("/pyodide/python.bat"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                if failure.endswith("interrupted"):
+                    self.send_header("Content-Length", "4096")
+                self.end_headers()
+                self.wfile.write(b"incorrect content")
+                self.close_connection = True
             else:
                 super().do_GET()
 

@@ -2,7 +2,7 @@
 
 A free, installable simulator of the TI-Nspire CX CAS that runs entirely in your browser.
 
-**Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after the first load).
+**Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after setup).
 
 | Site | Address | What it is |
 |---|---|---|
@@ -46,8 +46,8 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 - **Two views**: Handheld (a keypad you tap or type on) and Computer (a laptop layout).
 - **Pseudocode runtime** with trace tables for the VCE algorithms and programming content
   (engine only; its pages are not in the app yet).
-- **Private and offline.** No server, no telemetry, no account. The site installs as a PWA and
-  runs without a network. Documents are saved in the browser's local storage or as files 
+- **Private and offline.** No server, no telemetry, no account. Wait for “Ready for offline use”
+  before disconnecting. Documents are saved in browser storage or as files
   or shared as a link that carries the document in the URL fragment.
 - **Files.** Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot be
   opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
@@ -86,8 +86,8 @@ The text interface is described in [docs/user/repl.md](docs/user/repl.md).
 
 CASSim is released as a **static web site** (`tools.publish`). It is the only supported build and the
 only one tested: copy `build/web` to the root of any static host, or pass `--base-url SUBPATH` to
-serve it below a sub-path. Users open it in a browser and can install it as an app (PWA); it then
-works offline.
+serve it below a sub-path. Users can install it as an app (PWA); once the offline-ready indicator
+appears, it works offline. Clearing browser storage removes the offline installation.
 
 The stable and testing sites are the all-in-one app. Smaller single-device sites (CASSim-TIN,
 CASSim-pseudo, and later CASSim-CP) are planned: see [PLAN.md](PLAN.md) section 15.
