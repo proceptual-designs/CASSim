@@ -46,7 +46,7 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 - **Two views**: Handheld (a keypad you tap or type on) and Computer (a laptop layout).
 - **Pseudocode runtime** with trace tables for the VCE algorithms and programming content
   (engine only; its pages are not in the app yet).
-- **Private and offline.** No server, no telemetry, no account. Wait for “Ready for offline use”
+- **Private and offline.** No server, no telemetry, no account. Wait for “Offline: Ready” in the CASSim menu
   before disconnecting. Documents are saved in browser storage or as files
   or shared as a link that carries the document in the URL fragment.
 - **Files.** Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot be
@@ -115,7 +115,7 @@ to a page that does not exist fails the build.
    version; the offline cache is renewed on every build whether or not the number changes.
 3. Publish a release whose tag matches: `gh release create v0.2.0 --generate-notes`. The Deploy
    workflow builds that commit and publishes it to `cassim-app`.
-4. Open <https://cassim-app.pages.dev/>. An installed copy shows an "update available" bar.
+4. Open <https://cassim-app.pages.dev/>. An installed copy indicates an available update in the CASSim menu.
 
 **By hand.** Actions > Deploy > Run workflow, target `testing` or `stable`, or
 `gh workflow run deploy.yml -f target=stable`.

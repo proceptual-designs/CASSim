@@ -15,7 +15,7 @@ from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import syntax as nspire_syntax
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of, calculator_on
 from cassim.devices.nspire.pages.spreadsheet import SHEET_ACTIONS, Spreadsheet
-from cassim.devices.nspire.ui.app import browser_doc_items
+from cassim.devices.nspire.ui.app import browser_menu_items, cassim_items
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
 from cassim.devices.nspire.ui.views import (
@@ -41,8 +41,8 @@ def test_doc_menu_opens_and_lists_rows() -> None:
         ("5", "Page Layout"),
         ("6", "Refresh Libraries"),
         ("7", "Settings & Status"),
-        ("8", "About CASSim…"),
-        ("9", "Help (wiki)…"),
+        ("8", "Login"),
+        ("9", "Press-to-Test"),
     ]
     assert view.rows[0].selected
     assert view.rows[0].submenu
@@ -667,27 +667,49 @@ def test_mode_and_insert_follow_the_second_device_run() -> None:
     assert (labels["B"], labels["C"]) == ("Program Editor", "Add Python")
 
 
-def test_doc_menu_gets_the_browser_items() -> None:
-    """The page's Install and Fullscreen offers appear as Doc menu items, and only when given."""
+def test_cassim_menu_opens_and_dispatches_browser_items() -> None:
+    """App actions belong to CASSim, not Doc (FR-DEV-001)."""
     state = AppState()
-    state.doc_extras = lambda: (
-        MenuItem("Fullscreen", "dialog", "fullscreen"),
-        MenuItem("Install CASSim", "dialog", "install"),
+    state.cassim_menu = lambda: MenuItem(
+        "CASSim",
+        items=(
+            MenuItem("Fullscreen", "dialog", "fullscreen"),
+            MenuItem("Install CASSim", "dialog", "install"),
+        ),
     )
     asked: list[str] = []
     state.show_dialog = asked.append
-    state.key_event("F4")
+    state.run_action("open_menu", "cassim")
     view = state.screen().menu
     assert view is not None
     assert [row.label for row in view.rows][-2:] == ["Fullscreen", "Install CASSim"]
-    for _ in range(len(view.rows) - 2):
-        state.key_event("Arrow Down")
     state.key_event("Enter")
     assert asked == ["fullscreen"]
 
 
-def test_doc_menu_browser_items_never_move() -> None:
-    """The last four Doc items keep their places whatever the browser offers (muscle memory);
+def test_cassim_status_and_attention_follow_browser_offers() -> None:
+    ready = BrowserOffers(offline_state="ready", offline_message="Ready for offline use.")
+    assert not ready.needs_attention
+    labels = [item.label for item in cassim_items(handheld=True, offers=ready)]
+    assert "Offline: Ready" in labels
+    assert "Reload update…" not in labels
+    failed = BrowserOffers(
+        offline_state="unavailable", offline_message="Offline files incomplete.", offline_retry=True
+    )
+    assert failed.needs_attention
+    items = cassim_items(handheld=True, offers=failed)
+    assert any(
+        item.label == "Offline: Unavailable" and item.hint == failed.offline_message
+        for item in items
+    )
+    assert any(item.arg == "retry_offline" for item in items)
+    update = BrowserOffers(offline_state="ready", update_ready=True)
+    assert update.needs_attention
+    assert any(item.arg == "reload_update" for item in cassim_items(handheld=True, offers=update))
+
+
+def test_cassim_menu_browser_items_never_move() -> None:
+    """The browser items keep their places whatever the browser offers (muscle memory);
     one that is not available is greyed and Fullscreen turns into Exit Fullscreen."""
 
     def items(**offers: bool) -> list[tuple[str, bool]]:
@@ -698,7 +720,7 @@ def test_doc_menu_browser_items_never_move() -> None:
             standalone=offers.get("standalone", False),
             installable=offers.get("installable", False),
         )
-        return [(i.label, i.enabled) for i in browser_doc_items(handheld=handheld, offers=given)]
+        return [(i.label, i.enabled) for i in browser_menu_items(handheld=handheld, offers=given)]
 
     assert items() == [
         ("Computer view", True),
@@ -714,7 +736,7 @@ def test_doc_menu_browser_items_never_move() -> None:
 
 def test_a_phone_cannot_switch_to_computer_view() -> None:
     """A phone has no room for Computer view and the on-screen keyboard: the switch is greyed."""
-    items = browser_doc_items(handheld=True, offers=BrowserOffers(), phone=True)
+    items = browser_menu_items(handheld=True, offers=BrowserOffers(), phone=True)
     assert (items[0].label, items[0].enabled) == ("Computer view", False)
 
 
@@ -722,19 +744,19 @@ def test_installed_phone_offers_cutout_toggle_in_both_states() -> None:
     offers = BrowserOffers(installed=True, standalone=True)
     for use_cutout, label in ((True, "Avoid cutout"), (False, "Use cutout")):
         for handheld in (True, False):
-            items = browser_doc_items(
+            items = browser_menu_items(
                 handheld=handheld, offers=offers, phone=True, use_cutout=use_cutout
             )
             if handheld:
                 assert (items[1].label, items[1].enabled) == (label, True)
             else:
                 assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
-    items = browser_doc_items(handheld=True, offers=offers, phone=False)
+    items = browser_menu_items(handheld=True, offers=offers, phone=False)
     assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
     browser_fullscreen = BrowserOffers(
         can_fullscreen=True, standalone=True, in_fullscreen=True, installed=False
     )
-    items = browser_doc_items(handheld=True, offers=browser_fullscreen, phone=True)
+    items = browser_menu_items(handheld=True, offers=browser_fullscreen, phone=True)
     assert (items[1].label, items[1].enabled) == ("Exit Fullscreen", True)
 
 
@@ -742,7 +764,7 @@ def test_the_installed_app_offers_uninstall() -> None:
     """In the installed app the Install row reads Uninstall, in the same place, and asks first."""
     labels = [
         (i.label, i.arg, i.enabled)
-        for i in browser_doc_items(handheld=True, offers=BrowserOffers(installed=True))
+        for i in browser_menu_items(handheld=True, offers=BrowserOffers(installed=True))
     ]
     assert labels[2] == ("Uninstall CASSim", "uninstall", True)
 
@@ -854,7 +876,7 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
 
 
 def test_check_for_updates_asks_the_page_and_shows_its_answer() -> None:
-    """Doc > Check for Updates sends the request to the page and shows what it found; without a
+    """CASSim > Check for Updates sends the request to the page and shows what it found; without a
     page (the desktop) it says it cannot check."""
     shown: list[str] = []
     sent: list[str] = []

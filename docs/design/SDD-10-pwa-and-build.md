@@ -14,7 +14,7 @@ A folder of static files that any free host can serve at the root (the default, 
 |---|---|---|
 | `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the symbols font and a generated `pyproject.toml` that names only `flet`. | `flet publish` reads a self-contained app folder. The staged `main.py` imports `cassim.app.main.main` and starts it; it never imports SymPy (0027). |
 | `flet publish src/main.py --distpath DIST [--base-url B] [--no-cdn]` | Flet's static web build: Flutter app, CanvasKit, Pyodide core, Python worker. | The base build (decision 0002). |
-| `patch_index` | Adds the manifest and meta tags, the loading screen, the update bar and the install and fullscreen bridge to `index.html`. | FR-PWA-001, FR-PWA-003. |
+| `patch_index` | Adds the manifest and meta tags, loading screen and browser status, install and fullscreen bridge to `index.html`. | FR-PWA-001, FR-PWA-003. |
 | `disable_unused_rive` | Disables the unused Rive initializer in Flet 1.0.5's JavaScript CanvasKit build, and fails the build if its expected version or generated code changes. | FR-PWA-002: no Rive CDN request. |
 | `vendor_pyodide` | Copies the packages Pyodide still loads at run time (`RUNTIME_PACKAGES`: msgpack, pyyaml) into `pyodide/`. | `flet publish --no-cdn` self-hosts Pyodide core but not its packages (0002). |
 | `write_app_archive` | Replaces Flet's `app.tar.gz` with one holding `main.py`, `cassim` and, under `__pypackages__`, Flet, repath and six, compiled to bytecode. | No micropip and no compiling at start-up (0027). |
@@ -32,10 +32,10 @@ The version string is `<pyproject version>+<content hash>`, covering site conten
 - **install:** fetch each asset without the HTTP cache and check it against the build's embedded SHA-256 manifest. An incomplete or mismatched installation is discarded.
 - **activate:** after successful installation, delete older CASSim caches for the same service-worker scope and claim clients; failed updates leave the active cache intact. Legacy unscoped caches are left untouched because their scope cannot be identified safely.
 - **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. Other resources are cache-first, filling the cache on a miss.
-- **update:** the page registers the worker, and when a new one is `installed` while another controls the page, the update bar appears. Reload posts `skipWaiting` and the page reloads on `controllerchange`.
-- **readiness:** the page asks its controlling worker whether all verified assets remain present, and shows an offline-ready or retry status. The status can be dismissed once checking finishes. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
+- **update:** the page registers the worker and reports a waiting update through the bridge. The CASSim button shows a red dot and the menu offers Reload; it posts `skipWaiting` and the page reloads on `controllerchange`. Unsaved changes require confirmation.
+- **readiness:** the page asks its controlling worker whether all verified assets remain present and reports the status to the CASSim menu. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
 
-Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the Handheld Doc menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
+Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the CASSim menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
 
 ## Offline rule and its test
 

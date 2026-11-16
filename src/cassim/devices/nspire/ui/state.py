@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -140,8 +140,8 @@ class AppState:
         # The page sorter is open on the screen (ctrl+up). The page it highlights is the current
         # page, so moving the highlight goes to that page and Enter only closes the sorter.
         self.sorting = False
-        # set by the GUI: extra Doc menu items for what the browser offers (install, fullscreen)
-        self.doc_extras: Callable[[], tuple[MenuItem, ...]] | None = None
+        # Set by the GUI: app menu reflects the browser's current capabilities and status.
+        self.cassim_menu: Callable[[], MenuItem] | None = None
         # Caps lock, set by the Caps Lock key or the keypad's ctrl+shift. Flet's key events do not
         # say whether the lock is on, so it is tracked here from its own key presses.
         self.caps = False
@@ -381,6 +381,13 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
+        if binding.action == "open_menu" and binding.arg == "cassim":
+            self._open_menu("cassim")
+            return
+        if binding.action == "open_menu" and self.menu.root.label == "CASSim":
+            self.menu = None
+            self.run(binding)
+            return
         other = {"menu": "doc", "doc": "menu"}.get(binding.arg)
         palette = binding.action == "open_menu" and binding.arg in _KEY_PALETTES
         palette_roots = (self.profile.menus.get(name) for name in _KEY_PALETTES)
@@ -419,7 +426,7 @@ class AppState:
         elif action == "sorter_go":
             self._sorter_tap(binding.arg)
         elif action == "open_menu":
-            if binding.arg == "doc":  # a page's own Menu has nothing to do in the sorter
+            if binding.arg in ("doc", "cassim"):  # a page's Menu has nothing to do in the sorter
                 self._open_menu(binding.arg)
         elif action in _SORTER_PASSES:
             self._document_action(binding)
@@ -457,11 +464,10 @@ class AppState:
             document.go(problem, page)
 
     def _open_menu(self, name: str) -> None:
-        root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
-        if root is not None and name == "doc" and self.doc_extras is not None:
-            extras = self.doc_extras()
-            if extras:
-                root = replace(root, items=(*root.items, *extras))
+        if name == "cassim" and self.cassim_menu is not None:
+            root = self.cassim_menu()
+        else:
+            root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if root is not None:
             self.menu = MenuState(root)
 

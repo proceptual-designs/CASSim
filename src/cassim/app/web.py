@@ -172,6 +172,10 @@ class Bridge:
         self.installed = False  # running as the installed app, so the menu offers Uninstall
         self.touch = False  # the main pointer is a finger: a phone or tablet
         self.safe_area: tuple[float, float, float, float] = (0, 0, 0, 0)
+        self.offline_state = "checking"
+        self.offline_message = "Checking offline availability..."
+        self.offline_retry = False
+        self.update_ready = False
         self._changed = changed
         # Called with the page's answer to `check_update`: "current", "downloading", "ready",
         # "offline" or "unsupported".
@@ -202,6 +206,12 @@ class Bridge:
             self._changed()
         elif op == "update":
             self.on_update(str(event.data.result))
+        elif op == "status":
+            self.offline_state = str(event.data.state)
+            self.offline_message = str(event.data.message)
+            self.offline_retry = bool(event.data.retry)
+            self.update_ready = bool(event.data.updateReady)
+            self._changed()
 
     def _send(self, op: str) -> None:
         self._channel.postMessage(to_js({"op": op}, dict_converter=js.Object.fromEntries))
@@ -217,6 +227,12 @@ class Bridge:
 
     def check_update(self) -> None:
         self._send("check_update")
+
+    def retry_offline(self) -> None:
+        self._send("retry_offline")
+
+    def reload_update(self) -> None:
+        self._send("reload_update")
 
 
 async def _request(request: js.IDBRequest) -> object:

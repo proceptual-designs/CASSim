@@ -50,7 +50,7 @@ class Keypad:
         state: AppState,
         on_key: Callable[[str], None],
         theme: Theme = DARK,
-        install: Callable[[], None] | None = None,
+        on_cassim: Callable[[], None] | None = None,
         on_stick: Stick | None = None,
     ) -> None:
         self.state = state
@@ -59,7 +59,9 @@ class Keypad:
         # "end" and "tap". Without it the key is a plain button.
         self.on_stick = on_stick
         self._down = (0.0, 0.0)  # where the finger pressed on the centre key
-        self.install = install  # set while the browser offers to install; None otherwise
+        self.on_cassim = on_cassim
+        self.installable = False
+        self.needs_attention = False
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
         self._look: tuple[object, ...] | None = None
@@ -74,7 +76,9 @@ class Keypad:
             state.pending,
             state.caps,
             state.pad_scale,
-            self.install is not None,
+            self.on_cassim is not None,
+            self.installable,
+            self.needs_attention,
             self.theme,
         )
         if look == self._look:
@@ -87,25 +91,44 @@ class Keypad:
         for number, row in enumerate(keypad):
             tallest = self.state.kpx(key_span(max(key.height for key in row), KEY_H))
             keys = [self._key(key, tallest) for key in row]
-            # Install takes the empty cell at the top right of the keypad, so it needs no row
-            if number == 0 and self.install is not None and not row[-1].name:
-                keys[-1] = self._install_key(row[-1])
+            if number == 0 and self.on_cassim is not None and not row[-1].name:
+                keys[-1] = self._cassim_key(row[-1])
             rows.append(ft.Row(keys, spacing=gap, tight=True))
         self.control.controls = rows
 
-    def _install_key(self, cell: Key) -> ft.Control:
-        install = self.install
-        assert install is not None
+    def _cassim_key(self, cell: Key) -> ft.Control:
+        on_cassim = self.on_cassim
+        assert on_cassim is not None
+        labels: list[ft.Control] = []
+        if self.installable:
+            labels.append(
+                label_text("ctrl: Install", size=self.state.kpx(8), color=self.theme.accent_text)
+            )
+        labels.append(
+            ft.Row(
+                [
+                    label_text("CASSim", size=self.state.kpx(11), color=self.theme.accent_text),
+                    *(
+                        [ft.Icon(ft.Icons.CIRCLE, size=self.state.kpx(7), color="#e53935")]
+                        if self.needs_attention
+                        else []
+                    ),
+                ],
+                spacing=self.state.kpx(2),
+                tight=True,
+                alignment=ft.MainAxisAlignment.CENTER,
+            )
+        )
         return ft.Container(
-            label_text("Install", size=self.state.kpx(12), color=self.theme.accent_text),
+            ft.Column(labels, spacing=0, tight=True, alignment=ft.MainAxisAlignment.CENTER),
             width=self.state.kpx(key_span(cell.width)),
             height=self.state.kpx(key_span(cell.height, KEY_H)),
             alignment=ft.Alignment.CENTER,
             bgcolor=self.theme.accent,
             border_radius=self.state.kpx(7),
             ink=True,
-            tooltip="Install CASSim",
-            on_click=lambda _: install(),
+            tooltip="CASSim menu: attention required" if self.needs_attention else "CASSim menu",
+            on_click=lambda _: on_cassim(),
         )
 
     def _key(self, key: Key, row_height: float = 0.0) -> ft.Control:
@@ -155,9 +178,15 @@ class Keypad:
             no_wrap=True,
         )
         if key.name == ACCENT_KEY:
-            # Material's flag icon for now (Simon, 2026-11-14). TODO: find a better mark for a
-            # key that cycles a letter's accents (options tried: ệ with a loop, arrows, è é ê).
-            main = ft.Icon(ft.Icons.FLAG, size=size * 1.1, color=text)
+            main = ft.Row(
+                [
+                    label_text("é", size=size, color=text),
+                    ft.Icon(ft.Icons.SYNC, size=size * 0.75, color=text),
+                ],
+                spacing=0,
+                tight=True,
+                alignment=ft.MainAxisAlignment.CENTER,
+            )
         elif key.name == "menu" and pending == "ctrl":
             main = context_menu_icon(state.kpx(1.3), text)
         body: list[ft.Control] = [labels, main] if key.ctrl or key.shift else [main]

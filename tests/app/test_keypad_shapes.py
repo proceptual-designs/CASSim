@@ -91,11 +91,13 @@ def test_both_pieces_press_return():
     assert pressed == ["return", "return"]
 
 
-def test_the_accent_key_shows_a_flag():
+def test_the_accent_key_shows_a_letter_and_cycle_icon():
     keypad = Keypad(AppState(), lambda _: None)
     ((key, control),) = keys_named(keypad, "accent")
-    (icon,) = control.content.controls
-    assert icon.icon == ft.Icons.FLAG  # for now: PLAN.md section 12, row A9
+    (row,) = control.content.controls
+    letter, icon = row.controls
+    assert letter.value == "é"
+    assert icon.icon == ft.Icons.SYNC
     assert key.label == keymap.ACCENT_LABEL
     assert keymap.HANDHELD["accent"].action == "accent"
 
