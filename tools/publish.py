@@ -267,26 +267,41 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
       tell();
     } else if (op === "fullscreen") goFullscreen();
     else if (op === "exit_fullscreen") exitFullscreen();
+    else if (op === "check_update") checkUpdate();
   };
+  function watch(worker) {
+    worker.addEventListener("statechange", function () {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) offer(worker);
+    });
+  }
+  function offer(worker) {
+    var box = document.getElementById("cassim-update");
+    box.style.display = "flex";
+    document.getElementById("cassim-reload").onclick = function () {
+      window.cassimUpdateRequested = true;
+      worker.postMessage("skipWaiting");
+    };
+  }
+  // Doc > Check for Updates: ask the server for a newer service worker now, rather than at the
+  // browser's next check. A newer one shows the Reload banner once it has downloaded.
+  function checkUpdate() {
+    function answer(result) { bus.postMessage({op: "update", result: result}); }
+    if (!("serviceWorker" in navigator)) { answer("unsupported"); return; }
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) { answer("unsupported"); return; }
+      if (reg.waiting) { offer(reg.waiting); answer("ready"); return; }
+      return reg.update().then(function () {
+        answer(reg.installing ? "downloading" : reg.waiting ? "ready" : "current");
+        if (reg.waiting) offer(reg.waiting);
+      });
+    }).catch(function () { answer("offline"); });
+  }
   if (!("serviceWorker" in navigator)) return;
   var reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", function () {
     if (!reloading && window.cassimUpdateRequested) { reloading = true; location.reload(); }
   });
   navigator.serviceWorker.register("flutter_service_worker.js").then(function (reg) {
-    function watch(worker) {
-      worker.addEventListener("statechange", function () {
-        if (worker.state === "installed" && navigator.serviceWorker.controller) offer(worker);
-      });
-    }
-    function offer(worker) {
-      var box = document.getElementById("cassim-update");
-      box.style.display = "flex";
-      document.getElementById("cassim-reload").onclick = function () {
-        window.cassimUpdateRequested = true;
-        worker.postMessage("skipWaiting");
-      };
-    }
     if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
     if (reg.installing) watch(reg.installing);
     reg.addEventListener("updatefound", function () { watch(reg.installing); });

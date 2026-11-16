@@ -365,9 +365,14 @@ class AppState:
             name = binding.arg
             if name == "menu" and self.sheet is not None:
                 name = "menu_sheet"
-            elif name == "menu" and calculator_of(self.document.current) is None:
-                name = "menu_stub"  # a stub has only About, Help
-            self._open_menu(name)
+            if (
+                name == "menu"
+                and self.sheet is None
+                and calculator_of(self.document.current) is None
+            ):
+                self.menu = None  # a page CASSim has not built yet has no Menu
+            else:
+                self._open_menu(name)
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)
         else:

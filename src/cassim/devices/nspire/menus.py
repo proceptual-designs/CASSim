@@ -380,13 +380,6 @@ def _template_item(label: str, kind: str, name: str, key: str) -> MenuItem:
     return MenuItem(label, "template", kind, key=key, hint=FUNCTIONS[name])
 
 
-# CASSim's own items at the end of every page's Menu, after the device's (which stop at 9), so
-# the device's keys never move: About (the disclaimer, privacy, licence, versions) and Help.
-CASSIM_ITEMS = (
-    MenuItem("About CASSim…", "dialog", "about", key="A", hint="CASSim"),
-    MenuItem("Help…", "dialog", "help", key="B", hint="CASSim: the user guide (wiki)"),
-)
-
 # The Calculator's Menu (menu key, F2 on a computer).
 MENU = MenuItem(
     "Menu",
@@ -822,13 +815,8 @@ MENU = MenuItem(
             ),
             todo("Add New Line", "9"),
         ),
-        *CASSIM_ITEMS,
     ),
 )
-
-# A page type CASSim has not built yet (Graphs, Lists & Spreadsheet, Data & Statistics, Notes)
-# has only CASSim's own items in its Menu, under the same keys as in the Calculator's.
-STUB_MENU = MenuItem("Menu", items=CASSIM_ITEMS)
 
 # Doc (doc key, F4), as on the device. CASSim's own extras come after the device's items.
 DOC = MenuItem(
@@ -1219,7 +1207,6 @@ SHEET_MENU = MenuItem(
             ),
         ),
         todo("Table", "5"),
-        *CASSIM_ITEMS,
     ),
 )
 
@@ -1333,7 +1320,6 @@ ADD_PROBLEM = _app_picker("add_problem", "Add a Problem")
 MENUS = {
     "doc": DOC,
     "menu": MENU,
-    "menu_stub": STUB_MENU,
     "menu_sheet": SHEET_MENU,
     "add_page": ADD_PAGE,
     "add_problem": ADD_PROBLEM,
