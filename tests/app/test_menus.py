@@ -2,11 +2,12 @@
 """Menus walked from keys: the Doc and Menu trees come from the profile (FR-DEV-001, FR-DEV-007)."""
 
 from collections.abc import Mapping
+from types import SimpleNamespace
 
 import flet as ft
 import pytest
 
-from cassim.app.shell import BrowserOffers
+from cassim.app.shell import UPDATE_MESSAGES, BrowserOffers, Shell
 from cassim.core.catalog import registry
 from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
@@ -174,7 +175,7 @@ def test_a_click_opens_a_submenu_and_runs_a_leaf() -> None:
 
 @pytest.mark.parametrize(
     ("page", "menu_name"),
-    [("calculator", "menu"), ("spreadsheet", "menu_sheet"), ("graphs", "menu_stub")],
+    [("calculator", "menu"), ("spreadsheet", "menu_sheet")],
 )
 def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: str) -> None:
     """FR-DEV-007: the other menu replaces the open one, for buttons and keys alike."""
@@ -184,9 +185,8 @@ def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: st
     state.run_action("open_menu", "menu")
     assert state.menu is not None
     assert state.menu.root == state.profile.menus[menu_name]
-    if page != "graphs":
-        state.run_action("menu_pick", "0:0")
-        assert len(state.menu.levels) == 2
+    state.run_action("menu_pick", "0:0")
+    assert len(state.menu.levels) == 2
     state.key_event("F4")
     assert _menu(state).title == "Doc"
     state.run_action("menu_pick", "0:0")
@@ -564,7 +564,7 @@ def test_placeholders_keep_the_handheld_numbering() -> None:
     """Items CASSim lacks are greyed but keep their numbers (decision 0022)."""
     state = AppState()
     state.key_event("F2")
-    assert [row.key for row in _menu(state).rows] == list("123456789AB")  # A, B: CASSim
+    assert [row.key for row in _menu(state).rows] == list("123456789")
     state.key_event("9")  # Functions & Programs: it opens, every command greyed
     assert not any(row.enabled for row in _menu(state).rows if not row.submenu)
     state.key_event("Arrow Left")
@@ -687,7 +687,7 @@ def test_doc_menu_gets_the_browser_items() -> None:
 
 
 def test_doc_menu_browser_items_never_move() -> None:
-    """The last three Doc items keep their places whatever the browser offers (muscle memory);
+    """The last four Doc items keep their places whatever the browser offers (muscle memory);
     one that is not available is greyed and Fullscreen turns into Exit Fullscreen."""
 
     def items(**offers: bool) -> list[tuple[str, bool]]:
@@ -700,7 +700,12 @@ def test_doc_menu_browser_items_never_move() -> None:
         )
         return [(i.label, i.enabled) for i in browser_doc_items(handheld=handheld, offers=given)]
 
-    assert items() == [("Computer view", True), ("Fullscreen", True), ("Install CASSim", False)]
+    assert items() == [
+        ("Computer view", True),
+        ("Fullscreen", True),
+        ("Install CASSim", False),
+        ("Check for Updates…", True),
+    ]
     assert items(in_fullscreen=True, standalone=True)[1] == ("Exit Fullscreen", True)
     assert items(standalone=True)[1] == ("Fullscreen", False)
     assert items(installable=True)[2] == ("Install CASSim", True)
@@ -846,3 +851,26 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
     assert (state.screen().title, state.document.current.kind) == ("2.1", "spreadsheet")
     state.run_action("add_page")  # the toolbar's + page
     assert _menu(state).title == "Add a page"
+
+
+def test_check_for_updates_asks_the_page_and_shows_its_answer() -> None:
+    """Doc > Check for Updates sends the request to the page and shows what it found; without a
+    page (the desktop) it says it cannot check."""
+    shown: list[str] = []
+    sent: list[str] = []
+    bridge = SimpleNamespace(on_update=None, check_update=lambda: sent.append("check_update"))
+    shell = SimpleNamespace(bridge=bridge, notice=lambda _title, text: shown.append(text))
+    Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
+    assert sent == ["check_update"]
+    bridge.on_update("current")
+    bridge.on_update("ready")
+    bridge.on_update("something new")
+    assert shown == [
+        UPDATE_MESSAGES["current"],
+        UPDATE_MESSAGES["ready"],
+        UPDATE_MESSAGES["offline"],
+    ]
+    shown.clear()
+    shell.bridge = None
+    Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
+    assert shown == [UPDATE_MESSAGES["unsupported"]]

@@ -103,11 +103,11 @@ FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
 def browser_doc_items(
     *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
 ) -> tuple[MenuItem, ...]:
-    """The Doc menu's last three items, always in this order so the keys never move (muscle
-    memory): the view switch, Fullscreen and Install. One the browser cannot do is greyed,
-    Fullscreen reads Exit Fullscreen while the page is fullscreen; on an installed phone it
-    toggles the cutout instead. Install reads Uninstall in the installed app. A phone has only
-    Handheld view, so the view switch is greyed there."""
+    """The Doc menu's last four items, always in this order so the keys never move (muscle
+    memory): the view switch, Fullscreen, Install and Check for Updates. One the browser cannot
+    do is greyed, Fullscreen reads Exit Fullscreen while the page is fullscreen; on an installed
+    phone it toggles the cutout instead. Install reads Uninstall in the installed app. A phone
+    has only Handheld view, so the view switch is greyed there."""
     cutout_toggle = phone and handheld and offers.installed
     install = (
         MenuItem("Uninstall CASSim", "dialog", "uninstall", hint="CASSim")
@@ -135,6 +135,7 @@ def browser_doc_items(
             or (offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone)),
         ),
         install,
+        MenuItem("Check for Updates…", "dialog", "check_updates", hint="CASSim"),
     )
 
 
@@ -649,7 +650,7 @@ class App:
         self.refresh()
 
     def doc_extras(self) -> tuple[MenuItem, ...]:
-        """The Doc menu's last three items (see `browser_doc_items`)."""
+        """The Doc menu's last four items (see `browser_doc_items`)."""
         handheld = self.state.mode is Mode.HANDHELD
         return browser_doc_items(
             handheld=handheld,
@@ -703,6 +704,7 @@ class App:
             "fullscreen": self.go_fullscreen,
             "install": self.install,
             "uninstall": self.shell.uninstall,
+            "check_updates": self.shell.check_for_updates,
             "switch_view": lambda: self.set_mode(
                 Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD
             ),

@@ -4,7 +4,7 @@ Menus are numbered as on the handheld: press a number to choose that item, or us
 
 ## Menu (F2)
 
-Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & Vector, Finance, Functions & Programs, then CASSim's own **A About CASSim** and **B Help**. Every page's Menu has About and Help under A and B, including the pages that are not built yet.
+Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & Vector, Finance, Functions & Programs. About CASSim and Help are in Doc. Pages that are not built yet have no Menu.
 
 Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance Solver. Greyed-out items are on the handheld but not built yet in CASSim.
 
@@ -17,7 +17,7 @@ Some items open a small form instead of expecting you to type the command, for e
 - **Page Layout:** delete a page
 - **Settings & Status:** Document Settings and Handheld Setup
 - **8 About CASSim** and **9 Help** (in the handheld's places for Login and Press-to-Test, which CASSim does not have)
-- Then CASSim's own: switch to the other view, **Fullscreen** (greyed where the browser cannot, or when CASSim is already installed and full screen), and **Install CASSim**, which reads **Uninstall CASSim** in the installed app and shows how to remove it. In the installed app on a phone, **Avoid cutout** or **Use cutout** takes the Fullscreen item's place.
+- Then CASSim's own: switch to the other view, **Fullscreen** (greyed where the browser cannot, or when CASSim is already installed and full screen), and **Install CASSim**, which reads **Uninstall CASSim** in the installed app and shows how to remove it. Last is **Check for Updates**, which asks the site for a newer version now; if there is one, a banner offers **Reload**. In the installed app on a phone, **Avoid cutout** or **Use cutout** takes the Fullscreen item's place.
 
 ## Other menus
 

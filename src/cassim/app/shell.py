@@ -48,6 +48,17 @@ UNINSTALL_STEPS = (
     "• iPhone or iPad: touch and hold the CASSim icon, then Remove App."
 )
 
+# Doc > Check for Updates: what the page found, by its answer (see `checkUpdate` in
+# tools/publish.py).
+UPDATE_TITLE = "Check for Updates"
+UPDATE_MESSAGES = {
+    "current": "CASSim is up to date.",
+    "downloading": "A new version is downloading. Choose Reload in the banner when it appears.",
+    "ready": "A new version is ready. Choose Reload in the banner to use it.",
+    "offline": "CASSim could not reach its site. Check the connection and try again.",
+    "unsupported": "This copy of CASSim cannot check for updates.",
+}
+
 
 def about_dialog(page: ft.Page) -> None:
     """About CASSim: disclaimer, privacy, licence, notices and versions (NFR-LEG-002, -003)."""
@@ -275,6 +286,18 @@ class Shell:
             "Continue",
             show_steps,
         )
+
+    def check_for_updates(self) -> None:
+        """Doc > Check for Updates: the page asks the server for a newer version now and answers;
+        a newer one shows the page's Reload banner when it has downloaded."""
+        bridge = self.bridge
+        if bridge is None:
+            self.notice(UPDATE_TITLE, UPDATE_MESSAGES["unsupported"])
+            return
+        bridge.on_update = lambda result: self.notice(
+            UPDATE_TITLE, UPDATE_MESSAGES.get(result, UPDATE_MESSAGES["offline"])
+        )
+        bridge.check_update()
 
     def toggle_fullscreen(self) -> None:
         """Fullscreen, or back out of it while the page is fullscreen."""

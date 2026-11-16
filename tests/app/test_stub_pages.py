@@ -70,34 +70,29 @@ def test_the_view_says_the_page_is_still_to_be_built(key: str, kind: PageKind, n
     assert STUB_NOTICE not in texts(view.history)
 
 
-def test_typing_on_a_stub_page_does_nothing_and_its_menu_has_only_about_and_help() -> None:
+def test_typing_on_a_stub_page_does_nothing_and_it_has_no_menu() -> None:
     state = AppState()
     insert(state, "4")
     for char in "2+3":
         state.key_event(char)
     state.key_event("Enter")
     state.key_event("F2")  # the Calculator's menu does not belong to this page
-    assert state.menu is not None
-    assert [(row.key, row.label) for row in state.menu.view().rows] == [
-        ("A", "About CASSim…"),
-        ("B", "Help…"),
-    ]
-    state.key_event("Escape")
+    assert state.menu is None
     state.key_event("F4")  # Doc still opens, so the page can be deleted or another added
     assert state.menu is not None
 
 
-@pytest.mark.parametrize(("key", "dialog"), [("A", "about"), ("B", "help")])
+@pytest.mark.parametrize(("key", "dialog"), [("8", "about"), ("9", "help")])
 @pytest.mark.parametrize("page", ["calculator", "4", "6", "7", "8"])
-def test_about_and_help_are_in_every_page_menu(page: str, key: str, dialog: str) -> None:
-    """NFR-LEG-002: About (the disclaimer) and Help are a Menu item away on every page type,
-    under the same keys, after the device's nine items."""
+def test_about_and_help_are_in_doc_on_every_page(page: str, key: str, dialog: str) -> None:
+    """NFR-LEG-002: About (the disclaimer) and Help are Doc items on every page type, under the
+    same keys; the page Menus do not repeat them."""
     state = AppState()
     asked: list[str] = []
     state.show_dialog = asked.append
     if page != "calculator":
         insert(state, page)
-    state.key_event("F2")
+    state.key_event("F4")
     state.key_event(key)
     assert asked == [dialog]
 

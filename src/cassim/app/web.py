@@ -173,6 +173,9 @@ class Bridge:
         self.touch = False  # the main pointer is a finger: a phone or tablet
         self.safe_area: tuple[float, float, float, float] = (0, 0, 0, 0)
         self._changed = changed
+        # Called with the page's answer to `check_update`: "current", "downloading", "ready",
+        # "offline" or "unsupported".
+        self.on_update: Callable[[str], None] = lambda _result: None
         self._channel = js.BroadcastChannel.new("cassim")
         self._callback = create_proxy(self._on_message)
         self._channel.onmessage = self._callback
@@ -197,6 +200,8 @@ class Bridge:
                 float(inset.left),
             )
             self._changed()
+        elif op == "update":
+            self.on_update(str(event.data.result))
 
     def _send(self, op: str) -> None:
         self._channel.postMessage(to_js({"op": op}, dict_converter=js.Object.fromEntries))
@@ -209,6 +214,9 @@ class Bridge:
 
     def exit_fullscreen(self) -> None:
         self._send("exit_fullscreen")
+
+    def check_update(self) -> None:
+        self._send("check_update")
 
 
 async def _request(request: js.IDBRequest) -> object:
