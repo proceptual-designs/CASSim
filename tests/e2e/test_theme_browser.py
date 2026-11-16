@@ -13,12 +13,18 @@ from test_flows_browser import AppPage
 pytestmark = pytest.mark.e2e
 
 
+@pytest.mark.parametrize("offline", [False, True])
 def test_saved_custom_theme_is_applied_after_reload(
-    browser: Browser, site: tuple[Path, str]
+    browser: Browser, site: tuple[Path, str], offline: bool
 ) -> None:
     context = browser.new_context(viewport={"width": 1100, "height": 700})
     app = AppPage(context.new_page(), site[1])
     app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
+    if offline:
+        app.page.wait_for_function(
+            "document.getElementById('cassim-offline').dataset.state === 'ready'", timeout=150000
+        )
+        context.set_offline(True)
     for key in ("F4", "7", "3"):  # Doc > Settings & Status > Handheld Setup
         app.page.keyboard.press(key)
         app.page.wait_for_timeout(300)
