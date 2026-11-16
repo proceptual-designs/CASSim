@@ -48,7 +48,7 @@ LIKELY_MENTIONS = 5  # book mentions at which a command not in the corpus is sti
 TAG = r"(?:Catalog >|\S{1,3} keys?)"
 HEADING = re.compile(rf"^\s*(\S.*?)\s{{2,}}{TAG}\s*$")
 CALL = re.compile(r"^([►▶]?[A-Za-z][A-Za-z0-9_.⁻¹]*)\s?\(")
-BARE = re.compile(r"^\s*([►▶]?[A-Za-z][A-Za-z0-9_.⁻¹]*\s?(?:\(\))?)\s*$")
+BARE = re.compile(r"^\s*([►▶]?[A-Za-z][A-Za-z0-9_.⁻¹]*\s?(?:\(\s*\))?)\s*$")
 WORD = re.compile(r"^[►▶]?[A-Za-z][A-Za-z0-9_.]*[A-Za-z0-9_]$|^[A-Za-z]$")
 
 
@@ -124,7 +124,7 @@ def guide_headings(path: Path) -> dict[str, Heading]:
             m = HEADING.match(line)
             if not m and (bare := BARE.match(line)):
                 # Name alone on its line, then a syntax line that starts with the same name.
-                base = bare.group(1).removesuffix("()").strip()
+                base = bare.group(1).split("(", maxsplit=1)[0].strip()
                 nxt = next((x.strip() for x in lines[i + 1 : i + 4] if x.strip()), "")
                 if base and nxt.startswith(base) and nxt[len(base) : len(base) + 1] in "( [":
                     m = bare

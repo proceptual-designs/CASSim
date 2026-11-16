@@ -571,21 +571,22 @@ def test_placeholders_keep_the_handheld_numbering() -> None:
     state.key_event("3")  # Algebra
     rows = _menu(state).rows
     assert [row.key for row in rows] == list("123456789ABCD")
-    assert (rows[4].label, rows[4].enabled) == ("Complete the Square", False)
+    assert (rows[4].label, rows[4].enabled) == ("Complete the Square", True)
     assert rows[5].label == "Numerical Solve"
     assert rows[5].enabled
 
 
-def test_a_placeholder_does_nothing_when_chosen() -> None:
+def test_complete_square_menu_inserts_the_command() -> None:
     state = AppState()
-    for key in ("F2", "3", "5"):  # Algebra > 5 Complete the Square (not yet)
+    for key in ("F2", "3", "5"):  # Algebra > 5 Complete the Square
         state.key_event(key)
-    view = _menu(state)
-    assert view.title == "Menu > Algebra"  # still open, the placeholder highlighted
-    assert view.rows[4].selected
-    assert view.hint == "Not in CASSim yet"
-    state.key_event("Enter")
-    state.run_action("menu_pick", "1:4")
+    assert _calculator(state).editor.linear() == "completeSquare("
+
+
+def test_unimplemented_convert_submenu_stays_greyed() -> None:
+    state = AppState()
+    state.key_event("F2")
+    state.key_event("3")
     state.key_event("A")  # Convert Expression: it opens to show the device's items, greyed
     view = _menu(state)
     assert view.title == "Menu > Algebra > Convert Expression"

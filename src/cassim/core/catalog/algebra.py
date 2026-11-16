@@ -2,9 +2,12 @@
 
 from collections.abc import Callable
 
-from cassim.core.catalog.registry import Host, eager
+from cassim.core import ast, errors
+from cassim.core.catalog.registry import Host, eager, lazy
 from cassim.core.compat import sympy_adapter as cas
+from cassim.core.errors import TIError
 from cassim.core.format import to_text
+from cassim.core.settings import variable_key
 from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import Expr, Raw, Shown, Value
 
@@ -24,6 +27,46 @@ eager("comDenom", 1, 2)(_rewrite(cas.common_denominator))
 eager("cFactor", 1, 2, cas=True)(_rewrite(cas.factor_over_gaussian_integers))
 eager("tExpand", 1, cas=True)(_rewrite(cas.expand_trig))
 eager("tCollect", 1, cas=True)(_rewrite(cas.collect_trig))
+
+
+def _square_variables(nodes: tuple[ast.Expr, ...]) -> list[ast.Expr]:
+    variables: list[ast.Expr] = []
+    for node in nodes:
+        items = node.items if isinstance(node, ast.ListLit) else (node,)
+        for item in items:
+            if isinstance(item, ast.Name) or (
+                isinstance(item, ast.Binary)
+                and item.op in {"^", ".^"}
+                and isinstance(item.left, ast.Name)
+            ):
+                variables.append(item)
+            else:
+                raise TIError(errors.SYNTAX)
+    if not variables:
+        raise TIError(errors.SYNTAX)
+    return variables
+
+
+def _square_variable_name(node: ast.Expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.text
+    if isinstance(node, ast.Binary) and isinstance(node.left, ast.Name):
+        return node.left.text
+    raise TIError(errors.SYNTAX)
+
+
+@lazy("completeSquare", 2, None, cas=True)
+def complete_square(host: Host, nodes: tuple[ast.Expr, ...]) -> Value:
+    variable_nodes = _square_variables(nodes[1:])
+    names = [variable_key(host.settings, _square_variable_name(node)) for node in variable_nodes]
+    bindings: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
+    with host.bound(bindings):
+        expression = raw_of(host.expr(nodes[0]))
+        variables = [raw_of(host.expr(node)) for node in variable_nodes]
+    result = cas.complete_square(expression, variables)
+    if result is None:
+        raise TIError(errors.DATA_TYPE)
+    return Expr(result)
 
 
 def _proper_fraction(host: Host, value: Value) -> Value:

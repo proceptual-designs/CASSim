@@ -23,6 +23,7 @@ FUNCTIONS: dict[str, str] = {
     "ceiling": "ceiling(Value)",
     "cFactor": "cFactor(Expr[,Var])",
     "comDenom": "comDenom(Expr, [Var])",
+    "completeSquare": "completeSquare(ExprOrEqn, Var[,Var...])",
     "conj": "conj(Value)",
     "cos": "cos(Value)",
     "cos⁻¹": "cos⁻¹(Value)",

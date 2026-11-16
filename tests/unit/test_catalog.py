@@ -292,12 +292,51 @@ def test_a_name_that_is_not_a_function_echoes_even_with_a_list_argument():
         ("factor(x^4-1)", "(x-1)*(x+1)*(x^2+1)"),
         ("factor(x^4-1,x)", "(x-1)*(x+1)*(x^2+1)"),
         ("factor(x^3-8)", "(x-2)*(x^2+2*x+4)"),
+        ("completeSquare(x^2+4*x+1,x)", "(x+2)^2-3"),
+        ("completeSquare(2*x^2-3*x,x)", "2*(x-3/4)^2-9/8"),
+        ("completeSquare(-2*a^2-a,a)", "1/8-2*(a+1/4)^2"),
+        (
+            "completeSquare(-2*a^2-a+b^2-5*b+1,a,b)",
+            "-2*(a+1/4)^2+(b-5/2)^2-41/8",
+        ),
+        (
+            "completeSquare(-2*a^2-a+b^2-5*b+1,{a,b})",
+            "-2*(a+1/4)^2+(b-5/2)^2-41/8",
+        ),
+        (
+            "completeSquare(-2*a^2-a+b^2-5*b+a*b,{a,b})",
+            "-2*(a+1/4)^2+(b-5/2)^2+(8*a*b-49)/8",
+        ),
+        ("completeSquare(x^4+4*x^2+1,x^2)", "(x^2+2)^2-3"),
         ("propFrac((x^2+1)/(x-1))", "2/(x-1)+x+1"),
         ("comDenom(1/x+1/(x+1))", "(2*x+1)/(x^2+x)"),
     ],
 )
 def test_algebra(line, wanted):
     same(line, wanted)
+
+
+def test_complete_square_handles_equations() -> None:
+    same("completeSquare(x^2+4*x+1=0,x)", "(x+2)^2=3")
+
+
+def test_complete_square_uses_variable_name_even_if_already_assigned() -> None:
+    assert text("x:=5", "completeSquare(x^2+4*x+1,x)") == "(x+2)^2-3"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "completeSquare(x^3+1,x)",
+        "completeSquare(sin(x)+x^2,x)",
+    ],
+)
+def test_complete_square_rejects_nonquadratic_or_missing_variables(line):
+    assert error(line) == "Data type"
+
+
+def test_complete_square_requires_at_least_one_variable():
+    assert error("completeSquare(x^2+1,{})") == "Syntax error"
 
 
 @pytest.mark.parametrize(

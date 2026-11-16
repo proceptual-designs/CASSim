@@ -26,6 +26,17 @@ def test_norm_ignores_parens_spaces_arrows_and_case() -> None:
     assert ref_matrix.norm("d() (derivative)") == "d"
 
 
+def test_guide_headings_detects_empty_parentheses_with_spacing(monkeypatch, tmp_path) -> None:
+    page = """
+completeSquare( )
+
+completeSquare(ExprOrEqn, Var) => expression or equation
+"""
+    monkeypatch.setattr(ref_matrix, "pdf_text", lambda path, *, layout: page)
+    heading = ref_matrix.guide_headings(tmp_path / "guide.pdf")["completesquare"]
+    assert (heading.name, heading.page, heading.is_call) == ("completeSquare()", 1, True)
+
+
 def test_priority_prefers_corpus_then_book_mentions() -> None:
     assert ref_matrix.priority(1, 0) == "core"
     assert ref_matrix.priority(0, ref_matrix.LIKELY_MENTIONS) == "likely"
