@@ -125,6 +125,45 @@ def test_root_hosted_site_works_offline(browser: Browser, root_site: tuple[Path,
         context.close()
 
 
+def test_redirected_index_allows_online_and_offline_launch(
+    browser: Browser, redirecting_site: str
+) -> None:
+    """FR-PWA-002: a redirected cached index remains usable for navigation."""
+    context = browser.new_context(viewport={"width": 1100, "height": 700})
+    try:
+        response = context.request.get(f"{redirecting_site}index.html", max_redirects=0)
+        assert response.status == 308
+        page = context.new_page()
+        page.goto(redirecting_site, wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        page.close()
+
+        page = context.new_page()
+        page.goto(redirecting_site, wait_until="load")
+        assert wait_for(page, "!document.getElementById('cassim-splash')")
+        assert page.evaluate(
+            """async () => {
+              const key = (await caches.keys()).find(k => k.startsWith("cassim-"));
+              return (await caches.open(key)).delete("index.html");
+            }"""
+        )
+        page.close()
+
+        page = context.new_page()
+        page.goto(redirecting_site, wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        page.close()
+
+        context.set_offline(True)
+        app = AppPage(context.new_page(), redirecting_site)
+        app.type_text("2+3")
+        app.press("Enter")
+        app.wait(lambda: app.results, "calculation after redirected offline launch")
+        assert app.results[-1] == "5"
+    finally:
+        context.close()
+
+
 def test_cas_after_host_failure_and_offline(
     browser: Browser,
     site: tuple[Path, str],

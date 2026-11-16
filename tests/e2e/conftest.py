@@ -1,6 +1,7 @@
 """Fixtures for browser tests: build a Flet static site, serve it, drive Edge/Chromium."""
 
 import functools
+import gzip
 import http.server
 import json
 import os
@@ -114,6 +115,47 @@ def root_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, 
     thread.start()
     try:
         yield dist, f"http://127.0.0.1:{server.server_address[1]}/"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.fixture(params=["root_site", "site"], ids=["root", "subpath"])
+def redirecting_site(request: pytest.FixtureRequest) -> Iterator[str]:
+    """Serve the site with Cloudflare Pages' index.html-to-directory redirect."""
+    dist, _ = request.getfixturevalue(request.param)
+    prefix = "" if request.param == "root_site" else f"{BASE}/"
+
+    class Handler(PagesHandler):
+        def translate_path(self, path: str) -> str:
+            if not prefix:
+                return http.server.SimpleHTTPRequestHandler.translate_path(self, path)
+            return super().translate_path(path)
+
+        def do_GET(self) -> None:
+            if urlparse(self.path).path == f"/{prefix}index.html":
+                self.send_response(308)
+                self.send_header("Location", f"/{prefix}")
+                self.end_headers()
+            elif urlparse(self.path).path == f"/{prefix}":
+                content = gzip.compress((dist / "index.html").read_bytes())
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                super().do_GET()
+
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(Handler, directory=str(dist))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/{prefix}"
     finally:
         server.shutdown()
         server.server_close()

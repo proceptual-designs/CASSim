@@ -8,6 +8,8 @@ Last updated 2026-11-16.
 
 | Target | Priority | Last run | What was run | Result |
 |---|---|---|---|---|
+| Chrome 157, headless, Windows | Primary (engine) | 2026-11-16 | Deployed stable and testing sites; Cloudflare-style redirect; legacy-to-fixed local upgrade | Both deployed sites had complete caches but failed offline navigation with `ERR_FAILED`. The local legacy build upgraded to the fixed worker, preserved local storage and calculated offline. Browser contexts, not OS-installed windows. |
+| Chrome 157, Android 17, Pixel 6 | Primary | 2026-11-16 | Wireless DevTools inspection of the testing site in a browser tab | Offline status was ready, but its cached index carried a redirect. The installed app and the fix were not verified on the phone; the wireless debugging connection reset during the local-build test. |
 | Chromium-family, headless, Windows | Primary (engine) | 2026-11-16 | Built site: failed updates (HTTP 503 and a 200 block page), offline CAS calculations, and applying an update | 2 passed. Browser-context simulation; not an OS-installed app or school-network test. |
 | Chromium, headless, on Windows 11 (Playwright picks Edge, then Chrome, then bundled Chromium; `tests/e2e/conftest.py`) | Primary (engine) | 2026-11-08 | `pytest -m e2e`: site build, install, offline reload, fonts at three viewport sizes, exam-style flows typed into the site, status-bar clicks, Cancel | 20 passed. The offline font test failed at 390 x 844 and 844 x 390 (a Noto Sans file was not vendored); fixed the same day and re-run for that test only (3 passed). The full suite has not been re-run since the fix. |
 | Chrome (desktop, headed) | Primary | not run | | |
