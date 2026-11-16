@@ -101,10 +101,28 @@ def test_loads_and_works_offline(browser: Browser, site: tuple[Path, str]) -> No
     assert wait_for(page, "!document.getElementById('cassim-splash')"), "offline reload failed"
     page.wait_for_timeout(20000)
     assert not errors, errors
-    # Only the unused Rive wasm may be requested from outside (decision 0016).
-    assert external <= {"cdn.jsdelivr.net"}, external
-    assert not [m for m in missing if "rive" not in m], missing
+    assert not external, external
+    assert not missing, missing
     ctx.close()
+
+
+def test_root_hosted_site_works_offline(browser: Browser, root_site: tuple[Path, str]) -> None:
+    """FR-PWA-002: root-hosted builds also install and calculate without a network."""
+    _, url = root_site
+    context = browser.new_context(viewport={"width": 1100, "height": 700})
+    try:
+        page = context.new_page()
+        page.goto(url, wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        context.set_offline(True)
+        page.close()
+        app = AppPage(context.new_page(), url)
+        app.type_text("2+3")
+        app.press("Enter")
+        app.wait(lambda: app.results, "root-hosted offline calculation")
+        assert app.results[-1] == "5"
+    finally:
+        context.close()
 
 
 def test_cas_after_host_failure_and_offline(
@@ -117,7 +135,6 @@ def test_cas_after_host_failure_and_offline(
     url, requests, fail = failing_site
     path = urlparse(url).path
     context = browser.new_context(viewport={"width": 1100, "height": 700})
-    context.route("https://cdn.jsdelivr.net/**", lambda route: route.abort())
     external: set[str] = set()
     context.on(
         "request",
@@ -190,10 +207,7 @@ def test_cas_after_host_failure_and_offline(
         page = context.new_page()
         app = AppPage(page, url)
         calculate(app, "solve(x+2=5,x)", "x=3")
-        assert all(
-            request.startswith("https://cdn.jsdelivr.net/npm/@rive-app/flutter-native-wasm@")
-            for request in external
-        ), external
+        assert not external, external
     finally:
         context.close()
 
@@ -203,7 +217,9 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     dist, _ = site
     version = json.loads((dist / "version.json").read_text(encoding="utf-8"))["version"]
     assert version.startswith(publish.project_version())
-    assert f'"cassim-{version}"' in (dist / "flutter_service_worker.js").read_text(encoding="utf-8")
+    assert f'CACHE_PREFIX + "{version}"' in (dist / "flutter_service_worker.js").read_text(
+        encoding="utf-8"
+    )
     assert "cassim-update" in (dist / "index.html").read_text(encoding="utf-8")
 
 
@@ -217,6 +233,7 @@ def test_cached_navigation_offers_and_applies_update(
         page = context.new_page()
         page.goto(url, wait_until="load")
         assert wait_for(page, "!!navigator.serviceWorker.controller")
+        page.evaluate("caches.open('cassim-%2Fother%2F-other-version')")
         change("update")
         page.evaluate("navigator.serviceWorker.getRegistration().then(reg => reg.update())")
         assert wait_for(
@@ -224,7 +241,11 @@ def test_cached_navigation_offers_and_applies_update(
         ), "new version was not offered"
         with page.expect_navigation(wait_until="load", timeout=150000):
             page.locator("#cassim-reload").click()
-        assert wait_for(page, "caches.keys().then(keys => keys.includes('cassim-test-update'))")
+        assert wait_for(
+            page,
+            "caches.keys().then(keys => keys.includes('cassim-%2FCASSim%2F-test-update')"
+            " && keys.includes('cassim-%2Fother%2F-other-version'))",
+        )
         page.close()
         app = AppPage(context.new_page(), url)
         app.page.wait_for_timeout(1000)
@@ -233,6 +254,118 @@ def test_cached_navigation_offers_and_applies_update(
         app.press("Enter")
         app.wait(lambda: app.results, "calculation after update")
         assert app.results[-1] == "5"
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("failure", ["install-broken", "install-interrupted"])
+def test_failed_precache_is_reported_and_can_be_retried(
+    browser: Browser, failing_site: tuple[str, list[str], Callable[[str], None]], failure: str
+) -> None:
+    """FR-PWA-002: corrupt or interrupted assets cannot produce a ready status."""
+    url, _, fail = failing_site
+    fail(failure)
+    context = browser.new_context()
+    try:
+        page = context.new_page()
+        page.goto(url, wait_until="load")
+        assert wait_for(
+            page, "document.getElementById('cassim-offline').dataset.state === 'unavailable'"
+        )
+        assert not page.evaluate("!!navigator.serviceWorker.controller")
+        fail("")
+        page.locator("#cassim-offline-retry").click()
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        context.set_offline(True)
+        page.reload(wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("failure", ["update-broken", "update-interrupted"])
+def test_incomplete_update_leaves_working_cache(
+    browser: Browser, failing_site: tuple[str, list[str], Callable[[str], None]], failure: str
+) -> None:
+    """FR-PWA-002/004: an incomplete update must not replace the active version."""
+    url, _, fail = failing_site
+    context = browser.new_context(viewport={"width": 1100, "height": 700})
+    try:
+        page = context.new_page()
+        page.goto(url, wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        fail(failure)
+        state = page.evaluate(
+            """async () => {
+              const reg = await navigator.serviceWorker.getRegistration();
+              await reg.update();
+              const worker = reg.installing;
+              if (!worker) throw new Error("No installing worker");
+              return await new Promise(resolve => {
+                if (worker.state === "redundant") return resolve(worker.state);
+                worker.addEventListener("statechange", () => {
+                  if (worker.state === "redundant" || worker.state === "installed")
+                    resolve(worker.state);
+                });
+              });
+            }"""
+        )
+        assert state == "redundant"
+        assert wait_for(
+            page,
+            "document.querySelector('#cassim-offline span').textContent.includes('Update failed')",
+        )
+        assert not page.evaluate(
+            "caches.keys().then(keys => keys.includes('cassim-%2FCASSim%2F-test-update'))"
+        )
+        context.set_offline(True)
+        page.close()
+        app = AppPage(context.new_page(), url)
+        app.type_text("2+3")
+        app.press("Enter")
+        app.wait(lambda: app.results, "calculation after interrupted update")
+        assert app.results[-1] == "5"
+    finally:
+        context.close()
+
+
+def test_missing_cached_file_is_reported_and_repaired(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-PWA-002: missing cache entries are not reported as offline ready."""
+    _, url = site
+    context = browser.new_context()
+    try:
+        page = context.new_page()
+        page.add_init_script(
+            """if (navigator.storage && navigator.storage.persist) {
+              const persist = navigator.storage.persist.bind(navigator.storage);
+              navigator.storage.persist = () => {
+                window.persistenceRequested = true;
+                return persist();
+              };
+            }"""
+        )
+        page.goto(url, wait_until="load")
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        assert page.evaluate(
+            "!navigator.storage || !navigator.storage.persist"
+            " || window.persistenceRequested === true"
+        )
+        assert page.evaluate(
+            """async () => {
+              const key = (await caches.keys()).find(k => k.startsWith("cassim-"));
+              return await (await caches.open(key)).delete("pyodide/python.bat");
+            }"""
+        )
+        page.reload(wait_until="load")
+        assert wait_for(
+            page, "document.getElementById('cassim-offline').dataset.state === 'unavailable'"
+        )
+        page.locator("#cassim-offline-retry").click()
+        assert wait_for(page, "document.getElementById('cassim-offline').dataset.state === 'ready'")
+        page.locator("#cassim-offline-close").click()
+        assert page.locator("#cassim-offline").is_hidden()
     finally:
         context.close()
 

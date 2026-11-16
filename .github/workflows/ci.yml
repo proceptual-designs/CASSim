@@ -22,5 +22,12 @@ jobs:
       - run: uv run playwright install --with-deps chromium
       - run: >-
           uv run pytest -m e2e
+          tests/e2e/test_pwa.py::test_loads_and_works_offline
+          tests/e2e/test_pwa.py::test_root_hosted_site_works_offline
           tests/e2e/test_pwa.py::test_cas_after_host_failure_and_offline
           tests/e2e/test_pwa.py::test_cached_navigation_offers_and_applies_update
+          tests/e2e/test_pwa.py::test_failed_precache_is_reported_and_can_be_retried
+          tests/e2e/test_pwa.py::test_incomplete_update_leaves_working_cache
+          tests/e2e/test_pwa.py::test_missing_cached_file_is_reported_and_repaired
+          tests/e2e/test_theme_browser.py::test_saved_custom_theme_is_applied_after_reload
+          tests/e2e/test_autosave_browser.py::test_the_document_comes_back_after_a_reload

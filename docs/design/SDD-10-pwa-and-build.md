@@ -4,7 +4,7 @@ Status: describes `tools/publish.py` and the CI workflow at 2026-11-16. Requirem
 
 ## Goal
 
-A folder of static files that any free host can serve at the root (the default, as on Cloudflare Pages) or under a sub-path (`--base-url CASSim`), that installs as a PWA, and that works with the network off after the first visit. Essential resources are vendored; the known optional Rive request is noted below.
+A folder of static files that any free host can serve at the root (the default, as on Cloudflare Pages) or under a sub-path (`--base-url CASSim`), that installs as a PWA, and that works with the network off after installation completes. Essential resources are vendored.
 
 ## Pipeline
 
@@ -15,34 +15,46 @@ A folder of static files that any free host can serve at the root (the default, 
 | `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the symbols font and a generated `pyproject.toml` that names only `flet`. | `flet publish` reads a self-contained app folder. The staged `main.py` imports `cassim.app.main.main` and starts it; it never imports SymPy (0027). |
 | `flet publish src/main.py --distpath DIST [--base-url B] [--no-cdn]` | Flet's static web build: Flutter app, CanvasKit, Pyodide core, Python worker. | The base build (decision 0002). |
 | `patch_index` | Adds the manifest and meta tags, the loading screen, the update bar and the install and fullscreen bridge to `index.html`. | FR-PWA-001, FR-PWA-003. |
+| `disable_unused_rive` | Disables the unused Rive initializer in Flet 1.0.5's JavaScript CanvasKit build, and fails the build if its expected version or generated code changes. | FR-PWA-002: no Rive CDN request. |
 | `vendor_pyodide` | Copies the packages Pyodide still loads at run time (`RUNTIME_PACKAGES`: msgpack, pyyaml) into `pyodide/`. | `flet publish --no-cdn` self-hosts Pyodide core but not its packages (0002). |
 | `write_app_archive` | Replaces Flet's `app.tar.gz` with one holding `main.py`, `cassim` and, under `__pypackages__`, Flet, repath and six, compiled to bytecode. | No micropip and no compiling at start-up (0027). |
 | `vendor_fallback_fonts` | Copies `tools/fallback_fonts/` into `assets/fonts/`. | Flutter fetches Noto fallback fonts for glyphs Roboto lacks; they are committed so the build needs no Google request. |
 | `write_engine_zip` | Zips `cassim` without the UI, plus SymPy and mpmath, compiled to bytecode, as `cassim.zip`. | The engine worker boots its own Pyodide and unpacks it, with no `loadPackage` (SDD-02, 0027). |
 | `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork) and writes `manifest.webmanifest`. | FR-PWA-001. |
-| `add_offline_cache` | Writes `version.json`, `precache.json` (every file) and replaces Flutter's self-unregistering `flutter_service_worker.js`. | FR-PWA-002. |
+| `add_offline_cache` | Writes `version.json`, `precache.json` and a service worker with the SHA-256 of each offline asset. | FR-PWA-002. |
 
-Wheels are downloaded once into `%TEMP%/cassim_wheels`. Bytecode is written only when the build's Python has Pyodide's minor version (otherwise source ships and the browser compiles it). The build prints the file count and size; `python -m tools.loadtime [--build]` times start-up (0027). With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs).
+Wheels are downloaded once into `%TEMP%/cassim_wheels`. Bytecode is written only when the build's Python has Pyodide's minor version (otherwise source ships and the browser compiles it). The build prints the file count and size; `python -m tools.loadtime [--build]` times start-up (0027). With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs), and offline readiness is not offered.
 
 ## Service worker
 
-The version string is `<pyproject version>+<content hash>`, so any change to any file changes the cache name.
+The version string is `<pyproject version>+<content hash>`, covering site content and the service-worker template.
 
-- **install:** fetch `precache.json` with no cache and `cache.addAll` the whole list (about 100 files, about 83 MB).
-- **activate:** delete every other cache and claim clients.
+- **install:** fetch each asset without the HTTP cache and check it against the build's embedded SHA-256 manifest. An incomplete or mismatched installation is discarded.
+- **activate:** after successful installation, delete older CASSim caches for the same service-worker scope and claim clients; failed updates leave the active cache intact. Legacy unscoped caches are left untouched because their scope cannot be identified safely.
 - **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. Other resources are cache-first, filling the cache on a miss.
 - **update:** the page registers the worker, and when a new one is `installed` while another controls the page, the update bar appears. Reload posts `skipWaiting` and the page reloads on `controllerchange`.
+- **readiness:** the page asks its controlling worker whether all verified assets remain present, and shows an offline-ready or retry status. The status can be dismissed once checking finishes. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
 
 Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the Handheld Doc menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
 
 ## Offline rule and its test
 
-`tests/e2e/test_pwa.py` builds the real site with `tools.publish` and serves it from a sub-path.
+`tests/e2e/test_pwa.py` builds the real site with `tools.publish` and serves it from both the root
+and a sub-path.
 One Playwright test waits for every precache entry and service-worker control, closes the page,
 then verifies CAS calculations after the host returns HTTP 503, returns a block page with HTTP 200,
 and after the network is switched off. It explicitly forces a service-worker update check against
 each failing host response. A second test verifies that updates are still offered and applied.
-These exercise the installed app's cache in a browser context, not an actual OS-installed window.
+Additional tests cover corrupted and interrupted installs and updates, and repair of a missing
+cache entry. Chromium-family, Firefox and Playwright WebKit also calculated with the host down
+and HTTP caching disabled; Playwright WebKit additionally passed browser-offline navigation.
+Playwright Firefox's browser-offline navigation failed with `NS_ERROR_OFFLINE` on both the
+unchanged baseline and this build, so that scenario remains unverified. These tests exercise
+browser contexts, not OS-installed windows; real Safari and Chromebook remain untested.
+An offline Edge run recovered a saved document and settings, switched views and calculated.
+Two instrumented offline cancellations terminated the worker within one second and restored
+variables, but earlier experiments also observed cancellations exceeding one second; those
+samples do not establish compliance with NFR-PERF-004.
 The font test checks views at 1280 x 720, 390 x 844 and 844 x 390 for 404s. If it names a new
 font, download it from `https://fonts.gstatic.com/s/<path>` into `tools/fallback_fonts/` with the
 same path.
@@ -51,9 +63,9 @@ On reopening, navigations use the cached page without waiting for the site. The 
 site's service-worker script for updates; the
 `version.json` request is served from the cache when available. Other cached app resources are
 loaded from the service worker, with a network request on a cache miss. Flutter also attempts to
-load an unused Rive wasm from jsDelivr (decision 0016); its failure does not stop the calculator.
-The first visit and precache require access to the site, and the page does not currently indicate
-when the offline cache has completed.
+initialize an unused Rive plugin; the build disables this in the supported Flet JavaScript build.
+The first visit and precache require access to the site. Wait for “Ready for offline use” before
+disconnecting.
 
 ## Hosting requirements
 
@@ -82,6 +94,11 @@ No fixed budgets exist (SRS); NFR-PERF-001 and NFR-PERF-005 ask only that they a
 ## Known gaps and risks
 
 - Safari, iOS and Chromebook have not run the site; service-worker and canvas behaviour differ there.
+- One root-hosted Edge run populated the cache but did not acquire a controller within 150 seconds
+  while other builds and browser tests were running. An isolated retry succeeded; the cause of the
+  timeout is unconfirmed.
+- The Flet 1.0.5 Rive workaround patches generated JavaScript and must be reviewed on a Flet
+  upgrade; the build deliberately fails if its expected version or code changes.
 - The build downloads Pyodide packages and two PyPI wheels at build time; a download failure fails the build. They are cached in `%TEMP%`, not in the repo.
 - `RUNTIME_PACKAGES` and `ENGINE_PACKAGES` must match what Flet and the engine import; a missing one fails only at run time in the browser (the e2e tests catch it).
 - Pyodide upgrade procedure (NFR-MAINT-005) is not written down: bump the version, rebuild, run the e2e suite.
