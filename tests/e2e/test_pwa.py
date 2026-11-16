@@ -12,6 +12,7 @@ import os
 import tarfile
 import time
 import zipfile
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse
@@ -21,6 +22,7 @@ from PIL import Image, ImageChops
 from playwright.sync_api import Browser, Page
 from test_flows_browser import AppPage
 from tools import publish
+from tools.flows import flow_settings, matches
 
 pytestmark = pytest.mark.e2e
 
@@ -105,6 +107,97 @@ def test_loads_and_works_offline(browser: Browser, site: tuple[Path, str]) -> No
     ctx.close()
 
 
+def test_cas_after_host_failure_and_offline(
+    browser: Browser,
+    site: tuple[Path, str],
+    failing_site: tuple[str, list[str], Callable[[str], None]],
+) -> None:
+    """FR-PWA-002/004: a cached installation evaluates after a failed update and offline."""
+    dist, _ = site
+    url, requests, fail = failing_site
+    path = urlparse(url).path
+    context = browser.new_context(viewport={"width": 1100, "height": 700})
+    context.route("https://cdn.jsdelivr.net/**", lambda route: route.abort())
+    external: set[str] = set()
+    context.on(
+        "request",
+        lambda request: (
+            external.add(request.url)
+            if urlparse(request.url).scheme in {"http", "https"}
+            and urlparse(request.url).netloc != urlparse(url).netloc
+            else None
+        ),
+    )
+
+    def calculate(app: AppPage, expression: str, expected: str) -> None:
+        app.page.keyboard.press("Control+a")
+        app.page.keyboard.press("Delete")
+        app.logs.clear()
+        app.type_text(expression)
+        app.press("Enter")
+        app.wait(lambda: app.results, f"calculation of {expression}")
+        assert matches(expected, app.results[-1], flow_settings({}), "canonical", 1e-7)
+
+    def reject_update(page: Page) -> None:
+        assert page.evaluate(
+            """async () => {
+              try {
+                await (await navigator.serviceWorker.getRegistration()).update();
+                return false;
+              } catch (error) {
+                return true;
+              }
+            }"""
+        ), "service-worker update unexpectedly succeeded"
+        assert f"{path}flutter_service_worker.js" in requests
+        assert path not in requests
+
+    try:
+        page = context.new_page()
+        app = AppPage(page, url)
+        calculate(app, "2+3", "5")
+        precache = json.loads((dist / "precache.json").read_text(encoding="utf-8"))
+        assert wait_for(
+            page,
+            "caches.keys().then(async keys => {"
+            " const name = keys.find(k => k.startsWith('cassim-'));"
+            " if (!name) return false;"
+            " const cache = await caches.open(name);"
+            f" return (await Promise.all({json.dumps(precache)}.map(path => cache.match(path))))"
+            ".every(Boolean);"
+            "})",
+        ), "precache did not complete"
+        assert wait_for(page, "!!navigator.serviceWorker.controller")
+        page.close()
+
+        requests.clear()
+        fail("error")
+        page = context.new_page()
+        app = AppPage(page, url)
+        reject_update(page)
+        calculate(app, "factor(x^2{R}-1)", "(x-1)*(x+1)")
+        page.close()
+
+        requests.clear()
+        fail("block")
+        page = context.new_page()
+        app = AppPage(page, url)
+        reject_update(page)
+        calculate(app, "2+3", "5")
+        page.close()
+
+        context.set_offline(True)
+        page = context.new_page()
+        app = AppPage(page, url)
+        calculate(app, "solve(x+2=5,x)", "x=3")
+        assert all(
+            request.startswith("https://cdn.jsdelivr.net/npm/@rive-app/flutter-native-wasm@")
+            for request in external
+        ), external
+    finally:
+        context.close()
+
+
 def test_version_is_published(site: tuple[Path, str]) -> None:
     """FR-PWA-004: the build writes a version, and the worker's cache name carries it."""
     dist, _ = site
@@ -112,6 +205,36 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     assert version.startswith(publish.project_version())
     assert f'"cassim-{version}"' in (dist / "flutter_service_worker.js").read_text(encoding="utf-8")
     assert "cassim-update" in (dist / "index.html").read_text(encoding="utf-8")
+
+
+def test_cached_navigation_offers_and_applies_update(
+    browser: Browser, failing_site: tuple[str, list[str], Callable[[str], None]]
+) -> None:
+    """FR-PWA-004: cached navigation still discovers and activates a new service worker."""
+    url, _, change = failing_site
+    context = browser.new_context(viewport={"width": 1100, "height": 700})
+    try:
+        page = context.new_page()
+        page.goto(url, wait_until="load")
+        assert wait_for(page, "!!navigator.serviceWorker.controller")
+        change("update")
+        page.evaluate("navigator.serviceWorker.getRegistration().then(reg => reg.update())")
+        assert wait_for(
+            page, "getComputedStyle(document.getElementById('cassim-update')).display === 'flex'"
+        ), "new version was not offered"
+        with page.expect_navigation(wait_until="load", timeout=150000):
+            page.locator("#cassim-reload").click()
+        assert wait_for(page, "caches.keys().then(keys => keys.includes('cassim-test-update'))")
+        page.close()
+        app = AppPage(context.new_page(), url)
+        app.page.wait_for_timeout(1000)
+        app.page.mouse.click(600, 150)
+        app.type_text("2+3")
+        app.press("Enter")
+        app.wait(lambda: app.results, "calculation after update")
+        assert app.results[-1] == "5"
+    finally:
+        context.close()
 
 
 def test_the_build_records_the_versions_it_ships(site: tuple[Path, str]) -> None:

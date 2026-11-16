@@ -31,6 +31,8 @@ def _session_browser() -> Iterator[Browser]:
             finally:
                 b.close()
             return
+    if os.environ.get("CI"):
+        pytest.fail("no Chromium-family browser available")
     pytest.skip("no Chromium-family browser available")
 
 
@@ -93,3 +95,47 @@ def site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield dist, f"http://127.0.0.1:{server.server_address[1]}/{BASE}/"
     server.shutdown()
+
+
+@pytest.fixture
+def failing_site(site: tuple[Path, str]) -> Iterator[tuple[str, list[str], Callable[[str], None]]]:
+    """Serve the site, then simulate an outage, network filter or new worker."""
+    dist, _ = site
+    requests: list[str] = []
+    failure = ""
+
+    class Handler(PagesHandler):
+        def do_GET(self) -> None:
+            requests.append(urlparse(self.path).path)
+            if failure == "error":
+                self.send_error(503)
+            elif failure == "block":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"Blocked by the network")
+            elif failure == "update" and urlparse(self.path).path.endswith(
+                "/flutter_service_worker.js"
+            ):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/javascript")
+                self.end_headers()
+                self.wfile.write(publish.SERVICE_WORKER.format(version="test-update").encode())
+            else:
+                super().do_GET()
+
+    def fail(mode: str) -> None:
+        nonlocal failure
+        failure = mode
+
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(Handler, directory=str(dist))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/{BASE}/", requests, fail
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

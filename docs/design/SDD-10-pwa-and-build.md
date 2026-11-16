@@ -1,10 +1,10 @@
 # SDD-10. Build, offline site and deploy
 
-Status: describes `tools/publish.py` and the CI workflow at 2026-11-08. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
+Status: describes `tools/publish.py` and the CI workflow at 2026-11-16. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
 
 ## Goal
 
-A folder of static files that any free host can serve at the root (the default, as on Cloudflare Pages) or under a sub-path (`--base-url CASSim`), that installs as a PWA, and that works with the network off after the first visit, with no request to any other host (no CDN, no Google fonts, no PyPI).
+A folder of static files that any free host can serve at the root (the default, as on Cloudflare Pages) or under a sub-path (`--base-url CASSim`), that installs as a PWA, and that works with the network off after the first visit. Essential resources are vendored; the known optional Rive request is noted below.
 
 ## Pipeline
 
@@ -30,14 +30,30 @@ The version string is `<pyproject version>+<content hash>`, so any change to any
 
 - **install:** fetch `precache.json` with no cache and `cache.addAll` the whole list (about 100 files, about 83 MB).
 - **activate:** delete every other cache and claim clients.
-- **fetch:** same-origin GETs only. Navigations are network-first (so a new version is noticed even though hosts cache for minutes) and fall back to the cached `index.html` offline. Everything else is cache-first, filling the cache on a miss.
+- **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. Other resources are cache-first, filling the cache on a miss.
 - **update:** the page registers the worker, and when a new one is `installed` while another controls the page, the update bar appears. Reload posts `skipWaiting` and the page reloads on `controllerchange`.
 
 Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the Handheld Doc menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
 
 ## Offline rule and its test
 
-`tests/e2e/test_pwa.py` builds the real site with `tools.publish`, serves it from a sub-path with Playwright, and checks: the page installs, a reload with the network off works, and no view at 1280 x 720, 390 x 844 or 844 x 390 requests a file that 404s (the font test). If it names a new font, download it from `https://fonts.gstatic.com/s/<path>` into `tools/fallback_fonts/` with the same path.
+`tests/e2e/test_pwa.py` builds the real site with `tools.publish` and serves it from a sub-path.
+One Playwright test waits for every precache entry and service-worker control, closes the page,
+then verifies CAS calculations after the host returns HTTP 503, returns a block page with HTTP 200,
+and after the network is switched off. It explicitly forces a service-worker update check against
+each failing host response. A second test verifies that updates are still offered and applied.
+These exercise the installed app's cache in a browser context, not an actual OS-installed window.
+The font test checks views at 1280 x 720, 390 x 844 and 844 x 390 for 404s. If it names a new
+font, download it from `https://fonts.gstatic.com/s/<path>` into `tools/fallback_fonts/` with the
+same path.
+
+On reopening, navigations use the cached page without waiting for the site. The browser checks the
+site's service-worker script for updates; the
+`version.json` request is served from the cache when available. Other cached app resources are
+loaded from the service worker, with a network request on a cache miss. Flutter also attempts to
+load an unused Rive wasm from jsDelivr (decision 0016); its failure does not stop the calculator.
+The first visit and precache require access to the site, and the page does not currently indicate
+when the offline cache has completed.
 
 ## Hosting requirements
 
@@ -49,7 +65,7 @@ One build of the whole app exists today. Single-device bundles (`--bundle`, one 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, and the traceability check. The e2e tests (which build the site) are run locally. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: `main` to the testing site and the help pages, a GitHub release to the stable site (PLAN.md section 14).
+`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, the traceability check, and the offline/failing-host and update browser tests. The other e2e tests are run locally. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: `main` to the testing site and the help pages, a GitHub release to the stable site (PLAN.md section 14).
 
 ## Measured (decisions 0002, 0016 and 0027)
 
