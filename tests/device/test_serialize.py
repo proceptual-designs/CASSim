@@ -169,6 +169,19 @@ def test_a_schema_1_file_still_opens() -> None:
     assert calculator.editor.linear() == "2+"
 
 
+def test_schema_2_spreadsheets_start_with_no_split_statistics() -> None:
+    old = {
+        "format": "cassim-document",
+        "schema": 2,
+        "problems": [{"pages": [{"kind": "spreadsheet"}]}],
+    }
+
+    migrated = migrate(old)
+
+    assert migrated["schema"] == SCHEMA
+    assert migrated["problems"][0]["pages"][0]["split_statistics"] == []
+
+
 def test_a_newer_schema_says_so() -> None:
     with pytest.raises(DocumentFileError, match="newer"):
         migrate({"format": "cassim-document", "schema": SCHEMA + 1})
