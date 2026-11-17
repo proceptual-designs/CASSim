@@ -2,12 +2,13 @@
 
 Evidence for NFR-PORT-001: every release is tested on the primary targets (Chromebooks, Chrome, Safari on macOS, iOS and iPadOS); Edge and Firefox are smoke-tested. Update this table whenever a run is made. A blank means not run.
 
-Last updated 2026-11-16.
+Last updated 2026-11-17.
 
 ## Matrix
 
 | Target | Priority | Last run | What was run | Result |
 |---|---|---|---|---|
+| Firefox and Playwright WebKit, headless, Windows | Secondary (Firefox); engine check only (WebKit) | 2026-11-17 | Built site: spreadsheet right-click and physical Ctrl+right-click | The normal click selected C1 and cancelled the browser event; Ctrl+right-click left A1 selected and did not cancel the event. A fallback font returned 404 in both runs. Playwright WebKit is not a Safari device run. |
 | Chrome 157, headless, Windows | Primary (engine) | 2026-11-16 | Deployed stable and testing sites; Cloudflare-style redirect; legacy-to-fixed local upgrade | Both deployed sites had complete caches but failed offline navigation with `ERR_FAILED`. The local legacy build upgraded to the fixed worker, preserved local storage and calculated offline. Browser contexts, not OS-installed windows. |
 | Chrome 157, Android 17, Pixel 6 | Primary | 2026-11-16 | Wireless DevTools inspection of the testing site and a fixed local build in a browser tab and a separately installed test app | The testing site's cached index carried a redirect. The fixed build cached the redirected index and calculated `2+3 = 5` offline in the tab. The separately installed test WebAPK was closed and relaunched via its Android launcher activity with its local server and tunnel stopped; it loaded from its 93-entry cache. A subsequent reload with DevTools network emulation offline also loaded in app mode and calculated `2+3 = 5`. The phone's Wi-Fi remained on for debugging. Neither the existing installation nor the stable deployment was updated. |
 | Chromium-family, headless, Windows | Primary (engine) | 2026-11-16 | Built site: failed updates (HTTP 503 and a 200 block page), offline CAS calculations, and applying an update | 2 passed. Browser-context simulation; not an OS-installed app or school-network test. |
@@ -18,7 +19,7 @@ Last updated 2026-11-16.
 | Safari on iPhone | Primary | not run | | Needs a device. Check Add to Home Screen, offline after install, Handheld fit with the address bar, the on-screen keypad and file save. |
 | Safari on iPad | Primary | not run | | Needs a device. Tablet mode is not built; Handheld or Computer applies. |
 | Edge (desktop, headed) | Secondary | not run | | Headless Chromium above may be Edge; a headed smoke run has not been done. |
-| Firefox | Secondary | not run | | |
+| Firefox (headed) | Secondary | not run | | |
 | Simon's phone (model, OS and browser not recorded) | Unknown | 2026-11-12 | The GitHub Pages site, installed as an app; save and load (by hand, Simon) | Works. Slow (PLAN.md section 12, A6). Offline use and the rest of the checklist below were not recorded. |
 | Desktop browser, GitHub Pages site (browser not recorded) | | by 2026-11-12 | <https://simonjtyler.github.io/CASSim/> opened (by hand, Simon) | Loads. |
 

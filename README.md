@@ -81,6 +81,7 @@ uv run python -m tools.publish        # build the installable offline site into 
 ```
 
 The text interface is described in [docs/user/repl.md](docs/user/repl.md).
+The development `--web` server does not include the published site's browser context-menu routing.
 
 ## Builds
 

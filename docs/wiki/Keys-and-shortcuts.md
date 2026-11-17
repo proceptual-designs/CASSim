@@ -46,6 +46,10 @@ The Mac Command key is treated as Ctrl when the browser sends it to CASSim.
 
 These are spreadsheet shortcuts; browsers may intercept some combinations.
 
+On the spreadsheet, right-click a cell or row number for its CASSim context menu. Hold the
+physical keyboard's Ctrl key while right-clicking to use the browser's menu instead. This is
+different from the on-screen keypad's ctrl key; browser or system gestures may vary by platform.
+
 ## On the on-screen keypad
 
 The keypad has the same keys as the handheld, with the second functions (the blue **ctrl** and orange **shift** layers) printed on them. Press **ctrl** or **shift** first, then the key; the shift key has an orange outline to match its labels. While a modifier is waiting for the next key, a dot appears beside its name.

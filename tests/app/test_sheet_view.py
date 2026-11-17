@@ -13,9 +13,16 @@ from cassim.app.shell import Shell
 from cassim.device.keys import Action, Binding
 from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.spreadsheet import NAME_ROW
-from cassim.devices.nspire.sheet_scene import FORMULA, HEAD, ROW, ROW_LABELS
+from cassim.devices.nspire.sheet_scene import (
+    FORMULA,
+    HEAD,
+    ROW,
+    ROW_LABELS,
+    cell_at,
+    context_regions,
+)
 from cassim.devices.nspire.ui.app import App
-from cassim.devices.nspire.ui.sheet_view import SheetView, sheet_colours
+from cassim.devices.nspire.ui.sheet_view import BAR, SheetView, sheet_colours
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.views import CalculatorView
 
@@ -106,6 +113,27 @@ def test_a_cursor_move_keeps_the_text_canvases():
     after = view.sheet_view.grid.controls
     assert after[:3] == before[:3]
     assert after[3] is not before[3]
+
+
+def test_context_regions_match_pickable_grid_cells():
+    state = sheet_state()
+    view, _ = view_for(state)
+    view.refresh()
+    sheet = state.sheet
+    assert sheet is not None
+    width, height = view.body_size()
+    height -= BAR
+    for cell in ((0, 1), (25, 2500)):
+        sheet.go(cell)
+        view.refresh()
+        screen = sheet.screen()
+        regions = context_regions(screen, 1.0, width, height)
+        for x in (0, 23.9, 24, 50, 87.9, 88, 250, 319):
+            for y in (0, 15.9, 16, 30.9, 31, 47.9, 48, 150, 197):
+                marked = any(
+                    left <= x < left + w and top <= y < top + h for left, top, w, h in regions
+                )
+                assert marked == (cell_at(x, y, screen, 1.0) is not None), (cell, x, y)
 
 
 def test_taps_long_presses_and_drags():
