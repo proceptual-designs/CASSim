@@ -288,3 +288,17 @@ def cell_at(x: float, y: float, screen: SheetScreen, scale: float) -> tuple[int,
         if left <= x < left + width:
             return column, row
     return None
+
+
+def context_regions(
+    screen: SheetScreen, scale: float, width: float, height: float
+) -> tuple[tuple[float, float, float, float], ...]:
+    """Rectangles in the visible grid where a right-click can pick a cell or row."""
+    grid = Grid(scale)
+    columns = _columns_x(screen, grid)
+    right = min(width, columns[-1][1] + columns[-1][2] if columns else grid.px(ROW_LABELS))
+    top = min(height, grid.top)
+    bottom = min(height, grid.top + grid.px(ROW) * len(screen.rows))
+    labels = min(right, grid.px(ROW_LABELS))
+    regions = ((labels, 0.0, right - labels, top), (0.0, top, right, bottom - top))
+    return tuple(region for region in regions if region[2] > 0 and region[3] > 0)

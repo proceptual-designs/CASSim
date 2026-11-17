@@ -16,11 +16,12 @@ from collections.abc import Callable
 import flet as ft
 import flet.canvas as cv
 
+from cassim.app.context_menu import context_menu_region
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
-from cassim.devices.nspire.sheet_scene import ROW, cell_at, fit, sheet_scene
+from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
 from cassim.graph.scene import Layer
 
 BAR = 22  # the bar under the grid, in the handheld's pixels
@@ -56,6 +57,7 @@ class SheetView:
         self._drag = 0.0  # pixels dragged and not yet turned into rows
         self._mouse = False  # the drag in progress is a mouse's: it selects
         self.grid = ft.Stack([], expand=True)
+        self._context_regions = [context_menu_region(), context_menu_region()]
         detector = ft.GestureDetector(
             content=ft.Container(self.grid, expand=True),
             on_tap_down=self._tap,
@@ -107,6 +109,12 @@ class SheetView:
                 kept = (layer, cv.Canvas(shapes, width=width, height=grid_height))
                 self._layers[layer.name] = kept
             canvases.append(kept[1])
+        regions = context_regions(screen, scale, width, grid_height)
+        for index, control in enumerate(self._context_regions):
+            control.visible = index < len(regions)
+            if control.visible:
+                control.left, control.top, control.width, control.height = regions[index]
+            canvases.append(control)
         self.grid.controls = canvases
         size = 12 * scale
         self.address.value, self.address.size = screen.address, size

@@ -275,6 +275,26 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
     bar.value = pct;
     if (text) status.textContent = text;
   };
+  // Flutter marks its context-menu hit regions with this cursor. Decide on pointerdown, before
+  // the worker opens a menu and changes the cursor; cancelling later from Python is too late.
+  var contextClick = null;
+  window.addEventListener("pointerdown", function (e) {
+    contextClick = null;
+    if (e.button !== 2 || !e.composedPath().some(function (n) {
+      return n instanceof Element && n.tagName === "FLUTTER-VIEW";
+    })) return;
+    contextClick = {custom: getComputedStyle(e.target).cursor === "context-menu",
+      browser: e.ctrlKey};
+    // The physical Ctrl+right-click is for the browser, not the calculator.
+    if (contextClick.browser) e.stopPropagation();
+  }, true);
+  window.addEventListener("contextmenu", function (e) {
+    if (e.button === 2 && contextClick && contextClick.custom && !contextClick.browser) {
+      e.preventDefault();
+    }
+    contextClick = null;
+  }, true);
+  window.addEventListener("blur", function () { contextClick = null; });
   fetch("version.json").then(function (r) { return r.json(); }).then(function (v) {
     document.getElementById("cassim-version").textContent = "v" + v.version;
     window.cassimVersion = v.version;
