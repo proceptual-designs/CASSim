@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  python:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -19,6 +19,15 @@ jobs:
       - run: uv run pytest -m "not e2e" --cov=cassim --cov-branch --cov-report=json
       - run: uv run python -m tools.coverage_check
       - run: uv run python -m tools.traceability --check
+
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+      - run: uv sync --locked --group web
       - run: uv run playwright install --with-deps chromium
       - run: >-
           uv run pytest -m e2e
@@ -34,3 +43,16 @@ jobs:
           tests/e2e/test_autosave_browser.py::test_the_document_comes_back_after_a_reload
           tests/e2e/test_sheet_browser.py::test_right_click_context_menus
           tests/e2e/test_sheet_browser.py::test_long_press_still_opens_the_cell_menu
+
+  check:
+    if: ${{ always() }}
+    needs: [python, browser]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require both test jobs to pass
+        env:
+          PYTHON_RESULT: ${{ needs.python.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          echo "Python: $PYTHON_RESULT; browser: $BROWSER_RESULT"
+          [[ "$PYTHON_RESULT" == success && "$BROWSER_RESULT" == success ]]

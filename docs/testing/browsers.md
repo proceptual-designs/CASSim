@@ -34,6 +34,8 @@ Last updated 2026-11-17.
 ## How to run
 
 - Automated: `uv run pytest -m e2e` (builds the site, takes several minutes).
+- CI runs its selected browser tests alongside the Python checks; the required `check` job passes
+  only if both jobs succeed.
 - By hand: `uv run python -m tools.publish`, then serve `build/web` at the root of a local server (or build with `--base-url CASSim` and serve it under `/CASSim/`), open it in the target, and walk through the checklist below.
 
 ## Manual checklist for a device run
