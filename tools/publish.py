@@ -768,12 +768,50 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
         draw.text((x, mid), letter, fill=THEME, font=sim, anchor="lm")
         x += width + gap
     if beta:
-        draw.text(
-            (x - gap + size * 0.11, mid - size * 0.10),
-            "β",
+        centre_x = x - gap + size * 0.11
+        glyph_height, glyph_width = size * 0.13, size * 0.075
+        left, right = centre_x - glyph_width * 0.4, centre_x + glyph_width * 0.6
+        top, middle, bottom = (
+            mid - glyph_height * 0.45,
+            mid - glyph_height * 0.1,
+            mid + glyph_height * 0.55,
+        )
+        stroke = max(1, round(size * 0.012))
+
+        def bezier(
+            start: tuple[float, float],
+            control_1: tuple[float, float],
+            control_2: tuple[float, float],
+            end: tuple[float, float],
+        ) -> list[tuple[float, float]]:
+            points = []
+            for step in range(17):
+                t = step / 16
+                u = 1 - t
+                points.append(
+                    (
+                        u**3 * start[0]
+                        + 3 * u**2 * t * control_1[0]
+                        + 3 * u * t**2 * control_2[0]
+                        + t**3 * end[0],
+                        u**3 * start[1]
+                        + 3 * u**2 * t * control_1[1]
+                        + 3 * u * t**2 * control_2[1]
+                        + t**3 * end[1],
+                    )
+                )
+            return points
+
+        draw.line((left, top, left, bottom), fill="#e8e8e8", width=stroke)
+        draw.line(
+            bezier((left, top), (right, top), (right, middle), (left, middle)),
             fill="#e8e8e8",
-            font=bold(size * 0.13),
-            anchor="mm",
+            width=stroke,
+        )
+        draw.line(
+            bezier((left, middle), (right, middle), (right, bottom), (left, bottom)),
+            fill="#e8e8e8",
+            width=stroke,
         )
     return img
 
