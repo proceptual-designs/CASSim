@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import flet as ft
 import pytest
 
-from cassim.app.shell import UPDATE_MESSAGES, BrowserOffers, Shell
+from cassim.app import about
+from cassim.app.shell import BrowserOffers, Shell, update_message
 from cassim.core.catalog import registry
 from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem, MenuState, MenuView, item_keys
@@ -197,19 +198,71 @@ def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: st
     assert len(state.menu.levels) == 1
 
 
-def test_menu_switch_does_not_change_sorter_or_other_menus() -> None:
+MENU_OPENERS = {
+    "menu": "Menu",
+    "doc": "Doc",
+    "cassim": "CASSim",
+    "variables": "Variables",
+    "catalog": "Catalog",
+    "trig": "Trig",
+    "templates": "Templates",
+    "symbols": "Symbols",
+    "relations": "Relations",
+    "punctuation": "Punctuation",
+}
+
+
+@pytest.mark.parametrize("source", MENU_OPENERS)
+@pytest.mark.parametrize("target", MENU_OPENERS)
+def test_menu_openers_switch_or_close(source: str, target: str) -> None:
+    """FR-DEV-007: every opener switches menus or closes its own."""
     state = AppState()
-    state.run_action("open_menu", "catalog")
-    original = state.menu
-    state.run_action("open_menu", "doc")
-    assert state.menu is original
-    state.run_action("escape")
+    state.cassim_menu = lambda: MenuItem("CASSim")
+    state.run_action("open_menu", source)
+    assert state.menu is not None
+    state.run_action("open_menu", target)
+    if source == target:
+        assert state.menu is None
+    else:
+        assert state.menu is not None
+        assert state.menu.root.label == MENU_OPENERS[target]
+
+
+def test_menu_switch_preserves_sorter_restrictions() -> None:
+    state = AppState()
     state.sorting = True
     state.run_action("open_menu", "doc")
     doc = state.menu
     state.run_action("open_menu", "menu")
     assert state.menu is doc
     assert state.sorting
+
+
+def test_context_menu_and_page_picker_switch_and_toggle() -> None:
+    state = AppState()
+    state.run_action("add_page", "spreadsheet")
+    state.run_action("context_menu")
+    assert _menu(state).title == "Cell"
+    state.run_action("open_menu", "doc")
+    assert _menu(state).title == "Doc"
+    state.run_action("context_menu")
+    assert _menu(state).title == "Cell"
+    state.run_action("context_menu")
+    assert state.menu is None
+    state.run_action("add_page")
+    assert _menu(state).title == "Add a page"
+    state.run_action("add_problem")
+    assert _menu(state).title == "Add a Problem"
+    state.run_action("add_problem")
+    assert state.menu is None
+
+
+def test_unavailable_menu_does_not_close_the_current_menu() -> None:
+    state = AppState()
+    state.run_action("open_menu", "doc")
+    original = state.menu
+    state.run_action("open_menu", "not-a-menu")
+    assert state.menu is original
 
 
 def test_clicking_a_parent_row_switches_submenu() -> None:
@@ -467,18 +520,17 @@ def test_grid_menus_move_in_two_dimensions() -> None:
 @pytest.mark.parametrize(
     ("key", "title"), [("pi", "Symbols"), ("trig", "Trig"), ("templates", "Templates")]
 )
-def test_palette_key_cycles_and_wraps_before_selecting(key: str, title: str) -> None:
-    """FR-DEV-007: repeated keypad presses move across the entire grid, then wrap."""
+def test_palette_key_toggles_and_arrows_select(key: str, title: str) -> None:
+    """FR-DEV-007: palette buttons toggle; arrows still navigate the grid."""
     state = AppState(mode=Mode.HANDHELD)
     state.press_keypad(key)
     view = _menu(state)
     assert view.title == title
-    labels = [row.label for row in view.rows]
-    for index in range(1, len(labels) + 1):
-        state.press_keypad(key)
-        view = _menu(state)
-        assert next(n for n, row in enumerate(view.rows) if row.selected) == index % len(labels)
-        assert [row.label for row in view.rows] == labels
+    state.press_keypad(key)
+    assert state.menu is None
+    state.press_keypad(key)
+    state.press_keypad("right")
+    assert _menu(state).rows[1].selected
     state.press_keypad("enter")
     assert state.menu is None
     assert _calculator(state).editor.linear()
@@ -486,15 +538,16 @@ def test_palette_key_cycles_and_wraps_before_selecting(key: str, title: str) -> 
 
 @pytest.mark.parametrize("source", ["pi", "trig", "templates"])
 @pytest.mark.parametrize("target", ["pi", "trig", "templates"])
-def test_palette_keys_switch_or_cycle(source: str, target: str) -> None:
+def test_palette_keys_switch_or_close(source: str, target: str) -> None:
     state = AppState()
     state.press_keypad(source)
     state.press_keypad(target)
-    view = _menu(state)
-    assert view.title == {"pi": "Symbols", "trig": "Trig", "templates": "Templates"}[target]
-    assert next(n for n, row in enumerate(view.rows) if row.selected) == (
-        1 if source == target else 0
-    )
+    if source == target:
+        assert state.menu is None
+    else:
+        view = _menu(state)
+        assert view.title == {"pi": "Symbols", "trig": "Trig", "templates": "Templates"}[target]
+        assert view.rows[0].selected
     assert _calculator(state).editor.linear() == ""
 
 
@@ -512,18 +565,22 @@ def test_palette_keys_replace_catalog_symbol_and_template_grids(tab: str, key: s
     assert len(view.panels) == 1
 
 
-def test_ctrl_catalog_also_cycles_symbols_without_affecting_other_menus() -> None:
+def test_ctrl_catalog_toggles_symbols_and_switches_from_catalog() -> None:
     state = AppState()
     for _ in range(2):
         state.press_keypad("ctrl")
         state.press_keypad("catalog")
+    assert state.menu is None
+    state.press_keypad("ctrl")
+    state.press_keypad("catalog")
     assert _menu(state).title == "Symbols"
+    state.press_keypad("right")
     assert _menu(state).rows[1].selected
     state.press_keypad("enter")
     assert _calculator(state).editor.linear() == "ⅈ"
     state.press_keypad("catalog")
     state.press_keypad("trig")
-    assert _menu(state).title == "Catalog > Catalog"
+    assert _menu(state).title == "Trig"
 
 
 def test_variables_menu_lists_the_problem() -> None:
@@ -734,6 +791,23 @@ def test_cassim_menu_browser_items_never_move() -> None:
     assert items(handheld=False)[0] == ("Handheld view", True)
 
 
+def test_cassim_menu_hints_are_shortcuts_not_redundant_labels() -> None:
+    computer_switch, _, _, _ = browser_menu_items(handheld=True, offers=BrowserOffers())
+    handheld_switch, _, _, _ = browser_menu_items(handheld=False, offers=BrowserOffers())
+    items = cassim_items(handheld=True, offers=BrowserOffers())
+    assert computer_switch.hint == "Alt+Shift+C"
+    assert handheld_switch.hint == "Alt+Shift+H"
+    assert next(item for item in items if item.arg == "help").hint == "F1"
+    assert all(item.hint != "CASSim" for item in items)
+
+
+def test_testing_site_menu_uses_beta_brand(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(about.bundle, "SOURCE", "CASSim-calc")
+    items = cassim_items(handheld=True, offers=BrowserOffers(installed=True))
+    assert items[2].label == "Uninstall CASSimᵝ"
+    assert items[-1].label == "About CASSimᵝ…"
+
+
 def test_a_phone_cannot_switch_to_computer_view() -> None:
     """A phone has no room for Computer view and the on-screen keyboard: the switch is greyed."""
     items = browser_menu_items(handheld=True, offers=BrowserOffers(), phone=True)
@@ -875,7 +949,9 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
     assert _menu(state).title == "Add a page"
 
 
-def test_check_for_updates_asks_the_page_and_shows_its_answer() -> None:
+def test_check_for_updates_asks_the_page_and_shows_its_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """CASSim > Check for Updates sends the request to the page and shows what it found; without a
     page (the desktop) it says it cannot check."""
     shown: list[str] = []
@@ -884,15 +960,17 @@ def test_check_for_updates_asks_the_page_and_shows_its_answer() -> None:
     shell = SimpleNamespace(bridge=bridge, notice=lambda _title, text: shown.append(text))
     Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
     assert sent == ["check_update"]
+    monkeypatch.setattr(about.bundle, "SOURCE", "CASSim-calc")
     bridge.on_update("current")
     bridge.on_update("ready")
     bridge.on_update("something new")
     assert shown == [
-        UPDATE_MESSAGES["current"],
-        UPDATE_MESSAGES["ready"],
-        UPDATE_MESSAGES["offline"],
+        update_message("current"),
+        update_message("ready"),
+        update_message("offline"),
     ]
+    assert f"CASSimᵝ {dict(about.versions())['CASSim']} from CASSim-calc is up to date." == shown[0]
     shown.clear()
     shell.bridge = None
     Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
-    assert shown == [UPDATE_MESSAGES["unsupported"]]
+    assert shown == ["This copy of CASSimᵝ cannot check for updates."]

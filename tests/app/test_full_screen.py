@@ -179,12 +179,30 @@ def test_cassim_key_opens_menu_and_ctrl_installs() -> None:
     with patch.object(app, "refresh"), patch.object(app, "install") as install:
         app.press_cassim()
         assert app.state.menu is not None
+        app.press_cassim()
+        assert app.state.menu is None
+        app.press_cassim()
+        assert app.state.menu is not None
         assert app.state.menu.root.label == "CASSim"
         shell.bridge.installable = True
         app.state.press_keypad("ctrl")
         app.press_cassim()
         install.assert_called_once()
         assert app.state.pending == ""
+
+
+@pytest.mark.parametrize("name", ["menu", "doc", "catalog", "templates"])
+def test_cassim_key_replaces_an_open_menu(name: str) -> None:
+    app, _ = handheld_app(400, 900)
+    with patch.object(app, "refresh"):
+        app.state.run_action("open_menu", name)
+        assert app.state.menu is not None
+        app.press_cassim()
+        assert app.state.menu is not None
+        assert app.state.menu.root.label == "CASSim"
+        app.press(name)
+        assert app.state.menu is not None
+        assert app.state.menu.root.label != "CASSim"
 
 
 def test_cassim_key_red_dot_tracks_browser_attention() -> None:
@@ -199,6 +217,7 @@ def test_cassim_key_red_dot_tracks_browser_attention() -> None:
     key = row.controls[-1]
     assert isinstance(key, ft.Container)
     assert key.tooltip == "CASSim menu"
+    assert key.bgcolor == app.theme.title_bar
     shell.bridge.update_ready = True
     app.arrange()
     app.keypad.refresh()

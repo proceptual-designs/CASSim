@@ -9,22 +9,21 @@ from importlib import metadata
 from cassim import bundle
 
 DISCLAIMER = (
-    "CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational "
-    "purposes. It is not "
-    "affiliated with, endorsed by or sponsored by any company, corporation or curriculum "
-    "authority.\n"
+    "CASSim is a simulator of handheld computer algebra systems (CAS) for educational purposes. "
+    "It is not affiliated with, endorsed by, or sponsored by any company, corporation, or "
+    "curriculum authority.\n"
     "It is not an approved exam calculator and must not be used in assessments that require an "
     "approved device."
 )
 
 PRIVACY = (
-    "CASSim has no server, no telemetry and no analytics. Your documents stay in this browser, "
-    "or in the link or file you choose to share. Opening a shared link or file never runs "
-    "Python or a program by itself."
+    "CASSim has no server, telemetry, or analytics. Your documents stay in this browser, or in "
+    "the link or file you choose to share. Opening a shared link or file never runs Python or a "
+    "program automatically."
 )
 
 LICENCE = (
-    "CASSim is vibe-coded and thus released under the Unlicense: free and unencumbered software "
+    "CASSim is vibe-coded and is released under the Unlicense as free and unencumbered software "
     "in the public domain."
 )
 
@@ -55,6 +54,11 @@ UNKNOWN = "not available"
 SHOWN = (("CASSim", "cassim"), ("Flet", "flet"), ("SymPy", "sympy"), ("mpmath", "mpmath"))
 
 
+def product_name() -> str:
+    """The all-in-one testing site marks its product as beta; stable/device sites do not."""
+    return "CASSimᵝ" if bundle.SOURCE == "CASSim-calc" else "CASSim"
+
+
 def _version(package: str) -> str:
     try:
         return metadata.version(package)
@@ -75,4 +79,6 @@ def versions(shipped: dict[str, str] | None = None) -> list[tuple[str, str]]:
 
 
 def build_info() -> str:
-    return "\n".join(f"{name} {version}" for name, version in versions())
+    return f"Source: {bundle.SOURCE}\n" + "\n".join(
+        f"{name} {version}" for name, version in versions()
+    )

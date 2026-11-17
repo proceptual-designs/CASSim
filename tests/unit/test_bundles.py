@@ -42,8 +42,11 @@ def test_pyodide_download_reports_persistent_failure(code: int, attempts: int) -
 def test_all_and_one_bundle_per_built_device() -> None:
     found = publish.bundles()
     assert found["all"].product == "CASSim"
+    assert publish.product_for_site(found["all"], "CASSim-calc") == "CASSimᵝ"
+    assert publish.product_for_site(found["all"], "CASSim-app") == "CASSim"
     assert found["tin"].devices == ("nspire",)
     assert found["tin"].product == "CASSim-TIN"
+    assert publish.product_for_site(found["tin"], "CASSim-TIN") == "CASSim-TIN"
 
 
 def test_the_engine_packages_come_from_the_devices() -> None:
@@ -57,7 +60,7 @@ def test_a_bundle_copies_only_its_devices_and_writes_its_own_list(tmp_path: Path
     fake.mkdir()
     try:
         (fake / "__init__.py").write_text("", encoding="utf-8")
-        publish.copy_package(tmp_path, publish.bundles()["tin"], ui=False)
+        publish.copy_package(tmp_path, publish.bundles()["tin"], ui=False, source="CASSim-TIN")
     finally:
         (fake / "__init__.py").unlink()
         fake.rmdir()
@@ -69,6 +72,7 @@ def test_a_bundle_copies_only_its_devices_and_writes_its_own_list(tmp_path: Path
     text = (copied / "bundle.py").read_text(encoding="utf-8")
     assert "NAME = 'tin'" in text
     assert "DEVICES = ('nspire',)" in text
+    assert "SOURCE = 'CASSim-TIN'" in text
 
 
 def test_the_ui_build_keeps_the_views(tmp_path: Path) -> None:
