@@ -737,7 +737,7 @@ def write_engine_zip(dist: Path, bundle: Bundle) -> None:
                 archive.write(file, file.relative_to(root).as_posix())
 
 
-def draw_icon(size: int) -> PILImage:
+def draw_icon(size: int, *, beta: bool = False) -> PILImage:
     """The app icon, CASSim's own artwork: CAS over a blue SIM bar, in a rounded square."""
     from PIL import Image, ImageDraw, ImageFont
 
@@ -767,23 +767,32 @@ def draw_icon(size: int) -> PILImage:
     for letter, width in zip("SIM", widths, strict=True):
         draw.text((x, mid), letter, fill=THEME, font=sim, anchor="lm")
         x += width + gap
+    if beta:
+        draw.text(
+            (x - gap + size * 0.11, mid - size * 0.10),
+            "β",
+            fill="#e8e8e8",
+            font=bold(size * 0.13),
+            anchor="mm",
+        )
     return img
 
 
-def write_icons(dist: Path) -> None:
+def write_icons(dist: Path, bundle: Bundle) -> None:
     """App icons and the favicon (all the same artwork; no TI artwork)."""
     from PIL import Image
 
+    beta = bundle.product == "CASSimᵝ"
     out = dist / "icons"
     out.mkdir(exist_ok=True)
-    draw_icon(192).save(out / "icon-192.png")
-    draw_icon(512).save(out / "icon-512.png")
+    draw_icon(192, beta=beta).save(out / "icon-192.png")
+    draw_icon(512, beta=beta).save(out / "icon-512.png")
     # Maskable: the launcher crops to its own shape, so keep the artwork inside the safe zone.
     maskable = Image.new("RGBA", (512, 512), THEME)
-    inner = draw_icon(512).resize((360, 360), Image.Resampling.LANCZOS)
+    inner = draw_icon(512, beta=beta).resize((360, 360), Image.Resampling.LANCZOS)
     maskable.paste(inner, (76, 76), inner)
     maskable.save(out / "icon-maskable-512.png")
-    draw_icon(64).save(dist / "favicon.png")  # Flet's index.html links this file
+    draw_icon(64, beta=beta).save(dist / "favicon.png")  # Flet's index.html links this file
 
 
 def write_manifest(dist: Path, bundle: Bundle) -> None:
@@ -978,7 +987,7 @@ def build(
         vendor_fallback_fonts(dist)
     write_app_archive(dist, bundle)
     write_engine_zip(dist, bundle)
-    write_icons(dist)
+    write_icons(dist, bundle)
     write_manifest(dist, bundle)
     if not cdn:
         check_offline_assets(dist)
