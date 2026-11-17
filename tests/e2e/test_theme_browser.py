@@ -35,9 +35,18 @@ def test_saved_custom_theme_is_applied_after_reload(
     app.page.mouse.click(600, 150)  # Theme dropdown
     app.page.wait_for_timeout(500)
     app.page.mouse.click(450, 265)  # Light
-    app.page.wait_for_timeout(800)
-    app.page.get_by_label("Background", exact=True).fill("#e7e8e9")
-    app.page.wait_for_timeout(1000)
+    background = app.page.get_by_label("Background", exact=True)
+
+    def swatch_is(colour: tuple[int, int, int]) -> bool:
+        box = background.bounding_box()
+        if box is None:
+            return False
+        image = Image.open(io.BytesIO(app.page.screenshot())).convert("RGB")
+        return image.getpixel((int(box["x"] + box["width"] + 28), int(box["y"] + 20))) == colour
+
+    app.wait(lambda: swatch_is((241, 243, 245)), "Light preset to load")
+    background.fill("#e7e8e9")
+    app.wait(lambda: swatch_is((231, 232, 233)), "custom background swatch")
     app.page.get_by_role("button", name="Save", exact=True).focus()
     app.page.keyboard.press("Enter")
     app.page.wait_for_timeout(1500)
