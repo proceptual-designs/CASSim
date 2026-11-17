@@ -22,7 +22,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FID-6 | Should | TI solution forms are corpus cases (for example @n1 constants); no case or test names this ID |
 | FID-7 | Should | applies to the second device profile (M8); the Nspire corpus is the only one |
 | FR-CAT-003 | Could | Tier 3 is tracked in docs/command_matrix.md; no test names the tier |
-| FR-DOC-009 | Must | not built (M3, split pages; decision 0031) |
+| FR-DOC-009 | Must | general split pages not built (M3; decision 0031); P-value shading has a dedicated second pane |
 | FR-DOC-005 | Must | not built yet (stub pages, Tablet mode, themes file, programs, Python or exam mode); see PLAN.md |
 | FR-SHEET-003 | Should | not built (M3, Lists & Spreadsheet and Data & Statistics pages) |
 | FR-STAT-005 | Must | not built (M3, Lists & Spreadsheet and Data & Statistics pages) |
@@ -160,7 +160,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-STAT-001 | Must | `tests/unit/test_sheet_stats.py` |
 | FR-STAT-002 | Must | `tests/unit/test_sheet_stats.py`, `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/unit/test_statistics.py` |
-| FR-STAT-004 | Must | `tests/unit/test_distributions_finance.py` |
+| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py` and 4 more |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-006 | Must | `tests/device/test_sheet_scene.py`, `tests/unit/test_scene.py` |
 | FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 4 more |

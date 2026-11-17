@@ -1,5 +1,6 @@
 # Requirement traced here: FR-STAT-004
 import pytest
+from scipy import stats
 
 from cassim.core.session import Session
 
@@ -120,3 +121,81 @@ def test_invalid_confidence_levels_and_alternatives_are_domain_errors():
     session = Session()
     assert session.eval("zInterval_1Prop 12,20,1").error == "Domain error"
     assert session.eval("zTest_1Prop .5,12,20,3").error == "Domain error"
+
+
+@pytest.mark.parametrize("alternative", [0, 1, 2])
+def test_summary_mean_tests_use_the_selected_tail(alternative):
+    session = _session(f"tTest 0,2,2,16,{alternative}")
+    expected_tails = (
+        2 * stats.t.sf(4, 15),
+        stats.t.cdf(4, 15),
+        stats.t.sf(4, 15),
+    )
+    assert _number(session, "t") == pytest.approx(4)
+    assert _number(session, "df") == 15
+    assert _number(session, "PVal") == pytest.approx(expected_tails[alternative], abs=1e-8)
+
+    session = _session(f"zTest 0,2,2,16,{alternative}")
+    expected_tails = (2 * stats.norm.sf(4), stats.norm.cdf(4), stats.norm.sf(4))
+    assert _number(session, "z") == pytest.approx(4)
+    assert _number(session, "PVal") == pytest.approx(expected_tails[alternative], abs=1e-8)
+
+
+def test_two_sample_z_interval_from_summary_and_frequency_lists():
+    standard_error = (2**2 / 4 + 3**2 / 9) ** 0.5
+    margin = stats.norm.ppf(0.975) * standard_error
+    summary = _session("zInterval_2Samp 2,3,5,4,3,9,.95")
+    assert _number(summary, "x̄Diff") == pytest.approx(2)
+    assert _number(summary, "CLower") == pytest.approx(2 - margin)
+    assert _number(summary, "CUpper") == pytest.approx(2 + margin)
+
+    lists = _session(
+        "xs:={4,6}",
+        "ys:={2,4}",
+        "zInterval_2Samp 2,3,xs,ys,{2,2},{5,4},.95",
+    )
+    difference = 5 - 26 / 9
+    assert _number(lists, "x̄Diff") == pytest.approx(difference)
+    assert _number(lists, "CLower") == pytest.approx(difference - margin)
+    assert _number(lists, "CUpper") == pytest.approx(difference + margin)
+
+
+def test_two_proportion_interval_and_test():
+    session = _session("zInterval_2Prop 12,20,8,20,.95")
+    margin = stats.norm.ppf(0.975) * (2 * 0.6 * 0.4 / 20) ** 0.5
+    assert _number(session, "p̂Diff") == pytest.approx(0.2)
+    assert _number(session, "CLower") == pytest.approx(0.2 - margin)
+    assert _number(session, "CUpper") == pytest.approx(0.2 + margin)
+
+    session = _session("zTest_2Prop 12,20,8,20,2")
+    z = 0.2 / (0.5 * 0.5 * (1 / 20 + 1 / 20)) ** 0.5
+    assert _number(session, "z") == pytest.approx(z)
+    assert _number(session, "PVal") == pytest.approx(stats.norm.sf(z))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "tInterval 5,2,1,.95",
+        "zInterval 0,5,10,.95",
+        "zInterval 1,5,0,.95",
+        "tInterval_2Samp {1,1},{2,2},1,1,.95,0",
+        "zInterval_2Prop 21,20,8,20,.95",
+        "zTest_2Prop 0,20,0,20,0",
+        "tTest 0,5,0,10,0",
+        "zTest 0,0,5,10,0",
+        "tTest_2Samp {1,1},{2,2},1,1,1,0",
+        "zInterval_2Samp 1,0,5,4,3,9,.95",
+        "zInterval_2Samp 1,1,5,4,3,9,1",
+        "zTest_2Samp 0,0,{1,2},{2,3},1,1,0",
+        "FTest_2Samp {1,1},{2,3},1,1,0",
+        "χ²GOF {10,20},{10,0},1",
+        "χ²2way [0,0;0,0]",
+        "χ²2way [1,0;0,0]",
+        "LinRegtTest {1,1,1},{1,2,3}",
+        "LinRegtIntervals {1,1,1},{1,2,3}",
+        "zInterval_1Prop 1.5,20,.95",
+    ],
+)
+def test_invalid_inference_inputs_report_domain_errors(command):
+    assert Session().eval(command).error == "Domain error"
