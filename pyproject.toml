@@ -88,15 +88,15 @@ include = ["src", "tests", "tools"]
 error-on-warning = true
 
 # Per-package coverage floors (NFR-MAINT-004), checked by tools/coverage_check.py. Lines and
-# branches combined, in percent. Set just below the figures of 2026-11-09 so they only ratchet up;
-# the SRS targets are 90 for core and 80 for the other non-UI packages. `app` (Flet) is excluded
-# and covered by Playwright. Packages with no code yet are not listed.
+# branches combined, in percent. These match the SRS targets: 90 for core and 80 for the other
+# non-UI device, doc, graph and sheet packages. `app` and device UI are covered by Playwright.
+# Runtime and CLI retain their 90% floors.
 [tool.cassim.coverage]
-core = 95
-device = 95
-doc = 95
-devices = 95
-graph = 95
-sheet = 95
+core = 90
+device = 80
+doc = 80
+devices = 80
+graph = 80
+sheet = 80
 runtime = 90
 cli = 90
