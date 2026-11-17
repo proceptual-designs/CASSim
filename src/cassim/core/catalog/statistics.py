@@ -1,8 +1,7 @@
 """Statistics commands: OneVar, TwoVar and the regressions. Results go to the `stat.` variables."""
 
-import math
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
 
@@ -10,6 +9,8 @@ from cassim.core import ast, errors
 from cassim.core.catalog.registry import Host, command
 from cassim.core.compat import statistics as stats
 from cassim.core.compat import sympy_adapter as cas
+from cassim.core.compat.statistics import REGRESSIONS as _REGRESSIONS
+from cassim.core.compat.statistics import Regression
 from cassim.core.errors import TIError
 from cassim.core.parser import parse_expression
 from cassim.core.scope import Function
@@ -225,122 +226,6 @@ def two_var(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     _sum_of_squares_row(results, y, "y")
     results.store(host)
     return Void()
-
-
-# ---- regressions -----------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class Fit:
-    """What a regression found: named coefficients, a model to predict with, and how well."""
-
-    coefficients: dict[str, float]
-    predict: Callable[[float], float]
-    r_squared: float | None = None
-    r: float | None = None
-    transformed: bool = False  # y = a*b^x and the like also report residuals of the straight line
-
-
-@dataclass(frozen=True, slots=True)
-class Regression:
-    title: str
-    equation: str
-    r_squared_label: str  # "r²" for straight-line fits, "R²" for polynomials
-    fit: Callable[[list[Fraction], list[Fraction]], Fit]
-
-
-def _line(xs: list[Fraction], ys: list[Fraction], names: tuple[str, str]) -> Fit:
-    line = stats.line_fit(xs, ys)
-    first, second = names
-    values = {first: line.intercept, second: line.slope}
-    if names == ("m", "b"):
-        values = {"m": line.slope, "b": line.intercept}
-    return Fit(values, lambda x: line.intercept + line.slope * x, line.r_squared, line.r)
-
-
-def _polynomial(xs: list[Fraction], ys: list[Fraction], degree: int) -> Fit:
-    coefficients = stats.polynomial_fit(xs, ys, degree)
-    names = "abcde"[: degree + 1]
-    exact = stats.evaluate_polynomial
-
-    def predict(x: float) -> float:
-        return float(exact(coefficients, Fraction(x)))
-
-    predicted = [predict(float(x)) for x in xs]
-    r_squared = stats.coefficient_of_determination(ys, predicted)
-    return Fit(dict(zip(names, (float(c) for c in coefficients), strict=True)), predict, r_squared)
-
-
-def _exponential(xs: list[Fraction], ys: list[Fraction]) -> Fit:
-    a, b, line = stats.exponential_fit(xs, ys)
-    return Fit({"a": a, "b": b}, lambda x: a * b**x, line.r_squared, line.r, transformed=True)
-
-
-def _power(xs: list[Fraction], ys: list[Fraction]) -> Fit:
-    a, b, line = stats.power_fit(xs, ys)
-    return Fit({"a": a, "b": b}, lambda x: a * x**b, line.r_squared, line.r, transformed=True)
-
-
-def _logarithmic(xs: list[Fraction], ys: list[Fraction]) -> Fit:
-    a, b, line = stats.logarithmic_fit(xs, ys)
-    return Fit(
-        {"a": a, "b": b}, lambda x: a + b * math.log(x), line.r_squared, line.r, transformed=True
-    )
-
-
-def _median_median(xs: list[Fraction], ys: list[Fraction]) -> Fit:
-    slope, intercept = stats.median_median_line(xs, ys)
-    m, b = float(slope), float(intercept)
-    return Fit({"m": m, "b": b}, lambda x: m * x + b)
-
-
-def _logistic(xs: list[Fraction], ys: list[Fraction], *, shifted: bool) -> Fit:
-    found = stats.logistic_fit(xs, ys, shifted=shifted)
-    a, b, c = found[:3]
-    d = found[3] if shifted else 0.0
-    names = dict(zip("abcd", found, strict=False))
-    return Fit(names, lambda x: c / (1 + a * math.exp(-b * x)) + d)
-
-
-def _sinusoid(xs: list[Fraction], ys: list[Fraction]) -> Fit:
-    a, b, c, d = stats.sine_fit(xs, ys)
-    return Fit({"a": a, "b": b, "c": c, "d": d}, lambda x: a * math.sin(b * x + c) + d)
-
-
-_REGRESSIONS = {
-    "LinRegBx": Regression(
-        "Linear Regression (a+bx)", "a+b*x", "r²", lambda x, y: _line(x, y, ("a", "b"))
-    ),
-    "LinRegMx": Regression(
-        "Linear Regression (mx+b)", "m*x+b", "r²", lambda x, y: _line(x, y, ("m", "b"))
-    ),
-    "QuadReg": Regression(
-        "Quadratic Regression", "a*x^2+b*x+c", "R²", lambda x, y: _polynomial(x, y, 2)
-    ),
-    "CubicReg": Regression(
-        "Cubic Regression", "a*x^3+b*x^2+c*x+d", "R²", lambda x, y: _polynomial(x, y, 3)
-    ),
-    "QuartReg": Regression(
-        "Quartic Regression", "a*x^4+b*x^3+c*x^2+d*x+e", "R²", lambda x, y: _polynomial(x, y, 4)
-    ),
-    "ExpReg": Regression("Exponential Regression", "a*b^x", "r²", _exponential),
-    "PowerReg": Regression("Power Regression", "a*x^b", "r²", _power),
-    "LnReg": Regression("Logarithmic Regression", "a+b*ln(x)", "r²", _logarithmic),
-    "MedMed": Regression("Median-Median Line", "m*x+b", "r²", _median_median),
-    "Logistic": Regression(
-        "Logistic Regression (d=0)",
-        "c/(1+a*ⅇ^(-b*x))",
-        "r²",
-        lambda x, y: _logistic(x, y, shifted=False),
-    ),
-    "LogisticD": Regression(
-        "Logistic Regression (d≠0)",
-        "c/(1+a*ⅇ^(-b*x))+d",
-        "r²",
-        lambda x, y: _logistic(x, y, shifted=True),
-    ),
-    "SinReg": Regression("Sinusoidal Regression", "a*sin(b*x+c)+d", "r²", _sinusoid),
-}
 
 
 def _run_regression(host: Host, args: tuple[ast.Expr, ...], kind: Regression) -> Value:
