@@ -17,6 +17,7 @@ pytestmark = pytest.mark.e2e
 def open_app(browser: Browser, site: tuple[Path, str]) -> AppPage:
     _, url = site
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
     expect(app.page.get_by_role("button", name="Hide pages Pages")).to_be_attached()
     return app
@@ -24,6 +25,126 @@ def open_app(browser: Browser, site: tuple[Path, str]) -> AppPage:
 
 def button(page: Page, name: str) -> Locator:
     return page.get_by_role("button", name=name, exact=True)
+
+
+def test_mode_segment_switches_to_handheld(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DEV-002, FR-DEV-004: the mode selector switches to the Handheld view."""
+    app = open_app(browser, site)
+    page = app.page
+    button(page, "Handheld").click()
+    expect(button(page, "Hide pages Pages")).not_to_be_attached()
+    expect(page.get_by_role("button", name=re.compile(r"enter$"))).to_be_attached()
+    page.close()
+
+
+def test_computer_controls_align_at_minimum_sidebar_width(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-DEV-002: aligned controls remain visible and usable in the minimum-width sidebar."""
+    app = open_app(browser, site)
+    page = app.page
+    names = ("CASSim", "Doc", "Settings", "Menu", "Page manager", "+ Page", "+ Problem")
+    boxes = {}
+    for name in names:
+        locator = page.get_by_role("button", name=re.compile(rf"^{re.escape(name)}(?:\s|$)"))
+        box = locator.bounding_box()
+        assert box, f"{name} is not visible"
+        boxes[name] = box
+    for row in (("CASSim", "Doc", "Settings"), ("Page manager", "+ Page", "+ Problem")):
+        assert max(boxes[name]["y"] for name in row) - min(boxes[name]["y"] for name in row) < 2
+        assert all(
+            boxes[left]["x"] + boxes[left]["width"] <= boxes[right]["x"]
+            for left, right in pairwise(row)
+        )
+    assert boxes["Settings"]["y"] < boxes["Menu"]["y"] < boxes["Page manager"]["y"]
+    expect(button(page, "delete page")).not_to_be_attached()
+    button(page, "Page manager").click()
+    expect(page.get_by_role("button", name=re.compile("Close the sorter"))).to_be_attached()
+    page.close()
+
+
+def test_computer_divider_resizes_and_grip_swaps_columns(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-DEV-002: the divider resizes and its top grip moves a column."""
+    app = open_app(browser, site)
+    page = app.page
+    heading = button(page, "Hide pages Pages")
+    initial = heading.bounding_box()
+    mode = button(page, "Handheld").bounding_box()
+    last = button(page, "+ Problem").bounding_box()
+    assert initial
+    assert mode
+    assert last
+    divider_x = last["x"] + last["width"] + 4
+    page.mouse.move(divider_x + 12, initial["y"] + 20)
+    page.mouse.down()
+    page.mouse.move(divider_x + 52, initial["y"] + 20, steps=10)
+    page.mouse.up()
+    app.wait(
+        lambda: (
+            (box := heading.bounding_box()) is not None and box["width"] > initial["width"] + 20
+        ),
+        "sidebar to widen",
+    )
+    resized = heading.bounding_box()
+    assert resized
+    grip_x = divider_x + 40 + 6
+    grip_y = mode["y"] + 8
+    page.mouse.move(grip_x, grip_y)
+    page.mouse.down()
+    page.mouse.move(grip_x + 40, grip_y, steps=10)
+    page.wait_for_timeout(500)
+    page.mouse.move(grip_x + 220, grip_y + 100, steps=15)
+    page.wait_for_timeout(500)
+    page.mouse.up()
+    app.wait(
+        lambda: (box := heading.bounding_box()) is not None and box["x"] > resized["x"] + 100,
+        "columns to swap",
+    )
+    page.close()
+
+
+def test_column_controls_can_be_enabled_from_system_settings(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """NFR-USE-002: the optional column controls are exposed through System Settings."""
+    app = open_app(browser, site)
+    page = app.page
+    for key in ("F4", "7", "3"):
+        app.press(key)
+    checkbox = page.get_by_role("checkbox", name="Show keyboard-accessible column controls")
+    checkbox.focus()
+    page.keyboard.press("Space")
+    expect(checkbox).to_be_checked()
+    button(page, "OK").focus()
+    page.keyboard.press("Enter")
+    move = page.get_by_role("button", name=re.compile(r"^Move calculation left")).last
+    expect(move).to_be_attached()
+    before = button(page, "Hide pages Pages").bounding_box()
+    assert before
+    resize = page.get_by_role("button", name=re.compile(r"^Widen the column on the left")).last
+    resize.focus()
+    page.keyboard.press("Enter")
+    app.wait(
+        lambda: (
+            (box := button(page, "Hide pages Pages").bounding_box()) is not None
+            and box["width"] > before["width"] + 10
+        ),
+        "keyboard column resize",
+        seconds=8,
+    )
+    move.focus()
+    page.keyboard.press("Enter")
+    app.wait(
+        lambda: (
+            (box := button(page, "Hide pages Pages").bounding_box()) is not None
+            and box["x"] > before["x"] + 100
+        ),
+        "keyboard column swap",
+        seconds=8,
+    )
+    page.close()
 
 
 def page_button(page: Page, number: str, name: str) -> Locator:
@@ -43,15 +164,8 @@ def check_page_layout(page: Page, first: Locator, pages: Locator) -> None:
     assert title["width"] > page_box["width"] * 0.7
     assert abs(title["x"] + title["width"] - fold["x"]) <= 3
     assert abs(fold["x"] + fold["width"] - page_box["x"] - page_box["width"]) < 1
-    actions = [
-        button(page, name).bounding_box()
-        for name in ("Move page earlier", "Move page later", "Undo page change", "Redo page change")
-    ]
-    assert all(box is not None for box in actions)
-    boxes = [box for box in actions if box is not None]
-    assert max(box["y"] for box in boxes) - min(box["y"] for box in boxes) < 1
-    assert all(a["x"] + a["width"] <= b["x"] for a, b in pairwise(boxes))
-    assert boxes[-1]["x"] + boxes[-1]["width"] <= page_box["x"] + page_box["width"]
+    assert not button(page, "Move page earlier").count()
+    assert not button(page, "Move page later").count()
 
 
 def check_variable_layout(page: Page, variables: Locator) -> None:
@@ -96,6 +210,7 @@ def test_pages_and_problems_render_fold_and_scroll(
         app.press("1")
         expect(page_button(page, f"2.{number}", "Calculator")).to_be_attached()
 
+    expect(button(page, "Hide pages Pages")).to_be_visible()
     first = page_button(page, "1.1", "Calculator")
     pages = first.locator("..")
     check_page_layout(page, first, pages)
@@ -104,14 +219,18 @@ def test_pages_and_problems_render_fold_and_scroll(
     page.mouse.move(page_box["x"] + 20, page_box["y"] + page_box["height"] - 10)
     page.mouse.wheel(0, 450)
     app.wait(lambda: pages.evaluate("(element) => element.scrollTop") > 0, "pages to scroll")
-    scrolled = first.bounding_box()
-    assert scrolled
-    assert scrolled["y"] < page_box["y"]
+    app.wait(
+        lambda: (scrolled := first.bounding_box()) is None or scrolled["y"] < page_box["y"],
+        "first page to scroll out of view",
+    )
     page.mouse.wheel(0, -450)
     app.wait(lambda: pages.evaluate("(element) => element.scrollTop") == 0, "pages to scroll back")
     button(page, "Collapse Problem 1").click()
     expect(page_button(page, "1.2", "Graphs")).not_to_be_attached()
-    button(page, "Collapse Problem 2").click()
+    expect(button(page, "Expand Problem 1")).to_be_attached()
+    second = button(page, "Collapse Problem 2")
+    second.scroll_into_view_if_needed()
+    second.click()
     expect(page_button(page, "2.2", "Calculator")).not_to_be_attached()
     button(page, "Expand Problem 1").click()
     expect(page_button(page, "1.7", "Python")).to_be_attached()
@@ -122,6 +241,20 @@ def test_pages_and_problems_render_fold_and_scroll(
     expect(page_button(page, "1.7", "Python")).to_be_attached()
     expect(button(page, "Expand Problem 2")).to_be_attached()
     page.close()
+
+
+def solve_finance(app: AppPage) -> None:
+    page = app.page
+    for key in ("F2", "8", "1"):  # Menu > Finance > Finance Solver
+        app.press(key)
+    for label, value in (("N", "12"), ("I (%)", "6"), ("PV", "10000")):
+        page.get_by_label(label, exact=True).fill(value)
+    payment = page.get_by_label("Pmt", exact=True)
+    payment.click()
+    page.wait_for_timeout(500)
+    payment.press("Enter")
+    page.wait_for_timeout(1000)
+    button(page, "OK").click()
 
 
 def test_variables_stats_and_finance_render_fold_and_scroll(
@@ -135,12 +268,7 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
         app.type_text(expression)
         app.press("Enter")
         app.wait(lambda n=before: len(app.results) > n, expression)
-    for key in ("F2", "8", "1"):  # Menu > Finance > Finance Solver
-        app.press(key)
-    for label, value in (("N", "12"), ("I (%)", "6"), ("PV", "10000")):
-        page.get_by_label(label, exact=True).fill(value)
-    page.get_by_label("Pmt", exact=True).press("Enter")
-    button(page, "OK").click()
+    solve_finance(app)
     expect(button(page, "Collapse tvm variables")).to_be_attached()
 
     variables = page.get_by_role(
@@ -164,7 +292,10 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
     app.wait(lambda: '1: "Two-Variable Statistics"' in variables.inner_text(), "stat values")
     button(page, "Collapse stat variables").click()
     expect(button(page, "Expand stat.values")).not_to_be_attached()
-    button(page, "Collapse tvm variables").click()
+    expect(button(page, "Expand stat variables")).to_be_attached()
+    tvm = button(page, "Collapse tvm variables")
+    tvm.scroll_into_view_if_needed()
+    tvm.click()
     expect(button(page, "Expand tvm variables")).to_be_attached()
     assert "tvm.pv = 10000" not in variables.inner_text()
     button(page, "Expand xs").click()
@@ -216,10 +347,10 @@ def test_long_variable_list_batches_and_scrolls(browser: Browser, site: tuple[Pa
     expect(button(page, "Show more (2)")).to_be_attached()
 
 
-def test_keypad_palette_switching_and_cycling_in_browser(
+def test_keypad_palette_switching_and_toggling_in_browser(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
-    """FR-DEV-007: on-screen key presses switch palettes and select the next symbol."""
+    """FR-DEV-007: on-screen key presses switch and toggle palettes and select a symbol."""
     app = open_app(browser, site)
     page = app.page
     button(page, "Keypad").click()
@@ -231,9 +362,12 @@ def test_keypad_palette_switching_and_cycling_in_browser(
     button(page, "π▸").click()
     expect(symbol).to_be_attached()
     button(page, "π▸").click()
-    enter = page.get_by_role("button", name=re.compile(r"enter$"))
-    enter.click()
     expect(symbol).not_to_be_attached()
+    button(page, "π▸").click()
+    expect(symbol).to_be_attached()
+    symbol.click()
+    expect(symbol).not_to_be_attached()
+    enter = page.get_by_role("button", name=re.compile(r"enter$"))
     enter.click()
     app.wait(lambda: bool(app.results), "selected symbol result", seconds=30)
     assert app.results[-1] == "ⅈ"

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cassim.devices.nspire.ui.state import Mode
+from cassim.devices.nspire.ui.state import COMPUTER_MAX_SIDEBAR, COMPUTER_MIN_SIDEBAR, Mode
 
 NARROW = 600  # px: a short side below this starts a first visit in Handheld (decision 0013 item 3)
 MARGIN = 12  # px kept clear round the scaled calculator
@@ -42,6 +42,10 @@ MIN_SHARE, MAX_SHARE = 0.15, 0.8  # the splitter's range: the keypad's share of 
 MIN_ZOOM, MAX_ZOOM = 0.5, 2.0
 SPLITTER = 10  # px: the draggable bar between the screen and the keypad
 MIN_PART_SCALE = 0.2
+COMPUTER_MIN_WORKSPACE = 320
+COMPUTER_MIN_KEYPAD = 240
+COMPUTER_MAX_KEYPAD = 500
+COMPUTER_SPLITTER = 24
 
 
 PHONE_MARGIN = 4  # px round the calculator on a phone, where every pixel counts
@@ -178,6 +182,28 @@ def full_screen_height(
     return max(natural, room_h - sizing.between - pad_h)
 
 
-def computer_screen_height(viewport_h: float | None) -> float:
-    """The Computer-mode screen fills the window below the toolbar (at least 300 px)."""
-    return max(300.0, (viewport_h or 800) - BAR_H - 2 * MARGIN - 8)
+def computer_columns(
+    viewport_w: float | None,
+    sidebar_width: float,
+    keypad_width: float,
+    *,
+    keypad_visible: bool,
+) -> tuple[dict[str, float], float]:
+    """Column widths for Computer mode and the row's total width. The workspace takes the
+    remaining space, but keeps a minimum width and scrolls into view on narrow windows."""
+    room = max((viewport_w or 1000) - 2 * MARGIN, 1)
+    sidebar = max(COMPUTER_MIN_SIDEBAR, min(COMPUTER_MAX_SIDEBAR, sidebar_width))
+    keypad = max(COMPUTER_MIN_KEYPAD, min(COMPUTER_MAX_KEYPAD, keypad_width))
+    visible = ("sidebar", "workspace", "keypad") if keypad_visible else ("sidebar", "workspace")
+    splitters = (len(visible) - 1) * COMPUTER_SPLITTER
+    workspace = max(
+        COMPUTER_MIN_WORKSPACE,
+        room - sidebar - (keypad if keypad_visible else 0) - splitters,
+    )
+    widths = {"sidebar": sidebar, "workspace": workspace, "keypad": keypad}
+    return widths, sum(widths[name] for name in visible) + splitters
+
+
+def computer_screen_height(viewport_h: float | None, toolbar_height: float = BAR_H) -> float:
+    """The Computer-mode screen fills the window below its top controls (at least 300 px)."""
+    return max(300.0, (viewport_h or 800) - toolbar_height - 2 * MARGIN - 8)

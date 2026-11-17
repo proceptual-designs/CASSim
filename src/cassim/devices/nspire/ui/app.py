@@ -12,7 +12,7 @@ import json
 import os
 import time
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 import flet as ft
@@ -20,7 +20,9 @@ import flet as ft
 from cassim.app import about
 from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import themed
+from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
+from cassim.device.editor import Editor
 from cassim.device.engine import LocalEngine, local_session
 from cassim.device.keys import Action, Binding, keypad_units
 from cassim.device.menu import MenuItem
@@ -32,6 +34,7 @@ from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
+    COMPUTER_SPLITTER,
     FULL_RESERVE,
     GAP,
     MARGIN,
@@ -44,6 +47,7 @@ from cassim.devices.nspire.ui.layout import (
     HandheldPlan,
     Sizing,
     clamp_share,
+    computer_columns,
     computer_screen_height,
     full_screen_height,
     handheld_plan,
@@ -52,14 +56,20 @@ from cassim.devices.nspire.ui.layout import (
 )
 from cassim.devices.nspire.ui.sidebar import Sidebar
 from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
-from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
+from cassim.devices.nspire.ui.state import (
+    COMPUTER_MAX_SIDEBAR,
+    COMPUTER_MIN_SIDEBAR,
+    SORTER,
+    AppState,
+    Mode,
+    System,
+)
 from cassim.devices.nspire.ui.theme_settings import theme_settings_dialog
 from cassim.devices.nspire.ui.views import (
     POINTER_TICK,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
-    chip,
     label_text,
     settings_dialog,
     system_settings_dialog,
@@ -90,8 +100,12 @@ from cassim.doc.share import LinkTooLongError, encode, unpack
 # Flet fires no resize event at start-up, so this needs a different hook.
 
 
-SIDEBAR_W = 170  # the Computer view's sidebar
 TITLE_H = 20  # the screen's title bar, in the handheld's pixels
+COMPUTER_PANEL_NAMES = {
+    "sidebar": "Controls and pages",
+    "workspace": "Calculation",
+    "keypad": "Keypad",
+}
 
 # The keys of the two texts kept in browser storage, after the device's prefix (`cassim.`).
 AUTOSAVE_KEY = "autosave"
@@ -100,6 +114,13 @@ SYSTEM_KEY = "system"
 # writes the whole document, and with sheet data that is too slow to do per key.
 AUTOSAVE_DELAY = 0.5  # seconds
 FLASH_SECONDS = 2.0  # how long a note such as "Saved" stays in the status line
+
+
+@dataclass(frozen=True)
+class VariableDeletion:
+    calculator: Calculator
+    sources: tuple[str, ...]
+    names: tuple[str, ...]
 
 
 def browser_menu_items(
@@ -199,10 +220,16 @@ class App:
             state, self.press, self.theme, on_cassim=self.press_cassim, on_stick=self.on_stick
         )
         self.sidebar = Sidebar(
-            state, self.refresh, self.theme, lambda: self.act("open_menu", "menu")
+            state,
+            self.refresh,
+            self.theme,
+            on_delete=self.delete_variables,
         )
-        self.toolbar = ft.Row(spacing=6, wrap=True)
+        self.toolbar = ft.Column(spacing=4)
         self.layout = ft.Container(expand=True)
+        self.computer_panels: dict[str, ft.Container] = {}
+        self.computer_row: ft.Row | None = None
+        self.dragged_boundary: tuple[str, str] | None = None
         # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
         # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
@@ -223,6 +250,13 @@ class App:
         # The margin round everything. Not `page.padding`: a change to that after start-up does
         # not reach the page, and a phone needs a thinner margin than a computer.
         self.outer = ft.Container(self.frame, padding=MARGIN, expand=True)
+        self._wire_state(shell, state)
+        self.variable_undo: list[VariableDeletion] = []
+        self.variable_redo: list[VariableDeletion] = []
+        state.ask_discard = self.ask_discard
+        state.on_new_document = self.on_new_document
+
+    def _wire_state(self, shell: Shell, state: AppState) -> None:
         state.clipboard_out = shell.copy  # copy and cut also fill the system clipboard
         state.show_dialog = self.show_dialog
         state.cassim_menu = self.cassim_menu
@@ -236,8 +270,6 @@ class App:
         self.library = Store(shell.read, shell.write, shell.remove)
         self.current = Current(None, document_fingerprint(state.document))
         self.dirty = False  # the document differs from its saved copy (or has none)
-        state.ask_discard = self.ask_discard
-        state.on_new_document = self.on_new_document
 
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
@@ -375,11 +407,14 @@ class App:
         title = state.px(TITLE_H)
         if state.mode is Mode.HANDHELD:
             return state.px(SCREEN_W), (self.view.control.height or state.px(SCREEN_H)) - title
-        width = (self.page.width or 1000) - 2 * MARGIN - SIDEBAR_W - 12
-        if state.system.computer_keypad:
-            width -= keypad_size(*keypad_units(state.keypad))[0] * state.pad_scale
+        widths, _ = computer_columns(
+            self.page.width,
+            state.system.computer_sidebar_width,
+            state.system.computer_keypad_width,
+            keypad_visible=state.system.computer_keypad,
+        )
         height = self.view.control.height or computer_screen_height(self.page.height)
-        return max(width, 200.0), max(height - title, 120.0)
+        return max(widths["workspace"], 200.0), max(height - title, 120.0)
 
     def refresh(self) -> None:
         start = time.perf_counter()
@@ -448,6 +483,8 @@ class App:
         return loads(text) if self.runner is None else await self.runner.load(text, PAGES)
 
     def replace(self, document: Document) -> None:
+        self.variable_undo.clear()
+        self.variable_redo.clear()
         self.state.replace_document(document)
         if self.runner is not None:
             self.runner.retain(document)
@@ -598,6 +635,9 @@ class App:
             return  # typed into the hidden box: on_sink turns it into keys
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.shell.pasted())
+        if binding.action in ("undo", "redo") and self.variable_history_action(binding.action):
+            self.refresh()
+            return
         self.pointer.hide()
         state.run(binding)
         self.refresh()
@@ -615,6 +655,8 @@ class App:
         if self.busy:
             return
         for binding in keys:
+            if binding.action in ("undo", "redo") and self.variable_history_action(binding.action):
+                continue
             self.state.run(binding)
         self.refresh()
 
@@ -728,45 +770,215 @@ class App:
         theme, mode = self.theme, self.state.mode
         if mode is Mode.HANDHELD:
             return []  # the keypad has the Doc, Menu and CASSim keys
-        return [
-            chip("Handheld", lambda: self.set_mode(Mode.HANDHELD), theme, on=mode is Mode.HANDHELD),
-            chip("Computer", lambda: self.set_mode(Mode.COMPUTER), theme, on=mode is Mode.COMPUTER),
-            *(
-                [chip("Keypad", self.toggle_keypad, theme, on=self.state.system.computer_keypad)]
-                if mode is Mode.COMPUTER
-                else []
-            ),
-            chip("◀ page", lambda: self.act("prev_page"), theme),
-            chip("page ▶", lambda: self.act("next_page"), theme),
-            chip("+ page", lambda: self.act("add_page"), theme),
-            chip("+ problem", lambda: self.act("add_problem"), theme),
-            chip("delete page", lambda: self.act("delete_page"), theme),
-            ft.Container(
-                ft.Row(
-                    [
-                        label_text(about.product_name(), color=theme.key_text, size=13),
-                        *(
-                            [ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935")]
-                            if self.shell.offers.needs_attention
-                            else []
-                        ),
-                    ],
-                    spacing=4,
-                    tight=True,
-                ),
-                bgcolor=theme.key,
-                padding=ft.Padding.symmetric(horizontal=10, vertical=5),
+
+        def button(text: str, action: Callable[[], None], fill: str, colour: str) -> ft.Container:
+            return ft.Container(
+                label_text(text, size=13, color=colour, no_wrap=True),
+                expand=True,
+                height=36,
+                alignment=ft.Alignment.CENTER,
+                bgcolor=fill,
                 border_radius=6,
                 ink=True,
-                tooltip="CASSim menu: attention required"
-                if self.shell.offers.needs_attention
-                else "CASSim menu",
-                on_click=lambda _: self.act("open_menu", "cassim"),
+                on_click=lambda _: action(),
+            )
+
+        mode_control = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=Mode.HANDHELD.value, label="Handheld"),
+                ft.Segment(value=Mode.COMPUTER.value, label="Computer"),
+            ],
+            selected=[mode.value],
+            show_selected_icon=False,
+            expand=True,
+            style=ft.ButtonStyle(
+                bgcolor={
+                    ft.ControlState.SELECTED: theme.accent,
+                    ft.ControlState.DEFAULT: theme.key,
+                },
+                color={
+                    ft.ControlState.SELECTED: theme.accent_text,
+                    ft.ControlState.DEFAULT: theme.key_text,
+                },
+                padding=ft.Padding.symmetric(horizontal=4, vertical=5),
+                text_style=ft.TextStyle(size=12),
             ),
-            chip("Doc", lambda: self.act("open_menu", "doc"), theme),
-            chip("Sorter", lambda: self.act("dialog", SORTER), theme),
-            chip("settings", self.open_settings, theme),
+            on_change=lambda e: self.set_mode(Mode(e.control.selected[0])),
+        )
+        keypad = button(
+            "Keypad",
+            self.toggle_keypad,
+            theme.accent if self.state.system.computer_keypad else theme.key,
+            theme.accent_text if self.state.system.computer_keypad else theme.key_text,
+        )
+        keypad.expand = False
+        keypad.width = 76
+        cassim = button(
+            about.product_name(),
+            lambda: self.act("open_menu", "cassim"),
+            theme.accent,
+            theme.accent_text,
+        )
+        cassim.tooltip = (
+            "CASSim menu: attention required"
+            if self.shell.offers.needs_attention
+            else "CASSim menu"
+        )
+        if self.shell.offers.needs_attention:
+            cassim.content = ft.Row(
+                [
+                    label_text(about.product_name(), size=13, color=theme.accent_text),
+                    ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935"),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=4,
+            )
+        doc_fill, doc_text = theme.key_colours("nav")
+        undo = ft.IconButton(
+            icon=ft.Icons.UNDO,
+            tooltip="Undo (Ctrl+Z)",
+            on_click=lambda _: self.undo_action(),
+            icon_color=theme.key_text,
+            bgcolor=theme.key,
+            icon_size=15,
+            width=42,
+            height=36,
+            padding=4,
+        )
+        redo = ft.IconButton(
+            icon=ft.Icons.REDO,
+            tooltip="Redo (Ctrl+Y)",
+            on_click=lambda _: self.redo_action(),
+            icon_color=theme.key_text,
+            bgcolor=theme.key,
+            icon_size=15,
+            width=42,
+            height=36,
+            padding=4,
+        )
+        return [
+            ft.Row([mode_control, keypad], spacing=4),
+            ft.Row(
+                [
+                    cassim,
+                    button("Doc", lambda: self.act("open_menu", "doc"), doc_fill, doc_text),
+                    button("Settings", self.open_settings, theme.key, theme.key_text),
+                ],
+                spacing=4,
+            ),
+            ft.Row(
+                [
+                    undo,
+                    redo,
+                    button(
+                        "Menu",
+                        lambda: self.act("open_menu", "menu"),
+                        theme.accent,
+                        theme.accent_text,
+                    ),
+                ],
+                spacing=4,
+            ),
+            ft.Row(
+                [
+                    button(
+                        "Page manager",
+                        lambda: self.act("dialog", SORTER),
+                        theme.key,
+                        theme.key_text,
+                    ),
+                    button("+ Page", lambda: self.act("add_page"), theme.key, theme.key_text),
+                    button("+ Problem", lambda: self.act("add_problem"), theme.key, theme.key_text),
+                ],
+                spacing=4,
+            ),
         ]
+
+    def delete_variables(self, variables: tuple[VariableInfo, ...]) -> None:
+        if not variables or self.busy:
+            return
+        problem = self.state.document.problems[self.state.document.problem]
+        calculator = next(
+            (
+                model
+                for page in problem.pages
+                if (model := calculator_of(page)) is not None
+                and model.pending is None
+                and model.error is None
+            ),
+            None,
+        )
+        if calculator is None:
+            self.notice(
+                "Delete variables",
+                "Add a Calculator page to this Problem before deleting variables.",
+            )
+            return
+        sources = tuple(variable.source for variable in variables)
+        if any(not source for source in sources):
+            self.notice("Delete variables", "One or more variables cannot be restored.")
+            return
+        names = tuple(variable.name for variable in variables)
+        self.page.run_task(self._delete_variables, calculator, names, sources)
+
+    async def _delete_variables(
+        self, calculator: Calculator, names: tuple[str, ...], sources: tuple[str, ...]
+    ) -> None:
+        if await self._calculator_command(calculator, f"DelVar {','.join(names)}"):
+            self.variable_undo.append(VariableDeletion(calculator, sources, names))
+            self.variable_redo.clear()
+            self.flash(f"Deleted {', '.join(names)}. Ctrl+Z to restore.")
+        self.refresh()
+
+    async def _calculator_command(self, calculator: Calculator, command: str) -> bool:
+        saved_editor = calculator.editor
+        calculator.editor = Editor()
+        calculator.editor.insert_text(command)
+        try:
+            calculator.perform(Binding("enter"))
+            if calculator.pending is not None:
+                if self.runner is None:
+                    msg = "a local calculator left a command pending"
+                    raise RuntimeError(msg)
+                await self.runner.evaluate(calculator)
+        finally:
+            calculator.editor = saved_editor
+        if not calculator.history or calculator.history[-1].result.error is not None:
+            error = calculator.history[-1].result.error if calculator.history else "No result"
+            self.notice("Variable change failed", str(error))
+            return False
+        return True
+
+    def variable_history_action(self, action: str) -> bool:
+        history = self.variable_undo if action == "undo" else self.variable_redo
+        if not history or self.busy:
+            return False
+        self.page.run_task(self._apply_variable_history, action)
+        return True
+
+    async def _apply_variable_history(self, action: str) -> None:
+        source = self.variable_undo if action == "undo" else self.variable_redo
+        target = self.variable_redo if action == "undo" else self.variable_undo
+        change = source[-1]
+        commands = change.sources if action == "undo" else (f"DelVar {','.join(change.names)}",)
+        for command in commands:
+            if not await self._calculator_command(change.calculator, command):
+                self.refresh()
+                return
+        source.pop()
+        target.append(change)
+        self.flash("Restored variables" if action == "undo" else "Deleted variables")
+        self.refresh()
+
+    def undo_action(self) -> None:
+        if not self.variable_history_action("undo"):
+            self.state.run_action("undo_pages")
+            self.refresh()
+
+    def redo_action(self) -> None:
+        if not self.variable_history_action("redo"):
+            self.state.run_action("redo_pages")
+            self.refresh()
 
     def show_dialog(self, name: str) -> None:
         dialogs: dict[str, Callable[[], object]] = {
@@ -996,6 +1208,8 @@ class App:
 
     def on_new_document(self) -> None:
         """A new document is saved nowhere, and has nothing to lose yet."""
+        self.variable_undo.clear()
+        self.variable_redo.clear()
         self.remember(Current(None, document_fingerprint(self.state.document)))
 
     # ---- files on disk: Import and Export (FR-DOC-004, FR-DOC-006) ----------------------------
@@ -1114,92 +1328,324 @@ class App:
         return width, height
 
     def arrange(self) -> None:
-        view = self.view.control
         state = self.state
         system = state.system
-        phone = self.phone
         self.keypad.installable = self.installable
         self.keypad.needs_attention = self.shell.offers.needs_attention
-        # Full screen, or the installed app: the Handheld screen takes the spare height, up to
-        # the top edge (and under a camera cutout: `viewport-fit=cover` in tools/publish.py)
         full = state.mode is Mode.HANDHELD and self.shell.offers.standalone and system.zoom <= 1
         self.full = full
         self.toolbar.visible = not full
         if state.mode is Mode.HANDHELD:
-            share = system.keypad_share or None  # 0 is auto; a phone always uses it
-            margin = PHONE_MARGIN if phone else MARGIN
-            width, height = self.handheld_room(phone=phone, full=full, margin=margin)
-            self.frame.spacing = 0  # the toolbar holds only the status line
-            units = keypad_units(state.keypad)
-            sizing = Sizing(
-                None if phone else share,
-                system.zoom,
-                FULL_RESERVE if full else STATUS_H,
-                margin,
-                not phone,
-            )
-            plan = handheld_plan(width, height, units[0], units[1], sizing)
-            sizing = replace(sizing, bar=0) if full else sizing  # the screen may use that band
-            self.plan = plan
-            state.scale, state.pad_scale = plan.scale, plan.pad_scale
-            view.width = state.px(SCREEN_W)
-            view.height = (
-                full_screen_height(plan, height, units[1], sizing) if full else state.px(SCREEN_H)
-            )
-            view.expand = False
-            shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, full)
-            if shape == self.shape:
-                # Same structure: only the sizes change. Rebuilding the splitter mid-drag would end
-                # the drag, which is why it used to stop after a few pixels.
-                self.size_splitter(plan)
-                return
-            self.shape = shape
-            parts: list[ft.Control] = [view, self.keypad.control]
-            if not phone:  # the splitter is for a tablet or a projected window
-                parts.insert(1, self.splitter(plan))
-            gap = GAP / 2
-            self.layout.alignment = ft.Alignment.CENTER
-            self.layout.content = (
-                ft.Row(parts, spacing=gap, alignment=ft.MainAxisAlignment.CENTER)
-                if plan.side_by_side
-                else ft.Column(
-                    parts,
-                    spacing=gap,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                )
-            )
-            if system.zoom > 1:  # zoomed past the window: scroll rather than clip
-                self.layout.content = ft.Column(
-                    [ft.Row([self.layout.content], scroll=ft.ScrollMode.AUTO)],
-                    scroll=ft.ScrollMode.AUTO,
-                )
+            self._arrange_handheld(full=full, phone=self.phone)
         else:
-            self.shape = None
-            self.outer.padding = MARGIN
-            self.frame.spacing = 10
-            state.scale = state.pad_scale = system.zoom
-            self.layout.alignment = None
-            view.width = None
-            view.expand = True
-            # A fixed height from the window: the screen otherwise shrinks to its lines, and a
-            # menu drawn on it would be clipped.
-            view.height = computer_screen_height(self.page.height)
-            self.sidebar.height = view.height
-            parts: list[ft.Control] = [
-                ft.Container(
-                    self.sidebar.control,
-                    width=SIDEBAR_W,
-                    height=computer_screen_height(self.page.height),
-                    padding=8,
-                ),
-                view,
-            ]
-            if state.system.computer_keypad:
-                parts.append(ft.Column([self.keypad.control], scroll=ft.ScrollMode.AUTO))
-            self.layout.content = ft.Row(
-                parts, expand=True, spacing=12, vertical_alignment=ft.CrossAxisAlignment.START
+            self._arrange_computer()
+
+    def _arrange_handheld(self, *, full: bool, phone: bool) -> None:
+        view = self.view.control
+        state = self.state
+        system = state.system
+        self.frame.controls = [self.toolbar, self.layout]
+        share = system.keypad_share or None  # 0 is auto; a phone always uses it
+        margin = PHONE_MARGIN if phone else MARGIN
+        width, height = self.handheld_room(phone=phone, full=full, margin=margin)
+        self.frame.spacing = 0  # the toolbar holds only the status line
+        units = keypad_units(state.keypad)
+        sizing = Sizing(
+            None if phone else share,
+            system.zoom,
+            FULL_RESERVE if full else STATUS_H,
+            margin,
+            not phone,
+        )
+        plan = handheld_plan(width, height, units[0], units[1], sizing)
+        sizing = replace(sizing, bar=0) if full else sizing
+        self.plan = plan
+        state.scale, state.pad_scale = plan.scale, plan.pad_scale
+        view.width = state.px(SCREEN_W)
+        view.height = (
+            full_screen_height(plan, height, units[1], sizing) if full else state.px(SCREEN_H)
+        )
+        view.expand = False
+        shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, full)
+        if shape == self.shape:
+            self.size_splitter(plan)
+            return
+        self.shape = shape
+        parts: list[ft.Control] = [view, self.keypad.control]
+        if not phone:
+            parts.insert(1, self.splitter(plan))
+        gap = GAP / 2
+        self.layout.alignment = ft.Alignment.CENTER
+        self.layout.content = (
+            ft.Row(parts, spacing=gap, alignment=ft.MainAxisAlignment.CENTER)
+            if plan.side_by_side
+            else ft.Column(
+                parts,
+                spacing=gap,
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             )
+        )
+        if system.zoom > 1:
+            self.layout.content = ft.Column(
+                [ft.Row([self.layout.content], scroll=ft.ScrollMode.AUTO)],
+                scroll=ft.ScrollMode.AUTO,
+            )
+
+    def _arrange_computer(self) -> None:
+        state = self.state
+        system = state.system
+        view = self.view.control
+        self.shape = None
+        self.outer.padding = MARGIN
+        self.frame.spacing = 0
+        self.frame.controls = [self.layout]
+        state.scale = state.pad_scale = system.zoom
+        self.layout.alignment = None
+        view.width = None
+        view.expand = True
+        height = computer_screen_height(self.page.height, toolbar_height=28)
+        self.sidebar.height = max(180, height - 160)
+        widths, _ = computer_columns(
+            self.page.width,
+            system.computer_sidebar_width,
+            system.computer_keypad_width,
+            keypad_visible=system.computer_keypad,
+        )
+        visible = [
+            name
+            for name in system.computer_column_order
+            if name != "keypad" or system.computer_keypad
+        ]
+        children: list[ft.Control] = []
+        self.computer_panels = {}
+        for index, name in enumerate(visible):
+            panel = self._computer_panel(name, widths[name], height)
+            self.computer_panels[name] = panel
+            children.append(
+                ft.DragTarget(
+                    panel,
+                    group="computer-columns",
+                    on_accept=lambda _, target=name: self._drop_column(target),
+                )
+            )
+            if index + 1 < len(visible):
+                children.append(self._computer_splitter(name, visible[index + 1], height))
+        self.computer_row = ft.Row(
+            children,
+            width=max((self.page.width or 1000) - 2 * MARGIN, 1),
+            height=height,
+            spacing=0,
+            scroll=ft.ScrollMode.AUTO,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        self.layout.content = self.computer_row
+
+    def _computer_panel(self, name: str, width: float, height: float) -> ft.Container:
+        controls: list[ft.Control] = []
+        if self.state.system.computer_column_controls:
+            title = COMPUTER_PANEL_NAMES[name]
+            controls.append(
+                ft.Row(
+                    [
+                        label_text(title, size=12, color=self.theme.panel_text, expand=True),
+                        ft.IconButton(
+                            icon=ft.Semantics(
+                                label=f"Move {title.lower()} left",
+                                content=ft.Icon(ft.Icons.ARROW_LEFT),
+                            ),
+                            tooltip=f"Move {title.lower()} left",
+                            on_click=lambda _, column=name: self._move_column(column, -1),
+                            icon_color=self.theme.key_text,
+                            icon_size=12,
+                            width=24,
+                            height=24,
+                            padding=2,
+                        ),
+                        ft.IconButton(
+                            icon=ft.Semantics(
+                                label=f"Move {title.lower()} right",
+                                content=ft.Icon(ft.Icons.ARROW_RIGHT),
+                            ),
+                            tooltip=f"Move {title.lower()} right",
+                            on_click=lambda _, column=name: self._move_column(column, 1),
+                            icon_color=self.theme.key_text,
+                            icon_size=12,
+                            width=24,
+                            height=24,
+                            padding=2,
+                        ),
+                    ],
+                    spacing=3,
+                )
+            )
+        if name == "sidebar":
+            content: ft.Control = ft.Column(
+                [self.toolbar, self.sidebar.control], spacing=6, expand=True
+            )
+        elif name == "workspace":
+            self.view.control.height = max(
+                height - (38 if self.state.system.computer_column_controls else 8), 300
+            )
+            content = self.view.control
+        else:
+            content = ft.Column(
+                [ft.Row([self.keypad.control], scroll=ft.ScrollMode.AUTO)],
+                scroll=ft.ScrollMode.AUTO,
+                expand=True,
+            )
+        controls.append(content)
+        return ft.Container(
+            ft.Column(controls, spacing=6, expand=True),
+            width=width,
+            height=height,
+            padding=4,
+        )
+
+    def _computer_splitter(self, first: str, second: str, height: float) -> ft.Control:
+        def resize(delta: float) -> None:
+            self._resize_boundary(first, second, delta)
+
+        def step(delta: float) -> None:
+            resize(delta)
+            self.shell.write(SYSTEM_KEY, self.state.system.dumps())
+
+        divider = ft.GestureDetector(
+            ft.Container(
+                ft.Container(
+                    width=2,
+                    height=max(
+                        height - 28 - (48 if self.state.system.computer_column_controls else 0), 1
+                    ),
+                    bgcolor=self.theme.key_label,
+                ),
+                expand=True,
+                alignment=ft.Alignment.CENTER,
+                bgcolor=ft.Colors.TRANSPARENT,
+                tooltip="Drag to resize adjacent columns",
+            ),
+            expand=True,
+            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
+            drag_interval=24,
+            on_horizontal_drag_update=lambda event: (
+                resize(event.global_delta.x) if event.global_delta is not None else None
+            ),
+            on_horizontal_drag_end=lambda _: self.shell.write(
+                SYSTEM_KEY, self.state.system.dumps()
+            ),
+        )
+        controls: list[ft.Control] = [
+            ft.Draggable(
+                ft.Container(
+                    ft.Icon(ft.Icons.DRAG_INDICATOR, size=16, color=self.theme.key_label),
+                    width=COMPUTER_SPLITTER,
+                    height=28,
+                    alignment=ft.Alignment.CENTER,
+                    tooltip="Drag left or right to move columns",
+                ),
+                group="computer-columns",
+                on_drag_start=lambda _: setattr(self, "dragged_boundary", (first, second)),
+            ),
+        ]
+        if self.state.system.computer_column_controls:
+            controls.extend(
+                [
+                    ft.IconButton(
+                        icon=ft.Semantics(
+                            label="Narrow the column on the left",
+                            content=ft.Icon(ft.Icons.ARROW_LEFT),
+                        ),
+                        tooltip="Narrow the column on the left",
+                        on_click=lambda _: step(-16),
+                        icon_color=self.theme.key_text,
+                        icon_size=10,
+                        width=16,
+                        height=24,
+                        padding=0,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Semantics(
+                            label="Widen the column on the left",
+                            content=ft.Icon(ft.Icons.ARROW_RIGHT),
+                        ),
+                        tooltip="Widen the column on the left",
+                        on_click=lambda _: step(16),
+                        icon_color=self.theme.key_text,
+                        icon_size=10,
+                        width=16,
+                        height=24,
+                        padding=0,
+                    ),
+                ]
+            )
+        controls.append(divider)
+        return ft.Container(
+            ft.Column(
+                controls, spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            ),
+            width=COMPUTER_SPLITTER,
+            height=height,
+            alignment=ft.Alignment.TOP_CENTER,
+        )
+
+    def _resize_boundary(self, first: str, second: str, delta: float) -> None:
+        system = self.state.system
+        if first == "sidebar" and second == "workspace":
+            system.computer_sidebar_width += delta
+        elif first == "workspace" and second == "sidebar":
+            system.computer_sidebar_width -= delta
+        elif first == "workspace" and second == "keypad":
+            system.computer_keypad_width -= delta
+        elif first == "keypad" and second == "workspace":
+            system.computer_keypad_width += delta
+        elif first == "sidebar" and second == "keypad":
+            system.computer_sidebar_width += delta / 2
+            system.computer_keypad_width -= delta / 2
+        elif first == "keypad" and second == "sidebar":
+            system.computer_sidebar_width -= delta / 2
+            system.computer_keypad_width += delta / 2
+        system.computer_sidebar_width = max(
+            COMPUTER_MIN_SIDEBAR, min(COMPUTER_MAX_SIDEBAR, system.computer_sidebar_width)
+        )
+        system.computer_keypad_width = max(240.0, min(500.0, system.computer_keypad_width))
+        self._size_computer_panels()
+
+    def _size_computer_panels(self) -> None:
+        if self.computer_row is None:
+            return
+        system = self.state.system
+        widths, _ = computer_columns(
+            self.page.width,
+            system.computer_sidebar_width,
+            system.computer_keypad_width,
+            keypad_visible=system.computer_keypad,
+        )
+        for name, panel in self.computer_panels.items():
+            panel.width = widths[name]
+        self.page.update()
+
+    def _move_column(self, name: str, step: int) -> None:
+        order = self.state.system.computer_column_order
+        visible = [
+            column for column in order if column != "keypad" or self.state.system.computer_keypad
+        ]
+        index = visible.index(name)
+        target = max(0, min(len(visible) - 1, index + step))
+        first, second = order.index(name), order.index(visible[target])
+        order[first], order[second] = order[second], order[first]
+        self.on_system_change()
+
+    def _drop_column(self, target: str) -> None:
+        boundary = self.dragged_boundary
+        self.dragged_boundary = None
+        if boundary is None:
+            return
+        order = self.state.system.computer_column_order
+        left, right = boundary
+        source = right if order.index(target) <= order.index(left) else left
+        first, second = order.index(source), order.index(target)
+        order[first], order[second] = order[second], order[first]
+        self.on_system_change()
 
     def splitter(self, plan: HandheldPlan) -> ft.Control:
         """The bar between the screen and the keypad: drag it to give the screen or the keys more

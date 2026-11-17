@@ -17,6 +17,7 @@ from cassim.devices.nspire.ui.layout import (
     PHONE_MARGIN,
     STATUS_H,
     Sizing,
+    computer_columns,
     computer_screen_height,
     handheld_plan,
     key_span,
@@ -96,6 +97,21 @@ def test_the_computer_screen_fills_the_window_height() -> None:
     assert computer_screen_height(900) > computer_screen_height(700) >= 300
     assert computer_screen_height(None) > 300
     assert computer_screen_height(200) == 300
+
+
+def test_computer_columns_keep_the_workspace_prominent_and_allow_scrolling() -> None:
+    wide, wide_total = computer_columns(1280, 230, 320, keypad_visible=True)
+    assert wide["sidebar"] == 300
+    assert wide["keypad"] == 320
+    assert wide["workspace"] > wide["sidebar"]
+    assert wide_total == pytest.approx(1280 - 2 * 12)
+
+    narrow, narrow_total = computer_columns(700, 230, 320, keypad_visible=True)
+    assert narrow["workspace"] == 320
+    assert narrow_total > 700 - 2 * 12
+    hidden, hidden_total = computer_columns(700, 230, 320, keypad_visible=False)
+    assert hidden_total < narrow_total
+    assert hidden["workspace"] > narrow["workspace"]
 
 
 def test_a_phone_in_portrait_fills_the_width_and_height() -> None:

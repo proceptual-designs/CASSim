@@ -59,6 +59,37 @@ def test_the_computer_keypad_choice_is_kept() -> None:
     assert not System.loads('{"start_mode": "computer", "math_size": 20}').computer_keypad
 
 
+def test_computer_column_order_and_widths_are_system_settings() -> None:
+    system = System(
+        computer_column_order=["keypad", "sidebar", "workspace"],
+        computer_sidebar_width=310,
+        computer_keypad_width=390,
+    )
+    saved = System.loads(system.dumps())
+    assert saved.computer_column_order == ["keypad", "sidebar", "workspace"]
+    assert saved.computer_sidebar_width == 310
+    assert saved.computer_keypad_width == 390
+
+
+def test_older_narrow_sidebar_is_clamped_and_column_controls_persist() -> None:
+    old = System.loads('{"start_mode":"computer","math_size":20,"computer_sidebar_width":230}')
+    assert old.computer_sidebar_width == 300
+    assert not old.computer_column_controls
+    old.computer_column_controls = True
+    assert System.loads(old.dumps()).computer_column_controls
+
+
+def test_invalid_computer_column_settings_use_safe_defaults() -> None:
+    system = System.loads(
+        '{"start_mode":"computer","math_size":20,'
+        '"computer_column_order":["sidebar","sidebar","keypad"],'
+        '"computer_sidebar_width":9999,"computer_keypad_width":true}'
+    )
+    assert system.computer_column_order == ["sidebar", "workspace", "keypad"]
+    assert system.computer_sidebar_width == 300
+    assert system.computer_keypad_width == 320
+
+
 def test_the_letter_layout_is_a_system_setting() -> None:
     """ABC (as on the CX II) or QWERTY letters; an unknown name falls back to the default."""
     state = AppState()
