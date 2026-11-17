@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from PIL import ImageChops
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from tools import publish
 
 
@@ -78,22 +78,18 @@ def test_beta_bundle_marks_its_icons_without_changing_stable_artwork(tmp_path: P
     ).read_bytes()
 
 
-def test_beta_icon_marker_has_two_distinct_loops() -> None:
-    stable = publish.draw_icon(192)
-    beta = publish.draw_icon(192, beta=True)
-    difference = ImageChops.difference(stable.convert("RGB"), beta.convert("RGB"))
-    bounds = difference.getbbox()
-    assert bounds is not None
+def test_icon_font_draws_beta_not_a_missing_glyph() -> None:
+    font = ImageFont.truetype(publish.ICON_FONT, 96)
+    beta = Image.new("L", (160, 160))
+    missing = Image.new("L", (160, 160))
+    ImageDraw.Draw(beta).text((10, 10), "β", fill=255, font=font)
+    ImageDraw.Draw(missing).text((10, 10), "\u2603", fill=255, font=font)  # not in the subset
+    assert beta.getbbox() is not None
+    assert ImageChops.difference(beta, missing).getbbox() is not None
 
-    right_edge = bounds[2] - 1
-    occupied_rows = [
-        difference.getpixel((right_edge, y)) != (0, 0, 0) for y in range(bounds[1], bounds[3])
-    ]
-    loop_count = sum(
-        occupied and (row == 0 or not occupied_rows[row - 1])
-        for row, occupied in enumerate(occupied_rows)
-    )
-    assert loop_count == 2
+    stable = publish.draw_icon(192)
+    marked = publish.draw_icon(192, beta=True)
+    assert ImageChops.difference(stable.convert("RGB"), marked.convert("RGB")).getbbox()
 
 
 def test_the_engine_packages_come_from_the_devices() -> None:
