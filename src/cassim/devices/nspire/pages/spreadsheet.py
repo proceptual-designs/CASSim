@@ -29,7 +29,11 @@ from cassim.device.engine import RemoteSession
 from cassim.device.keys import Action, Binding
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire.pages.statistics import Statistics, dump_statistics, load_statistics
+from cassim.devices.nspire.statistics import INTERVALS, TESTS, build_command
+from cassim.devices.nspire.statistics_plot import PValuePlot
 from cassim.sheet import refs
+from cassim.sheet.fileio import FileCell
 from cassim.sheet.refs import COLUMNS, ROWS
 
 if TYPE_CHECKING:
@@ -193,6 +197,9 @@ class Spreadsheet:
         self.widths: dict[int, int] = {}
         # The cells on show, from the engine's last view.
         self.view: dict[Key, CellView] = {}
+        self.split_statistics: list[Statistics] = []
+        self.shade_alternative: int | None = None
+        self.pvalue_plot: PValuePlot | None = None
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -216,6 +223,7 @@ class Spreadsheet:
         self.dialogs: list[Dialog] = []
         self.wizard: Wizard | None = None  # a dialog for the app to open
         self.last: SheetOp | None = None
+        self._pending_import: list[list[object]] | None = None
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
 
@@ -258,6 +266,8 @@ class Spreadsheet:
         """Take the engine's replies, then ask for the cells on show if they are out of date."""
         for reply in self.link.take(self.id):
             self._accept(reply)
+        for statistics in self.split_statistics:
+            statistics.update()
         if isinstance(self.session, RemoteSession) and self.session.journal:
             self.session.compact(self.id, self.restore_op())
         span = self._wanted_span()
@@ -274,6 +284,9 @@ class Spreadsheet:
                 self._accept(reply)
 
     def _accept(self, reply: SheetReply) -> None:
+        if reply["error"] is not None and reply["error"]["title"] != DATA_LOSS:
+            self.shade_alternative = None
+            self.pvalue_plot = None
         for column, row, kind, text in reply["edits"]:
             if kind:
                 self.cells[(column, row)] = (kind, text)
@@ -298,6 +311,21 @@ class Spreadsheet:
             self.dialogs.append(Dialog(notice["title"], notice["message"]))
         if reply["error"] is not None:
             self._failed(reply["error"])
+        if reply["error"] is None:
+            self._refresh_pvalue_plot()
+
+    def _refresh_pvalue_plot(self) -> None:
+        if self.shade_alternative is None:
+            return
+        values = {row.name.casefold(): row.text for row in self.session.variables()}
+        statistic = values.get("stat.z")
+        p_value = values.get("stat.pval")
+        if statistic is not None and p_value is not None:
+            self.pvalue_plot = PValuePlot(
+                float(statistic.replace("ᴇ", "e")),
+                float(p_value.replace("ᴇ", "e")),
+                self.shade_alternative,
+            )
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -497,6 +525,11 @@ class Spreadsheet:
             if dialog.then is not None:
                 self.perform(dialog.then)
         elif action in ("escape", "sheet_cancel") or not dialog.cancel:
+            if self._pending_import is not None:
+                self._pending_import = None
+            if dialog.title == DATA_LOSS and self.shade_alternative is not None:
+                self.shade_alternative = None
+                self.pvalue_plot = None
             self.dialogs.pop(0)
 
     def _keys(self) -> dict[Action, Callable[[str], None]]:
@@ -1114,26 +1147,16 @@ class Spreadsheet:
         """A Menu or context-menu item (`sheet` binding)."""
         column, row = self.cursor
         name, _, rest = arg.partition(":")
-        if name in ("insert_row", "delete_row", "insert_column", "delete_column"):
-            verb, what = name.split("_")
-            self._send(verb, what=what, column=column, row=max(row, 1))
-        elif name in ("insert_cell", "delete_cell"):
-            self._send(name.split("_")[0], what="cell", column=column, row=max(row, 1))
-        elif name == "delete_cells":
-            left, top, right, bottom = self._span()
-            for c in range(left, right + 1):
-                for _ in range(top, bottom + 1):
-                    self._send("delete", what="cell", column=c, row=top)
-        elif name == "clear":
-            self.clear()
-        elif name == "fill":
-            self.mode = "fill"
-            self._fill_from = self._span()
-            self.anchor = None
-        elif name == "sort":
-            self._sort_dialog()
-        elif name == "generate":
+        if self._edit_structure_action(name, column, row):
+            return
+        if name == "generate":
             self.wizard = _generate_wizard(column)
+        elif name == "summary_plot":
+            self.wizard = self._summary_plot_wizard()
+        elif name == "quick_graph":
+            self._quick_graph()
+        elif name == "split_summary":
+            self._show_summary(cast("dict[str, str]", json.loads(rest)))
         elif name == "goto":
             self._go_to_dialog()
         elif name == "recalculate":
@@ -1157,12 +1180,225 @@ class Spreadsheet:
         elif name == "store_var":  # var > Store Var: types `var` in the name cell, selected
             self.go((column, NAME_ROW))
             self.begin_edit("var")
-        elif name in ("onevar", "stat", "edit", "dialog"):
+        elif name in ("onevar", "stat", "inference", "edit", "dialog"):
             self._statistics_action(name, rest)
         elif name == "paste_ok":
             self.paste(confirm=True)
+        elif name == "import_ok":
+            self._import_pending()
         elif name in ("copy", "cut", "paste"):
             {"copy": self.copy, "cut": self.cut, "paste": self.paste}[name]()
+
+    def _edit_structure_action(self, name: str, column: int, row: int) -> bool:
+        if name not in (
+            "insert_row",
+            "delete_row",
+            "insert_column",
+            "delete_column",
+            "insert_cell",
+            "delete_cell",
+            "delete_cells",
+            "clear",
+            "fill",
+            "sort",
+        ):
+            return False
+        if name in ("insert_row", "delete_row", "insert_column", "delete_column"):
+            verb, what = name.split("_")
+            self._send(verb, what=what, column=column, row=max(row, 1))
+        elif name in ("insert_cell", "delete_cell"):
+            self._send(name.split("_", maxsplit=1)[0], what="cell", column=column, row=max(row, 1))
+        elif name == "delete_cells":
+            left, top, right, bottom = self._span()
+            for c in range(left, right + 1):
+                for _ in range(top, bottom + 1):
+                    self._send("delete", what="cell", column=c, row=top)
+        elif name == "clear":
+            self.clear()
+        elif name == "fill":
+            self.mode = "fill"
+            self._fill_from = self._span()
+            self.anchor = None
+        elif name == "sort":
+            self._sort_dialog()
+        return True
+
+    def _quick_graph(self) -> None:
+        if self.whole != "column" and self.cursor[1] != NAME_ROW:
+            self.dialogs.append(Dialog("Quick Graph", "Select a column first."))
+            return
+        name = self.columns[self.cursor[0]][0]
+        statistics = Statistics(self.session)
+        selected = next(
+            (item for item in statistics.lists if item.casefold() == (name or "").casefold()),
+            "",
+        )
+        if not selected:
+            self.dialogs.append(Dialog("Quick Graph", "Select a column containing a list."))
+            return
+        statistics.perform(f"x:{selected}")
+        self.split_statistics.append(statistics)
+        self.shade_alternative = None
+        self.pvalue_plot = None
+
+    def _summary_plot_wizard(self) -> Wizard | None:
+        statistics = Statistics(self.session)
+        categories, summaries = statistics.category_lists, statistics.numeric_lists
+        if not categories or not summaries:
+            self.dialogs.append(
+                Dialog("Summary Plot", "Select a category list and a numeric list.")
+            )
+            return None
+        selected = self.selection()
+        x_default = ""
+        summary_default = ""
+        if selected is not None:
+            left, _, right, _ = selected
+            names = [self.columns[column][0] for column in range(left, right + 1)]
+            category_names = {item.casefold() for item in categories}
+            summary_names = {item.casefold() for item in summaries}
+            x_default = next(
+                (name for name in names if name and name.casefold() in category_names), ""
+            )
+            summary_default = next(
+                (name for name in names if name and name.casefold() in summary_names), ""
+            )
+        fields = (
+            Field(
+                "x",
+                "X List",
+                x_default or categories[0],
+                choices=tuple((name, name) for name in categories),
+            ),
+            Field(
+                "summary",
+                "Summary List",
+                summary_default or summaries[0],
+                choices=tuple((name, name) for name in summaries),
+            ),
+            Field(
+                "display",
+                "Display On",
+                "split",
+                choices=(("split", "Split Page"), ("new", "New Page")),
+            ),
+        )
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            if values["display"] == "new":
+                return [
+                    Binding("add_page", "statistics"),
+                    Binding("statistics", f"x:{values['x']}"),
+                    Binding("statistics", f"summary:{values['summary']}"),
+                ]
+            return [
+                Binding(
+                    "sheet",
+                    "split_summary:" + json.dumps({"x": values["x"], "summary": values["summary"]}),
+                )
+            ]
+
+        return Wizard("Summary Plot", fields, steps=steps)
+
+    def _show_summary(self, values: Mapping[str, str]) -> None:
+        statistics = Statistics(self.session)
+        statistics.perform(f"x:{values['x']}")
+        statistics.perform(f"summary:{values['summary']}")
+        self.split_statistics.append(statistics)
+        self.shade_alternative = None
+        self.pvalue_plot = None
+
+    def import_rows(self, rows: list[list[FileCell]]) -> None:
+        if not rows:
+            raise ValueError("The file contains no data")
+        column, row = self.cursor[0], max(self.cursor[1], 1)
+        if column + max(map(len, rows)) > COLUMNS or row + len(rows) - 1 > ROWS:
+            raise ValueError(f"The imported data does not fit in the {COLUMNS}-column sheet")
+        targets = {
+            (column + offset, row + row_offset)
+            for row_offset, values in enumerate(rows)
+            for offset, _ in enumerate(values)
+        }
+        cells: list[list[object]] = [
+            [
+                column + offset,
+                row + row_offset,
+                "formula" if cell.formula else "entry",
+                cell.text,
+            ]
+            for row_offset, values in enumerate(rows)
+            for offset, cell in enumerate(values)
+        ]
+        if cells:
+            variable_lengths = {
+                row.name.casefold(): len(row.items)
+                for row in self.session.variables()
+                if row.items is not None
+            }
+            if any(
+                key in self.cells
+                or self.columns[key[0]][2] is not None
+                or key[1] <= variable_lengths.get((self.columns[key[0]][0] or "").casefold(), 0)
+                or bool((view := self.view.get(key)) and view.text)
+                for key in targets
+            ):
+                self._pending_import = cells
+                self.dialogs.append(
+                    Dialog(
+                        DATA_LOSS,
+                        DATA_LOSS_MESSAGE,
+                        cancel=True,
+                        then=Binding("sheet", "import_ok"),
+                    )
+                )
+                return
+            self._send("put", cells=cells, confirm=False)
+            self.anchor = (column, row)
+            self.cursor = (column + max(map(len, rows)) - 1, row + len(rows) - 1)
+
+    def _import_pending(self) -> None:
+        cells, self._pending_import = self._pending_import, None
+        if cells:
+            self._send("put", cells=cells, confirm=True)
+            self.anchor = (cast("int", cells[0][0]), cast("int", cells[0][1]))
+            self.cursor = (
+                max(cast("int", cell[0]) for cell in cells),
+                max(cast("int", cell[1]) for cell in cells),
+            )
+
+    def request_export_view(self) -> None:
+        self.link.send(self.op("view", span=[0, 1, self._last_column(), self._last_row()]))
+
+    def export_rows(self, *, formulas: bool = False) -> list[list[FileCell]]:
+        column, row = self._last_column(), self._last_row()
+        headers = [self.columns[index][1] or "" for index in range(column + 1)]
+        rows = [[FileCell(value) for value in headers]] if any(headers) else []
+        for r in range(1, row + 1):
+            line: list[FileCell] = []
+            for c in range(column + 1):
+                kind, text = self.cells.get((c, r), ("", ""))
+                if formulas and kind == "formula":
+                    line.append(FileCell(text, True))
+                else:
+                    cell = self.view.get((c, r))
+                    line.append(FileCell(cell.text if cell is not None else ""))
+            rows.append(line)
+        return rows
+
+    def _last_row(self) -> int:
+        lengths = {
+            row.name.casefold(): len(row.items)
+            for row in self.session.variables()
+            if row.items is not None
+        }
+        return max(
+            max((self.last_row(column) for column in range(COLUMNS)), default=1),
+            max(
+                (lengths.get((info[0] or "").casefold(), 0) for info in self.columns),
+                default=1,
+            ),
+            1,
+        )
 
     def _statistics_action(self, name: str, rest: str) -> None:
         """The Statistics menu's items, and what their dialogs send back."""
@@ -1175,6 +1411,8 @@ class Spreadsheet:
         elif name == "stat":
             command, _, count = rest.partition(":")
             self.wizard = self._stat_wizard(command, int(count or 1))
+        elif name == "inference":
+            self.wizard = self._inference_wizard(rest)
         elif name == "edit":  # a Distributions dialog: its formula, in the cell (run 4, S10)
             self.go((self.cursor[0], max(self.cursor[1], 1)))
             self.begin_edit(rest)
@@ -1243,6 +1481,50 @@ class Spreadsheet:
             return [Binding("sheet_op", json.dumps({"action": "stat", "args": args}))]
 
         fields = (*lists, *saving, *extra, Field("results", "1st Result Column", results))
+        return Wizard(title, fields, steps=steps)
+
+    def _inference_wizard(self, command: str) -> Wizard:
+        """A Confidence Interval or Stat Test dialog writing a live result column."""
+        definition = next(
+            (item for item in (*INTERVALS, *TESTS) if item[1] == command),
+            None,
+        )
+        if definition is None:
+            raise ValueError(f"Unknown statistical command: {command}")
+        title, name, _, command_fields = definition
+        result_default = "a[]" if command == "zTest_1Prop" else f"{letter(self.free_column())}[]"
+        fields: tuple[Field, ...] = (
+            *command_fields,
+            Field("results", "1st Result Column", result_default),
+            *(
+                (Field("shade", "Draw: Shade P Value", "0", toggle=True),)
+                if command == "zTest_1Prop"
+                else ()
+            ),
+        )
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            if any(not values.get(field.name, "").strip() for field in command_fields):
+                return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
+            column_name = values["results"].strip().removesuffix("[]")
+            target = refs.address(f"{column_name}1")
+            if target is None or len(column_name) != 1:
+                return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
+            formula = build_command(name, command_fields, values)
+            self.shade_alternative = (
+                int(values["alternative"])
+                if command == "zTest_1Prop" and values.get("shade") == "1"
+                else None
+            )
+            self.pvalue_plot = None
+            args = {
+                "formula": formula,
+                "column": target.column,
+                "choose": {},
+                "confirm": False,
+            }
+            return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
+
         return Wizard(title, fields, steps=steps)
 
     def _go_to_dialog(self) -> None:
@@ -1429,14 +1711,20 @@ def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) 
 def dump(sheet: Spreadsheet) -> dict[str, Any]:
     """A sheet page in a document file: its definitions and view state, not its values."""
     columns = {letter(c): list(info) for c, info in enumerate(sheet.columns) if any(info)}
-    return {
+    data: dict[str, Any] = {
         "cells": [[c, r, kind, text] for (c, r), (kind, text) in sorted(sheet.cells.items())],
         "columns": columns,
         "widths": {letter(c): w for c, w in sorted(sheet.widths.items())},
         "cursor": list(sheet.cursor),
         "top": sheet.top,
         "left": sheet.left,
+        "shade_alternative": sheet.shade_alternative,
     }
+    if sheet.split_statistics:
+        data["split_statistics"] = [
+            dump_statistics(statistics) for statistics in sheet.split_statistics
+        ]
+    return data
 
 
 def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
@@ -1452,6 +1740,21 @@ def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
         refs.column_index(name): min(max(int(w), MIN_WIDTH), MAX_WIDTH)
         for name, w in data.get("widths", {}).items()
     }
+    alternative = data.get("shade_alternative")
+    if (
+        isinstance(alternative, int)
+        and not isinstance(alternative, bool)
+        and alternative in (0, 1, 2)
+    ):
+        sheet.shade_alternative = alternative
+    split_statistics = data.get("split_statistics", [])
+    if not isinstance(split_statistics, list) or not all(
+        isinstance(saved, dict) for saved in split_statistics
+    ):
+        raise ValueError("invalid split statistics")
+    sheet.split_statistics = [
+        load_statistics(Statistics(sheet.session), saved) for saved in split_statistics
+    ]
     column, row = data.get("cursor", [0, 1])
     sheet.go((int(column), int(row)))
     sheet.top = min(max(int(data.get("top", 1)), 1), ROWS)

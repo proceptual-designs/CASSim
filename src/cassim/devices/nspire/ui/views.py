@@ -10,6 +10,7 @@ from typing import Any, cast
 import flet as ft
 import flet.canvas as cv
 
+from cassim.app import scene_canvas
 from cassim.app.theme import DARK, Theme
 from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
@@ -20,11 +21,14 @@ from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
 from cassim.devices.nspire.screen import Line, Screen, Tile
+from cassim.devices.nspire.statistics_plot import p_value_scene
 from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.layout import SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
+from cassim.devices.nspire.ui.statistics_view import StatisticsView
 from cassim.devices.nspire.ui.template_icons import HEIGHT as ICON_H
 from cassim.devices.nspire.ui.template_icons import ICONS, Icon, Slot, Stroke
 from cassim.devices.nspire.ui.template_icons import WIDTH as ICON_W
@@ -367,6 +371,10 @@ class CalculatorView:
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
         self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
+        self.sheet_panes = ft.Row([], spacing=0, expand=True)
+        self.pvalue_pane = ft.Container(expand=True)
+        self.split_statistics_views: list[StatisticsView] = []
         self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
         body = ft.Column([self.history], expand=True, spacing=0)
         self.body = body
@@ -396,11 +404,11 @@ class CalculatorView:
         self._prepare_history(screen)
         if sheet is not None and screen.sheet is not None:
             self._calculator_shown = False
-            self.body.controls = [self.sheet_view.control]
-            self.sheet_view.refresh(sheet, *self.body_size())
-            self._follow = False
+            self._refresh_sheet(sheet)
             self._error(screen)
             self._menu(screen.menu)
+            return
+        if self._refresh_statistics(screen):
             return
         self.body.controls = [self.history]
         if screen.sorter is not None:  # the page sorter, in place of the page
@@ -452,6 +460,63 @@ class CalculatorView:
         self._follow = picked is not None and picked != self._held
         self._error(screen)
         self._menu(screen.menu)
+
+    def _refresh_statistics(self, screen: Screen) -> bool:
+        statistics = self.state.statistics
+        if statistics is None:
+            return False
+        self._calculator_shown = False
+        self.body.controls = [self.statistics_view.control]
+        self.statistics_view.refresh(statistics, *self.body_size())
+        self._follow = False
+        self._error(screen)
+        self._menu(screen.menu)
+        return True
+
+    def _refresh_sheet(self, sheet: Spreadsheet) -> None:
+        width, height = self.body_size()
+        if sheet.pvalue_plot is not None:
+            pane_width = max((width - 1) / 2, 1)
+            self.sheet_panes.controls = [self.sheet_view.control, self.pvalue_pane]
+            self.sheet_view.refresh(sheet, pane_width, height)
+            self.pvalue_pane.content = scene_canvas.canvas(
+                p_value_scene(sheet.pvalue_plot, pane_width, height),
+                {
+                    "ink": self.theme.screen_text,
+                    "axis": self.theme.sheet_axis,
+                    "curve1": self.theme.accent,
+                    "curve2": self.theme.selection,
+                },
+            )
+        elif sheet.split_statistics:
+            pane_width = max((width - 1) / 2, 1)
+            self.sheet_view.refresh(sheet, pane_width, height)
+            self.split_statistics_views = self.split_statistics_views[: len(sheet.split_statistics)]
+            while len(self.split_statistics_views) < len(sheet.split_statistics):
+                self.split_statistics_views.append(
+                    StatisticsView(
+                        self.theme, self._split_statistics_action, lambda: self.state.scale
+                    )
+                )
+            panes = ft.Column([], spacing=0, expand=True)
+            slot_height = height / len(sheet.split_statistics)
+            for view, statistics in zip(
+                self.split_statistics_views, sheet.split_statistics, strict=True
+            ):
+                view.refresh(statistics, pane_width, slot_height)
+                panes.controls.append(ft.Container(view.control, expand=True))
+            self.sheet_panes.controls = [self.sheet_view.control, panes]
+        else:
+            self.sheet_panes.controls = [self.sheet_view.control]
+            self.sheet_view.refresh(sheet, width, height)
+        self.body.controls = [self.sheet_panes]
+        self._follow = False
+
+    def _split_statistics_action(self, action: Action, arg: str) -> None:
+        if action == "context_menu" or (action == "open_menu" and arg == "menu"):
+            self.on_action("open_menu", "menu_statistics")
+        else:
+            self.on_action(action, arg)
 
     def _refresh_status(self, status: str, size: float) -> None:
         words = status.split()
@@ -572,8 +637,26 @@ class CalculatorView:
             if hit is not None:
                 self.on_action(*hit)
             return True
-        if self.state.sheet is not None and self.body.controls == [self.sheet_view.control]:
-            return self.sheet_view.click_at(x, y)
+        if self.state.sheet is not None and self.sheet_view.control in self.sheet_panes.controls:
+            width, _ = self.body_size()
+            split = self.state.sheet.pvalue_plot is not None or bool(
+                self.state.sheet.split_statistics
+            )
+            pane_width = width / 2 if split else width
+            if x <= pane_width:
+                return self.sheet_view.click_at(x, y)
+            if self.state.sheet.split_statistics:
+                count = len(self.state.sheet.split_statistics)
+                slot_height = self.body_size()[1] / count
+                index = min(int(y / slot_height), count - 1)
+                return self.split_statistics_views[index].click_at(
+                    x - pane_width, y - index * slot_height
+                )
+            return True
+        if self.state.statistics is not None and self.body.controls == [
+            self.statistics_view.control
+        ]:
+            return self.statistics_view.click_at(x, y)
         return self.history_click(x, y)
 
     # ---- pointer clicks on the history: sizes reported by Flet while the pointer is in use --
@@ -1243,12 +1326,29 @@ def selected_index(panel: Panel) -> int:
 
 
 type TextHandler = Callable[[ft.Event[ft.TextField]], None]
+type WizardFieldControl = ft.TextField | ft.Dropdown | ft.Checkbox
+
+
+def _wizard_value(box: WizardFieldControl) -> str:
+    if isinstance(box, ft.Checkbox):
+        return "1" if box.value else "0"
+    return str(box.value or "")
+
+
+def _set_wizard_value(box: WizardFieldControl, value: str, *, update: bool = False) -> None:
+    if isinstance(box, ft.Checkbox):
+        return
+    box.value = value
+    if update:
+        box.update()
 
 
 def field_box(
     field: Field, on_focus: TextHandler, on_submit: TextHandler, on_change: TextHandler | None
-) -> ft.TextField | ft.Dropdown:
+) -> WizardFieldControl:
     """One box of a command dialog: a drop-down for a choice, else a text box."""
+    if field.toggle:
+        return ft.Checkbox(label=field.label, value=field.default == "1")
     if field.choices:
         return ft.Dropdown(
             label=field.label,
@@ -1276,7 +1376,7 @@ def wizard_dialog(
     A live dialog (`wizard.calculate`, the Finance Solver) works out the box the cursor is in when
     Enter is pressed there or Calculate is clicked, and keeps the other values."""
     live = wizard.calculate
-    boxes: dict[str, ft.TextField | ft.Dropdown] = {}
+    boxes: dict[str, WizardFieldControl] = {}
     extra: dict[str, str] = {}  # values the dialog keeps that have no box (the field solved last)
     focused = [""]  # the text box the cursor is in, or was in last
 
@@ -1294,8 +1394,7 @@ def wizard_dialog(
             return None
 
         def copy(event: ft.Event[ft.TextField]) -> None:
-            boxes[target].value = event.control.value
-            boxes[target].update()
+            _set_wizard_value(boxes[target], event.control.value, update=True)
 
         return copy
 
@@ -1309,7 +1408,7 @@ def wizard_dialog(
     problems = ft.Text("", color="#ff8a80", size=12)
 
     def values() -> dict[str, str]:
-        return {**extra, **{name: str(box.value or "") for name, box in boxes.items()}}
+        return {**extra, **{name: _wizard_value(box) for name, box in boxes.items()}}
 
     def report(message: str) -> None:
         problems.value = message
@@ -1324,7 +1423,7 @@ def wizard_dialog(
             return
         extra.update({key: value for key, value in found.items() if key not in boxes})
         for key in boxes.keys() & found.keys():
-            boxes[key].value = found[key]
+            _set_wizard_value(boxes[key], found[key])
         report("")
         state.store_wizard(wizard, values())
         page.update()

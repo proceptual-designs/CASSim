@@ -18,6 +18,7 @@ from cassim.device.keys import Action, Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.spreadsheet import STAT_CALCULATIONS
+from cassim.devices.nspire.statistics import INTERVALS, TESTS, command_wizard
 from cassim.devices.nspire.syntax import COMMANDS, CONVERSIONS, FUNCTIONS
 
 NOT_YET = "Not in CASSim yet"
@@ -280,6 +281,11 @@ _DISTRIBUTIONS = (
     ("Poisson Cdf", "poissCdf", "K", (_LAMBDA, *_BOUNDS_FROM_0)),
 )
 
+_STAT_INFERENCE_WIZARDS = {
+    name.casefold(): command_wizard(title, name, fields)
+    for title, name, _, fields in (*INTERVALS, *TESTS)
+}
+
 WIZARDS: dict[str, Wizard] = {
     "derivative_at": Wizard(
         "Derivative at a Point",
@@ -365,6 +371,7 @@ WIZARDS: dict[str, Wizard] = {
         for title, name, _, fields in _DISTRIBUTIONS
     },
     **{command.casefold(): _regression(title, command) for title, command, _ in _REGRESSIONS},
+    **_STAT_INFERENCE_WIZARDS,
 }
 
 
@@ -606,34 +613,25 @@ MENU = MenuItem(
                 fn("Right", "right", "C"),
             ),
             DISTRIBUTIONS,
-            todo_sub(
+            sub(
                 "Confidence Intervals",
                 "6",
-                "z Interval…",
-                "t Interval…",
-                "2-Sample z Interval…",
-                "2-Sample t Interval…",
-                "1-Prop z Interval…",
-                "2-Prop z Interval…",
-                "Linear Reg t Intervals…",
-                "Multiple Reg Intervals…",
+                *(
+                    wiz(title, name.casefold(), key, COMMANDS.get(name, ""))
+                    for title, name, key, _ in INTERVALS
+                ),
+                todo("Multiple Reg Intervals…", "8"),
             ),
-            todo_sub(
+            sub(
                 "Stat Tests",
                 "7",
-                "z Test…",
-                "t Test…",
-                "2-Sample z Test…",
-                "2-Sample t Test…",
-                "1-Prop z Test…",
-                "2-Prop z Test…",
-                "χ² GOF…",
-                "χ² 2-way Test…",
-                "2-Sample F Test…",
-                "Linear Reg t Test…",
-                "Multiple Reg Tests…",
-                "ANOVA…",
-                "ANOVA 2-Way…",
+                *(
+                    wiz(title, name.casefold(), key, COMMANDS.get(name, ""))
+                    for title, name, key, _ in TESTS
+                ),
+                todo("Multiple Reg Tests…", "B"),
+                todo("ANOVA…", "C"),
+                todo("ANOVA 2-Way…", "D"),
             ),
         ),
         sub(
@@ -1162,8 +1160,16 @@ SHEET_MENU = MenuItem(
                 _sheet_formula("Mid", "mid", "6"),
                 _sheet_formula("Right", "right", "7"),
             ),
-            todo("Summary Plot", "8"),
-            todo("Quick Graph", "9"),
+            act("Summary Plot", "summary_plot", "8"),
+            act("Quick Graph", "quick_graph", "9"),
+            sub(
+                "Import/Export",
+                "A",
+                MenuItem("Import CSV…", "dialog", "sheet_import_csv"),
+                MenuItem("Export CSV…", "dialog", "sheet_export_csv"),
+                MenuItem("Import XLSX…", "dialog", "sheet_import_xlsx"),
+                MenuItem("Export XLSX…", "dialog", "sheet_export_xlsx"),
+            ),
         ),
         sub(
             "Statistics",
@@ -1177,31 +1183,19 @@ SHEET_MENU = MenuItem(
             ),
             # From a sheet these write their formula into the selected cell (run 4, S10)
             replace(DISTRIBUTIONS, key="2"),
-            todo_sub(
+            sub(
                 "Confidence Intervals",
                 "3",
-                "z Interval…",
-                "t Interval…",
-                "2-Sample z Interval…",
-                "2-Sample t Interval…",
-                "1-Prop z Interval…",
-                "2-Prop z Interval…",
-                "Linear Reg t Intervals…",
-                "Multiple Reg Intervals…",
+                *(act(f"{title}…", f"inference:{name}", key) for title, name, key, _ in INTERVALS),
+                todo("Multiple Reg Intervals…", "8"),
             ),
-            todo_sub(
+            sub(
                 "Stat Tests",
                 "4",
-                "z Test…",
-                "t Test…",
-                "2-Sample z Test…",
-                "2-Sample t Test…",
-                "1-Prop z Test…",
-                "2-Prop z Test…",
-                "χ² GOF…",
-                "χ² 2-way Test…",
-                "2-Sample F Test…",
-                "Linear Reg t Test…",
+                *(act(f"{title}…", f"inference:{name}", key) for title, name, key, _ in TESTS),
+                todo("Multiple Reg Tests…", "B"),
+                todo("ANOVA…", "C"),
+                todo("ANOVA 2-Way…", "D"),
             ),
         ),
         todo("Table", "5"),
@@ -1229,8 +1223,8 @@ SHEET_CELL = MenuItem(
             act("Unlink", "unlink", "2"),
         ),
         replace(_RESIZE, key="8"),
-        todo("Summary Plot", "9"),
-        todo("Quick Graph", "A"),
+        act("Summary Plot", "summary_plot", "9"),
+        act("Quick Graph", "quick_graph", "A"),
         todo("Color", "B"),
     ),
 )
@@ -1242,6 +1236,8 @@ SHEET_BLOCK = MenuItem(
         act("Delete Cells", "delete_cells", "5"),
         act("Sort", "sort", "6"),
         todo("Color", "7"),
+        act("Summary Plot", "summary_plot", "8"),
+        act("Quick Graph", "quick_graph", "9"),
     ),
 )
 SHEET_ROW = MenuItem(
@@ -1267,8 +1263,8 @@ SHEET_NAME = MenuItem(
             act("Unlink", "unlink", "2"),
         ),
         replace(_RESIZE, key="4"),
-        todo("Summary Plot", "5"),
-        todo("Quick Graph", "6"),
+        act("Summary Plot", "summary_plot", "5"),
+        act("Quick Graph", "quick_graph", "6"),
         todo("Color", "7"),
     ),
 )

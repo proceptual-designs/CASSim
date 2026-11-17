@@ -20,16 +20,19 @@ __all__ = ["CURSOR", "Field", "Wizard"]
 @dataclass(frozen=True)
 class Field:
     """One box of a dialog. `choices` makes it a drop-down of (value, label) pairs; `whole`
-    requires a whole number in that range."""
+    requires a whole number in that range; `toggle` makes a checkbox with values "0" and "1"."""
 
     name: str
     label: str
     default: str = ""
     choices: tuple[tuple[str, str], ...] = ()
     whole: tuple[int, int] | None = None
+    toggle: bool = False
 
     def problem(self, value: str) -> str | None:
         """Why `value` will not do, or None."""
+        if self.toggle and value not in ("0", "1"):
+            return f"{self.label}: choose whether to enable this option"
         if self.choices and value not in {choice for choice, _ in self.choices}:
             return f"{self.label}: choose one of the options"
         if self.whole is None:

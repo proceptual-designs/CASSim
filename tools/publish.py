@@ -34,6 +34,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -705,6 +706,8 @@ def write_app_archive(dist: Path, bundle: Bundle) -> None:
             pypi_wheel("flet", flet_version()),
             pypi_wheel("repath", REPATH_VERSION),
             pyodide_wheel(dist, "six"),
+            pypi_wheel("openpyxl", package_version("openpyxl")),
+            pypi_wheel("et_xmlfile", package_version("et_xmlfile")),
         ]
         unpack_wheels(dist, wheels, root / "__pypackages__", f"{home}/__pypackages__")
         with tarfile.open(dist / "app.tar.gz", "w:gz") as archive:
@@ -717,6 +720,9 @@ def write_app_archive(dist: Path, bundle: Bundle) -> None:
 # The offline e2e test fails on any other 404: if it names a new font, download it from
 # https://fonts.gstatic.com/s/<path> into that folder. All are Noto fonts, SIL OFL 1.1.
 FALLBACK_FONTS = ROOT / "tools" / "fallback_fonts"
+# The icon's font: Noto Sans Bold cut down to the glyphs the icon draws (C, A, S, I, M and β), so
+# icons look the same on every machine. Used at build time only; the licence is beside it.
+ICON_FONT = ROOT / "tools" / "icon_font" / "NotoSans-Bold-icon.ttf"
 
 
 def vendor_fallback_fonts(dist: Path) -> None:
@@ -742,10 +748,7 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
     from PIL import Image, ImageDraw, ImageFont
 
     def bold(px: float) -> FreeTypeFont | PILFont:
-        try:
-            return ImageFont.truetype("arialbd.ttf", int(px))
-        except OSError:
-            return ImageFont.load_default(int(px))
+        return ImageFont.truetype(ICON_FONT, int(px))
 
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -769,10 +772,10 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
         x += width + gap
     if beta:
         draw.text(
-            (x - gap + size * 0.11, mid - size * 0.10),
+            (x - gap + size * 0.115, mid - size * 0.09),
             "β",
             fill="#e8e8e8",
-            font=bold(size * 0.13),
+            font=bold(size * 0.18),
             anchor="mm",
         )
     return img

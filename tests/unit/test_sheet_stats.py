@@ -1,4 +1,4 @@
-# Requirements traced here: FR-SHEET-001, FR-STAT-001, FR-STAT-002
+# Requirements traced here: FR-SHEET-001, FR-STAT-001, FR-STAT-002, FR-STAT-004
 """Stat Calculations from a sheet (slice 3c): emulator check 5 E15 and check 6 run 4, S1 to S9
 (`docs/testing/emulator-sheet4-results.md`)."""
 
@@ -135,6 +135,25 @@ def test_a_failing_run_shows_err():
     _, sheet = sheet_with(a=[1, 2, 3], b=[1, 2])
     notices = actions.stat_calc(sheet, "LinRegMx", ["a[]", "b[]"], column=E)
     assert [n.title for n in notices] == ["Syntax Error in Column: f"]
+
+
+def test_inference_result_columns_follow_their_source_data():
+    session, sheet = sheet_with(c=[1, 2, 3, 4])
+    actions.stat_inference(sheet, "tInterval c[],1,.95", column=F)
+    found = results(sheet, F)
+    assert float(found["CLower"]) == pytest.approx(0.44573974)
+    assert float(found["CUpper"]) == pytest.approx(4.5542603)
+    assert sheet.column(G).formula == "tInterval c[],1,.95"
+
+    sheet.set_cell(C, 1, "2")
+    assert results(sheet, F)["x̄"] == "2.75"
+    assert session.eval("stat.n").text == "4."
+
+
+def test_inference_results_request_data_loss_before_overwriting():
+    _, sheet = sheet_with(a=[1])
+    with pytest.raises(DataLossError):
+        actions.stat_inference(sheet, "zTest_1Prop .5,1,2,0", column=A)
 
 
 def test_the_result_columns_must_fit():

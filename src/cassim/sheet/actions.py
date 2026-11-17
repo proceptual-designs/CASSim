@@ -309,3 +309,30 @@ def stat_calc(  # noqa: PLR0913 (the dialog's fields)
             if isinstance(cells[0], Str):
                 labels[(column, row)] = Constant(cells[0])
     return notices + sheet.put(labels, confirm=True)
+
+
+def stat_inference(
+    sheet: Sheet,
+    formula: str,
+    *,
+    column: int,
+    choose: dict[str, str] | None = None,
+    confirm: bool = False,
+) -> list[Notice]:
+    """Run a confidence interval or test into the selected two-column result area."""
+    target = column + 1
+    if not 0 <= column < COLUMNS - 1:
+        raise SheetError("Syntax Error", INVALID_INPUT)
+    choose = choose or {}
+    sheet.check_formula(target, formula, choose)
+    used = [c for c in (column, target) if sheet.last_row(c) or sheet.column(c).formula]
+    if used and not confirm:
+        raise DataLossError
+    notices = sheet.set_column_formula(target, f"={formula}", choose=choose)
+    results = sheet.variable("stat.results")
+    labels: dict[Key, Content | None] = {key: None for key in sheet.contents() if key[0] == column}
+    if isinstance(results, MatrixValue):
+        for row, cells in enumerate(results.rows, start=1):
+            if isinstance(cells[0], Str):
+                labels[(column, row)] = Constant(cells[0])
+    return notices + sheet.put(labels, confirm=True)
