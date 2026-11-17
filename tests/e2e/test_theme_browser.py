@@ -28,18 +28,18 @@ def test_saved_custom_theme_is_applied_after_reload(
     for key in ("F4", "7", "3"):  # Doc > Settings & Status > Handheld Setup
         app.page.keyboard.press(key)
         app.page.wait_for_timeout(300)
-    app.page.mouse.click(483, 478)  # Appearance
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    app.page.get_by_role("button", name="Appearance…").focus()
+    app.page.keyboard.press("Enter")
     app.page.wait_for_timeout(800)
     app.page.mouse.click(600, 150)  # Theme dropdown
     app.page.wait_for_timeout(500)
     app.page.mouse.click(450, 265)  # Light
     app.page.wait_for_timeout(800)
-    app.page.mouse.click(475, 255)  # Background
-    app.page.keyboard.press("Control+A")
-    app.page.wait_for_timeout(300)
-    app.page.keyboard.type("#e7e8e9", delay=80)
+    app.page.get_by_label("Background", exact=True).fill("#e7e8e9")
     app.page.wait_for_timeout(1000)
-    app.page.mouse.click(660, 614)  # Save appearance
+    app.page.get_by_role("button", name="Save", exact=True).focus()
+    app.page.keyboard.press("Enter")
     app.page.wait_for_timeout(1500)
     stored = app.page.evaluate("""() => new Promise((resolve, reject) => {
         const request = indexedDB.open('cassim');

@@ -17,6 +17,7 @@ pytestmark = pytest.mark.e2e
 def open_app(browser: Browser, site: tuple[Path, str]) -> AppPage:
     _, url = site
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
     expect(app.page.get_by_role("button", name="Hide pages Pages")).to_be_attached()
     return app
@@ -209,6 +210,7 @@ def test_pages_and_problems_render_fold_and_scroll(
         app.press("1")
         expect(page_button(page, f"2.{number}", "Calculator")).to_be_attached()
 
+    expect(button(page, "Hide pages Pages")).to_be_visible()
     first = page_button(page, "1.1", "Calculator")
     pages = first.locator("..")
     check_page_layout(page, first, pages)
@@ -217,14 +219,18 @@ def test_pages_and_problems_render_fold_and_scroll(
     page.mouse.move(page_box["x"] + 20, page_box["y"] + page_box["height"] - 10)
     page.mouse.wheel(0, 450)
     app.wait(lambda: pages.evaluate("(element) => element.scrollTop") > 0, "pages to scroll")
-    scrolled = first.bounding_box()
-    assert scrolled
-    assert scrolled["y"] < page_box["y"]
+    app.wait(
+        lambda: (scrolled := first.bounding_box()) is None or scrolled["y"] < page_box["y"],
+        "first page to scroll out of view",
+    )
     page.mouse.wheel(0, -450)
     app.wait(lambda: pages.evaluate("(element) => element.scrollTop") == 0, "pages to scroll back")
     button(page, "Collapse Problem 1").click()
     expect(page_button(page, "1.2", "Graphs")).not_to_be_attached()
-    button(page, "Collapse Problem 2").click()
+    expect(button(page, "Expand Problem 1")).to_be_attached()
+    second = button(page, "Collapse Problem 2")
+    second.scroll_into_view_if_needed()
+    second.click()
     expect(page_button(page, "2.2", "Calculator")).not_to_be_attached()
     button(page, "Expand Problem 1").click()
     expect(page_button(page, "1.7", "Python")).to_be_attached()
@@ -341,10 +347,10 @@ def test_long_variable_list_batches_and_scrolls(browser: Browser, site: tuple[Pa
     expect(button(page, "Show more (2)")).to_be_attached()
 
 
-def test_keypad_palette_switching_and_cycling_in_browser(
+def test_keypad_palette_switching_and_toggling_in_browser(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
-    """FR-DEV-007: on-screen key presses switch palettes and select the next symbol."""
+    """FR-DEV-007: on-screen key presses switch and toggle palettes and select a symbol."""
     app = open_app(browser, site)
     page = app.page
     button(page, "Keypad").click()
@@ -356,9 +362,12 @@ def test_keypad_palette_switching_and_cycling_in_browser(
     button(page, "π▸").click()
     expect(symbol).to_be_attached()
     button(page, "π▸").click()
-    enter = page.get_by_role("button", name=re.compile(r"enter$"))
-    enter.click()
     expect(symbol).not_to_be_attached()
+    button(page, "π▸").click()
+    expect(symbol).to_be_attached()
+    symbol.click()
+    expect(symbol).not_to_be_attached()
+    enter = page.get_by_role("button", name=re.compile(r"enter$"))
     enter.click()
     app.wait(lambda: bool(app.results), "selected symbol result", seconds=30)
     assert app.results[-1] == "ⅈ"
