@@ -71,6 +71,14 @@ def test_computer_column_order_and_widths_are_system_settings() -> None:
     assert saved.computer_keypad_width == 390
 
 
+def test_older_narrow_sidebar_is_clamped_and_column_controls_persist() -> None:
+    old = System.loads('{"start_mode":"computer","math_size":20,"computer_sidebar_width":230}')
+    assert old.computer_sidebar_width == 300
+    assert not old.computer_column_controls
+    old.computer_column_controls = True
+    assert System.loads(old.dumps()).computer_column_controls
+
+
 def test_invalid_computer_column_settings_use_safe_defaults() -> None:
     system = System.loads(
         '{"start_mode":"computer","math_size":20,'
@@ -78,7 +86,7 @@ def test_invalid_computer_column_settings_use_safe_defaults() -> None:
         '"computer_sidebar_width":9999,"computer_keypad_width":true}'
     )
     assert system.computer_column_order == ["sidebar", "workspace", "keypad"]
-    assert system.computer_sidebar_width == 230
+    assert system.computer_sidebar_width == 300
     assert system.computer_keypad_width == 320
 
 

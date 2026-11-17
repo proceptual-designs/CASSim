@@ -101,7 +101,7 @@ def test_the_computer_screen_fills_the_window_height() -> None:
 
 def test_computer_columns_keep_the_workspace_prominent_and_allow_scrolling() -> None:
     wide, wide_total = computer_columns(1280, 230, 320, keypad_visible=True)
-    assert wide["sidebar"] == 230
+    assert wide["sidebar"] == 300
     assert wide["keypad"] == 320
     assert wide["workspace"] > wide["sidebar"]
     assert wide_total == pytest.approx(1280 - 2 * 12)

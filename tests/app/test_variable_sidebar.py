@@ -246,6 +246,23 @@ def test_delete_controls_target_standalone_variables_and_group_headers_only() ->
     )
     assert isinstance(grouped.controls[0], ft.IconButton)
     assert grouped.controls[0].tooltip == "Delete stat variables"
+    first_grouped = next(
+        row
+        for row in sidebar.variable_list.controls
+        if isinstance(row, ft.Row)
+        and any(
+            isinstance(control, ft.Text) and (control.value or "").startswith("stat.")
+            for control in row.controls
+        )
+    )
+    marker = first_grouped.controls[0]
+    assert isinstance(marker, ft.Container)
+    delete_width = grouped.controls[0].width
+    assert delete_width is not None
+    assert marker.width == delete_width + grouped.spacing + 1
+    assert marker.alignment == ft.Alignment.CENTER_RIGHT
+    assert isinstance(marker.content, ft.Container)
+    assert marker.content.width == 1
 
 
 def test_folding_all_registered_page_types_across_problems() -> None:

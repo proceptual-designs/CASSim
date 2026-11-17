@@ -55,14 +55,20 @@ from cassim.devices.nspire.ui.layout import (
 )
 from cassim.devices.nspire.ui.sidebar import Sidebar
 from cassim.devices.nspire.ui.soft_keys import SENTINEL, TYPING_ACTIONS, keys_for
-from cassim.devices.nspire.ui.state import SORTER, AppState, Mode, System
+from cassim.devices.nspire.ui.state import (
+    COMPUTER_MAX_SIDEBAR,
+    COMPUTER_MIN_SIDEBAR,
+    SORTER,
+    AppState,
+    Mode,
+    System,
+)
 from cassim.devices.nspire.ui.theme_settings import theme_settings_dialog
 from cassim.devices.nspire.ui.views import (
     POINTER_TICK,
     SYMBOL_FONT,
     SYMBOL_FONT_FILE,
     CalculatorView,
-    chip,
     label_text,
     settings_dialog,
     system_settings_dialog,
@@ -218,14 +224,13 @@ class App:
             state,
             self.refresh,
             self.theme,
-            lambda: self.act("open_menu", "menu"),
-            self.delete_variables,
+            on_delete=self.delete_variables,
         )
-        self.toolbar = ft.Row(spacing=6, wrap=True)
+        self.toolbar = ft.Column(spacing=4)
         self.layout = ft.Container(expand=True)
         self.computer_panels: dict[str, ft.Container] = {}
         self.computer_row: ft.Row | None = None
-        self.dragged_column: str | None = None
+        self.dragged_boundary: tuple[str, str] | None = None
         # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
         # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
@@ -763,84 +768,125 @@ class App:
         theme, mode = self.theme, self.state.mode
         if mode is Mode.HANDHELD:
             return []  # the keypad has the Doc, Menu and CASSim keys
-        return [
-            ft.SegmentedButton(
-                segments=[
-                    ft.Segment(value=Mode.HANDHELD.value, label="Handheld"),
-                    ft.Segment(value=Mode.COMPUTER.value, label="Computer"),
-                ],
-                selected=[mode.value],
-                show_selected_icon=False,
-                style=ft.ButtonStyle(
-                    bgcolor={
-                        ft.ControlState.SELECTED: theme.accent,
-                        ft.ControlState.DEFAULT: theme.key,
-                    },
-                    color={
-                        ft.ControlState.SELECTED: theme.accent_text,
-                        ft.ControlState.DEFAULT: theme.key_text,
-                    },
-                    padding=ft.Padding.symmetric(horizontal=10, vertical=5),
-                ),
-                on_change=lambda e: self.set_mode(Mode(e.control.selected[0])),
+
+        def button(text: str, action: Callable[[], None], fill: str, colour: str) -> ft.Container:
+            return ft.Container(
+                label_text(text, size=13, color=colour, no_wrap=True),
+                expand=True,
+                height=36,
+                alignment=ft.Alignment.CENTER,
+                bgcolor=fill,
+                border_radius=6,
+                ink=True,
+                on_click=lambda _: action(),
+            )
+
+        mode_control = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=Mode.HANDHELD.value, label="Handheld"),
+                ft.Segment(value=Mode.COMPUTER.value, label="Computer"),
+            ],
+            selected=[mode.value],
+            show_selected_icon=False,
+            expand=True,
+            style=ft.ButtonStyle(
+                bgcolor={
+                    ft.ControlState.SELECTED: theme.accent,
+                    ft.ControlState.DEFAULT: theme.key,
+                },
+                color={
+                    ft.ControlState.SELECTED: theme.accent_text,
+                    ft.ControlState.DEFAULT: theme.key_text,
+                },
+                padding=ft.Padding.symmetric(horizontal=4, vertical=5),
+                text_style=ft.TextStyle(size=12),
             ),
-            *(
-                [chip("Keypad", self.toggle_keypad, theme, on=self.state.system.computer_keypad)]
-                if mode is Mode.COMPUTER
-                else []
+            on_change=lambda e: self.set_mode(Mode(e.control.selected[0])),
+        )
+        keypad = button(
+            "Keypad",
+            self.toggle_keypad,
+            theme.accent if self.state.system.computer_keypad else theme.key,
+            theme.accent_text if self.state.system.computer_keypad else theme.key_text,
+        )
+        keypad.expand = False
+        keypad.width = 76
+        cassim = button(
+            "CASSim", lambda: self.act("open_menu", "cassim"), theme.accent, theme.accent_text
+        )
+        cassim.tooltip = (
+            "CASSim menu: attention required"
+            if self.shell.offers.needs_attention
+            else "CASSim menu"
+        )
+        if self.shell.offers.needs_attention:
+            cassim.content = ft.Row(
+                [
+                    label_text("CASSim", size=13, color=theme.accent_text),
+                    ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935"),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=4,
+            )
+        doc_fill, doc_text = theme.key_colours("nav")
+        undo = ft.IconButton(
+            icon=ft.Icons.UNDO,
+            tooltip="Undo (Ctrl+Z)",
+            on_click=lambda _: self.undo_action(),
+            icon_color=theme.key_text,
+            bgcolor=theme.key,
+            icon_size=15,
+            width=42,
+            height=36,
+            padding=4,
+        )
+        redo = ft.IconButton(
+            icon=ft.Icons.REDO,
+            tooltip="Redo (Ctrl+Y)",
+            on_click=lambda _: self.redo_action(),
+            icon_color=theme.key_text,
+            bgcolor=theme.key,
+            icon_size=15,
+            width=42,
+            height=36,
+            padding=4,
+        )
+        return [
+            ft.Row([mode_control, keypad], spacing=4),
+            ft.Row(
+                [
+                    cassim,
+                    button("Doc", lambda: self.act("open_menu", "doc"), doc_fill, doc_text),
+                    button("Settings", self.open_settings, theme.key, theme.key_text),
+                ],
+                spacing=4,
             ),
             ft.Row(
                 [
-                    ft.IconButton(
-                        icon=ft.Icons.UNDO,
-                        tooltip="Undo (Ctrl+Z)",
-                        on_click=lambda _: self.undo_action(),
-                        icon_color=theme.key_text,
-                        bgcolor=theme.key,
-                        icon_size=15,
-                        padding=4,
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.REDO,
-                        tooltip="Redo (Ctrl+Y)",
-                        on_click=lambda _: self.redo_action(),
-                        icon_color=theme.key_text,
-                        bgcolor=theme.key,
-                        icon_size=15,
-                        padding=4,
+                    undo,
+                    redo,
+                    button(
+                        "Menu",
+                        lambda: self.act("open_menu", "menu"),
+                        theme.accent,
+                        theme.accent_text,
                     ),
                 ],
                 spacing=4,
-                tight=True,
             ),
-            chip("+ page", lambda: self.act("add_page"), theme),
-            chip("+ problem", lambda: self.act("add_problem"), theme),
-            chip("delete page", lambda: self.act("delete_page"), theme),
-            ft.Container(
-                ft.Row(
-                    [
-                        label_text("CASSim", color=theme.key_text, size=13),
-                        *(
-                            [ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935")]
-                            if self.shell.offers.needs_attention
-                            else []
-                        ),
-                    ],
-                    spacing=4,
-                    tight=True,
-                ),
-                bgcolor=theme.key,
-                padding=ft.Padding.symmetric(horizontal=10, vertical=5),
-                border_radius=6,
-                ink=True,
-                tooltip="CASSim menu: attention required"
-                if self.shell.offers.needs_attention
-                else "CASSim menu",
-                on_click=lambda _: self.act("open_menu", "cassim"),
+            ft.Row(
+                [
+                    button(
+                        "Page manager",
+                        lambda: self.act("dialog", SORTER),
+                        theme.key,
+                        theme.key_text,
+                    ),
+                    button("+ Page", lambda: self.act("add_page"), theme.key, theme.key_text),
+                    button("+ Problem", lambda: self.act("add_problem"), theme.key, theme.key_text),
+                ],
+                spacing=4,
             ),
-            chip("Doc", lambda: self.act("open_menu", "doc"), theme),
-            chip("Sorter", lambda: self.act("dialog", SORTER), theme),
-            chip("settings", self.open_settings, theme),
         ]
 
     def delete_variables(self, variables: tuple[VariableInfo, ...]) -> None:
@@ -1388,51 +1434,51 @@ class App:
         self.layout.content = self.computer_row
 
     def _computer_panel(self, name: str, width: float, height: float) -> ft.Container:
-        title = COMPUTER_PANEL_NAMES[name]
-        move_handle = ft.Draggable(
-            ft.Container(
-                ft.Icon(ft.Icons.DRAG_INDICATOR, size=17, color=self.theme.key_label),
-                tooltip=f"Drag to move {title.lower()}",
-                padding=ft.Padding.symmetric(horizontal=2),
-            ),
-            group="computer-columns",
-            on_drag_start=lambda _, column=name: setattr(self, "dragged_column", column),
-        )
-        controls: list[ft.Control] = [
-            move_handle,
-            label_text(title, size=12, color=self.theme.panel_text),
-        ]
-        controls.extend(
-            [
-                ft.IconButton(
-                    icon=ft.Icons.ARROW_LEFT,
-                    tooltip=f"Move {title.lower()} left",
-                    on_click=lambda _, column=name: self._move_column(column, -1),
-                    icon_color=self.theme.key_text,
-                    icon_size=12,
-                    width=20,
-                    height=20,
-                    padding=2,
-                ),
-                ft.IconButton(
-                    icon=ft.Icons.ARROW_RIGHT,
-                    tooltip=f"Move {title.lower()} right",
-                    on_click=lambda _, column=name: self._move_column(column, 1),
-                    icon_color=self.theme.key_text,
-                    icon_size=12,
-                    width=20,
-                    height=20,
-                    padding=2,
-                ),
-            ]
-        )
-        header = ft.Row(controls, spacing=3, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        controls: list[ft.Control] = []
+        if self.state.system.computer_column_controls:
+            title = COMPUTER_PANEL_NAMES[name]
+            controls.append(
+                ft.Row(
+                    [
+                        label_text(title, size=12, color=self.theme.panel_text, expand=True),
+                        ft.IconButton(
+                            icon=ft.Semantics(
+                                label=f"Move {title.lower()} left",
+                                content=ft.Icon(ft.Icons.ARROW_LEFT),
+                            ),
+                            tooltip=f"Move {title.lower()} left",
+                            on_click=lambda _, column=name: self._move_column(column, -1),
+                            icon_color=self.theme.key_text,
+                            icon_size=12,
+                            width=24,
+                            height=24,
+                            padding=2,
+                        ),
+                        ft.IconButton(
+                            icon=ft.Semantics(
+                                label=f"Move {title.lower()} right",
+                                content=ft.Icon(ft.Icons.ARROW_RIGHT),
+                            ),
+                            tooltip=f"Move {title.lower()} right",
+                            on_click=lambda _, column=name: self._move_column(column, 1),
+                            icon_color=self.theme.key_text,
+                            icon_size=12,
+                            width=24,
+                            height=24,
+                            padding=2,
+                        ),
+                    ],
+                    spacing=3,
+                )
+            )
         if name == "sidebar":
             content: ft.Control = ft.Column(
                 [self.toolbar, self.sidebar.control], spacing=6, expand=True
             )
         elif name == "workspace":
-            self.view.control.height = max(height - 34, 300)
+            self.view.control.height = max(
+                height - (38 if self.state.system.computer_column_controls else 8), 300
+            )
             content = self.view.control
         else:
             content = ft.Column(
@@ -1440,8 +1486,9 @@ class App:
                 scroll=ft.ScrollMode.AUTO,
                 expand=True,
             )
+        controls.append(content)
         return ft.Container(
-            ft.Column([header, content], spacing=6, expand=True),
+            ft.Column(controls, spacing=6, expand=True),
             width=width,
             height=height,
             padding=4,
@@ -1455,14 +1502,21 @@ class App:
             resize(delta)
             self.shell.write(SYSTEM_KEY, self.state.system.dumps())
 
-        grip = ft.GestureDetector(
+        divider = ft.GestureDetector(
             ft.Container(
-                width=4,
-                height=34,
-                border_radius=2,
-                bgcolor=self.theme.key_label,
+                ft.Container(
+                    width=2,
+                    height=max(
+                        height - 28 - (48 if self.state.system.computer_column_controls else 0), 1
+                    ),
+                    bgcolor=self.theme.key_label,
+                ),
+                expand=True,
+                alignment=ft.Alignment.CENTER,
+                bgcolor=ft.Colors.TRANSPARENT,
                 tooltip="Drag to resize adjacent columns",
             ),
+            expand=True,
             mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
             drag_interval=24,
             on_horizontal_drag_update=lambda event: (
@@ -1472,35 +1526,54 @@ class App:
                 SYSTEM_KEY, self.state.system.dumps()
             ),
         )
-        return ft.Container(
-            ft.Row(
+        controls: list[ft.Control] = [
+            ft.Draggable(
+                ft.Container(
+                    ft.Icon(ft.Icons.DRAG_INDICATOR, size=16, color=self.theme.key_label),
+                    width=COMPUTER_SPLITTER,
+                    height=28,
+                    alignment=ft.Alignment.CENTER,
+                    tooltip="Drag left or right to move columns",
+                ),
+                group="computer-columns",
+                on_drag_start=lambda _: setattr(self, "dragged_boundary", (first, second)),
+            ),
+        ]
+        if self.state.system.computer_column_controls:
+            controls.extend(
                 [
                     ft.IconButton(
-                        icon=ft.Icons.ARROW_LEFT,
+                        icon=ft.Semantics(
+                            label="Narrow the column on the left",
+                            content=ft.Icon(ft.Icons.ARROW_LEFT),
+                        ),
                         tooltip="Narrow the column on the left",
                         on_click=lambda _: step(-16),
                         icon_color=self.theme.key_text,
                         icon_size=10,
                         width=16,
-                        height=16,
+                        height=24,
                         padding=0,
                     ),
-                    grip,
                     ft.IconButton(
-                        icon=ft.Icons.ARROW_RIGHT,
+                        icon=ft.Semantics(
+                            label="Widen the column on the left",
+                            content=ft.Icon(ft.Icons.ARROW_RIGHT),
+                        ),
                         tooltip="Widen the column on the left",
                         on_click=lambda _: step(16),
                         icon_color=self.theme.key_text,
                         icon_size=10,
                         width=16,
-                        height=16,
+                        height=24,
                         padding=0,
                     ),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=1,
-                tight=True,
+                ]
+            )
+        controls.append(divider)
+        return ft.Container(
+            ft.Column(
+                controls, spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
             width=COMPUTER_SPLITTER,
             height=height,
@@ -1523,7 +1596,9 @@ class App:
         elif first == "keypad" and second == "sidebar":
             system.computer_sidebar_width -= delta / 2
             system.computer_keypad_width += delta / 2
-        system.computer_sidebar_width = max(160.0, min(420.0, system.computer_sidebar_width))
+        system.computer_sidebar_width = max(
+            COMPUTER_MIN_SIDEBAR, min(COMPUTER_MAX_SIDEBAR, system.computer_sidebar_width)
+        )
         system.computer_keypad_width = max(240.0, min(500.0, system.computer_keypad_width))
         self._size_computer_panels()
 
@@ -1543,17 +1618,23 @@ class App:
 
     def _move_column(self, name: str, step: int) -> None:
         order = self.state.system.computer_column_order
-        index = order.index(name)
-        target = max(0, min(len(order) - 1, index + step))
-        order[index], order[target] = order[target], order[index]
+        visible = [
+            column for column in order if column != "keypad" or self.state.system.computer_keypad
+        ]
+        index = visible.index(name)
+        target = max(0, min(len(visible) - 1, index + step))
+        first, second = order.index(name), order.index(visible[target])
+        order[first], order[second] = order[second], order[first]
         self.on_system_change()
 
     def _drop_column(self, target: str) -> None:
-        source = self.dragged_column
-        self.dragged_column = None
-        if source is None or source == target:
+        boundary = self.dragged_boundary
+        self.dragged_boundary = None
+        if boundary is None:
             return
         order = self.state.system.computer_column_order
+        left, right = boundary
+        source = right if order.index(target) <= order.index(left) else left
         first, second = order.index(source), order.index(target)
         order[first], order[second] = order[second], order[first]
         self.on_system_change()

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cassim.devices.nspire.ui.state import Mode
+from cassim.devices.nspire.ui.state import COMPUTER_MAX_SIDEBAR, COMPUTER_MIN_SIDEBAR, Mode
 
 NARROW = 600  # px: a short side below this starts a first visit in Handheld (decision 0013 item 3)
 MARGIN = 12  # px kept clear round the scaled calculator
@@ -42,12 +42,10 @@ MIN_SHARE, MAX_SHARE = 0.15, 0.8  # the splitter's range: the keypad's share of 
 MIN_ZOOM, MAX_ZOOM = 0.5, 2.0
 SPLITTER = 10  # px: the draggable bar between the screen and the keypad
 MIN_PART_SCALE = 0.2
-COMPUTER_MIN_SIDEBAR = 160
-COMPUTER_MAX_SIDEBAR = 420
 COMPUTER_MIN_WORKSPACE = 320
 COMPUTER_MIN_KEYPAD = 240
 COMPUTER_MAX_KEYPAD = 500
-COMPUTER_SPLITTER = 48
+COMPUTER_SPLITTER = 24
 
 
 PHONE_MARGIN = 4  # px round the calculator on a phone, where every pixel counts

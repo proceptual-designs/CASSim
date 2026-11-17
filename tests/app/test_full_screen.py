@@ -219,7 +219,9 @@ def test_cassim_key_red_dot_tracks_browser_attention() -> None:
     app.state.mode = Mode.COMPUTER
     toolbar_button = next(
         control
-        for control in app.toolbar_controls()
+        for row in app.toolbar_controls()
+        if isinstance(row, ft.Row)
+        for control in row.controls
         if control.tooltip == "CASSim menu: attention required"
     )
     assert isinstance(toolbar_button, ft.Container)

@@ -14,6 +14,7 @@ from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.ui.app import App
 from cassim.devices.nspire.ui.state import AppState, Mode
+from cassim.devices.nspire.ui.views import system_settings_dialog
 
 
 class FakePage(SimpleNamespace):
@@ -67,7 +68,7 @@ def test_computer_layout_defaults_to_sidebar_workspace_and_optional_keypad() -> 
     assert list(app.computer_panels) == ["sidebar", "workspace"]
     sidebar_content = app.computer_panels["sidebar"].content
     assert isinstance(sidebar_content, ft.Column)
-    content = sidebar_content.controls[1]
+    content = sidebar_content.controls[0]
     assert isinstance(content, ft.Column)
     assert content.controls[0] is app.toolbar
 
@@ -82,8 +83,8 @@ def test_computer_columns_can_be_resized_and_swapped() -> None:
     app, _ = computer_app()
     app.toggle_keypad()
     app._resize_boundary("sidebar", "workspace", 40)
-    assert app.state.system.computer_sidebar_width == 270
-    assert app.computer_panels["sidebar"].width == 270
+    assert app.state.system.computer_sidebar_width == 340
+    assert app.computer_panels["sidebar"].width == 340
 
     app._move_column("keypad", -1)
     assert app.state.system.computer_column_order == ["sidebar", "keypad", "workspace"]
@@ -113,10 +114,111 @@ def test_computer_toolbar_removes_page_arrows_and_keeps_undo_redo() -> None:
     assert "page ▶" not in labels
 
 
+def test_computer_toolbar_groups_actions_and_uses_keypad_theme() -> None:
+    app, _ = computer_app()
+    rows = app.toolbar_controls()
+    assert len(rows) == 4
+    assert all(isinstance(row, ft.Row) for row in rows)
+    labels = [
+        [
+            control.content.value
+            for control in row.controls
+            if isinstance(control, ft.Container) and isinstance(control.content, ft.Text)
+        ]
+        for row in rows
+        if isinstance(row, ft.Row)
+    ]
+    assert labels == [
+        ["Keypad"],
+        ["CASSim", "Doc", "Settings"],
+        ["Menu"],
+        ["Page manager", "+ Page", "+ Problem"],
+    ]
+    assert text_chip(rows, "CASSim").bgcolor == app.theme.accent
+    assert text_chip(rows, "Doc").bgcolor == app.theme.key_colours("nav")[0]
+    assert text_chip(rows, "Settings").bgcolor == app.theme.key
+
+
+def test_column_grips_and_optional_keyboard_controls() -> None:
+    app, _ = computer_app()
+    assert app.computer_row is not None
+    controls = descendants(app.computer_row)
+    tips = {control.tooltip for control in controls if isinstance(control.tooltip, str)}
+    assert "Drag left or right to move columns" in tips
+    assert len([control for control in controls if isinstance(control, ft.Draggable)]) == 1
+    assert "Move calculation left" not in tips
+    assert "Narrow the column on the left" not in tips
+
+    app.state.system.computer_column_controls = True
+    app.arrange()
+    assert app.computer_row is not None
+    tips = {
+        control.tooltip
+        for control in descendants(app.computer_row)
+        if isinstance(control.tooltip, str)
+    }
+    assert "Move calculation left" in tips
+    assert "Narrow the column on the left" in tips
+
+    app._move_column("workspace", -1)
+    assert list(app.computer_panels) == ["workspace", "sidebar"]
+    app.toggle_keypad()
+    assert app.computer_row is not None
+    controls = descendants(app.computer_row)
+    assert len([control for control in controls if isinstance(control, ft.Draggable)]) == 2
+
+
+def test_single_grips_swap_columns_in_either_direction() -> None:
+    app, _ = computer_app()
+    app.toggle_keypad()
+    app.dragged_boundary = ("sidebar", "workspace")
+    app._drop_column("keypad")
+    assert list(app.computer_panels) == ["keypad", "workspace", "sidebar"]
+    app.dragged_boundary = ("keypad", "workspace")
+    app._drop_column("keypad")
+    assert list(app.computer_panels) == ["workspace", "keypad", "sidebar"]
+    app.dragged_boundary = ("keypad", "sidebar")
+    app._drop_column("sidebar")
+    assert list(app.computer_panels) == ["workspace", "sidebar", "keypad"]
+
+
+def test_system_settings_enables_column_controls() -> None:
+    class DialogPage:
+        dialog: ft.AlertDialog
+
+        def show_dialog(self, dialog: ft.AlertDialog) -> None:
+            self.dialog = dialog
+
+        def pop_dialog(self) -> None:
+            pass
+
+    page = DialogPage()
+    state = AppState()
+    changed: list[bool] = []
+    system_settings_dialog(cast("ft.Page", page), state, lambda: changed.append(True))
+    content = page.dialog.content
+    assert isinstance(content, ft.Column)
+    checkbox = next(control for control in content.controls if isinstance(control, ft.Checkbox))
+    assert not checkbox.value
+    checkbox.value = True
+    ok = page.dialog.actions[-1]
+    assert isinstance(ok, ft.TextButton)
+    assert ok.on_click is not None
+    handler = cast("Callable[[], object]", ok.on_click)
+    handler()
+    assert state.system.computer_column_controls
+    assert changed == [True]
+
+
 def test_computer_mode_and_keypad_controls_have_toggle_states() -> None:
     app, _ = computer_app()
     controls = app.toolbar_controls()
-    mode_toggle = next(control for control in controls if isinstance(control, ft.SegmentedButton))
+    mode_toggle = next(
+        control
+        for root in controls
+        for control in descendants(root)
+        if isinstance(control, ft.SegmentedButton)
+    )
     assert [segment.value for segment in mode_toggle.segments] == ["handheld", "computer"]
     assert mode_toggle.selected == ["computer"]
     assert not mode_toggle.show_selected_icon
@@ -130,7 +232,10 @@ def test_computer_mode_and_keypad_controls_have_toggle_states() -> None:
 def test_selecting_handheld_on_mode_toggle_switches_view() -> None:
     app, _ = computer_app()
     toggle = next(
-        control for control in app.toolbar_controls() if isinstance(control, ft.SegmentedButton)
+        control
+        for root in app.toolbar_controls()
+        for control in descendants(root)
+        if isinstance(control, ft.SegmentedButton)
     )
     toggle.selected = ["handheld"]
     assert toggle.on_change is not None

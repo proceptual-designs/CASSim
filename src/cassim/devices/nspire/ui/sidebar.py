@@ -11,6 +11,7 @@ from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import chip, icon_chip, label_text
 
 LIST_BATCH = 50
+GROUP_INDENT = 16
 
 
 class Sidebar:
@@ -21,13 +22,11 @@ class Sidebar:
         state: AppState,
         on_change: Callable[[], None],
         theme: Theme = DARK,
-        on_menu: Callable[[], None] | None = None,
         on_delete: Callable[[tuple[VariableInfo, ...]], None] | None = None,
     ) -> None:
         self.state = state
         self.on_change = on_change
         self.theme = theme
-        self.on_menu = on_menu  # the large Menu button above the page list
         self.on_delete = on_delete
         self.control = ft.Column(spacing=2, expand=True)
         self.page_list = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO)
@@ -47,21 +46,7 @@ class Sidebar:
             self._expanded.clear()
             self._collapsed_groups.clear()
             self._collapsed_problems.clear()
-        theme = self.theme
         rows: list[ft.Control] = []
-        if self.on_menu is not None:
-            menu = self.on_menu
-            rows.append(
-                ft.Container(
-                    label_text("Menu", size=16, color=theme.accent_text),
-                    height=48,
-                    alignment=ft.Alignment.CENTER,
-                    bgcolor=theme.accent,
-                    border_radius=8,
-                    ink=True,
-                    on_click=lambda _: menu(),
-                )
-            )
         rows.append(self._heading("Pages", self.pages_visible, self._toggle_pages))
         self._pages()
         rows.append(self.page_list)
@@ -167,7 +152,12 @@ class Sidebar:
                     first = controls[0]
                     if isinstance(first, ft.Row):
                         first.controls.insert(
-                            0, ft.Container(width=1, height=16, bgcolor=theme.key_label)
+                            0,
+                            ft.Container(
+                                ft.Container(width=1, height=16, bgcolor=theme.key_label),
+                                width=GROUP_INDENT + 1,
+                                alignment=ft.Alignment.CENTER_RIGHT,
+                            ),
                         )
                         first.spacing = 8
                 variable_rows.extend(controls)
@@ -279,7 +269,7 @@ class Sidebar:
             on_click=lambda _: action(),
             icon_color=self.theme.key_text,
             icon_size=12,
-            width=20,
+            width=14,
             height=20,
             padding=0,
         )

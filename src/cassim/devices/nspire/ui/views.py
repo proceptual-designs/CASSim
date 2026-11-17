@@ -1199,12 +1199,17 @@ def system_settings_dialog(
         width=240,
         visible=bool(layouts),
     )
+    column_controls = ft.Checkbox(
+        label="Show keyboard-accessible column controls",
+        value=system.computer_column_controls,
+    )
 
     def apply() -> None:
         system.start_mode = Mode(start.value or system.start_mode)
         system.letters = letters.value or system.letters
         system.math_size = MATH_SIZES.get(size.value or "", system.math_size)
         system.zoom = round((zoom.value or 100) / 100, 2)
+        system.computer_column_controls = bool(column_controls.value)
         page.pop_dialog()
         on_change()
 
@@ -1217,6 +1222,7 @@ def system_settings_dialog(
                     size,
                     zoom_row,
                     letters,
+                    column_controls,
                     ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
                     if on_appearance is not None
                     else ft.Container(),
