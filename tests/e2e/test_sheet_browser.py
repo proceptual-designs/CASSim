@@ -121,3 +121,96 @@ def test_clicking_a_cell_in_a_formula(browser: Browser, site: tuple[Path, str]) 
     app.press("Up")
     app.wait(lambda: "CASSIM: SHEET B1 3" in app.logs, "B1 3", seconds=20)
     app.page.close()
+
+
+def test_right_click_context_menus(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    app.page.evaluate("""() => {
+      window.contextResults = [];
+      window.addEventListener("contextmenu", e => {
+        setTimeout(() => window.contextResults.push({
+          prevented: e.defaultPrevented, trusted: e.isTrusted
+        }), 0);
+      }, true);
+    }""")
+
+    def right_click(x: int, y: int, *, ctrl: bool = False) -> bool:
+        before = app.page.evaluate("window.contextResults.length")
+        if ctrl:
+            app.page.keyboard.down("Control")
+        app.page.mouse.click(x, y, button="right")
+        if ctrl:
+            app.page.keyboard.up("Control")
+        app.page.wait_for_function("n => window.contextResults.length > n", arg=before)
+        result = app.page.evaluate("n => window.contextResults[n]", before)
+        assert result["trusted"]
+        return result["prevented"]
+
+    assert not right_click(200, 75)  # the grid's top-left corner has no cell
+    assert not right_click(350, 112, ctrl=True)
+    before = app.page.evaluate("window.contextResults.length")
+    app.page.keyboard.down("Control")
+    app.page.mouse.down(button="right")
+    app.page.keyboard.up("Control")
+    app.page.mouse.up(button="right")
+    app.page.wait_for_function("n => window.contextResults.length > n", arg=before)
+    assert not app.page.evaluate("n => window.contextResults[n].prevented", before)
+    enter(app, "7")  # Ctrl+right-click neither selected C1 nor opened its menu
+    app.press("Up")
+    sheet_line(app, "A1 7")
+    assert right_click(350, 112)
+    sheet_line(app, "C1")
+    app.press("4")  # Insert Cell from the CASSim menu, not a digit in C1
+    enter(app, "9")
+    app.press("Up")
+    sheet_line(app, "C1 9")
+
+    before = len(app.logs)
+    app.page.keyboard.press("Alt+ArrowLeft")
+    app.wait(lambda: any("CASSIM: PAGE 1.1 " in s for s in app.logs[before:]), "calculator page")
+    app.page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('flutter-view')).cursor !== 'context-menu'"
+    )
+    assert not right_click(350, 112)
+    before = len(app.logs)
+    app.page.keyboard.press("Alt+ArrowRight")
+    app.wait(lambda: any("CASSIM: PAGE 1.2 " in s for s in app.logs[before:]), "sheet page")
+    app.page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('flutter-view')).cursor === 'context-menu'"
+    )
+    assert right_click(350, 112)
+    app.press("Escape")
+    app.page.set_viewport_size({"width": 1200, "height": 760})
+    app.page.wait_for_timeout(500)
+    assert not right_click(350, 112, ctrl=True)
+    assert right_click(350, 112)
+    app.page.close()
+
+
+def test_long_press_still_opens_the_cell_menu(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    context = browser.new_context(viewport={"width": 1100, "height": 700}, has_touch=True)
+    app = AppPage(context.new_page(), url)
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    session = context.new_cdp_session(app.page)
+    session.send(
+        "Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": 350, "y": 112}]}
+    )
+    app.page.wait_for_timeout(800)
+    session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    sheet_line(app, "C1")
+    app.page.mouse.move(230, 167)
+    app.page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('flutter-view')).cursor === 'pointer'"
+    )
+    app.page.mouse.click(230, 167)  # Insert Cell from the long-press menu
+    enter(app, "9")
+    app.press("Up")
+    sheet_line(app, "C1 9")
+    context.close()

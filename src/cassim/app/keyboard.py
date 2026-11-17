@@ -21,6 +21,7 @@ _NAMED = {
     "Home": "Home",
     "Escape": "Escape",
     "Caps Lock": "CapsLock",
+    "F1": "F1",
     "F2": "F2",
     "F4": "F4",
     "F10": "F10",
@@ -79,7 +80,8 @@ def key_name(
             base = _SHIFTED[base]
         if not (command or alt):
             return base
-        return ("ctrl+" if command else "") + ("alt+" if alt else "") + base
+        shifted_letter = "shift+" if alt and shift and base.isalpha() else ""
+        return ("ctrl+" if command else "") + ("alt+" if alt else "") + shifted_letter + base
     if base not in _NAMED.values():
         return None  # bare modifiers, other F-keys...
     return (

@@ -8,6 +8,7 @@ from typing import cast
 import flet as ft
 import flet.canvas as cv
 
+from cassim.app import about
 from cassim.app.theme import DARK, Theme, luminance
 from cassim.device.keys import Key
 from cassim.devices.nspire.ui.layout import KEY_GAP, KEY_H, key_span
@@ -107,7 +108,11 @@ class Keypad:
         labels.append(
             ft.Row(
                 [
-                    label_text("CASSim", size=self.state.kpx(11), color=self.theme.accent_text),
+                    label_text(
+                        about.product_name(),
+                        size=self.state.kpx(11),
+                        color=self.theme.title_text,
+                    ),
                     *(
                         [ft.Icon(ft.Icons.CIRCLE, size=self.state.kpx(7), color="#e53935")]
                         if self.needs_attention
@@ -124,7 +129,7 @@ class Keypad:
             width=self.state.kpx(key_span(cell.width)),
             height=self.state.kpx(key_span(cell.height, KEY_H)),
             alignment=ft.Alignment.CENTER,
-            bgcolor=self.theme.accent,
+            bgcolor=self.theme.title_bar,
             border_radius=self.state.kpx(7),
             ink=True,
             tooltip="CASSim menu: attention required" if self.needs_attention else "CASSim menu",
