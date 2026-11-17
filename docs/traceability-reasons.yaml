@@ -7,8 +7,6 @@ FID-7: "applies to the second device profile (M8); the Nspire corpus is the only
 FR-CAT-003: "Tier 3 is tracked in docs/command_matrix.md; no test names the tier"
 FR-DOC-005: "not built yet (stub pages, Tablet mode, themes file, programs, Python or exam mode); see PLAN.md"
 FR-SHEET-003: "not built (M3, Lists & Spreadsheet and Data & Statistics pages)"
-FR-STAT-005: "not built (M3, Lists & Spreadsheet and Data & Statistics pages)"
-FR-DOC-009: "not built (M3, split pages; decision 0031)"
 FR-NOTE-001: "not built (M4, Notes)"
 FR-GRAPH-001: "not built (M4, Graphs)"
 FR-GRAPH-002: "not built (M4, Graphs)"
