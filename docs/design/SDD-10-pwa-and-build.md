@@ -20,7 +20,7 @@ A folder of static files that any free host can serve at the root (the default, 
 | `write_app_archive` | Replaces Flet's `app.tar.gz` with one holding `main.py`, `cassim` and, under `__pypackages__`, Flet, repath and six, compiled to bytecode. | No micropip and no compiling at start-up (0027). |
 | `vendor_fallback_fonts` | Copies `tools/fallback_fonts/` into `assets/fonts/`. | Flutter fetches Noto fallback fonts for glyphs Roboto lacks; they are committed so the build needs no Google request. |
 | `write_engine_zip` | Zips `cassim` without the UI, plus SymPy and mpmath, compiled to bytecode, as `cassim.zip`. | The engine worker boots its own Pyodide and unpacks it, with no `loadPackage` (SDD-02, 0027). |
-| `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork) and writes `manifest.webmanifest`. | FR-PWA-001. |
+| `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork, text set in a Noto Sans Bold subset kept in `tools/icon_font/` with its OFL licence) and writes `manifest.webmanifest`. | FR-PWA-001. |
 | `add_offline_cache` | Writes `version.json`, `precache.json` and a service worker with the SHA-256 of each offline asset. | FR-PWA-002. |
 
 Wheels are downloaded once into `%TEMP%/cassim_wheels`. Bytecode is written only when the build's Python has Pyodide's minor version (otherwise source ships and the browser compiles it). The build prints the file count and size; `python -m tools.loadtime [--build]` times start-up (0027). With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs), and offline readiness is not offered.
