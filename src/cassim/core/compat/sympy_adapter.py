@@ -1,5 +1,6 @@
 """The ONLY module allowed to touch SymPy internals; TI-compat fixes live here."""
 
+import ast as python_ast
 import math
 import operator
 import re
@@ -7,11 +8,12 @@ from collections.abc import Callable, Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from itertools import pairwise
-from typing import Any
+from typing import Any, cast
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
-from sympy.logic.boolalg import Boolean
+from sympy.core.relational import Relational
+from sympy.logic.boolalg import And, Boolean, Not, Or
 from sympy.printing.latex import LatexPrinter
 
 from cassim.core import ast
@@ -305,6 +307,230 @@ def to_fraction(raw: Raw) -> Fraction | None:
     if raw.is_Float:
         return Fraction(Decimal(str(raw)))
     return None
+
+
+_GRAPH_FUNCTIONS: dict[Any, str] = {
+    sp.sin: "sin",
+    sp.cos: "cos",
+    sp.tan: "tan",
+    sp.asin: "asin",
+    sp.acos: "acos",
+    sp.atan: "atan",
+    sp.sinh: "sinh",
+    sp.cosh: "cosh",
+    sp.tanh: "tanh",
+    sp.asinh: "asinh",
+    sp.acosh: "acosh",
+    sp.atanh: "atanh",
+    sp.exp: "exp",
+    sp.log: "log",
+    sp.Abs: "fabs",
+    sp.floor: "floor",
+    sp.ceiling: "ceil",
+    sp.Min: "min",
+    sp.Max: "max",
+}
+_GRAPH_MATH_NAMES = frozenset(_GRAPH_FUNCTIONS.values()) | {
+    "pi",
+    "e",
+    "inf",
+    "nan",
+}
+_GRAPH_BINARY_OPERATORS = {
+    "==": "==",
+    "!=": "!=",
+    "<": "<",
+    "<=": "<=",
+    ">": ">",
+    ">=": ">=",
+}
+_GRAPH_ALLOWED_AST_NODES = (
+    python_ast.Expression,
+    python_ast.BinOp,
+    python_ast.UnaryOp,
+    python_ast.Call,
+    python_ast.Compare,
+    python_ast.BoolOp,
+    python_ast.IfExp,
+    python_ast.Constant,
+    python_ast.Name,
+    python_ast.Attribute,
+    python_ast.Add,
+    python_ast.Sub,
+    python_ast.Mult,
+    python_ast.Div,
+    python_ast.Pow,
+    python_ast.Mod,
+    python_ast.UAdd,
+    python_ast.USub,
+    python_ast.Eq,
+    python_ast.NotEq,
+    python_ast.Lt,
+    python_ast.LtE,
+    python_ast.Gt,
+    python_ast.GtE,
+    python_ast.And,
+    python_ast.Or,
+    python_ast.Not,
+    python_ast.Load,
+)
+
+
+class _GraphMathPrinter:
+    def __init__(self, variable: Raw) -> None:
+        self.variable = variable
+
+    def emit(self, raw: Raw) -> str:
+        for printer in (
+            self._constant,
+            self._relation,
+            self._logic,
+            self._piecewise,
+            self._arithmetic,
+            self._function,
+        ):
+            source = printer(raw)
+            if source is not None:
+                return source
+        msg = f"unsupported graph expression: {raw}"
+        raise ValueError(msg)
+
+    def _constant(self, raw: Raw) -> str | None:
+        if raw == self.variable:
+            return "x"
+        for value, source in (
+            (sp.true, "True"),
+            (sp.false, "False"),
+            (sp.pi, "math.pi"),
+            (sp.E, "math.e"),
+            (sp.oo, "math.inf"),
+            (-sp.oo, "-math.inf"),
+            (sp.nan, "math.nan"),
+        ):
+            if raw is value:
+                return source
+        if raw.is_Rational:
+            return str(int(raw)) if raw.is_Integer else f"({int(raw.p)} / {int(raw.q)})"
+        if raw.is_Float:
+            value = float(raw)
+            return (
+                repr(value)
+                if math.isfinite(value)
+                else "math.nan"
+                if math.isnan(value)
+                else "math.inf"
+                if value > 0
+                else "-math.inf"
+            )
+        if raw.is_Symbol:
+            msg = f"graph expressions may only use the variable {self.variable}"
+            raise ValueError(msg)
+        return None
+
+    def _relation(self, raw: Raw) -> str | None:
+        if not isinstance(raw, Relational):
+            return None
+        operation = _GRAPH_BINARY_OPERATORS.get(raw.rel_op)
+        if operation is None:
+            msg = f"unsupported graph relation: {raw.rel_op}"
+            raise ValueError(msg)
+        return f"({self.emit(raw.lhs)} {operation} {self.emit(raw.rhs)})"
+
+    def _logic(self, raw: Raw) -> str | None:
+        if isinstance(raw, And):
+            return "(" + " and ".join(self.emit(part) for part in raw.args) + ")"
+        if isinstance(raw, Or):
+            return "(" + " or ".join(self.emit(part) for part in raw.args) + ")"
+        if isinstance(raw, Not):
+            return f"(not {self.emit(raw.args[0])})"
+        return None
+
+    def _piecewise(self, raw: Raw) -> str | None:
+        if raw.func is not sp.Piecewise:
+            return None
+        result = "math.nan"
+        for value, condition in reversed(raw.args):
+            if condition is sp.true:
+                result = self.emit(value)
+            else:
+                result = f"({self.emit(value)} if {self.emit(condition)} else {result})"
+        return result
+
+    def _arithmetic(self, raw: Raw) -> str | None:
+        if raw.is_Add:
+            return "(" + " + ".join(self.emit(part) for part in raw.args) + ")"
+        if raw.is_Mul:
+            return "(" + " * ".join(self.emit(part) for part in raw.args) + ")"
+        if raw.is_Pow:
+            base, exponent = raw.args
+            return f"({self.emit(base)} ** {self.emit(exponent)})"
+        return None
+
+    def _function(self, raw: Raw) -> str | None:
+        function_name = _GRAPH_FUNCTIONS.get(raw.func)
+        if function_name is None:
+            return None
+        args = ", ".join(self.emit(arg) for arg in raw.args)
+        if function_name in {"min", "max"}:
+            return f"{function_name}({args})"
+        return f"math.{function_name}({args})"
+
+
+def math_source(expression: Raw, variable: Raw) -> str:
+    """Print a real-valued expression as a checked Python expression over `math`."""
+    if not variable.is_Symbol:
+        msg = "the graph variable must be a symbol"
+        raise ValueError(msg)
+    source = _GraphMathPrinter(variable).emit(expression)
+    _check_math_source(source)
+    return source
+
+
+def _check_math_source(source: str) -> None:
+    """Reject generated code outside the deliberately small graph-worker expression grammar."""
+    tree = python_ast.parse(source, mode="eval")
+    for node in python_ast.walk(tree):
+        if not isinstance(node, _GRAPH_ALLOWED_AST_NODES):
+            msg = f"unsupported syntax in graph expression: {type(node).__name__}"
+            raise ValueError(msg)
+        if isinstance(node, python_ast.Name) and node.id not in {"x", "math", "min", "max"}:
+            msg = f"unsupported name in graph expression: {node.id}"
+            raise ValueError(msg)
+        if isinstance(node, python_ast.Attribute) and (
+            not isinstance(node.value, python_ast.Name)
+            or node.value.id != "math"
+            or node.attr not in _GRAPH_MATH_NAMES
+        ):
+            msg = f"unsupported attribute in graph expression: {node.attr}"
+            raise ValueError(msg)
+        if isinstance(node, python_ast.Call):
+            function = node.func
+            valid_math_call = (
+                isinstance(function, python_ast.Attribute)
+                and isinstance(function.value, python_ast.Name)
+                and function.value.id == "math"
+                and function.attr in _GRAPH_MATH_NAMES
+            )
+            valid_builtin_call = isinstance(function, python_ast.Name) and function.id in {
+                "min",
+                "max",
+            }
+            if not (valid_math_call or valid_builtin_call) or node.keywords:
+                msg = "unsupported function call in graph expression"
+                raise ValueError(msg)
+        if isinstance(node, python_ast.Constant) and not isinstance(node.value, int | float | bool):
+            msg = "only numeric and boolean constants are allowed in graph expressions"
+            raise ValueError(msg)
+
+
+def compile_math(expression: Raw, variable: Raw) -> tuple[str, Callable[[float], float]]:
+    """Compile a checked math expression for local graph sampling in the UI worker."""
+    source = math_source(expression, variable)
+    tree = python_ast.parse(f"lambda x: ({source})", mode="eval")
+    code = compile(tree, "<cassim-graph>", "eval")
+    compiled = eval(code, {"__builtins__": {}, "math": math, "min": min, "max": max}, {})
+    function = cast(Callable[[float], float], compiled)
+    return source, function
 
 
 def from_float(value: float) -> Raw:

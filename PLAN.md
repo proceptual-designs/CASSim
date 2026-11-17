@@ -56,8 +56,9 @@ cassim/
                             references in formulas), sheet.py (cells, named columns = lists, formula columns, deps graph)
     stats/                  [placeholder] Data & Statistics plot models; the statistics maths is in core/ (pure Python and
                             mpmath, no SciPy: decision 0031)
-    graph/                  scene.py: the backend-neutral scene (FR-GRAPH-006, slice 3.0); to come: function/param/polar/sequence sampling, asymptote handling, analyse-graph tools;
-                            emits a backend-neutral scene (paths, points, labels)
+    graph/                  scene.py: the backend-neutral scene (FR-GRAPH-006, slice 3.0); sampling.py: checked math-source compilation,
+                            windows, ticks and adaptive function sampling; analysis.py: headless Trace and Analyze Graph numerics;
+                            later: other entry types and their scenes
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
@@ -265,11 +266,11 @@ Still open, each waiting on something:
 
 **M4 — Graphs and Tables (L)**
 
-**Status (2026-11-13):** planned (decision 0031); no code yet. Waiting on M3 slice 3.0, the basic rows of emulator check 6 part D (run 2 did D12 to D30 in part, summarised in decision 0031), and part N for Notes. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells).
+**Status (2026-11-17):** in progress. The headless function sampler and Trace/Analyze numerical algorithms are implemented independently of M3. The Graphs page, split Table, sliders and Notes UI still depend on the remaining page-model/split-page work in M3 slice 3.0. Remaining Cowork captures are listed in `docs/testing/emulator-check6-run4-remaining.md`. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells).
 
-- 4a Sampler and scene, headless (`graph/`): compile a function to `math` source for sampling in the UI worker, adaptive sampling, branch splitting at discontinuities (FR-GRAPH-004), restricted domains, the window, zoom and tick rules; scene snapshot tests (the scene as data, not pixels).
+- 4a Sampler and scene, headless (`graph/`): **initial function path implemented:** checked math-source compilation, window transforms, automatic tick values, adaptive function sampling, and curve layers in the shared scene. Restricted domains, zoom gestures and full scene snapshots remain.
 - 4b Graphs page: the `f1` to `f99` entry line on the template editor, pan and zoom with throttled gestures, labels, attributes, Hide/Show. Mark its context-menu hit regions with `app/context_menu.py` as the sheet does, including in split panes, so physical Ctrl+right-click keeps the browser menu.
-- 4c Trace and Analyze Graph: zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, bounded area. Replays the `app_graph_analysis` corpus cases.
+- 4c Trace and Analyze Graph: **headless numerical algorithms implemented** for zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, and bounded area. Page prompts and corpus replay remain.
 - 4d Other entry types, in this order: scatter plot, parametric, relations and conics (marching squares, spike D; drop false lines at jumps), polar, sequence, differential equations.
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
 - 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
