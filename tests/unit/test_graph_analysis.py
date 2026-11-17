@@ -44,6 +44,9 @@ def test_derivative_integral_and_bounded_area_match_the_corpus() -> None:
 def test_integral_preserves_orientation_for_reversed_bounds() -> None:
     assert integral(lambda x: x, 1, -1) == pytest.approx(0)
     assert integral(lambda x: x, 0, 2) == pytest.approx(2)
+    assert bounded_area(lambda x: x, lambda _: 0, 2, 0) == pytest.approx(2)
+    with pytest.raises(ValueError, match="finite"):
+        bounded_area(lambda x: x, lambda _: 0, 0, math.nan)
 
 
 def test_zero_search_requires_a_bracket_and_rejects_a_pole() -> None:

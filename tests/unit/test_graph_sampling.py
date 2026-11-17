@@ -198,6 +198,13 @@ def test_sampling_splits_undefined_points_and_vertical_asymptotes() -> None:
     assert curves[1].points[0][0] > 50
 
 
+def test_sampling_skips_non_real_values_from_fractional_powers() -> None:
+    function = compile_function(expression("x^(1/3)"), expression("x"))
+    curves = sample_function(function, Viewport(Window(-1, 1, -1, 1), 40, 40))
+    assert curves
+    assert all(x >= 20 for curve in curves for x, _ in curve.points)
+
+
 def test_sampling_splits_step_discontinuities() -> None:
     curves = sample_function(math.floor, Viewport(Window(-2, 2, -2, 2), 80, 80))
     assert len(curves) >= 3

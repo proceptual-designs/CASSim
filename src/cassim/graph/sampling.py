@@ -63,7 +63,11 @@ class CompiledFunction:
     _function: Callable[[float], float] = field(repr=False, compare=False)
 
     def __call__(self, x: float) -> float:
-        return float(self._function(x))
+        value = self._function(x)
+        if isinstance(value, complex):
+            msg = "graph function produced a non-real value"
+            raise ValueError(msg)
+        return float(value)
 
 
 class GraphCompileError(ValueError):

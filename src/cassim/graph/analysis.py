@@ -260,9 +260,11 @@ def bounded_area(
     tolerance: float = 1e-9,
 ) -> float:
     """Return the unsigned area between two functions over typed x bounds."""
-    return integral(
-        lambda x: abs(_evaluate(first, x) - _evaluate(second, x)),
-        lower,
-        upper,
-        tolerance=tolerance,
+    return abs(
+        integral(
+            lambda x: abs(_evaluate(first, x) - _evaluate(second, x)),
+            lower,
+            upper,
+            tolerance=tolerance,
+        )
     )
