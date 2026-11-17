@@ -23,14 +23,14 @@ from cassim.app.theme import themed
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
-from cassim.device.engine import LocalEngine, local_session
+from cassim.device.engine import LocalEngine, RemoteSession, local_session
 from cassim.device.keys import Action, Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
-from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.pages.calculator import Calculator, Pending, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
@@ -691,9 +691,37 @@ class App:
     def act(self, action: Action, arg: str = "") -> None:
         if self.busy:
             return
+        if action == "statistics_eval":
+            self.page.run_task(self.run_statistics_eval, arg)
+            return
         self.state.run_action(action, arg)
         self.refresh()
         self.offer_keyboard(action)
+
+    async def run_statistics_eval(self, expression: str) -> None:
+        statistics = self.state.statistics
+        if statistics is None:
+            return
+        self.say("Updating data...")
+        if isinstance(statistics.session, RemoteSession):
+            if self.runner is None:
+                msg = "a remote Data & Statistics session requires the Runner"
+                raise RuntimeError(msg)
+            calculator = Calculator(statistics.session)
+            calculator.pending = Pending(expression, False)
+            finished = await self.runner.evaluate(calculator)
+            if not finished:
+                statistics.message = "Update cancelled."
+            elif calculator.history:
+                statistics.message = calculator.history[-1].result.error or ""
+            else:
+                msg = "the engine accepted no point update result"
+                raise RuntimeError(msg)
+        else:
+            result = statistics.session.eval(expression, approximate=False)
+            statistics.message = result.error or ""
+        self.status.value = ""
+        self.refresh()
 
     def cycle_setting(self, name: str) -> None:
         """A click on Rad/Deg, Auto/Approx or Real/Rect/Polar in the title bar."""

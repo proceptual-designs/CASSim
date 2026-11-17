@@ -513,7 +513,12 @@ class CalculatorView:
         self._follow = False
 
     def _split_statistics_action(self, action: Action, arg: str) -> None:
-        if action == "context_menu" or (action == "open_menu" and arg == "menu"):
+        if action == "context_menu":
+            self.on_action(
+                "open_menu",
+                arg if arg.startswith("statistics_context_") else "menu_statistics",
+            )
+        elif action == "open_menu" and arg == "menu":
             self.on_action("open_menu", "menu_statistics")
         else:
             self.on_action(action, arg)

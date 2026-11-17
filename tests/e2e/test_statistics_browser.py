@@ -22,6 +22,13 @@ def test_statistics_page_renders_for_a_live_list(browser: Browser, site: tuple[P
     for key in ("F4", "4", "7"):
         app.press(key)
 
-    expect(app.page.get_by_role("button", name="X: scores")).to_be_visible(timeout=30000)
-    expect(app.page.get_by_role("button", name="Dot Plot")).to_be_visible()
+    expect(app.page.get_by_role("button", name="scores", exact=True)).to_be_visible(timeout=30000)
+    expect(app.page.get_by_role("button", name="Click to add variable", exact=True)).to_be_visible()
+    expect(app.page.get_by_role("button", name="Dot Plot", exact=True)).to_have_count(0)
+    app.page.get_by_role("button", name="scores", exact=True).click(force=True)
+    expect(app.page.get_by_role("group", name="Choose X List")).to_be_visible()
+    expect(app.page.get_by_role("button", name="(none)", exact=True)).to_be_visible()
+    app.press("Escape")
+    app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
+    expect(app.page.get_by_role("group", name="Choose Y List")).to_be_visible()
     app.page.close()
