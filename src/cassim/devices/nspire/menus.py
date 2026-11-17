@@ -1160,8 +1160,16 @@ SHEET_MENU = MenuItem(
                 _sheet_formula("Mid", "mid", "6"),
                 _sheet_formula("Right", "right", "7"),
             ),
-            todo("Summary Plot", "8"),
-            todo("Quick Graph", "9"),
+            act("Summary Plot", "summary_plot", "8"),
+            act("Quick Graph", "quick_graph", "9"),
+            sub(
+                "Import/Export",
+                "A",
+                MenuItem("Import CSV…", "dialog", "sheet_import_csv"),
+                MenuItem("Export CSV…", "dialog", "sheet_export_csv"),
+                MenuItem("Import XLSX…", "dialog", "sheet_import_xlsx"),
+                MenuItem("Export XLSX…", "dialog", "sheet_export_xlsx"),
+            ),
         ),
         sub(
             "Statistics",
@@ -1215,8 +1223,8 @@ SHEET_CELL = MenuItem(
             act("Unlink", "unlink", "2"),
         ),
         replace(_RESIZE, key="8"),
-        todo("Summary Plot", "9"),
-        todo("Quick Graph", "A"),
+        act("Summary Plot", "summary_plot", "9"),
+        act("Quick Graph", "quick_graph", "A"),
         todo("Color", "B"),
     ),
 )
@@ -1228,6 +1236,8 @@ SHEET_BLOCK = MenuItem(
         act("Delete Cells", "delete_cells", "5"),
         act("Sort", "sort", "6"),
         todo("Color", "7"),
+        act("Summary Plot", "summary_plot", "8"),
+        act("Quick Graph", "quick_graph", "9"),
     ),
 )
 SHEET_ROW = MenuItem(
@@ -1253,8 +1263,8 @@ SHEET_NAME = MenuItem(
             act("Unlink", "unlink", "2"),
         ),
         replace(_RESIZE, key="4"),
-        todo("Summary Plot", "5"),
-        todo("Quick Graph", "6"),
+        act("Summary Plot", "summary_plot", "5"),
+        act("Quick Graph", "quick_graph", "6"),
         todo("Color", "7"),
     ),
 )

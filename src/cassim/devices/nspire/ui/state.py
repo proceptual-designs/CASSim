@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -141,6 +141,13 @@ class System:
 MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}
 
 
+def _set_quick_graph_enabled(item: MenuItem, enabled: bool) -> MenuItem:
+    if item.action == "sheet" and item.arg == "quick_graph":
+        return replace(item, enabled=enabled) if item.enabled != enabled else item
+    children = tuple(_set_quick_graph_enabled(child, enabled) for child in item.items)
+    return replace(item, items=children) if children != item.items else item
+
+
 class AppState:
     """Everything the views draw. A profile supplies the keymaps and keypad (FR-DEV-007)."""
 
@@ -226,7 +233,11 @@ class AppState:
     @property
     def statistics(self) -> Statistics | None:
         """The current page's Data & Statistics model, if built."""
-        return statistics_of(self.document.current)
+        current = statistics_of(self.document.current)
+        if current is not None:
+            return current
+        sheet = self.sheet
+        return sheet.split_statistics[-1] if sheet is not None and sheet.split_statistics else None
 
     def prepare(self) -> None:
         """Before drawing: the current sheet takes the engine's replies and asks for the cells
@@ -368,6 +379,9 @@ class AppState:
         if binding.action == "context_menu":
             self._open_menu(sheet.context_menu())
             return
+        if binding.action == "statistics" and sheet.split_statistics:
+            self._statistics_action(sheet.split_statistics[-1], binding.arg)
+            return
         undo = binding.action in ("undo", "redo") and not sheet.dialogs and sheet.mode is None
         if undo and sheet.editing is None:
             can = sheet.can_undo if binding.action == "undo" else sheet.can_redo
@@ -434,7 +448,8 @@ class AppState:
             target = self._menu_root(name)
             if target is not None:
                 same = target is self.menu.root or (
-                    name in {"variables", "cassim"} and target.label == self.menu.root.label
+                    (name in {"variables", "cassim", "menu_sheet"} or name.startswith("sheet_"))
+                    and target.label == self.menu.root.label
                 )
                 self.menu = None if same else MenuState(target)
             return
@@ -501,7 +516,26 @@ class AppState:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
-        return self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+        root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+        if self.sheet is not None and name in {
+            "menu_sheet",
+            "sheet_cell",
+            "sheet_block",
+            "sheet_name",
+            "sheet_column",
+        }:
+            column_name = self.sheet.columns[self.sheet.cursor[0]][0]
+            has_list = (
+                column_name is not None
+                and (self.sheet.whole == "column" or self.sheet.cursor[1] == NAME_ROW)
+                and any(
+                    row.name.casefold() == column_name.casefold() and row.items is not None
+                    for row in self.sheet.session.variables()
+                )
+            )
+            if root is not None:
+                root = _set_quick_graph_enabled(root, has_list)
+        return root
 
     def _statistics_menu(self, name: str) -> MenuItem | None:
         statistics = self.statistics

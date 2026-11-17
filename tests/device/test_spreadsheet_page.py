@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001, FR-SHEET-002, FR-STAT-004, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 003, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -22,11 +22,13 @@ from cassim.devices.nspire.pages.spreadsheet import (
     Spreadsheet,
     dump,
     load,
+    spreadsheet_of,
 )
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
 from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
+from cassim.sheet.fileio import FileCell
 
 A, B, C, D, E, F, G, H = range(8)
 
@@ -968,6 +970,123 @@ def test_the_name_cell_has_its_own_context_menu():
         "Color",
     ]
     assert not rows[0].enabled
+    assert not rows[5].enabled
+
+
+def test_quick_graph_context_item_enables_for_a_named_list():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("scores:={1,2,3}").error is None
+    sheet.go((A, NAME_ROW))
+    sheet.menu_action("link:scores")
+
+    keys(state, "context_menu")
+
+    assert state.menu is not None
+    quick_graph = next(row for row in state.menu.view().rows if row.label == "Quick Graph")
+    assert quick_graph.enabled
+
+
+# ----- spreadsheet file interchange (slice 3e) -------------------------------------------------
+
+
+def test_imported_formulas_calculate_and_export_can_include_the_formula():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((C, 1))
+
+    sheet.import_rows([[FileCell("2"), FileCell("C1+3", True)]])
+
+    assert column(state, C, [1]) == ["2"]
+    assert column(state, D, [1]) == ["5"]
+    sheet.request_export_view()
+    sheet.update()
+    assert sheet.export_rows(formulas=True) == [
+        [FileCell(""), FileCell(""), FileCell("2"), FileCell("C1+3", True)]
+    ]
+    assert sheet.export_rows() == [[FileCell(""), FileCell(""), FileCell("2"), FileCell("5")]]
+
+
+@pytest.mark.parametrize(("action", "expected"), [("enter", "9"), ("escape", "7")])
+def test_importing_over_cells_prompts_before_replacing_them(action, expected):
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "7")
+    sheet.go((A, 1))
+
+    sheet.import_rows([[FileCell("9")]])
+
+    assert shown(state, A, 1) == "7"
+    assert sheet.dialogs[0].title == "Data Loss"
+    keys(state, action)
+    assert shown(state, A, 1) == expected
+
+
+def test_importing_over_a_linked_list_prompts_before_replacing_it():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("scores:={7,8}").error is None
+    sheet.go((A, NAME_ROW))
+    sheet.menu_action("link:scores")
+    sheet.go((A, 1))
+
+    sheet.import_rows([[FileCell("9")]])
+
+    assert sheet.dialogs[0].title == "Data Loss"
+    assert shown(state, A, 1) == "7"
+    keys(state, "enter")
+    assert shown(state, A, 1) == "9"
+    assert sheet.session.eval("scores[1]").text == "9"
+
+
+def test_quick_graph_uses_the_selected_named_list():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("scores:={1,2,3}").error is None
+    sheet.go((A, NAME_ROW))
+    sheet.menu_action("link:scores")
+    sheet.menu_action("quick_graph")
+
+    assert len(sheet.split_statistics) == 1
+    assert sheet.split_statistics[0].plot_data().x == (1.0, 2.0, 3.0)
+
+
+def test_summary_plot_can_split_the_page_and_persist_its_plot():
+    state = Recording()
+    type_cell(state, 'labels:={"cat","dog"}')
+    type_cell(state, "counts:={5,3}")
+    state.run_action("add_page", "spreadsheet")
+    sheet = sheet_of(state)
+
+    sheet.menu_action("summary_plot")
+    state.prepare()
+    finish_wizard(state, x="labels", summary="counts", display="split")
+
+    assert len(sheet.split_statistics) == 1
+    plot = sheet.split_statistics[0].plot_data()
+    assert plot.x == ("cat", "dog")
+    assert plot.summary == (5.0, 3.0)
+    restored_document = loads(dumps(state.document))
+    restored_sheet = spreadsheet_of(restored_document.current)
+    assert restored_sheet is not None
+    assert restored_sheet.split_statistics[0].plot_data().summary == (5.0, 3.0)
+
+
+def test_summary_plot_can_open_a_new_statistics_page():
+    state = Recording()
+    type_cell(state, 'labels:={"cat","dog"}')
+    type_cell(state, "counts:={5,3}")
+    state.run_action("add_page", "spreadsheet")
+    sheet = sheet_of(state)
+
+    sheet.menu_action("summary_plot")
+    state.prepare()
+    finish_wizard(state, x="labels", summary="counts", display="new")
+
+    statistics = state.statistics
+    assert statistics is not None
+    assert statistics.plot_data().summary == (5.0, 3.0)
+    assert sheet.split_statistics == []
 
 
 # ----- Statistics from the sheet (slice 3c) -----------------------------------------------------

@@ -200,15 +200,24 @@ class Shell:
 
     async def save_file(self, name: str, text: str, title: str = "Save document") -> None:
         """Download `text` as a file (FR-DOC-004)."""
-        await self.files.save_file(
-            dialog_title=title, file_name=name, src_bytes=text.encode("utf-8")
-        )
+        await self.save_bytes_file(name, text.encode("utf-8"), title)
+
+    async def save_bytes_file(self, name: str, data: bytes, title: str) -> None:
+        """Download a binary file through the platform's file picker."""
+        await self.files.save_file(dialog_title=title, file_name=name, src_bytes=data)
 
     async def pick_file(
         self, extensions: tuple[str, ...], title: str = "Open document"
     ) -> str | None:
         """The text of a file the user picks, or None when nothing is picked. A file that is not
         text raises UnicodeDecodeError."""
+        picked = await self.pick_file_bytes(extensions, title)
+        return picked.decode("utf-8") if picked is not None else None
+
+    async def pick_file_bytes(
+        self, extensions: tuple[str, ...], title: str = "Open file"
+    ) -> bytes | None:
+        """The bytes of a file the user picks, or None when nothing is picked."""
         picked = await self.files.pick_files(
             dialog_title=title,
             file_type=ft.FilePickerFileType.CUSTOM,
@@ -217,7 +226,7 @@ class Shell:
         )
         if not picked or picked[0].bytes is None:
             return None
-        return picked[0].bytes.decode("utf-8")
+        return picked[0].bytes
 
     # ---- links --------------------------------------------------------------------------------
 

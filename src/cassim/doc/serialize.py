@@ -20,11 +20,9 @@ from cassim.doc.document import Document, Page, PageTypes
 if TYPE_CHECKING:
     from cassim.core.session import Session
 
-# Schema 2 writes a Calculator row as runs of text (`"solve(x"`), not one string per character.
-# A schema 1 file reads unchanged, since its one-character strings are runs too; schema 2 stops an
-# older CASSim from misreading the runs. At the v1.0 release the format restarts at 1 and
-# pre-release files are no longer opened (PLAN.md section 12, A8).
-SCHEMA = 2
+# Schema 2 writes Calculator rows as runs of text. Schema 3 adds the optional split-app state to
+# spreadsheet pages. At the v1.0 release the format restarts at 1 (PLAN.md section 12, A8).
+SCHEMA = 3
 FORMAT = "cassim-document"
 FIRST_DEVICE = "nspire"  # files written before files named their device
 SUFFIX = ".cassim.json"
@@ -79,8 +77,7 @@ def dumps(document: Document, *, compact: bool = False) -> str:
 
 
 def migrate(data: dict[str, Any]) -> dict[str, Any]:
-    """Bring older files up to `SCHEMA` (FR-DOC-004). Schema 1 needs no change (see `SCHEMA`);
-    each later schema adds a step here."""
+    """Bring older files up to `SCHEMA` (FR-DOC-004)."""
     if data.get("format") != FORMAT:
         msg = "this is not a CASSim document"
         raise DocumentFileError(msg)
@@ -91,6 +88,12 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
     if version > SCHEMA:
         msg = f"the document was saved by a newer CASSim (schema {version}, this reads {SCHEMA})"
         raise DocumentFileError(msg)
+    if version < SCHEMA:
+        for problem in data.get("problems", []):
+            for page in problem.get("pages", []):
+                if page.get("kind") == "spreadsheet":
+                    page.setdefault("split_statistics", [])
+        data["schema"] = SCHEMA
     return data
 
 

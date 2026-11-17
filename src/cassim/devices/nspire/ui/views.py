@@ -374,6 +374,7 @@ class CalculatorView:
         self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
         self.sheet_panes = ft.Row([], spacing=0, expand=True)
         self.pvalue_pane = ft.Container(expand=True)
+        self.split_statistics_views: list[StatisticsView] = []
         self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
         body = ft.Column([self.history], expand=True, spacing=0)
         self.body = body
@@ -474,10 +475,7 @@ class CalculatorView:
 
     def _refresh_sheet(self, sheet: Spreadsheet) -> None:
         width, height = self.body_size()
-        if sheet.pvalue_plot is None:
-            self.sheet_panes.controls = [self.sheet_view.control]
-            self.sheet_view.refresh(sheet, width, height)
-        else:
+        if sheet.pvalue_plot is not None:
             pane_width = max((width - 1) / 2, 1)
             self.sheet_panes.controls = [self.sheet_view.control, self.pvalue_pane]
             self.sheet_view.refresh(sheet, pane_width, height)
@@ -490,8 +488,35 @@ class CalculatorView:
                     "curve2": self.theme.selection,
                 },
             )
+        elif sheet.split_statistics:
+            pane_width = max((width - 1) / 2, 1)
+            self.sheet_view.refresh(sheet, pane_width, height)
+            self.split_statistics_views = self.split_statistics_views[: len(sheet.split_statistics)]
+            while len(self.split_statistics_views) < len(sheet.split_statistics):
+                self.split_statistics_views.append(
+                    StatisticsView(
+                        self.theme, self._split_statistics_action, lambda: self.state.scale
+                    )
+                )
+            panes = ft.Column([], spacing=0, expand=True)
+            slot_height = height / len(sheet.split_statistics)
+            for view, statistics in zip(
+                self.split_statistics_views, sheet.split_statistics, strict=True
+            ):
+                view.refresh(statistics, pane_width, slot_height)
+                panes.controls.append(ft.Container(view.control, expand=True))
+            self.sheet_panes.controls = [self.sheet_view.control, panes]
+        else:
+            self.sheet_panes.controls = [self.sheet_view.control]
+            self.sheet_view.refresh(sheet, width, height)
         self.body.controls = [self.sheet_panes]
         self._follow = False
+
+    def _split_statistics_action(self, action: Action, arg: str) -> None:
+        if action == "context_menu" or (action == "open_menu" and arg == "menu"):
+            self.on_action("open_menu", "menu_statistics")
+        else:
+            self.on_action(action, arg)
 
     def _refresh_status(self, status: str, size: float) -> None:
         words = status.split()
@@ -614,9 +639,19 @@ class CalculatorView:
             return True
         if self.state.sheet is not None and self.sheet_view.control in self.sheet_panes.controls:
             width, _ = self.body_size()
-            pane_width = width / 2 if self.state.sheet.pvalue_plot is not None else width
+            split = self.state.sheet.pvalue_plot is not None or bool(
+                self.state.sheet.split_statistics
+            )
+            pane_width = width / 2 if split else width
             if x <= pane_width:
                 return self.sheet_view.click_at(x, y)
+            if self.state.sheet.split_statistics:
+                count = len(self.state.sheet.split_statistics)
+                slot_height = self.body_size()[1] / count
+                index = min(int(y / slot_height), count - 1)
+                return self.split_statistics_views[index].click_at(
+                    x - pane_width, y - index * slot_height
+                )
             return True
         if self.state.statistics is not None and self.body.controls == [
             self.statistics_view.control

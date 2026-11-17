@@ -5,6 +5,7 @@ description = "Browser simulation of the TI-Nspire CX CAS (Python/SymPy via Pyod
 authors = [{ name = "Simon Tyler" }]
 requires-python = ">=3.14"
 dependencies = [
+    "openpyxl>=3.1.5",
     "sympy>=1.14",
     "pyyaml>=6",
 ]

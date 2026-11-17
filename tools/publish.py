@@ -34,6 +34,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -705,6 +706,8 @@ def write_app_archive(dist: Path, bundle: Bundle) -> None:
             pypi_wheel("flet", flet_version()),
             pypi_wheel("repath", REPATH_VERSION),
             pyodide_wheel(dist, "six"),
+            pypi_wheel("openpyxl", package_version("openpyxl")),
+            pypi_wheel("et_xmlfile", package_version("et_xmlfile")),
         ]
         unpack_wheels(dist, wheels, root / "__pypackages__", f"{home}/__pypackages__")
         with tarfile.open(dist / "app.tar.gz", "w:gz") as archive:
