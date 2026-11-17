@@ -215,6 +215,7 @@ class Row(TypedDict):
     latex: str
     is_function: bool
     items: list[str] | None
+    source: NotRequired[str]
 
 
 class NoticePayload(TypedDict):
@@ -330,7 +331,11 @@ def check_reply(raw: object) -> Reply:
     for row in raw["changed"]:
         if not (
             isinstance(row, dict)
-            and set(row) == {"name", "text", "latex", "is_function", "items"}
+            and set(row)
+            in (
+                {"name", "text", "latex", "is_function", "items"},
+                {"name", "text", "latex", "is_function", "items", "source"},
+            )
             and all(isinstance(row[key], str) for key in ("name", "text", "latex"))
             and isinstance(row["is_function"], bool)
             and (
@@ -340,6 +345,7 @@ def check_reply(raw: object) -> Reply:
                     and all(isinstance(item, str) for item in row["items"])
                 )
             )
+            and ("source" not in row or isinstance(row["source"], str))
         ):
             msg = f"not a variable row: {row!r}"
             raise EngineError(msg)
@@ -453,6 +459,7 @@ class EngineCore:
                     "latex": r.latex,
                     "is_function": r.is_function,
                     "items": list(r.items) if r.items is not None else None,
+                    "source": r.source,
                 }
                 for r in rows
             ],
@@ -543,6 +550,7 @@ class VariableStore:
                 row["latex"],
                 row["is_function"],
                 tuple(row["items"]) if row["items"] is not None else None,
+                row.get("source", ""),
             )
             for row in reply["changed"]
         }

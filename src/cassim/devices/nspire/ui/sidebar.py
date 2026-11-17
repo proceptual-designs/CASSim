@@ -7,7 +7,6 @@ import flet as ft
 
 from cassim.app.theme import DARK, Theme
 from cassim.core.results import VariableInfo
-from cassim.device.keys import Action
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import chip, icon_chip, label_text
 
@@ -23,11 +22,13 @@ class Sidebar:
         on_change: Callable[[], None],
         theme: Theme = DARK,
         on_menu: Callable[[], None] | None = None,
+        on_delete: Callable[[tuple[VariableInfo, ...]], None] | None = None,
     ) -> None:
         self.state = state
         self.on_change = on_change
         self.theme = theme
         self.on_menu = on_menu  # the large Menu button above the page list
+        self.on_delete = on_delete
         self.control = ft.Column(spacing=2, expand=True)
         self.page_list = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO)
         self.variable_list = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
@@ -62,22 +63,6 @@ class Sidebar:
                 )
             )
         rows.append(self._heading("Pages", self.pages_visible, self._toggle_pages))
-        actions = (
-            (ft.Icons.ARROW_UPWARD, "Move page earlier", "move_page", "-1"),
-            (ft.Icons.ARROW_DOWNWARD, "Move page later", "move_page", "1"),
-            (ft.Icons.UNDO, "Undo page change", "undo_pages", ""),
-            (ft.Icons.REDO, "Redo page change", "redo_pages", ""),
-        )
-        rows.append(
-            ft.Row(
-                [
-                    icon_chip(icon, tip, lambda a=action, g=arg: self._act(a, g), theme, size=14)
-                    for icon, tip, action, arg in actions
-                ],
-                spacing=4,
-                visible=self.pages_visible,
-            )
-        )
         self._pages()
         rows.append(self.page_list)
         rows.append(self._heading("Variables", self.variables_visible, self._toggle_variables))
@@ -131,6 +116,12 @@ class Sidebar:
         variables = session.variables()
         expanded = self._expanded.setdefault(session, {})
         collapsed_groups = self._collapsed_groups.setdefault(session, set())
+        groups: dict[str, list[VariableInfo]] = {}
+        on_delete = self.on_delete
+        for row in variables:
+            prefix, dot, suffix = row.name.partition(".")
+            if dot and prefix and suffix:
+                groups.setdefault(prefix, []).append(row)
         variable_rows: list[ft.Control] = []
         seen_groups: set[str] = set()
         for row in variables:
@@ -139,9 +130,18 @@ class Sidebar:
                 if prefix not in seen_groups:
                     seen_groups.add(prefix)
                     collapsed = prefix in collapsed_groups
+                    parts: list[ft.Control] = []
+                    if on_delete is not None:
+                        parts.append(
+                            self._delete_button(
+                                f"Delete {prefix} variables",
+                                lambda rows=tuple(groups[prefix]): on_delete(rows),
+                            )
+                        )
                     variable_rows.append(
                         ft.Row(
                             [
+                                *parts,
                                 ft.Text(
                                     prefix,
                                     color=theme.panel_text,
@@ -162,7 +162,17 @@ class Sidebar:
                     )
                 if prefix in collapsed_groups:
                     continue
-            variable_rows.extend(self._variable(row, expanded))
+                controls = self._variable(row, expanded, deletable=False)
+                if on_delete is not None:
+                    first = controls[0]
+                    if isinstance(first, ft.Row):
+                        first.controls.insert(
+                            0, ft.Container(width=1, height=16, bgcolor=theme.key_label)
+                        )
+                        first.spacing = 8
+                variable_rows.extend(controls)
+                continue
+            variable_rows.extend(self._variable(row, expanded, deletable=True))
         if not variable_rows:
             variable_rows.append(ft.Text("none", color=theme.panel_text, size=12))
         self.variable_list.controls = variable_rows
@@ -201,7 +211,9 @@ class Sidebar:
             collapsed.add(prefix)
         self.on_change()
 
-    def _variable(self, row: VariableInfo, expanded: dict[str, int]) -> list[ft.Control]:
+    def _variable(
+        self, row: VariableInfo, expanded: dict[str, int], *, deletable: bool
+    ) -> list[ft.Control]:
         theme = self.theme
         text = f"{row.name} = {row.text}" if not row.is_function else row.text
         label = ft.Text(
@@ -213,18 +225,28 @@ class Sidebar:
             expand=True,
             tooltip=text,
         )
-        if row.items is None:
-            return [ft.Row([label])]
-        is_expanded = row.name in expanded
-        button = icon_chip(
-            ft.Icons.EXPAND_LESS if is_expanded else ft.Icons.MORE_HORIZ,
-            f"{'Collapse' if is_expanded else 'Expand'} {row.name}",
-            lambda: self._toggle_list(row.name, expanded),
-            theme,
-            size=14,
-        )
-        controls: list[ft.Control] = [ft.Row([label, button], spacing=2)]
-        if is_expanded:
+        parts: list[ft.Control] = []
+        on_delete = self.on_delete
+        if deletable and on_delete is not None:
+            parts.append(
+                self._delete_button(
+                    f"Delete variable {row.name}", lambda variable=row: on_delete((variable,))
+                )
+            )
+        parts.append(label)
+        if row.items is not None:
+            is_expanded = row.name in expanded
+            parts.append(
+                icon_chip(
+                    ft.Icons.EXPAND_LESS if is_expanded else ft.Icons.MORE_HORIZ,
+                    f"{'Collapse' if is_expanded else 'Expand'} {row.name}",
+                    lambda: self._toggle_list(row.name, expanded),
+                    theme,
+                    size=14,
+                )
+            )
+        controls: list[ft.Control] = [ft.Row(parts, spacing=2)]
+        if row.items is not None and row.name in expanded:
             limit = expanded[row.name]
             controls.extend(
                 ft.Container(
@@ -250,6 +272,18 @@ class Sidebar:
                 )
         return controls
 
+    def _delete_button(self, tooltip: str, action: Callable[[], None]) -> ft.IconButton:
+        return ft.IconButton(
+            icon=ft.Icons.CLOSE,
+            tooltip=tooltip,
+            on_click=lambda _: action(),
+            icon_color=self.theme.key_text,
+            icon_size=12,
+            width=20,
+            height=20,
+            padding=0,
+        )
+
     def _toggle_variables(self) -> None:
         self.variables_visible = not self.variables_visible
         self.on_change()
@@ -263,10 +297,6 @@ class Sidebar:
 
     def _show_more(self, name: str, expanded: dict[str, int]) -> None:
         expanded[name] += LIST_BATCH
-        self.on_change()
-
-    def _act(self, action: Action, arg: str) -> None:
-        self.state.run_action(action, arg)
         self.on_change()
 
     def _go(self, problem: int, page: int) -> None:

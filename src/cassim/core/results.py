@@ -28,6 +28,7 @@ class VariableInfo:
     latex: str
     is_function: bool
     items: tuple[str, ...] | None = None  # formatted list items or matrix rows/cells
+    source: str = ""  # a restorable TI definition, for the Computer variable-list undo
 
 
 def latex_for_markdown(latex: str) -> str:

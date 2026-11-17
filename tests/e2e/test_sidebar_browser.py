@@ -2,7 +2,6 @@
 """Exercise the Computer sidebar in the built app, including its rendered layout."""
 
 import re
-from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -26,6 +25,16 @@ def button(page: Page, name: str) -> Locator:
     return page.get_by_role("button", name=name, exact=True)
 
 
+def test_mode_segment_switches_to_handheld(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DEV-002, FR-DEV-004: the mode selector switches to the Handheld view."""
+    app = open_app(browser, site)
+    page = app.page
+    button(page, "Handheld").click()
+    expect(button(page, "Hide pages Pages")).not_to_be_attached()
+    expect(page.get_by_role("button", name=re.compile(r"enter$"))).to_be_attached()
+    page.close()
+
+
 def page_button(page: Page, number: str, name: str) -> Locator:
     return page.get_by_role("button", name=re.compile(rf"^{re.escape(number)}\s+{name}"))
 
@@ -43,15 +52,8 @@ def check_page_layout(page: Page, first: Locator, pages: Locator) -> None:
     assert title["width"] > page_box["width"] * 0.7
     assert abs(title["x"] + title["width"] - fold["x"]) <= 3
     assert abs(fold["x"] + fold["width"] - page_box["x"] - page_box["width"]) < 1
-    actions = [
-        button(page, name).bounding_box()
-        for name in ("Move page earlier", "Move page later", "Undo page change", "Redo page change")
-    ]
-    assert all(box is not None for box in actions)
-    boxes = [box for box in actions if box is not None]
-    assert max(box["y"] for box in boxes) - min(box["y"] for box in boxes) < 1
-    assert all(a["x"] + a["width"] <= b["x"] for a, b in pairwise(boxes))
-    assert boxes[-1]["x"] + boxes[-1]["width"] <= page_box["x"] + page_box["width"]
+    assert not button(page, "Move page earlier").count()
+    assert not button(page, "Move page later").count()
 
 
 def check_variable_layout(page: Page, variables: Locator) -> None:

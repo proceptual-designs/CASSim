@@ -115,7 +115,13 @@ class Session:
             if isinstance(item, Function):
                 head = f"{name}({','.join(item.params)})"
                 rows.append(
-                    VariableInfo(name, head, rf"\mathbf{{{name}}}({','.join(item.params)})", True)
+                    VariableInfo(
+                        name,
+                        head,
+                        rf"\mathbf{{{name}}}({','.join(item.params)})",
+                        True,
+                        source=f"{name}({','.join(item.params)}):={item.body}",
+                    )
                 )
             elif item is not None:
                 items = None
@@ -132,7 +138,14 @@ class Session:
                             for row in item.rows
                         )
                 rows.append(
-                    VariableInfo(name, to_text(item, self.settings), to_latex(item), False, items)
+                    VariableInfo(
+                        name,
+                        to_text(item, self.settings),
+                        to_latex(item),
+                        False,
+                        items,
+                        f"{name}:={to_text(item, replace(self.settings, digits='float14'))}",
+                    )
                 )
         return rows
 

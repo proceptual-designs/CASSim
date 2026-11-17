@@ -51,6 +51,7 @@ _SORTER_PASSES = frozenset(
     }
 )
 SORTER = "page_sorter"  # the sorter's name as a `dialog` action (ctrl+up, Doc > View)
+COMPUTER_COLUMNS = ("sidebar", "workspace", "keypad")
 
 
 class Mode(StrEnum):
@@ -65,6 +66,9 @@ class System:
     start_mode: Mode = Mode.COMPUTER
     math_size: int = 20  # LaTeX size in the entry and history
     computer_keypad: bool = False  # Computer mode shows the keypad beside the screen
+    computer_column_order: list[str] = field(default_factory=lambda: list(COMPUTER_COLUMNS))
+    computer_sidebar_width: float = 230.0
+    computer_keypad_width: float = 320.0
     keypad_share: float = 0.0  # Handheld: the keypad's share of the room (splitter); 0 is auto
     zoom: float = 1.0  # everything larger or smaller than the fitted size
     letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
@@ -87,6 +91,22 @@ class System:
             size = data["math_size"]
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
             system.computer_keypad = data.get("computer_keypad") is True
+            order = data.get("computer_column_order")
+            if (
+                isinstance(order, list)
+                and len(order) == len(COMPUTER_COLUMNS)
+                and all(isinstance(item, str) for item in order)
+                and set(order) == set(COMPUTER_COLUMNS)
+            ):
+                system.computer_column_order = list(order)
+            for name, low, high in (
+                ("computer_sidebar_width", 160.0, 420.0),
+                ("computer_keypad_width", 240.0, 500.0),
+            ):
+                value = data.get(name)
+                ok = isinstance(value, int | float) and not isinstance(value, bool)
+                if ok and low <= value <= high:
+                    setattr(system, name, float(value))
             for name, low, high in (("keypad_share", 0.0, 0.8), ("zoom", 0.5, 2.0)):
                 value = data.get(name)
                 ok = isinstance(value, int | float) and not isinstance(value, bool)

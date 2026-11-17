@@ -23,9 +23,10 @@ def setup_sidebar() -> tuple[AppState, Sidebar]:
     return state, sidebar
 
 
-def click(control: ft.Container) -> None:
+def click(control: ft.Control) -> None:
+    assert isinstance(control, ft.Container | ft.IconButton)
     assert control.on_click is not None
-    handler = cast("Callable[[ft.Event[ft.Container]], object]", control.on_click)
+    handler = cast("Callable[[ft.Event[ft.Control]], object]", control.on_click)
     handler(ft.Event("click", control))
 
 
@@ -37,11 +38,11 @@ def variable_button(sidebar: Sidebar, index: int = 0) -> ft.Container:
     return button
 
 
-def named_button(controls: list[ft.Control], tooltip: str) -> ft.Container:
+def named_button(controls: list[ft.Control], tooltip: str) -> ft.Control:
     for row in controls:
         if isinstance(row, ft.Row):
             for control in row.controls:
-                if isinstance(control, ft.Container) and control.tooltip == tooltip:
+                if getattr(control, "tooltip", None) == tooltip:
                     return control
     raise AssertionError(f"button not found: {tooltip}")
 
@@ -140,10 +141,11 @@ def test_pages_heading_and_problem_buttons_collapse_independently() -> None:
     assert len(sidebar.page_list.controls) == 5
     assert sidebar.page_list.height == 135
     assert sidebar.page_list.scroll == ft.ScrollMode.AUTO
-    action_row = sidebar.control.controls[1]
-    assert isinstance(action_row, ft.Row)
-    assert len(action_row.controls) == 4
-    assert all(isinstance(control, ft.Container) for control in action_row.controls)
+    assert not any(
+        isinstance(control, ft.Container)
+        and control.tooltip in {"Move page earlier", "Move page later"}
+        for control in sidebar.control.controls
+    )
 
     click(named_button(sidebar.page_list.controls, "Collapse Problem 1"))
     assert len(sidebar.page_list.controls) == 3
@@ -206,6 +208,44 @@ def test_matrix_expansion_displays_cells_and_rows() -> None:
     assert isinstance(last, ft.Container)
     assert isinstance(last.content, ft.Text)
     assert last.content.value == "2: [3,4]"
+
+
+def test_delete_controls_target_standalone_variables_and_group_headers_only() -> None:
+    state = AppState()
+    session = state.document.problems[0].session
+    session.eval("a:=5")
+    session.eval("OneVar {1,2,3}")
+    deleted: list[tuple[str, ...]] = []
+    sidebar = Sidebar(
+        state,
+        lambda: None,
+        on_delete=lambda rows: deleted.append(tuple(row.name for row in rows)),
+    )
+    sidebar.refresh()
+
+    click(named_button(sidebar.variable_list.controls, "Delete variable a"))
+    assert deleted == [("a",)]
+    click(named_button(sidebar.variable_list.controls, "Delete stat variables"))
+    assert deleted[1]
+    assert all(name.startswith("stat.") for name in deleted[1])
+    assert not any(
+        isinstance(control, ft.Container)
+        and isinstance(control.tooltip, str)
+        and control.tooltip.startswith("Delete variable stat.")
+        for row in sidebar.variable_list.controls
+        if isinstance(row, ft.Row)
+        for control in row.controls
+    )
+    grouped = next(
+        row
+        for row in sidebar.variable_list.controls
+        if isinstance(row, ft.Row)
+        and any(
+            isinstance(control, ft.Text) and control.value == "stat" for control in row.controls
+        )
+    )
+    assert isinstance(grouped.controls[0], ft.IconButton)
+    assert grouped.controls[0].tooltip == "Delete stat variables"
 
 
 def test_folding_all_registered_page_types_across_problems() -> None:
