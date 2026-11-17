@@ -420,6 +420,7 @@ Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **al
 
 - Ids and package names in the code are the long ones; bundle and site names are the short ones.
 - Single-device sites are **stable only**: they deploy on a release, like `cassim-app`. Testing happens on `cassim-calc`, which holds every device.
+- Single-device bundle icons should include a device-specific modifier (for example, TIN, CP or Pseudo) when those bundles are built, so they are distinct from the all-in-one app.
 - The help site (`cassim-wiki`) stays one site, with a section per device, and lists every site.
 - All seven Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13); a single-device site has no content until its bundle is first built.
 

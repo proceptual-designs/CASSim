@@ -49,6 +49,34 @@ def test_all_and_one_bundle_per_built_device() -> None:
     assert publish.product_for_site(found["tin"], "CASSim-TIN") == "CASSim-TIN"
 
 
+def test_beta_bundle_marks_its_icons_without_changing_stable_artwork(tmp_path: Path) -> None:
+    stable_dir = tmp_path / "stable"
+    beta_dir = tmp_path / "beta"
+    stable_dir.mkdir()
+    beta_dir.mkdir()
+    all_bundle = publish.bundles()["all"]
+    stable = publish.Bundle("all", "CASSim", all_bundle.devices, "CASSim-app")
+    beta = publish.Bundle("all", "CASSimᵝ", all_bundle.devices, "CASSim-calc")
+    publish.write_icons(stable_dir, stable)
+    publish.write_icons(beta_dir, beta)
+
+    for filename, size in (
+        ("favicon.png", 64),
+        ("icons/icon-192.png", 192),
+        ("icons/icon-512.png", 512),
+    ):
+        expected = BytesIO()
+        publish.draw_icon(size).save(expected, format="PNG")
+        stable_image = (stable_dir / filename).read_bytes()
+        beta_image = (beta_dir / filename).read_bytes()
+        assert stable_image == expected.getvalue()
+        assert stable_image != beta_image
+
+    assert (stable_dir / "icons/icon-maskable-512.png").read_bytes() != (
+        beta_dir / "icons/icon-maskable-512.png"
+    ).read_bytes()
+
+
 def test_the_engine_packages_come_from_the_devices() -> None:
     assert publish.bundles()["tin"].engine_packages == ["sympy", "mpmath"]
 
