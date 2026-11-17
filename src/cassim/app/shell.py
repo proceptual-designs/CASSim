@@ -49,23 +49,31 @@ class BrowserOffers:
 UNINSTALL_STEPS = (
     "A web app cannot remove itself; your device does it. Your saved documents stay in this "
     "browser until you clear the site's data.\n\n"
-    "• Android: touch and hold the CASSim icon, then Uninstall (or App info, Uninstall).\n"
-    "• Chrome or Edge on a computer: in the CASSim window, open the ⋮ menu, then Uninstall "
-    "CASSim.\n"
-    "• Chromebook: right-click CASSim in the launcher, then Uninstall.\n"
-    "• iPhone or iPad: touch and hold the CASSim icon, then Remove App."
+    "• Android: touch and hold the {product} icon, then Uninstall (or App info, Uninstall).\n"
+    "• Chrome or Edge on a computer: in the {product} window, open the ⋮ menu, then Uninstall "
+    "{product}.\n"
+    "• Chromebook: right-click {product} in the launcher, then Uninstall.\n"
+    "• iPhone or iPad: touch and hold the {product} icon, then Remove App."
 )
 
 # CASSim > Check for Updates: what the page found, by its answer (see `checkUpdate` in
 # tools/publish.py).
 UPDATE_TITLE = "Check for Updates"
 UPDATE_MESSAGES = {
-    "current": "CASSim is up to date.",
-    "downloading": "A new version is downloading. Reload will appear in the CASSim menu.",
-    "ready": "A new version is ready. Choose Reload in the CASSim menu to use it.",
-    "offline": "CASSim could not reach its site. Check the connection and try again.",
-    "unsupported": "This copy of CASSim cannot check for updates.",
+    "downloading": "A new version is downloading. Reload will appear in the {product} menu.",
+    "ready": "A new version is ready. Choose Reload in the {product} menu to use it.",
+    "offline": "{product} could not reach its site. Check the connection and try again.",
+    "unsupported": "This copy of {product} cannot check for updates.",
 }
+
+
+def update_message(result: str) -> str:
+    if result == "current":
+        version = dict(about.versions())["CASSim"]
+        return f"{about.product_name()} {version} from {about.bundle.SOURCE} is up to date."
+    return UPDATE_MESSAGES.get(result, UPDATE_MESSAGES["offline"]).format(
+        product=about.product_name()
+    )
 
 
 def about_dialog(page: ft.Page) -> None:
@@ -95,7 +103,7 @@ def about_dialog(page: ft.Page) -> None:
     )
     page.show_dialog(
         ft.AlertDialog(
-            title=ft.Text("About CASSim"),
+            title=ft.Text(f"About {about.product_name()}"),
             content=body,
             actions=[ft.TextButton("OK", on_click=lambda _: page.pop_dialog())],
         )
@@ -298,11 +306,14 @@ class Shell:
         """CASSim > Uninstall: asks first, then shows how (no web API removes the app)."""
 
         async def show_steps() -> None:
-            self.notice("Uninstall CASSim", UNINSTALL_STEPS)
+            self.notice(
+                f"Uninstall {about.product_name()}",
+                UNINSTALL_STEPS.format(product=about.product_name()),
+            )
 
         self.confirm(
-            "Uninstall CASSim?",
-            "CASSim stays usable in the browser at the same address.",
+            f"Uninstall {about.product_name()}?",
+            f"{about.product_name()} stays usable in the browser at the same address.",
             "Continue",
             show_steps,
         )
@@ -311,11 +322,9 @@ class Shell:
         """Ask the server for a newer version; the menu offers Reload once it has downloaded."""
         bridge = self.bridge
         if bridge is None:
-            self.notice(UPDATE_TITLE, UPDATE_MESSAGES["unsupported"])
+            self.notice(UPDATE_TITLE, update_message("unsupported"))
             return
-        bridge.on_update = lambda result: self.notice(
-            UPDATE_TITLE, UPDATE_MESSAGES.get(result, UPDATE_MESSAGES["offline"])
-        )
+        bridge.on_update = lambda result: self.notice(UPDATE_TITLE, update_message(result))
         bridge.check_update()
 
     def toggle_fullscreen(self) -> None:

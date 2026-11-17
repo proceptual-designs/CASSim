@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tomllib
 
+import pytest
 import sympy
 from tools import publish
 
@@ -19,19 +20,27 @@ def test_disclaimer_says_what_nfr_leg_002_requires() -> None:
     included); not an approved exam calculator."""
     text = about.DISCLAIMER
     assert text.startswith(
-        "CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational "
-        "purposes."
+        "CASSim is a simulator of handheld computer algebra systems (CAS) for educational purposes."
     )
-    assert "not affiliated with, endorsed by or sponsored by any company" in text
+    assert "not affiliated with, endorsed by, or sponsored by any company" in text
     assert "curriculum authority" in text
     assert "not an approved exam calculator" in text
 
 
 def test_privacy_and_licence_statements() -> None:
     """NFR-SEC-001: no telemetry. NFR-LEG-003: the Unlicense."""
-    assert "no telemetry" in about.PRIVACY
+    assert "no server, telemetry, or analytics" in about.PRIVACY
     assert "vibe-coded" in about.LICENCE
     assert "Unlicense" in about.LICENCE
+    assert "is vibe-coded and is released" in about.LICENCE
+
+
+def test_source_and_beta_brand_follow_the_build_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(about.bundle, "SOURCE", "CASSim-calc")
+    assert about.product_name() == "CASSimᵝ"
+    assert about.build_info().startswith("Source: CASSim-calc\n")
+    monkeypatch.setattr(about.bundle, "SOURCE", "CASSim-app")
+    assert about.product_name() == "CASSim"
 
 
 def test_every_version_is_known() -> None:
@@ -74,6 +83,7 @@ def test_versions_include_cassim_and_python() -> None:
     assert names[:2] == ["CASSim", "Python"]
     assert "CASSim " in about.build_info()
     assert "SymPy " in about.build_info()
+    assert f"Source: {about.bundle.SOURCE}" in about.build_info()
 
 
 def test_about_is_in_the_cassim_menu() -> None:

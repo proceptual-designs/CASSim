@@ -17,6 +17,7 @@ from datetime import datetime
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import themed
 from cassim.core.settings import Settings, next_choice
@@ -110,19 +111,18 @@ def browser_menu_items(
     phone it toggles the cutout instead. Install reads Uninstall in the installed app. A phone
     has only Handheld view, so the view switch is greyed there."""
     cutout_toggle = phone and handheld and offers.installed
+    product = about.product_name()
     install = (
-        MenuItem("Uninstall CASSim", "dialog", "uninstall", hint="CASSim")
+        MenuItem(f"Uninstall {product}", "dialog", "uninstall")
         if offers.installed
-        else MenuItem(
-            "Install CASSim", "dialog", "install", hint="CASSim", enabled=offers.installable
-        )
+        else MenuItem(f"Install {product}", "dialog", "install", enabled=offers.installable)
     )
     return (
         MenuItem(
             f"{'Computer' if handheld else 'Handheld'} view",
             "dialog",
             "switch_view",
-            hint="CASSim",
+            hint="Alt+Shift+C" if handheld else "Alt+Shift+H",
             enabled=not phone,
         ),
         MenuItem(
@@ -131,12 +131,11 @@ def browser_menu_items(
             else ("Exit Fullscreen" if offers.in_fullscreen else "Fullscreen"),
             "dialog",
             "fullscreen",
-            hint="CASSim",
             enabled=cutout_toggle
             or (offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone)),
         ),
         install,
-        MenuItem("Check for Updates…", "dialog", "check_updates", hint="CASSim"),
+        MenuItem("Check for Updates…", "dialog", "check_updates"),
     )
 
 
@@ -160,8 +159,8 @@ def cassim_items(
             else ()
         ),
         *((MenuItem("Reload update…", "dialog", "reload_update"),) if offers.update_ready else ()),
-        MenuItem("Help (wiki)…", "dialog", "help"),
-        MenuItem("About CASSim…", "dialog", "about"),
+        MenuItem("Help (wiki)…", "dialog", "help", hint="F1"),
+        MenuItem(f"About {about.product_name()}…", "dialog", "about"),
     )
 
 
@@ -244,7 +243,7 @@ class App:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
         the settings of the recovered document."""
         page = self.page
-        page.title = "CASSim"
+        page.title = about.product_name()
         page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
         page.theme_mode = ft.ThemeMode.DARK
         page.bgcolor = self.theme.background
@@ -507,9 +506,12 @@ class App:
             if self.installable:
                 self.install()
             else:
-                self.shell.notice("Install CASSim", "Install is not available in this browser.")
+                self.shell.notice(
+                    f"Install {about.product_name()}",
+                    "Install is not available in this browser.",
+                )
         else:
-            self.state._open_menu("cassim")
+            self.state.run_action("open_menu", "cassim")
         self.refresh()
 
     # ---- the pointer that the keypad's centre key steers -----------------------------------
@@ -688,7 +690,7 @@ class App:
 
     def on_bridge(self) -> None:
         """The page reported a change in browser capabilities or offline/update status."""
-        if self.state.menu is not None and self.state.menu.root.label == "CASSim":
+        if self.state.menu is not None and self.state.menu.root.label == about.product_name():
             root = self.cassim_menu()
             if self.state.menu.root != root:
                 self.state._open_menu("cassim")
@@ -698,7 +700,7 @@ class App:
     def cassim_menu(self) -> MenuItem:
         handheld = self.state.mode is Mode.HANDHELD
         return MenuItem(
-            "CASSim",
+            about.product_name(),
             items=cassim_items(
                 handheld=handheld,
                 offers=self.shell.offers,
@@ -742,7 +744,7 @@ class App:
             ft.Container(
                 ft.Row(
                     [
-                        label_text("CASSim", color=theme.key_text, size=13),
+                        label_text(about.product_name(), color=theme.key_text, size=13),
                         *(
                             [ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935")]
                             if self.shell.offers.needs_attention
@@ -887,7 +889,10 @@ class App:
         dialog = ft.AlertDialog(
             title=ft.Text("Save As"),
             content=ft.Column(
-                [ft.Text("Saved in this browser. Doc > File > Export File… saves a file."), field],
+                [
+                    ft.Text("Saved in this browser.\nDoc > File > Export File… saves a file."),
+                    field,
+                ],
                 tight=True,
                 width=360,
             ),
