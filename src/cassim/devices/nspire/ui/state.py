@@ -28,8 +28,10 @@ from cassim.devices.nspire.pages.spreadsheet import (
     Spreadsheet,
     spreadsheet_of,
 )
+from cassim.devices.nspire.pages.statistics import REGRESSIONS, Statistics, statistics_of
 from cassim.devices.nspire.screen import Screen, render
 from cassim.doc.document import Document
+from cassim.stats.plots import PlotType
 
 if TYPE_CHECKING:
     from cassim.core.session import Session
@@ -162,6 +164,7 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        self._statistics_wizard: tuple[Statistics, str, Wizard] | None = None
         # The page sorter is open on the screen (ctrl+up). The page it highlights is the current
         # page, so moving the highlight goes to that page and Enter only closes the sorter.
         self.sorting = False
@@ -220,6 +223,11 @@ class AppState:
         """The current page's spreadsheet, if it is a Lists & Spreadsheet page."""
         return spreadsheet_of(self.document.current)
 
+    @property
+    def statistics(self) -> Statistics | None:
+        """The current page's Data & Statistics model, if built."""
+        return statistics_of(self.document.current)
+
     def prepare(self) -> None:
         """Before drawing: the current sheet takes the engine's replies and asks for the cells
         it shows; a dialog it wants opened is opened."""
@@ -227,6 +235,9 @@ class AppState:
         if sheet is not None:
             sheet.update()
             self._open_sheet_wizard(sheet)
+        statistics = self.statistics
+        if statistics is not None:
+            statistics.update()
 
     def retain_sheets(self) -> None:
         """After pages are added, deleted, moved or brought back: each Problem's engine keeps
@@ -331,6 +342,16 @@ class AppState:
         sheet = self.sheet
         if sheet is not None:
             self._sheet_key(sheet, binding)
+            return
+        statistics = self.statistics
+        if statistics is not None:
+            if binding.action == "statistics":
+                self._statistics_action(statistics, binding.arg)
+            elif binding.action == "context_menu":
+                self._open_menu("menu_statistics")
+            elif binding.action in ("undo", "redo"):
+                self._page_undo(binding.action)
+                self.retain_sheets()
             return
         if binding.action in SHEET_ACTIONS:
             return  # a sheet's key on another page does nothing
@@ -472,11 +493,314 @@ class AppState:
         if name == "menu":
             if self.sheet is not None:
                 name = "menu_sheet"
+            elif self.statistics is not None:
+                name = "menu_statistics"
             elif calculator_of(self.document.current) is None:
                 return None  # a page CASSim has not built yet has no Menu
         if name == "cassim" and self.cassim_menu is not None:
             return self.cassim_menu()
+        if name == "menu_statistics" or name.startswith("statistics_"):
+            return self._statistics_menu(name)
         return self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+
+    def _statistics_menu(self, name: str) -> MenuItem | None:
+        statistics = self.statistics
+        if statistics is None:
+            return None
+        has_x, has_y = bool(statistics.x_name), bool(statistics.y_name)
+        categorical = statistics.categorical_x
+        numeric_pair = has_x and has_y and not categorical
+        categorical_chart = statistics.plot_type in (
+            PlotType.DOT_CHART,
+            PlotType.BAR,
+            PlotType.PIE,
+        )
+        histogram = statistics.plot_type is PlotType.HISTOGRAM
+        if name == "statistics_plot":
+            return MenuItem(
+                "Plot Type",
+                items=tuple(
+                    MenuItem(
+                        plot.value,
+                        "statistics",
+                        f"plot:{plot.value}",
+                        enabled=plot is not statistics.plot_type,
+                    )
+                    for plot in statistics.available_plot_types()
+                ),
+            )
+        if name in {
+            "statistics_x",
+            "statistics_y",
+            "statistics_summary",
+            "statistics_split",
+        }:
+            purpose = name.removeprefix("statistics_")
+            choices = statistics.lists
+            if purpose in ("summary", "y"):
+                choices = statistics.numeric_lists
+            elif purpose == "split":
+                choices = statistics.category_lists
+            selected = {
+                "x": statistics.x_name,
+                "y": statistics.y_name,
+                "summary": statistics.summary_name,
+                "split": statistics.split_name,
+            }[purpose]
+            action = {
+                "x": "x",
+                "y": "y",
+                "summary": "summary",
+                "split": "split",
+            }[purpose]
+            return MenuItem(
+                f"Choose {purpose.title()} List",
+                jump=True,
+                start=(choices.index(selected),) if selected in choices else (),
+                items=tuple(
+                    MenuItem(variable, "statistics", f"{action}:{variable}") for variable in choices
+                )
+                or (MenuItem("(none)", "escape"),),
+            )
+        if name != "menu_statistics":
+            return None
+        plot_types = tuple(
+            MenuItem(
+                plot.value,
+                "statistics",
+                f"plot:{plot.value}",
+                enabled=plot is not statistics.plot_type,
+            )
+            for plot in statistics.available_plot_types()
+        )
+        return MenuItem(
+            "Menu",
+            items=(
+                MenuItem("Plot Type", key="1", jump=True, items=plot_types, enabled=has_x),
+                MenuItem(
+                    "Plot Properties",
+                    key="2",
+                    items=(
+                        MenuItem(
+                            "Connect Data Points",
+                            "statistics",
+                            "toggle-connect",
+                            key="1",
+                            enabled=has_y
+                            and statistics.plot_type in (PlotType.SCATTER, PlotType.XY_LINE),
+                        ),
+                        MenuItem(
+                            "Add X Variable",
+                            "open_menu",
+                            "statistics_x",
+                            key="5",
+                            enabled=bool(statistics.lists),
+                        ),
+                        MenuItem(
+                            "Add X Summary List",
+                            "open_menu",
+                            "statistics_summary",
+                            key="6",
+                            enabled=categorical and bool(statistics.numeric_lists),
+                        ),
+                        MenuItem("Remove X Variable", "statistics", "x:", key="7", enabled=has_x),
+                        MenuItem(
+                            "Add Y Variable",
+                            "open_menu",
+                            "statistics_y",
+                            key="8",
+                            enabled=bool(statistics.numeric_lists),
+                        ),
+                        MenuItem("Remove Y Variable", "statistics", "y:", key="9", enabled=has_y),
+                        MenuItem(
+                            "Force Categorical X"
+                            if not statistics.categorical_x
+                            else "Force Numeric X",
+                            "statistics",
+                            "toggle-force-x",
+                            key="B",
+                            enabled=has_x,
+                        ),
+                        MenuItem(
+                            "Split Categories by Variable",
+                            "open_menu",
+                            "statistics_split",
+                            key="D",
+                            enabled=categorical and bool(statistics.category_lists),
+                        ),
+                        MenuItem(
+                            "Remove Split Variable",
+                            "statistics",
+                            "split:",
+                            key="E",
+                            enabled=bool(statistics.split_name),
+                        ),
+                        MenuItem(
+                            "Show All Labels"
+                            if not statistics.show_all_labels
+                            else "Hide All Labels",
+                            "statistics",
+                            "toggle-labels",
+                            key="4",
+                            enabled=categorical_chart,
+                        ),
+                        MenuItem(
+                            "Extend Box Plot Whiskers"
+                            if not statistics.extend_whiskers
+                            else "Show Box Plot Outliers",
+                            "statistics",
+                            "toggle-whiskers",
+                            key="3",
+                            enabled=statistics.plot_type is PlotType.BOX,
+                        ),
+                        MenuItem(
+                            "Histogram Bin Width…",
+                            "statistics",
+                            "wizard:bin-width",
+                            key="2",
+                            enabled=histogram,
+                        ),
+                        MenuItem(
+                            "Histogram Scale",
+                            key="A",
+                            items=tuple(
+                                MenuItem(scale, "statistics", f"histogram-scale:{scale}")
+                                for scale in ("Frequency", "Percent", "Density")
+                            ),
+                            enabled=histogram,
+                        ),
+                        MenuItem(
+                            "Clear All",
+                            "statistics",
+                            "clear",
+                            key="F",
+                            enabled=has_x or has_y or bool(statistics.split_name),
+                        ),
+                    ),
+                ),
+                MenuItem(
+                    "Actions",
+                    key="3",
+                    items=(
+                        MenuItem(
+                            "Category Order",
+                            key="1",
+                            items=tuple(
+                                MenuItem(order, "statistics", f"sort-order:{order}")
+                                for order in ("List Order", "Value Order", "Alpha Order")
+                            ),
+                            enabled=categorical or bool(statistics.summary_name),
+                        ),
+                    ),
+                ),
+                MenuItem(
+                    "Analyze",
+                    key="4",
+                    enabled=has_x and not categorical_chart,
+                    items=(
+                        MenuItem(
+                            "Plot Function…",
+                            "statistics",
+                            "wizard:function",
+                            key="4",
+                            enabled=numeric_pair,
+                        ),
+                        MenuItem(
+                            "Remove Plotted Function",
+                            "statistics",
+                            "function:",
+                            key="1",
+                            enabled=bool(statistics.function_text),
+                        ),
+                        MenuItem(
+                            "Regression",
+                            key="6",
+                            jump=True,
+                            enabled=numeric_pair,
+                            items=(
+                                MenuItem("None", "statistics", "regression:none"),
+                                *(
+                                    MenuItem(label, "statistics", f"regression:{command}")
+                                    for command, label in REGRESSIONS
+                                ),
+                            ),
+                        ),
+                        MenuItem(
+                            "Residuals",
+                            key="7",
+                            enabled=bool(statistics.regression),
+                            items=(
+                                MenuItem(
+                                    "Show Residual Squares"
+                                    if not statistics.residual_squares
+                                    else "Hide Residual Squares",
+                                    "statistics",
+                                    "toggle-residual-squares",
+                                    key="1",
+                                    enabled=bool(statistics.regression),
+                                ),
+                                MenuItem(
+                                    "Show Residual Plot"
+                                    if not statistics.residual_plot
+                                    else "Hide Residual Plot",
+                                    "statistics",
+                                    "toggle-residual-plot",
+                                    key="2",
+                                    enabled=bool(statistics.regression),
+                                ),
+                            ),
+                        ),
+                        MenuItem(
+                            "Plot Value…",
+                            "statistics",
+                            "wizard:value",
+                            key="8",
+                            enabled=has_x and not categorical_chart,
+                        ),
+                        MenuItem(
+                            "Show Normal PDF" if not statistics.normal_pdf else "Hide Normal PDF",
+                            "statistics",
+                            "toggle-normal-pdf",
+                            key="9",
+                            enabled=statistics.plot_type is PlotType.HISTOGRAM,
+                        ),
+                    ),
+                ),
+                MenuItem(
+                    "Window/Zoom",
+                    key="5",
+                    enabled=has_x and statistics.plot_type is not PlotType.PIE,
+                    items=(
+                        MenuItem(
+                            "Window Settings…",
+                            "statistics",
+                            "wizard:window",
+                            key="1",
+                            enabled=not categorical_chart,
+                        ),
+                        MenuItem(
+                            "Zoom - Data",
+                            "statistics",
+                            "zoom-data",
+                            key="2",
+                            enabled=has_x,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+    def _statistics_action(self, statistics: Statistics, action: str) -> None:
+        name, _, argument = action.partition(":")
+        if name == "wizard":
+            wizard = statistics.wizard(argument)
+            self._statistics_wizard = (statistics, argument, wizard)
+            if self.show_wizard is not None:
+                self.show_wizard(wizard)
+        elif name == "function":
+            statistics.perform(f"set-function:{argument}")
+        else:
+            statistics.perform(action)
 
     def _open_menu(self, name: str) -> None:
         root = self._menu_root(name)
@@ -528,6 +852,12 @@ class AppState:
         """Paste what a dialog built. Returns the problems instead if a field will not do."""
         problems = wizard.problems(values)
         if not problems:
+            if self._statistics_wizard is not None and self._statistics_wizard[2] is wizard:
+                statistics, action, _ = self._statistics_wizard
+                problems = statistics.finish_wizard(action, values)
+                if not problems:
+                    self._statistics_wizard = None
+                return problems
             bindings = wizard.bindings(values)
             if self.sheet is not None and wizard.steps is None:
                 # On a sheet a command's dialog (Distributions) puts `=its formula` in the

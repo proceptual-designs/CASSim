@@ -1,4 +1,4 @@
-# Requirement traced here: FR-STAT-004
+# Requirements traced here: FR-STAT-004
 from cassim.devices.nspire.statistics_plot import PValuePlot, p_value_scene
 from cassim.graph.scene import Fill, Label, Polyline
 

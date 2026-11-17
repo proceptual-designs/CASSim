@@ -38,6 +38,11 @@ RULES = [
         {"flet", "cassim.app", "cassim.device", "cassim.devices", "cassim.doc", "cassim.bundle"},
         "PLAN.md 12 A5: the sheet engine runs headless in the engine worker (decision 0031)",
     ),
+    (
+        "stats",
+        {"flet", "cassim.app", "cassim.device", "cassim.devices", "cassim.doc", "cassim.bundle"},
+        "PLAN.md 12 A5: statistics plots are backend-neutral scenes",
+    ),
     ("devices", {"flet", "cassim.app"}, "a device imports without Flet (decision 0032)"),
 ]
 

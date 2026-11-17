@@ -374,3 +374,131 @@ def sine_fit(xs: Vector, ys: Vector) -> list[float]:
     frequency = (low + high) / 2
     (sine, cosine, offset), _ = _sine_terms(frequency, x_values, y_values)
     return [math.hypot(sine, cosine), frequency, math.atan2(cosine, sine), offset]
+
+
+@dataclass(frozen=True, slots=True)
+class Fit:
+    """What a regression found: named coefficients, a model to predict with, and how well."""
+
+    coefficients: dict[str, float]
+    predict: Callable[[float], float]
+    r_squared: float | None = None
+    r: float | None = None
+    transformed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Regression:
+    title: str
+    equation: str
+    r_squared_label: str
+    fit: Callable[[list[Fraction], list[Fraction]], Fit]
+
+
+def _line_fit(xs: list[Fraction], ys: list[Fraction], names: tuple[str, str]) -> Fit:
+    line = line_fit(xs, ys)
+    first, second = names
+    values = {first: line.intercept, second: line.slope}
+    if names == ("m", "b"):
+        values = {"m": line.slope, "b": line.intercept}
+    return Fit(values, lambda x: line.intercept + line.slope * x, line.r_squared, line.r)
+
+
+def _polynomial_fit(xs: list[Fraction], ys: list[Fraction], degree: int) -> Fit:
+    coefficients = polynomial_fit(xs, ys, degree)
+
+    def predict(x: float) -> float:
+        return float(evaluate_polynomial(coefficients, Fraction(x)))
+
+    predicted = [predict(float(x)) for x in xs]
+    r_squared = coefficient_of_determination(ys, predicted)
+    names = "abcde"[: degree + 1]
+    return Fit(dict(zip(names, (float(c) for c in coefficients), strict=True)), predict, r_squared)
+
+
+def _exponential_fit(xs: list[Fraction], ys: list[Fraction]) -> Fit:
+    a, b, line = exponential_fit(xs, ys)
+    return Fit({"a": a, "b": b}, lambda x: a * b**x, line.r_squared, line.r, transformed=True)
+
+
+def _power_fit(xs: list[Fraction], ys: list[Fraction]) -> Fit:
+    a, b, line = power_fit(xs, ys)
+    return Fit({"a": a, "b": b}, lambda x: a * x**b, line.r_squared, line.r, transformed=True)
+
+
+def _logarithmic_fit(xs: list[Fraction], ys: list[Fraction]) -> Fit:
+    a, b, line = logarithmic_fit(xs, ys)
+    return Fit(
+        {"a": a, "b": b},
+        lambda x: a + b * math.log(x),
+        line.r_squared,
+        line.r,
+        transformed=True,
+    )
+
+
+def _median_median_fit(xs: list[Fraction], ys: list[Fraction]) -> Fit:
+    slope, intercept = median_median_line(xs, ys)
+    m, b = float(slope), float(intercept)
+    return Fit({"m": m, "b": b}, lambda x: m * x + b)
+
+
+def _logistic_fit(xs: list[Fraction], ys: list[Fraction], *, shifted: bool) -> Fit:
+    found = logistic_fit(xs, ys, shifted=shifted)
+    a, b, c = found[:3]
+    d = found[3] if shifted else 0.0
+    names = dict(zip("abcd", found, strict=False))
+    return Fit(names, lambda x: c / (1 + a * math.exp(-b * x)) + d)
+
+
+def _sinusoid_fit(xs: list[Fraction], ys: list[Fraction]) -> Fit:
+    a, b, c, d = sine_fit(xs, ys)
+    return Fit({"a": a, "b": b, "c": c, "d": d}, lambda x: a * math.sin(b * x + c) + d)
+
+
+REGRESSIONS = {
+    "LinRegBx": Regression(
+        "Linear Regression (a+bx)", "a+b*x", "r²", lambda x, y: _line_fit(x, y, ("a", "b"))
+    ),
+    "LinRegMx": Regression(
+        "Linear Regression (mx+b)", "m*x+b", "r²", lambda x, y: _line_fit(x, y, ("m", "b"))
+    ),
+    "QuadReg": Regression(
+        "Quadratic Regression", "a*x^2+b*x+c", "R²", lambda x, y: _polynomial_fit(x, y, 2)
+    ),
+    "CubicReg": Regression(
+        "Cubic Regression", "a*x^3+b*x^2+c*x+d", "R²", lambda x, y: _polynomial_fit(x, y, 3)
+    ),
+    "QuartReg": Regression(
+        "Quartic Regression",
+        "a*x^4+b*x^3+c*x^2+d*x+e",
+        "R²",
+        lambda x, y: _polynomial_fit(x, y, 4),
+    ),
+    "ExpReg": Regression("Exponential Regression", "a*b^x", "r²", _exponential_fit),
+    "PowerReg": Regression("Power Regression", "a*x^b", "r²", _power_fit),
+    "LnReg": Regression("Logarithmic Regression", "a+b*ln(x)", "r²", _logarithmic_fit),
+    "MedMed": Regression("Median-Median Line", "m*x+b", "r²", _median_median_fit),
+    "Logistic": Regression(
+        "Logistic Regression (d=0)",
+        "c/(1+a*ⅇ^(-b*x))",
+        "r²",
+        lambda x, y: _logistic_fit(x, y, shifted=False),
+    ),
+    "LogisticD": Regression(
+        "Logistic Regression (d≠0)",
+        "c/(1+a*ⅇ^(-b*x))+d",
+        "r²",
+        lambda x, y: _logistic_fit(x, y, shifted=True),
+    ),
+    "SinReg": Regression("Sinusoidal Regression", "a*sin(b*x+c)+d", "r²", _sinusoid_fit),
+}
+
+
+def fit_regression(command: str, xs: Sequence[Fraction], ys: Sequence[Fraction]) -> Fit:
+    """Fit one registered regression without storing any `stat.` variables."""
+    try:
+        kind = REGRESSIONS[command]
+    except KeyError:
+        raise ValueError(f"unknown regression: {command}") from None
+    return kind.fit(list(xs), list(ys))

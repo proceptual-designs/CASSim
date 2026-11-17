@@ -28,6 +28,7 @@ from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.layout import SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
+from cassim.devices.nspire.ui.statistics_view import StatisticsView
 from cassim.devices.nspire.ui.template_icons import HEIGHT as ICON_H
 from cassim.devices.nspire.ui.template_icons import ICONS, Icon, Slot, Stroke
 from cassim.devices.nspire.ui.template_icons import WIDTH as ICON_W
@@ -370,6 +371,7 @@ class CalculatorView:
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
         self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
         self.sheet_panes = ft.Row([], spacing=0, expand=True)
         self.pvalue_pane = ft.Container(expand=True)
         self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
@@ -404,6 +406,8 @@ class CalculatorView:
             self._refresh_sheet(sheet)
             self._error(screen)
             self._menu(screen.menu)
+            return
+        if self._refresh_statistics(screen):
             return
         self.body.controls = [self.history]
         if screen.sorter is not None:  # the page sorter, in place of the page
@@ -455,6 +459,18 @@ class CalculatorView:
         self._follow = picked is not None and picked != self._held
         self._error(screen)
         self._menu(screen.menu)
+
+    def _refresh_statistics(self, screen: Screen) -> bool:
+        statistics = self.state.statistics
+        if statistics is None:
+            return False
+        self._calculator_shown = False
+        self.body.controls = [self.statistics_view.control]
+        self.statistics_view.refresh(statistics, *self.body_size())
+        self._follow = False
+        self._error(screen)
+        self._menu(screen.menu)
+        return True
 
     def _refresh_sheet(self, sheet: Spreadsheet) -> None:
         width, height = self.body_size()
@@ -602,6 +618,10 @@ class CalculatorView:
             if x <= pane_width:
                 return self.sheet_view.click_at(x, y)
             return True
+        if self.state.statistics is not None and self.body.controls == [
+            self.statistics_view.control
+        ]:
+            return self.statistics_view.click_at(x, y)
         return self.history_click(x, y)
 
     # ---- pointer clicks on the history: sizes reported by Flet while the pointer is in use --
