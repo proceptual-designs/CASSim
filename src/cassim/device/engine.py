@@ -76,6 +76,7 @@ type SheetAction = Literal[
     "put",
     "move",
     "stat",
+    "inference",
 ]
 
 
@@ -129,6 +130,12 @@ SHEET_ARGS: dict[str, dict[str, str]] = {
         "category": "str",
         "include": "str",
         "save": "str",
+        "column": "int",
+        "choose": "choose",
+        "confirm": "bool",
+    },
+    "inference": {
+        "formula": "str",
         "column": "int",
         "choose": "choose",
         "confirm": "bool",

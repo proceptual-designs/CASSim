@@ -150,6 +150,22 @@ def test_stat_dialogs_show_the_results() -> None:
     assert "Linear Regression" in _calculator(state).history[-1].result.text
 
 
+def test_inference_dialogs_build_and_run_commands() -> None:
+    state = _finish("tinterval", mean="7", sd="3", n="6", level="0.95")
+    assert _calculator(state).history[-1].text == "tInterval 7,3,6,0.95"
+    assert _calculator(state).history[-1].result.text == "Done"
+
+    state = _finish(
+        "ztest_1prop",
+        p0="0.5",
+        successes="14",
+        n="20",
+        alternative="0",
+    )
+    assert _calculator(state).history[-1].text == "zTest_1Prop 0.5,14,20,0"
+    assert _calculator(state).history[-1].result.text == "Done"
+
+
 def test_every_dialog_builds_with_its_defaults_filled() -> None:
     for name, wizard in WIZARDS.items():
         values = {field.name: field.default or "1" for field in wizard.fields}
@@ -162,9 +178,12 @@ def test_every_dialog_builds_with_its_defaults_filled() -> None:
 
 def test_field_checks() -> None:
     choice = Field("c", "Pick", "a", choices=(("a", "A"), ("b", "B")))
+    toggle = Field("shade", "Shade P Value", "0", toggle=True)
     whole = Field("n", "Rows", whole=(1, 99))
     assert choice.problem("a") is None
     assert choice.problem("z")
+    assert toggle.problem("1") is None
+    assert toggle.problem("true")
     assert whole.problem("5") is None
     assert whole.problem("100")
     assert whole.problem("x")

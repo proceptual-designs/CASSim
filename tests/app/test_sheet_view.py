@@ -1,4 +1,4 @@
-# Requirements traced here: FR-SHEET-001, NFR-PERF-006, FR-DEV-004
+# Requirements traced here: FR-SHEET-001, FR-DOC-009, NFR-PERF-006, FR-DEV-004
 """The Lists & Spreadsheet page in the Flet view (slice 3b): it draws in the screen's place of
 the history, keeps the canvases of layers that did not change, and turns taps, long presses,
 drags and the wheel into sheet actions (decision 0031 item 7)."""
@@ -11,6 +11,7 @@ from tests.app.test_splitter_drag import FakePage
 
 from cassim.app.shell import Shell
 from cassim.device.keys import Action, Binding
+from cassim.device.wizard import Field
 from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.spreadsheet import NAME_ROW
 from cassim.devices.nspire.sheet_scene import (
@@ -21,10 +22,11 @@ from cassim.devices.nspire.sheet_scene import (
     cell_at,
     context_regions,
 )
+from cassim.devices.nspire.statistics_plot import PValuePlot
 from cassim.devices.nspire.ui.app import App
 from cassim.devices.nspire.ui.sheet_view import BAR, SheetView, sheet_colours
 from cassim.devices.nspire.ui.state import AppState, Mode
-from cassim.devices.nspire.ui.views import CalculatorView
+from cassim.devices.nspire.ui.views import CalculatorView, field_box
 
 
 def sheet_state() -> AppState:
@@ -80,11 +82,35 @@ def test_the_sheet_draws_in_place_of_the_history():
     state.run(Binding("enter"))
     state.prepare()
     view.refresh()
-    assert view.body.controls == [view.sheet_view.control]
+    assert view.body.controls == [view.sheet_panes]
+    assert view.sheet_panes.controls == [view.sheet_view.control]
     assert texts(view.sheet_view.bar) == ["A2", ""]
     state.run_action("prev_page")
     view.refresh()
     assert view.body.controls == [view.history]
+
+
+def test_shade_p_value_draws_a_second_pane():
+    state = sheet_state()
+    view, _ = view_for(state)
+    sheet = state.sheet
+    assert sheet is not None
+    sheet.pvalue_plot = PValuePlot(0.8944, 0.3711, 0)
+    view.refresh()
+    assert view.body.controls == [view.sheet_panes]
+    assert view.sheet_panes.controls == [view.sheet_view.control, view.pvalue_pane]
+    assert view.pvalue_pane.content is not None
+
+
+def test_shade_option_is_a_checkbox():
+    box = field_box(
+        Field("shade", "Shade P Value", "1", toggle=True),
+        lambda _: None,
+        lambda _: None,
+        None,
+    )
+    assert isinstance(box, ft.Checkbox)
+    assert box.value is True
 
 
 def test_the_window_follows_the_size():
