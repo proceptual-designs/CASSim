@@ -142,6 +142,14 @@ class ProblemSheets:
                     choose=choose,
                     confirm=bool(args["confirm"]),
                 )
+            case "inference":
+                return actions.stat_inference(
+                    sheet,
+                    cast("str", args["formula"]),
+                    column=column,
+                    choose=choose,
+                    confirm=bool(args["confirm"]),
+                )
             case "put":
                 return sheet.put(_contents(args["cells"]), confirm=bool(args["confirm"]))
             case _:  # "view" changes nothing

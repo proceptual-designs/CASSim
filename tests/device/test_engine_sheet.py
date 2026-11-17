@@ -430,6 +430,16 @@ def stat(command, lists, column, **fields):
     )
 
 
+def inference(formula, column):
+    return sheet(
+        "inference",
+        formula=formula,
+        column=column,
+        choose={},
+        confirm=False,
+    )
+
+
 def results_of(reply, column):
     """{label: value} from a view of the label column and the value column after it."""
     cells = shown(reply)
@@ -477,3 +487,12 @@ def test_linear_regression():
     reply = core.apply(1, [{"op": "eval", "line": "f1(2)", "approximate": False}])
     assert reply["result"] is not None
     assert float(reply["result"]["text"]) == pytest.approx(10.0625 * 2 - 24.8125)
+
+
+def test_inference_result_columns_run_through_the_engine():
+    core = EngineCore()
+    ops = [cell(0, row, str(value)) for row, value in enumerate([1, 2, 3, 4], start=1)]
+    ops += [inference("tInterval a[],1,.95", 4), view(4, 1, 5, 6)]
+    reply = core.apply(1, ops)
+    assert column_texts(reply, 4, [1, 2, 3]) == ["Title", "x̄", "CLower"]
+    assert column_texts(reply, 5, [1, 2, 3]) == ["t Interval", "2.5", "0.44573974"]

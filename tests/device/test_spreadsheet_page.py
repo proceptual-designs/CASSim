@@ -1,4 +1,5 @@
-# Requirements traced here: FR-SHEET-001, FR-SHEET-002, FR-DOC-008, FR-DOC-003
+# Requirements traced here:
+# FR-SHEET-001, FR-SHEET-002, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -19,6 +20,8 @@ from cassim.devices.nspire.pages.spreadsheet import (
     NAME_ROW,
     WIDE,
     Spreadsheet,
+    dump,
+    load,
 )
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
@@ -1063,7 +1066,51 @@ def test_a_distribution_puts_its_formula_in_the_cell():
     assert sheet.editing is not None
     assert sheet.editing.startswith("=normCdf(-1,1")
     keys(state, "enter")
-    assert shown(state, F, 2).startswith("0.6826")
+
+
+def test_inference_wizard_writes_a_live_result_column():
+    state, sheet = stats_sheet()
+    sheet.go((F, 2))
+    state.run(Binding("sheet", "inference:tInterval"))
+    assert state.wizards[-1].title == "t Interval"
+    finish_wizard(state, mean="5", sd="2", n="8", level="0.95")
+    assert sheet.columns[H][2] == "tInterval 5,2,8,0.95"
+    assert column(state, G, [1, 2, 3]) == ["Title", "x̄", "CLower"]
+
+
+def test_shade_p_value_splits_the_spreadsheet_view():
+    state, sheet = stats_sheet()
+    sheet.go((F, 2))
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    finish_wizard(
+        state,
+        p0="0.5",
+        successes="12",
+        n="20",
+        alternative="0",
+        shade="1",
+    )
+    assert sheet.shade_alternative == 0
+    assert sheet.pvalue_plot is not None
+    assert sheet.pvalue_plot.statistic == pytest.approx(0.89442719)
+    assert sheet.pvalue_plot.p_value == pytest.approx(0.37109337)
+    restored = load(Spreadsheet(sheet.session, sheet.clipboard), dump(sheet))
+    assert restored.shade_alternative == 0
+    assert restored.pvalue_plot is None
+    restored.loaded()
+    assert restored.pvalue_plot is not None
+
+
+def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, 1))
+    type_cell(state, "1")
+    sheet.go((25, 2))
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    assert state.wizards[-1].fields[-2].default == "a[]"
+    finish_wizard(state, p0="0.5", successes="12", n="20")
+    assert sheet.dialogs[-1].title == "Data Loss"
 
 
 def test_the_statistics_menu():

@@ -29,6 +29,8 @@ from cassim.device.engine import RemoteSession
 from cassim.device.keys import Action, Binding
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire.statistics import INTERVALS, TESTS, build_command
+from cassim.devices.nspire.statistics_plot import PValuePlot
 from cassim.sheet import refs
 from cassim.sheet.refs import COLUMNS, ROWS
 
@@ -193,6 +195,8 @@ class Spreadsheet:
         self.widths: dict[int, int] = {}
         # The cells on show, from the engine's last view.
         self.view: dict[Key, CellView] = {}
+        self.shade_alternative: int | None = None
+        self.pvalue_plot: PValuePlot | None = None
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -274,6 +278,9 @@ class Spreadsheet:
                 self._accept(reply)
 
     def _accept(self, reply: SheetReply) -> None:
+        if reply["error"] is not None and reply["error"]["title"] != DATA_LOSS:
+            self.shade_alternative = None
+            self.pvalue_plot = None
         for column, row, kind, text in reply["edits"]:
             if kind:
                 self.cells[(column, row)] = (kind, text)
@@ -298,6 +305,21 @@ class Spreadsheet:
             self.dialogs.append(Dialog(notice["title"], notice["message"]))
         if reply["error"] is not None:
             self._failed(reply["error"])
+        if reply["error"] is None:
+            self._refresh_pvalue_plot()
+
+    def _refresh_pvalue_plot(self) -> None:
+        if self.shade_alternative is None:
+            return
+        values = {row.name.casefold(): row.text for row in self.session.variables()}
+        statistic = values.get("stat.z")
+        p_value = values.get("stat.pval")
+        if statistic is not None and p_value is not None:
+            self.pvalue_plot = PValuePlot(
+                float(statistic.replace("ᴇ", "e")),
+                float(p_value.replace("ᴇ", "e")),
+                self.shade_alternative,
+            )
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -497,6 +519,9 @@ class Spreadsheet:
             if dialog.then is not None:
                 self.perform(dialog.then)
         elif action in ("escape", "sheet_cancel") or not dialog.cancel:
+            if dialog.title == DATA_LOSS and self.shade_alternative is not None:
+                self.shade_alternative = None
+                self.pvalue_plot = None
             self.dialogs.pop(0)
 
     def _keys(self) -> dict[Action, Callable[[str], None]]:
@@ -1157,7 +1182,7 @@ class Spreadsheet:
         elif name == "store_var":  # var > Store Var: types `var` in the name cell, selected
             self.go((column, NAME_ROW))
             self.begin_edit("var")
-        elif name in ("onevar", "stat", "edit", "dialog"):
+        elif name in ("onevar", "stat", "inference", "edit", "dialog"):
             self._statistics_action(name, rest)
         elif name == "paste_ok":
             self.paste(confirm=True)
@@ -1175,6 +1200,8 @@ class Spreadsheet:
         elif name == "stat":
             command, _, count = rest.partition(":")
             self.wizard = self._stat_wizard(command, int(count or 1))
+        elif name == "inference":
+            self.wizard = self._inference_wizard(rest)
         elif name == "edit":  # a Distributions dialog: its formula, in the cell (run 4, S10)
             self.go((self.cursor[0], max(self.cursor[1], 1)))
             self.begin_edit(rest)
@@ -1243,6 +1270,50 @@ class Spreadsheet:
             return [Binding("sheet_op", json.dumps({"action": "stat", "args": args}))]
 
         fields = (*lists, *saving, *extra, Field("results", "1st Result Column", results))
+        return Wizard(title, fields, steps=steps)
+
+    def _inference_wizard(self, command: str) -> Wizard:
+        """A Confidence Interval or Stat Test dialog writing a live result column."""
+        definition = next(
+            (item for item in (*INTERVALS, *TESTS) if item[1] == command),
+            None,
+        )
+        if definition is None:
+            raise ValueError(f"Unknown statistical command: {command}")
+        title, name, _, command_fields = definition
+        result_default = "a[]" if command == "zTest_1Prop" else f"{letter(self.free_column())}[]"
+        fields: tuple[Field, ...] = (
+            *command_fields,
+            Field("results", "1st Result Column", result_default),
+            *(
+                (Field("shade", "Draw: Shade P Value", "0", toggle=True),)
+                if command == "zTest_1Prop"
+                else ()
+            ),
+        )
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            if any(not values.get(field.name, "").strip() for field in command_fields):
+                return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
+            column_name = values["results"].strip().removesuffix("[]")
+            target = refs.address(f"{column_name}1")
+            if target is None or len(column_name) != 1:
+                return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
+            formula = build_command(name, command_fields, values)
+            self.shade_alternative = (
+                int(values["alternative"])
+                if command == "zTest_1Prop" and values.get("shade") == "1"
+                else None
+            )
+            self.pvalue_plot = None
+            args = {
+                "formula": formula,
+                "column": target.column,
+                "choose": {},
+                "confirm": False,
+            }
+            return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
+
         return Wizard(title, fields, steps=steps)
 
     def _go_to_dialog(self) -> None:
@@ -1436,6 +1507,7 @@ def dump(sheet: Spreadsheet) -> dict[str, Any]:
         "cursor": list(sheet.cursor),
         "top": sheet.top,
         "left": sheet.left,
+        "shade_alternative": sheet.shade_alternative,
     }
 
 
@@ -1452,6 +1524,13 @@ def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
         refs.column_index(name): min(max(int(w), MIN_WIDTH), MAX_WIDTH)
         for name, w in data.get("widths", {}).items()
     }
+    alternative = data.get("shade_alternative")
+    if (
+        isinstance(alternative, int)
+        and not isinstance(alternative, bool)
+        and alternative in (0, 1, 2)
+    ):
+        sheet.shade_alternative = alternative
     column, row = data.get("cursor", [0, 1])
     sheet.go((int(column), int(row)))
     sheet.top = min(max(int(data.get("top", 1)), 1), ROWS)
