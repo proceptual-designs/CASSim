@@ -160,7 +160,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-STAT-005 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_statistics_page.py`, `tests/e2e/test_statistics_browser.py` and 1 more |
 | FR-STAT-002 | Must | `tests/unit/test_sheet_stats.py`, `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/device/test_statistics_page.py`, `tests/unit/test_statistics.py` |
-| FR-STAT-004 | Must | `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py`, `tests/unit/test_inference.py` and 3 more |
+| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py` and 4 more |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-006 | Must | `tests/device/test_sheet_scene.py`, `tests/unit/test_scene.py` |
 | FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 4 more |

@@ -1,5 +1,6 @@
 # Requirements traced here:
-# FR-SHEET-001, FR-SHEET-003, FR-STAT-001, FR-STAT-005, FR-DOC-009, NFR-PERF-006, FR-DEV-004
+# FR-SHEET-001, FR-SHEET-003, FR-STAT-001, FR-STAT-004,
+# FR-STAT-005, FR-DOC-009, NFR-PERF-006, FR-DEV-004
 """The Lists & Spreadsheet page in the Flet view (slice 3b): it draws in the screen's place of
 the history, keeps the canvases of layers that did not change, and turns taps, long presses,
 drags and the wheel into sheet actions (decision 0031 item 7)."""

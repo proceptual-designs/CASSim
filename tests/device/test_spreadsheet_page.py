@@ -1232,6 +1232,40 @@ def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
     assert sheet.dialogs[-1].title == "Data Loss"
 
 
+def test_inference_wizard_rejects_missing_fields_and_invalid_result_columns():
+    state, sheet = stats_sheet()
+    state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, mean="", sd="2", n="8")
+    assert sheet.dialogs[-1].title == "Input Error"
+    keys(state, "enter")
+
+    state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, mean="5", sd="2", n="8", results="aa[]")
+    assert sheet.dialogs[-1].title == "Syntax Error"
+    assert sheet.dialogs[-1].message == "Cannot accept change: Invalid input."
+
+
+def test_cancelling_inference_data_loss_discards_pending_shade():
+    state, sheet = stats_sheet()
+    sheet.go((D, 1))
+    type_cell(state, "17")
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    finish_wizard(
+        state,
+        p0="0.5",
+        successes="12",
+        n="20",
+        results="d[]",
+        shade="1",
+    )
+    assert sheet.dialogs[-1].title == "Data Loss"
+    assert sheet.shade_alternative == 0
+    keys(state, "escape")
+    assert sheet.shade_alternative is None
+    assert sheet.pvalue_plot is None
+    assert shown(state, D, 1) == "17"
+
+
 def test_the_statistics_menu():
     state, _ = stats_sheet()
     state.run(Binding("open_menu", "menu"))
