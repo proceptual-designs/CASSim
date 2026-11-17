@@ -9,7 +9,8 @@ from typing import cast
 import flet as ft
 import pytest
 
-from cassim.app.shell import Shell
+from cassim import bundle
+from cassim.app.shell import BrowserOffers, Shell
 from cassim.devices.nspire import DEVICE
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.ui.app import App
@@ -137,6 +138,20 @@ def test_computer_toolbar_groups_actions_and_uses_keypad_theme() -> None:
     assert text_chip(rows, "CASSim").bgcolor == app.theme.accent
     assert text_chip(rows, "Doc").bgcolor == app.theme.key_colours("nav")[0]
     assert text_chip(rows, "Settings").bgcolor == app.theme.key
+
+
+def test_computer_toolbar_keeps_beta_brand_with_attention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(bundle, "SOURCE", "CASSim-calc")
+    app, _ = computer_app()
+    assert text_chip(app.toolbar_controls(), "CASSimᵝ")
+    monkeypatch.setattr(Shell, "offers", property(lambda _: BrowserOffers(update_ready=True)))
+    assert any(
+        isinstance(control, ft.Text) and control.value == "CASSimᵝ"
+        for root in app.toolbar_controls()
+        for control in descendants(root)
+    )
 
 
 def test_column_grips_and_optional_keyboard_controls() -> None:

@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
 
 _MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
-_KEY_PALETTES = frozenset({"symbols", "trig", "templates"})
 # Keys the page sorter passes on: they act on the document or open a menu, never on a page.
 _SORTER_PASSES = frozenset(
     {
@@ -388,17 +387,7 @@ class AppState:
         elif binding == Binding("dialog", SORTER):
             self.sorting = True
         elif binding.action == "open_menu":
-            name = binding.arg
-            if name == "menu" and self.sheet is not None:
-                name = "menu_sheet"
-            if (
-                name == "menu"
-                and self.sheet is None
-                and calculator_of(self.document.current) is None
-            ):
-                self.menu = None  # a page CASSim has not built yet has no Menu
-            else:
-                self._open_menu(name)
+            self._open_menu(binding.arg)
         elif binding.action == "wizard":
             self._open_wizard(binding.arg)
         else:
@@ -407,38 +396,28 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "open_menu" and binding.arg == "cassim":
-            self._open_menu("cassim")
-            return
-        if binding.action == "open_menu" and self.menu.root.label == "CASSim":
+        if binding.action == "dialog" and binding.arg in {"help", "switch_view"}:
             self.menu = None
             self.run(binding)
             return
-        other = {"menu": "doc", "doc": "menu"}.get(binding.arg)
-        palette = binding.action == "open_menu" and binding.arg in _KEY_PALETTES
-        palette_roots = (self.profile.menus.get(name) for name in _KEY_PALETTES)
-        catalog_grid = self.menu.root is self.profile.menus.get(
-            "catalog"
-        ) and self.menu.level.item.label in {"Symbols", "Math Expression Templates"}
-        if (
-            not self.sorting
-            and palette
-            and (any(self.menu.root is root for root in palette_roots) or catalog_grid)
-        ):
-            if self.menu.root is self.profile.menus.get(binding.arg):
-                self._menu_key(Binding("right"))
-            else:
-                self._open_menu(binding.arg)
-        elif (
-            not self.sorting
-            and binding.action == "open_menu"
-            and other is not None
-            and self.menu.root.label == self.profile.menus[other].label
-        ):
-            self.menu = None
-            self.run(binding)
-        else:
-            self._menu_key(binding)
+        name = ""
+        if binding.action == "open_menu":
+            name = binding.arg
+        elif binding.action == "context_menu" and self.sheet is not None:
+            name = self.sheet.context_menu()
+        elif binding.action in {"add_page", "add_problem"} and not binding.arg:
+            name = binding.action
+        if name:
+            if self.sorting and name not in {"doc", "cassim", "add_page", "add_problem"}:
+                return
+            target = self._menu_root(name)
+            if target is not None:
+                same = target is self.menu.root or (
+                    name in {"variables", "cassim"} and target.label == self.menu.root.label
+                )
+                self.menu = None if same else MenuState(target)
+            return
+        self._menu_key(binding)
 
     def _sorter_key(self, binding: Binding) -> None:
         """While the page sorter is open it takes every key. The arrows move the highlight (left
@@ -489,11 +468,18 @@ class AppState:
         else:
             document.go(problem, page)
 
-    def _open_menu(self, name: str) -> None:
+    def _menu_root(self, name: str) -> MenuItem | None:
+        if name == "menu":
+            if self.sheet is not None:
+                name = "menu_sheet"
+            elif calculator_of(self.document.current) is None:
+                return None  # a page CASSim has not built yet has no Menu
         if name == "cassim" and self.cassim_menu is not None:
-            root = self.cassim_menu()
-        else:
-            root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+            return self.cassim_menu()
+        return self._variables_menu() if name == "variables" else self.profile.menus.get(name)
+
+    def _open_menu(self, name: str) -> None:
+        root = self._menu_root(name)
         if root is not None:
             self.menu = MenuState(root)
 

@@ -6,6 +6,7 @@ in the repo, lists every built device, so the tests and `flet run` behave as the
 
 NAME = "all"
 DEVICES = ("nspire",)
+SOURCE = "Development"
 # The versions a build ships, for the About box: in the browser the UI worker has no package
 # metadata for CASSim and no SymPy at all (it is in the engine worker). Empty here: the About box
 # then reads the installed packages.

@@ -4,6 +4,7 @@ the key) and a computer (one chord). Simon, 2026-11-14: ctrl, I on the keypad di
 
 import pytest
 
+from cassim.device.menu import MenuItem
 from cassim.devices.nspire.keymap import COMPUTER, HANDHELD
 from cassim.devices.nspire.ui.state import AppState
 
@@ -41,3 +42,18 @@ def test_keypad_ctrl_i_opens_the_application_list():
 
 def test_keyboard_ctrl_7_reaches_the_first_history_row():
     assert COMPUTER["ctrl+7"].action == "first_line"
+
+
+@pytest.mark.parametrize(
+    ("key", "arg"),
+    [("F1", "help"), ("alt+shift+c", "switch_view"), ("alt+shift+h", "switch_view")],
+)
+def test_app_shortcuts_are_available_while_a_menu_is_open(key: str, arg: str) -> None:
+    state = AppState()
+    state.cassim_menu = lambda: MenuItem("CASSim")
+    shown = []
+    state.show_dialog = shown.append
+    state.run_action("open_menu", "cassim")
+    state.run(COMPUTER[key])
+    assert shown == [arg]
+    assert state.menu is None

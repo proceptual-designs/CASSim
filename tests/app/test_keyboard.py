@@ -21,6 +21,8 @@ CASES = [
     ("Space", "c", "ctrl+ "),
     ("Shift Left", "", None),
     ("Escape", "", "Escape"),
+    ("F1", "", "F1"),
+    ("H", "sa", "alt+shift+h"),
     ("F5", "", None),
 ]
 

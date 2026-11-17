@@ -1,6 +1,7 @@
 """Build the installable, offline static site (FR-PWA-001 to FR-PWA-004).
 
-    python -m tools.publish [--bundle all|tin] [--dist DIR] [--base-url SUBPATH] [--cdn]
+    python -m tools.publish [--bundle all|tin] [--source NAME] [--dist DIR]
+                            [--base-url SUBPATH] [--cdn]
 
 Steps (decisions 0002, 0016, 0018, 0027): stage the app, `flet publish --no-cdn`, patch
 `index.html`, vendor the Pyodide packages loaded at run time, rebuild the app archive with Flet
@@ -61,6 +62,7 @@ class Bundle:
     name: str  # `all`, or a device's short name (`tin`)
     product: str  # the app's name: the title, the manifest and the installed icon's label
     devices: tuple[str, ...]  # device ids, in the order the shell offers them
+    source: str = "Development"
 
     @property
     def engine_packages(self) -> list[str]:
@@ -76,6 +78,11 @@ class Bundle:
         return found
 
 
+def product_for_site(bundle: Bundle, source: str) -> str:
+    """Distinguish the all-in-one testing site without changing stable product names."""
+    return "CASSimᵝ" if bundle.name == "all" and source == "CASSim-calc" else bundle.product
+
+
 def bundles() -> dict[str, Bundle]:
     """`all` (every device in the repo's `cassim/bundle.py`) and one bundle per built device."""
     from cassim import bundle, devices
@@ -83,7 +90,7 @@ def bundles() -> dict[str, Bundle]:
     found = {"all": Bundle("all", "CASSim", tuple(bundle.DEVICES))}
     for device_id in bundle.DEVICES:
         site = devices.SITES[device_id]
-        found[site.bundle] = Bundle(site.bundle, site.product, (device_id,))
+        found[site.bundle] = Bundle(site.bundle, site.product, (device_id,), site.product)
     return found
 
 
@@ -91,6 +98,7 @@ BUNDLE_PY = '''"""Which devices this build holds (written by tools/publish.py)."
 
 NAME = {name!r}
 DEVICES = {devices!r}
+SOURCE = {source!r}
 VERSIONS: dict[str, str] = {versions!r}
 '''
 
@@ -275,6 +283,26 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
     bar.value = pct;
     if (text) status.textContent = text;
   };
+  // Flutter marks its context-menu hit regions with this cursor. Decide on pointerdown, before
+  // the worker opens a menu and changes the cursor; cancelling later from Python is too late.
+  var contextClick = null;
+  window.addEventListener("pointerdown", function (e) {
+    contextClick = null;
+    if (e.button !== 2 || !e.composedPath().some(function (n) {
+      return n instanceof Element && n.tagName === "FLUTTER-VIEW";
+    })) return;
+    contextClick = {custom: getComputedStyle(e.target).cursor === "context-menu",
+      browser: e.ctrlKey};
+    // The physical Ctrl+right-click is for the browser, not the calculator.
+    if (contextClick.browser) e.stopPropagation();
+  }, true);
+  window.addEventListener("contextmenu", function (e) {
+    if (e.button === 2 && contextClick && contextClick.custom && !contextClick.browser) {
+      e.preventDefault();
+    }
+    contextClick = null;
+  }, true);
+  window.addEventListener("blur", function () { contextClick = null; });
   fetch("version.json").then(function (r) { return r.json(); }).then(function (v) {
     document.getElementById("cassim-version").textContent = "v" + v.version;
     window.cassimVersion = v.version;
@@ -520,10 +548,15 @@ def shipped_versions(lock: dict[str, Any], pyodide: str, bundle: Bundle) -> dict
 
 
 def copy_package(
-    target: Path, bundle: Bundle, *, ui: bool, versions: dict[str, str] | None = None
+    target: Path,
+    bundle: Bundle,
+    *,
+    ui: bool,
+    source: str | None = None,
+    versions: dict[str, str] | None = None,
 ) -> None:
     """Copy the `cassim` package into `target`: only the bundle's devices, with or without the
-    Flet views, and its own `bundle.py` (with the shipped `versions`)."""
+    Flet views, and its own `bundle.py` (with the shipped `versions` and source)."""
     devices = ROOT / "src" / "cassim" / "devices"
 
     def ignore(folder: str, names: list[str]) -> set[str]:
@@ -534,7 +567,12 @@ def copy_package(
 
     shutil.copytree(ROOT / "src" / "cassim", target / "cassim", ignore=ignore)
     (target / "cassim" / "bundle.py").write_text(
-        BUNDLE_PY.format(name=bundle.name, devices=bundle.devices, versions=versions or {}),
+        BUNDLE_PY.format(
+            name=bundle.name,
+            devices=bundle.devices,
+            source=source or bundle.source,
+            versions=versions or {},
+        ),
         encoding="utf-8",
     )
 
@@ -699,7 +737,7 @@ def write_engine_zip(dist: Path, bundle: Bundle) -> None:
                 archive.write(file, file.relative_to(root).as_posix())
 
 
-def draw_icon(size: int) -> PILImage:
+def draw_icon(size: int, *, beta: bool = False) -> PILImage:
     """The app icon, CASSim's own artwork: CAS over a blue SIM bar, in a rounded square."""
     from PIL import Image, ImageDraw, ImageFont
 
@@ -729,23 +767,32 @@ def draw_icon(size: int) -> PILImage:
     for letter, width in zip("SIM", widths, strict=True):
         draw.text((x, mid), letter, fill=THEME, font=sim, anchor="lm")
         x += width + gap
+    if beta:
+        draw.text(
+            (x - gap + size * 0.11, mid - size * 0.10),
+            "β",
+            fill="#e8e8e8",
+            font=bold(size * 0.13),
+            anchor="mm",
+        )
     return img
 
 
-def write_icons(dist: Path) -> None:
+def write_icons(dist: Path, bundle: Bundle) -> None:
     """App icons and the favicon (all the same artwork; no TI artwork)."""
     from PIL import Image
 
+    beta = bundle.product == "CASSimᵝ"
     out = dist / "icons"
     out.mkdir(exist_ok=True)
-    draw_icon(192).save(out / "icon-192.png")
-    draw_icon(512).save(out / "icon-512.png")
+    draw_icon(192, beta=beta).save(out / "icon-192.png")
+    draw_icon(512, beta=beta).save(out / "icon-512.png")
     # Maskable: the launcher crops to its own shape, so keep the artwork inside the safe zone.
     maskable = Image.new("RGBA", (512, 512), THEME)
-    inner = draw_icon(512).resize((360, 360), Image.Resampling.LANCZOS)
+    inner = draw_icon(512, beta=beta).resize((360, 360), Image.Resampling.LANCZOS)
     maskable.paste(inner, (76, 76), inner)
     maskable.save(out / "icon-maskable-512.png")
-    draw_icon(64).save(dist / "favicon.png")  # Flet's index.html links this file
+    draw_icon(64, beta=beta).save(dist / "favicon.png")  # Flet's index.html links this file
 
 
 def write_manifest(dist: Path, bundle: Bundle) -> None:
@@ -910,9 +957,18 @@ def size_report(dist: Path, bundle: Bundle) -> str:
     return "\n".join(lines)
 
 
-def build(dist: Path, base_url: str, bundle: Bundle | None = None, *, cdn: bool = False) -> None:
-    """Build `bundle` (default: `all`) into `dist`."""
+def build(
+    dist: Path,
+    base_url: str,
+    bundle: Bundle | None = None,
+    *,
+    cdn: bool = False,
+    source: str | None = None,
+) -> None:
+    """Build `bundle` (default: `all`) from `source` into `dist`."""
     bundle = bundle or bundles()["all"]
+    source = source or bundle.source
+    bundle = Bundle(bundle.name, product_for_site(bundle, source), bundle.devices, source)
     version = project_version()
     stage(version, bundle)
     if dist.exists():
@@ -931,7 +987,7 @@ def build(dist: Path, base_url: str, bundle: Bundle | None = None, *, cdn: bool 
         vendor_fallback_fonts(dist)
     write_app_archive(dist, bundle)
     write_engine_zip(dist, bundle)
-    write_icons(dist)
+    write_icons(dist, bundle)
     write_manifest(dist, bundle)
     if not cdn:
         check_offline_assets(dist)
@@ -944,6 +1000,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     known = bundles()
     parser.add_argument("--bundle", choices=sorted(known), default="all")
+    parser.add_argument("--source", help="site name shown in About and update status")
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument(
         "--base-url",
@@ -952,7 +1009,13 @@ def main() -> None:
     )
     parser.add_argument("--cdn", action="store_true", help="leave Pyodide and CanvasKit on the CDN")
     args = parser.parse_args()
-    build(args.dist.resolve(), args.base_url, known[args.bundle], cdn=args.cdn)
+    build(
+        args.dist.resolve(),
+        args.base_url,
+        known[args.bundle],
+        cdn=args.cdn,
+        source=args.source,
+    )
 
 
 if __name__ == "__main__":

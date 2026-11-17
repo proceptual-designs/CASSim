@@ -109,6 +109,7 @@ COMPUTER: Keymap = {
     "End": Binding("end"),
     "Escape": Binding("escape"),
     "CapsLock": Binding("caps"),  # the same lock as the keypad's ctrl+shift
+    "F1": Binding("dialog", "help"),
     "F2": Binding("open_menu", "menu"),
     "F4": Binding("open_menu", "doc"),
     "Tab": Binding("tab"),
@@ -135,6 +136,8 @@ COMPUTER: Keymap = {
     "ctrl+ArrowUp": Binding("dialog", "page_sorter"),
     "alt+ArrowRight": Binding("next_page"),
     "alt+ArrowLeft": Binding("prev_page"),
+    "alt+shift+c": Binding("dialog", "switch_view"),
+    "alt+shift+h": Binding("dialog", "switch_view"),
     "ctrl+c": Binding("copy"),
     "ctrl+x": Binding("cut"),
     "ctrl+v": Binding("paste"),

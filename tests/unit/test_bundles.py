@@ -42,8 +42,39 @@ def test_pyodide_download_reports_persistent_failure(code: int, attempts: int) -
 def test_all_and_one_bundle_per_built_device() -> None:
     found = publish.bundles()
     assert found["all"].product == "CASSim"
+    assert publish.product_for_site(found["all"], "CASSim-calc") == "CASSimᵝ"
+    assert publish.product_for_site(found["all"], "CASSim-app") == "CASSim"
     assert found["tin"].devices == ("nspire",)
     assert found["tin"].product == "CASSim-TIN"
+    assert publish.product_for_site(found["tin"], "CASSim-TIN") == "CASSim-TIN"
+
+
+def test_beta_bundle_marks_its_icons_without_changing_stable_artwork(tmp_path: Path) -> None:
+    stable_dir = tmp_path / "stable"
+    beta_dir = tmp_path / "beta"
+    stable_dir.mkdir()
+    beta_dir.mkdir()
+    all_bundle = publish.bundles()["all"]
+    stable = publish.Bundle("all", "CASSim", all_bundle.devices, "CASSim-app")
+    beta = publish.Bundle("all", "CASSimᵝ", all_bundle.devices, "CASSim-calc")
+    publish.write_icons(stable_dir, stable)
+    publish.write_icons(beta_dir, beta)
+
+    for filename, size in (
+        ("favicon.png", 64),
+        ("icons/icon-192.png", 192),
+        ("icons/icon-512.png", 512),
+    ):
+        expected = BytesIO()
+        publish.draw_icon(size).save(expected, format="PNG")
+        stable_image = (stable_dir / filename).read_bytes()
+        beta_image = (beta_dir / filename).read_bytes()
+        assert stable_image == expected.getvalue()
+        assert stable_image != beta_image
+
+    assert (stable_dir / "icons/icon-maskable-512.png").read_bytes() != (
+        beta_dir / "icons/icon-maskable-512.png"
+    ).read_bytes()
 
 
 def test_the_engine_packages_come_from_the_devices() -> None:
@@ -57,7 +88,7 @@ def test_a_bundle_copies_only_its_devices_and_writes_its_own_list(tmp_path: Path
     fake.mkdir()
     try:
         (fake / "__init__.py").write_text("", encoding="utf-8")
-        publish.copy_package(tmp_path, publish.bundles()["tin"], ui=False)
+        publish.copy_package(tmp_path, publish.bundles()["tin"], ui=False, source="CASSim-TIN")
     finally:
         (fake / "__init__.py").unlink()
         fake.rmdir()
@@ -69,6 +100,7 @@ def test_a_bundle_copies_only_its_devices_and_writes_its_own_list(tmp_path: Path
     text = (copied / "bundle.py").read_text(encoding="utf-8")
     assert "NAME = 'tin'" in text
     assert "DEVICES = ('nspire',)" in text
+    assert "SOURCE = 'CASSim-TIN'" in text
 
 
 def test_the_ui_build_keeps_the_views(tmp_path: Path) -> None:
