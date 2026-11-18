@@ -43,7 +43,11 @@ def sheet_origin(app: AppPage) -> tuple[float, float]:
 
 
 def cell_point(app: AppPage, column: int, row: int) -> tuple[float, float]:
-    x, y = sheet_origin(app)
+    return cell_at(sheet_origin(app), column, row)
+
+
+def cell_at(origin: tuple[float, float], column: int, row: int) -> tuple[float, float]:
+    x, y = origin
     return (
         x + ROW_LABELS + (column + 0.5) * DEFAULT_WIDTH,
         y + HEAD + FORMULA + (row + 0.5) * ROW,
@@ -51,8 +55,9 @@ def cell_point(app: AppPage, column: int, row: int) -> tuple[float, float]:
 
 
 def sheet_points(app: AppPage) -> tuple[tuple[float, float], tuple[float, float]]:
-    x, y = sheet_origin(app)
-    return (x + 10, y + 8), cell_point(app, 2, 0)
+    origin = sheet_origin(app)
+    x, y = origin
+    return (x + 10, y + 8), cell_at(origin, 2, 0)
 
 
 def check_shared_column(app: AppPage) -> None:
@@ -159,6 +164,8 @@ def test_right_click_context_menus(browser: Browser, site: tuple[Path, str]) -> 
         assert result["trusted"]
         return result["prevented"]
 
+    # Keep layout coordinates from a rendered sheet. Rebuilding page semantics after a switch is
+    # not a prerequisite for the canvas continuing to receive pointer input.
     corner, c1 = sheet_points(app)
     assert not right_click(*corner)  # the grid's top-left corner has no cell
     assert not right_click(*c1, ctrl=True)
@@ -192,12 +199,12 @@ def test_right_click_context_menus(browser: Browser, site: tuple[Path, str]) -> 
     app.page.wait_for_function(
         "() => getComputedStyle(document.querySelector('flutter-view')).cursor === 'context-menu'"
     )
-    assert right_click(*cell_point(app, 2, 0))
+    assert right_click(*c1)
     app.press("Escape")
     app.page.set_viewport_size({"width": 1200, "height": 760})
     app.page.wait_for_timeout(500)
-    assert not right_click(*cell_point(app, 2, 0), ctrl=True)
-    assert right_click(*cell_point(app, 2, 0))
+    assert not right_click(*c1, ctrl=True)
+    assert right_click(*c1)
     app.page.close()
 
 
