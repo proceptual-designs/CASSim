@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
+import contextlib
+import io
 import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
@@ -35,6 +38,10 @@ BISECTION = (
     "print c"
 )
 MOBILE_BREAKPOINT = 700
+LINE_COLUMN_WIDTH = 48
+VARIABLE_COLUMN_WIDTH = 76
+CONDITION_COLUMN_WIDTH = 130
+OUTPUT_COLUMN_WIDTH = 140
 THEMES: dict[str, Theme] = {
     "Dark": DARK,
     "Light": LIGHT,
@@ -43,7 +50,7 @@ THEMES: dict[str, Theme] = {
 
 
 class CodeApp:
-    def __init__(self, shell: Shell) -> None:
+    def __init__(self, shell: Shell) -> None:  # noqa: PLR0915
         self.shell = shell
         self.page = shell.page
         self.result = None
@@ -57,6 +64,7 @@ class CodeApp:
         self.console_visible = True
         self.line_numbers_visible = True
         self.console_inputs: list[str] = []
+        self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
         self.angle_mode: AngleMode = "radian"
@@ -166,22 +174,27 @@ class CodeApp:
         ):
             button.style = control_style
         self.vertical_button = ft.Button("Vertical", disabled=True)
-        self.trace_layout = ft.Dropdown(
-            label="Trace",
-            value="vertical",
-            options=[
-                ft.DropdownOption(key="none", text="None"),
-                ft.DropdownOption(key="vertical", text="Vertical"),
-                ft.DropdownOption(key="horizontal", text="Horizontal"),
+        self.trace_layout = ft.PopupMenuButton(
+            content="Trace: Vertical",
+            items=[
+                ft.PopupMenuItem(
+                    content="None", on_click=lambda _: self.change_trace_layout("none")
+                ),
+                ft.PopupMenuItem(
+                    content="Vertical",
+                    on_click=lambda _: self.change_trace_layout("vertical"),
+                ),
+                ft.PopupMenuItem(
+                    content="Horizontal",
+                    on_click=lambda _: self.change_trace_layout("horizontal"),
+                ),
             ],
-            on_select=self.change_trace_layout,
-            width=130,
-            text_size=12,
-            dense=True,
+            style=control_style,
         )
         self.variables_button = ft.PopupMenuButton(
             content="Variables",
             items=[ft.PopupMenuItem(content="Run to discover items")],
+            style=control_style,
         )
 
         self.console = ft.Text("", selectable=True, font_family="monospace")
@@ -314,8 +327,10 @@ class CodeApp:
             self.cm.setOption("lineNumbers", self.line_numbers_visible)
             self.cm.refresh()
 
-    def change_trace_layout(self, _: ft.Event[ft.Dropdown]) -> None:
-        value = str(self.trace_layout.value or "vertical")
+    def change_trace_layout(self, value: str) -> None:
+        self.trace_layout.content = f"Trace: {value.title()}"
+        if hasattr(self.page, "update"):
+            self.trace_layout.update()
         if value == "none":
             self.trace.controls = []
             self.trace.update()
@@ -324,8 +339,7 @@ class CodeApp:
                 "Horizontal trace",
                 "The horizontal trace table is available after the vertical trace is complete.",
             )
-            self.trace_layout.value = "vertical"
-            self.trace_layout.update()
+            self.change_trace_layout("vertical")
             self.update_trace()
         else:
             self.update_trace()
@@ -398,6 +412,11 @@ class CodeApp:
         previous = self.console.value or ""
 
         source = self.source()
+        if self.language == "python":
+            output = self.submit_python_console(text)
+            self.console.value = f"{previous}\n> {text}\n{output}".strip()
+            self.console.update()
+            return
         if "input " in source.lower() or "input(" in source.lower():
             self.console_inputs.append(text)
             inputs = tuple(self.console_inputs)
@@ -417,11 +436,8 @@ class CodeApp:
             self.build_variables()
             self.update_trace()
         else:
-            result = run(
-                f"{source}\nprint {text}",
-                self.settings(),
-                trace=True,
-            )
+            console_source = self.pseudocode_console_source(source, text)
+            result = run(console_source, self.settings(), trace=True)
             output = "\n".join(result.output)
             if result.error:
                 output = "\n".join(part for part in (output, f"Error: {result.error}") if part)
@@ -434,6 +450,56 @@ class CodeApp:
             self.run_button.content = "Run *"
             if hasattr(self.page, "update"):
                 self.run_button.update()
+
+    def submit_python_console(self, text: str) -> str:
+        """Execute a Python console line or expression in a persistent namespace."""
+        try:
+            parsed = ast.parse(text, mode="exec")
+            is_print_call = (
+                len(parsed.body) == 1
+                and isinstance(parsed.body[0], ast.Expr)
+                and isinstance(parsed.body[0].value, ast.Call)
+                and isinstance(parsed.body[0].value.func, ast.Name)
+                and parsed.body[0].value.func.id == "print"
+            )
+            if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr) and not is_print_call:
+                parsed = ast.Expression(parsed.body[0].value)
+                value = eval(
+                    compile(parsed, "<console>", "eval"),
+                    {"__builtins__": __builtins__},
+                    self.python_console_namespace,
+                )
+                return str(value)
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                exec(
+                    compile(parsed, "<console>", "exec"),
+                    {"__builtins__": __builtins__},
+                    self.python_console_namespace,
+                )
+            return buffer.getvalue().rstrip("\n")
+        except Exception as error:
+            return f"Error: {type(error).__name__}: {error}"
+
+    def pseudocode_console_source(self, source: str, text: str) -> str:
+        """Turn a console line into valid pseudocode in the selected language."""
+        stripped = text.strip()
+        statement_prefixes = (
+            "print ",
+            "input ",
+            "append ",
+            "return ",
+            "if ",
+            "while ",
+            "for ",
+            "repeat ",
+            "define ",
+            "end ",
+        )
+        is_assignment = "←" in stripped or "<-" in stripped or stripped.count("=") == 1
+        if stripped.startswith(statement_prefixes) or is_assignment:
+            return f"{source}\n{stripped}"
+        return f"{source}\nprint {stripped}"
 
     async def start_codemirror(self) -> None:
         import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
@@ -451,6 +517,7 @@ class CodeApp:
         for url in (
             "codemirror/codemirror.min.js",
             "codemirror/simple.min.js",
+            "codemirror/python.min.js",
         ):
             script = document.createElement("script")
             script.src = f"assets/{url}"
@@ -776,7 +843,15 @@ if (!window.CASSimPseudocodeModeDefined) {
     def update_trace(self) -> None:
         if self.result is None:
             data = ft.DataTable(
-                columns=[ft.DataColumn(label=ft.Text("Line", text_align=ft.TextAlign.CENTER))],
+                columns=[
+                    ft.DataColumn(
+                        label=ft.Container(
+                            ft.Text("Line", text_align=ft.TextAlign.CENTER),
+                            width=LINE_COLUMN_WIDTH,
+                            alignment=ft.Alignment.CENTER,
+                        )
+                    )
+                ],
                 rows=[],
                 border=ft.Border.all(1),
                 horizontal_lines=ft.BorderSide(width=1),
@@ -819,10 +894,40 @@ if (!window.CASSimPseudocodeModeDefined) {
             name for name in self.choices.variables if name in self.selection.variables
         ]
         columns = [
-            ft.DataColumn(label=ft.Text("Line", text_align=ft.TextAlign.CENTER)),
-            *(ft.DataColumn(label=name) for name in variable_names),
-            *(ft.DataColumn(label=name) for name in condition_names),
-            ft.DataColumn(label="Output"),
+            ft.DataColumn(
+                label=ft.Container(
+                    ft.Text("Line", text_align=ft.TextAlign.CENTER),
+                    width=LINE_COLUMN_WIDTH,
+                    alignment=ft.Alignment.CENTER,
+                )
+            ),
+            *(
+                ft.DataColumn(
+                    label=ft.Container(
+                        ft.Text(name),
+                        width=VARIABLE_COLUMN_WIDTH,
+                        alignment=ft.Alignment.CENTER,
+                    )
+                )
+                for name in variable_names
+            ),
+            *(
+                ft.DataColumn(
+                    label=ft.Container(
+                        ft.Text(name),
+                        width=CONDITION_COLUMN_WIDTH,
+                        alignment=ft.Alignment.CENTER,
+                    )
+                )
+                for name in condition_names
+            ),
+            ft.DataColumn(
+                label=ft.Container(
+                    ft.Text("Output"),
+                    width=OUTPUT_COLUMN_WIDTH,
+                    alignment=ft.Alignment.CENTER,
+                )
+            ),
         ]
         rows: list[ft.DataRow] = []
         for row in table.rows:
@@ -830,19 +935,44 @@ if (!window.CASSimPseudocodeModeDefined) {
                 self.result.steps[row.step].output if row.step < len(self.result.steps) else None
             )
             cells = [
-                ft.DataCell(ft.Text(str(row.line), text_align=ft.TextAlign.CENTER)),
-                *(ft.DataCell(ft.Text(row.cells.get(name, ""))) for name in variable_names),
+                ft.DataCell(
+                    ft.Container(
+                        ft.Text(str(row.line), text_align=ft.TextAlign.CENTER),
+                        width=LINE_COLUMN_WIDTH,
+                        alignment=ft.Alignment.CENTER,
+                    )
+                ),
                 *(
                     ft.DataCell(
-                        ft.Text(
-                            next(iter(row.conditions.values()), "")
-                            if condition_name(row.line) == name
-                            else ""
+                        ft.Container(
+                            ft.Text(row.cells.get(name, "")),
+                            width=VARIABLE_COLUMN_WIDTH,
+                            alignment=ft.Alignment.CENTER,
+                        )
+                    )
+                    for name in variable_names
+                ),
+                *(
+                    ft.DataCell(
+                        ft.Container(
+                            ft.Text(
+                                next(iter(row.conditions.values()), "")
+                                if condition_name(row.line) == name
+                                else ""
+                            ),
+                            width=CONDITION_COLUMN_WIDTH,
+                            alignment=ft.Alignment.CENTER,
                         )
                     )
                     for name in condition_names
                 ),
-                ft.DataCell(ft.Text(step_output or "")),
+                ft.DataCell(
+                    ft.Container(
+                        ft.Text(step_output or ""),
+                        width=OUTPUT_COLUMN_WIDTH,
+                        alignment=ft.Alignment.CENTER,
+                    )
+                ),
             ]
             rows.append(ft.DataRow(cells=cells))
         data = ft.DataTable(

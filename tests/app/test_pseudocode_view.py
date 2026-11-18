@@ -5,7 +5,14 @@ from typing import cast
 
 import flet as ft
 
-from cassim.devices.pseudocode.ui.app import BISECTION, CodeApp
+from cassim.devices.pseudocode.ui.app import (
+    BISECTION,
+    CONDITION_COLUMN_WIDTH,
+    LINE_COLUMN_WIDTH,
+    OUTPUT_COLUMN_WIDTH,
+    VARIABLE_COLUMN_WIDTH,
+    CodeApp,
+)
 from cassim.runtime.pseudocode import trace
 
 
@@ -72,3 +79,25 @@ def test_console_toggle_keeps_editor_and_console_layout_state() -> None:
     app.toggle_console(SimpleNamespace(control=SimpleNamespace(value=True)))  # ty: ignore[invalid-argument-type]
     assert app.console_visible is True
     assert app.console_box.visible is True
+
+
+def test_fixed_trace_column_widths_are_precomputed() -> None:
+    assert (LINE_COLUMN_WIDTH, VARIABLE_COLUMN_WIDTH) == (48, 76)
+    assert (CONDITION_COLUMN_WIDTH, OUTPUT_COLUMN_WIDTH) == (130, 140)
+
+
+def test_python_console_accepts_print_and_expressions() -> None:
+    app = object.__new__(CodeApp)
+    app.python_console_namespace = {"__name__": "cassim_console"}
+
+    assert app.submit_python_console("50 * 'hi'") == "hi" * 50
+    assert app.submit_python_console("print(50 * 'hi')") == "hi" * 50
+    assert app.submit_python_console("x = 6") == ""
+    assert app.submit_python_console("x + 1") == "7"
+
+
+def test_pseudocode_console_accepts_print_and_bare_expressions() -> None:
+    app = object.__new__(CodeApp)
+
+    assert app.pseudocode_console_source("x ← 4", 'print 50*"hi"') == ('x ← 4\nprint 50*"hi"')
+    assert app.pseudocode_console_source("x ← 4", "x + 1") == "x ← 4\nprint x + 1"
