@@ -30,6 +30,7 @@ class CodeApp:
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
         self.page = shell.page
+        shell.changed = self.on_bridge
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -66,13 +67,17 @@ class CodeApp:
             value=True,
             on_change=self.toggle_console,
         )
+        self.update_item = ft.MenuItemButton(
+            content=self.shell.update_label,
+            on_click=self.activate_update,
+        )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
                 ft.MenuItemButton(content="Home", on_click=self.home),
                 ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
                 ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
-                ft.MenuItemButton(content="Check for Updates…", on_click=self.check_updates),
+                self.update_item,
                 ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
                 ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
             ],
@@ -236,7 +241,12 @@ class CodeApp:
             host = js.document.getElementById("cassim-codemirror")
             if host:
                 host.remove()
+        self.shell.changed = lambda: None
         self.page.controls.clear()
+
+    def on_bridge(self) -> None:
+        self.update_item.content = self.shell.update_label
+        self.update_item.update()
 
     def apply_theme(self, name: str) -> None:
         theme = THEMES[name]
@@ -869,8 +879,8 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
         )
 
-    def check_updates(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.check_for_updates()
+    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
+        self.shell.activate_update()
 
     def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.help()
