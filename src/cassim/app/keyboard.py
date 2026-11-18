@@ -8,6 +8,17 @@ decision 0024).
 
 from __future__ import annotations
 
+ARROW_KEYS = frozenset(("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"))
+REPEAT_DELAY = 0.45
+REPEAT_SLOW_INTERVAL = 0.15
+REPEAT_FAST_INTERVAL = 0.05
+REPEAT_ACCELERATE_AFTER = 1.5
+
+
+def repeat_interval(elapsed: float) -> float:
+    return REPEAT_FAST_INTERVAL if elapsed >= REPEAT_ACCELERATE_AFTER else REPEAT_SLOW_INTERVAL
+
+
 _NAMED = {
     "Arrow Left": "ArrowLeft",
     "Arrow Right": "ArrowRight",

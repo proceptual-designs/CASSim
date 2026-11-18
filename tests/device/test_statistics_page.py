@@ -28,6 +28,35 @@ def test_plot_data_refreshes_after_a_list_changes() -> None:
     assert statistics.plot_data().x == (2.0, 4.0)
 
 
+def test_dragging_a_scatter_point_updates_its_shared_source_lists() -> None:
+    session = Session()
+    _eval(session, "time:={1,2,3}")
+    _eval(session, "distance:={2,4,6}")
+    statistics = Statistics(session)
+    statistics.perform("x:time")
+    statistics.perform("y:distance")
+
+    expression = statistics.drag_expression(1, 2.5, 5.25)
+    assert expression is not None
+    assert expression == "time[2]:=2.5:distance[2]:=5.25"
+    _eval(session, expression)
+
+    assert statistics.plot_data().x == (1.0, 2.5, 3.0)
+    assert statistics.plot_data().y == (2.0, 5.25, 6.0)
+
+
+def test_dragging_a_dot_plot_point_updates_its_source_list() -> None:
+    session = Session()
+    _eval(session, "scores:={1,2,3}")
+    statistics = Statistics(session)
+
+    expression = statistics.drag_expression(1, 2.5, 0)
+    assert expression == "scores[2]:=2.5"
+    _eval(session, expression)
+
+    assert statistics.plot_data().x == (1.0, 2.5, 3.0)
+
+
 def test_regression_adds_fit_and_residual_squares_to_the_plot() -> None:
     session = Session()
     _eval(session, "time:={1,2,3,4}")
@@ -103,9 +132,61 @@ def test_context_menu_key_opens_the_statistics_menu() -> None:
     assert state.menu.root.label == "Menu"
 
 
+def test_statistics_axis_picker_includes_none_and_plot_context_menu_is_specific() -> None:
+    state = AppState()
+    state.run_action("add_page", "statistics")
+    state.run_action("open_menu", "statistics_x")
+    assert state.menu is not None
+    assert state.menu.root.items[0].label == "(none)"
+
+    state.run_action("escape")
+    state.run_action("context_menu", "statistics_context_plot")
+    assert state.menu is not None
+    assert state.menu.root.label == "Plot"
+
+
 def test_plot_pointer_click_does_not_open_a_menu() -> None:
     actions: list[tuple[str, str]] = []
     view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
 
     assert view.click_at(100, 50)
     assert actions == []
+
+
+def test_axis_labels_open_their_list_pickers_and_points_are_selectable() -> None:
+    session = Session()
+    _eval(session, "time:={1,2,3}")
+    _eval(session, "distance:={2,4,6}")
+    statistics = Statistics(session)
+    statistics.perform("x:time")
+    statistics.perform("y:distance")
+    actions: list[tuple[str, str]] = []
+    view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
+    view.refresh(statistics, 320, 220)
+
+    assert view.click_at(160, view._chart_height - 10)
+    assert actions[-1] == ("open_menu", "statistics_x")
+    assert view.click_at(10, view._chart_height / 2)
+    assert actions[-1] == ("open_menu", "statistics_y")
+
+    point = statistics.plotted_points(view._width, view._chart_height)[1]
+    assert view.click_at(point.screen_x, point.screen_y)
+    assert actions[-1] == ("statistics_point", "1")
+    assert statistics.message == "(2, 4)"
+
+
+def test_numeric_dot_plot_points_are_selectable_and_draggable() -> None:
+    session = Session()
+    _eval(session, "scores:={1,2,3}")
+    statistics = Statistics(session)
+    actions: list[tuple[str, str]] = []
+    view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
+    view.refresh(statistics, 320, 220)
+    point = statistics.plotted_points(view._width, view._chart_height)[1]
+
+    assert view.click_at(point.screen_x, point.screen_y)
+    assert actions[-1] == ("statistics_point", "1")
+    assert statistics.message == "2"
+    assert statistics.drag_value_at(
+        view._width, view._chart_height, point.screen_x, point.screen_y
+    ) == (2.0, 0.0)

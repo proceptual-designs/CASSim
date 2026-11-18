@@ -359,7 +359,7 @@ class AppState:
             if binding.action == "statistics":
                 self._statistics_action(statistics, binding.arg)
             elif binding.action == "context_menu":
-                self._open_menu("menu_statistics")
+                self._open_menu(binding.arg or "menu_statistics")
             elif binding.action in ("undo", "redo"):
                 self._page_undo(binding.action)
                 self.retain_sheets()
@@ -378,6 +378,8 @@ class AppState:
     def _sheet_key(self, sheet: Spreadsheet, binding: Binding) -> None:
         if binding.action == "context_menu":
             self._open_menu(sheet.context_menu())
+            return
+        if binding.action == "statistics_point":
             return
         if binding.action == "statistics" and sheet.split_statistics:
             self._statistics_action(sheet.split_statistics[-1], binding.arg)
@@ -590,12 +592,17 @@ class AppState:
             return MenuItem(
                 f"Choose {purpose.title()} List",
                 jump=True,
-                start=(choices.index(selected),) if selected in choices else (),
-                items=tuple(
-                    MenuItem(variable, "statistics", f"{action}:{variable}") for variable in choices
-                )
-                or (MenuItem("(none)", "escape"),),
+                start=(choices.index(selected) + 1 if selected in choices else 0,),
+                items=(
+                    MenuItem("(none)", "statistics", f"{action}:"),
+                    *(
+                        MenuItem(variable, "statistics", f"{action}:{variable}")
+                        for variable in choices
+                    ),
+                ),
             )
+        if name.startswith("statistics_context_"):
+            return self._statistics_context_menu(name.removeprefix("statistics_context_"))
         if name != "menu_statistics":
             return None
         plot_types = tuple(
@@ -823,6 +830,60 @@ class AppState:
                 ),
             ),
         )
+
+    def _statistics_context_menu(self, target: str) -> MenuItem | None:
+        statistics = self.statistics
+        if statistics is None:
+            return None
+        zoom = MenuItem(
+            "Zoom",
+            items=(MenuItem("Zoom - Data", "statistics", "zoom-data"),),
+        )
+        if target == "x":
+            return MenuItem(
+                "X Axis",
+                items=(
+                    MenuItem(
+                        "Force Categorical X"
+                        if not statistics.categorical_x
+                        else "Force Numeric X",
+                        "statistics",
+                        "toggle-force-x",
+                        enabled=bool(statistics.x_name),
+                    ),
+                    MenuItem(
+                        "Remove X Variable",
+                        "statistics",
+                        "x:",
+                        enabled=bool(statistics.x_name),
+                    ),
+                    zoom,
+                ),
+            )
+        if target == "y":
+            return MenuItem(
+                "Y Axis",
+                items=(
+                    MenuItem(
+                        "Remove Y Variable",
+                        "statistics",
+                        "y:",
+                        enabled=bool(statistics.y_name),
+                    ),
+                    zoom,
+                ),
+            )
+        items = (
+            MenuItem(
+                "Connect Data Points",
+                "statistics",
+                "toggle-connect",
+                enabled=bool(statistics.y_name)
+                and statistics.plot_type in (PlotType.SCATTER, PlotType.XY_LINE),
+            ),
+            zoom,
+        )
+        return MenuItem("Point" if target == "point" else "Plot", items=items)
 
     def _statistics_action(self, statistics: Statistics, action: str) -> None:
         name, _, argument = action.partition(":")

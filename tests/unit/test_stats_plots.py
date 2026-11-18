@@ -8,7 +8,15 @@ import pytest
 
 from cassim.graph.scene import Box, Dots, Fill, Label, Polyline
 from cassim.stats.data import NumericExpression, as_categories, as_numbers, parse_item, parse_items
-from cassim.stats.plots import PlotData, PlotType, plot_scene
+from cassim.stats.plots import (
+    PlotData,
+    PlotType,
+    dot_data_at,
+    dot_points,
+    plot_scene,
+    scatter_data_at,
+    scatter_points,
+)
 
 
 def _shapes(data: PlotData):
@@ -203,6 +211,58 @@ def test_scatter_plot_supports_fit_function_and_residual_layers() -> None:
     assert sum(isinstance(shape, Polyline) for shape in shapes) >= 5
     assert any(isinstance(shape, Label) and shape.text == "Σres² = 5" for shape in shapes)
     assert any(isinstance(shape, Label) and shape.text == "Residual" for shape in shapes)
+
+
+def test_scatter_hit_testing_retains_original_rows_and_converts_coordinates() -> None:
+    data = PlotData(
+        plot_type=PlotType.SCATTER,
+        x=(1.0, 2.0, 3.0),
+        y=(10.0, None, 30.0),
+    )
+    points = scatter_points(data, 320, 220)
+
+    assert [point.index for point in points] == [0, 2]
+    assert scatter_data_at(data, 320, 220, points[1].screen_x, points[1].screen_y) == (
+        3.0,
+        30.0,
+    )
+
+
+def test_dot_hit_testing_retains_source_rows_and_converts_coordinates() -> None:
+    data = PlotData(x_name="score", x=(2.0, 1.0, 2.0))
+    points = dot_points(data, 320, 220)
+
+    assert [point.index for point in points] == [1, 0, 2]
+    assert dot_data_at(data, 320, 220, points[0].screen_x, points[0].screen_y) == 1.0
+
+
+def test_interactive_scatter_uses_larger_marks_and_hides_canvas_axis_names() -> None:
+    data = PlotData(
+        plot_type=PlotType.SCATTER,
+        x_name="time",
+        x=(1.0, 2.0, 3.0),
+        y_name="distance",
+        y=(2.0, 4.0, 6.0),
+        connect_points=True,
+    )
+    scene = plot_scene(data, 320, 220, axis_labels=False)
+    shapes = tuple(shape for layer in scene.layers for shape in layer.shapes)
+
+    assert any(isinstance(shape, Dots) and shape.size == 7 for shape in shapes)
+    assert any(isinstance(shape, Polyline) and shape.stroke.width == 2.5 for shape in shapes)
+    assert not any(
+        isinstance(shape, Label) and shape.text in {"time", "distance"} for shape in shapes
+    )
+
+
+def test_interactive_empty_scene_uses_axis_controls_without_duplicate_prompts() -> None:
+    scene = plot_scene(PlotData(), 320, 220, axis_labels=False)
+    labels = tuple(
+        shape.text for layer in scene.layers for shape in layer.shapes if isinstance(shape, Label)
+    )
+
+    assert "Choose a list to plot" in labels
+    assert not any(label.startswith(("X: ", "Y: ")) for label in labels)
 
 
 def test_categorical_charts_support_pies_split_bars_and_value_order() -> None:

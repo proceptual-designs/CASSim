@@ -939,6 +939,7 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
         ("A", "Add Python"),
     ]
     assert not view.rows[2].enabled  # Geometry is not in CASSim
+    assert view.rows[4].hint == ""
     state.key_event("Escape")
     assert state.screen().title == "1.1"  # nothing added
     state.press_keypad("ctrl")

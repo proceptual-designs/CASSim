@@ -13,7 +13,16 @@ from cassim.core.compat.statistics import Fit, fit_regression
 from cassim.core.results import VariableInfo
 from cassim.device.wizard import Field, Wizard
 from cassim.stats.data import DataValue, NumericExpression, as_numbers, parse_items
-from cassim.stats.plots import PlotData, PlotType, plot_scene
+from cassim.stats.plots import (
+    PlotData,
+    PlottedPoint,
+    PlotType,
+    dot_data_at,
+    dot_points,
+    plot_scene,
+    scatter_data_at,
+    scatter_points,
+)
 
 if TYPE_CHECKING:
     from cassim.core.session import Session
@@ -99,7 +108,7 @@ class Statistics:
         self._rows: dict[str, VariableInfo] = {}
         self._values: dict[str, tuple[DataValue, ...]] = {}
         self._revisions: dict[str, int] = {}
-        self._scene_size: tuple[float, float] | None = None
+        self._scene_size: tuple[float, float, bool] | None = None
         self._scene: Scene | None = None
         self.update()
         if self.lists:
@@ -477,12 +486,60 @@ class Statistics:
             window=self.window,
         )
 
-    def scene(self, width: float, height: float) -> Scene:
+    def scene(self, width: float, height: float, *, axis_labels: bool = True) -> Scene:
         self.update()
-        if self._scene is None or self._scene_size != (width, height):
-            self._scene = plot_scene(self.plot_data(), width, height)
-            self._scene_size = (width, height)
+        if self._scene is None or self._scene_size != (width, height, axis_labels):
+            self._scene = plot_scene(self.plot_data(), width, height, axis_labels=axis_labels)
+            self._scene_size = (width, height, axis_labels)
         return self._scene
+
+    def plotted_points(self, width: float, height: float) -> tuple[PlottedPoint, ...]:
+        data = self.plot_data()
+        if self.y_name and self.plot_type in (PlotType.SCATTER, PlotType.XY_LINE):
+            return scatter_points(data, width, height)
+        if not self.y_name and self.plot_type is PlotType.DOT:
+            return dot_points(data, width, height)
+        return ()
+
+    def drag_value_at(
+        self, width: float, height: float, screen_x: float, screen_y: float
+    ) -> tuple[float, float] | None:
+        data = self.plot_data()
+        if self.y_name and self.plot_type in (PlotType.SCATTER, PlotType.XY_LINE):
+            return scatter_data_at(data, width, height, screen_x, screen_y)
+        if not self.y_name and self.plot_type is PlotType.DOT:
+            x = dot_data_at(data, width, height, screen_x, screen_y)
+            return (x, 0.0) if x is not None else None
+        return None
+
+    def drag_expression(self, index: int, x: float, y: float) -> str | None:
+        if (
+            not self.x_name
+            or index < 0
+            or not math.isfinite(x)
+            or not math.isfinite(y)
+            or index >= len(self._values.get(self.x_name, ()))
+        ):
+            return None
+        x_values = self._values.get(self.x_name, ())
+        x_value = _numeric_text(x_values[index]) if self.force_numeric_x else x_values[index]
+        if not isinstance(x_value, float):
+            return None
+        if not self.y_name and self.plot_type is PlotType.DOT:
+            return f"{self.x_name}[{index + 1}]:={_input_number(x)}"
+        if (
+            self.plot_type not in (PlotType.SCATTER, PlotType.XY_LINE)
+            or not self.y_name
+            or self.x_name == self.y_name
+        ):
+            return None
+        y_values = self._values.get(self.y_name, ())
+        if index >= len(y_values) or not isinstance(y_values[index], float):
+            return None
+        return (
+            f"{self.x_name}[{index + 1}]:={_input_number(x)}:"
+            f"{self.y_name}[{index + 1}]:={_input_number(y)}"
+        )
 
     def _fit(self, pairs: list[tuple[float, float]]) -> Fit | None:
         try:
@@ -621,6 +678,10 @@ class Statistics:
 
 def _format(value: float) -> str:
     return f"{value:.6g}"
+
+
+def _input_number(value: float) -> str:
+    return re.sub(r"[eE]", "ᴇ", format(value, ".15g"))
 
 
 def _numeric_text(value: DataValue) -> DataValue:
