@@ -35,6 +35,23 @@ def reopen(app: AppPage, url: str) -> None:
     app.page.mouse.click(600, 150)
 
 
+def has_autosaved(app: AppPage, entry: str) -> bool:
+    stored = app.page.evaluate("""() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('cassim');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const read = request.result.transaction('texts').objectStore('texts')
+                .get('cassim.autosave');
+            read.onsuccess = () => resolve(read.result);
+            read.onerror = () => reject(read.error);
+        };
+    })""")
+    if stored is None:
+        return False
+    document = json.loads(stored)
+    return document["problems"][0]["pages"][0]["entries"] == [entry]
+
+
 @pytest.mark.parametrize("offline", [False, True])
 def test_the_document_comes_back_after_a_reload(
     browser: Browser, site: tuple[Path, str], offline: bool
@@ -43,7 +60,7 @@ def test_the_document_comes_back_after_a_reload(
     context = browser.new_context(viewport={"width": 1100, "height": 700})
     app = AppPage(context.new_page(), url)
     assert evaluate(app, "a:=7") == "7"
-    app.page.wait_for_timeout(1500)  # past the autosave delay
+    app.wait(lambda: has_autosaved(app, "a:=7"), "the document to be committed to IndexedDB")
     stored = app.page.evaluate(
         "() => Object.keys(localStorage).filter(k => k.includes('autosave'))"
     )
