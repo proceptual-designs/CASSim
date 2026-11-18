@@ -77,6 +77,9 @@ class Application:
         self.available = available
         self.shell.available_devices = available
         self.shell.home = self.request_home if bundle_name == "all" else None
+        self.shell.open_device_callback = lambda device_id: self.page.run_task(
+            self.open_device, device_id
+        )
         self.active: MountedApp | None = None
         self.home: Home | None = None
 

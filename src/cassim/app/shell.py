@@ -137,6 +137,7 @@ class Shell:
         self.device = device
         self.available_devices: tuple[str, ...] = tuple(bundle.DEVICES)
         self.home: Callable[[], None] | None = None
+        self.open_device_callback: Callable[[str], object] | None = None
         self.theme = DARK
         # Set by the device's UI: called when what the browser offers changes (Install appears).
         self.changed: Callable[[], None] = lambda: None
@@ -211,6 +212,12 @@ class Shell:
             await self.prefs.remove(full)
 
         self.page.run_task(drop)
+
+    async def remove_global_async(self, full: str) -> None:
+        """Forget a shell-wide storage key and wait until it is persisted."""
+        if self.texts is not None:
+            await self.texts.delete(full)
+        await self.prefs.remove(full)
 
     # ---- the system clipboard -----------------------------------------------------------------
 
