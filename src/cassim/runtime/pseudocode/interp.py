@@ -73,6 +73,10 @@ class _Break(Exception):
     pass
 
 
+class _Cancelled(Exception):
+    pass
+
+
 class Scope:
     __slots__ = ("parent", "vars")
 
@@ -160,6 +164,7 @@ class Interpreter:
         inputs: Iterable[str] = (),
         *,
         trace: bool = True,
+        cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self.program = program
         self.settings = settings or Settings()
@@ -179,6 +184,7 @@ class Interpreter:
         self.user_calls = 0
         self.memo: dict[int, object] = {}
         self.rng = random.Random(self.settings.seed)
+        self.cancelled = cancelled
 
     # ------------------------------------------------------------------ running
 
@@ -200,6 +206,8 @@ class Interpreter:
             halt, error, error_line = "error", e.message, e.line
         except RecursionError:
             halt, error = "error", "the program recurses too deeply"
+        except _Cancelled:
+            halt, error, error_line = "cancelled", "stopped", 0
         finally:
             sys.setrecursionlimit(limit)
         last = self.steps[-1].line if self.steps else 0
@@ -225,6 +233,8 @@ class Interpreter:
     ) -> None:
         if not self.trace:
             return
+        if self.cancelled is not None and self.cancelled():
+            raise _Cancelled
         if len(self.steps) >= self.settings.max_events:
             raise RunLimitError(
                 f"stopped: the trace is limited to {self.settings.max_events} steps", line, "events"

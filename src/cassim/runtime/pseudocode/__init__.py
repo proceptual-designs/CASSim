@@ -1,6 +1,6 @@
 """CASSim pseudocode: tokenizer, parser, tree interpreter and run trace (M7b)."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from cassim.runtime.pseudocode.errors import PseudocodeError, PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
@@ -34,13 +34,14 @@ __all__ = [
 ]  # fmt: skip
 
 
-def run(
+def run(  # noqa: PLR0913
     source: str,
     settings: Settings | None = None,
     inputs: Iterable[str] = (),
     *,
     trace: bool = True,
     syntax: Syntax = DEFAULT,
+    cancelled: Callable[[], bool] | None = None,
 ) -> RunResult:
     """Parse and run `source`. A syntax error is returned as a result with halt == "error"."""
     try:
@@ -48,4 +49,4 @@ def run(
     except PseudocodeSyntaxError as e:
         step = Step(0, e.line, "halt", 0, calc=e.message)
         return RunResult([], [step], [], "error", e.message, e.line)
-    return Interpreter(program, settings, inputs, trace=trace).run()
+    return Interpreter(program, settings, inputs, trace=trace, cancelled=cancelled).run()

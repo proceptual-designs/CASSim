@@ -36,7 +36,6 @@ FR-RUN-008: "not built (M7c to M7f: pages, translation, editor, trace UI); the M
 FR-RUN-009: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
 FR-RUN-010: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
 FR-RUN-011: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
-FR-RUN-012: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
 FR-PSE-009: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
 FR-PSE-010: "not built (M7c to M7f: pages, translation, editor, trace UI); the M7b engine is covered by the cited tests"
 FR-PSE-011: "unverified: complex literals may be built in M7b; no test cites the ID"
