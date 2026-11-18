@@ -67,7 +67,7 @@ def _control_style() -> ft.ButtonStyle:
 
 
 class CodeApp:
-    def __init__(self, shell: Shell) -> None:  # noqa: PLR0915
+    def __init__(self, shell: Shell) -> None:
         self.shell = shell
         self.page = shell.page
         shell.changed = self.on_bridge
@@ -79,7 +79,7 @@ class CodeApp:
         self.running = False
         self.dirty = False
         self.current_source = EXAMPLE
-        self.console_visible = True
+        self.console_visible = False
         self.line_numbers_visible = True
         self.console_inputs: list[str] = []
         self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
@@ -109,7 +109,7 @@ class CodeApp:
         )
         self.console_toggle = ft.Switch(
             label="Console",
-            value=True,
+            value=False,
             on_change=self.toggle_console,
         )
         self.update_item = ft.MenuItemButton(
@@ -199,12 +199,12 @@ class CodeApp:
                     on_click=lambda _: self.change_trace_layout("horizontal"),
                 ),
             ],
-            style=control_style,
+            style=_control_style(),
         )
         self.variables_button = ft.PopupMenuButton(
             content="Variables",
             items=[ft.PopupMenuItem(content="Run to discover items")],
-            style=control_style,
+            style=_control_style(),
         )
 
         self.console = ft.Text("", selectable=True, font_family="monospace")
@@ -225,6 +225,7 @@ class CodeApp:
             border=ft.Border.all(1),
             padding=8,
             expand=True,
+            visible=False,
         )
         self.trace = ft.Column(expand=False, tight=True)
         self.status = ft.Text("")

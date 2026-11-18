@@ -73,6 +73,8 @@ def test_line_numbers_and_language_toggle_update_codemirror() -> None:
 
 def test_console_toggle_keeps_editor_and_console_layout_state() -> None:
     app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.console_visible is False
+    assert app.console_box.visible is False
 
     app.toggle_console(SimpleNamespace(control=SimpleNamespace(value=False)))  # ty: ignore[invalid-argument-type]
     assert app.console_visible is False
