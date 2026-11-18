@@ -267,6 +267,7 @@ Screens other than the Calculator are recorded in a top-level `app_cases` list (
 - `int(-2.5)` = -3 (floor); `ceiling(2.3)` = `3.`; `fPart(7/3)` stays exact. `90▶Grad` in Radian mode treats 90 as radians.
 - `arcsinh(1)` stays unevaluated as `sinh⁻¹(1)` in Auto mode.
 - Spreadsheet: whole-column reference is `a[]`; naming column A `d` and using `d` in a formula raises a "Conflict Detected" dialog. Statistics results are decimals. Quartiles use the median-of-halves rule (Q1 of {1,4,9,16,25,36,49,64} is 6.5, Q3 is 42.5).
+- Spreadsheet selection (FR-SHEET-004 to FR-SHEET-008): without Shift, an arrow replaces a range with the adjacent single cell. Shift+arrows grow or shrink an inclusive rectangular range; physical Shift and latched keypad Shift are equivalent. A mouse click collapses to one cell, while a drag in either direction selects the rectangle between its endpoints. Reaching a row or column heading through range extension gives whole-row or whole-column selection. These requirements apply in grid-navigation mode: Shift+Left and Shift+Right while editing ordinary cell text select text instead. While a formula is being edited and a reference is accepted at the caret, pointing or selecting cells inserts a reference there; extending the selection updates that reference in place and leaves the destination cell fixed.
 - Graphs: coordinates are labelled to 2 decimal places; Intersection with two graphs goes straight to the bounds prompt; Integral accepts typed bounds and asks "graph?" when several graphs exist.
 
 ### Batches 17 to 19 (`019` to `021`)
