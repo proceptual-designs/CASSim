@@ -67,10 +67,7 @@ class AppPage:
             self.page.wait_for_timeout(60)
 
 
-@pytest.mark.parametrize("flow", FLOWS, ids=[f["id"] for f in FLOWS])
-def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dict) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+def run_flow(app: AppPage, flow: dict) -> None:
     settings = flow_settings(flow)
     for step in flow["steps"]:
         label = step.get("type") or step.get("keys", "")
@@ -94,5 +91,15 @@ def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dic
                 settings,
                 step.get("compare", "canonical"),
                 step.get("tol", 1.0e-7),
-            ), f"{label}: got {got}, expected {step['expect']}"
+            ), f"{flow['id']} / {label}: got {got}, expected {step['expect']}"
+
+
+def test_flows_in_the_browser(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for index, flow in enumerate(FLOWS):
+        if index:
+            app.press("ctrl+alt+i")
+            app.press("1")
+        run_flow(app, flow)
     app.page.close()

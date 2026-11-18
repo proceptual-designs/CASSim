@@ -163,6 +163,20 @@ The device model drives all three; modes differ only in layout components and wh
 | Static | formatting, lint, strict types | Ruff, Ty |
 | Coverage and traceability | At least 90% line and branch on `core/`, 80% on `device`, `doc`, `sheet`, `stats`, `graph`; `cassim.app` excluded (Playwright covers it). Every SRS requirement ID appears in a test or is listed as untested with a reason; `tools/` generates `docs/traceability.md`, checked in CI | pytest-cov, `tools/` |
 
+Testing is staged to avoid rerunning unrelated checks during an edit loop:
+
+1. **While editing:** run the affected test file or test case, plus direct neighbours for a
+   changed shared API. Run Ruff on changed files and Ty when types or interfaces change.
+2. **Before a PR:** run all affected unit/device/app tests and `tests/flows/`. Run the relevant
+   Playwright files for UI, storage, document, publishing, PWA, worker or Pyodide changes; use the
+   full browser suite for cross-cutting startup, shell, build or PWA work.
+3. **CI:** keep the complete non-e2e suite, coverage floors, traceability and selected critical
+   browser tests as the regression gate.
+
+E2e tests share an app startup only when they also share a valid state journey. Fresh install,
+failed-update, offline, root/sub-path, and touch contexts remain isolated because that isolation is
+the condition under test. `docs/testing/TESTING.md` maps source areas to the pre-PR commands.
+
 **Corpus case format**
 
 ```yaml
@@ -187,7 +201,7 @@ The device model drives all three; modes differ only in layout components and wh
 
 ## 7. Dev environment
 
-- **uv** (Python 3.14 to match Pyodide 314), lockfile committed. **Ruff** for lint and format (rules: E, F, I, UP, B, SIM, ANN, PL, PT, RUF; `ANN` and strictness on `core/`). **Ty** for types, strict on the core packages; I have not verified Ty's current stability, so M0 checks it and keeps pyright as a fallback if SymPy/Flet stubs block us. **Git** with conventional commits, pre-commit (ruff, ty, fast tests), GitHub Actions CI (lint, types, tests, web build, Playwright smoke), deploy to Cloudflare Pages (section 14).
+- **uv** (Python 3.14 to match Pyodide 314), lockfile committed. **Ruff** for lint and format (rules: E, F, I, UP, B, SIM, ANN, PL, PT, RUF; `ANN` and strictness on `core/`). **Ty** for types, strict on the core packages; I have not verified Ty's current stability, so M0 checks it and keeps pyright as a fallback if SymPy/Flet stubs block us. **Git** with conventional commits, pre-commit (Ruff and Ty), GitHub Actions CI (lint, types, tests, web build, Playwright smoke), deploy to Cloudflare Pages (section 14).
 - Flet MCP / Claude Code: helpful from M2 for GUI iteration, so I'd switch to Claude Code before M2 (and for the repo work in M0/M1 too).
 
 ## 8. Milestones
