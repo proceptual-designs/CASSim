@@ -36,6 +36,11 @@ def _equations(host: Host, node: ast.Expr, names: list[str]) -> list[Raw]:
     return [raw_of(item) for item in items]
 
 
+def _require_relations(equations: list[Raw]) -> None:
+    if not equations or not all(cas.is_boolean(equation) for equation in equations):
+        raise TIError(errors.SYNTAX)
+
+
 def _unevaluated(name: str, equations: list[Raw], symbols: list[Raw]) -> Value:
     """Echo a call that could not be solved, built from the equation as it was understood."""
     if len(equations) != 1 or len(symbols) != 1:
@@ -52,6 +57,7 @@ def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
     equation_node, *unknown_nodes = args
     names = _unknowns(host, *unknown_nodes)
     equations = _equations(host, equation_node, names)
+    _require_relations(equations)
     symbols = [cas.symbol(name) for name in names]
     if len(symbols) > 1:  # `solve(eq1 and eq2, {x,y})` is the same system as `{eq1, eq2}`
         equations = [part for equation in equations for part in cas.conjuncts(equation)]
@@ -105,6 +111,8 @@ def _zeros(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
     expression_node, unknown_node = args
     name = _single_unknown(host, unknown_node)
     (expression,) = _equations(host, expression_node, [name])
+    if cas.is_boolean(expression):
+        raise TIError(errors.SYNTAX)
     symbol = cas.symbol(name)
     roots = cas.roots_of(expression, symbol, _radian_converter(host), complex_roots=complex_roots)
     if roots is None:
