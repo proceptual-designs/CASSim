@@ -68,11 +68,14 @@ class AppPage:
             self.page.wait_for_timeout(60)
 
 
-@pytest.mark.parametrize("flow", FLOWS, ids=[f["id"] for f in FLOWS])
-def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dict) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+def run_flow(app: AppPage, flow: dict) -> None:
     app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
+    current_page = next(
+        line.removeprefix("CASSIM: PAGE ").split()[0]
+        for line in reversed(app.logs)
+        if line.startswith("CASSIM: PAGE ")
+    )
+    problem = current_page.partition(".")[0]
     if any("plot_x" in step for step in flow["steps"]):
         app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
     settings = flow_settings(flow)
@@ -98,9 +101,9 @@ def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dic
                 settings,
                 step.get("compare", "canonical"),
                 step.get("tol", 1.0e-7),
-            ), f"{label}: got {got}, expected {step['expect']}"
+            ), f"{flow['id']} / {label}: got {got}, expected {step['expect']}"
         if "page" in step:
-            wanted_page = str(step["page"])
+            wanted_page = f"{problem}.{str(step['page']).partition('.')[2]}"
             app.wait(
                 lambda expected=wanted_page: (
                     next(
@@ -136,4 +139,19 @@ def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dic
             expect(app.page.get_by_role("button", name=step["plot_x"], exact=True)).to_be_visible(
                 timeout=30000
             )
+
+
+def test_flows_in_the_browser(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    for index, flow in enumerate(FLOWS):
+        if index:
+            before = sum(line.startswith("CASSIM: PAGE ") for line in app.logs)
+            app.press("ctrl+alt+i")
+            app.press("1")
+            app.wait(
+                lambda n=before: sum(line.startswith("CASSIM: PAGE ") for line in app.logs) > n,
+                "the new Problem's Calculator page",
+            )
+        run_flow(app, flow)
     app.page.close()
