@@ -408,7 +408,7 @@ class CalculatorView:
             self._error(screen)
             self._menu(screen.menu)
             return
-        if self._refresh_statistics(screen):
+        if screen.sorter is None and self._refresh_statistics(screen):
             return
         self.body.controls = [self.history]
         if screen.sorter is not None:  # the page sorter, in place of the page
