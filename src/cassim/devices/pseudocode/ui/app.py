@@ -39,6 +39,7 @@ class CodeApp:
         self.dirty = False
         self.current_source = EXAMPLE
         self.console_visible = True
+        self.line_numbers_visible = True
         self.console_inputs: list[str] = []
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
@@ -114,10 +115,18 @@ class CodeApp:
             ],
         )
         self.app_menu = ft.MenuBar(controls=[self.cassim_menu, self.doc_menu])
-        self.language_switch = ft.Switch(
-            label="Pseudocode",
-            value=True,
+        self.language_switch = ft.SegmentedButton(
+            selected=["pseudocode"],
+            segments=[
+                ft.Segment(value="pseudocode", label="Pseudocode"),
+                ft.Segment(value="python", label="Python"),
+            ],
             on_change=self.toggle_language,
+        )
+        self.line_numbers_toggle = ft.Switch(
+            label="Line numbers",
+            value=True,
+            on_change=self.toggle_line_numbers,
         )
 
         self.run_button = ft.Button("Run", on_click=self.run_code)
@@ -167,6 +176,7 @@ class CodeApp:
             ft.Column(
                 [
                     self.language_switch,
+                    self.line_numbers_toggle,
                     self.fallback_editor,
                 ],
                 expand=True,
@@ -246,12 +256,17 @@ class CodeApp:
     def on_fallback_source(self, _: ft.Event[ft.TextField]) -> None:
         self.mark_dirty()
 
-    def toggle_language(self, event: ft.Event[ft.Switch]) -> None:
-        enabled = bool(event.control.value)
-        self.language = "pseudocode" if enabled else "python"
-        event.control.label = "Pseudocode" if enabled else "Python"
+    def toggle_language(self, event: ft.Event[ft.SegmentedButton]) -> None:
+        selected = event.control.selected
+        self.language = selected[0] if selected else "pseudocode"
         event.control.update()
         self.mark_dirty()
+
+    def toggle_line_numbers(self, event: ft.Event[ft.Switch]) -> None:
+        self.line_numbers_visible = bool(event.control.value)
+        if self.cm is not None:
+            self.cm.setOption("lineNumbers", self.line_numbers_visible)
+            self.cm.refresh()
 
     def change_trace_layout(self, _: ft.Event[ft.Dropdown]) -> None:
         value = str(self.trace_layout.value or "vertical")
@@ -339,7 +354,7 @@ class CodeApp:
             self.choices = trace.vertical_choices(result, self.settings())
             self.selection = trace.VerticalSelection(
                 tuple(self.choices.variables),
-                self.condition_labels(),
+                self.condition_selection_values(),
             )
             self.build_variables()
             self.update_trace()
@@ -459,7 +474,7 @@ if (!window.CASSimPseudocodeModeDefined) {
         else:
             host.style.left = "8px"
             host.style.top = "112px"
-            host.style.width = f"{max(1, width * 0.48 - 16)}px"
+            host.style.width = f"{max(1, width * 0.50 - 16)}px"
             host.style.height = f"{max(220, height * 0.60 - 120)}px"
         if self.cm is not None:
             self.cm.refresh()
@@ -481,8 +496,8 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
             body = ft.ResponsiveRow(
                 [
-                    ft.Container(left, col={"sm": 12, "md": 5, "lg": 5}, expand=True),
-                    ft.Container(self.trace_pane, col={"sm": 12, "md": 7, "lg": 7}, expand=True),
+                    ft.Container(left, col={"sm": 12, "md": 6, "lg": 6}, expand=True),
+                    ft.Container(self.trace_pane, col={"sm": 12, "md": 6, "lg": 6}, expand=True),
                 ],
                 expand=True,
             )
@@ -549,7 +564,7 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.choices = trace.vertical_choices(result, self.settings())
         self.selection = trace.VerticalSelection(
             tuple(self.choices.variables),
-            self.condition_labels(),
+            self.condition_selection_values(),
         )
         self.cursor = len([step for step in result.steps if step.kind != "halt"])
         self.console.value = "\n".join(result.output)
@@ -608,9 +623,20 @@ if (!window.CASSimPseudocodeModeDefined) {
             else:
                 values.add(label)
             labels = self.condition_labels()
+            selected = set()
+            for item in labels:
+                if item in values:
+                    selected.add(item)
+                    selected_line = item.partition(":")[0].strip()
+                    if selected_line.isdigit():
+                        selected.update(
+                            step.cond[0]
+                            for step in (self.result.steps if self.result is not None else [])
+                            if step.line == int(selected_line) and step.cond is not None
+                        )
             self.selection = trace.VerticalSelection(
                 self.selection.variables,
-                tuple(value for value in labels if value in values),
+                tuple(selected),
             )
             self.build_variables()
             self.update_trace()
@@ -649,11 +675,39 @@ if (!window.CASSimPseudocodeModeDefined) {
         """Each executed boolean expression once, labelled by source line."""
         if self.result is None:
             return ()
+        source_lines = self.source().splitlines()
         found: dict[tuple[int, str], None] = {}
         for step in self.result.steps:
-            if step.cond is not None:
-                found.setdefault((step.line, step.cond[0]), None)
+            if step.cond is None:
+                continue
+            line = step.line
+            if not 1 <= line <= len(source_lines):
+                continue
+            source = source_lines[line - 1].strip()
+            expression = source
+            for prefix in ("while ", "if ", "repeat until ", "until "):
+                if source.lower().startswith(prefix):
+                    expression = (
+                        source[len(prefix) :].strip().removesuffix(" do").removesuffix(" then")
+                    )
+                    break
+            found.setdefault((line, expression), None)
         return tuple(f"{line}: {expression}" for line, expression in found)
+
+    def condition_selection_values(self) -> tuple[str, ...]:
+        """Labels plus runtime condition text, so the trace view can filter by source line."""
+        values: set[str] = set(self.condition_labels())
+        if self.result is not None:
+            for label in self.condition_labels():
+                line_text = label.partition(":")[0].strip()
+                if line_text.isdigit():
+                    line = int(line_text)
+                    values.update(
+                        step.cond[0]
+                        for step in self.result.steps
+                        if step.line == line and step.cond is not None
+                    )
+        return tuple(values)
 
     def update_trace(self) -> None:
         if self.result is None:
@@ -738,17 +792,18 @@ if (!window.CASSimPseudocodeModeDefined) {
         async def show_home() -> None:
             from cassim.app.home import Home  # noqa: PLC0415
 
-            self.page.controls.clear()
-            await Home(
-                self.shell,
-                lambda item: self.page.run_task(self.open_device_placeholder, item),
-            ).start()
+            self.unmount()
+            self.shell.device = None
+            open_device = getattr(self.shell, "open_device_callback", None)
+
+            def choose(item: str) -> object:
+                if callable(open_device):
+                    return self.page.run_task(open_device, item)
+                return None
+
+            await Home(self.shell, choose).start()
 
         self.page.run_task(show_home)
-
-    async def open_device_placeholder(self, item: str) -> None:
-        """The Home callback target when a device is chosen after returning from Code view."""
-        del item
 
     def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
         number = ft.SegmentedButton(
