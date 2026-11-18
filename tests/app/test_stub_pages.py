@@ -79,7 +79,7 @@ def test_the_view_says_the_page_is_still_to_be_built(key: str, kind: PageKind, n
 
 def test_typing_on_a_stub_page_does_nothing_and_it_has_no_menu() -> None:
     state = AppState()
-    insert(state, "4")
+    insert(state, "8")
     for char in "2+3":
         state.key_event(char)
     state.key_event("Enter")

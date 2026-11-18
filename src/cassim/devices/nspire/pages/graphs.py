@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from cassim.core.compat.math_source import compile_math_source
@@ -21,7 +22,7 @@ from cassim.graph.sampling import (
     sample_function,
     tick_values,
 )
-from cassim.graph.scene import Align, Label, Layer, Scene, Segments, Stroke
+from cassim.graph.scene import Align, Dots, Label, Layer, Scene, Segments, Stroke
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -34,6 +35,12 @@ _FUNCTION_RE = re.compile(r"f([1-9]\d?)$")
 _MAX_FUNCTION_NUMBER = 99
 _COLOURS = ("curve1", "curve2", "curve3", "curve4")
 _WINDOW_FIELDS = 4
+
+
+class GridStyle(StrEnum):
+    NONE = "none"
+    DOT = "dot"
+    LINED = "lined"
 
 
 @dataclass
@@ -59,6 +66,9 @@ class Graphs:
         self.session = session
         self.clipboard = clipboard if clipboard is not None else Clipboard()
         self.window = Window()
+        self.show_axes = True
+        self.show_end_values = True
+        self.grid_style = GridStyle.NONE
         self._reserved_names = set(reserved)
         first = self._next_function_name(reserved)
         self.functions = [self._entry(first)] if int(first[1:]) <= _MAX_FUNCTION_NUMBER else []
@@ -189,6 +199,15 @@ class Graphs:
     def set_window(self, window: Window) -> None:
         self.window = window
 
+    def set_view(self, option: str) -> None:
+        if option == "axes":
+            self.show_axes = not self.show_axes
+        elif option == "end-values":
+            if self.show_axes:
+                self.show_end_values = not self.show_end_values
+        else:
+            self.grid_style = GridStyle(option)
+
     def toggle(self, name: str) -> None:
         entry = next((item for item in self.functions if item.name == name), None)
         if entry is None:
@@ -232,7 +251,13 @@ class Graphs:
             viewport.width,
             viewport.height,
             (
-                Layer("grid", tuple(_axis_shapes(viewport))),
+                Layer(
+                    "grid",
+                    (
+                        *_grid_shapes(viewport, self.grid_style),
+                        *(_axis_shapes(viewport, self.show_end_values) if self.show_axes else ()),
+                    ),
+                ),
                 Layer(
                     "curves",
                     tuple(
@@ -251,7 +276,26 @@ class Graphs:
         return scene
 
 
-def _axis_shapes(viewport: Viewport) -> list[Shape]:
+def _grid_shapes(viewport: Viewport, style: GridStyle) -> list[Shape]:
+    if style is GridStyle.NONE:
+        return []
+    window, width, height = viewport.window, viewport.width, viewport.height
+    xs = [
+        window.to_screen(value, 0, width, height)[0]
+        for value in tick_values(window.x_min, window.x_max)
+    ]
+    ys = [
+        window.to_screen(0, value, width, height)[1]
+        for value in tick_values(window.y_min, window.y_max)
+    ]
+    if style is GridStyle.DOT:
+        return [Dots(tuple((x, y) for x in xs for y in ys), "grid", 2)]
+    points = [(point) for x in xs for point in ((x, 0), (x, height))]
+    points.extend(point for y in ys for point in ((0, y), (width, y)))
+    return [Segments(tuple(points), Stroke("grid", 0.6))]
+
+
+def _axis_shapes(viewport: Viewport, show_end_values: bool) -> list[Shape]:
     window, width, height = viewport.window, viewport.width, viewport.height
     origin_x, origin_y = window.to_screen(0, 0, width, height)
     segments: list[tuple[float, float]] = []
@@ -267,13 +311,14 @@ def _axis_shapes(viewport: Viewport) -> list[Shape]:
             segments.extend(((x, origin_y - tick_size), (x, origin_y + tick_size)))
         label_y = min(max(origin_y + 4, 0), height - 12)
         minimum, maximum = _format_end_values(window.x_min, window.x_max)
-        labels.extend(
-            (
-                Label(2, label_y, minimum, 10, "axis"),
-                Label(width - 2, label_y, maximum, 10, "axis", Align.RIGHT),
-                Label(width - 4, max(origin_y - 15, 0), "x", 11, "axis", Align.RIGHT),
+        if show_end_values:
+            labels.extend(
+                (
+                    Label(2, label_y, minimum, 10, "axis"),
+                    Label(width - 2, label_y, maximum, 10, "axis", Align.RIGHT),
+                )
             )
-        )
+        labels.append(Label(width - 4, max(origin_y - 15, 0), "x", 11, "axis", Align.RIGHT))
         positive = (
             next((value for value in ticks if 0 < value < window.x_max), None)
             if window.x_min <= 0
@@ -292,13 +337,14 @@ def _axis_shapes(viewport: Viewport) -> list[Shape]:
             segments.extend(((origin_x - tick_size, y), (origin_x + tick_size, y)))
         label_x = max(origin_x - 6, 0)
         minimum, maximum = _format_end_values(window.y_min, window.y_max)
-        labels.extend(
-            (
-                Label(label_x, 1, maximum, 10, "axis", Align.RIGHT),
-                Label(label_x, height - 12, minimum, 10, "axis", Align.RIGHT),
-                Label(min(origin_x + 5, width - 11), 1, "y", 11, "axis"),
+        if show_end_values:
+            labels.extend(
+                (
+                    Label(label_x, 1, maximum, 10, "axis", Align.RIGHT),
+                    Label(label_x, height - 12, minimum, 10, "axis", Align.RIGHT),
+                )
             )
-        )
+        labels.append(Label(min(origin_x + 5, width - 11), 1, "y", 11, "axis"))
         positive = (
             next((value for value in ticks if 0 < value < window.y_max), None)
             if window.y_min <= 0
@@ -345,6 +391,9 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
             graphs.window.y_min,
             graphs.window.y_max,
         ],
+        "show_axes": graphs.show_axes,
+        "show_end_values": graphs.show_end_values,
+        "grid_style": graphs.grid_style.value,
         "functions": [
             {
                 "name": item.name,
@@ -364,6 +413,11 @@ def load_graphs(
     from cassim.devices.nspire.pages import load_nodes  # noqa: PLC0415
 
     graphs = new_graphs(problem)
+    graphs.show_axes = data.get("show_axes") is not False
+    graphs.show_end_values = data.get("show_end_values") is not False
+    grid_style = data.get("grid_style")
+    if isinstance(grid_style, str) and grid_style in {style.value for style in GridStyle}:
+        graphs.grid_style = GridStyle(grid_style)
     window = data.get("window")
     if (
         isinstance(window, list)

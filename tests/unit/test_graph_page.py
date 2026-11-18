@@ -6,11 +6,11 @@ from cassim.core.session import Session
 from cassim.device.editor import Kind, Template, format_target
 from cassim.device.engine import EngineCore, EngineError, RemoteSession, graph_compile_op
 from cassim.devices.nspire.document import Document, PageKind, loads
-from cassim.devices.nspire.pages.graphs import Graphs, graphs_of
+from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
 from cassim.graph.sampling import Window
-from cassim.graph.scene import Label, Polyline, Segments
+from cassim.graph.scene import Dots, Label, Polyline, Segments
 
 
 def test_function_entry_creates_a_shared_problem_function_and_curve() -> None:
@@ -90,6 +90,83 @@ def test_zoomed_axis_end_values_remain_distinguishable() -> None:
     assert axes is not None
     labels = [shape.text for shape in axes.shapes if isinstance(shape, Label)]
     assert labels[:2] == ["1000", "1001"]
+
+
+def test_graph_view_menu_controls_axes_end_values_and_grid() -> None:
+    """FR-GRAPH-002: Graphs View follows the observed axes and grid options."""
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x^2")
+
+    def pick(*keys: str) -> None:
+        state.key_event("F2")
+        for key in keys:
+            state.key_event(key)
+
+    pick("2", "8")
+    axes = graphs.scene(400, 280).layer("grid")
+    assert axes is not None
+    assert [shape.text for shape in axes.shapes if isinstance(shape, Label)] == ["x", "1", "y", "1"]
+    pick("2", "6", "2")
+    pick("2", "5")
+    scene = graphs.scene(400, 280)
+    grid = scene.layer("grid")
+    assert grid is not None
+    assert len(grid.shapes) == 1
+    assert isinstance(grid.shapes[0], Dots)
+    assert len(grid.shapes[0].points) > 1
+    curves = scene.layer("curves")
+    assert curves is not None
+    assert curves.shapes
+
+    state.key_event("F2")
+    state.key_event("2")
+    assert state.menu is not None
+    rows = {row.label: row for row in state.menu.view().rows}
+    assert "Show Axes" in rows
+    assert not rows["Show Axes End Values"].enabled
+    state.key_event("8")
+    assert state.menu is not None
+    state.key_event("5")
+    assert graphs.show_axes
+    assert not graphs.show_end_values
+
+    pick("2", "6", "3")
+    grid = graphs.scene(400, 280).layer("grid")
+    assert grid is not None
+    assert isinstance(grid.shapes[0], Segments)
+    assert grid.shapes[0].stroke.colour == "grid"
+    pick("2", "6", "1")
+    assert graphs.grid_style is GridStyle.NONE
+    pick("2", "8")
+    assert graphs.show_end_values
+
+
+def test_graph_view_settings_survive_save_load() -> None:
+    """FR-DOC-003: preserve Graphs view settings in CASSim documents."""
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    state.run_action("graphs_view", "dot")
+    state.run_action("graphs_view", "end-values")
+    state.run_action("graphs_view", "axes")
+
+    restored = loads(dumps(state.document))
+    graphs = graphs_of(restored.current)
+    assert graphs is not None
+    assert graphs.grid_style is GridStyle.DOT
+    assert not graphs.show_axes
+    assert not graphs.show_end_values
+    grid = graphs.scene(400, 280).layer("grid")
+    assert grid is not None
+    assert len(grid.shapes) == 1
+    assert isinstance(grid.shapes[0], Dots)
+    second = graphs_of(restored.add_page(PageKind.GRAPHS))
+    assert second is not None
+    assert second.grid_style is GridStyle.NONE
+    assert second.show_axes
+    assert second.show_end_values
 
 
 def test_pan_and_zoom_gesture_keeps_the_focal_point_in_place() -> None:

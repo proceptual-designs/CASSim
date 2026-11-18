@@ -22,7 +22,7 @@ from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
 from cassim.devices.nspire.pages.calculator import calculator_of
-from cassim.devices.nspire.pages.graphs import Graphs, graphs_of
+from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
     NAME_ROW,
     SHEET_ACTIONS,
@@ -414,6 +414,8 @@ class AppState:
             self._graphs_gesture(graphs, binding.arg)
         elif binding.action == "graphs_standard":
             graphs.set_window(Window())
+        elif binding.action == "graphs_view":
+            graphs.set_view(binding.arg)
         elif binding.action in ("undo", "redo"):
             self._graphs_undo(graphs, binding)
         elif binding.action in _GRAPH_EDITOR_ACTIONS:
@@ -535,7 +537,11 @@ class AppState:
             target = self._menu_root(name)
             if target is not None:
                 same = target is self.menu.root or (
-                    (name in {"variables", "cassim", "menu_sheet"} or name.startswith("sheet_"))
+                    (
+                        name in {"variables", "cassim", "menu_sheet", "menu_graphs"}
+                        or (name == "menu" and self.graphs is not None)
+                        or name.startswith("sheet_")
+                    )
                     and target.label == self.menu.root.label
                 )
                 self.menu = None if same else MenuState(target)
@@ -597,12 +603,16 @@ class AppState:
                 name = "menu_sheet"
             elif self.statistics is not None:
                 name = "menu_statistics"
+            elif self.graphs is not None:
+                name = "menu_graphs"
             elif calculator_of(self.document.current) is None:
                 return None  # a page CASSim has not built yet has no Menu
         if name == "cassim" and self.cassim_menu is not None:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
+        if name == "menu_graphs":
+            return self._graphs_menu()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if self.sheet is not None and name in {
             "menu_sheet",
@@ -623,6 +633,66 @@ class AppState:
             if root is not None:
                 root = _set_quick_graph_enabled(root, has_list)
         return root
+
+    def _graphs_menu(self) -> MenuItem | None:
+        graphs = self.graphs
+        if graphs is None:
+            return None
+        grid = MenuItem(
+            "Grid",
+            key="6",
+            items=tuple(
+                MenuItem(
+                    label, "graphs_view", style.value, key=key, enabled=style != graphs.grid_style
+                )
+                for key, label, style in (
+                    ("1", "No Grid", GridStyle.NONE),
+                    ("2", "Dot Grid", GridStyle.DOT),
+                    ("3", "Lined Grid", GridStyle.LINED),
+                )
+            ),
+        )
+        return MenuItem(
+            "Menu",
+            items=(
+                MenuItem("Actions", key="1", enabled=False),
+                MenuItem(
+                    "View",
+                    key="2",
+                    items=(
+                        MenuItem("Graphing", key="1", enabled=False),
+                        MenuItem("Plane Geometry", key="2", enabled=False),
+                        MenuItem("3D Graphing", key="3", enabled=False),
+                        MenuItem("Hide Analytic Window", key="4", enabled=False),
+                        MenuItem(
+                            "Hide Axes" if graphs.show_axes else "Show Axes",
+                            "graphs_view",
+                            "axes",
+                            key="5",
+                        ),
+                        grid,
+                        MenuItem("Show Entry Line", key="7", enabled=False),
+                        MenuItem(
+                            "Hide Axes End Values"
+                            if graphs.show_end_values
+                            else "Show Axes End Values",
+                            "graphs_view",
+                            "end-values",
+                            key="8",
+                            enabled=graphs.show_axes,
+                        ),
+                        MenuItem("Hide Object Selection Guides", key="9", enabled=False),
+                    ),
+                ),
+                MenuItem("Graph Entry/Edit", key="3", enabled=False),
+                MenuItem("Window / Zoom", key="4", enabled=False),
+                MenuItem("Trace", key="5", enabled=False),
+                MenuItem("Analyze Graph", key="6", enabled=False),
+                MenuItem("Table", key="7", enabled=False),
+                MenuItem("Geometry", key="8", enabled=False),
+                MenuItem("Settings…", key="9", enabled=False),
+            ),
+        )
 
     def _statistics_menu(self, name: str) -> MenuItem | None:
         statistics = self.statistics
