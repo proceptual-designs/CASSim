@@ -1,6 +1,6 @@
 # CASSim: Software Requirements Specification
 
-Status: **DRAFT 0.8** (2026-11-18: spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15: FR-PROF-008 and FR-PROF-009 added, FR-PROF-003, FR-PROF-005 and FR-RUN-009 reworded, Q23 revised, and the device interface comes before M3; earlier the same day: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the post-Nspire scope in 4.12. **The Code part (M7: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
+Status: **DRAFT 0.9** (2026-11-18: milestones resequenced so Python/pseudocode is M5, TI-Basic and extensions are M6, and polish is M7; current implementation status refreshed; spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15: FR-PROF-008 and FR-PROF-009 added, FR-PROF-003, FR-PROF-005 and FR-RUN-009 reworded, Q23 revised, and the device interface comes before M3; earlier the same day: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the later programming and profile scope in 4.12. **The Code part (M5: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
 Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is the milestone in PLAN.md section 8. Verification: **T** test (unit/corpus/device), **E** E2E (Playwright), **I** inspection, **D** demonstration, **A** analysis (measurement).
 
@@ -16,7 +16,7 @@ CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS
 
 CASSim is a **simulator, not a hardware-level emulation**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. CASSim is released under the Unlicense.
 
-**Later scope.** After the Nspire simulator is complete (M0–M6), CASSim adds, in this order, a web-based Python and pseudocode environment, with translation between the two and a stepwise forwards-and-backwards trace table, that works standalone and as page types inside the simulators (Should), a device switcher with a Casio ClassPad profile (Could), and possibly an HP Prime profile (Would) (4.12). Requirements for M0–M6 are unchanged by this.
+**Later scope.** After the core page set (M0–M4), CASSim adds a web-based Python and pseudocode environment in M5, with translation between the two and a stepwise forwards-and-backwards trace table, standalone and as page types (Should). TI-Basic and library extensions follow in M6, polish in M7, then a device switcher with a Casio ClassPad profile in M8 (Could), and possibly an HP Prime profile in M9 (Would) (4.12). The requirements and priority of each feature are unchanged by the resequencing.
 
 Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP ROM/OS/firmware code, logos or artwork; loading `.tns` libraries (the `mm_`/`sm_`/`gm_` UDFs are ported natively instead); server-side accounts or sync.
 
@@ -56,17 +56,17 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 ## 2. Overall description
 
 ### 2.1 Product perspective
-A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser: the autosave and System Settings use localStorage (Flet `SharedPreferences`) and named files and larger data use IndexedDB (M7). Hosted as static files.
+A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser: autosave and System Settings use IndexedDB (with a legacy localStorage reader), and named Code files also use IndexedDB in M5. Hosted as static files.
 
 ### 2.2 Product functions (summary)
-Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M7: a Python and pseudocode environment, standalone and as page types; later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
+Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M5: a Python and pseudocode environment, standalone and as page types. Later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
 
 ### 2.3 Users and classes
 1. **Student**: knows the handheld; wants identical keystrokes and results.
 2. **Teacher presenting**: needs readable large display, optional keystroke display, fast recovery from mistakes.
 3. **Teacher authoring**: builds documents, programs, Python scripts; shares files with students.
 4. **Developer/maintainer**: runs corpus, adds commands.
-5. **Student programmer** (from M7): writes and runs short Python or pseudocode programs, standalone or on a calculator page.
+5. **Student programmer** (from M5): writes and runs short Python or pseudocode programs, standalone or on a calculator page.
 6. **Student or teacher on another CAS calculator** (from M8): wants the Casio or HP workflow rather than the Nspire's.
 
 ### 2.4 Operating environment
@@ -152,7 +152,7 @@ This cross-cuts every functional area.
 | FR-DOC-008 | Within a Problem, every page shares one set of variables. A spreadsheet column linked to a list, a plot of that list and a graph of a function are views of the same variable: a change made on one page shows on every other page of the Problem when it is next seen, and nothing crosses between Problems (decision 0031). | M | T |
 | FR-DOC-010 | Documents are saved by name in browser storage: Save (asks for a name the first time), Save As and Open (a list of the saved documents, each of which can be deleted). The title bar shows the page number next to the document name, with `*` appended to the displayed name while there are unsaved changes; the centre stays clear and long names are ellipsized. The autosave keeps the working state (with the name and the marker) but never writes the named copy. New, Open and Import ask before dropping unsaved changes (decision 0033). | S | T |
 | FR-DOC-009 | A page can be split into two panes, each holding one app (side by side, or one above the other), with focus moved between them; Quick Graph, Summary Plot and the Graphs table use it. Custom Split and layouts of three or four panes are greyed. | M | T/D |
-| FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M7 (FR-RUN-010). Geometry excluded. | M | I |
+| FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M5 (FR-RUN-010). Geometry excluded. | M | I |
 | FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save work on the documents kept in the browser (FR-DOC-010); files on disk are native `.cassim.json` through Import and Export. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
 
 ### 4.5 Lists & Spreadsheet — M3
@@ -193,12 +193,12 @@ This cross-cuts every functional area.
 |---|---|---|---|
 | FR-NOTE-001 | A Notes page holding plain text, saved with the document. Maths boxes are a later Could. | S | T |
 
-### 4.8 Programming and extensions — M5
+### 4.8 Programming and extensions — M6
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-PROG-001 | TI-Basic interpreter: `Prgm`/`Func`, control flow, `Disp`/`Request`/`Text`, `Try`, `Local`. | C | T |
 | FR-PROG-002 | Program Editor page; `Define LibPub` libraries and `lib\fn` namespace. | C | T |
-| FR-PY-001 | A `py("script","fn",args)` call from the CAS and a small `cassim` API (read/write Problem variables, evaluate TI expressions). **Changed 2026-11-02:** the Python page itself is FR-RUN-010 (M7); this bridge is a later extra, not part of M7, and not something the handheld does (see FR-RUN-011). | C (later, after M7) | T |
+| FR-PY-001 | A `py("script","fn",args)` call from the CAS and a small `cassim` API (read/write Problem variables, evaluate TI expressions). **Changed 2026-11-02:** the Python page itself is FR-RUN-010 (M5); this bridge is a later extra, not part of M5, and not something the handheld does (see FR-RUN-011). | C (later, after M5) | T |
 | FR-PY-002 | If Python pages are built (FR-RUN-010): scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
 | FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the simulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
 
@@ -233,8 +233,8 @@ This cross-cuts every functional area.
 | FR-PWA-003 | Loading screen with progress during cold start. | M | D |
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
-### 4.12 Multi-device profiles and programming environments — M7–M9
-Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorders or blocks M0–M6 except the M2 guard FR-DEV-007 and, decided 2026-11-13, the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008), which come before M3 (PLAN.md section 15.4). **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code first, then ClassPad, then possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page built here, and the Python page itself is FR-RUN-010 (moved from M5 to M7).
+### 4.12 Programming environments and later device profiles — M5, M8–M9
+M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the remembered, lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
 
 **Device profiles (M8)**
 | ID | Requirement | Pri | Ver |
@@ -249,7 +249,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-PROF-008 | Each profile can be published as its own **bundle** on its own site, holding the shell and that one profile and nothing another profile needs (the pseudocode bundle ships no SymPy or SciPy). A profile is a plug-in package that imports the shared layers and never another profile; the build lists the profiles in a bundle. Single-device sites are published on a release only. | C | T |
 | FR-PROF-009 | A document file and a share link carry the id of their profile. A bundle that holds that profile opens them; a bundle that does not names the site that does, links to it, and changes nothing. | C | T |
 
-**Python and pseudocode runtime (M7)**
+**Python and pseudocode runtime (M5)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-RUN-001 | A language-neutral `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, and cancel. Python and pseudocode implement it, and so does the Nspire Python page (FR-RUN-010). | S | I/T |
@@ -262,10 +262,10 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-RUN-008 | A shared editor and console component: line numbers, indentation, error highlighting, Run/Stop, adjustable text size, keyboard-only operation, usable at 360 px width; the settings bar of FR-SET-001 sits at the top of it. | S | D |
 | FR-RUN-009 | **Code view**: standalone environment with no device skin; files, undo and download as in FR-EDT-001 to FR-EDT-004; imported files never auto-run. It is the `pseudocode` device: an entry in the all-in-one app's switcher (FR-PROF-003) and its own bundle and site (FR-PROF-008), with its own storage like any profile (FR-PROF-004) (Q23, revised 2026-11-13). | S | E |
 | FR-RUN-010 | **Page types**: Python and Pseudocode pages can be added to a document in the Nspire profile (FR-DOC-005). Adding them bumps the document schema version with a migration (FR-DOC-004). | S | T |
-| FR-RUN-011 | A script on a Python or Pseudocode page can read and write the Problem's variables and evaluate TI expressions through the `cassim` API of FR-PY-001, by name and without evaluating strings outside the engine's parser (NFR-SEC-004). The real TI-Nspire does not allow this, so it is a CASSim extension, scheduled after M7 and only if wanted. Until then the pages are self-contained. | C (later, after M7) | T |
+| FR-RUN-011 | A script on a Python or Pseudocode page can read and write the Problem's variables and evaluate TI expressions through the `cassim` API of FR-PY-001, by name and without evaluating strings outside the engine's parser (NFR-SEC-004). The real TI-Nspire does not allow this, so it is a CASSim extension, scheduled after M5 and only if wanted. Until then the pages are self-contained. | C (later, after M5) | T |
 | FR-RUN-012 | A **Stop** button is visible whenever code is running and stops the run within 1 s (NFR-PERF-004), keeping the output and trace so far. It works for pseudocode and Python and does not depend on the run limits of FR-SET-009. | S | T/E |
 
-**Pseudocode language (M7)** — dialect in `docs/pseudocode/dialect.md`
+**Pseudocode language (M5)** — dialect in `docs/pseudocode/dialect.md`
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-PSE-001 | Data: integer, rational, real, complex and basic strings; booleans only as comparison results; function values as arguments; lists (FR-PSE-006). Tuples, sets and dictionaries are Could (FR-PSE-008) and until then produce a "not supported yet" diagnostic naming the construct. | S | T |
@@ -281,7 +281,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-PSE-011 | **Complex literals**: `1+2i`, `1+2ⅈ` and `complex(1,2)` are accepted (Q28, decided 2026-11-04). The Real/Complex domain is a setting in the … menu (FR-SET-003), Real by default. | S | T |
 | FR-PSE-012 | **Symbolic (exact) pseudocode**, promoted from Could to Should on 2026-11-07: the Number mode control (FR-SET-001) works as on the CAS. **Approx** is numeric as now. **Exact** keeps `π`, `ⅇ`, surds, fractions and index forms unevaluated (`√2`, `π/6`, `2^(1/3)`, `3/4`), so `sqrt`, `exp`, `loge`, trigonometry of exact angles and the constants go through the engine (SymPy only inside `core/compat/sympy_adapter.py`) and stay exact through `+ − × ÷` and powers. **Auto** is exact when every input is exact and numeric as soon as a decimal enters (`0.5`, `rand()`, a float). Exact values show in trace cells, in `print` and in the translated Python's comment (the Python itself uses `sympy` when a program needs exact mode). Pure-integer programs are unchanged: `÷` of integers stays a real in Approx and a fraction in Exact and Auto, so Exact and Auto change `7/2` from `3.5` to `7/2`. Loop and `if` tests compare numerically. The default stays Approx in the standalone Code view, so every golden program is unchanged; Exact variants get their own corpus cases. | S | T |
 
-**Translation between Python and pseudocode (M7)**
+**Translation between Python and pseudocode (M5)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-XLT-001 | Pseudocode to Python for the whole dialect, following the author's translation table (assignment, input, print, define/def, if/elif/else, while, for with step, repeat n times, repeat-until as `while True` with a break). Current settings are honoured (`Fraction` in Auto and Exact modes, `radians()` wrapping in Degree mode); `input` becomes a generated `read_value()` helper that infers number or string. Python to pseudocode is written in the style of the syntax file's emit section (FR-SYN-005). The Python is readable and idiomatic. | S | T |
@@ -291,7 +291,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-XLT-005 | Round trip: pseudocode to Python to pseudocode gives an equal program tree (comments and layout aside), property-tested on generated programs. | S | T |
 | FR-XLT-006 | Names that clash with Python built-ins or keywords (`sum`, `list`, `lambda`, ...) are renamed in the translation, with a comment. | S | T |
 
-**Stepwise trace tables (M7)** — layouts in `docs/pseudocode/trace-tables.md`
+**Stepwise trace tables (M5)** — layouts in `docs/pseudocode/trace-tables.md`
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-TRC-001 | Any run (pseudocode, or Python in the supported subset) records its events so the user can step forwards and backwards, return to the start, run to the end and jump to any row, without re-executing (random numbers and input replay identically). | S | T/E |
@@ -307,7 +307,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-TRC-011 | A third, per-iteration view (one row per loop pass, variables as columns), after the vertical and horizontal views are done (Q33, decided 2026-11-04). | C | D |
 | FR-TRC-012 | Line-by-line variable trace for Python outside the supported subset. | C | D |
 
-**Settings bar (M7)**
+**Settings bar (M5)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-SET-001 | The Code view's editor has a clear settings bar at the top with two controls, **Number mode** (Approx / Auto / Exact) and **Angle** (Radian / Degree), plus a **…** menu that holds every other setting (FR-SET-003, FR-SET-006, FR-SYN-003). The controls are always visible, show the current state, and are saved with the program. | S | D |
@@ -320,7 +320,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-SET-008 | **Euler's number toggle** in the … menu: when on, an unassigned `e` is the constant 2.71828… (and `e^x` reads naturally); when off, `e` is an ordinary name. A variable the program assigns always shadows the constant either way, so `e ← 0.001` is safe. Saved with the program alongside the number mode and angle. **Default: on** (decided 2026-11-06, revising Q39). | S | T |
 | FR-SET-009 | **Run limits** in the … menu, low by default and user-adjustable: a maximum number of passes for any one loop run and a maximum recursion depth. Reaching either stops the run with a clear message naming the limit, the line and the setting to change it, keeps the output so far, and leaves the trace steppable (FR-TRC-005). Applies to pseudocode and, where CPython allows, to Python runs. **Defaults: 1,000 passes per loop, 20,000 recorded trace steps and recursion depth 100** (decided 2026-11-06, revising Q39). | S | T |
 
-**Configurable syntax (M7)** — default in `docs/pseudocode/syntax-default.yaml`
+**Configurable syntax (M5)** — default in `docs/pseudocode/syntax-default.yaml`
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-SYN-001 | The pseudocode syntax is defined by a **syntax file**, not hard-coded: keyword and symbol spellings, which tokens are optional, how each block may end, comment markers, and the style the printer writes. The built-in default accepts every spelling in `docs/pseudocode/dialect.md`. | S | T |
@@ -337,7 +337,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 | FR-SYN-012 | **Convert symbols** button (toggle) in the editor toolbar: rewrites the selection, or the whole program, to Unicode symbols or to ASCII, and a second press converts back. It works on tokens from the tokenizer, never by text search, so strings, comments and names are untouched; a user variable that happens to be called `pi` is left alone and reported. It previews the change as a diff, applies as one undo step (FR-EDT-001), keeps the program tree unchanged, and is idempotent (property-tested: ASCII to Unicode to ASCII returns the original for programs written in the standard ASCII spellings). The target style also feeds Regularise (FR-SYN-010) and the printer's emit section as `symbols: unicode | ascii | keep` (FR-SYN-005). Superscript conversion applies only to integer-literal exponents; `x^(n+1)` stays as typed. | S | T |
 | FR-SYN-013 | Typing aid (setting, off by default): as the user types, unambiguous multi-character ASCII sequences become symbols (`<-` to `←`, `<=` to `≤`, `>=` to `≥`, `!=` to `≠`) and a LaTeX-style `\pi`, `\sqrt`, `\le`, `\ge`, `\theta` followed by space or Tab becomes its symbol. Plain words such as `pi` or `sqrt` are never auto-replaced while typing (they may be names); that is what FR-SYN-012 is for. Each replacement is undoable on its own. | C | T |
 
-**Code editor: undo, files, download (M7)** — applies to the shared editor (FR-RUN-008) in the Code view and on Nspire Python and Pseudocode pages
+**Code editor: undo, files, download (M5)** — applies to the shared editor (FR-RUN-008) in the Code view and on Nspire Python and Pseudocode pages
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-EDT-001 | **Unlimited undo and redo** per file: no fixed depth, Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z and Ctrl+Y, plus toolbar buttons. History is stored compactly (as diffs, with typing coalesced into word-sized steps) and Regularise, Translate, paste, Open and Revert each form one step. Undo never touches output or trace results, which are marked stale instead. The history survives reload and crash where storage allows, is kept per file, and is trimmed oldest-first only when the storage quota is reached, with a visible message and never silently. | S | T/D |
@@ -397,7 +397,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - NFR-PORT-001 (M) **Primary** test targets: Chromebooks (ChromeOS), Chrome, Safari (macOS, iOS, iPadOS). Every release is tested on these. **Secondary** (best effort, smoke-tested): Edge, Firefox.
 - NFR-PORT-002 (M) Touch, mouse and hardware keyboard.
 - NFR-PORT-003 (S) Handheld mode usable at 360 px wide and in both orientations.
-- NFR-PORT-004 (W) Native builds of the same app with `flet build`: Windows, macOS and Linux desktop, and Android (APK, AAB) and iOS. The static web site is the only release target until M6 is done; see PLAN.md section 13 for what each build needs.
+- NFR-PORT-004 (W) Native builds of the same app with `flet build`: Windows, macOS and Linux desktop, and Android (APK, AAB) and iOS. The static web site is the only release target until M7 is done; see PLAN.md section 13 for what each build needs.
 
 ### 5.6 Maintainability and quality
 - NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.
@@ -438,7 +438,7 @@ Starts only when the Nspire simulator (M0–M6) is complete; nothing here reorde
 - **Device-model tests**: key sequence -> screen/state.
 - **Render snapshots** (Playwright): per mode at fixed viewport, tolerance-based diff.
 - **E2E/PWA**: build, serve, load, evaluate, install, go offline.
-- **Acceptance gates** map to milestone exits in PLAN.md section 8: M1 Tier 1 corpus passes (canonical), strict types on `core/`, matrix published; M2 install on a phone and run scripted exam-style flows; M3 the General Maths workflows pass; M4 graph snapshots and performance budget; M7 the Python and pseudocode golden programs pass in both languages and agree (FR-XLT-004), the trace tables for the reference bisection example match the author's vertical and horizontal tables, all golden programs round-trip under each built-in syntax preset (FR-SYN-007), and cancel and trust-prompt E2E pass; M8 the Nspire corpus replays unchanged after the profile refactor and the ClassPad Tier 1 corpus passes (canonical); M9 as M8 if a go is given.
+- **Acceptance gates** map to milestone exits in PLAN.md section 8: M1 Tier 1 corpus passes (canonical), strict types on `core/`, matrix published; M2 install on a phone and run scripted exam-style flows; M3 the General Maths workflows pass and data-page timing is reported; M4 graph snapshots and performance measurements pass; M5 the Python and pseudocode golden programs pass in both languages and agree (FR-XLT-004), the trace tables for the reference bisection example match the author's vertical and horizontal tables, all golden programs round-trip under each built-in syntax preset (FR-SYN-007), and cancel and trust-prompt E2E pass; M8 the Nspire corpus replays unchanged after the profile refactor and the ClassPad Tier 1 corpus passes (canonical); M9 as M8 if a go is given.
 
 ## 9. Requirement traceability
 Each FR maps to: milestone (above), corpus tags (e.g. `solve`, `tier1`), tests, and design component (SDD section). A script in `tools/` generates `docs/traceability.md` from the requirement IDs in this file and the markers in tests and corpus tags (NFR-MAINT-006).
@@ -446,7 +446,7 @@ Each FR maps to: milestone (above), corpus tags (e.g. `solve`, `tier1`), tests, 
 ---
 
 ## 10. Open questions
-Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-11-02 and 2026-11-04 with the post-Nspire scope (4.12); none of them blocks M0-M6. Q42 was added on 2026-11-12 with decision 0028. New ones will be added as the design docs surface them.
+Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-11-02 and 2026-11-04 with the later programming and profile scope (4.12); none blocks M0–M4 or the start of M5. Q42 was added on 2026-11-12 with decision 0028. New ones will be added as the design docs surface them.
 
 | # | Question | Needed by |
 |---|---|---|
@@ -455,7 +455,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 | Q18 | The same for HP Prime (its PC emulator), plus the go/no-go criteria for M9. | 9a |
 | Q19 | ClassPad interaction: reproduce stylus/touch operation (tap menus, soft keyboard), or approximate it with the key-driven device model? | 8f |
 | Q20 | ~~State shared between profiles?~~ **Answered 2026-11-02:** completely separate environments. Each profile has its own documents, variables, files, settings and theme; nothing is shared or copied between profiles (FR-PROF-004). | done |
-| Q21 | ~~Python environment contents~~ **Partly answered 2026-11-02:** import only the libraries that are needed; numpy and scipy are skipped unless something in M7 needs them (the engine's `src` imports neither today, so this also shrinks the download; measure in the 7a spike). **Graphing:** undecided; test the options in a spike first (Flet's own charts, the canvas used in spike 3, matplotlib as the heavy fallback), and prefer Flet's built-in plotting if it is good enough. Device-style modules such as `ti_system` and `ti_plotlib` are still open. | 7a |
+| Q21 | ~~Python environment contents~~ **Partly answered 2026-11-02:** import only the libraries that are needed; numpy and scipy are skipped unless something in M5 needs them (the engine's `src` imports neither today, so this also shrinks the download; measure in the 5a spike). **Graphing:** undecided; test the options in a spike first (Flet's own charts, the canvas used in spike 3, matplotlib as the heavy fallback), and prefer Flet's built-in plotting if it is good enough. Device-style modules such as `ti_system` and `ti_plotlib` are still open. | 5a |
 | Q22 | Should Python and Pseudocode pages exist on the ClassPad and Prime profiles? Which real models have native Python (not checked), and how do scripts reach CAS variables there? | 8g |
 | Q23 | ~~Code view: a mode or its own entry point?~~ **Answered 2026-11-04:** a mode inside the one app. **Revised 2026-11-13:** its own device, in the all-in-one app's switcher and also on its own site, with its own storage (FR-RUN-009, FR-PROF-008; PLAN.md section 15). | done |
 | Q24 | ~~Number modes~~ **Answered 2026-11-02:** yes, the TI "Auto" rule is added as a third number mode (Approx / Auto / Exact; `dialect.md` section 8). Default in the standalone Code view stays Approx (as proposed; say if you want otherwise). | done |
@@ -500,7 +500,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 
 ---
 
-## Appendix B. Implementation status (2026-11-08)
+## Appendix B. Implementation status (2026-11-18)
 
 A summary, not a substitute for the traceability table (`docs/traceability.md`, NFR-MAINT-006).
 
@@ -508,13 +508,14 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 |---|---|---|
 | Language, evaluation, scope | 4.1 | Built (M1). |
 | Command catalogue | 4.2 | Tier 1 built; Tier 2 per the matrix; FR-CAT-005 matrix published (`docs/command_matrix.md`). |
-| Calculator page, device model | 4.3, 4.9 | Built through 2h; Tablet mode (FR-DEV-003) not started; typed-character capture on non-US layouts open (decision 0024). Exam-style flows pass headless and in the browser (decision 0025). |
-| Documents, files, share links | 4.4 | Built (autosave, `.cassim.json`, share links, Page Sorter). Multiple documents in one session (FR-DOC-001) not checked. |
+| Calculator page, device model | 4.3, 4.9 | Built through 2h; exam-style flows pass headless and in the browser (decision 0025). M2 exit remains open for primary-browser/device checks, non-US keyboard capture, Tablet mode and simulator follow-up. |
+| Documents, files, share links | 4.4 | Built (IndexedDB autosave, `.cassim.json`, share links, Page Sorter and split pages). Named documents and save/open/import workflows are implemented; M2's external verification gates still apply. |
 | PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; the Cloudflare Pages site passed a headless smoke test with an offline reload; Safari, iOS and Chromebook not yet run. |
-| Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6, FR-DOC-008, FR-DOC-009 | Engine commands exist and the Finance Solver is built; pages planned (decision 0031, 2026-11-13), not started (M3). |
-| Graphs, Table and Notes | 4.7, 4.7a | Planned (decision 0031), not started (M4). |
-| TI-Basic, libraries | 4.8 | Not started (M5, Could). |
-| Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built (M7b), 58 golden programs green. Translation, editor, settings bar, Code view and page types not started. |
-| Python runtime | FR-RUN-002/003 | Not started; the sandbox spike (7a) comes first. |
-| Profiles, bundles, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Not started; only the M2 guard applies. The device interface, the Nspire move and the bundle build are next, before M3 (PLAN.md section 15). |
-| Non-functional | 5 | Traceability (`docs/traceability.md`), accessibility notes (`docs/accessibility.md`) and per-package coverage floors exist (2026-11-09). NFR-LEG-002 is in the About dialog; NFR-LEG-003 notices need checking against the shipped files before release. |
+| Device interface and bundles | FR-PROF-001/002/008/009 | Complete through M2x; the Nspire package boundary, registered page types and bundle-aware publishing are implemented. |
+| Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6, FR-DOC-008, FR-DOC-009 | Mostly met (M3): sheet and data page models/UI, categorical and numeric plots, inference, split panes, Quick Graph/Summary Plot, CSV/XLSX, and the Finance Solver are built. Remaining exit work is General Maths flows, timing reports and simulator checks of selected defaults/save-reload behaviour. |
+| Graphs, Table and Notes | 4.7, 4.7a | Planned for M4; shared scene/canvas support and sampling spikes exist, but the Graphs, Table and Notes pages are not started. |
+| Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built ahead of schedule as M5b; 58 golden programs green. Translation, editor, settings bar, Code view and page types are not started. |
+| Python runtime | FR-RUN-002/003 | Not started; the sandbox spike in 5a comes first. |
+| TI-Basic, libraries | 4.8 | Not started (M6, Could). |
+| Profiles, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | M2x completed the shared infrastructure; runtime profile switching and ClassPad/HP work remain M8/M9. |
+| Non-functional | 5 | Traceability, accessibility notes and per-package coverage floors exist. Primary-browser matrix gaps and the M7 release audits remain open. |
