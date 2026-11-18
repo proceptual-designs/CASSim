@@ -276,6 +276,7 @@ class App:
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
         the settings of the recovered document."""
+        self.starting = True  # refresh callbacks can run before the autosave has been recovered
         page = self.page
         page.title = about.product_name()
         page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
@@ -306,7 +307,6 @@ class App:
             self.notice("Appearance settings", self.state.system.theme_error)
         print("CASSIM: UI", flush=True)  # the first screen is on its way (tools/loadtime.py)
         if self.runner is not None:
-            self.starting = True
             self.status.value = "Starting the calculator engine..."
         try:
             await self.recover()
@@ -322,6 +322,8 @@ class App:
     def autosave(self) -> None:
         """Save the document AUTOSAVE_DELAY after the last change, so a reload or crash loses
         nothing (FR-DOC-003). Each change pushes the save back; one save task waits for it."""
+        if self.starting:
+            return
         self.save_at = time.monotonic() + AUTOSAVE_DELAY
         if not self.save_waiting:
             self.save_waiting = True
@@ -633,9 +635,13 @@ class App:
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return
+        if binding.action == "escape":
+            state.clear_pending()
         if self.busy:  # only Esc gets through: it cancels the run
             if binding.action == "escape" and self.running:
                 await self.cancel()
+            elif binding.action == "escape":
+                self.refresh()
             return
         if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
             return  # typed into the hidden box: on_sink turns it into keys

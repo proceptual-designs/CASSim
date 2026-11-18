@@ -30,6 +30,14 @@ def test_keypad_ctrl_is_sticky_for_one_key() -> None:
     assert state.screen().lines[0].text == "((1)/(3))"
 
 
+def test_keypad_ctrl_escape_still_undoes() -> None:
+    state = AppState()
+    state.press_keypad("1")
+    state.press_keypad("ctrl")
+    state.press_keypad("esc")
+    assert typed(state) == ""
+
+
 def test_computer_shortcuts() -> None:
     state = AppState()
     for key in ("1", "Slash", "2"):
