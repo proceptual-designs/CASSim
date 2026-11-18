@@ -163,7 +163,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py` and 4 more |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-006 | Must | `tests/device/test_sheet_scene.py`, `tests/unit/test_scene.py` |
-| FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/device/test_calculator.py` and 4 more |
+| FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/app/test_soft_keys.py` and 5 more |
 | FR-DEV-002 | Must | `tests/app/test_computer_columns.py`, `tests/e2e/test_sidebar_browser.py` |
 | FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_history_cache.py`, `tests/app/test_layout.py` and 7 more |
 | FR-DEV-005 | Should | `tests/app/test_history_cache.py`, `tests/app/test_keypad_refresh.py`, `tests/app/test_keypad_shapes.py` and 4 more |
