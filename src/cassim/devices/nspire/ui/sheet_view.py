@@ -220,6 +220,9 @@ class SheetView:
         return self._pick(ft.Offset(x, y))
 
     def _double_tap(self, event: ft.TapEvent) -> None:
+        if self.shift():
+            self._pick(event.local_position, extend=True)
+            return
         editing_formula = (
             self.sheet is not None
             and self.sheet.editing is not None

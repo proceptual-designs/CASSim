@@ -710,8 +710,7 @@ class App:
         state = self.state
         if self.typing_dialog is not None and self.typing_dialog.open:
             return  # keys typed into a dialog's boxes are not calculator keys
-        if "shift" not in e.key.lower():
-            self.shift = e.shift
+        self.shift = e.shift
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return
