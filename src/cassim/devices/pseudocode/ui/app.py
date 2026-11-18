@@ -72,7 +72,7 @@ def _control_style() -> ft.ButtonStyle:
 
 
 class CodeApp:
-    def __init__(self, shell: Shell) -> None:
+    def __init__(self, shell: Shell) -> None:  # noqa: PLR0915
         self.shell = shell
         self.page = shell.page
         self.result = None
