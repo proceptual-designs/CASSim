@@ -55,11 +55,7 @@ def sheet_points(app: AppPage) -> tuple[tuple[float, float], tuple[float, float]
     return (x + 10, y + 8), cell_point(app, 2, 0)
 
 
-def test_a_sheet_shares_its_column_with_the_calculator(
-    browser: Browser, site: tuple[Path, str]
-) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+def check_shared_column(app: AppPage) -> None:
     for key in ("F4", "4", "6"):  # Doc > Insert > Lists & Spreadsheet
         app.press(key)
     sheet_line(app, "A1")
@@ -91,18 +87,7 @@ def test_a_sheet_shares_its_column_with_the_calculator(
     sheet_line(app, "B1 100")
 
 
-def test_pointing_to_a_range_while_entering_a_formula(
-    browser: Browser, site: tuple[Path, str]
-) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
-    for key in ("F4", "4", "6"):
-        app.press(key)
-    sheet_line(app, "A1")
-    enter(app, "2")
-    enter(app, "3")
-    app.press("Up")
-    app.press("Up")
+def check_pointed_range(app: AppPage) -> None:
     app.press("Right")
     app.type_text("=sum(")
     app.press("Left")
@@ -110,39 +95,22 @@ def test_pointing_to_a_range_while_entering_a_formula(
     app.type_text(")")
     app.press("Enter")
     app.press("Up")
-    app.wait(lambda: "CASSIM: SHEET B1 5" in app.logs, "B1 5")
-    app.page.close()
+    app.wait(lambda: "CASSIM: SHEET C1 116" in app.logs, "C1 116")
 
 
-def test_shift_arrow_does_not_move_a_formula_into_another_cell(
-    browser: Browser, site: tuple[Path, str]
-) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
-    for key in ("F4", "4", "6"):
-        app.press(key)
-    enter(app, "9")
-    app.press("Up")
+def check_shifted_formula(app: AppPage) -> None:
     app.press("Right")
     app.type_text("=2")
     app.page.keyboard.press("Shift+ArrowLeft")
     app.press("Enter")
     app.press("Up")
-    app.wait(lambda: "CASSIM: SHEET B1 2" in app.logs, "B1 2")
+    app.wait(lambda: "CASSIM: SHEET D1 2" in app.logs, "D1 2")
     app.press("Left")
-    app.wait(lambda: "CASSIM: SHEET A1 9" in app.logs, "A1 9")
-    app.page.close()
+    app.wait(lambda: "CASSIM: SHEET C1 116" in app.logs, "C1 116")
 
 
-def test_clicking_a_cell_in_a_formula(browser: Browser, site: tuple[Path, str]) -> None:
-    _, url = site
-    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
-    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
-    for key in ("F4", "4", "6"):
-        app.press(key)
-    sheet_line(app, "A1")
-    enter(app, "2")
-    app.press("Up")
+def check_clicked_reference(app: AppPage) -> None:
+    app.press("Right")
     app.press("Right")
     app.type_text("=")
     app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
@@ -151,7 +119,16 @@ def test_clicking_a_cell_in_a_formula(browser: Browser, site: tuple[Path, str]) 
     app.type_text("+1")
     app.press("Enter")
     app.press("Up")
-    app.wait(lambda: "CASSIM: SHEET B1 3" in app.logs, "B1 3", seconds=20)
+    app.wait(lambda: "CASSIM: SHEET E1 11" in app.logs, "E1 11", seconds=20)
+
+
+def test_sheet_formula_journeys(browser: Browser, site: tuple[Path, str]) -> None:
+    _, url = site
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    check_shared_column(app)
+    check_pointed_range(app)
+    check_shifted_formula(app)
+    check_clicked_reference(app)
     app.page.close()
 
 
