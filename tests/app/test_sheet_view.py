@@ -1,8 +1,11 @@
-# Requirements traced here: FR-SHEET-001, FR-DOC-009, NFR-PERF-006, FR-DEV-004
+# Requirements traced here:
+# FR-SHEET-001, FR-SHEET-003, FR-STAT-001, FR-STAT-004,
+# FR-STAT-005, FR-DOC-009, NFR-PERF-006, FR-DEV-004
 """The Lists & Spreadsheet page in the Flet view (slice 3b): it draws in the screen's place of
 the history, keeps the canvases of layers that did not change, and turns taps, long presses,
 drags and the wheel into sheet actions (decision 0031 item 7)."""
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -27,6 +30,7 @@ from cassim.devices.nspire.ui.app import App
 from cassim.devices.nspire.ui.sheet_view import BAR, SheetView, sheet_colours
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.views import CalculatorView, field_box
+from cassim.sheet.fileio import FileCell, read_csv
 
 
 def sheet_state() -> AppState:
@@ -100,6 +104,61 @@ def test_shade_p_value_draws_a_second_pane():
     assert view.body.controls == [view.sheet_panes]
     assert view.sheet_panes.controls == [view.sheet_view.control, view.pvalue_pane]
     assert view.pvalue_pane.content is not None
+
+
+def test_sheet_plots_share_a_statistics_pane():
+    state = sheet_state()
+    view, _ = view_for(state)
+    sheet = state.sheet
+    assert sheet is not None
+    assert sheet.session.eval("scores:={1,2,3}").error is None
+    assert sheet.session.eval('labels:={"cat","dog"}').error is None
+    assert sheet.session.eval("counts:={5,3}").error is None
+    sheet.go((0, NAME_ROW))
+    sheet.menu_action("link:scores")
+    sheet.menu_action("quick_graph")
+    sheet.menu_action('split_summary:{"x":"labels","summary":"counts"}')
+
+    view.refresh()
+
+    assert len(view.sheet_panes.controls) == 2
+    statistics_pane = view.sheet_panes.controls[1]
+    assert isinstance(statistics_pane, ft.Column)
+    assert len(statistics_pane.controls) == 2
+
+
+def test_csv_menu_actions_import_calculate_and_export_values(monkeypatch):
+    page = FakePage(1100, 700)
+    state = sheet_state()
+    app = App(Shell(cast("ft.Page", page), DEVICE), state)
+    app.arrange()
+    for task in page.tasks:
+        task.close()
+    page.tasks.clear()
+    downloads: list[tuple[str, bytes, str]] = []
+
+    async def pick_file_bytes(extensions, title):
+        assert extensions == ("csv",)
+        assert title == "Import CSV data"
+        return b"1,=A1+2\r\n"
+
+    async def save_bytes_file(name, data, title):
+        downloads.append((name, data, title))
+
+    monkeypatch.setattr(app.shell, "pick_file_bytes", pick_file_bytes)
+    monkeypatch.setattr(app.shell, "save_bytes_file", save_bytes_file)
+
+    try:
+        asyncio.run(app._sheet_file_action("csv", importing=True))
+        asyncio.run(app._sheet_file_action("csv", importing=False))
+
+        assert downloads[0][0] == "spreadsheet.csv"
+        assert downloads[0][2] == "Export CSV data"
+        assert read_csv(downloads[0][1]) == [[FileCell("1"), FileCell("3")]]
+    finally:
+        for task in page.tasks:
+            task.close()
+        page.tasks.clear()
 
 
 def test_shade_option_is_a_checkbox():

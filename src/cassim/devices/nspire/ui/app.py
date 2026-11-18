@@ -95,6 +95,7 @@ from cassim.doc.serialize import (
     to_dict,
 )
 from cassim.doc.share import LinkTooLongError, encode, unpack
+from cassim.sheet.fileio import read_csv, read_xlsx, write_csv, write_xlsx
 
 # TODO(M2b): a first visit should pick Handheld below about 700 px (decision 0013 item 3).
 # Flet fires no resize event at start-up, so this needs a different hook.
@@ -208,6 +209,7 @@ class App:
         self.first_visit = False  # nothing saved yet: the window size picks the mode
         self.use_cutout = True
         self.starting = False  # loading the autosave through a remote engine
+        self.sheet_file_busy = False
         self.theme = shell.theme
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
         self.view = CalculatorView(
@@ -471,7 +473,11 @@ class App:
 
     @property
     def busy(self) -> bool:
-        return self.starting or (self.runner is not None and not self.runner.idle)
+        return (
+            self.starting
+            or self.sheet_file_busy
+            or (self.runner is not None and not self.runner.idle)
+        )
 
     @property
     def running(self) -> bool:
@@ -492,7 +498,7 @@ class App:
     def kick(self) -> None:
         """Start whatever the engine owes the screen: a queued entry, or queued settings."""
         runner = self.runner
-        if runner is None or not runner.idle:
+        if self.sheet_file_busy or runner is None or not runner.idle:
             return
         calculator = calculator_of(self.state.document.current)
         if calculator is not None and calculator.pending is not None:
@@ -999,6 +1005,10 @@ class App:
             "open_document": self.open_document,
             "export_file": lambda: self.page.run_task(self.export_file),
             "import_file": lambda: self.ask_discard(lambda: self.page.run_task(self.import_file)),
+            "sheet_import_csv": lambda: self._start_sheet_file_action("csv", importing=True),
+            "sheet_export_csv": lambda: self._start_sheet_file_action("csv", importing=False),
+            "sheet_import_xlsx": lambda: self._start_sheet_file_action("xlsx", importing=True),
+            "sheet_export_xlsx": lambda: self._start_sheet_file_action("xlsx", importing=False),
             "share_link": self.share_link,
             "document_settings": self.open_settings,
             "system_settings": lambda: system_settings_dialog(
@@ -1231,6 +1241,49 @@ class App:
         except (DocumentFileError, UnicodeDecodeError) as error:
             self.notice("Cannot open that file", str(error))
         self.refresh()
+
+    def _start_sheet_file_action(self, kind: str, *, importing: bool) -> None:
+        if self.sheet_file_busy:
+            return
+        self.sheet_file_busy = True
+        self.page.run_task(self._sheet_file_action, kind, importing)
+
+    async def _sheet_file_action(self, kind: str, importing: bool) -> None:
+        try:
+            sheet = self.state.sheet
+            if sheet is None:
+                return
+            if importing:
+                data = await self.shell.pick_file_bytes((kind,), f"Import {kind.upper()} data")
+                if data is None:
+                    return
+                rows = read_csv(data) if kind == "csv" else read_xlsx(data)
+                sheet.import_rows(rows)
+                if self.runner is not None:
+                    await self.runner.sync(self.state.document)
+                sheet.update()
+            else:
+                if self.runner is not None:
+                    await self.runner.sync(self.state.document)
+                sheet.update()
+                sheet.request_export_view()
+                if self.runner is not None:
+                    await self.runner.sync(self.state.document)
+                sheet.update()
+                rows = sheet.export_rows(formulas=kind == "xlsx")
+                if kind == "csv":
+                    data = write_csv([[cell.text for cell in row] for row in rows])
+                else:
+                    data = write_xlsx(rows)
+                await self.shell.save_bytes_file(
+                    f"spreadsheet.{kind}", data, f"Export {kind.upper()} data"
+                )
+        except (OSError, ValueError) as error:
+            operation = "import" if importing else "export"
+            self.notice(f"Cannot {operation} {kind.upper()} data", str(error))
+        finally:
+            self.sheet_file_busy = False
+            self.refresh()
 
     def share_link(self) -> None:
         """Copy a link that holds the document in its fragment (FR-DOC-007)."""

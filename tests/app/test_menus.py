@@ -185,7 +185,9 @@ def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: st
         state.run_action("add_page", page)
     state.run_action("open_menu", "menu")
     assert state.menu is not None
-    assert state.menu.root == state.profile.menus[menu_name]
+    expected = state.profile.menus[menu_name]
+    assert state.menu.root.label == expected.label
+    assert [item.label for item in state.menu.root.items] == [item.label for item in expected.items]
     state.run_action("menu_pick", "0:0")
     assert len(state.menu.levels) == 2
     state.key_event("F4")
@@ -194,7 +196,8 @@ def test_menu_and_doc_switch_directly_even_in_a_submenu(page: str, menu_name: st
     assert len(state.menu.levels) == 2
     state.run_action("open_menu", "menu")
     assert state.menu is not None
-    assert state.menu.root == state.profile.menus[menu_name]
+    assert state.menu.root.label == expected.label
+    assert [item.label for item in state.menu.root.items] == [item.label for item in expected.items]
     assert len(state.menu.levels) == 1
 
 

@@ -1,4 +1,4 @@
-# Requirements traced here: FR-STAT-004, FR-DOC-009
+# Requirements traced here: FR-STAT-004
 from cassim.devices.nspire.statistics_plot import PValuePlot, p_value_scene
 from cassim.graph.scene import Fill, Label, Polyline
 
@@ -17,3 +17,11 @@ def test_one_sided_p_value_scene_shades_the_selected_tail():
     layer = scene.layer("plot")
     assert layer is not None
     assert sum(isinstance(shape, Fill) for shape in layer.shapes) == 1
+
+
+def test_right_tail_beyond_the_visible_window_has_no_fill():
+    scene = p_value_scene(PValuePlot(5, 0.0000003, 2), 160, 180)
+    layer = scene.layer("plot")
+    assert layer is not None
+    assert not any(isinstance(shape, Fill) for shape in layer.shapes)
+    assert any(isinstance(shape, Label) and "z = 5.0000" in shape.text for shape in layer.shapes)

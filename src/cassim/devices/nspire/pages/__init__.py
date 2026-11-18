@@ -17,6 +17,12 @@ from cassim.device.keys import Binding
 from cassim.devices.nspire.pages import spreadsheet
 from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
+from cassim.devices.nspire.pages.statistics import (
+    Statistics,
+    dump_statistics,
+    load_statistics,
+    new_statistics,
+)
 from cassim.doc.document import PageType, PageTypes
 from cassim.doc.serialize import DocumentFileError
 
@@ -153,6 +159,13 @@ def _after_sheet(sheet: Spreadsheet) -> None:
     sheet.loaded()
 
 
+def _load_statistics(
+    page_type: PageType, problem: Problem, data: dict[str, Any]
+) -> Generator[Statistics, None, Statistics]:
+    yield from ()
+    return load_statistics(new_statistics(problem), data)
+
+
 PAGES = PageTypes(
     DEVICE,
     (
@@ -168,7 +181,13 @@ PAGES = PageTypes(
             _load_sheet,
             _after_sheet,
         ),
-        PageType(PageKind.STATISTICS, "Data & Statistics"),
+        PageType(
+            PageKind.STATISTICS,
+            "Data & Statistics",
+            new_statistics,
+            dump_statistics,
+            _load_statistics,
+        ),
         PageType(PageKind.NOTES, "Notes"),
         PageType(PageKind.PROGRAM, "Program Editor"),
         PageType(PageKind.PYTHON, "Python"),
