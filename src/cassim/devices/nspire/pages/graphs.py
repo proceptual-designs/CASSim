@@ -394,6 +394,7 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
         "show_axes": graphs.show_axes,
         "show_end_values": graphs.show_end_values,
         "grid_style": graphs.grid_style.value,
+        "active": graphs.active_index,
         "functions": [
             {
                 "name": item.name,
@@ -405,6 +406,16 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
             if item.expression or not item.editing.editor.is_empty
         ],
     }
+
+
+def _load_active(graphs: Graphs, data: dict[str, Any]) -> None:
+    active = data.get("active")
+    if (
+        isinstance(active, int)
+        and not isinstance(active, bool)
+        and 0 <= active < len(graphs.functions)
+    ):
+        graphs.active_index = active
 
 
 def load_graphs(
@@ -461,6 +472,7 @@ def load_graphs(
                 editor.root = load_nodes(nodes)
                 editor.pos = len(editor.root)
                 entry.editing.forget_undo()
+    _load_active(graphs, data)
     yield from ()
     return graphs
 

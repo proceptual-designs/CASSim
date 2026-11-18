@@ -182,6 +182,36 @@ def test_schema_2_spreadsheets_start_with_no_split_statistics() -> None:
     assert migrated["problems"][0]["pages"][0]["split_statistics"] == []
 
 
+def test_schema_3_graph_and_statistics_pages_get_save_defaults() -> None:
+    old = {
+        "format": "cassim-document",
+        "schema": 3,
+        "problems": [
+            {
+                "pages": [
+                    {"kind": "graphs"},
+                    {"kind": "statistics"},
+                ]
+            }
+        ],
+    }
+
+    migrated = migrate(old)
+
+    graph = migrated["problems"][0]["pages"][0]
+    assert graph["window"] == [-10.0, 10.0, -20 / 3, 20 / 3]
+    assert graph["show_axes"] is True
+    assert graph["show_end_values"] is True
+    assert graph["grid_style"] == "none"
+    assert graph["functions"] == []
+    assert graph["active"] == 0
+    statistics = migrated["problems"][0]["pages"][1]
+    assert statistics["x"] == ""
+    assert statistics["y"] == ""
+    assert statistics["plot"] == "dot"
+    assert statistics["window"] is None
+
+
 def test_a_newer_schema_says_so() -> None:
     with pytest.raises(DocumentFileError, match="newer"):
         migrate({"format": "cassim-document", "schema": SCHEMA + 1})
