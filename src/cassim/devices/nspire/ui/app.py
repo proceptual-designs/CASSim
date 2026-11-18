@@ -1216,7 +1216,17 @@ class App:
             title=ft.Text("Save As"),
             content=ft.Column(
                 [
-                    ft.Text("Saved in this browser.\nDoc > File > Export File… saves a file."),
+                    ft.Text("Saved in this browser."),
+                    ft.Container(
+                        content=ft.Text(
+                            "Use: Doc > File > Export File… if you want to save a file "
+                            "to your device.",
+                            color=self.theme.panel_accent,
+                        ),
+                        bgcolor=self.theme.key,
+                        border_radius=6,
+                        padding=10,
+                    ),
                     field,
                 ],
                 tight=True,
