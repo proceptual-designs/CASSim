@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 003, FR-SHEET-008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -18,6 +18,7 @@ from cassim.devices.nspire.pages.spreadsheet import (
     DEFAULT_WIDTH,
     FORMULA_ROW,
     NAME_ROW,
+    ROWS,
     WIDE,
     Spreadsheet,
     _sheet_text,
@@ -1012,11 +1013,83 @@ def test_whole_rows_and_columns():
     assert sheet.selection() == (0, 2, 25, 2)
     state.run(Binding("sheet", "select_column"))
     assert (sheet.address(), sheet.context_menu()) == ("A", "sheet_column")
-    assert sheet.selection() == (0, 1, 0, 2)
+    assert sheet.selection() == (0, 1, 0, ROWS)
     keys(state, "escape")
     assert sheet.selection() is None
     sheet.go((A, FORMULA_ROW))
     assert sheet.address() == "A="
+
+
+def test_sheet_navigation_replaces_selection_stays_in_bounds_and_follows_cursor():
+    """FR-SHEET-004: arrows move one cell without wrapping and keep the cursor visible."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.set_window(3, 2)
+    sheet.go((0, 1))
+    keys(state, "left")
+    assert sheet.cursor == (0, 1)
+    keys(state, "right")
+    assert sheet.cursor == (1, 1)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (1, 1, 2, 1)
+    keys(state, "right")
+    assert sheet.cursor == (3, 1)
+    assert sheet.selection() is None
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.cursor == (3, 2)
+    keys(state, "down")
+    assert sheet.cursor == (3, 3)
+    assert sheet.top == 1
+    keys(state, "down")
+    assert sheet.cursor == (3, 4)
+    assert sheet.top == 2
+    sheet.go((25, 2500))
+    keys(state, "right", "down")
+    assert sheet.cursor == (25, 2500)
+
+
+def test_shift_arrows_select_ranges_and_heading_edges_select_whole_axes():
+    """FR-SHEET-005, FR-SHEET-007: extend ranges and convert at row/column headings."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.selection() == (0, 2, 1, 2)
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.whole == "row"
+    assert sheet.selection() == (0, 2, 25, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (0, 2, 25, 3)
+    assert sheet.address() == "2:3"
+
+    sheet.go((2, 1))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.whole == "column"
+    assert sheet.selection() == (2, 1, 2, ROWS)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (2, 1, 3, ROWS)
+    assert sheet.address() == "C:D"
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.address() == "C"
+
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.selection() == (1, 1, 1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() is None
+    assert sheet.cursor == (1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (1, 2, 1, 3)
+
+
+def test_clicking_a_column_heading_selects_the_column_for_header_actions():
+    """FR-SHEET-007: the column heading selects its logical column."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("sheet_tap", "2,-1"))
+    assert sheet.cursor == (2, NAME_ROW)
+    assert sheet.whole == "column"
+    assert (sheet.address(), sheet.context_menu()) == ("C", "sheet_column")
 
 
 def test_select_all_and_end():

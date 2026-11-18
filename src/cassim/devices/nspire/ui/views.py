@@ -371,8 +371,13 @@ class CalculatorView:
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
         self.sheet_view = SheetView(
-            theme, on_action, lambda: state.scale, click=self._click, hold=self._hold
+            theme,
+            on_action,
+            lambda: state.scale,
+            click=self._click,
+            hold=self._hold,
         )
+        self.sheet_view.shift = shift
         self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
         self.sheet_panes = ft.Row([], spacing=0, expand=True)
         self.pvalue_pane = ft.Container(expand=True)

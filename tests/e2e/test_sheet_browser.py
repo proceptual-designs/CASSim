@@ -172,6 +172,40 @@ def test_clicking_a_cell_in_a_formula(browser: Browser, site: tuple[Path, str]) 
     app.page.close()
 
 
+def test_drag_shift_click_and_headings_select_ranges(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-SHEET-005 to 007: pointer and keyboard modifiers select spreadsheet ranges."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+
+    a1, b2 = cell_point(app, 0, 0), cell_point(app, 1, 1)
+    app.page.mouse.click(*a1)
+    app.page.keyboard.down("Shift")
+    app.page.wait_for_timeout(100)
+    app.page.mouse.click(*b2)
+    app.page.keyboard.up("Shift")
+    app.wait(lambda: "CASSIM: SHEET SELECTION A1:B2" in app.logs, "shift-click range")
+    app.page.mouse.click(*b2)
+    app.wait(lambda: "CASSIM: SHEET SELECTION NONE" in app.logs, "single-cell selection")
+
+    app.page.mouse.move(*b2)
+    app.page.mouse.down()
+    app.page.mouse.move(*a1)
+    app.page.mouse.up()
+    app.wait(lambda: "CASSIM: SHEET SELECTION A1:B2" in app.logs, "drag range")
+
+    x, y = sheet_origin(app)
+    app.page.mouse.click(x + ROW_LABELS + 2.5 * DEFAULT_WIDTH, y + HEAD / 2)
+    app.wait(lambda: "CASSIM: SHEET SELECTION C" in app.logs, "whole-column selection")
+    app.page.mouse.click(x + 4, y + HEAD + FORMULA + 1.5 * ROW)
+    app.wait(lambda: "CASSIM: SHEET SELECTION 2" in app.logs, "whole-row selection")
+    app.page.close()
+
+
 def test_right_click_context_menus(browser: Browser, site: tuple[Path, str]) -> None:
     app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
     for key in ("F4", "4", "6"):

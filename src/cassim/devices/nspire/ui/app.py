@@ -206,6 +206,7 @@ class App:
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.sheet_line = ""  # the debug SHEET line last printed
+        self.sheet_selection_line = ""
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
         self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
@@ -485,6 +486,10 @@ class App:
         if line != self.sheet_line:
             self.sheet_line = line
             print(f"CASSIM: SHEET {line}", flush=True)
+        selection = screen.address if screen.selection is not None else ""
+        if selection != self.sheet_selection_line:
+            self.sheet_selection_line = selection
+            print(f"CASSIM: SHEET SELECTION {selection or 'NONE'}", flush=True)
 
     # ---- the engine -------------------------------------------------------------------------
 
@@ -692,7 +697,11 @@ class App:
     async def on_key(self, e: ft.KeyboardEvent) -> None:
         key = key_name(e.key)
         if key in ARROW_KEYS:
+            if self.arrow_event is not None and key_name(self.arrow_event.key) == key:
+                return  # native key-repeat must not restart our slower, accelerated repeat timer
             self.arrow_event = e
+        elif self.arrow_event is not None:
+            self.arrow_event = None
         await self._handle_key(e)
         if self.arrow_event is e:
             self.page.run_task(self.repeat_arrow, e)
@@ -701,7 +710,8 @@ class App:
         state = self.state
         if self.typing_dialog is not None and self.typing_dialog.open:
             return  # keys typed into a dialog's boxes are not calculator keys
-        self.shift = e.shift
+        if "shift" not in e.key.lower():
+            self.shift = e.shift
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return

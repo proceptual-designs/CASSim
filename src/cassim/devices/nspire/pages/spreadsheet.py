@@ -478,9 +478,11 @@ class Spreadsheet:
         """The selected block as (left, top, right, bottom), or None for a single cell."""
         column, row = self.cursor
         if self.whole == "column":
-            return column, 1, column, max(self.last_row(column), 1)
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            return left, 1, right, ROWS
         if self.whole == "row":
-            return 0, row, COLUMNS - 1, row
+            first, last = sorted((self.anchor[1], row)) if self.anchor else (row, row)
+            return 0, first, COLUMNS - 1, last
         if self.anchor is None or self.anchor == self.cursor:
             return None
         left, right = sorted((self.anchor[0], column))
@@ -490,6 +492,10 @@ class Spreadsheet:
     def _span(self) -> tuple[int, int, int, int]:
         """The selection, or the cursor's cell."""
         column, row = self.cursor
+        if self.whole == "column":
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            bottom = max((self.last_row(c) for c in range(left, right + 1)), default=0)
+            return left, 1, right, max(bottom, 1)
         return self.selection() or (column, max(row, 1), column, max(row, 1))
 
     def last_row(self, column: int) -> int:
@@ -563,10 +569,15 @@ class Spreadsheet:
     def address(self) -> str:
         """The bar's cell name: `A1`, a block `A1:C4`, a column `A` or a row `1`."""
         column, row = self.cursor
-        if self.whole == "column" or row == NAME_ROW:
+        if self.whole == "column":
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            first = letter(left).upper()
+            return first if left == right else f"{first}:{letter(right).upper()}"
+        if row == NAME_ROW:
             return letter(column).upper()
         if self.whole == "row":
-            return str(row)
+            first, last = sorted((self.anchor[1], row)) if self.anchor else (row, row)
+            return str(first) if first == last else f"{first}:{last}"
         block = self.selection()
         if block is not None:
             a, b, c, d = block
@@ -721,12 +732,32 @@ class Spreadsheet:
 
     def move(self, columns: int, rows: int, *, extend: bool = False) -> None:
         column, row = self.cursor
+        if extend and self.whole == "row":
+            if rows:
+                self.cursor = (column, min(max(row + rows, 1), ROWS))
+            self._follow()
+            return
+        if extend and self.whole == "column":
+            if columns:
+                self.cursor = (min(max(column + columns, 0), COLUMNS - 1), row)
+                self._follow()
+            return
         if extend:
             if self.anchor is None:
                 self.anchor = self.cursor
         else:
             self.anchor = None
             self.whole = None
+        if extend and row >= 1 and columns < 0 and column == 0:
+            self.anchor = (0, row)
+            self.whole = "row"
+            self._follow()
+            return
+        if extend and row == 1 and rows < 0:
+            self.anchor = (column, NAME_ROW)
+            self.whole = "column"
+            self._follow()
+            return
         lowest = 1 if extend else NAME_ROW
         self.cursor = (
             min(max(column + columns, 0), COLUMNS - 1),
@@ -800,6 +831,8 @@ class Spreadsheet:
             self._follow()
             return
         self.go(key)
+        if key[1] == NAME_ROW:
+            self.select_whole("column")
 
     def drag(self, arg: str) -> None:
         """A drag across the grid scrolls it by `columns,rows` (touch: a one-finger drag)."""
@@ -982,10 +1015,12 @@ class Spreadsheet:
             self._move_editor("end")
 
     def select_whole(self, what: Literal["row", "column"]) -> None:
-        self.anchor = None
         self.whole = what
         if what == "row":
             self.cursor = (self.cursor[0], max(self.cursor[1], 1))
+            self.anchor = (0, self.cursor[1])
+        else:
+            self.anchor = (self.cursor[0], NAME_ROW)
 
     # ---- typing -------------------------------------------------------------------------------
 
@@ -1759,9 +1794,9 @@ class Spreadsheet:
 
     def _sort_dialog(self) -> None:
         """Sort (check 6, E18): only with a block selected, as the menu item is grey otherwise."""
-        block = self.selection()
-        if block is None:
+        if self.selection() is None:
             return
+        block = self._span()
         left, top, right, bottom = block
         letters = tuple((letter(c), letter(c)) for c in range(left, right + 1))
         span = [left, top, right, bottom]

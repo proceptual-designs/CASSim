@@ -59,6 +59,7 @@ class SheetView:
         self.scale = scale
         self.click = click or (lambda path, pos: on_action("place", format_target(path, pos)))
         self.hold = hold or (lambda path, pos: on_action("extend", format_target(path, pos)))
+        self.shift: Callable[[], bool] = lambda: False
         self.sheet: Spreadsheet | None = None
         self._layers: dict[str, tuple[Layer, cv.Canvas]] = {}
         self._drag = 0.0  # pixels dragged and not yet turned into rows
@@ -212,7 +213,7 @@ class SheetView:
         return True
 
     def _tap(self, event: ft.TapEvent) -> None:
-        self._pick(event.local_position)
+        self._pick(event.local_position, extend=self.shift())
 
     def click_at(self, x: float, y: float) -> bool:
         """A click by the keypad's pointer at (`x`, `y`) in the sheet's frame, as a tap there."""
@@ -239,7 +240,7 @@ class SheetView:
         self._drag = 0.0
         self._mouse = event.kind == ft.PointerDeviceType.MOUSE
         if self._mouse:
-            self._pick(event.local_position)
+            self._pick(event.local_position, extend=self.shift())
 
     def _pan(self, event: ft.DragUpdateEvent) -> None:
         if self._mouse:

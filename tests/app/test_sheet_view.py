@@ -1,11 +1,12 @@
 # Requirements traced here:
-# FR-SHEET-001, FR-SHEET-003, FR-STAT-001, FR-STAT-004,
+# FR-SHEET-001, FR-SHEET-003 to 007, FR-STAT-001, FR-STAT-004,
 # FR-STAT-005, FR-DOC-009, NFR-PERF-006, FR-DEV-004
 """The Lists & Spreadsheet page in the Flet view (slice 3b): it draws in the screen's place of
 the history, keeps the canvases of layers that did not change, and turns taps, long presses,
 drags and the wheel into sheet actions (decision 0031 item 7)."""
 
 import asyncio
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -72,9 +73,11 @@ class Recorder:
         self.state.run_action(action, arg)
 
 
-def view_for(state: AppState) -> tuple[CalculatorView, Recorder]:
+def view_for(
+    state: AppState, *, shift: Callable[[], bool] = lambda: False
+) -> tuple[CalculatorView, Recorder]:
     recorder = Recorder(state)
-    view = CalculatorView(state, on_action=recorder)
+    view = CalculatorView(state, on_action=recorder, shift=shift)
     view.body_size = lambda: (320.0, 220.0)
     return view, recorder
 
@@ -276,6 +279,42 @@ def test_taps_long_presses_and_drags():
     assert state.sheet.top == 2
     sheet_view._tap(at(-50, -50))  # outside the grid: nothing
     assert ("sheet_tap", "-1,-1") not in recorder.done
+
+
+def test_mouse_drag_selects_cells_and_shift_click_extends():
+    """FR-SHEET-006: drag and Shift+click select the inclusive cell rectangle."""
+    state = sheet_state()
+    sheet = state.sheet
+    assert sheet is not None
+    view, _ = view_for(state)
+    sheet_view = view.sheet_view
+    sheet_view.refresh(sheet, 320, 220)
+    a1 = at(ROW_LABELS + 20, HEAD + FORMULA + 8)
+    b2 = at(ROW_LABELS + 70, HEAD + FORMULA + ROW + 8)
+    sheet_view._pan_start(event(kind=ft.PointerDeviceType.MOUSE, local_position=b2.local_position))
+    sheet_view._pan(event(kind=ft.PointerDeviceType.MOUSE, local_position=a1.local_position))
+    assert sheet.selection() == (0, 1, 1, 2)
+
+    sheet_view._tap(a1)
+    shifted, _ = view_for(state, shift=lambda: True)
+    shifted.body_size = lambda: (320.0, 220.0)
+    shifted.refresh()
+    shifted.sheet_view._tap(b2)
+    assert sheet.selection() == (0, 1, 1, 2)
+
+
+def test_column_heading_tap_selects_a_column_and_double_tap_edits_its_name():
+    """FR-SHEET-007: headings select columns; double-tap opens the name cell."""
+    state = sheet_state()
+    sheet = state.sheet
+    assert sheet is not None
+    view, _ = view_for(state)
+    view.sheet_view.refresh(sheet, 320, 220)
+    view.sheet_view._tap(at(ROW_LABELS + 70, HEAD // 2))
+    assert sheet.whole == "column"
+    assert sheet.cursor == (1, NAME_ROW)
+    view.sheet_view._double_tap(at(ROW_LABELS + 70, HEAD // 2))
+    assert sheet.editing == ""
 
 
 def test_clicking_the_entry_bar_starts_editing():

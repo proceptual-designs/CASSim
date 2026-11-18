@@ -1,6 +1,6 @@
 # SDD-07. Data pages: Lists & Spreadsheet, Data & Statistics, Finance
 
-Status: foundations and slices 3a to 3e are built; M3 is mostly met (PRs #149, #152, and #154 merged). Hand-worked General Maths data-page flows and switch/recalculation timings are recorded in PR #161 and decision 0031. Spreadsheet navigation and heading-selection edge cases remain. Quick Graph and Summary Plot defaults and save/reload behavior remain unverified on the TI simulator and are listed for the next Cowork capture. Requirements: FR-DOC-008, FR-DOC-009, FR-SHEET-001 to 008, FR-STAT-001 to 005, FR-CALC-007, NFR-PERF-006, FR-DOC-003. Decisions: 0031 (plan, spikes A to D, switch timings), 0032 (devices and page types), 0026 (warnings), 0003 (IndexedDB).
+Status: foundations and slices 3a to 3e are built; M3 is mostly met (PRs #149, #152, and #154 merged). Hand-worked General Maths data-page flows and switch/recalculation timings are recorded in PR #161 and decision 0031. The structured spreadsheet editor and focused FR-SHEET-004 to 007 navigation, drag, Shift+click and heading-selection coverage are included in this work. Quick Graph and Summary Plot defaults and save/reload behavior remain unverified on the TI simulator and are listed for the next Cowork capture. Requirements: FR-DOC-008, FR-DOC-009, FR-SHEET-001 to 008, FR-STAT-001 to 005, FR-CALC-007, NFR-PERF-006, FR-DOC-003. Decisions: 0031 (plan, spikes A to D, switch timings), 0032 (devices and page types), 0026 (warnings), 0003 (IndexedDB).
 
 ## Problem
 
