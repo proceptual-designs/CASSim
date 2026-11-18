@@ -18,12 +18,45 @@ if TYPE_CHECKING:
 
 
 EXAMPLE = "x ← 1\nwhile x <= 3\n  x ← x + 1\nend while\nprint x"
+BISECTION = (
+    "define f(x)\n"
+    "  return x*x - 2\n"
+    "end\n"
+    "a ← -2\n"
+    "b ← -1\n"
+    "while (b-a)/2 > 0.2\n"
+    "  c ← (a+b)/2\n"
+    "  if f(a)*f(c) < 0 then\n"
+    "    b ← c\n"
+    "  else\n"
+    "    a ← c\n"
+    "  end if\n"
+    "end while\n"
+    "print c"
+)
 MOBILE_BREAKPOINT = 700
 THEMES: dict[str, Theme] = {
     "Dark": DARK,
     "Light": LIGHT,
     "High contrast": HIGH_CONTRAST,
 }
+
+
+def _control_style() -> ft.ButtonStyle:
+    return ft.ButtonStyle(
+        bgcolor={
+            ft.ControlState.SELECTED: DARK.accent,
+            ft.ControlState.DEFAULT: DARK.key,
+        },
+        color={
+            ft.ControlState.SELECTED: DARK.accent_text,
+            ft.ControlState.DEFAULT: DARK.key_text,
+        },
+        side=ft.BorderSide(1, DARK.key_edge),
+        shape=ft.RoundedRectangleBorder(radius=6),
+        padding=ft.Padding.symmetric(horizontal=8, vertical=6),
+        text_style=ft.TextStyle(size=12),
+    )
 
 
 class CodeApp:
@@ -60,8 +93,12 @@ class CodeApp:
             on_change=self.on_fallback_source,
         )
 
-        self.number_button = ft.Button("Number: Approx", on_click=self.cycle_number)
-        self.angle_button = ft.Button("Angle: Radian", on_click=self.toggle_angle)
+        self.number_button = ft.Button(
+            "Number: Approx", on_click=self.cycle_number, style=_control_style()
+        )
+        self.angle_button = ft.Button(
+            "Angle: Radian", on_click=self.toggle_angle, style=_control_style()
+        )
         self.console_toggle = ft.Switch(
             label="Console",
             value=True,
@@ -97,16 +134,7 @@ class CodeApp:
                 ),
                 ft.MenuItemButton(
                     content="Bisection",
-                    on_click=lambda _: self.load_example(
-                        "a ← -2\nb ← -1\nwhile (b-a)/2 > 0.2\n"
-                        "  c ← (a+b)/2\n"
-                        "  if f(a)*f(c) < 0 then\n"
-                        "    b ← c\n"
-                        "  else\n"
-                        "    a ← c\n"
-                        "  end if\n"
-                        "end while\nprint c"
-                    ),
+                    on_click=lambda _: self.load_example(BISECTION),
                 ),
             ],
         )
@@ -126,6 +154,8 @@ class CodeApp:
                 ft.Segment(value="pseudocode", label="Pseudocode"),
                 ft.Segment(value="python", label="Python"),
             ],
+            show_selected_icon=False,
+            style=_control_style(),
             on_change=self.toggle_language,
         )
         self.line_numbers_toggle = ft.Switch(
@@ -138,6 +168,13 @@ class CodeApp:
         self.step_button = ft.Button("Step", on_click=self.step_forward)
         self.start_button = ft.Button("Start", on_click=self.to_start)
         self.end_button = ft.Button("End", on_click=self.to_end)
+        for button in (
+            self.run_button,
+            self.step_button,
+            self.start_button,
+            self.end_button,
+        ):
+            button.style = _control_style()
         self.vertical_button = ft.Button("Vertical", disabled=True)
         self.trace_layout = ft.Dropdown(
             label="Trace",
@@ -149,6 +186,8 @@ class CodeApp:
             ],
             on_select=self.change_trace_layout,
             width=130,
+            text_size=12,
+            dense=True,
         )
         self.variables_button = ft.PopupMenuButton(
             content="Variables",
@@ -174,17 +213,21 @@ class CodeApp:
             padding=8,
             expand=True,
         )
-        self.trace = ft.Column(expand=True)
+        self.trace = ft.Column(expand=False, tight=True)
         self.status = ft.Text("")
 
         self.editor_pane = ft.Container(
             ft.Column(
                 [
-                    self.language_switch,
-                    self.line_numbers_toggle,
+                    ft.Row(
+                        [self.line_numbers_toggle, self.language_switch],
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
                     self.fallback_editor,
                 ],
                 expand=True,
+                spacing=8,
             ),
             expand=True,
             padding=8,
@@ -196,8 +239,6 @@ class CodeApp:
                 self.step_button,
                 self.start_button,
                 self.end_button,
-                self.trace_layout,
-                self.variables_button,
             ],
             wrap=True,
             spacing=6,
@@ -205,19 +246,26 @@ class CodeApp:
         self.trace_pane = ft.Container(
             ft.Column(
                 [
-                    self.trace_controls,
-                    self.status,
+                    ft.Row([self.trace_controls, self.status], spacing=8),
                     self.trace,
                 ],
                 expand=True,
-                spacing=8,
+                spacing=4,
+                tight=True,
             ),
             expand=True,
             padding=8,
         )
 
         self.toolbar = ft.Row(
-            [self.app_menu, self.number_button, self.angle_button, self.console_toggle],
+            [
+                self.app_menu,
+                self.number_button,
+                self.angle_button,
+                self.trace_layout,
+                self.variables_button,
+                self.console_toggle,
+            ],
             wrap=True,
             spacing=8,
         )
@@ -269,6 +317,9 @@ class CodeApp:
     def toggle_language(self, event: ft.Event[ft.SegmentedButton]) -> None:
         selected = event.control.selected
         self.language = selected[0] if selected else "pseudocode"
+        if self.cm is not None:
+            self.cm.setOption("mode", "pseudocode" if self.language == "pseudocode" else "python")
+            self.cm.refresh()
         event.control.update()
         self.mark_dirty()
 
@@ -337,8 +388,20 @@ class CodeApp:
         if self.cm is not None:
             self.cm.setValue(text)
         self.fallback_editor.value = text
-        self.fallback_editor.update()
+        if hasattr(self.page, "update"):
+            self.fallback_editor.update()
         self.current_source = text
+        self.result = None
+        self.cursor = 0
+        self.selection = trace.VerticalSelection()
+        self.choices = trace.VerticalSelection()
+        self.variables_button.items = [ft.PopupMenuItem(content="Run to discover items")]
+        if hasattr(self.page, "update"):
+            self.variables_button.update()
+        self.status.value = ""
+        if hasattr(self.page, "update"):
+            self.status.update()
+        self.update_trace()
         self.mark_dirty()
 
     def submit_console(self, event: ft.Event[ft.TextField]) -> None:
@@ -384,7 +447,8 @@ class CodeApp:
         if not self.dirty:
             self.dirty = True
             self.run_button.content = "Run *"
-            self.run_button.update()
+            if hasattr(self.page, "update"):
+                self.run_button.update()
 
     async def start_codemirror(self) -> None:
         import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
@@ -485,12 +549,13 @@ if (!window.CASSimPseudocodeModeDefined) {
             host.style.left = "8px"
             host.style.top = "112px"
             host.style.width = f"{max(1, width * 0.50 - 16)}px"
-            host.style.height = f"{max(220, height * 0.60 - 120)}px"
+            console_reserve = 230 if self.console_visible else 0
+            host.style.height = f"{max(220, height - 112 - console_reserve - 8)}px"
         if self.cm is not None:
             self.cm.refresh()
 
     def arrange(self) -> None:
-        width = self.page.width or 1000
+        width = getattr(self.page, "width", 1000) or 1000
         if width < MOBILE_BREAKPOINT:
             left = [self.editor_pane]
             if self.console_visible:
@@ -513,8 +578,9 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
         self.root.controls = [self.toolbar, body]
         self.root.expand = True
-        self.page.update()
-        self.position_codemirror()
+        if hasattr(self.page, "update"):
+            self.page.update()
+            self.position_codemirror()
 
     def on_resize(self, _: ft.PageResizeEvent) -> None:
         self.arrange()
@@ -543,6 +609,9 @@ if (!window.CASSimPseudocodeModeDefined) {
 
     def toggle_console(self, event: ft.Event[ft.Switch]) -> None:
         self.console_visible = bool(event.control.value)
+        self.console_box.visible = self.console_visible
+        if hasattr(self.page, "update"):
+            self.page.update()
         self.arrange()
 
     async def run_code(self, _: ft.Event[ft.Button]) -> None:
@@ -721,8 +790,19 @@ if (!window.CASSimPseudocodeModeDefined) {
 
     def update_trace(self) -> None:
         if self.result is None:
-            self.trace.controls = [ft.Text("Run a program to build a trace.")]
-            self.trace.update()
+            data = ft.DataTable(
+                columns=[ft.DataColumn(label=ft.Text("Line", text_align=ft.TextAlign.CENTER))],
+                rows=[],
+                border=ft.Border.all(1),
+                horizontal_lines=ft.BorderSide(width=1),
+                vertical_lines=ft.BorderSide(width=1),
+                column_spacing=20,
+                horizontal_margin=8,
+                data_row_min_height=36,
+            )
+            self.trace.controls = [ft.Row([data], expand=False)]
+            if hasattr(self.page, "update"):
+                self.trace.update()
             return
         table = trace.selected_vertical(
             self.result,
@@ -742,11 +822,20 @@ if (!window.CASSimPseudocodeModeDefined) {
             return source
 
         condition_names = list(
-            dict.fromkeys(condition_name(row.line) for row in table.rows if row.conditions)
+            dict.fromkeys(
+                name
+                for step in self.result.steps
+                if step.cond is not None
+                for name in (condition_name(step.line),)
+                if name and f"{step.line}: {name}" in self.selection.conditions
+            )
         )
+        variable_names = [
+            name for name in self.choices.variables if name in self.selection.variables
+        ]
         columns = [
             ft.DataColumn(label=ft.Text("Line", text_align=ft.TextAlign.CENTER)),
-            *(ft.DataColumn(label=name) for name in table.variables),
+            *(ft.DataColumn(label=name) for name in variable_names),
             *(ft.DataColumn(label=name) for name in condition_names),
             ft.DataColumn(label="Output"),
         ]
@@ -757,7 +846,7 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
             cells = [
                 ft.DataCell(ft.Text(str(row.line), text_align=ft.TextAlign.CENTER)),
-                *(ft.DataCell(ft.Text(row.cells.get(name, ""))) for name in table.variables),
+                *(ft.DataCell(ft.Text(row.cells.get(name, ""))) for name in variable_names),
                 *(
                     ft.DataCell(
                         ft.Text(
