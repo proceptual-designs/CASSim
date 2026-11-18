@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import flet as ft
 
+from cassim import bundle
 from cassim.app import about
 from cassim.app.theme import DARK
 
@@ -131,9 +132,11 @@ def make_text_store() -> TextStore | None:
 class Shell:
     """The browser's services for one mounted device."""
 
-    def __init__(self, page: ft.Page, device: Device) -> None:
+    def __init__(self, page: ft.Page, device: Device | None = None) -> None:
         self.page = page
         self.device = device
+        self.available_devices: tuple[str, ...] = tuple(bundle.DEVICES)
+        self.home: Callable[[], None] | None = None
         self.theme = DARK
         # Set by the device's UI: called when what the browser offers changes (Install appears).
         self.changed: Callable[[], None] = lambda: None
@@ -144,6 +147,18 @@ class Shell:
         self.launcher = ft.UrlLauncher()
         page.services.extend([self.clipboard, self.files, self.prefs, self.launcher])
         self.texts = make_text_store()  # IndexedDB in the browser; None on the desktop
+
+    @property
+    def active_device(self) -> Device:
+        """The selected device; Home and shell services do not need one."""
+        if self.device is None:
+            msg = "no device is mounted"
+            raise RuntimeError(msg)
+        return self.device
+
+    def select(self, device: Device) -> None:
+        """Mount `device`'s storage namespace and engine behind this shell."""
+        self.device = device
 
     def _offers_changed(self) -> None:
         self.changed()  # looked up when called: the device's UI sets it after the shell is made
@@ -156,7 +171,10 @@ class Shell:
     async def read(self, key: str) -> str | None:
         """The text saved under `key`. In the browser it is in IndexedDB; a text saved by an
         earlier build is still in localStorage and is read from there until it is next written."""
-        full = self.device.storage + key
+        return await self.read_global(self.active_device.storage + key)
+
+    async def read_global(self, full: str) -> str | None:
+        """Read a shell-wide storage key without adding a device namespace."""
         if self.texts is not None:
             found = await self.texts.get(full)
             if found is not None:
@@ -165,7 +183,10 @@ class Shell:
         return saved if isinstance(saved, str) else None
 
     def write(self, key: str, text: str) -> None:
-        full = self.device.storage + key
+        self.write_global(self.active_device.storage + key, text)
+
+    def write_global(self, full: str, text: str) -> None:
+        """Write a shell-wide storage key without adding a device namespace."""
         if self.texts is None:
             self.page.run_task(self.prefs.set, full, text)
             return
@@ -179,7 +200,10 @@ class Shell:
 
     def remove(self, key: str) -> None:
         """Forget the text saved under `key` (a deleted document)."""
-        full = self.device.storage + key
+        self.remove_global(self.active_device.storage + key)
+
+    def remove_global(self, full: str) -> None:
+        """Forget a shell-wide storage key."""
 
         async def drop() -> None:
             if self.texts is not None:
@@ -349,7 +373,7 @@ class Shell:
     def engine(self) -> Engine | None:
         """The device's engine in its own worker, in the browser (so Cancel can end it). None on
         the desktop, where the device runs its engine in this process."""
-        spec = self.device.engine
+        spec = self.active_device.engine
         if spec is None or sys.platform != "emscripten":
             return None
         from cassim.app.web import WorkerEngine  # noqa: PLC0415

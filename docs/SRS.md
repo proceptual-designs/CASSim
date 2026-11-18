@@ -248,6 +248,15 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | FR-PROF-007 | The display modes in 4.9 apply to every profile; Handheld mode uses the profile's own layout and artwork. A profile may need a touch-first interaction model [Q19]. | C | D |
 | FR-PROF-008 | Each profile can be published as its own **bundle** on its own site, holding the shell and that one profile and nothing another profile needs (the pseudocode bundle ships no SymPy or SciPy). A profile is a plug-in package that imports the shared layers and never another profile; the build lists the profiles in a bundle. Single-device sites are published on a release only. | C | T |
 | FR-PROF-009 | A document file and a share link carry the id of their profile. A bundle that holds that profile opens them; a bundle that does not names the site that does, links to it, and changes nothing. | C | T |
+| FR-PROF-010 | The `all` bundle has a shell-level **Home** screen which owns no calculator document and is drawn without importing a device's Flet UI or engine. | C | E/I |
+| FR-PROF-011 | Home displays an original CASSim icon and the exact message “Hi from CASSim, a simulator of handheld graphing and computer algebra system calculators.” | C | D/E |
+| FR-PROF-012 | Home presents the choices **Nspire**, **Classpad**, **Prime**, **Pseudocode & Python** and **Scientific**, in that order, whether or not they are implemented or included in the build. | C | E |
+| FR-PROF-013 | Only an implemented profile included in the bundle is enabled. An unavailable Home choice is greyed out and marked coming soon; pointer, keyboard and programmatic activation cannot open it. | C | E |
+| FR-PROF-014 | Selecting an enabled choice mounts it and records its device id. A later normal launch of the `all` bundle opens that remembered device directly. | C | E |
+| FR-PROF-015 | A missing, invalid or no-longer-bundled remembered id shows Home on launch. Visiting Home does not clear a valid remembered id. | C | T/E |
+| FR-PROF-016 | The CASSim menu has a **Home** action from every mounted app in the `all` bundle. It unmounts the app without discarding its saved document or settings. | C | E |
+| FR-PROF-017 | Home has a CASSim Settings control which can change shell appearance without loading a device UI. Appearance is shared with the device system settings when the same setting is supported. | C | E |
+| FR-PROF-018 | A single-device bundle mounts its one device directly and has neither Home nor an app chooser. | C | E |
 
 **Python and pseudocode runtime (M5)**
 | ID | Requirement | Pri | Ver |
@@ -373,6 +382,7 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | NFR-PERF-002 | Warm start (cache populated) is noticeably faster than cold start; measured and tracked, no fixed target. | S | A |
 | NFR-PERF-003 | Typical Tier 1 operation (solve, factor, diff, integrate) returns in <= 1 s after import; a slower operation is shown as busy. | S | A |
 | NFR-PERF-006 | Switching pages draws the new page from what the UI already holds and does not wait for the engine. The time from the key press to the page drawn is measured and reported (`tools/switchtime.py`); the aim is 100 ms on a desktop and 250 ms on a mid-range phone, with no fixed limit. | S | A |
+| NFR-PERF-007 | In an `all` bundle, Home can render before any device UI, device assets or engine worker starts. A device's UI and worker begin loading only when that device is selected or restored as the remembered app. | C | A/E |
 | NFR-PERF-004 | UI remains responsive during evaluation; Cancel takes effect within 1 s. | M | E |
 | NFR-PERF-005 | Total download is measured and reported. Baseline 22 MB (CDN) / 95 MB (vendored); no fixed budget. | C | A |
 
