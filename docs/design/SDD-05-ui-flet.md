@@ -45,6 +45,10 @@ Arrows and shapes are drawn in a vendored Noto Sans Symbols 2 (`assets/fonts`, n
 
 One `KeyboardListener` with autofocus wraps the page. `track_shift` records Shift, because Flet clicks carry no modifiers (decision 0019). Key down goes to `AppState.key_event`; on-screen keys go to `press_keypad`; menu rows go to `MenuState.pick`. All three end in the same `Binding` performed on the current `Calculator`. A cancel key (Esc) while the Runner is busy goes to `Runner.cancel` (SDD-02).
 
+Graphs function entries use the same `Editor`, Calculator editing actions and `EntryLine` renderer.
+Each function retains its own structured draft; Enter or Plot compiles its linear expression, and
+saved pages preserve templates and drafts separately from the last plotted expression.
+
 ## Refresh and persistence
 
 `App.refresh` autosaves, redraws the view, keypad and sidebar, rebuilds the toolbar and calls `kick`, which starts a queued entry or a settings sync when the engine is idle. Autosave writes the document JSON to Flet `SharedPreferences` (browser localStorage, not IndexedDB) when it changed; System Settings are saved under their own key. `recover` reads both on start, then `--course` and `--set` (from `cassim`) replace the document's settings. A damaged autosave is ignored and overwritten.
@@ -63,5 +67,5 @@ Dialogs are plain `ft.AlertDialog`s opened with `page.show_dialog`. The device m
 - Accessibility is unaudited (`docs/accessibility.md`).
 - `app/main.py` (about 650 lines) and `devices/nspire/ui/views.py` (about 780) mix several concerns; the split is a recorded follow-up (PLAN.md A2, A3).
 - Dragging the splitter rebuilds the screen and keys and feels slow (PLAN.md note, 2026-11-08).
-- Tablet mode is not built. Graphs, Lists & Spreadsheet, Data & Statistics and Notes are stub pages: `Screen.stub` carries the page type's name (from `Profile.pages`) and the view draws a notice in place of the history and entry line.
+- Tablet mode is not built. Graphs has an initial function-plotting view with pointer pan and anchored zoom; Lists & Spreadsheet and Data & Statistics have their own views. Notes remains a stub: `Screen.stub` carries the page type's name (from `Profile.pages`) and the view draws a notice in place of the history and entry line.
 - Tested headless (`tests/app/`) and in Chromium (`tests/e2e/`). Safari, iOS and Chromebook are not (`docs/testing/browsers.md`).

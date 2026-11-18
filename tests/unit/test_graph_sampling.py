@@ -1,4 +1,4 @@
-"""FR-GRAPH-004 and FR-GRAPH-006: safe graph sampling and discontinuity handling."""
+"""FR-GRAPH-002, FR-GRAPH-004 and FR-GRAPH-006: graph sampling and discontinuities."""
 
 import math
 
@@ -174,6 +174,8 @@ def test_default_window_and_auto_tick_spacing_match_the_capture() -> None:
     assert automatic_tick_step(-10, 10) == 1
     assert tick_values(-10, 10) == tuple(float(value) for value in range(-10, 11))
     assert automatic_tick_step(-100, 100) == 10
+    assert automatic_tick_step(-10 / 3, 10 / 3) == 0.5
+    assert len(tick_values(-10 / 3, 10 / 3)) <= 20
 
 
 def test_window_maps_upward_math_to_upward_screen_coordinates() -> None:

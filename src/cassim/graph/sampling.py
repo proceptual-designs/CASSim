@@ -7,12 +7,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from cassim.core.compat.sympy_adapter import compile_math
 from cassim.core.values import Expr
 from cassim.graph.scene import Layer, Polyline, Scene, Stroke
 
 _DEFAULT_STROKE = Stroke()
 _MAX_ADAPTIVE_DEPTH = 16
+_TICK_MULTIPLIERS = (1, 2, 5, 10)
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +76,8 @@ class GraphCompileError(ValueError):
 
 def compile_function(expression: Expr, variable: Expr) -> CompiledFunction:
     """Compile a symbolic expression using only the graph worker's approved math functions."""
+    from cassim.core.compat.sympy_adapter import compile_math  # noqa: PLC0415
+
     try:
         source, function = compile_math(expression.raw, variable.raw)
     except ValueError as error:
@@ -84,12 +86,23 @@ def compile_function(expression: Expr, variable: Expr) -> CompiledFunction:
 
 
 def automatic_tick_step(minimum: float, maximum: float) -> float:
-    """Choose the observed power-of-ten tick spacing, about 10–20 ticks per window."""
+    """Choose a 1-2-5 tick spacing that gives about 10–20 ticks per window."""
     if not math.isfinite(minimum) or not math.isfinite(maximum) or minimum >= maximum:
         msg = "tick bounds must be finite and increasing"
         raise ValueError(msg)
-    exponent = math.floor(math.log10((maximum - minimum) / 10))
-    return 10.0**exponent
+    span = maximum - minimum
+    if not math.isfinite(span):
+        msg = "tick span must be finite"
+        raise ValueError(msg)
+    target = span / 20
+    if target == 0:
+        return span
+    magnitude = 10.0 ** math.floor(math.log10(target))
+    if magnitude == 0:
+        return target
+    normalized = target / magnitude
+    multiplier = next(value for value in _TICK_MULTIPLIERS if normalized <= value)
+    return multiplier * magnitude
 
 
 def tick_values(minimum: float, maximum: float) -> tuple[float, ...]:

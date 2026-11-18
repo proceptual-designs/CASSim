@@ -1,6 +1,5 @@
 """The ONLY module allowed to touch SymPy internals; TI-compat fixes live here."""
 
-import ast as python_ast
 import math
 import operator
 import re
@@ -8,7 +7,7 @@ from collections.abc import Callable, Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from itertools import pairwise
-from typing import Any, cast
+from typing import Any
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
@@ -17,6 +16,7 @@ from sympy.logic.boolalg import And, Boolean, Not, Or
 from sympy.printing.latex import LatexPrinter
 
 from cassim.core import ast
+from cassim.core.compat.math_source import check_math_source
 from cassim.core.settings import CasMode, Settings
 from cassim.core.values import Raw
 
@@ -344,36 +344,6 @@ _GRAPH_BINARY_OPERATORS = {
     ">": ">",
     ">=": ">=",
 }
-_GRAPH_ALLOWED_AST_NODES = (
-    python_ast.Expression,
-    python_ast.BinOp,
-    python_ast.UnaryOp,
-    python_ast.Call,
-    python_ast.Compare,
-    python_ast.BoolOp,
-    python_ast.IfExp,
-    python_ast.Constant,
-    python_ast.Name,
-    python_ast.Attribute,
-    python_ast.Add,
-    python_ast.Sub,
-    python_ast.Mult,
-    python_ast.Div,
-    python_ast.Pow,
-    python_ast.Mod,
-    python_ast.UAdd,
-    python_ast.USub,
-    python_ast.Eq,
-    python_ast.NotEq,
-    python_ast.Lt,
-    python_ast.LtE,
-    python_ast.Gt,
-    python_ast.GtE,
-    python_ast.And,
-    python_ast.Or,
-    python_ast.Not,
-    python_ast.Load,
-)
 
 
 class _GraphMathPrinter:
@@ -482,55 +452,20 @@ def math_source(expression: Raw, variable: Raw) -> str:
         msg = "the graph variable must be a symbol"
         raise ValueError(msg)
     source = _GraphMathPrinter(variable).emit(expression)
-    _check_math_source(source)
+    check_math_source(source)
     return source
-
-
-def _check_math_source(source: str) -> None:
-    """Reject generated code outside the deliberately small graph-worker expression grammar."""
-    tree = python_ast.parse(source, mode="eval")
-    for node in python_ast.walk(tree):
-        if not isinstance(node, _GRAPH_ALLOWED_AST_NODES):
-            msg = f"unsupported syntax in graph expression: {type(node).__name__}"
-            raise ValueError(msg)
-        if isinstance(node, python_ast.Name) and node.id not in {"x", "math", "min", "max"}:
-            msg = f"unsupported name in graph expression: {node.id}"
-            raise ValueError(msg)
-        if isinstance(node, python_ast.Attribute) and (
-            not isinstance(node.value, python_ast.Name)
-            or node.value.id != "math"
-            or node.attr not in _GRAPH_MATH_NAMES
-        ):
-            msg = f"unsupported attribute in graph expression: {node.attr}"
-            raise ValueError(msg)
-        if isinstance(node, python_ast.Call):
-            function = node.func
-            valid_math_call = (
-                isinstance(function, python_ast.Attribute)
-                and isinstance(function.value, python_ast.Name)
-                and function.value.id == "math"
-                and function.attr in _GRAPH_MATH_NAMES
-            )
-            valid_builtin_call = isinstance(function, python_ast.Name) and function.id in {
-                "min",
-                "max",
-            }
-            if not (valid_math_call or valid_builtin_call) or node.keywords:
-                msg = "unsupported function call in graph expression"
-                raise ValueError(msg)
-        if isinstance(node, python_ast.Constant) and not isinstance(node.value, int | float | bool):
-            msg = "only numeric and boolean constants are allowed in graph expressions"
-            raise ValueError(msg)
 
 
 def compile_math(expression: Raw, variable: Raw) -> tuple[str, Callable[[float], float]]:
     """Compile a checked math expression for local graph sampling in the UI worker."""
     source = math_source(expression, variable)
-    tree = python_ast.parse(f"lambda x: ({source})", mode="eval")
-    code = compile(tree, "<cassim-graph>", "eval")
-    compiled = eval(code, {"__builtins__": {}, "math": math, "min": min, "max": max}, {})
-    function = cast(Callable[[float], float], compiled)
+    from cassim.core.compat.math_source import compile_math_source  # noqa: PLC0415
+
+    function = compile_math_source(source)
     return source, function
+
+
+_check_math_source = check_math_source
 
 
 def from_float(value: float) -> Raw:

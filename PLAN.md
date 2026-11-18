@@ -69,9 +69,9 @@ cassim/
                             and full screen, the engine worker); web.py, about.py, theme.py, keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
                             load(id). A device never imports another device, and imports without Flet
-    nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types and the Calculator
-                            model); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py, entry.py,
-                            layout.py; the only part of a device that imports Flet)
+    nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types, Calculator and
+                            Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
+                            entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M7b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -219,7 +219,7 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 Done since the 2026-11-08 list:
 - The site was published on GitHub Pages and loaded (Simon); it moved to Cloudflare Pages on 2026-11-13 (section 14).
 - Installed on Simon's phone; save and load work (Simon, 2026-11-12). It is slow there: see section 12, A6, for a later session.
-- Stub pages (2026-11-12): Doc > Insert adds Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages. At that point they had no model; Lists & Spreadsheet and Data & Statistics are now built in M3 slices 3b and 3d. Graphs and Notes remain stubs.
+- Stub pages (2026-11-12): Doc > Insert adds Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages. At that point they had no model; Lists & Spreadsheet and Data & Statistics are now built in M3 slices 3b and 3d, and the initial function-plotting path for Graphs is in progress under M4. Notes remains a stub.
 - Disclaimer (NFR-LEG-002): the About CASSim dialog (Doc > 8 About CASSim, and an About chip in Computer mode) holds the disclaimer, privacy, licence, third-party notices (NFR-LEG-003) and versions; no footer line, by choice (2026-11-08). The repo link is private until the repo is public.
 - The documentation gaps of section 11 (2026-11-09).
 - Emulator shortcut follow-up (2026-11-12, `docs/testing/emulator-shortcuts-results.md` S7 e to g, S5 b2, S8 a): ctrl+Z with nothing to undo on a fresh page undoes the page insert and ctrl+Y redoes it; the keypad has ctrl+Z and ctrl+Y (shift+esc is not redo); keypad ctrl+7 picks the first history row and ctrl+1 returns to the entry line; a second Delete on a highlighted template leaves its first slot's content, selected.
@@ -266,10 +266,10 @@ Still open, each waiting on something:
 
 **M4 — Graphs and Tables (L)**
 
-**Status (2026-11-17):** in progress. The headless function sampler and Trace/Analyze numerical algorithms are implemented independently of M3. The Graphs page, split Table, sliders and Notes UI still depend on the remaining page-model/split-page work in M3 slice 3.0. Remaining Cowork captures are listed in `docs/testing/emulator-check6-run4-remaining.md`. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells).
+**Status (2026-11-17):** in progress. The headless function sampler and Trace/Analyze numerical algorithms are implemented independently of M3. The initial integrated Graphs page supports shared Problem functions, worker-side compilation, structured function entry, plotting, visibility, a standard window, zoom buttons, save/load, pointer panning, pinch zoom and wheel zoom anchored at the pointer. Gesture-rate tuning and performance checks, graph attributes and context menus, split Table, sliders and Notes remain. The M3 page-model and split-page foundations are available. Remaining Cowork captures are listed in `docs/testing/emulator-check6-run4-remaining.md`. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells).
 
-- 4a Sampler and scene, headless (`graph/`): **initial function path implemented:** checked math-source compilation, window transforms, automatic tick values, adaptive function sampling, and curve layers in the shared scene. Restricted domains, zoom gestures and full scene snapshots remain.
-- 4b Graphs page: the `f1` to `f99` entry line on the template editor, pan and zoom with throttled gestures, labels, attributes, Hide/Show. Mark its context-menu hit regions with `app/context_menu.py` as the sheet does, including in split panes, so physical Ctrl+right-click keeps the browser menu.
+- 4a Sampler and scene, headless (`graph/`): **initial function path implemented:** checked math-source compilation, window transforms, automatic tick values, adaptive function sampling, and curve layers in the shared scene. Restricted domains and full scene snapshots remain.
+- 4b Graphs page: **initial function path implemented:** `f1` to `f99` function entry uses the Calculator's structured editor and renderer; scene labels and grid, Hide/Show, standard window and zoom buttons; function definitions use the shared Problem variables and are compiled in the engine worker for browser execution. Pointer pan, pinch zoom and wheel zoom are implemented. Remaining: gesture-rate tuning and device performance checks, graph attributes and context-menu hit regions with `app/context_menu.py`, including in split panes, so physical Ctrl+right-click keeps the browser menu.
 - 4c Trace and Analyze Graph: **headless numerical algorithms implemented** for zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, and bounded area. Page prompts and corpus replay remain.
 - 4d Other entry types, in this order: scatter plot, parametric, relations and conics (marching squares, spike D; drop false lines at jumps), polar, sequence, differential equations.
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.

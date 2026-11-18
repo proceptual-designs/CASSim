@@ -25,6 +25,7 @@ from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
 from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.statistics_plot import p_value_scene
 from cassim.devices.nspire.ui.entry import EntryLine
+from cassim.devices.nspire.ui.graphs_view import GraphsView
 from cassim.devices.nspire.ui.layout import SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
@@ -371,6 +372,9 @@ class CalculatorView:
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
         self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.graphs_view = GraphsView(
+            theme, on_action, lambda: state.scale, lambda: state.math_size, self._graph_extend
+        )
         self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
         self.sheet_panes = ft.Row([], spacing=0, expand=True)
         self.pvalue_pane = ft.Container(expand=True)
@@ -407,6 +411,8 @@ class CalculatorView:
             self._refresh_sheet(sheet)
             self._error(screen)
             self._menu(screen.menu)
+            return
+        if self._refresh_graphs(screen):
             return
         if self._refresh_statistics(screen):
             return
@@ -468,6 +474,18 @@ class CalculatorView:
         self._calculator_shown = False
         self.body.controls = [self.statistics_view.control]
         self.statistics_view.refresh(statistics, *self.body_size())
+        self._follow = False
+        self._error(screen)
+        self._menu(screen.menu)
+        return True
+
+    def _refresh_graphs(self, screen: Screen) -> bool:
+        graphs = self.state.graphs
+        if graphs is None or not screen.graphs:
+            return False
+        self._calculator_shown = False
+        self.body.controls = [self.graphs_view.control]
+        self.graphs_view.refresh(graphs, *self.body_size())
         self._follow = False
         self._error(screen)
         self._menu(screen.menu)
@@ -783,6 +801,12 @@ class CalculatorView:
         if extend:
             self.state.clear_pending()
         self.on_action("extend" if extend else "place", format_target(path, pos))
+
+    def _graph_extend(self) -> bool:
+        extend = self.shift() or self.state.pending == "shift"
+        if extend:
+            self.state.clear_pending()
+        return extend
 
     def _hold(self, path: Sequence[tuple[int, int]], pos: int) -> None:
         """A long press: the touch screen's shift+click."""
