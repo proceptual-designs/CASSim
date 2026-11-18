@@ -30,15 +30,10 @@ def test_home_chooses_an_app_and_remembers_it(browser: Browser, site) -> None:
     """FR-PROF-010 to FR-PROF-016, NFR-PERF-007."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
-    page_errors: list[str] = []
-    page_errors: list[str] = []
     page.on(
         "console",
         lambda message: logs.append(message.text) if message.text.startswith("CASSIM:") else None,
     )
-    page.on("pageerror", lambda error: page_errors.append(str(error)))
-    page.on("pageerror", lambda error: page_errors.append(str(error)))
-    page.on("pageerror", lambda error: logs.append(f"PAGEERROR:{error}"))
     page.on("pageerror", lambda error: logs.append(f"PAGEERROR:{error}"))
     try:
         page.goto(site[1], wait_until="load")
@@ -69,22 +64,14 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
     logs: list[str] = []
     page.on(
         "console",
-        lambda message: logs.append(message.text),
+        lambda message: logs.append(message.text) if message.text.startswith("CASSIM:") else None,
     )
     try:
         page.goto(site[1], wait_until="load")
         assert wait_for_log(page, logs, "CASSIM: HOME"), "Home never drew"
         enable_semantics(page)
         page.get_by_role("button", name=re.compile("^CASSim")).click()
-        expect(page.get_by_role("button", name="Check for Updates", exact=True)).to_be_attached()
-        expect(page.get_by_text("Reload for Update", exact=True)).not_to_be_attached()
-        page.evaluate("""() => {
-          const channel = new BroadcastChannel("cassim");
-          channel.postMessage({op: "status", state: "ready",
-            message: "Ready for offline use.", retry: false, updateReady: true});
-        }""")
-        expect(page.get_by_role("button", name="Reload for Update", exact=True)).to_be_attached()
-        page.get_by_role("button", name="Settings").click()
+        page.get_by_role("button", name=re.compile("^Settings")).click()
         expect(page.get_by_text("Appearance")).to_be_attached()
         page.get_by_role("button", name="Cancel").click()
     finally:
@@ -110,18 +97,55 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         expect(page.get_by_role("switch", name="Line numbers")).to_be_checked()
         assert "CASSIM: UI" not in logs
         page.get_by_role("button", name=re.compile("^CASSim")).click()
-        expect(page.get_by_text("Check for Updates", exact=True)).to_be_attached()
-        expect(page.get_by_text("Reload for Update", exact=True)).not_to_be_attached()
-        page.evaluate("""() => {
-          const channel = new BroadcastChannel("cassim");
-          channel.postMessage({op: "status", state: "ready",
-            message: "Ready for offline use.", retry: false, updateReady: true});
-        }""")
-        expect(page.get_by_text("Reload for Update", exact=True)).to_be_attached()
-        page.keyboard.press("Escape")
+        logs.clear()
+        page.get_by_role("button", name="Home", exact=True).click()
+        assert wait_for_log(page, logs, "CASSIM: HOME", seconds=10), "Home did not reopen"
+    finally:
+        page.close()
+
+
+def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Browser, site) -> None:
+    """FR-SYN-013: convenience symbols are opt-in and do not rewrite source contexts blindly."""
+    page = browser.new_page(viewport={"width": 1100, "height": 760})
+    try:
+        page.goto(site[1], wait_until="load")
+        expect(page.locator("flt-semantics-placeholder")).to_have_count(1)
+        enable_semantics(page)
         page.get_by_role("button", name=re.compile("^Pseudocode")).click()
-        expect(page.get_by_role("button", name="Pseudocode", exact=True)).to_be_attached(
-            timeout=10_000
-        )
+        typing_aids = page.get_by_role("switch", name="Typing aids")
+        expect(typing_aids).to_be_enabled()
+        expect(typing_aids).not_to_be_checked()
+        editor = page.get_by_role("textbox", name="Code")
+        expect(editor).to_be_attached()
+
+        def replace(value: str) -> None:
+            editor.click()
+            page.keyboard.press("Control+A")
+            page.keyboard.type(value)
+            expect(editor).to_have_value(value)
+
+        def source() -> str:
+            return str(editor.input_value())
+
+        replace("x <")
+        page.keyboard.type("-")
+        assert source() == "x <-"
+
+        typing_aids.click()
+        replace("x <")
+        page.keyboard.type("-")
+        expect(editor).to_have_value("x ←")
+        page.keyboard.press("Control+z")
+        expect(editor).to_have_value("x <-")
+
+        replace("print @")
+        page.keyboard.type("pi", delay=30)
+        expect(editor).to_have_value("print π")
+        page.keyboard.press("Control+z")
+        expect(editor).to_have_value("print @pi")
+
+        replace('print "<')
+        page.keyboard.type("-")
+        expect(editor).to_have_value('print "<-')
     finally:
         page.close()

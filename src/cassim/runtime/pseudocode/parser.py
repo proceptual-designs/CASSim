@@ -18,6 +18,7 @@ from cassim.runtime.pseudocode.tree import (
     Break,
     Call,
     Compare,
+    Constant,
     Define,
     Diagnostic,
     Expr,
@@ -45,6 +46,7 @@ from cassim.runtime.pseudocode.tree import (
 )
 
 CONSTANT_NAMES = {"π", "pi", "ⅇ", "ⅈ"}
+_EXPLICIT_CONSTANTS = {"ⅇ", "π"}
 # Words that end an expression and so can never start an implicitly multiplied factor.
 _STOP_WORDS = {"then", "do", "to", "step", "times", "is", "and", "or", "not", "mod", "div", "from",
                "in", "until", "else"}  # fmt: skip
@@ -741,6 +743,8 @@ class Parser:
         if tok.kind == "STRING":
             return Str(tok.text, tok.line)
         if tok.kind == "NAME":
+            if tok.text in _EXPLICIT_CONSTANTS:
+                return Constant(tok.text, tok.line)
             if self.at_op("(") and tok.text not in CONSTANT_NAMES:
                 return Call(tok.text, self.parse_args(), tok.line)
             return Name(tok.text, tok.line)

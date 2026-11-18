@@ -20,6 +20,7 @@ from cassim.runtime.pseudocode.tree import (
     Break,
     Call,
     Compare,
+    Constant,
     Define,
     Expr,
     ExprStmt,
@@ -216,6 +217,8 @@ class Printer:
                 return t
             case Str(value=v):
                 return self.string(v)
+            case Constant(name=n):
+                return n if self.unicode else {"ⅇ": "@e", "π": "@pi"}[n]
             case Name(name=n):
                 return n
             case Paren(inner=i):

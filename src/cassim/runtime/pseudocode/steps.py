@@ -46,6 +46,8 @@ class RunResult:
     loop_entries: int = 0  # how many times a loop was started, over the whole run
     max_loop_depth: int = 0
     loop_body_runs: int = 0  # passes through a loop body, over all loops
+    constants: tuple[str, ...] = ()
+    functions: dict[str, str] = field(default_factory=dict)
 
     @property
     def horizontal_eligible(self) -> bool:
