@@ -1,0 +1,46 @@
+# General Maths workflow; expected values are worked by hand, not simulator captured.
+schema_version: 1
+flows:
+- id: general-sheet-and-live-plot
+  course: general
+  browser: true
+  browser_defaults_compatible: true
+  hand: true
+  title: Enter scores, graph the list, and update it from the spreadsheet
+  steps:
+  - {keys: "F4 4 6", page: '1.2', sheet: A1, note: "Insert Lists & Spreadsheet"}
+  - {type: "2", enter: false, keys: Enter}
+  - {type: "4", enter: false, keys: Enter}
+  - {type: "1", enter: false, keys: Enter, sheet: A4}
+  - {keys: "Right Up Up Up Up"}
+  - {type: "=a[]*2", enter: false, keys: Enter, sheet: B1 4, note: "A live formula column"}
+  - {keys: "Down", sheet: B2 8}
+  - {keys: "Left Up Up Up"}
+  - {type: "scores", enter: false, keys: Enter, sheet: A=}
+  - {keys: "Down", sheet: A1 2}
+  - {keys: "F4 4 7", page: '1.3', plot_x: scores, note: "Insert Data & Statistics"}
+  - {keys: "alt+Left", page: '1.2', sheet: A1 2}
+  - {type: "6", enter: false, keys: Enter}
+  - {keys: "Up", sheet: A1 6}
+  - {keys: "Right", sheet: B1 12, note: "The formula recalculates"}
+  - {keys: "Left", sheet: A1 6}
+  - {keys: "alt+Right", page: '1.3', plot_x: scores}
+  - {keys: "alt+Left alt+Left", page: '1.1'}
+  - {type: "mean(scores)", expect: 11/3, compare: numeric, note: "The changed list remains shared"}
+
+- id: general-sheet-range-total
+  course: general
+  browser: true
+  browser_defaults_compatible: true
+  hand: true
+  title: Total a range using spreadsheet reference pointing
+  steps:
+  - {keys: "F4 4 6", page: '1.2', sheet: A1}
+  - {type: "7", enter: false, keys: Enter}
+  - {type: "8", enter: false, keys: Enter}
+  - {type: "9", enter: false, keys: Enter, sheet: A4}
+  - {keys: "Up Up Up Right"}
+  - {type: "=sum(", enter: false}
+  - {keys: "Left shift+Down shift+Down", note: "Point to A1:A3"}
+  - {type: ")", enter: false, keys: Enter}
+  - {keys: "Up", sheet: B1 24}

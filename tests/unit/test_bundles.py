@@ -50,6 +50,17 @@ def test_all_and_one_bundle_per_built_device() -> None:
     assert publish.product_for_site(found["tin"], "CASSim-TIN") == "CASSim-TIN"
 
 
+def test_browser_shortcut_guards_cover_each_bundled_device() -> None:
+    bundle = publish.bundles()["all"]
+    app_shortcuts = publish.computer_shortcuts(bundle)
+    assert "ctrl+s" in app_shortcuts
+    assert "ctrl+r" in app_shortcuts
+    assert "ctrl+=" in app_shortcuts
+    assert set(app_shortcuts) >= publish.ALWAYS_BLOCK_BROWSER_SHORTCUTS
+    assert "ctrl+p" not in app_shortcuts
+    assert "F5" not in app_shortcuts
+
+
 def test_beta_bundle_marks_its_icons_without_changing_stable_artwork(tmp_path: Path) -> None:
     stable_dir = tmp_path / "stable"
     beta_dir = tmp_path / "beta"

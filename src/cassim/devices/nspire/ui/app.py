@@ -18,19 +18,25 @@ from datetime import datetime
 import flet as ft
 
 from cassim.app import about
+from cassim.app.keyboard import (
+    ARROW_KEYS,
+    REPEAT_DELAY,
+    key_name,
+    repeat_interval,
+)
 from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import themed
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
-from cassim.device.engine import LocalEngine, local_session
+from cassim.device.engine import LocalEngine, RemoteSession, local_session
 from cassim.device.keys import Action, Binding, keypad_units
 from cassim.device.menu import MenuItem
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages import PAGES
-from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
+from cassim.devices.nspire.pages.calculator import Calculator, Pending, calculator_of
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
@@ -212,6 +218,9 @@ class App:
         self.sheet_file_busy = False
         self.theme = shell.theme
         self.shift = False  # Flet sends no modifiers with a click, so remember the key
+        self.arrow_event: ft.KeyboardEvent | None = None
+        self.pad_hold: str | None = None
+        self.pad_hold_generation = 0
         self.view = CalculatorView(
             state, self.theme, self.act, lambda: self.shift, self.cycle_setting
         )
@@ -219,8 +228,14 @@ class App:
         self.pointer = Pointer()  # steered by the keypad's centre key
         self.ticking = False  # the pointer's timer is running
         self.keypad = Keypad(
-            state, self.press, self.theme, on_cassim=self.press_cassim, on_stick=self.on_stick
+            state,
+            self.press,
+            self.theme,
+            on_cassim=self.press_cassim,
+            on_stick=self.on_stick,
         )
+        self.keypad.on_arrow_hold = self.hold_keypad_arrow
+        self.keypad.refresh()
         self.sidebar = Sidebar(
             state,
             self.refresh,
@@ -276,6 +291,7 @@ class App:
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
         """Open the app. `view` and `settings` (from the command line) override the saved view and
         the settings of the recovered document."""
+        self.starting = True  # refresh callbacks can run before the autosave has been recovered
         page = self.page
         page.title = about.product_name()
         page.fonts = {SYMBOL_FONT: SYMBOL_FONT_FILE}
@@ -298,15 +314,14 @@ class App:
                 self.outer,
                 autofocus=True,
                 expand=True,
-                on_key_down=lambda e: self.track_shift(e.key, down=True),
-                on_key_up=lambda e: self.track_shift(e.key, down=False),
+                on_key_down=lambda e: self.keyboard_down(e.key),
+                on_key_up=lambda e: self.keyboard_up(e.key),
             )
         )
         if self.state.system.theme_error:
             self.notice("Appearance settings", self.state.system.theme_error)
         print("CASSIM: UI", flush=True)  # the first screen is on its way (tools/loadtime.py)
         if self.runner is not None:
-            self.starting = True
             self.status.value = "Starting the calculator engine..."
         try:
             await self.recover()
@@ -322,6 +337,8 @@ class App:
     def autosave(self) -> None:
         """Save the document AUTOSAVE_DELAY after the last change, so a reload or crash loses
         nothing (FR-DOC-003). Each change pushes the save back; one save task waits for it."""
+        if self.starting:
+            return
         self.save_at = time.monotonic() + AUTOSAVE_DELAY
         if not self.save_waiting:
             self.save_waiting = True
@@ -540,6 +557,28 @@ class App:
         self.state.press_keypad(name)
         self.refresh()
 
+    def hold_keypad_arrow(self, name: str, down: bool) -> None:
+        if not down:
+            if self.pad_hold == name:
+                self.pad_hold = None
+                self.pad_hold_generation += 1
+            return
+        self.pad_hold = None
+        self.pad_hold_generation += 1
+        pending = self.state.pending
+        self.press(name)
+        if self.busy or pending:
+            return
+        self.pad_hold = name
+        self.page.run_task(self._repeat_keypad_arrow, name, self.pad_hold_generation)
+
+    async def _repeat_keypad_arrow(self, name: str, generation: int) -> None:
+        started = time.monotonic()
+        await asyncio.sleep(REPEAT_DELAY)
+        while self.pad_hold == name and self.pad_hold_generation == generation and not self.busy:
+            self.press(name)
+            await asyncio.sleep(repeat_interval(time.monotonic() - started))
+
     def press_cassim(self) -> None:
         if self.busy:
             return
@@ -615,6 +654,9 @@ class App:
         may be closed without warning, so a waiting autosave is done at once."""
         if e.state is not ft.AppLifecycleState.RESUME:
             self.shift = False
+            self.arrow_event = None
+            self.pad_hold = None
+            self.pad_hold_generation += 1
         if e.state in (ft.AppLifecycleState.HIDE, ft.AppLifecycleState.PAUSE) and self.save_waiting:
             self.save_now()
 
@@ -622,10 +664,40 @@ class App:
         if "shift" in key.lower():
             self.shift = down
 
+    def keyboard_down(self, key: str) -> None:
+        self.track_shift(key, down=True)
+        if any(modifier in key.lower() for modifier in ("shift", "control", "alt", "meta")):
+            self.arrow_event = None
+
+    def keyboard_up(self, key: str) -> None:
+        self.track_shift(key, down=False)
+        released_arrow = self.arrow_event is not None and key_name(key) == key_name(
+            self.arrow_event.key
+        )
+        if released_arrow or any(
+            modifier in key.lower() for modifier in ("shift", "control", "alt", "meta")
+        ):
+            self.arrow_event = None
+
+    async def repeat_arrow(self, event: ft.KeyboardEvent) -> None:
+        started = time.monotonic()
+        await asyncio.sleep(REPEAT_DELAY)
+        while self.arrow_event is event:
+            await self._handle_key(event)
+            await asyncio.sleep(repeat_interval(time.monotonic() - started))
+
     def show_wizard(self, wizard: Wizard) -> None:
         self.typing_dialog = wizard_dialog(self.page, self.state, wizard, self.refresh)
 
     async def on_key(self, e: ft.KeyboardEvent) -> None:
+        key = key_name(e.key)
+        if key in ARROW_KEYS:
+            self.arrow_event = e
+        await self._handle_key(e)
+        if self.arrow_event is e:
+            self.page.run_task(self.repeat_arrow, e)
+
+    async def _handle_key(self, e: ft.KeyboardEvent) -> None:
         state = self.state
         if self.typing_dialog is not None and self.typing_dialog.open:
             return  # keys typed into a dialog's boxes are not calculator keys
@@ -695,9 +767,37 @@ class App:
     def act(self, action: Action, arg: str = "") -> None:
         if self.busy:
             return
+        if action == "statistics_eval":
+            self.page.run_task(self.run_statistics_eval, arg)
+            return
         self.state.run_action(action, arg)
         self.refresh()
         self.offer_keyboard(action)
+
+    async def run_statistics_eval(self, expression: str) -> None:
+        statistics = self.state.statistics
+        if statistics is None:
+            return
+        self.say("Updating data...")
+        if isinstance(statistics.session, RemoteSession):
+            if self.runner is None:
+                msg = "a remote Data & Statistics session requires the Runner"
+                raise RuntimeError(msg)
+            calculator = Calculator(statistics.session)
+            calculator.pending = Pending(expression, False)
+            finished = await self.runner.evaluate(calculator)
+            if not finished:
+                statistics.message = "Update cancelled."
+            elif calculator.history:
+                statistics.message = calculator.history[-1].result.error or ""
+            else:
+                msg = "the engine accepted no point update result"
+                raise RuntimeError(msg)
+        else:
+            result = statistics.session.eval(expression, approximate=False)
+            statistics.message = result.error or ""
+        self.status.value = ""
+        self.refresh()
 
     def cycle_setting(self, name: str) -> None:
         """A click on Rad/Deg, Auto/Approx or Real/Rect/Polar in the title bar."""
@@ -1116,7 +1216,17 @@ class App:
             title=ft.Text("Save As"),
             content=ft.Column(
                 [
-                    ft.Text("Saved in this browser.\nDoc > File > Export File… saves a file."),
+                    ft.Text("Saved in this browser."),
+                    ft.Container(
+                        content=ft.Text(
+                            "Use: Doc > File > Export File… if you want to save a file "
+                            "to your device.",
+                            color=self.theme.panel_accent,
+                        ),
+                        bgcolor=self.theme.key,
+                        border_radius=6,
+                        padding=10,
+                    ),
                     field,
                 ],
                 tight=True,

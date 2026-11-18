@@ -82,6 +82,15 @@ class PlotData:
 
 
 @dataclass(frozen=True, slots=True)
+class PlottedPoint:
+    index: int
+    x: float
+    y: float
+    screen_x: float
+    screen_y: float
+
+
+@dataclass(frozen=True, slots=True)
 class _Area:
     left: float
     top: float
@@ -189,6 +198,93 @@ def _map_points(points: tuple[NumericPoint, ...], area: _Area) -> tuple[Point, .
     return tuple(area.point(x, y) for x, y in points)
 
 
+def _scatter_rows(data: PlotData) -> tuple[tuple[int, float, float], ...]:
+    return tuple(
+        (index, x, y)
+        for index, (x, y) in enumerate(zip(data.x, data.y, strict=False))
+        if isinstance(x, float) and math.isfinite(x) and isinstance(y, float) and math.isfinite(y)
+    )
+
+
+def _scatter_area(
+    data: PlotData, width: float, height: float
+) -> tuple[tuple[tuple[int, float, float], ...], _Area]:
+    rows = _scatter_rows(data)
+    area = _area(
+        (width, height),
+        tuple(x for _, x, _ in rows),
+        tuple(y for _, _, y in rows),
+        data.window,
+        residual_plot=data.residual_plot,
+    )
+    return rows, area
+
+
+def scatter_points(data: PlotData, width: float, height: float) -> tuple[PlottedPoint, ...]:
+    """Return scatter points in scene pixels, retaining their source-list row indices."""
+    rows, area = _scatter_area(data, width, height)
+    return tuple(PlottedPoint(index, x, y, *area.point(x, y)) for index, x, y in rows)
+
+
+def scatter_data_at(
+    data: PlotData, width: float, height: float, screen_x: float, screen_y: float
+) -> NumericPoint | None:
+    """Convert a point inside the scatter plot's data area back to data coordinates."""
+    rows, area = _scatter_area(data, width, height)
+    if not rows or not (
+        area.left <= screen_x <= area.right and area.top <= screen_y <= area.bottom
+    ):
+        return None
+    x = area.xmin + (screen_x - area.left) / (area.right - area.left) * (area.xmax - area.xmin)
+    y = area.ymax - (screen_y - area.top) / (area.bottom - area.top) * (area.ymax - area.ymin)
+    return x, y
+
+
+def _dot_layout(
+    data: PlotData, width: float, height: float
+) -> tuple[tuple[PlottedPoint, ...], _Area]:
+    rows = tuple(
+        sorted(
+            (
+                (index, value)
+                for index, value in enumerate(data.x)
+                if isinstance(value, float) and math.isfinite(value)
+            ),
+            key=lambda row: row[1],
+        )
+    )
+    values = tuple(value for _, value in rows)
+    xmin, xmax = data.window[:2] if data.window is not None else _bounds(values)
+    area = _Area(
+        48, 16, max(width - 14, 64), max(height - 34, 48), xmin, xmax, 0, max(len(rows), 1)
+    )
+    counts: dict[float, int] = {}
+    points = []
+    for index, value in rows:
+        counts[value] = counts.get(value, 0) + 1
+        y = counts[value] - 0.5
+        points.append(PlottedPoint(index, value, y, *area.point(value, y)))
+    return tuple(points), area
+
+
+def dot_points(data: PlotData, width: float, height: float) -> tuple[PlottedPoint, ...]:
+    """Return one-variable dot-plot points in scene pixels with their source-list rows."""
+    points, _ = _dot_layout(data, width, height)
+    return points
+
+
+def dot_data_at(
+    data: PlotData, width: float, height: float, screen_x: float, screen_y: float
+) -> float | None:
+    """Convert a point inside a one-variable dot plot back to its X value."""
+    points, area = _dot_layout(data, width, height)
+    if not points or not (
+        area.left <= screen_x <= area.right and area.top <= screen_y <= area.bottom
+    ):
+        return None
+    return area.xmin + (screen_x - area.left) / (area.right - area.left) * (area.xmax - area.xmin)
+
+
 def _empty(width: float, height: float, xname: str, yname: str) -> Scene:
     return Scene(
         width,
@@ -227,9 +323,11 @@ def _empty(width: float, height: float, xname: str, yname: str) -> Scene:
     )
 
 
-def plot_scene(data: PlotData, width: float, height: float) -> Scene:
+def plot_scene(data: PlotData, width: float, height: float, *, axis_labels: bool = True) -> Scene:
     """Build a plot in screen coordinates; input data stays owned by the Problem's variables."""
     width, height = max(width, 120), max(height, 100)
+    if not axis_labels:
+        data = replace(data, x_name="", y_name="")
     if (
         data.y
         and data.plot_type in (PlotType.DOT, PlotType.BOX)
@@ -253,6 +351,22 @@ def plot_scene(data: PlotData, width: float, height: float) -> Scene:
         scene = _scatter(data, width, height)
     else:
         scene = _dot_plot(data, width, height)
+    if not axis_labels:
+        scene = Scene(
+            scene.width,
+            scene.height,
+            tuple(
+                Layer(
+                    layer.name,
+                    tuple(
+                        shape
+                        for shape in layer.shapes
+                        if not (isinstance(shape, Label) and shape.text.startswith(("X: ", "Y: ")))
+                    ),
+                )
+                for layer in scene.layers
+            ),
+        )
     return scene
 
 
@@ -263,20 +377,13 @@ def _distribution_data(data: PlotData) -> PlotData:
 
 
 def _dot_plot(data: PlotData, width: float, height: float) -> Scene:
-    values = tuple(sorted(_finite(data.x)))
-    if not values:
+    points, area = _dot_layout(data, width, height)
+    if not points:
         return _empty(width, height, data.x_name, data.y_name)
-    xmin, xmax = data.window[:2] if data.window is not None else _bounds(values)
-    area = _Area(
-        48, 16, max(width - 14, 64), max(height - 34, 48), xmin, xmax, 0, max(len(values), 1)
-    )
-    counts: dict[float, int] = {}
-    dots: list[Point] = []
-    for value in values:
-        counts[value] = counts.get(value, 0) + 1
-        dots.append(area.point(value, counts[value] - 0.5))
     axis = _axes(area, data.x_name, "", y_ticks=False)
-    shapes: list[Polyline | Dots] = [Dots(tuple(dots))]
+    shapes: list[Polyline | Dots] = [
+        Dots(tuple((point.screen_x, point.screen_y) for point in points), size=7)
+    ]
     if data.plot_value is not None:
         x, _ = area.point(data.plot_value, 0)
         shapes.append(Polyline(((x, area.top), (x, area.bottom)), Stroke("curve2", 2)))
@@ -390,7 +497,7 @@ def _box_plot(data: PlotData, width: float, height: float) -> Scene:
     ]
     outliers = tuple(area.point(value, 0.5) for value in values if value < lower or value > upper)
     if outliers:
-        shapes.append(Dots(outliers, "curve2", 4))
+        shapes.append(Dots(outliers, "curve2", 6))
     if data.plot_value is not None:
         value_x, _ = area.point(data.plot_value, 0)
         shapes.append(Segments(((value_x, area.top), (value_x, area.bottom)), Stroke("curve2", 2)))
@@ -449,7 +556,7 @@ def _grouped_numeric(data: PlotData, width: float, height: float) -> Scene:
                 (centre + ((rank % 5) - 2) * 2.5, area.point(0, value)[1])
                 for rank, value in enumerate(group)
             )
-            shapes.append(Dots(dots, _COLOURS[index % len(_COLOURS)]))
+            shapes.append(Dots(dots, _COLOURS[index % len(_COLOURS)], 6))
         elif group:
             low, q1, median, q3, high = _quartiles(group)
             iqr = q3 - q1
@@ -510,7 +617,7 @@ def _grouped_numeric(data: PlotData, width: float, height: float) -> Scene:
                 if value < lower or value > upper
             )
             if outliers:
-                shapes.append(Dots(outliers, "curve2"))
+                shapes.append(Dots(outliers, "curve2", 6))
     return Scene(
         width,
         height,
@@ -547,7 +654,7 @@ def _normal_probability(data: PlotData, width: float, height: float) -> Scene:
             Layer(
                 "data",
                 (
-                    Dots(_map_points(points, area)),
+                    Dots(_map_points(points, area), size=6),
                     *((Polyline(_map_points(line, area), Stroke("curve2", 1.5)),) if line else ()),
                 ),
             ),
@@ -578,10 +685,10 @@ def _scatter(data: PlotData, width: float, height: float) -> Scene:
         return _empty(width, height, data.x_name, data.y_name)
     xs, ys = tuple(x for x, _ in pairs), tuple(y for _, y in pairs)
     area = _area((width, height), xs, ys, data.window, residual_plot=data.residual_plot)
-    dots = Dots(_map_points(pairs, area))
+    dots = Dots(_map_points(pairs, area), size=7)
     shapes: list[Polyline | Dots] = []
     if data.connect_points or data.plot_type is PlotType.XY_LINE:
-        shapes.append(Polyline(_map_points(pairs, area), Stroke("curve1", 1.5)))
+        shapes.append(Polyline(_map_points(pairs, area), Stroke("curve1", 2.5)))
     shapes.append(dots)
     if data.regression:
         shapes.append(Polyline(_map_points(data.regression, area), Stroke("curve2", 2)))
@@ -641,7 +748,7 @@ def _scatter(data: PlotData, width: float, height: float) -> Scene:
                         ((residual_area.left, y0), (residual_area.right, y0)),
                         Stroke("axis", 1, True),
                     ),
-                    Dots(_map_points(data.residuals, residual_area), "curve5"),
+                    Dots(_map_points(data.residuals, residual_area), "curve5", 6),
                     Label(residual_area.left, residual_area.top, "Residual", 11, "axis"),
                 ),
             )
@@ -765,7 +872,7 @@ def _bar_or_dots(data: PlotData, size: tuple[float, float], categories: _Categor
             if data.plot_type is PlotType.DOT_CHART:
                 marker = Marker.SQUARE if group_name and group_index % 2 else Marker.DOT
                 dots = tuple((centre, area.point(0, i + 0.5)[1]) for i in range(math.ceil(count)))
-                shapes.append(Dots(dots, colour, 5, marker))
+                shapes.append(Dots(dots, colour, 6, marker))
             else:
                 y = area.point(0, count)[1]
                 shapes.append(

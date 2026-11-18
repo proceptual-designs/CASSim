@@ -28,9 +28,12 @@
 | Ctrl+= | Insert ≠ |
 | Caps Lock | Capital letters |
 
-Some browsers or operating systems intercept shortcuts such as Ctrl+N, Ctrl+S, Ctrl+L or
-Alt+Left/Right; use the on-screen controls or Doc menu when that happens. On some keyboard layouts, Ctrl+Alt also acts as AltGr, so Ctrl+Alt+I may conflict with typing.
-The Mac Command key is treated as Ctrl when the browser sends it to CASSim.
+CASSim takes its own shortcuts before the browser can also use them. This includes Ctrl+N,
+Ctrl+O, Ctrl+S, Ctrl+L, Ctrl+G, Ctrl+R, Alt+Left/Right, F1 and Shift+F10. The Mac Command key
+is treated as Ctrl when the browser sends it to CASSim. A browser or operating system can still
+reserve a shortcut before a web page receives it; use the on-screen controls or Doc menu in that
+case. On some keyboard layouts, Ctrl+Alt also acts as AltGr, so Ctrl+Alt+I may conflict with
+typing.
 
 ### Lists & Spreadsheet
 
@@ -44,7 +47,8 @@ The Mac Command key is treated as Ctrl when the browser sends it to CASSim.
 | Alt+Shift+Left, Alt+Shift+Right | Extend the cell selection by a column |
 | Context Menu key, Shift+F10 | Open the selected cells' context menu |
 
-These are spreadsheet shortcuts; browsers may intercept some combinations.
+These are spreadsheet shortcuts. CASSim suppresses their competing browser defaults while they
+are in use.
 
 On the spreadsheet, right-click a cell or row number for its CASSim context menu. Hold the
 physical keyboard's Ctrl key while right-clicking to use the browser's menu instead. This is

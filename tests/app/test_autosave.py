@@ -54,3 +54,20 @@ def test_the_save_waits_for_the_last_change(monkeypatch: pytest.MonkeyPatch) -> 
     page.run_queued()
     assert time.monotonic() - start >= 0.05
     assert not app.save_waiting
+
+
+def test_startup_refresh_cannot_overwrite_the_document_being_recovered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(nspire_app, "AUTOSAVE_DELAY", 0.0)
+    app, page = handheld_app()
+    saved = writes(app, monkeypatch)
+    app.starting = True
+    app.refresh()
+    assert page.tasks == []
+    assert saved == []
+
+    app.starting = False
+    app.refresh()
+    page.run_queued()
+    assert len(saved) == 1

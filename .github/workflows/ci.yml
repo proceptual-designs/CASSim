@@ -41,6 +41,7 @@ jobs:
           tests/e2e/test_pwa.py::test_missing_cached_file_is_reported_and_repaired
           tests/e2e/test_theme_browser.py::test_saved_custom_theme_is_applied_after_reload
           tests/e2e/test_autosave_browser.py::test_the_document_comes_back_after_a_reload
+          tests/e2e/test_key_repeat_browser.py
           tests/e2e/test_sheet_browser.py::test_right_click_context_menus
           tests/e2e/test_sheet_browser.py::test_long_press_still_opens_the_cell_menu
 

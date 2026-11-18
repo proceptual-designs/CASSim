@@ -500,6 +500,17 @@ def test_a_linked_columns_name_in_a_formula_asks_column_or_variable():
     sheet.set_cell(D, 1, "='u[2]")  # already the variable: no question
 
 
+@pytest.mark.parametrize("name", ["xs", "aa", "Scores"])
+def test_multi_letter_linked_names_in_formulas_are_variables(name):
+    sheet = sheet_with(A, [5, 1])
+    sheet.set_name(A, name)
+    sheet.set_column_formula(B, f"={name}*2")
+    assert texts(sheet, B, [1, 2]) == ["10", "2"]
+
+    sheet.set_cell(A, 1, "7")
+    assert texts(sheet, B, [1, 2]) == ["14", "2"]
+
+
 def test_unlinking_a_column_keeps_the_list_and_the_values():
     session = Session()
     sheet = sheet_with(A, [1, 2], session)

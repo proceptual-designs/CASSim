@@ -23,6 +23,9 @@ Step kinds (any step may add `expect`, `error` or `entry`):
                    names it; press any key to dismiss the dialog).
 - `entry: TEXT`   the entry line now reads this.
 - `variable: {name: a, text: "5", problem: 1}`   a variable in a Problem (default: the current one).
+- `sheet: TEXT`   the selected spreadsheet address and displayed value, e.g. `A1 4`.
+- `plot_x: NAME`   the Data & Statistics page displays this X-axis list.
+- `page: TEXT`   the current Problem and page, e.g. `1.2`.
 
 Expected values come from simulator-captured corpus cases where one exists (the step's `from` names
 it); the rest are worked by hand and say so (`hand: true` on the flow).
@@ -42,6 +45,7 @@ import yaml
 from cassim.core.session import Session, same_value
 from cassim.core.settings import PRESETS, Settings, updated
 from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.pages.statistics import statistics_of
 from cassim.devices.nspire.ui.state import AppState
 
 FLOWS = Path(__file__).parents[1] / "corpus" / "flows"
@@ -131,6 +135,19 @@ def matches(expected: str, actual: str, settings: Settings, compare: str, tol: f
     return same_value(got.value, wanted.value, tol if compare == "numeric" else None)
 
 
+def sheet_matches(expected: str, actual: str, settings: Settings) -> bool:
+    """Compare a selected address and displayed value across Auto and Approximate modes."""
+    want_address, _, want_value = expected.partition(" ")
+    got_address, _, got_value = actual.partition(" ")
+    if want_address != got_address:
+        return False
+    if want_value == got_value:
+        return True
+    return bool(want_value and got_value) and matches(
+        want_value, got_value, settings, "numeric", DEFAULT_TOLERANCE
+    )
+
+
 class Player:
     """Plays steps into an `AppState`."""
 
@@ -185,7 +202,7 @@ class Player:
 
     def check(self, step: Step) -> str | None:
         label = step.get("type") or step.get("keys") or step.get("keypad") or step.get("action", "")
-        text, error = self.last()
+        text, error = self.last() if step.get("error") or "expect" in step else ("", None)
         if step.get("error"):
             wanted = step.get("error_contains", "")
             if error is None or wanted not in error:
@@ -204,8 +221,31 @@ class Player:
                 return f"{label}: got {text}, expected {step['expect']}"
         if "entry" in step and self.calculator.editor.linear() != step["entry"]:
             return f"{label}: entry line reads {self.calculator.editor.linear()!r}"
-        if "variable" in step:
-            return self.check_variable(label, step["variable"])
+        if "variable" in step and (failure := self.check_variable(label, step["variable"])):
+            return failure
+        return self.check_data_page(label, step)
+
+    def check_data_page(self, label: str, step: Step) -> str | None:
+        """Check the visible data-page state without requiring a Calculator page."""
+        if "page" in step:
+            doc = self.state.document
+            actual_page = f"{doc.problem + 1}.{doc.page + 1}"
+            if actual_page != str(step["page"]):
+                return f"{label}: page is {actual_page}, not {step['page']}"
+        if "sheet" in step:
+            sheet = self.state.sheet
+            if sheet is None:
+                return f"{label}: not on a spreadsheet page"
+            self.state.prepare()
+            screen = sheet.screen()
+            actual = f"{screen.address} {screen.cells.get(sheet.cursor, ('', False))[0]}".strip()
+            if not sheet_matches(step["sheet"], actual, self.settings):
+                return f"{label}: sheet shows {actual!r}, not {step['sheet']!r}"
+        if "plot_x" in step:
+            statistics = statistics_of(self.state.document.current)
+            if statistics is None or statistics.x_name != step["plot_x"]:
+                actual = statistics.x_name if statistics is not None else None
+                return f"{label}: plot X is {actual!r}, not {step['plot_x']!r}"
         return None
 
     def check_variable(self, label: str, wanted: dict[str, Any]) -> str | None:

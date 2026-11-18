@@ -19,6 +19,7 @@ STICK_KEY = "click"
 ACCENT_KEY = "accent"
 LIGHT_KEY_LUMINANCE = 0.3
 type Stick = Callable[[str, float, float], None]
+type ArrowHold = Callable[[str, bool], None]
 
 
 def context_menu_icon(scale: float, colour: str) -> cv.Canvas:
@@ -59,6 +60,7 @@ class Keypad:
         # The centre key as a joystick: told "start", "move" (with the travel in key widths),
         # "end" and "tap". Without it the key is a plain button.
         self.on_stick = on_stick
+        self.on_arrow_hold: ArrowHold | None = None
         self._down = (0.0, 0.0)  # where the finger pressed on the centre key
         self.on_cassim = on_cassim
         self.installable = False
@@ -78,6 +80,7 @@ class Keypad:
             state.caps,
             state.pad_scale,
             self.on_cassim is not None,
+            self.on_arrow_hold is not None,
             self.installable,
             self.needs_attention,
             self.theme,
@@ -217,8 +220,12 @@ class Keypad:
             border_radius=key_corners(key, height / 2 if key.style == "pad" else state.kpx(7)),
             ink=not stick,
             tooltip=key_tip(key),
-            on_click=None if stick else lambda _, name=key.name: self.on_key(name),
+            on_click=None
+            if stick or (key.name in {"left", "right", "up", "down"} and self.on_arrow_hold)
+            else lambda _, name=key.name: self.on_key(name),
         )
+        if key.name in {"left", "right", "up", "down"} and self.on_arrow_hold is not None:
+            return self._arrow_key(box, key.name)
         if key.join == "down":  # fill the gap down to the lower piece, so the two read as one
             seam = ft.Container(
                 left=0, top=height - 1, width=width, height=state.kpx(KEY_GAP) + 2, bgcolor=fill
@@ -234,6 +241,38 @@ class Keypad:
                 piece, width=width, height=row_height, alignment=ft.Alignment.BOTTOM_CENTER
             )
         return self._stick(box, width) if stick else box
+
+    def _arrow_key(self, box: ft.Control, name: str) -> ft.Control:
+        hold = self.on_arrow_hold
+        assert hold is not None
+        down = False
+
+        def start(_: ft.TapEvent) -> None:
+            nonlocal down
+            down = True
+            hold(name, True)
+
+        def stop(_: object) -> None:
+            hold(name, False)
+
+        def tap(_: ft.TapEvent) -> None:
+            nonlocal down
+            if not down:
+                self.on_key(name)
+            down = False
+
+        def cancel(event: object) -> None:
+            nonlocal down
+            stop(event)
+            down = False
+
+        return ft.GestureDetector(
+            content=box,
+            on_tap_down=start,
+            on_tap_up=stop,
+            on_tap_cancel=cancel,
+            on_tap=tap,
+        )
 
     def _stick(self, box: ft.Control, width: float) -> ft.Control:
         """The centre key: a tap is a tap, and a drag steers the pointer like a joystick, by how
