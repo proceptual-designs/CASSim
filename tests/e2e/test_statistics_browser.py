@@ -22,6 +22,39 @@ def test_statistics_page_renders_for_a_live_list(browser: Browser, site: tuple[P
     for key in ("F4", "4", "7"):
         app.press(key)
 
-    expect(app.page.get_by_role("button", name="X: scores")).to_be_visible(timeout=30000)
-    expect(app.page.get_by_role("button", name="Dot Plot")).to_be_visible()
+    expect(app.page.get_by_role("button", name="scores", exact=True)).to_be_visible(timeout=30000)
+    expect(app.page.get_by_role("button", name="Click to add variable", exact=True)).to_be_visible()
+    expect(app.page.get_by_role("button", name="Dot Plot", exact=True)).to_have_count(0)
+    app.page.get_by_role("button", name="scores", exact=True).click(force=True)
+    expect(app.page.get_by_role("group", name="Choose X List")).to_be_visible()
+    expect(app.page.get_by_role("button", name="(none)", exact=True)).to_be_visible()
+    app.press("Escape")
+    app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
+    expect(app.page.get_by_role("group", name="Choose Y List")).to_be_visible()
+    app.page.close()
+
+
+def test_sorter_switches_between_calculator_and_statistics(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-DOC-001: the sorter is visible and usable from Data & Statistics."""
+    app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1])
+    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    for key in ("F4", "4", "7"):
+        app.press(key)
+    expect(app.page.get_by_role("button", name="Page Sorter 1.2")).to_be_attached()
+    app.page.get_by_role("button", name="Page manager", exact=True).click()
+    close = app.page.get_by_role("button", name="Close the sorter (enter or esc)")
+    expect(close).to_be_attached()
+    app.press("Left")
+    app.press("Enter")
+    expect(close).not_to_be_attached()
+    expect(app.page.get_by_role("button", name="Page Sorter 1.1")).to_be_attached()
+    app.page.get_by_role("button", name="Page manager", exact=True).click()
+    expect(close).to_be_attached()
+    app.press("Right")
+    app.press("Enter")
+    expect(close).not_to_be_attached()
+    expect(app.page.get_by_role("button", name="Page Sorter 1.2")).to_be_attached()
     app.page.close()

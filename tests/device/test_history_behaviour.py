@@ -2,6 +2,7 @@
 """Behaviour from emulator check 3 (docs/testing/emulator-history-results.md, run 2026-11-10)."""
 
 from cassim.core.session import Session
+from cassim.core.settings import Calc, Settings
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import loads
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
@@ -99,6 +100,17 @@ def test_ans_shows_fourteen_digits() -> None:
     shown = calc.history[-1].text
     assert shown.endswith("*2")
     assert len(shown.split("*")[0].replace(".", "")) >= 12
+
+
+def test_recalling_a_result_uses_full_precision_in_the_entry() -> None:
+    calc = Calculator(Session(Settings(calc=Calc.APPROXIMATE, digits="float3")))
+    enter(calc, "1/3.")
+    assert calc.history[-1].result.text == "0.333"
+
+    calc.perform(Binding("up"))
+    calc.perform(Binding("enter"))
+
+    assert calc.editor.linear() == "0.33333333333333"
 
 
 def test_empty_enter_runs_newtons_method_again() -> None:

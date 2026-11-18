@@ -73,7 +73,9 @@ class Session:
             text = to_text(value, self.settings)
             if self.settings.ascii is Ascii.ON:
                 text = to_ascii(text)
-            latex = to_latex(value, logic_symbols=self.settings.logic is Logic.SYMBOLS)
+            latex = to_latex(
+                value, self.settings, logic_symbols=self.settings.logic is Logic.SYMBOLS
+            )
             full = text
             if self.settings.digits != "float14":
                 full = to_text(value, replace(self.settings, digits="float14"))
@@ -148,7 +150,7 @@ class Session:
                     VariableInfo(
                         name,
                         to_text(item, self.settings),
-                        to_latex(item),
+                        to_latex(item, self.settings),
                         False,
                         items,
                         f"{name}:={to_text(item, replace(self.settings, digits='float14'))}",

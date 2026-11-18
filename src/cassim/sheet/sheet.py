@@ -516,8 +516,7 @@ class Sheet:
         return text + (f"{_SAVE}{save}" if save else "")
 
     def _column_names_in(self, text: str, found: list[Found]) -> list[str]:
-        """The names in a formula that are this sheet's linked columns: the handheld asks
-        "Column or Variable?" for each (run 4, S11)."""
+        """Single-letter linked names that can be confused with a column (run 4, S11)."""
         try:
             node = self._parsed(text, found)
         except TIError:
@@ -526,7 +525,12 @@ class Sheet:
         seen: list[str] = []
         for name in _names(node):
             key = self._key(name)
-            if name.startswith(_PLACEHOLDER) or key not in linked or name in seen:
+            if (
+                len(name) != 1
+                or not "a" <= name.lower() <= "z"
+                or key not in linked
+                or name in seen
+            ):
                 continue
             if any(isinstance(i.reference, Variable) and i.reference.name == name for i in found):
                 continue  # written `'name` already: the variable

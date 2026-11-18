@@ -2,6 +2,51 @@
 
 Status: draft 1 (2026-10-31). Covers what must exist before M1 coding starts: the golden corpus, how it is replayed, how comparison works, and how cases are captured from the real simulator. Companion files: `corpus/schema.json`, `corpus/validate.py`, `corpus/seed/001_core.yaml` (20 seed cases).
 
+## Development and pre-PR test selection
+
+The complete Python suite stays in PR CI. During development, run the narrowest test that can fail
+because of the change, then widen to the affected boundary. Pre-commit runs Ruff and Ty only; it no
+longer reruns the complete fast pytest suite on every commit.
+
+Before opening a PR, run:
+
+```powershell
+uv run pytest tests/flows/
+```
+
+Then run the affected test directories or files from this map:
+
+| Change | Focused tests | Add before a PR |
+|---|---|---|
+| `core/` maths, parser, formatting, settings | matching `tests/unit/` file | corpus replay, plus flows when the public Session behaviour changes |
+| `device/` or a Nspire page model | matching `tests/device/` file | `tests/flows/` and the matching browser flow/page |
+| `app/` or Nspire UI | matching `tests/app/` file | matching `tests/e2e/` file; all e2e for shared shell or startup work |
+| `doc/`, autosave or storage | matching app/device document tests | autosave/reload e2e and relevant PWA/offline e2e |
+| `sheet/`, `graph/` or `stats/` | matching unit and device tests | corresponding sheet/statistics browser test when rendering or controls change |
+| `runtime/` | matching `tests/runtime/` file | browser coverage when the Code UI is involved |
+| publishing, PWA, worker or Pyodide | matching tool/unit tests | full e2e suite |
+
+Run a single e2e file when the browser path is local, for example:
+
+```powershell
+uv run pytest -m e2e tests/e2e/test_sheet_browser.py
+```
+
+Run the complete browser suite for a cross-cutting change:
+
+```powershell
+uv run pytest -m e2e tests/e2e
+```
+
+Browser tests should share a startup only when their scenarios can safely share one state. Keep
+fresh installs, broken caches/updates, online/offline transitions, root and sub-path hosting, and
+touch-specific contexts in separate tests: that isolation is part of the behaviour under test.
+When several features can be exercised in one flow, prefer a natural student task or VCE-style
+problem rather than a synthetic sequence of controls. Enter data, carry results between pages,
+analyse the maths, and check the answer in the same order a student would. Use short synthetic
+steps only for behaviours that do not fit a meaningful problem, such as a cache-repair or
+accessibility control.
+
 ## 1. Principles
 
 - The TI-Nspire simulator is the oracle. SymPy is only the implementation.
@@ -267,6 +312,7 @@ Screens other than the Calculator are recorded in a top-level `app_cases` list (
 - `int(-2.5)` = -3 (floor); `ceiling(2.3)` = `3.`; `fPart(7/3)` stays exact. `90▶Grad` in Radian mode treats 90 as radians.
 - `arcsinh(1)` stays unevaluated as `sinh⁻¹(1)` in Auto mode.
 - Spreadsheet: whole-column reference is `a[]`; naming column A `d` and using `d` in a formula raises a "Conflict Detected" dialog. Statistics results are decimals. Quartiles use the median-of-halves rule (Q1 of {1,4,9,16,25,36,49,64} is 6.5, Q3 is 42.5).
+- Spreadsheet selection (FR-SHEET-004 to FR-SHEET-008): without Shift, an arrow replaces a range with the adjacent single cell. Shift+arrows grow or shrink an inclusive rectangular range; physical Shift and latched keypad Shift are equivalent. A mouse click collapses to one cell, while a drag in either direction selects the rectangle between its endpoints. Reaching a row or column heading through range extension gives whole-row or whole-column selection. These requirements apply in grid-navigation mode: Shift+Left and Shift+Right while editing ordinary cell text select text instead. While a formula is being edited and a reference is accepted at the caret, pointing or selecting cells inserts a reference there; extending the selection updates that reference in place and leaves the destination cell fixed.
 - Graphs: coordinates are labelled to 2 decimal places; Intersection with two graphs goes straight to the bounds prompt; Integral accepts typed bounds and asks "graph?" when several graphs exist.
 
 ### Batches 17 to 19 (`019` to `021`)

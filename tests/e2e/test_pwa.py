@@ -260,6 +260,42 @@ def test_version_is_published(site: tuple[Path, str]) -> None:
     assert "reload_update" in (dist / "index.html").read_text(encoding="utf-8")
 
 
+def test_published_keyboard_guard_suppresses_only_cassim_collisions(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    page = browser.new_page()
+    page.goto(site[1], wait_until="load")
+    cases = page.evaluate(
+        """() => {
+          const send = (key, modifiers, target = window) => {
+            const event = new KeyboardEvent("keydown", {
+              key, bubbles: true, cancelable: true, composed: true, ...modifiers
+            });
+            target.dispatchEvent(event);
+            return event.defaultPrevented;
+          };
+          const input = document.createElement("input");
+          document.body.appendChild(input);
+          return [
+            send("s", {ctrlKey: true}),
+            send("s", {metaKey: true}),
+            send("S", {ctrlKey: true, shiftKey: true}),
+            send("r", {ctrlKey: true}),
+            send("ArrowLeft", {altKey: true}),
+            send("F1", {}),
+            send("F10", {shiftKey: true}),
+            send("=", {ctrlKey: true}),
+            send("F5", {}),
+            send("p", {ctrlKey: true}),
+            send("c", {ctrlKey: true}, input),
+            send("s", {ctrlKey: true}, input),
+          ];
+        }"""
+    )
+    assert cases == [True, True, True, True, True, True, True, True, False, False, False, True]
+    page.close()
+
+
 def test_cassim_menu_shows_browser_attention_without_overlay(
     browser: Browser, site: tuple[Path, str]
 ) -> None:

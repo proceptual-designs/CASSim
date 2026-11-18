@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+from types import SimpleNamespace
 from typing import Any
 
 import flet as ft
@@ -154,14 +155,30 @@ def test_save_asks_for_a_name_only_the_first_time() -> None:
     assert not app.dirty
 
 
-def test_save_as_explains_browser_storage_and_file_export_on_separate_lines() -> None:
+def test_ctrl_s_uses_save_and_save_as_without_an_extra_handler() -> None:
+    app, page, _ = library_app()
+    event = SimpleNamespace(key="s", shift=False, ctrl=True, alt=False, meta=False)
+    asyncio.run(app.on_key(event))
+    assert page.dialogs
+    assert app.typing_dialog is page.dialogs[-1]
+
+
+def test_save_as_explains_browser_storage_and_file_export_separately() -> None:
     app, page, _ = library_app()
     app.show_dialog("save")
     dialog = page.dialogs[-1]
     assert isinstance(dialog.content, ft.Column)
     guidance = dialog.content.controls[0]
     assert isinstance(guidance, ft.Text)
-    assert guidance.value == ("Saved in this browser.\nDoc > File > Export File… saves a file.")
+    assert guidance.value == "Saved in this browser."
+    callout = dialog.content.controls[1]
+    assert isinstance(callout, ft.Container)
+    assert callout.bgcolor == app.theme.key
+    assert isinstance(callout.content, ft.Text)
+    assert callout.content.value == (
+        "Use: Doc > File > Export File… if you want to save a file to your device."
+    )
+    assert callout.content.color == app.theme.panel_accent
 
 
 def test_a_new_document_asks_before_dropping_unsaved_changes() -> None:

@@ -208,7 +208,10 @@ class Calculator:
             self._recalled.root = copy.deepcopy(list(entry.nodes))
             self._recalled.pos = len(self._recalled.root)
         else:
-            self._recalled = Editor(entry.text if picked[1] == "entry" else entry.result.text)
+            recalled = (
+                entry.text if picked[1] == "entry" else entry.result.full or entry.result.text
+            )
+            self._recalled = Editor(recalled)
 
     def _recall_move(self, name: str) -> Callable[[str], None]:
         """A movement key: inside the picked row while one is picked, else in the entry line."""

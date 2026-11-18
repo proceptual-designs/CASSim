@@ -6,6 +6,7 @@ sits at the right of the title bar; fields are located by their order from the r
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -13,16 +14,6 @@ from playwright.sync_api import Browser
 from test_flows_browser import AppPage
 
 pytestmark = pytest.mark.e2e
-
-DOMAIN_EDGE_X = 1075  # inside the right-most field whatever its width
-TITLE_Y = 63  # title bar of the Computer-mode screen at a 1100x700 viewport
-REAL_X, AUTO_X, ANGLE_X = 1067, 1028, 992  # centres of REAL, AUTO and RAD in the default status
-
-
-@pytest.fixture
-def app(browser: Browser, site: tuple[Path, str]) -> AppPage:
-    page = browser.new_page(viewport={"width": 1100, "height": 700})
-    return AppPage(page, site[1])
 
 
 def evaluate(app: AppPage, text: str) -> str:
@@ -33,29 +24,33 @@ def evaluate(app: AppPage, text: str) -> str:
     return app.results[-1]
 
 
-def click(app: AppPage, x: int) -> None:
-    app.page.mouse.click(x, TITLE_Y)
+def cycle(app: AppPage, field: str) -> None:
+    app.page.get_by_role("button", name=re.compile(rf"^{field} ")).click()
     app.page.wait_for_timeout(300)
     app.page.mouse.click(600, 300)  # give the focus back to the calculator
 
 
-def test_angle_click_switches_to_degrees(app: AppPage) -> None:
+def test_status_fields_change_document_settings(browser: Browser, site: tuple[Path, str]) -> None:
+    app = AppPage(
+        browser.new_page(viewport={"width": 1100, "height": 700}),
+        site[1],
+    )
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
     assert evaluate(app, "sin(90)") != "1"  # radians
-    click(app, ANGLE_X)
+    cycle(app, "angle")
     assert evaluate(app, "sin(90)") == "1"
+    cycle(app, "angle")  # restore Radian before checking mode and domain
 
-
-def test_calc_click_switches_to_approximate(app: AppPage) -> None:
     assert "." not in evaluate(app, "1/3")
-    click(app, AUTO_X)
+    cycle(app, "calc")
     assert "." in evaluate(app, "1/3")
+    cycle(app, "calc")  # restore Auto before checking the complex-domain display
 
-
-def test_domain_click_cycles_to_polar_and_back(app: AppPage) -> None:
     assert "ⅇ^" not in evaluate(app, "3+4@i")  # Real: rectangular
-    click(app, REAL_X)  # Real -> Rect
+    cycle(app, "domain")  # Real -> Rect
     assert "ⅇ^" not in evaluate(app, "3+4@i")
-    click(app, DOMAIN_EDGE_X)  # Rect -> Polar (a wider word, so aim at the right edge)
+    cycle(app, "domain")
     assert "ⅇ^" in evaluate(app, "3+4@i")
-    click(app, DOMAIN_EDGE_X)  # Polar -> Real
+    cycle(app, "domain")
     assert "ⅇ^" not in evaluate(app, "3+4@i")
+    app.page.close()

@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 003, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 003, FR-SHEET-008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -688,7 +688,7 @@ def test_save_and_open_keep_the_sheet_and_its_values_win():
     type_cell(state, "20")  # after the Calculator's entry: the sheet's value is the newer
     sheet.go((B, FORMULA_ROW))
     type_cell(state, "=xs*2")
-    finish_wizard(state, xs="variable")  # xs is column A's name: Column or Variable? (S11)
+    assert not state.wizards
     sheet.widths[B] = 100
     text = dumps(state.document)
     data = json.loads(text)["problems"][0]["pages"][1]
@@ -950,6 +950,20 @@ def test_a_columns_name_in_a_formula_asks_column_or_variable():
         "Variable Reference",
     ]
     finish_wizard(state, u="variable")
+    assert column(state, B, [1, 2]) == ["15", "3"]
+
+
+def test_a_long_list_name_in_a_formula_does_not_open_a_conflict_dialog():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    for value in ("5", "1"):
+        type_cell(state, value)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "xs")
+    sheet.go((B, FORMULA_ROW))
+    type_cell(state, "=xs*3")
+
+    assert not state.wizards
     assert column(state, B, [1, 2]) == ["15", "3"]
 
 

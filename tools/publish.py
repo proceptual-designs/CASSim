@@ -56,6 +56,20 @@ REPATH_VERSION = "0.9.0"  # Flet's one pure-Python dependency that Pyodide does 
 THEME = "#1e1e1e"
 ACCENT = "#6aa9ff"
 DESCRIPTION = "A browser simulation of a CAS calculator for VCE mathematics."
+ALWAYS_BLOCK_BROWSER_SHORTCUTS = frozenset(
+    {
+        "ctrl+g",
+        "ctrl+l",
+        "ctrl+n",
+        "ctrl+o",
+        "ctrl+r",
+        "ctrl+s",
+        "alt+ArrowLeft",
+        "alt+ArrowRight",
+        "F1",
+        "shift+F10",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +107,17 @@ def bundles() -> dict[str, Bundle]:
         site = devices.SITES[device_id]
         found[site.bundle] = Bundle(site.bundle, site.product, (device_id,), site.product)
     return found
+
+
+def computer_shortcuts(bundle: Bundle) -> list[str]:
+    """The shortcuts all selected devices own on a physical keyboard."""
+    from cassim import devices
+
+    shortcuts: set[str] = set()
+    for device_id in bundle.devices:
+        profile = devices.load(device_id).profile
+        shortcuts.update(profile.computer)
+    return sorted(shortcuts)
 
 
 BUNDLE_PY = '''"""Which devices this build holds (written by tools/publish.py)."""
@@ -304,6 +329,35 @@ BODY_TAGS = """<div id="cassim-safe-area" aria-hidden="true"></div>
     contextClick = null;
   }, true);
   window.addEventListener("blur", function () { contextClick = null; });
+  // Flet receives key events after the page. Cancel app-owned defaults here, before the browser
+  // can open its own Save/Open/reload/help behaviour. Text fields keep native editing shortcuts.
+  var appShortcuts = new Set(/*CASSIM_APP_SHORTCUTS*/);
+  var browserShortcuts = new Set(/*CASSIM_BROWSER_SHORTCUTS*/);
+  function shortcut(event) {
+    var parts = [];
+    var command = event.ctrlKey || event.metaKey;
+    if (command) parts.push("ctrl");
+    if (event.altKey) parts.push("alt");
+    var key = event.key;
+    var shiftedLetter = event.shiftKey && key.length === 1 && /[a-z]/i.test(key);
+    if (event.shiftKey && !(command && shiftedLetter && !event.altKey)) parts.push("shift");
+    if ((command || event.altKey) && key.length === 1)
+      key = key.toLowerCase();
+    parts.push(key);
+    return parts.join("+");
+  }
+  function editable(event) {
+    return event.composedPath().some(function (node) {
+      return node instanceof Element &&
+        (node.matches("input, textarea, select") || node.isContentEditable);
+    });
+  }
+  window.addEventListener("keydown", function (event) {
+    var name = shortcut(event);
+    if (browserShortcuts.has(name) || (appShortcuts.has(name) && !editable(event))) {
+      event.preventDefault();
+    }
+  }, true);
   fetch("version.json").then(function (r) { return r.json(); }).then(function (v) {
     document.getElementById("cassim-version").textContent = "v" + v.version;
     window.cassimVersion = v.version;
@@ -846,6 +900,13 @@ def patch_index(dist: Path, bundle: Bundle, *, cdn: bool) -> None:
     (dist / "manifest.json").unlink(missing_ok=True)
     text = re.sub(r"</head>", HEAD_TAGS + "\n</head>", text, count=1)
     body = BODY_TAGS.replace("/*CASSIM_OFFLINE_SUPPORTED*/", "false" if cdn else "true")
+    body = body.replace(
+        "/*CASSIM_APP_SHORTCUTS*/", json.dumps(computer_shortcuts(bundle), separators=(",", ":"))
+    )
+    body = body.replace(
+        "/*CASSIM_BROWSER_SHORTCUTS*/",
+        json.dumps(sorted(ALWAYS_BLOCK_BROWSER_SHORTCUTS), separators=(",", ":")),
+    )
     text = re.sub(r"</body>", body + "\n</body>", text, count=1)
     # Flutter's loader would register `flutter_service_worker.js?v=...` as well, which the browser
     # treats as a new version of ours; the registration in BODY_TAGS is the only one.

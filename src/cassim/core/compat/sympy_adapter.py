@@ -522,6 +522,17 @@ class _TILatexPrinter(LatexPrinter):
     `undef`, and `and`/`or` between conditions (`∧`/`∨` when `symbols_for_logic`)."""
 
     symbols_for_logic = False
+    decimal_text: Callable[[Decimal], str] | None = None
+
+    def _print_Float(self, expr: Raw) -> str:
+        if self.decimal_text is None:
+            return super()._print_Float(expr)
+        sign = "-" if expr < 0 else ""
+        text = self.decimal_text(abs(Decimal(str(expr))))
+        mantissa, marker, exponent = text.partition("ᴇ")
+        if marker:
+            return rf"{sign}{mantissa} \cdot 10^{{{exponent}}}"
+        return sign + text
 
     def _print(self, expr: Any, **kwargs: Any) -> str:  # noqa: ANN401
         if expr is sp.E:
@@ -553,8 +564,11 @@ class _TILatexPrinter(LatexPrinter):
 _LATEX_SETTINGS = {"inv_trig_style": "power", "ln_notation": True}
 
 
-def latex(raw: Raw, *, logic_symbols: bool = False) -> str:
+def latex(
+    raw: Raw, *, decimal_text: Callable[[Decimal], str] | None = None, logic_symbols: bool = False
+) -> str:
     printer = _TILatexPrinter(_LATEX_SETTINGS)
+    printer.decimal_text = decimal_text
     printer.symbols_for_logic = logic_symbols
     return printer.doprint(raw)
 
