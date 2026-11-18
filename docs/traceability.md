@@ -162,7 +162,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-GRAPH-002 | Must | `tests/app/test_graphs_view.py`, `tests/unit/test_graph_page.py`, `tests/unit/test_graph_sampling.py` |
 | FR-GRAPH-003 | Must | `tests/unit/test_graph_analysis.py` |
 | FR-GRAPH-004 | Must | `tests/unit/test_graph_page.py`, `tests/unit/test_graph_sampling.py` |
-| FR-GRAPH-006 | Must | `tests/device/test_sheet_scene.py`, `tests/unit/test_graph_page.py`, `tests/unit/test_graph_sampling.py` and 1 more |
+| FR-GRAPH-006 | Must | `tests/app/test_computer_columns.py`, `tests/device/test_sheet_scene.py`, `tests/unit/test_graph_page.py` and 2 more |
 | FR-DEV-001 | Must | `tests/app/test_keyboard.py`, `tests/app/test_menus.py`, `tests/app/test_soft_keys.py` and 5 more |
 | FR-DEV-002 | Must | `tests/app/test_computer_columns.py`, `tests/e2e/test_sidebar_browser.py` |
 | FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_history_cache.py`, `tests/app/test_layout.py` and 7 more |

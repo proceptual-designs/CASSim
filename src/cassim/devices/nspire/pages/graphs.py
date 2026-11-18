@@ -228,44 +228,11 @@ class Graphs:
     def scene(self, width: float, height: float) -> Scene:
         viewport = Viewport(self.window, max(width, 120), max(height, 100))
         self._viewport_width, self._viewport_height = viewport.width, viewport.height
-        shapes: list[Shape] = []
-        grid: list[tuple[float, float]] = []
-        for x in tick_values(self.window.x_min, self.window.x_max):
-            px, _ = self.window.to_screen(x, 0, viewport.width, viewport.height)
-            grid.extend(((px, 0), (px, viewport.height)))
-            if x:
-                _, y = self.window.to_screen(x, 0, viewport.width, viewport.height)
-                shapes.append(Label(px + 3, y + 3, _format_tick(x), 10, "axis"))
-        for y in tick_values(self.window.y_min, self.window.y_max):
-            _, py = self.window.to_screen(0, y, viewport.width, viewport.height)
-            grid.extend(((0, py), (viewport.width, py)))
-            if y:
-                x, _ = self.window.to_screen(0, y, viewport.width, viewport.height)
-                shapes.append(Label(x + 4, py - 12, _format_tick(y), 10, "axis"))
-        shapes.append(Segments(tuple(grid), Stroke("grid", 0.6)))
-        x_axis = self.window.to_screen(0, 0, viewport.width, viewport.height)
-        shapes.append(
-            Segments(
-                (
-                    (0, x_axis[1]),
-                    (viewport.width, x_axis[1]),
-                    (x_axis[0], 0),
-                    (x_axis[0], viewport.height),
-                ),
-                Stroke("axis", 1.2),
-            )
-        )
-        shapes.extend(
-            (
-                Label(8, 6, "Functions", 12),
-                Label(viewport.width - 6, viewport.height - 18, "x", 11, "axis", Align.RIGHT),
-            )
-        )
         scene = Scene(
             viewport.width,
             viewport.height,
             (
-                Layer("grid", tuple(shapes)),
+                Layer("grid", tuple(_axis_shapes(viewport))),
                 Layer(
                     "curves",
                     tuple(
@@ -284,8 +251,77 @@ class Graphs:
         return scene
 
 
+def _axis_shapes(viewport: Viewport) -> list[Shape]:
+    window, width, height = viewport.window, viewport.width, viewport.height
+    origin_x, origin_y = window.to_screen(0, 0, width, height)
+    segments: list[tuple[float, float]] = []
+    labels: list[Shape] = []
+    tick_size = 3.0
+    if window.y_min <= 0 <= window.y_max:
+        segments.extend(((0, origin_y), (width, origin_y)))
+        segments.extend(((width - 5, origin_y - 4), (width, origin_y)))
+        segments.extend(((width - 5, origin_y + 4), (width, origin_y)))
+        ticks = tick_values(window.x_min, window.x_max)
+        for value in ticks:
+            x, _ = window.to_screen(value, 0, width, height)
+            segments.extend(((x, origin_y - tick_size), (x, origin_y + tick_size)))
+        label_y = min(max(origin_y + 4, 0), height - 12)
+        minimum, maximum = _format_end_values(window.x_min, window.x_max)
+        labels.extend(
+            (
+                Label(2, label_y, minimum, 10, "axis"),
+                Label(width - 2, label_y, maximum, 10, "axis", Align.RIGHT),
+                Label(width - 4, max(origin_y - 15, 0), "x", 11, "axis", Align.RIGHT),
+            )
+        )
+        positive = (
+            next((value for value in ticks if 0 < value < window.x_max), None)
+            if window.x_min <= 0
+            else None
+        )
+        if positive is not None:
+            x, _ = window.to_screen(positive, 0, width, height)
+            labels.append(Label(x + 3, label_y, _format_tick(positive), 10, "axis"))
+    if window.x_min <= 0 <= window.x_max:
+        segments.extend(((origin_x, 0), (origin_x, height)))
+        segments.extend(((origin_x - 4, 5), (origin_x, 0)))
+        segments.extend(((origin_x + 4, 5), (origin_x, 0)))
+        ticks = tick_values(window.y_min, window.y_max)
+        for value in ticks:
+            _, y = window.to_screen(0, value, width, height)
+            segments.extend(((origin_x - tick_size, y), (origin_x + tick_size, y)))
+        label_x = max(origin_x - 6, 0)
+        minimum, maximum = _format_end_values(window.y_min, window.y_max)
+        labels.extend(
+            (
+                Label(label_x, 1, maximum, 10, "axis", Align.RIGHT),
+                Label(label_x, height - 12, minimum, 10, "axis", Align.RIGHT),
+                Label(min(origin_x + 5, width - 11), 1, "y", 11, "axis"),
+            )
+        )
+        positive = (
+            next((value for value in ticks if 0 < value < window.y_max), None)
+            if window.y_min <= 0
+            else None
+        )
+        if positive is not None:
+            _, y = window.to_screen(0, positive, width, height)
+            labels.append(
+                Label(label_x, max(y - 12, 0), _format_tick(positive), 10, "axis", Align.RIGHT)
+            )
+    return [Segments(tuple(segments), Stroke("axis", 1.2)), *labels] if segments else []
+
+
+def _format_end_values(minimum: float, maximum: float) -> tuple[str, str]:
+    for precision in range(3, 18):
+        labels = (f"{minimum:.{precision}g}", f"{maximum:.{precision}g}")
+        if labels[0] != labels[1]:
+            return labels
+    return (repr(minimum), repr(maximum))
+
+
 def _format_tick(value: float) -> str:
-    return f"{value:g}" if math.isfinite(value) else ""
+    return f"{value:.3g}" if math.isfinite(value) else ""
 
 
 def new_graphs(problem: Problem) -> Graphs:

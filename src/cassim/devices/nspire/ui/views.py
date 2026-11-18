@@ -26,7 +26,7 @@ from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.statistics_plot import p_value_scene
 from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.graphs_view import GraphsView
-from cassim.devices.nspire.ui.layout import SCREEN_H
+from cassim.devices.nspire.ui.layout import COMPUTER_COLUMN_PADDING, SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
 from cassim.devices.nspire.ui.state import MATH_SIZES, SORTER, AppState, Mode
 from cassim.devices.nspire.ui.statistics_view import StatisticsView
@@ -485,7 +485,10 @@ class CalculatorView:
             return False
         self._calculator_shown = False
         self.body.controls = [self.graphs_view.control]
-        self.graphs_view.refresh(graphs, *self.body_size())
+        width, height = self.body_size()
+        if self.state.mode is Mode.COMPUTER:
+            width -= 2 * COMPUTER_COLUMN_PADDING
+        self.graphs_view.refresh(graphs, width, height)
         self._follow = False
         self._error(screen)
         self._menu(screen.menu)

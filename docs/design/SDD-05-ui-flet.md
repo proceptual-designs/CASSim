@@ -48,6 +48,8 @@ One `KeyboardListener` with autofocus wraps the page. `track_shift` records Shif
 Graphs function entries use the same `Editor`, Calculator editing actions and `EntryLine` renderer.
 Each function retains its own structured draft; Enter or Plot compiles its linear expression, and
 saved pages preserve templates and drafts separately from the last plotted expression.
+The default graph scene draws axes with tick marks and end values instead of a full grid, matching
+the observed default Graphs view. Its colours still follow the selected CASSim theme.
 
 ## Refresh and persistence
 

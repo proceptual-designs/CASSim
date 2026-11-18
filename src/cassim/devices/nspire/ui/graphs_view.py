@@ -41,11 +41,20 @@ class GraphsView:
         self._gesture_scale = 1.0
         self.functions = ft.Column(spacing=2)
         self.plot = ft.Container(expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
+        button_style = ft.ButtonStyle(color=theme.screen_text)
         self.toolbar = ft.Row(
             [
-                ft.TextButton("Zoom +", on_click=lambda _: self._act("graphs_zoom", "0.5")),
-                ft.TextButton("Zoom −", on_click=lambda _: self._act("graphs_zoom", "2")),
-                ft.TextButton("Standard", on_click=lambda _: self._act("graphs_standard", "")),
+                ft.TextButton(
+                    "Zoom +", style=button_style, on_click=lambda _: self._act("graphs_zoom", "0.5")
+                ),
+                ft.TextButton(
+                    "Zoom −", style=button_style, on_click=lambda _: self._act("graphs_zoom", "2")
+                ),
+                ft.TextButton(
+                    "Standard",
+                    style=button_style,
+                    on_click=lambda _: self._act("graphs_standard", ""),
+                ),
             ],
             spacing=2,
             height=_TOOLBAR_HEIGHT,
@@ -102,14 +111,18 @@ class GraphsView:
             controls.append(
                 ft.Row(
                     [
-                        ft.Text(f"{entry.name}(x) =", size=13 * scale),
+                        ft.Text(
+                            f"{entry.name}(x) =", size=13 * scale, color=self.theme.screen_text
+                        ),
                         field_area,
                         ft.TextButton(
                             "Plot",
+                            style=ft.ButtonStyle(color=self.theme.screen_text),
                             on_click=lambda _, item=index: self._act("graphs_submit", str(item)),
                         ),
                         ft.TextButton(
                             "Hide" if entry.visible else "Show",
+                            style=ft.ButtonStyle(color=self.theme.screen_text),
                             on_click=lambda _, name=entry.name: self._act("graphs_toggle", name),
                         ),
                     ],

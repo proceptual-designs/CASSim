@@ -10,7 +10,7 @@ from cassim.devices.nspire.pages.graphs import Graphs, graphs_of
 from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
 from cassim.graph.sampling import Window
-from cassim.graph.scene import Polyline
+from cassim.graph.scene import Label, Polyline, Segments
 
 
 def test_function_entry_creates_a_shared_problem_function_and_curve() -> None:
@@ -53,6 +53,43 @@ def test_visibility_and_zoom_change_the_rendered_graph() -> None:
     graphs.zoom(0.5)
     assert graphs.window.x_min == -5
     assert graphs.window.x_max == 5
+
+
+def test_default_axes_use_ticks_and_end_values_without_a_grid() -> None:
+    graphs = Graphs(Session())
+    axes = graphs.scene(400, 280).layer("grid")
+    assert axes is not None
+    segments = [shape for shape in axes.shapes if isinstance(shape, Segments)]
+    assert len(segments) == 1
+    assert segments[0].stroke.colour == "axis"
+    points = segments[0].points
+    assert ((220, 137), (220, 143)) in list(zip(points[::2], points[1::2], strict=True))
+    labels = [shape.text for shape in axes.shapes if isinstance(shape, Label)]
+    assert labels == ["-10", "10", "x", "1", "6.67", "-6.67", "y", "1"]
+
+
+def test_axes_outside_the_window_do_not_draw_false_grid_lines() -> None:
+    graphs = Graphs(Session())
+    graphs.set_window(Window(2, 6, 3, 7))
+    axes = graphs.scene(400, 280).layer("grid")
+    assert axes is not None
+    assert axes.shapes == ()
+
+    graphs.set_window(Window(2, 6, -2, 2))
+    axes = graphs.scene(400, 280).layer("grid")
+    assert axes is not None
+    labels = [shape.text for shape in axes.shapes if isinstance(shape, Label)]
+    assert "x" in labels
+    assert "y" not in labels
+
+
+def test_zoomed_axis_end_values_remain_distinguishable() -> None:
+    graphs = Graphs(Session())
+    graphs.set_window(Window(1000, 1001, -2, 2))
+    axes = graphs.scene(400, 280).layer("grid")
+    assert axes is not None
+    labels = [shape.text for shape in axes.shapes if isinstance(shape, Label)]
+    assert labels[:2] == ["1000", "1001"]
 
 
 def test_pan_and_zoom_gesture_keeps_the_focal_point_in_place() -> None:

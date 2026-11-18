@@ -35,6 +35,19 @@ def test_graph_rows_use_shared_entry_renderer_and_target_the_selected_function()
     assert actions == [("place", "1::0")]
 
 
+def test_graph_controls_use_screen_text_colour() -> None:
+    view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
+    view.refresh(Graphs(Session()), 320, 300)
+    row = view.functions.controls[0]
+    assert isinstance(row, ft.Row)
+    assert isinstance(row.controls[0], ft.Text)
+    assert row.controls[0].color == DARK.screen_text
+    for button in [*view.toolbar.controls, *row.controls[2:]]:
+        assert isinstance(button, ft.TextButton)
+        assert button.style is not None
+        assert button.style.color == DARK.screen_text
+
+
 def test_tall_templates_expand_the_entry_without_clipping_the_plot() -> None:
     view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
     graphs = Graphs(Session())
