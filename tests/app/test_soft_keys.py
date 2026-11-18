@@ -89,3 +89,37 @@ def test_hardware_keys_are_not_typed_twice_while_the_box_has_focus() -> None:
 
     asyncio.run(app.on_key(event))
     assert calculator_on(app.state.document.current).editor.linear() == ""
+
+
+def test_physical_escape_cancels_pending_keypad_modifiers() -> None:
+    """FR-DEV-001: physical Escape cancels keypad Ctrl or Shift and closes the open menu."""
+    app, page = touch_app(touch=True)
+    import asyncio  # noqa: PLC0415
+
+    for modifier in ("ctrl", "shift"):
+        app.state.key_event("F2")
+        app.state.press_keypad(modifier)
+        assert app.state.pending == modifier
+        asyncio.run(
+            app.on_key(
+                SimpleNamespace(key="Escape", shift=False, ctrl=False, alt=False, meta=False)
+            )
+        )
+        assert app.state.pending == ""
+        assert app.state.screen().menu is None
+    for task in page.tasks:
+        task.close()
+
+
+def test_physical_escape_cancels_pending_keypad_modifier_while_busy() -> None:
+    app, page = touch_app(touch=True)
+    app.starting = True
+    app.state.press_keypad("shift")
+    import asyncio  # noqa: PLC0415
+
+    asyncio.run(
+        app.on_key(SimpleNamespace(key="Escape", shift=False, ctrl=False, alt=False, meta=False))
+    )
+    assert app.state.pending == ""
+    for task in page.tasks:
+        task.close()

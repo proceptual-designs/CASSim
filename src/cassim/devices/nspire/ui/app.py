@@ -633,9 +633,13 @@ class App:
         binding = state.binding_for(e.key, shift=e.shift, ctrl=e.ctrl, alt=e.alt, meta=e.meta)
         if binding is None:
             return
+        if binding.action == "escape":
+            state.clear_pending()
         if self.busy:  # only Esc gets through: it cancels the run
             if binding.action == "escape" and self.running:
                 await self.cancel()
+            elif binding.action == "escape":
+                self.refresh()
             return
         if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
             return  # typed into the hidden box: on_sink turns it into keys
