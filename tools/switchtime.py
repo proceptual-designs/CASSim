@@ -2,11 +2,10 @@
 
     python -m tools.switchtime [--dist DIR] [--build] [--switches 20] [--entries 15] [--slow 4]
 
-Opens the site in Chromium with `#/debug`, fills two Calculator pages with entries and a third,
-Lists & Spreadsheet, page with a column of 30 values, then moves between the pages with alt+arrow
-and times each move from the key press to the app's `CASSIM: PAGE p.q` line, which it prints
-once the new page has been sent to Flutter. The aim is 100 ms on a desktop and 250 ms on a
-mid-range phone (decision 0031); nothing fails above it.
+Opens the site in Chromium with `#/debug`, fills two Calculator pages and a spreadsheet with a
+30-value column and a dependent formula column, and adds a Data & Statistics page. It measures
+each page switch to the app's `CASSIM: PAGE p.q` line, and each recalculation from Enter to the
+updated dependent cell's debug line. These are observed times, not pass/fail thresholds.
 
 `--slow N` applies Chromium's CPU throttle as a rough stand-in for a phone. Whether it also slows
 the Python worker is not known (spike A), so a real phone run is still needed.
@@ -49,7 +48,8 @@ class Console:
         while not done() and time.perf_counter() < end:
             page.wait_for_timeout(20)
         if not done():
-            raise SystemExit(f"timed out waiting for {what}")
+            recent = "\n".join(line for _, line in self.lines[-10:])
+            raise SystemExit(f"timed out waiting for {what}; recent app messages:\n{recent}")
 
     def count(self, text: str) -> int:
         return sum(text in line for _, line in self.lines)
@@ -68,7 +68,7 @@ def fill(page: Page, console: Console, entries: int, offset: int) -> None:
 
 
 def sheet(page: Page, console: Console) -> None:
-    """Doc > Insert > Lists & Spreadsheet, then a column formula of 30 values."""
+    """Create a named list and a formula column depending on it."""
     for key in ("F4", "4", "6"):
         page.keyboard.press(key)
         page.wait_for_timeout(100)
@@ -78,6 +78,37 @@ def sheet(page: Page, console: Console) -> None:
         page.wait_for_timeout(20)
     page.keyboard.press("Enter")
     console.wait(page, lambda: console.count("CASSIM: SHEET A1 1") > 0, "the sheet's column")
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("ArrowUp")
+    page.keyboard.type("scores", delay=20)
+    page.keyboard.press("Enter")
+    page.keyboard.press("ArrowRight")
+    type_sheet(page, "=a[]*2")
+    page.keyboard.press("Enter")
+    console.wait(page, lambda: console.count("CASSIM: SHEET B1 2") > 0, "the dependent column")
+
+
+def type_sheet(page: Page, text: str) -> None:
+    for piece in text:
+        page.keyboard.press("Shift+" + SHIFTED[piece] if piece in SHIFTED else piece)
+        page.wait_for_timeout(20)
+
+
+def recalculate(page: Page, console: Console, count: int) -> list[float]:
+    """Time a changed 30-row formula until its dependent B1 value is displayed."""
+    times = []
+    for n in range(count):
+        page.keyboard.press("ArrowLeft")
+        page.keyboard.press("ArrowUp")
+        type_sheet(page, f"=seq(n^2+{1 if n % 2 == 0 else 0},n,1,30)")
+        expected = f"CASSIM: SHEET B1 {4 if n % 2 == 0 else 2}"
+        before = console.count(expected)
+        start = time.perf_counter()
+        page.keyboard.press("Enter")
+        page.keyboard.press("ArrowRight")
+        console.wait(page, lambda text=expected, n=before: console.count(text) > n, expected)
+        times.append((time.perf_counter() - start) * 1000)
+    return times
 
 
 type Times = dict[str, list[tuple[float, float, float]]]  # page: (total, build, send) in ms
@@ -100,7 +131,9 @@ def switch(page: Page, console: Console, key: str) -> tuple[str, float, float, f
     return name, when - start, float(split["build"]), float(split["send"])
 
 
-def measure(url: str, *, switches: int, entries: int, slow: float) -> Times:
+def measure(
+    url: str, *, switches: int, entries: int, slow: float, recalculations: int
+) -> tuple[Times, list[float]]:
     with sync_playwright() as p:
         browser = launch(p)
         page = browser.new_context(viewport={"width": 1100, "height": 700}).new_page()
@@ -110,13 +143,21 @@ def measure(url: str, *, switches: int, entries: int, slow: float) -> Times:
         console.wait(page, lambda: console.count("ENGINE READY") > 0, "the engine")
         page.mouse.click(600, 150)  # focus the calculator
         fill(page, console, entries, 0)
-        page.keyboard.press("Control+i")  # a second Calculator page
+        for key in ("F4", "4", "3"):  # Doc > Insert > Calculator
+            page.keyboard.press(key)
+            page.wait_for_timeout(100)
+        console.wait(page, lambda: console.count("CASSIM: PAGE 1.2") > 0, "the second Calculator")
         fill(page, console, entries, 100)
         sheet(page, console)  # a third: a Lists & Spreadsheet page with a column of 30
-        page.wait_for_timeout(500)
         if slow != 1.0:
             cdp = page.context.new_cdp_session(page)
             cdp.send("Emulation.setCPUThrottlingRate", {"rate": slow})
+        recalc_times = recalculate(page, console, recalculations)
+        for key in ("F4", "4", "7"):  # Data & Statistics on the same list
+            page.keyboard.press(key)
+            page.wait_for_timeout(100)
+        console.wait(page, lambda: console.count("CASSIM: PAGE 1.4") > 0, "the statistics page")
+        page.wait_for_timeout(500)
         times: Times = defaultdict(list)
         keys = ["Alt+ArrowLeft", "Alt+ArrowLeft", "Alt+ArrowRight", "Alt+ArrowRight"]
         for n in range(switches):
@@ -124,7 +165,7 @@ def measure(url: str, *, switches: int, entries: int, slow: float) -> Times:
             times[reached].append((seconds * 1000, build, send))
             page.wait_for_timeout(200)
         browser.close()
-    return times
+    return times, recalc_times
 
 
 def report(times: Times) -> str:
@@ -149,6 +190,7 @@ def main() -> None:
     parser.add_argument("--build", action="store_true", help="run tools.publish first")
     parser.add_argument("--switches", type=int, default=20)
     parser.add_argument("--entries", type=int, default=15, help="entries on each full page")
+    parser.add_argument("--recalculations", type=int, default=10)
     parser.add_argument("--slow", type=float, default=1.0, help="CPU throttle factor")
     args = parser.parse_args()
     if args.build:
@@ -158,10 +200,21 @@ def main() -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         url = f"http://127.0.0.1:{server.server_address[1]}/{BASE}/"
-        times = measure(url, switches=args.switches, entries=args.entries, slow=args.slow)
+        times, recalc_times = measure(
+            url,
+            switches=args.switches,
+            entries=args.entries,
+            slow=args.slow,
+            recalculations=args.recalculations,
+        )
     finally:
         server.shutdown()
     print(report(times))
+    if recalc_times:
+        print(
+            f"Recalculation to dependent B1: n={len(recalc_times)}, "
+            f"median={statistics.median(recalc_times):.0f} ms, max={max(recalc_times):.0f} ms"
+        )
 
 
 if __name__ == "__main__":

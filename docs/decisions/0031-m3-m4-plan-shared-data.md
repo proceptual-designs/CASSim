@@ -210,6 +210,24 @@ The first measurement of NFR-PERF-006, on today's Calculator pages: two pages of
 - The sheet page is drawn at once from its kept view (its cells as the engine last formatted them), with no wait for the engine, and costs less than a Calculator page: the grid is four canvases (grid, heads, cells, cursor), not a control per line.
 - Not yet run on a phone. Graphs joins the cycle when it is built (4b).
 
+### M3 data-page timings (2026-11-18)
+
+Headless Chromium-family browser on Windows, no CPU throttle; two Calculator pages with four
+entries each, a spreadsheet with a 30-row formula and dependent formula column, and a Data &
+Statistics page using the named list. `tools/switchtime.py` recorded 12 switches (from the key
+press to the app's PAGE message) and six recalculations (from Enter through navigating to the
+updated dependent B1 value). These include browser and UI communication, not just engine time.
+
+| Measurement | Samples | Median | Max |
+|---|---:|---:|---:|
+| Calculator page 1.2 switch | 3 | 167 ms | 212 ms |
+| Spreadsheet page 1.3 switch | 6 | 118 ms | 145 ms |
+| Data & Statistics page 1.4 switch | 3 | 133 ms | 135 ms |
+| Dependent-cell recalculation | 6 | 876 ms | 1,310 ms |
+
+This is one desktop run, not a performance limit or a phone measurement. The switch message
+precedes Flutter's final drawing; the recalculation measurement includes a Right key and polling.
+
 ## Emulator evidence still needed
 
 Check 6 (`docs/testing/emulator-pages-capture.md`) parts E and F are needed before slices 3a and 3b settle, part D before 4b. Check 6 did not cover sharing, so parts G (shared data), H (split pages), J (categorical charts) and N (Notes) are in `docs/testing/emulator-sharing-capture.md`.

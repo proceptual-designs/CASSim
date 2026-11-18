@@ -153,15 +153,15 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 2 more |
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/device/test_share.py` |
-| FR-DOC-008 | Must | `tests/app/test_variable_sidebar.py`, `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py` and 4 more |
+| FR-DOC-008 | Must | `tests/app/test_variable_sidebar.py`, `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py` and 5 more |
 | FR-DOC-010 | Should | `tests/app/test_documents.py`, `tests/app/test_library.py` |
 | FR-DOC-009 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
-| FR-SHEET-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_sheet_scene.py` and 7 more |
-| FR-SHEET-002 | Must | `tests/device/test_engine_sheet.py`, `tests/e2e/test_sheet_browser.py`, `tests/unit/test_sheet.py` and 1 more |
+| FR-SHEET-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_sheet_scene.py` and 8 more |
+| FR-SHEET-002 | Must | `tests/device/test_engine_sheet.py`, `tests/e2e/test_sheet_browser.py`, `tests/flows/test_exam_flows.py` and 2 more |
 | FR-SHEET-003 | Should | `tests/app/test_sheet_view.py` |
 | FR-SHEET-008 | Must | `tests/device/test_spreadsheet_page.py` |
-| FR-STAT-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/device/test_statistics_page.py` and 3 more |
+| FR-STAT-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/device/test_statistics_page.py` and 4 more |
 | FR-STAT-005 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_statistics_page.py`, `tests/e2e/test_statistics_browser.py` and 1 more |
 | FR-STAT-002 | Must | `tests/unit/test_sheet_stats.py`, `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/device/test_statistics_page.py`, `tests/unit/test_statistics.py` |
