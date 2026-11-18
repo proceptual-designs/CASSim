@@ -34,6 +34,7 @@ def test_home_chooses_an_app_and_remembers_it(browser: Browser, site) -> None:
         "console",
         lambda message: logs.append(message.text) if message.text.startswith("CASSIM:") else None,
     )
+    page.on("pageerror", lambda error: logs.append(f"PAGEERROR:{error}"))
     try:
         page.goto(site[1], wait_until="load")
         assert wait_for_log(page, logs, "CASSIM: HOME"), "Home never drew"
@@ -77,7 +78,7 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
         page.close()
 
 
-def test_pseudocode_placeholder_has_a_home_menu(browser: Browser, site) -> None:
+def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
     """The second enabled Home choice can be entered and left without loading Nspire."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
@@ -90,8 +91,7 @@ def test_pseudocode_placeholder_has_a_home_menu(browser: Browser, site) -> None:
         assert wait_for_log(page, logs, "CASSIM: HOME"), "Home never drew"
         enable_semantics(page)
         page.get_by_role("button", name=re.compile("^Pseudocode")).click()
-        assert wait_for_log(page, logs, "CASSIM: PSEUDOCODE READY"), "placeholder did not open"
-        expect(page.get_by_text("Pseudocode & Python are coming next.")).to_be_attached()
+        expect(page.get_by_role("switch", name="Pseudocode")).to_be_attached(timeout=10_000)
         assert "CASSIM: UI" not in logs
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         logs.clear()

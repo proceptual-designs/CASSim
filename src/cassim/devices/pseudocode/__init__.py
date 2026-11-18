@@ -4,6 +4,7 @@ from cassim.device.profile import Profile
 from cassim.devices import Device
 from cassim.doc.document import PageType, PageTypes
 
+
 def new_code(_: object) -> dict[str, str]:
     return {"source": ""}
 

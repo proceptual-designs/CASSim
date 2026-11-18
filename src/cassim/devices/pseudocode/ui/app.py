@@ -735,23 +735,20 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
 
     def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        home = getattr(self.shell, "home", None)
-        if callable(home):
-            home()
-            return
-        if sys.platform == "emscripten":
-            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
+        async def show_home() -> None:
+            from cassim.app.home import Home  # noqa: PLC0415
 
-            js.location.hash = "pseudocode"
-            js.location.reload()
-        else:
-            url = self.page.url or ""
-            if url:
-                base = url.partition("#")[0]
-                self.page.run_task(
-                    self.shell.launcher.launch_url,
-                    f"{base}#/pseudocode",
-                )
+            self.page.controls.clear()
+            await Home(
+                self.shell,
+                lambda item: self.page.run_task(self.open_device_placeholder, item),
+            ).start()
+
+        self.page.run_task(show_home)
+
+    async def open_device_placeholder(self, item: str) -> None:
+        """The Home callback target when a device is chosen after returning from Code view."""
+        del item
 
     def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
         number = ft.SegmentedButton(
