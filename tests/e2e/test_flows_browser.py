@@ -1,8 +1,8 @@
 """The exam-style flows typed into the built site, key by key (M2 exit criterion).
 
-Plays the flows marked `browser: true` in `corpus/flows/exam.yaml` (the headless run is
+Plays the flows marked `browser: true` in `corpus/flows` (the headless run is
 `tests/flows/test_exam_flows.py`). Results are read from the console: with `#/debug` the app
-prints `CASSIM: RESULT <text>` after each calculation, since the canvas has nothing to read.
+prints result and selected-sheet-cell lines, since the canvas has nothing to read.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Browser, Page
+from playwright.sync_api import Browser, Page, expect
 from tools.flows import (
     RIGHT,
     SHIFTED,
@@ -20,6 +20,7 @@ from tools.flows import (
     matches,
     parse_keys,
     playwright_key,
+    sheet_matches,
     split_text,
 )
 
@@ -71,6 +72,9 @@ class AppPage:
 def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dict) -> None:
     _, url = site
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), url)
+    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
+    if any("plot_x" in step for step in flow["steps"]):
+        app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
     settings = flow_settings(flow)
     for step in flow["steps"]:
         label = step.get("type") or step.get("keys", "")
@@ -95,4 +99,41 @@ def test_flow_in_the_browser(browser: Browser, site: tuple[Path, str], flow: dic
                 step.get("compare", "canonical"),
                 step.get("tol", 1.0e-7),
             ), f"{label}: got {got}, expected {step['expect']}"
+        if "page" in step:
+            wanted_page = str(step["page"])
+            app.wait(
+                lambda expected=wanted_page: (
+                    next(
+                        (
+                            line.removeprefix("CASSIM: PAGE ").split()[0]
+                            for line in reversed(app.logs)
+                            if line.startswith("CASSIM: PAGE ")
+                        ),
+                        "",
+                    )
+                    == expected
+                ),
+                f"PAGE {wanted_page}",
+            )
+        if "sheet" in step:
+            wanted = step["sheet"]
+            app.wait(
+                lambda expected=wanted: sheet_matches(
+                    expected,
+                    next(
+                        (
+                            line.removeprefix("CASSIM: SHEET ")
+                            for line in reversed(app.logs)
+                            if line.startswith("CASSIM: SHEET ")
+                        ),
+                        "",
+                    ),
+                    settings,
+                ),
+                f"SHEET {wanted}",
+            )
+        if "plot_x" in step:
+            expect(app.page.get_by_role("button", name=step["plot_x"], exact=True)).to_be_visible(
+                timeout=30000
+            )
     app.page.close()

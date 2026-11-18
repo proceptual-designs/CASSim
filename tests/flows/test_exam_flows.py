@@ -1,4 +1,4 @@
-# Requirements traced here: NFR-USE-001
+# Requirements traced here: NFR-USE-001, FR-SHEET-001, FR-SHEET-002, FR-STAT-001, FR-DOC-008
 """The exam-style flows, run key by key through the app's own state (M2 exit criterion).
 
 `corpus/flows/exam.yaml` is the script; `tools/flows.py` plays it. The same flows marked
@@ -6,7 +6,15 @@
 """
 
 import pytest
-from tools.flows import Outcome, load_flows, matches, parse_keys, run_flow, split_text
+from tools.flows import (
+    Outcome,
+    load_flows,
+    matches,
+    parse_keys,
+    run_flow,
+    sheet_matches,
+    split_text,
+)
 
 from cassim.core.settings import Settings
 
@@ -56,6 +64,22 @@ def test_flows_marked_for_the_browser_only_use_what_it_can_do() -> None:
     for flow in FLOWS.values():
         if not flow.get("browser"):
             continue
-        assert flow["course"] == "methods", flow["id"]  # the site starts with the Methods defaults
+        if flow["course"] != "methods":
+            assert flow.get("browser_defaults_compatible"), flow["id"]
         for step in flow["steps"]:
             assert not {"keypad", "action", "settings", "variable"} & step.keys(), flow["id"]
+
+
+def test_wrong_data_page_expectations_fail() -> None:
+    sheet = {"id": "sheet", "steps": [{"sheet": "A1 7"}]}
+    plot = {"id": "plot", "steps": [{"plot_x": "scores"}]}
+    assert not run_flow(sheet).passed
+    assert not run_flow(plot).passed
+
+
+def test_sheet_comparison_handles_approximate_numbers_and_wrong_addresses() -> None:
+    settings = Settings()
+    assert sheet_matches("A1 2", "A1 2.", settings)
+    assert not sheet_matches("A1 2", "A2 2", settings)
+    assert not sheet_matches("A1 2", "A1 3", settings)
+    assert not sheet_matches("A1", "A1 2", settings)
