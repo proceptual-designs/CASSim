@@ -173,12 +173,17 @@ def _atom_latex(value: Str | Bool | Void | Empty | Shown) -> str:
     return r"\text{Done}"
 
 
-def to_latex(value: Value, *, logic_symbols: bool = False) -> str:
+def to_latex(value: Value, settings: Settings | None = None, *, logic_symbols: bool = False) -> str:
     def again(item: Value) -> str:
-        return to_latex(item, logic_symbols=logic_symbols)
+        return to_latex(item, settings, logic_symbols=logic_symbols)
 
     if isinstance(value, Expr):
-        return cas.latex(value.raw, logic_symbols=logic_symbols)
+        decimal = (
+            None
+            if settings is None
+            else lambda number: decimal_text(number, settings.digits, settings.exp_format)
+        )
+        return cas.latex(value.raw, decimal_text=decimal, logic_symbols=logic_symbols)
     if isinstance(value, Str | Bool | Void | Empty | Shown):
         return _atom_latex(value)
     if isinstance(value, Unevaluated):

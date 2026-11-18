@@ -205,6 +205,23 @@ def test_digits_setting_reaches_results():
 
 
 @pytest.mark.parametrize(
+    ("digits", "line", "latex"),
+    [
+        ("float3", "1/3.", "0.333"),
+        ("fix2", "1/3.", "0.33"),
+        ("float3", "x+1.23456", "x + 1.23"),
+        ("float3", "-1000000.*pi", r"-3.14 \cdot 10^{6}"),
+        ("fix2", "0.005", r"5.00 \cdot 10^{-3}"),
+    ],
+)
+def test_digits_setting_reaches_latex_results(digits, line, latex):
+    result = Session(Settings(digits=digits)).eval(line)
+    assert result.error is None
+    assert latex in result.latex
+    assert "1.23456" not in result.latex
+
+
+@pytest.mark.parametrize(
     ("line", "message"),
     [
         ("2+*3", "Syntax"),

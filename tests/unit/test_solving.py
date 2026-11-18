@@ -41,7 +41,6 @@ def same(line, wanted, settings=None, tolerance=None):
     ("line", "wanted"),
     [
         ("solve(x^2-4=0,x)", "x=-2 or x=2"),
-        ("solve(x^2-4,x)", "x=-2 or x=2"),  # no `=` means `=0`
         ("solve(x^3-3*x^2+2*x=0,x)", "x=0 or x=1 or x=2"),
         ("solve(x^4-5*x^2+4=0,x)", "x=-2 or x=-1 or x=1 or x=2"),
         ("solve(abs(x-1)=3,x)", "x=-2 or x=4"),
@@ -191,6 +190,23 @@ def test_arguments_are_checked():
     assert error("solve(x^2=1,5)") == "Syntax error"
     assert error("solve(x^2=1,{})") == "Syntax error"
     assert error("zeros(x^2-1,{x,y})") == "Syntax error"
+
+
+@pytest.mark.parametrize("command", ["solve", "cSolve"])
+def test_solving_requires_an_equation_or_inequality(command):
+    assert error(f"{command}(x^2-2,x)") == "Syntax error"
+
+
+@pytest.mark.parametrize("command", ["zeros", "zeroes", "cZeros"])
+@pytest.mark.parametrize("input_text", ["x^2-2=0", "x^2>2"])
+def test_zeros_requires_an_expression(command, input_text):
+    assert error(f"{command}({input_text},x)") == "Syntax error"
+
+
+def test_solve_and_zeros_keep_accepting_their_respective_argument_kinds():
+    assert text("solve(x^2-2=0,x)") == "x=-√(2) or x=√(2)"
+    assert text("solve(x^2>2,x)") == "x<-√(2) or x>√(2)"
+    assert text("zeros(x^2-2,x)") == "{-√(2),√(2)}"
 
 
 @pytest.mark.parametrize(
