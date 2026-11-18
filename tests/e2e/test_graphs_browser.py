@@ -25,8 +25,17 @@ def test_function_entry_finishes_plotting_in_the_browser(
     app.type_text("-4")
     app.press("Enter")
 
+    expect(app.page.get_by_text("f1(x) =")).to_be_visible(timeout=30000)
+    expect(app.page.get_by_text("f2(x) =")).to_be_hidden(timeout=30000)
+    app.press("ArrowDown")
     expect(app.page.get_by_text("f2(x) =")).to_be_visible(timeout=30000)
     expect(app.page.get_by_text("Plotting…")).to_be_hidden(timeout=30000)
+    app.page.get_by_text("Graph function history", exact=True).evaluate(
+        "(element) => element.click()"
+    )
+    expect(app.page.get_by_role("button", name="1 f1(x) = x^(2)-4")).to_be_visible(timeout=10000)
+    expect(app.page.get_by_role("button", name="2 f2(x) = …")).to_be_visible(timeout=10000)
+    app.press("Escape")
     app.press("ctrl+Left")
     app.type_text("f1(3)")
     app.press("Enter")

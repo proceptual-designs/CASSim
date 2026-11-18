@@ -17,11 +17,15 @@ def test_graph_rows_use_shared_entry_renderer_and_target_the_selected_function()
     view = GraphsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1.0)
     graphs = Graphs(Session())
     graphs.submit(0, "x^2")
+    graphs.select_function(1)
     view.refresh(graphs, 600, 400)
 
-    row = view.functions.controls[1]
+    assert len(view.functions.controls) == 1
+    container = view.functions.controls[0]
+    assert isinstance(container, ft.Container)
+    row = container.content
     assert isinstance(row, ft.Row)
-    area = row.controls[1]
+    area = row.controls[2]
     assert isinstance(area, ft.GestureDetector)
     container = area.content
     assert isinstance(container, ft.Container)
@@ -35,17 +39,48 @@ def test_graph_rows_use_shared_entry_renderer_and_target_the_selected_function()
     assert actions == [("place", "1::0")]
 
 
-def test_graph_controls_use_screen_text_colour() -> None:
-    view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
+def test_graph_controls_use_cassim_styles_and_menu_actions() -> None:
+    actions: list[tuple[Action, str]] = []
+    view = GraphsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1.0)
     view.refresh(Graphs(Session()), 320, 300)
-    row = view.functions.controls[0]
+    container = view.functions.controls[0]
+    assert isinstance(container, ft.Container)
+    row = container.content
     assert isinstance(row, ft.Row)
-    assert isinstance(row.controls[0], ft.Text)
-    assert row.controls[0].color == DARK.screen_text
-    for button in [*view.toolbar.controls, *row.controls[2:]]:
-        assert isinstance(button, ft.TextButton)
-        assert button.style is not None
-        assert button.style.color == DARK.screen_text
+    assert isinstance(row.controls[0], ft.Checkbox)
+    assert row.controls[0].fill_color == DARK.accent
+    assert isinstance(row.controls[1], ft.Text)
+    assert row.controls[1].color == DARK.screen_text
+    history = row.controls[-1]
+    assert isinstance(history, ft.TextButton)
+    assert isinstance(history.content, ft.Semantics)
+    assert history.content.label == "Graph function history"
+    icon = history.content.content
+    assert isinstance(icon, ft.Icon)
+    assert icon.icon == ft.Icons.LIST
+    assert icon.color == DARK.menu_accent
+    assert history.on_click is not None
+    click: Callable[..., object] = history.on_click
+    click(None)
+    assert actions == [("open_menu", "graphs_history")]
+
+
+def test_only_the_selected_graph_expression_row_is_drawn() -> None:
+    view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
+    graphs = Graphs(Session())
+    graphs.submit(0, "x^2")
+    graphs.submit(1, "2*x")
+    graphs.select_function(1)
+
+    view.refresh(graphs, 600, 400)
+
+    assert len(view.functions.controls) == 1
+    container = view.functions.controls[0]
+    assert isinstance(container, ft.Container)
+    row = container.content
+    assert isinstance(row, ft.Row)
+    assert isinstance(row.controls[1], ft.Text)
+    assert row.controls[1].value == "f2(x) ="
 
 
 def test_tall_templates_expand_the_entry_without_clipping_the_plot() -> None:
@@ -56,12 +91,14 @@ def test_tall_templates_expand_the_entry_without_clipping_the_plot() -> None:
     editor.insert_template(Kind.FRACTION)
     view.refresh(graphs, 320, 400)
 
-    row = view.functions.controls[0]
+    container = view.functions.controls[0]
+    assert isinstance(container, ft.Container)
+    row = container.content
     assert isinstance(row, ft.Row)
     assert row.height is not None
     assert row.height > 56
     assert isinstance(view.plot.content, ft.Stack)
-    assert view.plot.content.height == 400 - 40 - row.height - 4
+    assert view.plot.content.height == 400 - row.height
 
 
 def test_plot_canvas_uses_the_space_below_the_controls() -> None:
@@ -69,7 +106,22 @@ def test_plot_canvas_uses_the_space_below_the_controls() -> None:
     view.refresh(Graphs(Session()), 320, 300)
 
     assert isinstance(view.plot.content, ft.Stack)
-    assert view.plot.content.height == 200
+    assert view.plot.content.height == 248
+
+
+def test_graph_labels_are_in_the_curve_colour() -> None:
+    view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
+    graphs = Graphs(Session())
+    graphs.submit(0, "x^2")
+
+    view.refresh(graphs, 600, 400)
+
+    assert isinstance(view.plot.content, ft.Stack)
+    label = view.plot.content.controls[1]
+    assert isinstance(label, ft.Container)
+    assert isinstance(label.content, ft.Markdown)
+    assert label.content.latex_style is not None
+    assert label.content.latex_style.color == "#4f9dff"
 
 
 def test_pinch_event_dispatches_an_anchored_zoom_gesture() -> None:

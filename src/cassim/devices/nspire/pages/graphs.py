@@ -48,6 +48,7 @@ class FunctionEntry:
     name: str
     editing: Calculator = field(repr=False)
     expression: str = ""
+    latex: str = ""
     visible: bool = True
     source: str | None = field(default=None, repr=False)
     compiled: CompiledFunction | None = field(default=None, repr=False)
@@ -138,6 +139,7 @@ class Graphs:
             entry.error = "Enter an expression for the function."
             return
         entry.expression = expression
+        entry.latex = editor.latex(cursor=False, is_defined=self.session.is_defined)
         entry.error = ""
         entry.compiled = None
         entry.source = None
@@ -214,6 +216,29 @@ class Graphs:
             msg = f"no graph function named {name!r}"
             raise ValueError(msg)
         entry.visible = not entry.visible
+
+    def select_function(self, index: int) -> FunctionEntry:
+        if not 0 <= index < len(self.functions):
+            raise IndexError(f"no graph function at index {index}")
+        self.active_index = index
+        return self.functions[index]
+
+    def move_function(self, step: int) -> FunctionEntry:
+        if not self.functions:
+            raise ValueError("no graph functions to select")
+        self.active_index = (self.active_index + step) % len(self.functions)
+        return self.functions[self.active_index]
+
+    def select_empty_function(self) -> FunctionEntry:
+        index = next(
+            (
+                item
+                for item, entry in enumerate(self.functions)
+                if not entry.expression and entry.editing.editor.is_empty
+            ),
+            len(self.functions) - 1,
+        )
+        return self.select_function(index)
 
     def zoom(self, factor: float) -> None:
         self.gesture(0, 0, factor, self._viewport_width / 2, self._viewport_height / 2)

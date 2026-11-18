@@ -523,7 +523,7 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | PWA, offline, engine worker | 4.11, FR-EVAL-006 | Built and tested on Chromium; the Cloudflare Pages site passed a headless smoke test with an offline reload; Safari, iOS and Chromebook not yet run. |
 | Device interface and bundles | FR-PROF-001/002/008/009 | Complete through M2x; the Nspire package boundary, registered page types and bundle-aware publishing are implemented. |
 | Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6, FR-DOC-008, FR-DOC-009 | Mostly met (M3): sheet and data page models/UI, categorical and numeric plots, inference, split panes, Quick Graph/Summary Plot, CSV/XLSX, and the Finance Solver are built. Remaining exit work is General Maths flows, timing reports and simulator checks of selected defaults/save-reload behaviour. |
-| Graphs, Table and Notes | 4.7, 4.7a | Planned for M4; shared scene/canvas support and sampling spikes exist, but the Graphs, Table and Notes pages are not started. |
+| Graphs, Table and Notes | 4.7, 4.7a | M4 is in progress: the function Graphs page now has worker compilation, adaptive plotting, one-row expression navigation, curve labels, view controls and save/load. Trace/Analyze UI, other entry types, Table/sliders and Notes remain. |
 | Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built ahead of schedule as M5b; 58 golden programs green. Translation, editor, settings bar, Code view and page types are not started. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike in 5a comes first. |
 | TI-Basic, libraries | 4.8 | Not started (M6, Could). |

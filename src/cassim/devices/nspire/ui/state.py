@@ -406,7 +406,27 @@ class AppState:
         elif binding.action in ("enter", "approximate"):
             if graphs.functions:
                 graphs.submit_editor(graphs.active_index)
-        elif binding.action == "graphs_toggle":
+        elif binding.action in ("graphs_select", "up", "down", "goto"):
+            self._graphs_navigation(graphs, binding)
+        elif binding.action in {
+            "graphs_toggle",
+            "graphs_zoom",
+            "graphs_gesture",
+            "graphs_standard",
+            "graphs_view",
+        }:
+            self._graphs_display_action(graphs, binding)
+        elif binding.action == "context_menu":
+            self._open_menu("menu_graphs")
+        elif binding.action in ("undo", "redo"):
+            self._graphs_undo(graphs, binding)
+        elif binding.action in _GRAPH_EDITOR_ACTIONS:
+            graphs.edit(binding)
+            if binding.action in ("copy", "cut") and self.clipboard_out is not None:
+                self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_display_action(self, graphs: Graphs, binding: Binding) -> None:
+        if binding.action == "graphs_toggle":
             graphs.toggle(binding.arg)
         elif binding.action == "graphs_zoom":
             graphs.zoom(float(binding.arg))
@@ -414,14 +434,20 @@ class AppState:
             self._graphs_gesture(graphs, binding.arg)
         elif binding.action == "graphs_standard":
             graphs.set_window(Window())
-        elif binding.action == "graphs_view":
+        else:
             graphs.set_view(binding.arg)
-        elif binding.action in ("undo", "redo"):
-            self._graphs_undo(graphs, binding)
-        elif binding.action in _GRAPH_EDITOR_ACTIONS:
+
+    def _graphs_navigation(self, graphs: Graphs, binding: Binding) -> None:
+        if not graphs.functions:
+            return
+        if binding.action == "graphs_select":
+            graphs.select_function(int(binding.arg))
+        elif binding.action == "goto":
+            graphs.select_empty_function()
+        elif graphs.functions[graphs.active_index].editing.editor.path:
             graphs.edit(binding)
-            if binding.action in ("copy", "cut") and self.clipboard_out is not None:
-                self.clipboard_out(self.document.clipboard.text)
+        else:
+            graphs.move_function(-1 if binding.action == "up" else 1)
 
     def _graphs_gesture(self, graphs: Graphs, argument: str) -> None:
         values = argument.split(",")
@@ -538,7 +564,14 @@ class AppState:
             if target is not None:
                 same = target is self.menu.root or (
                     (
-                        name in {"variables", "cassim", "menu_sheet", "menu_graphs"}
+                        name
+                        in {
+                            "variables",
+                            "cassim",
+                            "graphs_history",
+                            "menu_sheet",
+                            "menu_graphs",
+                        }
                         or (name == "menu" and self.graphs is not None)
                         or name.startswith("sheet_")
                     )
@@ -611,6 +644,8 @@ class AppState:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
+        if name == "graphs_history":
+            return self._graphs_history_menu()
         if name == "menu_graphs":
             return self._graphs_menu()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
@@ -633,6 +668,21 @@ class AppState:
             if root is not None:
                 root = _set_quick_graph_enabled(root, has_list)
         return root
+
+    def _graphs_history_menu(self) -> MenuItem | None:
+        graphs = self.graphs
+        if graphs is None:
+            return None
+        items = tuple(
+            MenuItem(
+                f"{entry.name}(x) = {entry.expression or entry.editing.editor.linear() or '…'}",
+                "graphs_select",
+                str(index),
+                hint="hidden" if not entry.visible else "",
+            )
+            for index, entry in enumerate(graphs.functions)
+        )
+        return MenuItem("Graph functions", items=items)
 
     def _graphs_menu(self) -> MenuItem | None:
         graphs = self.graphs
