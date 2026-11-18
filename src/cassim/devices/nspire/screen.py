@@ -11,6 +11,7 @@ from typing import Literal
 
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
+from cassim.devices.nspire.pages.graphs import graphs_of
 from cassim.devices.nspire.pages.spreadsheet import SheetScreen, spreadsheet_of
 from cassim.doc.document import Document, Page
 
@@ -44,12 +45,13 @@ class Screen:
     entry: str  # LaTeX of the entry line, cursor drawn
     error: str | None
     menu: MenuView | None = None  # drawn over the page while a menu is open
-    # The page type's name when the page has no model yet (Graphs, Notes...): the GUI shows a
+    # The page type's name when the page has no model yet (Notes...): the GUI shows a
     # notice instead of an entry line. None on a page that works.
     stub: str | None = None
     # The page sorter, drawn on the screen in place of the page: a row of tiles per Problem.
     sorter: tuple[tuple[Tile, ...], ...] | None = None
     sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
+    graphs: bool = False  # a Graphs page with its own view
 
 
 def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
@@ -62,6 +64,12 @@ def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None)
     sheet = spreadsheet_of(page)
     if sheet is not None:
         return (page_name(page, names), f"{len(sheet.cells)} cells")
+    graphs = graphs_of(page)
+    if graphs is not None:
+        functions = (
+            f"{item.name}(x)={item.expression}" for item in graphs.functions if item.expression
+        )
+        return (page_name(page, names), *functions)
     if calculator_of(page) is None:
         return (page_name(page, names), "(not built yet)")
     lines = [
@@ -102,6 +110,8 @@ def render(
     sheet = spreadsheet_of(document.current)
     if sheet is not None:
         return Screen(title, status, (), "", None, menu, sheet=sheet.screen())
+    if graphs_of(document.current) is not None:
+        return Screen(title, status, (), "", None, menu, graphs=True)
     page = calculator_of(document.current)
     if page is None:
         return Screen(title, status, (), "", None, menu, page_name(document.current, names))

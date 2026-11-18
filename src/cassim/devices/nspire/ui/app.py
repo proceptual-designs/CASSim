@@ -40,6 +40,7 @@ from cassim.devices.nspire.pages.calculator import Calculator, Pending, calculat
 from cassim.devices.nspire.runner import Runner, Status
 from cassim.devices.nspire.ui.keypad import STICK_KEY, Keypad
 from cassim.devices.nspire.ui.layout import (
+    COMPUTER_COLUMN_PADDING,
     COMPUTER_SPLITTER,
     FULL_RESERVE,
     GAP,
@@ -1666,7 +1667,7 @@ class App:
             ft.Column(controls, spacing=6, expand=True),
             width=width,
             height=height,
-            padding=4,
+            padding=COMPUTER_COLUMN_PADDING,
         )
 
     def _computer_splitter(self, first: str, second: str, height: float) -> ft.Control:

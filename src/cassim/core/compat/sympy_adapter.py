@@ -11,10 +11,12 @@ from typing import Any
 
 import sympy as sp
 from sympy.core.function import AppliedUndef
-from sympy.logic.boolalg import Boolean
+from sympy.core.relational import Relational
+from sympy.logic.boolalg import And, Boolean, Not, Or
 from sympy.printing.latex import LatexPrinter
 
 from cassim.core import ast
+from cassim.core.compat.math_source import check_math_source
 from cassim.core.settings import CasMode, Settings
 from cassim.core.values import Raw
 
@@ -305,6 +307,165 @@ def to_fraction(raw: Raw) -> Fraction | None:
     if raw.is_Float:
         return Fraction(Decimal(str(raw)))
     return None
+
+
+_GRAPH_FUNCTIONS: dict[Any, str] = {
+    sp.sin: "sin",
+    sp.cos: "cos",
+    sp.tan: "tan",
+    sp.asin: "asin",
+    sp.acos: "acos",
+    sp.atan: "atan",
+    sp.sinh: "sinh",
+    sp.cosh: "cosh",
+    sp.tanh: "tanh",
+    sp.asinh: "asinh",
+    sp.acosh: "acosh",
+    sp.atanh: "atanh",
+    sp.exp: "exp",
+    sp.log: "log",
+    sp.Abs: "fabs",
+    sp.floor: "floor",
+    sp.ceiling: "ceil",
+    sp.Min: "min",
+    sp.Max: "max",
+}
+_GRAPH_MATH_NAMES = frozenset(_GRAPH_FUNCTIONS.values()) | {
+    "pi",
+    "e",
+    "inf",
+    "nan",
+}
+_GRAPH_BINARY_OPERATORS = {
+    "==": "==",
+    "!=": "!=",
+    "<": "<",
+    "<=": "<=",
+    ">": ">",
+    ">=": ">=",
+}
+
+
+class _GraphMathPrinter:
+    def __init__(self, variable: Raw) -> None:
+        self.variable = variable
+
+    def emit(self, raw: Raw) -> str:
+        for printer in (
+            self._constant,
+            self._relation,
+            self._logic,
+            self._piecewise,
+            self._arithmetic,
+            self._function,
+        ):
+            source = printer(raw)
+            if source is not None:
+                return source
+        msg = f"unsupported graph expression: {raw}"
+        raise ValueError(msg)
+
+    def _constant(self, raw: Raw) -> str | None:
+        if raw == self.variable:
+            return "x"
+        for value, source in (
+            (sp.true, "True"),
+            (sp.false, "False"),
+            (sp.pi, "math.pi"),
+            (sp.E, "math.e"),
+            (sp.oo, "math.inf"),
+            (-sp.oo, "-math.inf"),
+            (sp.nan, "math.nan"),
+        ):
+            if raw is value:
+                return source
+        if raw.is_Rational:
+            return str(int(raw)) if raw.is_Integer else f"({int(raw.p)} / {int(raw.q)})"
+        if raw.is_Float:
+            value = float(raw)
+            return (
+                repr(value)
+                if math.isfinite(value)
+                else "math.nan"
+                if math.isnan(value)
+                else "math.inf"
+                if value > 0
+                else "-math.inf"
+            )
+        if raw.is_Symbol:
+            msg = f"graph expressions may only use the variable {self.variable}"
+            raise ValueError(msg)
+        return None
+
+    def _relation(self, raw: Raw) -> str | None:
+        if not isinstance(raw, Relational):
+            return None
+        operation = _GRAPH_BINARY_OPERATORS.get(raw.rel_op)
+        if operation is None:
+            msg = f"unsupported graph relation: {raw.rel_op}"
+            raise ValueError(msg)
+        return f"({self.emit(raw.lhs)} {operation} {self.emit(raw.rhs)})"
+
+    def _logic(self, raw: Raw) -> str | None:
+        if isinstance(raw, And):
+            return "(" + " and ".join(self.emit(part) for part in raw.args) + ")"
+        if isinstance(raw, Or):
+            return "(" + " or ".join(self.emit(part) for part in raw.args) + ")"
+        if isinstance(raw, Not):
+            return f"(not {self.emit(raw.args[0])})"
+        return None
+
+    def _piecewise(self, raw: Raw) -> str | None:
+        if raw.func is not sp.Piecewise:
+            return None
+        result = "math.nan"
+        for value, condition in reversed(raw.args):
+            if condition is sp.true:
+                result = self.emit(value)
+            else:
+                result = f"({self.emit(value)} if {self.emit(condition)} else {result})"
+        return result
+
+    def _arithmetic(self, raw: Raw) -> str | None:
+        if raw.is_Add:
+            return "(" + " + ".join(self.emit(part) for part in raw.args) + ")"
+        if raw.is_Mul:
+            return "(" + " * ".join(self.emit(part) for part in raw.args) + ")"
+        if raw.is_Pow:
+            base, exponent = raw.args
+            return f"({self.emit(base)} ** {self.emit(exponent)})"
+        return None
+
+    def _function(self, raw: Raw) -> str | None:
+        function_name = _GRAPH_FUNCTIONS.get(raw.func)
+        if function_name is None:
+            return None
+        args = ", ".join(self.emit(arg) for arg in raw.args)
+        if function_name in {"min", "max"}:
+            return f"{function_name}({args})"
+        return f"math.{function_name}({args})"
+
+
+def math_source(expression: Raw, variable: Raw) -> str:
+    """Print a real-valued expression as a checked Python expression over `math`."""
+    if not variable.is_Symbol:
+        msg = "the graph variable must be a symbol"
+        raise ValueError(msg)
+    source = _GraphMathPrinter(variable).emit(expression)
+    check_math_source(source)
+    return source
+
+
+def compile_math(expression: Raw, variable: Raw) -> tuple[str, Callable[[float], float]]:
+    """Compile a checked math expression for local graph sampling in the UI worker."""
+    source = math_source(expression, variable)
+    from cassim.core.compat.math_source import compile_math_source  # noqa: PLC0415
+
+    function = compile_math_source(source)
+    return source, function
+
+
+_check_math_source = check_math_source
 
 
 def from_float(value: float) -> Raw:

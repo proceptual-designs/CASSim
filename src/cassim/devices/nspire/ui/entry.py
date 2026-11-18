@@ -76,9 +76,10 @@ class EntryLine:
             on_long_press_start=lambda _: self.hold(path, pos),
         )
 
-    def build(self, editor: Editor) -> ft.Control:
+    def build(self, editor: Editor, *, active: bool = True) -> ft.Control:
         """The whole line. A click past the end of it puts the cursor at the end of the entry."""
         self._editor = editor
+        self.active = active
         row = self._row(editor.root, [])
         return self._detector(
             ft.Container(
@@ -103,7 +104,7 @@ class EntryLine:
     ) -> ft.Control:
         """A row of nodes with the cursor bar and the selection; `here` is the row's path."""
         editor = self._editor
-        on_cursor = editor.path == here
+        on_cursor = self.active and editor.path == here
         low, high = editor.span if on_cursor else (0, 0)
         styles = name_styles(row, self.is_defined)
         constants = at_constants(row)
