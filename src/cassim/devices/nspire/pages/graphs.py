@@ -433,6 +433,7 @@ def load_graphs(
             graphs.window = Window(*bounds)
     entries = data.get("functions")
     if isinstance(entries, list):
+        saved_entries: list[tuple[str, str, dict[str, Any]]] = []
         for saved in entries:
             if not isinstance(saved, dict):
                 continue
@@ -441,15 +442,18 @@ def load_graphs(
                 continue
             if not isinstance(expression, str):
                 continue
-            while len(graphs.functions) <= int(name[1:]) - 1:
-                graphs.add_function()
-            entry = next((item for item in graphs.functions if item.name == name), None)
-            if entry is None:
-                continue
+            saved_entries.append((name, expression, saved))
+        if saved_entries:
+            graphs.functions = [graphs._entry(name) for name, _, _ in saved_entries]
+            graphs._next_name = max(
+                graphs._next_name, max(int(name[1:]) for name, _, _ in saved_entries) + 1
+            )
+        for index, (name, expression, saved) in enumerate(saved_entries):
+            entry = graphs.functions[index]
             graphs.reserve_function_name(name)
             entry.visible = saved.get("visible") is not False
             if expression.strip():
-                graphs.submit(graphs.functions.index(entry), expression)
+                graphs.submit(index, expression)
             nodes = saved.get("nodes")
             if isinstance(nodes, str | list):
                 editor = entry.editing.editor

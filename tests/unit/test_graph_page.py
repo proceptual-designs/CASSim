@@ -383,8 +383,43 @@ def test_local_graph_creation_uses_a_new_function_name_on_each_page() -> None:
     assert second.functions[0].name == "f2"
 
 
+def test_multiple_graph_pages_reload_without_creating_extra_function_rows() -> None:
+    """FR-DOC-003: function slots on later Graphs pages survive document replay."""
+    document = Document()
+    for expression in ("x", "x+1", "x+2"):
+        graphs = graphs_of(document.add_page(PageKind.GRAPHS))
+        assert graphs is not None
+        graphs.submit(0, expression)
+
+    restored = loads(dumps(document))
+    for index, page in enumerate(restored.problems[0].pages[1:], start=1):
+        graphs = graphs_of(page)
+        assert graphs is not None
+        assert [entry.name for entry in graphs.functions] == [f"f{index}", f"f{index + 1}"]
+        assert graphs.functions[0].compiled is not None
+        assert graphs.functions[0].compiled(2) == index + 1
+
+
 def test_f99_does_not_create_an_unusable_f100_entry() -> None:
     graphs = Graphs(Session(), tuple(f"f{number}" for number in range(1, 99)))
     assert graphs.functions[0].name == "f99"
     graphs.submit(0, "x")
     assert len(graphs.functions) == 1
+
+
+def test_f99_reloads_when_earlier_function_slots_are_reserved() -> None:
+    """FR-DOC-003: a high-numbered Graphs function keeps its name on reload."""
+    state = AppState()
+    state.run_action("insert", "f98(x):=x")
+    state.run_action("enter")
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x+1")
+
+    restored = loads(dumps(state.document))
+    graphs = graphs_of(restored.current)
+    assert graphs is not None
+    assert [entry.name for entry in graphs.functions] == ["f99"]
+    assert graphs.functions[0].compiled is not None
+    assert graphs.functions[0].compiled(2) == 3
