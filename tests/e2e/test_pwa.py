@@ -385,9 +385,11 @@ def test_incomplete_update_leaves_working_cache(
             page,
             "document.querySelector('#cassim-offline span').textContent.includes('Update failed')",
         )
-        assert not page.evaluate(
-            "caches.keys().then(keys => keys.includes('cassim-%2FCASSim%2F-test-update'))"
-        )
+        # The browser only guarantees the failed install's cache is removed eventually.
+        assert wait_for(
+            page,
+            "caches.keys().then(keys => !keys.includes('cassim-%2FCASSim%2F-test-update'))",
+        ), "failed update left its staging cache behind"
         context.set_offline(True)
         page.close()
         app = AppPage(context.new_page(), url)
