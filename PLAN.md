@@ -73,7 +73,7 @@ cassim/
     nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types, Calculator and
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
-    pseudocode/             DEVICE placeholder; its standalone UI mounts lazily from the all-in-one Home screen
+    pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M5b, built)
   tests/  unit/  corpus/  device/  e2e/

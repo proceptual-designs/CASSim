@@ -314,6 +314,18 @@ def test_event_cap_is_reported_not_silent() -> None:
     assert result.halt == "event_cap"
 
 
+def test_cancelled_run_keeps_a_steppable_trace() -> None:
+    """FR-RUN-012: Stop cancels the interpreter and retains the trace recorded so far."""
+    result = run(
+        "x ← 0\nwhile true\n  x ← x + 1\nend while",
+        Settings(),
+        cancelled=lambda: True,
+    )
+    assert result.halt == "cancelled"
+    assert result.error == "stopped"
+    assert result.steps[-1].kind == "halt"
+
+
 # ---------------------------------------------------------------------- lists, random, input
 
 
@@ -418,3 +430,27 @@ def test_trace_cells_follow_the_settings() -> None:
     result = Interpreter(parse(BISECTION), approx).run()
     cells = [row.cells for row in trace.vertical(result, approx, max_depth=1).rows if row.cells]
     assert cells[1] == {"c": "−1.5"}
+
+
+def test_vertical_trace_column_selection() -> None:
+    """FR-TRC-002: variable and condition columns are selectable presentation data."""
+    settings = Settings(number="auto")
+    result = Interpreter(parse(BISECTION), settings).run()
+    choices = trace.vertical_choices(result, settings, max_depth=1)
+    assert "a" in choices.variables
+    assert "b" in choices.variables
+    assert "c" in choices.variables
+    assert choices.conditions
+
+    selected = trace.VerticalSelection(("a", "c"), choices.conditions[:1])
+    table = trace.selected_vertical(
+        result,
+        settings,
+        selected,
+        cursor=4,
+        max_depth=1,
+    )
+    assert table.variables == ["a", "c"]
+    assert table.conditions == list(choices.conditions[:1])
+    assert all(set(row.cells) <= {"a", "c"} for row in table.rows)
+    assert all(set(row.conditions) <= set(choices.conditions[:1]) for row in table.rows)
