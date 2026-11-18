@@ -114,6 +114,23 @@ def test_pointing_to_a_range_while_entering_a_formula(
     app.page.close()
 
 
+def test_structured_fraction_in_a_sheet_formula(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-SHEET-001: the sheet accepts the Calculator's fraction template."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    app.type_text("=1")
+    app.press("ctrl+/")
+    app.type_text("2")
+    app.press("Right")
+    app.type_text("+1")
+    app.press("Enter")
+    app.press("Up")
+    sheet_line(app, "A1 3/2")
+    app.page.close()
+
+
 def test_shift_arrow_does_not_move_a_formula_into_another_cell(
     browser: Browser, site: tuple[Path, str]
 ) -> None:

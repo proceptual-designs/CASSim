@@ -94,6 +94,23 @@ def test_the_sheet_draws_in_place_of_the_history():
     assert view.body.controls == [view.history]
 
 
+def test_sheet_entry_bar_uses_the_clickable_structured_editor():
+    state = sheet_state()
+    view, recorder = view_for(state)
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    view.refresh()
+    assert view.sheet_view.entry_box.content is not view.sheet_view.entry
+    assert view.sheet_view.bar.height is not None
+    assert view.sheet_view.bar.height > BAR * state.scale
+    view.sheet_view.click([], 0)
+    assert recorder.done[-1] == ("place", ":0")
+    assert state.sheet is not None
+    assert state.sheet.editor is not None
+    assert state.sheet.editor.path == []
+    assert state.sheet.editor.pos == 0
+
+
 def test_shade_p_value_draws_a_second_pane():
     state = sheet_state()
     view, _ = view_for(state)
