@@ -169,7 +169,12 @@ def browser_menu_items(
 
 
 def cassim_items(
-    *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
+    *,
+    handheld: bool,
+    offers: BrowserOffers,
+    phone: bool = False,
+    use_cutout: bool = True,
+    home: bool = False,
 ) -> tuple[MenuItem, ...]:
     """App actions and browser status, shared by both CASSim menu entry points."""
     status = {
@@ -180,6 +185,7 @@ def cassim_items(
         "unsupported": "Offline: Unknown",
     }.get(offers.offline_state, "Offline: Unknown")
     return (
+        *((MenuItem("Home", "dialog", "home"),) if home else ()),
         *browser_menu_items(handheld=handheld, offers=offers, phone=phone, use_cutout=use_cutout),
         MenuItem(status, "dialog", "offline_status", hint=offers.offline_message),
         *(
@@ -273,6 +279,15 @@ class App:
         self.variable_redo: list[VariableDeletion] = []
         state.ask_discard = self.ask_discard
         state.on_new_document = self.on_new_document
+
+    def unmount(self) -> None:
+        """Save the current document and release the page owned by this device."""
+        self.save_now()
+        self.shell.changed = lambda: None
+        self.page.on_keyboard_event = None
+        self.page.on_resize = None
+        self.page.on_app_lifecycle_state_change = None
+        self.page.controls.clear()
 
     def _wire_state(self, shell: Shell, state: AppState) -> None:
         state.clipboard_out = shell.copy  # copy and cut also fill the system clipboard
@@ -859,6 +874,7 @@ class App:
                 offers=self.shell.offers,
                 phone=self.phone,
                 use_cutout=self.use_cutout,
+                home=self.shell.home is not None,
             ),
         )
 
@@ -1121,6 +1137,7 @@ class App:
             ),
             "help": self.shell.help,
             "about": self.shell.about,
+            "home": lambda: self.shell.home() if self.shell.home is not None else None,
         }
         dialog = dialogs.get(name)
         if dialog is not None:

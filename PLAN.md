@@ -64,14 +64,16 @@ cassim/
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
                             editor, wizard, clipboard, the Profile type; and, until slice 3.0, the engine protocol (engine.py)
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
-  src/cassim/app/            FLET: the shell only (decision 0032): main.py picks the device from bundle.py and mounts its UI;
-                            shell.py is what a device's UI may use (storage, files, clipboard, links, notices, About, install
-                            and full screen, the engine worker); web.py, about.py, theme.py, keyboard.py, assets
+  src/cassim/app/            FLET: the shell only (decision 0032): main.py owns Home and lazily mounts the selected device;
+                            home.py draws the all-in-one chooser without importing device UI; shell.py is what a device's UI
+                            may use (storage, files, clipboard, links, notices, About, install and full screen, the engine
+                            worker); web.py, about.py, theme.py, keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
                             load(id). A device never imports another device, and imports without Flet
     nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types, Calculator and
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
+    pseudocode/             DEVICE placeholder; its standalone UI mounts lazily from the all-in-one Home screen
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M5b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -428,7 +430,7 @@ Notes:
 
 ## 15. Pluggable devices and separate bundles (decided 2026-11-13)
 
-Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **all-in-one** apps: a shell that switches between the TI-Nspire, the Casio ClassPad, the pseudocode interpreter and tracer, the HP Prime and any later device, when each is built. Each device can also be published as its own **bundle** on its own site, so someone who needs one device downloads only that one. The cold start today is about 90 MB and a minute or more on a first visit, nearly all of it the engine (SymPy, SciPy, Pyodide) and the Flet app. Requirements: FR-PROF-001 to FR-PROF-009 and FR-RUN-009 in the SRS.
+Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **all-in-one** apps: a shell with a Home chooser and remembered last-used app, able to switch between the TI-Nspire, the Casio ClassPad, the pseudocode interpreter and tracer, the HP Prime and any later device, when each is built. Home renders before a device UI loads, and unavailable apps remain visible and greyed. Each device can also be published as its own **bundle** on its own site, so someone who needs one device downloads only that one. The cold start today is about 90 MB and a minute or more on a first visit, nearly all of it the engine (SymPy, SciPy, Pyodide) and the Flet app. Requirements: FR-PROF-001 to FR-PROF-018 and FR-RUN-009 in the SRS.
 
 ### 15.1 Devices, bundles and sites
 
@@ -452,13 +454,13 @@ Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **al
 2. **Shared layers stay shared.** `core/` (maths, values, Pratt-parser framework), `runtime/` (interpreters), `device/` (key layers, menu and screen frameworks), the document model and storage, and the shell (`app/`: window, switcher, storage, share links, PWA, themes). Core still never imports Flet.
 3. **Separable UIs.** Each device's Flet views live with the device (`devices/<id>/ui/`) and talk to the shell through a small interface: mount, unmount, menu and toolbar contributions, and dialogs. The shell knows device ids, not device classes.
 4. **Registry by build, not by discovery.** Pyodide has no reliable entry points, so `tools.publish` writes a generated `bundle.py` that lists the devices in the bundle. The shell imports only what that file lists; a test checks that no device package imports another.
-5. **One engine worker per device kind.** The Nspire engine boots SymPy; the pseudocode engine is pure Python and boots without it. The all-in-one app starts a device's worker when it is first opened.
+5. **One engine worker per device kind.** The Nspire engine boots SymPy; the pseudocode engine is pure Python and boots without it. The all-in-one Home screen starts no device worker; the app starts a device's worker only when that app is first opened.
 6. **Documents name their device.** `.cassim.json` and share links carry the device id. Any bundle that contains that device opens them; one that does not names the site that does and links to it (FR-PROF-009). Storage namespaces are per device (FR-PROF-004, Q20), and each site is its own origin, so documents move between sites as files or share links.
 
 ### 15.3 Build, cache and deploy
 
 - `python -m tools.publish --bundle all|tin|pseudo|cp|prime` builds one bundle. A bundle's packages, archives and service-worker list come from its devices.
-- In the all-in-one app each device is its own archive (`device-<id>.zip` and its engine packages), fetched on first use. The service worker always precaches the shell. It also precaches each device once that device has been opened, so the device works offline from then on. The first visit therefore downloads only the shell and the device in use. An "Available offline" setting can fetch every device in advance.
+- In the all-in-one app each device is its own archive (`device-<id>.zip` and its engine packages), fetched on first use. The service worker always precaches the shell. It also precaches each device once that device has been opened, so the device works offline from then on. The first visit can show Home without fetching a device; opening an app then fetches that device. An "Available offline" setting can fetch every device in advance.
 - `deploy.yml` grows a matrix: `main` deploys `all` to `cassim-calc`; a release deploys `all` to `cassim-app` and each single-device bundle to its own project.
 - Download size and cold start are measured per bundle and reported (no budgets, as in the SRS).
 
@@ -469,8 +471,9 @@ Steps 1 to 3 are milestone M2x and come **before M3** (decided 2026-11-13), whil
 1. ADR on the device interface and bundle format: `docs/decisions/0032` (written 2026-11-13). It replaces the ADR planned for 8a, and splits step 2 into three PRs: `doc/` and registered page types; `devices/nspire/` with the profile data and the Calculator page model; the shell and `devices/nspire/ui/`. Its item 7 leaves the split of `core/` to M8a (agreed 2026-11-13).
 2. Move the Nspire into `devices/nspire/` behind the interface, together with decision 0031's A4 (the document model moves to `doc/`, page types are registered). Gate: every corpus case replays unchanged, the e2e suite passes, and coverage targets hold.
 3. Bundle-aware `tools.publish`, the `tin` bundle and its site, and download-size reporting. **Steps 1 to 3 done 2026-11-13** (decision 0032). `cassim-tin` gets its first content at the next release. The `tin` and `all` bundles are the same size today (90 MB, of which Flutter 57, Pyodide 16, the engine archive 11 and the app archive 2); the sizes differ once a second device is built.
-4. (M5) The `pseudocode` device, from the built `runtime/` plus the M5 editor and trace views, as the second device and the first small bundle, with the minimal Nspire/Pseudocode selector needed in the all-in-one app.
-5. (M8) Generalise that selector into the full profile switcher (8b), then add ClassPad, and Prime (M9) as plug-ins.
+4. The all-in-one Home chooser and remembered-app shell (FR-PROF-010 to -018), with the stable choice order shown now and future unbuilt choices greyed.
+5. (M5) The `pseudocode` device, from the built `runtime/` plus the M5 editor and trace views, as the second device, the first small bundle and the second enabled Home choice.
+6. (M8) Generalise the chooser into the full profile switcher (8b), then add ClassPad, and Prime (M9) as plug-ins.
 
 ### 15.5 Decisions (Simon, 2026-11-13)
 
