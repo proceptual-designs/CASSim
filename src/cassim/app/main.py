@@ -90,8 +90,7 @@ class Application:
         if selected is None:
             await self.show_home()
         else:
-            remember = self.bundle_name == "all" and shared_device(route) == selected
-            await self.open_device(selected, remember=remember)
+            await self.open_device(selected, remember=self.bundle_name == "all")
 
     async def open_device(self, device_id: str, *, remember: bool = True) -> None:
         if device_id not in self.available:

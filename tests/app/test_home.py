@@ -148,6 +148,23 @@ def test_selecting_an_app_loads_only_its_ui_and_remembers_it(
     assert shell.writes == [(LAST_DEVICE_KEY, "nspire")]
 
 
+def test_a_direct_debug_launch_is_also_remembered(monkeypatch: pytest.MonkeyPatch) -> None:
+    shell = FakeShell()
+    shell.route = "/debug"
+    mounted = FakeMounted()
+    device = SimpleNamespace(id="nspire", ui="cassim.devices.nspire.ui")
+    monkeypatch.setattr("cassim.app.main.devices.load", lambda _item: device)
+    monkeypatch.setattr(
+        "cassim.app.main.import_module",
+        lambda _name: SimpleNamespace(mount=lambda _shell: mounted),
+    )
+    app = Application(shell.page, shell=cast(Any, shell), available=("nspire",))
+
+    asyncio.run(app.start())
+
+    assert shell.writes == [(LAST_DEVICE_KEY, "nspire")]
+
+
 def test_home_menu_action_is_only_added_for_the_all_in_one_app() -> None:
     regular = cassim_items(handheld=True, offers=BrowserOffers())
     with_home = cassim_items(handheld=True, offers=BrowserOffers(), home=True)
