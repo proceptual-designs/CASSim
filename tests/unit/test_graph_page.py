@@ -236,6 +236,40 @@ def test_graph_editor_accepts_keyboard_and_keypad_navigation() -> None:
     assert graphs.functions[0].compiled(8) == 4
 
 
+def test_graph_up_down_and_history_menu_select_one_function_slot() -> None:
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x^2")
+
+    state.key_event("ArrowDown")
+    assert graphs.active_index == 1
+    state.key_event("ArrowUp")
+    assert graphs.active_index == 0
+
+    state.run_action("open_menu", "graphs_history")
+    assert state.menu is not None
+    assert [row.label for row in state.menu.view().rows] == ["f1(x) = x^2", "f2(x) = …"]
+    state.key_event("2")
+    assert state.menu is None
+    assert graphs.active_index == 1
+
+
+def test_graph_goto_selects_the_first_empty_function_slot() -> None:
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x^2")
+    graphs.add_function()
+
+    graphs.active_index = 0
+    state.key_event("g", ctrl=True)
+
+    assert graphs.active_index == 1
+
+
 def test_graph_editor_can_insert_a_shared_problem_variable_from_the_menu() -> None:
     state = AppState()
     state.document.problems[0].session.eval("a:=2")
