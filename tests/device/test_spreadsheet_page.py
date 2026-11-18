@@ -702,10 +702,21 @@ def test_save_and_open_keep_the_sheet_and_its_values_win():
 
 
 def test_the_sorter_shows_a_sheet():
+    """FR-DOC-001: previews use the sheet's displayed column names."""
     state = sheet_app()
     type_cell(state, "1")
     assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
         "Lists & Spreadsheet",
+        "1 cells",
+    )
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "time")
+    sheet.go((C, NAME_ROW))
+    type_cell(state, "distance")
+    assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
+        "Lists & Spreadsheet",
+        "time, distance",
         "1 cells",
     )
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.ui.state import AppState
+from cassim.stats.plots import PlotType
 
 
 def _sorter(pages: tuple[int, ...]) -> AppState:
@@ -33,6 +34,29 @@ def test_ctrl_up_opens_the_sorter_on_the_screen() -> None:
     assert screen.sorter is not None
     assert [len(row) for row in screen.sorter] == [2, 3]
     assert [tile.current for row in screen.sorter for tile in row] == [True] + [False] * 4
+
+
+def test_statistics_preview_shows_variables_and_plot_type() -> None:
+    """FR-DOC-001: built Data & Statistics pages have useful sorter previews."""
+    state = AppState()
+    state.run_action("add_page", "statistics")
+    statistics = state.statistics
+    assert statistics is not None
+    state.key_event("ArrowUp", ctrl=True)
+
+    def preview() -> tuple[str, ...]:
+        sorter = state.screen().sorter
+        assert sorter is not None
+        return sorter[0][1].lines
+
+    assert preview() == ("Data & Statistics", "(no variables)", "Dot Plot")
+    statistics.x_name = "time"
+    assert preview() == ("Data & Statistics", "X: time", "Dot Plot")
+    statistics.y_name = "distance"
+    statistics.plot_type = PlotType.SCATTER
+    assert preview() == ("Data & Statistics", "distance vs time", "Scatter Plot")
+    statistics.x_name = ""
+    assert preview() == ("Data & Statistics", "Y: distance", "Scatter Plot")
 
 
 def test_left_and_right_go_through_the_pages_in_order() -> None:
