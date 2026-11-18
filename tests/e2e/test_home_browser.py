@@ -76,6 +76,14 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
         assert wait_for_log(page, logs, "CASSIM: HOME"), "Home never drew"
         enable_semantics(page)
         page.get_by_role("button", name=re.compile("^CASSim")).click()
+        expect(page.get_by_role("button", name="Check for Updates", exact=True)).to_be_attached()
+        expect(page.get_by_text("Reload for Update", exact=True)).not_to_be_attached()
+        page.evaluate("""() => {
+          const channel = new BroadcastChannel("cassim");
+          channel.postMessage({op: "status", state: "ready",
+            message: "Ready for offline use.", retry: false, updateReady: true});
+        }""")
+        expect(page.get_by_role("button", name="Reload for Update", exact=True)).to_be_attached()
         page.get_by_role("button", name="Settings").click()
         expect(page.get_by_text("Appearance")).to_be_attached()
         page.get_by_role("button", name="Cancel").click()
@@ -101,6 +109,16 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         )
         expect(page.get_by_role("switch", name="Line numbers")).to_be_checked()
         assert "CASSIM: UI" not in logs
+        page.get_by_role("button", name=re.compile("^CASSim")).click()
+        expect(page.get_by_text("Check for Updates", exact=True)).to_be_attached()
+        expect(page.get_by_text("Reload for Update", exact=True)).not_to_be_attached()
+        page.evaluate("""() => {
+          const channel = new BroadcastChannel("cassim");
+          channel.postMessage({op: "status", state: "ready",
+            message: "Ready for offline use.", retry: false, updateReady: true});
+        }""")
+        expect(page.get_by_text("Reload for Update", exact=True)).to_be_attached()
+        page.keyboard.press("Escape")
         page.get_by_role("button", name=re.compile("^Pseudocode")).click()
         expect(page.get_by_role("button", name="Pseudocode", exact=True)).to_be_attached(
             timeout=10_000

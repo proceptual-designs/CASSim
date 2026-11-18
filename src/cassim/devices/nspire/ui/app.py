@@ -135,10 +135,10 @@ def browser_menu_items(
     *, handheld: bool, offers: BrowserOffers, phone: bool = False, use_cutout: bool = True
 ) -> tuple[MenuItem, ...]:
     """The CASSim menu's browser items, always in this order so the keys never move (muscle
-    memory): the view switch, Fullscreen, Install and Check for Updates. One the browser cannot
-    do is greyed, Fullscreen reads Exit Fullscreen while the page is fullscreen; on an installed
-    phone it toggles the cutout instead. Install reads Uninstall in the installed app. A phone
-    has only Handheld view, so the view switch is greyed there."""
+    memory): the view switch, Fullscreen, Install and one stateful update action. One the browser
+    cannot do is greyed, Fullscreen reads Exit Fullscreen while the page is fullscreen; on an
+    installed phone it toggles the cutout instead. Install reads Uninstall in the installed app.
+    A phone has only Handheld view, so the view switch is greyed there."""
     cutout_toggle = phone and handheld and offers.installed
     product = about.product_name()
     install = (
@@ -164,7 +164,7 @@ def browser_menu_items(
             or (offers.can_fullscreen and (offers.in_fullscreen or not offers.standalone)),
         ),
         install,
-        MenuItem("Check for Updates…", "dialog", "check_updates"),
+        MenuItem(offers.update_label, "dialog", "update"),
     )
 
 
@@ -189,11 +189,10 @@ def cassim_items(
         *browser_menu_items(handheld=handheld, offers=offers, phone=phone, use_cutout=use_cutout),
         MenuItem(status, "dialog", "offline_status", hint=offers.offline_message),
         *(
-            (MenuItem("Retry offline / update", "dialog", "retry_offline"),)
-            if offers.offline_retry
+            (MenuItem("Retry offline setup", "dialog", "retry_offline"),)
+            if offers.offline_retry and offers.offline_state != "update_failed"
             else ()
         ),
-        *((MenuItem("Reload update…", "dialog", "reload_update"),) if offers.update_ready else ()),
         MenuItem("Help (wiki)…", "dialog", "help", hint="F1"),
         MenuItem(f"About {about.product_name()}…", "dialog", "about"),
     )
@@ -1112,12 +1111,11 @@ class App:
             "fullscreen": self.go_fullscreen,
             "install": self.install,
             "uninstall": self.shell.uninstall,
-            "check_updates": self.shell.check_for_updates,
+            "update": self.activate_update,
             "offline_status": lambda: self.shell.notice(
                 "Offline status", self.shell.offers.offline_message
             ),
             "retry_offline": self.shell.retry_offline,
-            "reload_update": self.reload_update,
             "switch_view": lambda: self.set_mode(
                 Mode.COMPUTER if self.state.mode is Mode.HANDHELD else Mode.HANDHELD
             ),
@@ -1142,6 +1140,9 @@ class App:
         dialog = dialogs.get(name)
         if dialog is not None:
             dialog()
+
+    def activate_update(self) -> None:
+        self.shell.activate_update(self.reload_update)
 
     def reload_update(self) -> None:
         if document_fingerprint(self.state.document) == self.current.saved:

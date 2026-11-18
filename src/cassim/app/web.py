@@ -176,6 +176,7 @@ class Bridge:
         self.offline_message = "Checking offline availability..."
         self.offline_retry = False
         self.update_ready = False
+        self.update_fetching = False
         self._changed = changed
         # Called with the page's answer to `check_update`: "current", "downloading", "ready",
         # "offline" or "unsupported".
@@ -205,12 +206,22 @@ class Bridge:
             )
             self._changed()
         elif op == "update":
-            self.on_update(str(event.data.result))
+            result = str(event.data.result)
+            self.update_fetching = result == "downloading"
+            self.update_ready = result == "ready"
+            self._changed()
+            self.on_update(result)
         elif op == "status":
             self.offline_state = str(event.data.state)
             self.offline_message = str(event.data.message)
             self.offline_retry = bool(event.data.retry)
-            self.update_ready = bool(event.data.updateReady)
+            if bool(event.data.updateReady):
+                self.update_ready = True
+                self.update_fetching = False
+            elif self.update_ready:
+                self.update_ready = False
+            if self.offline_state == "update_failed":
+                self.update_fetching = False
             self._changed()
 
     def _send(self, op: str) -> None:
@@ -226,6 +237,8 @@ class Bridge:
         self._send("exit_fullscreen")
 
     def check_update(self) -> None:
+        self.update_fetching = True
+        self._changed()
         self._send("check_update")
 
     def retry_offline(self) -> None:

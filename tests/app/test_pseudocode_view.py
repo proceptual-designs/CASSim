@@ -12,6 +12,8 @@ from cassim.runtime.pseudocode import trace
 class DummyShell:
     def __init__(self) -> None:
         self.page = SimpleNamespace()
+        self.update_label = "Check for Updates"
+        self.changed = lambda: None
 
 
 def test_bisection_example_starts_with_expression_function() -> None:

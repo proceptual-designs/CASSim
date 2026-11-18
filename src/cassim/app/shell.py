@@ -40,6 +40,15 @@ class BrowserOffers:
     offline_message: str = "Offline status is unavailable."
     offline_retry: bool = False
     update_ready: bool = False
+    update_fetching: bool = False
+
+    @property
+    def update_label(self) -> str:
+        if self.update_ready:
+            return "Reload for Update"
+        if self.update_fetching:
+            return "Fetching Update"
+        return "Check for Updates"
 
     @property
     def needs_attention(self) -> bool:
@@ -61,8 +70,10 @@ UNINSTALL_STEPS = (
 # tools/publish.py).
 UPDATE_TITLE = "Check for Updates"
 UPDATE_MESSAGES = {
-    "downloading": "A new version is downloading. Reload will appear in the {product} menu.",
-    "ready": "A new version is ready. Choose Reload in the {product} menu to use it.",
+    "downloading": (
+        "A new version is downloading. Reload for Update will appear in the {product} menu."
+    ),
+    "ready": "A new version is ready. Choose Reload for Update in the {product} menu to use it.",
     "offline": "{product} could not reach its site. Check the connection and try again.",
     "unsupported": "This copy of {product} cannot check for updates.",
 }
@@ -317,18 +328,23 @@ class Shell:
         if bridge is None:
             return BrowserOffers()
         return BrowserOffers(
-            bridge.installable,
-            bridge.can_fullscreen,
-            bridge.standalone,
-            bridge.in_fullscreen,
-            bridge.installed,
-            bridge.touch,
-            bridge.safe_area,
-            bridge.offline_state,
-            bridge.offline_message,
-            bridge.offline_retry,
-            bridge.update_ready,
+            installable=bridge.installable,
+            can_fullscreen=bridge.can_fullscreen,
+            standalone=bridge.standalone,
+            in_fullscreen=bridge.in_fullscreen,
+            installed=bridge.installed,
+            touch=bridge.touch,
+            safe_area=bridge.safe_area,
+            offline_state=bridge.offline_state,
+            offline_message=bridge.offline_message,
+            offline_retry=bridge.offline_retry,
+            update_ready=bridge.update_ready,
+            update_fetching=getattr(bridge, "update_fetching", False),
         )
+
+    @property
+    def update_label(self) -> str:
+        return self.offers.update_label
 
     def install(self) -> None:
         if self.bridge is not None:
@@ -359,13 +375,20 @@ class Shell:
         )
 
     def check_for_updates(self) -> None:
-        """Ask the server for a newer version; the menu offers Reload once it has downloaded."""
+        """Ask the server for a newer version and show the result."""
         bridge = self.bridge
         if bridge is None:
             self.notice(UPDATE_TITLE, update_message("unsupported"))
             return
         bridge.on_update = lambda result: self.notice(UPDATE_TITLE, update_message(result))
         bridge.check_update()
+
+    def activate_update(self, reload: Callable[[], None] | None = None) -> None:
+        """Check for an update, or run `reload` when one is already waiting."""
+        if self.offers.update_ready:
+            (reload or self.reload_update)()
+        else:
+            self.check_for_updates()
 
     def toggle_fullscreen(self) -> None:
         """Fullscreen, or back out of it while the page is fullscreen."""

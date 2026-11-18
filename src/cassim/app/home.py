@@ -74,6 +74,8 @@ class Home:
         self.theme_name = "Dark"
         self.symbol_font = "Symbols"
         self.control: ft.Control | None = None
+        self.update_button: ft.TextButton | None = None
+        shell.changed = self.on_bridge
 
     async def start(self) -> None:
         saved = await self.shell.read_global(SYSTEM_KEY)
@@ -295,6 +297,11 @@ class Home:
         page.update()
 
     def open_cassim_menu(self) -> None:
+        update = ft.TextButton(
+            self.shell.update_label,
+            on_click=self.activate_update,
+        )
+        self.update_button = update
         self.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text("CASSim"),
@@ -304,22 +311,39 @@ class Home:
                             "Settings",
                             on_click=lambda _: self.page.run_task(self.open_settings),
                         ),
-                        ft.TextButton(
-                            "Check for Updates…",
-                            on_click=lambda _: self.shell.check_for_updates(),
-                        ),
-                        ft.TextButton("Help (wiki)…", on_click=lambda _: self.shell.help()),
-                        ft.TextButton(
-                            f"About {about.product_name()}…", on_click=lambda _: self.shell.about()
-                        ),
+                        update,
+                        ft.TextButton("Help (wiki)…", on_click=self.open_help),
+                        ft.TextButton(f"About {about.product_name()}…", on_click=self.open_about),
                     ],
                     tight=True,
                 ),
-                actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
+                actions=[ft.TextButton("Close", on_click=self.close_cassim_menu)],
             )
         )
 
+    def on_bridge(self) -> None:
+        if self.update_button is not None:
+            self.update_button.content = self.shell.update_label
+            self.update_button.update()
+
+    def activate_update(self, _: ft.Event[ft.TextButton]) -> None:
+        self.update_button = None
+        self.shell.activate_update()
+
+    def close_cassim_menu(self, _: ft.Event[ft.TextButton]) -> None:
+        self.update_button = None
+        self.page.pop_dialog()
+
+    def open_help(self, _: ft.Event[ft.TextButton]) -> None:
+        self.update_button = None
+        self.shell.help()
+
+    def open_about(self, _: ft.Event[ft.TextButton]) -> None:
+        self.update_button = None
+        self.shell.about()
+
     async def open_settings(self) -> None:
+        self.update_button = None
         self.page.pop_dialog()
         saved = await self.shell.read_global(SYSTEM_KEY)
         data: dict[str, object] = {}

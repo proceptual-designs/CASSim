@@ -42,10 +42,28 @@ THEMES: dict[str, Theme] = {
 }
 
 
+def _control_style() -> ft.ButtonStyle:
+    return ft.ButtonStyle(
+        bgcolor={
+            ft.ControlState.SELECTED: DARK.accent,
+            ft.ControlState.DEFAULT: DARK.key,
+        },
+        color={
+            ft.ControlState.SELECTED: DARK.accent_text,
+            ft.ControlState.DEFAULT: DARK.key_text,
+        },
+        side=ft.BorderSide(1, DARK.key_edge),
+        shape=ft.RoundedRectangleBorder(radius=6),
+        padding=ft.Padding.symmetric(horizontal=8, vertical=6),
+        text_style=ft.TextStyle(size=12),
+    )
+
+
 class CodeApp:
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
         self.page = shell.page
+        shell.changed = self.on_bridge
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -75,36 +93,28 @@ class CodeApp:
             on_change=self.on_fallback_source,
         )
 
-        self.number_button = ft.Button("Number: Approx", on_click=self.cycle_number)
-        self.angle_button = ft.Button("Angle: Radian", on_click=self.toggle_angle)
+        self.number_button = ft.Button(
+            "Number: Approx", on_click=self.cycle_number, style=_control_style()
+        )
+        self.angle_button = ft.Button(
+            "Angle: Radian", on_click=self.toggle_angle, style=_control_style()
+        )
         self.console_toggle = ft.Switch(
             label="Console",
             value=True,
             on_change=self.toggle_console,
         )
-        control_style = ft.ButtonStyle(
-            bgcolor={
-                ft.ControlState.SELECTED: DARK.accent,
-                ft.ControlState.DEFAULT: DARK.key,
-            },
-            color={
-                ft.ControlState.SELECTED: DARK.accent_text,
-                ft.ControlState.DEFAULT: DARK.key_text,
-            },
-            side=ft.BorderSide(1, DARK.key_edge),
-            shape=ft.RoundedRectangleBorder(radius=6),
-            padding=ft.Padding.symmetric(horizontal=8, vertical=6),
-            text_style=ft.TextStyle(size=12),
+        self.update_item = ft.MenuItemButton(
+            content=self.shell.update_label,
+            on_click=self.activate_update,
         )
-        self.number_button.style = control_style
-        self.angle_button.style = control_style
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
                 ft.MenuItemButton(content="Home", on_click=self.home),
                 ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
                 ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
-                ft.MenuItemButton(content="Check for Updates…", on_click=self.check_updates),
+                self.update_item,
                 ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
                 ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
             ],
@@ -145,7 +155,7 @@ class CodeApp:
                 ft.Segment(value="python", label="Python"),
             ],
             show_selected_icon=False,
-            style=control_style,
+            style=_control_style(),
             on_change=self.toggle_language,
         )
         self.line_numbers_toggle = ft.Switch(
@@ -164,7 +174,7 @@ class CodeApp:
             self.start_button,
             self.end_button,
         ):
-            button.style = control_style
+            button.style = _control_style()
         self.vertical_button = ft.Button("Vertical", disabled=True)
         self.trace_layout = ft.Dropdown(
             label="Trace",
@@ -279,7 +289,12 @@ class CodeApp:
             host = js.document.getElementById("cassim-codemirror")
             if host:
                 host.remove()
+        self.shell.changed = lambda: None
         self.page.controls.clear()
+
+    def on_bridge(self) -> None:
+        self.update_item.content = self.shell.update_label
+        self.update_item.update()
 
     def apply_theme(self, name: str) -> None:
         theme = THEMES[name]
@@ -953,8 +968,8 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
         )
 
-    def check_updates(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.check_for_updates()
+    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
+        self.shell.activate_update()
 
     def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.help()

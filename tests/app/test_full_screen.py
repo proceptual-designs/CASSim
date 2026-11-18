@@ -255,13 +255,16 @@ def test_cassim_key_red_dot_tracks_browser_attention() -> None:
 def test_reload_update_asks_before_reloading_unsaved_document() -> None:
     """FR-PWA-004: a waiting update never reloads automatically or discards unsaved work."""
     app, page = handheld_app()
+    shell: Any = app.shell
+    shell.bridge = offers(standalone=False)
+    shell.bridge.update_ready = True
     app.state.document.name = "Changed"
     dialogs: list[tuple[str, str, str, Any]] = []
     with (
         patch.object(app.shell, "confirm", side_effect=lambda *args: dialogs.append(args)),
         patch.object(app.shell, "reload_update") as reload_update,
     ):
-        app.reload_update()
+        app.activate_update()
         reload_update.assert_not_called()
         assert dialogs
         assert dialogs[0][0] == "Reload CASSim?"
