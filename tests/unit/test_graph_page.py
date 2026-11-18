@@ -5,6 +5,7 @@ import pytest
 from cassim.core.session import Session
 from cassim.device.editor import Kind, Template, format_target
 from cassim.device.engine import EngineCore, EngineError, RemoteSession, graph_compile_op
+from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, PageKind, loads
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.ui.state import AppState
@@ -315,6 +316,25 @@ def test_graph_save_restores_plotted_expression_and_a_separate_edited_draft() ->
     graphs.submit_editor(0)
     assert entry.compiled is not None
     assert entry.compiled(2) == 5
+
+
+def test_graph_save_restores_the_active_function_slot() -> None:
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x")
+    graphs.submit_editor(0)
+    graphs.edit(Binding("insert", "+"))
+    graphs.edit(Binding("insert", "1"))
+    graphs.add_function()
+    graphs.active_index = 1
+
+    restored = loads(dumps(state.document))
+    restored_graphs = graphs_of(restored.current)
+    assert restored_graphs is not None
+    assert restored_graphs.active_index == 1
+    assert restored_graphs.functions[0].editing.editor.linear() == "x+1"
 
 
 def test_graph_compile_op_runs_in_the_engine_and_preserves_ans() -> None:
