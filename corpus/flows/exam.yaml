@@ -5,8 +5,8 @@
 # in the step's `note`). What the flows add over the corpus is the device around the maths: typing
 # through the keymaps, Ans, recall, undo, Ctrl+Enter, Problems and the keypad.
 #
-# `browser: true` flows use only typing and keys with the Methods defaults (Radian, Auto, Real), so
-# the same script also runs in the built site (tests/e2e/test_flows_browser.py).
+# `browser: true` flows use only typing and keys; the site starts with the Methods defaults
+# (Radian, Auto, Real), so other courses must use examples compatible with those settings.
 schema_version: 1
 flows:
 - id: methods-cubic-analysis

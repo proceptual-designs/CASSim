@@ -24,7 +24,7 @@ from cassim.device.editor import Template, format_target
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
-from cassim.devices.nspire.ui.entry import EntryLine
+from cassim.devices.nspire.ui.entry import EntryLine, row_height
 from cassim.graph.scene import Layer
 
 BAR = 22  # the bar under the grid, in the handheld's pixels
@@ -103,9 +103,10 @@ class SheetView:
         self.sheet = sheet
         scale = self.scale()
         editor = sheet.editor
-        bar_height = (
-            52 if editor and any(isinstance(node, Template) for node in editor.root) else BAR
-        ) * scale
+        bar_height = BAR * scale
+        if editor and any(isinstance(node, Template) for node in editor.root):
+            wanted = max(52, 16 + 16 * row_height(editor.root)) * scale
+            bar_height = min(wanted, max(BAR * scale, height - ROW * scale))
         grid_height = max(height - bar_height, ROW * scale)
         rows, columns = fit(width, grid_height, sheet, scale)
         if (rows, columns) != (sheet.rows_shown, sheet.columns_shown):
@@ -133,13 +134,25 @@ class SheetView:
         self.entry.value = screen.entry
         self.entry.size = size
         self.entry_box.content = (
-            EntryLine(
-                replace(self.theme, screen_text=self.theme.title_text),
-                size,
-                self.click,
-                sheet.session.is_defined,
-                self.hold,
-            ).build(editor)
+            ft.Column(
+                [
+                    ft.Row(
+                        [
+                            EntryLine(
+                                replace(self.theme, screen_text=self.theme.title_text),
+                                size,
+                                self.click,
+                                sheet.session.is_defined,
+                                self.hold,
+                            ).build(editor)
+                        ],
+                        spacing=0,
+                        scroll=ft.ScrollMode.AUTO,
+                    )
+                ],
+                spacing=0,
+                scroll=ft.ScrollMode.AUTO,
+            )
             if editor is not None
             else self.entry
         )

@@ -111,6 +111,15 @@ def test_sheet_entry_bar_uses_the_clickable_structured_editor():
     assert state.sheet.editor.pos == 0
 
 
+def test_sheet_entry_bar_grows_for_a_tall_template():
+    state = sheet_state()
+    view, _ = view_for(state)
+    state.run(Binding("template", "matrix:4,2"))
+    view.refresh()
+    assert view.sheet_view.bar.height is not None
+    assert view.sheet_view.bar.height > 52 * state.scale
+
+
 def test_shade_p_value_draws_a_second_pane():
     state = sheet_state()
     view, _ = view_for(state)
