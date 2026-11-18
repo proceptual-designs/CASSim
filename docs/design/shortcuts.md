@@ -99,8 +99,11 @@ The handheld's blue ctrl layer and shift layer are drawn from the keypad (FR-DEV
 ## Implementation notes
 - Bindings are data (profile registry), not code (FR-DEV-007). The editor exposes the actions: `insert_template(kind)`, `tab()`, `left()` and so on.
 - A computer keyboard has two forms of some keys (Return versus Enter, ctrl+Enter, alt+Enter); the Handheld and Computer maps are separate tables.
-- The computer map includes ctrl+N, ctrl+O, ctrl+S and ctrl+L, but browsers can intercept them;
-  use the on-screen menus when they do. Browser-reserved ctrl+W, ctrl+P and ctrl+T are not bound.
+- The computer map includes ctrl+N, ctrl+O, ctrl+S and ctrl+L. The published page cancels
+  app-owned defaults before the browser can also handle them, including Ctrl/Command navigation,
+  save, reload, help and Alt+Left/Right history commands. Editable dialog fields keep their normal
+  editing shortcuts; browser/operating-system shortcuts never delivered to JavaScript remain
+  outside CASSim's control. Browser-reserved ctrl+W, ctrl+P and ctrl+T are not bound.
 
 ## Selection and clipboard in CASSim (computer keyboard)
 - shift+Left/Right select a node at a time (a template is one node); ctrl+shift+Left/Right select a word; shift+Home/End select to the start or end of the row; ctrl+A selects the line. ctrl+Left/Right move between pages. The word-selection and Home/End keys are standard text-editing conventions, not from TI's tables, and are not checked on the emulator.
