@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
 from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, parse, run, trace
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
@@ -58,6 +59,75 @@ def test_scientific_notation_uses_capital_e_only() -> None:
 def test_superscripts_and_minus_spellings() -> None:
     assert out("print 2³ + 10⁻¹", number="auto") == ["81/10"]
     assert out("print 5 − 2 – 1") == ["2"]
+
+
+def test_constant_aliases_are_single_tokens_and_keep_source_columns() -> None:
+    """FR-SYN-011: explicit @ macros use the canonical constant spelling."""
+    tokens = tokenize("x ← 2@pi + @e")
+    assert [
+        (token.text, token.raw, token.col, token.end)
+        for token in tokens
+        if token.raw.startswith("@")
+    ] == [
+        ("π", "@pi", 5, 8),
+        ("ⅇ", "@e", 11, 13),
+    ]
+
+
+@pytest.mark.parametrize("source", ["@Euler", "@piValue", "@e3"])
+def test_constant_aliases_need_complete_token_boundaries(source: str) -> None:
+    result = failure(f"print {source}")
+    assert result.halt == "error"
+    assert "unexpected character '@'" in (result.error or "")
+
+
+def test_constant_aliases_are_not_reinterpreted_in_text_or_comments() -> None:
+    assert out('print "@e @pi"\n// @e @pi\n# @e @pi') == ["@e @pi"]
+
+
+@pytest.mark.parametrize(
+    ("previous", "current", "expected"),
+    [
+        ("x <", "x <-", "x ←"),
+        ("x <", "x <=", "x ≤"),
+        ("x >", "x >=", "x ≥"),
+        ("x !", "x !=", "x ≠"),
+        ("print @", "print @e", "print ⅇ"),
+        ("print @p", "print @pi", "print π"),
+        ("print @e", "print @e ", "print @e "),
+    ],
+)
+def test_typing_aid_converts_single_keystrokes(previous: str, current: str, expected: str) -> None:
+    assert convert_typing(previous, current) == expected
+
+
+@pytest.mark.parametrize(
+    ("previous", "current"),
+    [
+        ('print "<', 'print "<-'),
+        ("// x <", "// x <-"),
+        ("name @e", "name @e3"),
+        ("x <- 1", "x <- 1\nx <- 2"),
+    ],
+)
+def test_typing_aid_leaves_text_comments_names_and_paste_alone(previous: str, current: str) -> None:
+    assert convert_typing(previous, current) == current
+
+
+def test_symbol_style_conversion_preserves_strings_comments_and_plain_names() -> None:
+    source = 'x ← @pi × 2 // π\nprint "ⅇ ←"\npi ← 3'
+    assert convert_symbols(source, "ascii") == ('x <- @pi * 2 // π\nprint "ⅇ ←"\npi <- 3')
+    assert convert_symbols('x <- @e <= @pi\nprint "@e"', "unicode") == ('x ← ⅇ ≤ π\nprint "@e"')
+
+
+@pytest.mark.parametrize("spelling", ["@e", "ⅇ"])
+def test_explicit_euler_constant_cannot_be_shadowed(spelling: str) -> None:
+    assert out(f"e ← 5\nprint {spelling}", euler_e=False) == ["2.71828"]
+
+
+@pytest.mark.parametrize("spelling", ["@pi", "π"])
+def test_explicit_pi_constant_cannot_be_shadowed(spelling: str) -> None:
+    assert out(f"pi ← 5\nprint {spelling}") == ["3.14159"]
 
 
 # ------------------------------------------------------------------------------------ parsing

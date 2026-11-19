@@ -93,7 +93,8 @@ DEFAULT_DATA: dict[str, Any] = {
         "greater_equal": {"ascii": [">="], "unicode": ["≥", "⩾"]},
         "not_equal": {"ascii": ["!=", "<>"], "unicode": ["≠"]},
         "sqrt": {"ascii": ["sqrt("], "unicode": ["√(", "√"]},
-        "pi": {"ascii": ["pi"], "unicode": ["π"]},
+        "euler": {"ascii": ["@e"], "unicode": ["ⅇ"]},
+        "pi": {"ascii": ["pi", "@pi"], "unicode": ["π"]},
         "infinity": {"ascii": ["inf"], "unicode": ["∞"]},
         "abs": {"ascii": ["abs("], "unicode": ["|x|"]},
         "power": {"ascii": ["^", "**"], "unicode": ["superscript integers"]},
@@ -103,7 +104,7 @@ DEFAULT_DATA: dict[str, Any] = {
     "palette": {
         "groups": {
             "arithmetic": ["×", "÷", "±", "≤", "≥", "≠", "←", "≈"],
-            "powers_roots": ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "e", "∞"],
+            "powers_roots": ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "ⅇ", "∞"],
             "logic": ["∧", "∨", "¬"],
             "brackets": ["|x|", "( )", "[ ]"],
             "greek": ["θ", "α", "β", "δ", "λ", "μ", "σ"],
