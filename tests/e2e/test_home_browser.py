@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import re
 import time
+from io import BytesIO
 
 import pytest
+from PIL import Image
 from playwright.sync_api import Browser, Page, expect
 
 from cassim.app.home import WELCOME
@@ -73,7 +75,24 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         page.get_by_role("button", name=re.compile("^Settings")).click()
         expect(page.get_by_text("Appearance")).to_be_attached()
-        page.get_by_role("button", name="Cancel").click()
+        page.get_by_role("alertdialog").get_by_role("button").first.click()
+        page.get_by_text("Light", exact=True).click()
+        page.get_by_role("button", name="Save").click()
+        nspire = page.get_by_role("button", name=re.compile("Nspire"))
+        expect(nspire).to_be_attached()
+        bounds = nspire.bounding_box()
+        assert bounds is not None
+        pixels = page.screenshot(
+            clip={
+                "x": bounds["x"] + 16,
+                "y": bounds["y"] + bounds["height"] / 2,
+                "width": 2,
+                "height": 2,
+            }
+        )
+        pixel = Image.open(BytesIO(pixels)).getpixel((0, 0))
+        assert isinstance(pixel, tuple)
+        assert pixel[:3] == (255, 255, 255)
     finally:
         page.close()
 
