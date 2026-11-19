@@ -1,6 +1,6 @@
 # CASSim: Software Requirements Specification
 
-Status: **DRAFT 0.9** (2026-11-18: milestones resequenced so Python/pseudocode is M5, TI-Basic and extensions are M6, and polish is M7; current implementation status refreshed; spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15: FR-PROF-008 and FR-PROF-009 added, FR-PROF-003, FR-PROF-005 and FR-RUN-009 reworded, Q23 revised, and the device interface comes before M3; earlier the same day: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the later programming and profile scope in 4.12. **The Code part (M5: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
+Status: **DRAFT 0.9** (2026-11-19: scope now explicitly describes CASSim as a multi-app shell; the all-in-one Home chooser and the Nspire and Pseudocode devices are current, while ClassPad and Prime remain future profiles; 2026-11-18: milestones resequenced so Python/pseudocode is M5, TI-Basic and extensions are M6, and polish is M7; current implementation status refreshed; spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15, added or revised; earlier entries: M3/M4 and decision 0031 additions; 2026-11-08 implementation status; 2026-11-04 open-question review. **The Code part (M5) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions Q17, Q18, Q19 and Q22 remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
 Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is the milestone in PLAN.md section 8. Verification: **T** test (unit/corpus/device), **E** E2E (Playwright), **I** inspection, **D** demonstration, **A** analysis (measurement).
 
@@ -12,11 +12,26 @@ Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is
 Defines what CASSim must do and the constraints it must meet. It is the baseline for the design documents (SDD, `docs/design/`) and for acceptance testing.
 
 ### 1.2 Scope
-CASSim is a static, installable (PWA) browser simulation of the TI-Nspire CX CAS for teaching, practice and demonstration. The maths engine (SymPy and mpmath; SciPy is not shipped, decision 0031) runs client-side in Pyodide. There is no server component. CASSim reproduces the *behaviour* and *workflow* of the handheld/teacher software, not its ROM, artwork or branding. It reproduces the device's *layout, menu structure and vocabulary* so that students can transfer to the real handheld, but not its artwork or prose (decision 0028).
+CASSim is a static, installable (PWA) multi-app browser shell for teaching, practice and
+demonstration. Each app is a plug-in device with its own workflow, storage and optional engine.
+Nspire and Pseudocode & Python are the current devices; Casio ClassPad and HP Prime are later
+profiles. The all-in-one bundle chooses among the built devices, while single-device bundles contain
+one device only. Device engines run client-side, including the Nspire SymPy/mpmath engine in
+Pyodide; there is no server component.
 
-CASSim is a **simulator, not a hardware-level emulation**: it need not match TI output exactly, but must be close enough not to confuse students or teachers. CASSim is released under the Unlicense.
+Calculator devices reproduce the target's *behaviour* and *workflow*, not its ROM, artwork or
+branding. Each device reproduces the applicable layout, menu structure and vocabulary so that
+practice transfers to the real calculator, but not its artwork or prose (decision 0028). CASSim is a
+**simulator, not a hardware-level emulation**: results need to be familiar and correct, not exact
+copies of a target's output text unless a requirement says so. CASSim is released under the
+Unlicense.
 
-**Later scope.** After the core page set (M0–M4), CASSim adds a web-based Python and pseudocode environment in M5, with translation between the two and a stepwise forwards-and-backwards trace table, standalone and as page types (Should). TI-Basic and library extensions follow in M6, polish in M7, then a device switcher with a Casio ClassPad profile in M8 (Could), and possibly an HP Prime profile in M9 (Would) (4.12). The requirements and priority of each feature are unchanged by the resequencing.
+**Current and later scope.** The Home shell and device chooser are built (M2x/M5), with Nspire and
+Pseudocode & Python as the enabled choices. M5 continues the standalone Code view, Python execution,
+translation and Nspire page types (Should). TI-Basic and library extensions follow in M6, and polish
+in M7. A ClassPad device joins the existing shell in M8 (Could), and an HP Prime device may follow
+in M9 (Would) (4.12). Nspire-specific sections are requirements for the Nspire device, not for every
+device in the shell.
 
 Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP ROM/OS/firmware code, logos or artwork; loading `.tns` libraries (the `mm_`/`sm_`/`gm_` UDFs are ported natively instead); server-side accounts or sync.
 
@@ -30,11 +45,12 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 | Device model | Headless model of keys, menus, cursor and screen, independent of Flet |
 | VCE | Victorian Certificate of Education (Methods, Specialist, General Mathematics) |
 | Canonical equality | Two results are equal if symbolically/numerically equal, regardless of text form |
-| Device profile | The bundle that makes one calculator behave like itself: dialect, catalogue, display conventions, document/page model, keys, menus, skin and corpus. The TI-Nspire CX CAS is the first |
+| Device profile | A plug-in device's behaviour and assets: dialect/runtime, catalogue, display conventions, document/page model, keys/menus/skin where applicable, and corpus. Nspire and Pseudocode are the current devices |
+| CASSim shell | The shared installable app: Home, remembered device, browser/storage/PWA services and device mounting. It owns no calculator document |
 | Oracle | The reference implementation a profile's corpus is captured from: the TI simulator for the Nspire; the manufacturer's PC emulator for ClassPad and Prime [Q17, Q18] |
 | Pseudocode | A structured, language-neutral notation for algorithms; CASSim implements one dialect [Q16] |
 | Code view | The standalone Python/pseudocode environment, with no device skin; it is the `pseudocode` device |
-| Bundle | One published build of the app: `all` (every built device, with the switcher) or a single device (`tin`, `pseudo`, `cp`, `prime`), each on its own site (PLAN.md section 15) |
+| Bundle | One published build: `all` (every built device, with Home) or a single device (`tin`, `pseudo`, `cp`, `prime`), each on its own site (PLAN.md section 15) |
 | Trace table | A table recording variable values as a program runs: **vertical** (one row per executed line) or **horizontal** desk check (code down the side, one column per loop pass) |
 | Syntax file | The user-editable data file that defines which spellings, optional tokens and block terminators the pseudocode parser accepts and which style the printer writes |
 
@@ -56,10 +72,20 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 ## 2. Overall description
 
 ### 2.1 Product perspective
-A self-contained web app: Flet UI (Flutter web, canvas rendered) over a pure-Python core (`src/cassim/core`) that never imports Flet. The engine runs in its own Pyodide worker so the UI stays responsive and evaluation can be cancelled by terminating that worker (decision 0005). Persistence is in the browser: autosave and System Settings use IndexedDB (with a legacy localStorage reader), and named Code files also use IndexedDB in M5. Hosted as static files.
+A self-contained multi-app shell: Flet UI (Flutter web, canvas rendered), a Home chooser and shared
+browser services around independent devices. The Nspire device uses a pure-Python core
+(`src/cassim/core`) that never imports Flet and runs it in a Pyodide worker; the Pseudocode device
+uses the pure-Python pseudocode runtime without that CAS worker. Persistence is in the browser:
+autosave and System Settings use IndexedDB (with a legacy localStorage reader), and Code files use
+browser storage. The shell and devices are hosted as static files.
 
 ### 2.2 Product functions (summary)
-Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & Statistics; Finance; Notes; Program Editor and TI-Basic; documents and Problems; three display modes (Computer, Tablet/demo, Handheld); offline use. From M5: a Python and pseudocode environment, standalone and as page types. Later, as Could and Would: a device switcher with Casio ClassPad and HP Prime profiles.
+A device chooser; a Nspire app with Calculator, Graphs, Lists & Spreadsheet, Data & Statistics,
+Finance and documents/Problems; a standalone Pseudocode & Python app with editing and trace tables;
+three Nspire display modes (Computer, Tablet/demo, Handheld); offline/PWA operation. Remaining M5
+work adds full Python execution, translation and Nspire code page types. Later devices are ClassPad
+and, optionally, HP Prime. TI-Basic, libraries, Notes and other incomplete device features remain
+scoped by their requirement sections.
 
 ### 2.3 Users and classes
 1. **Student**: knows the handheld; wants identical keystrokes and results.
@@ -67,7 +93,7 @@ Calculator page with TI syntax; Graphs and Table; Lists & Spreadsheet; Data & St
 3. **Teacher authoring**: builds documents, programs, Python scripts; shares files with students.
 4. **Developer/maintainer**: runs corpus, adds commands.
 5. **Student programmer** (from M5): writes and runs short Python or pseudocode programs, standalone or on a calculator page.
-6. **Student or teacher on another CAS calculator** (from M8): wants the Casio or HP workflow rather than the Nspire's.
+6. **Student or teacher on another CAS calculator** (future M8/M9): wants the ClassPad or HP workflow rather than the Nspire's.
 
 ### 2.4 Operating environment
 Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Secondary: Edge, Firefox. Python 3.14 / Pyodide 314.0.7. Static hosting on Cloudflare Pages or any other free or cheap static host, with correct MIME types (`.mjs`) and no server-side code. Share links must stay within typical URL limits (about 2,000 characters is safe across browsers). Dev: Windows 11, uv, Ruff, Ty, pytest, Hypothesis, Playwright.
@@ -233,15 +259,22 @@ This cross-cuts every functional area.
 | FR-PWA-003 | Loading screen with progress during cold start. | M | D |
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
-### 4.12 Programming environments and later device profiles — M5, M8–M9
-M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the remembered, lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
+### 4.12 Programming environments and pluggable devices — M5, M8–M9
+The M2x/M5 shell already implements the Home chooser, remembered device and bundle boundary. M5
+continues the Nspire and Pseudocode work; M6 extensions and M7 polish follow. ClassPad and HP Prime
+do not require another shell redesign: they add devices to this existing boundary. FR-PROF-005's
+per-device lazy asset/offline caching remains work because the first two devices can still be
+distributed in the current build. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code
+view and page types) are Should; ClassPad and the work specific to it are Could; HP Prime is Would
+(not planned). Question numbers refer to section 10. FR-PY-002 applies to every Python and
+pseudocode page, and the Python page itself is FR-RUN-010 (M5).
 
-**Device profiles (M8)**
+**Multi-app shell and device profiles (current, then M8/M9)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-PROF-001 | Device-specific behaviour (input dialect, command catalogue and its behaviour differences, display conventions, settings and presets, document/page model, key layers, menu tree, keymap and skin, error table, corpus) is packaged as a **device profile**; common maths-engine pieces stay shared. | C | I |
 | FR-PROF-002 | The TI-Nspire CX CAS is the first profile. Moving it onto the profile interface changes no behaviour: the full Nspire corpus replays unchanged and the coverage targets in NFR-MAINT-004 still hold. | M (conditional on FR-PROF-001) | T |
-| FR-PROF-003 | The all-in-one app (the `all` bundle) switches between profiles at run time from a visible switcher, and remembers the active profile. A single-device bundle has no switcher. | C | E |
+| FR-PROF-003 | The all-in-one app (the `all` bundle) switches between profiles from the visible Home chooser and remembers the active profile. A single-device bundle mounts its device directly and has no chooser. | C | E |
 | FR-PROF-004 | Each profile has its own documents, settings and theme namespace in browser storage; switching never mixes or overwrites another profile's data. Sharing data between profiles is not required [Q20]. | C | T |
 | FR-PROF-005 | Profile assets (grammar tables, catalogue data, skins) load lazily and are cached for offline use on first use, so a user who only opens the Nspire profile does not download the others. Cold start and download size (NFR-PERF-001, -005) are reported per bundle. | C | A |
 | FR-PROF-006 | Each profile declares its page/app types. Page types are registered, not hard-coded, so a type (Python, Pseudocode) can be offered by any profile that opts in [Q22]. | S | I |
@@ -524,8 +557,8 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | Device interface and bundles | FR-PROF-001/002/008/009 | Complete through M2x; the Nspire package boundary, registered page types and bundle-aware publishing are implemented. |
 | Lists & Spreadsheet, Data & Statistics, Finance page | 4.5, 4.6, FR-DOC-008, FR-DOC-009 | Mostly met (M3): sheet and data page models/UI, categorical and numeric plots, inference, split panes, Quick Graph/Summary Plot, CSV/XLSX, and the Finance Solver are built. Remaining exit work is General Maths flows, timing reports and simulator checks of selected defaults/save-reload behaviour. |
 | Graphs, Table and Notes | 4.7, 4.7a | M4 is in progress: the function Graphs page now has worker compilation, adaptive plotting, one-row expression navigation, curve labels, view controls and save/load. Trace/Analyze UI, other entry types, Table/sliders and Notes remain. |
-| Pseudocode runtime, trace tables, syntax file, printer | 4.12 (FR-RUN-005/006, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built ahead of schedule as M5b; 58 golden programs green. Translation, editor, settings bar, Code view and page types are not started. |
+| Pseudocode runtime and Code view | 4.12 (FR-RUN-005/006/009, FR-PSE, FR-TRC, FR-SYN-001 to 009) | M5 runtime and 58 golden programs are green; the standalone device, editor, pseudocode execution, console/trace UI, language selector and file import/export are integrated. Full Python execution, translation, the remaining syntax/settings/file features and Nspire page types are not complete. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike in 5a comes first. |
 | TI-Basic, libraries | 4.8 | Not started (M6, Could). |
-| Profiles, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | M2x completed the shared infrastructure; runtime profile switching and ClassPad/HP work remain M8/M9. |
+| Multi-app shell, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Home, remembered-device switching, bundle-specific device lists and the Nspire/Pseudocode device boundary are built. Per-device lazy caching is follow-up; ClassPad remains M8 and HP Prime M9. |
 | Non-functional | 5 | Traceability, accessibility notes and per-package coverage floors exist. Primary-browser matrix gaps and the M7 release audits remain open. |
