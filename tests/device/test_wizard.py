@@ -226,6 +226,20 @@ def test_linear_paste_exponent_takes_only_its_operand() -> None:
     assert editor.root[2:] == ["+", "1"]
 
 
+def test_linear_paste_preserves_symbols_in_quoted_strings() -> None:
+    editor = Editor()
+    editor.insert_linear('"a^2 √x"+x^2')
+    assert editor.root[:8] == list('"a^2 √x"')
+    assert isinstance(editor.root[-1], Template)
+
+
+def test_typing_preserves_symbols_in_quoted_strings() -> None:
+    editor = Editor()
+    editor.insert_text('"a^2 √x"+x^2')
+    assert editor.root[:8] == list('"a^2 √x"')
+    assert isinstance(editor.root[-1], Template)
+
+
 def test_linear_paste_leaves_the_cursor_at_the_mark() -> None:
     editor = Editor()
     editor.insert_linear("f(" + CURSOR + ",x)", CURSOR)
