@@ -127,7 +127,11 @@ class CodeApp:
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
-                ft.MenuItemButton(content="Home", on_click=self.home),
+                *(
+                    [ft.MenuItemButton(content="Home", on_click=self.home)]
+                    if getattr(self.shell, "home", None) is not None
+                    else []
+                ),
                 ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
                 ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
                 ft.MenuItemButton(content="Check for Updates…", on_click=self.check_updates),
@@ -397,6 +401,9 @@ class CodeApp:
             host = js.document.getElementById("cassim-codemirror")
             if host:
                 host.remove()
+        self.shell.changed = lambda: None
+        self.page.on_keyboard_event = None
+        self.page.on_resize = None
         self.page.controls.clear()
 
     def apply_theme(self, name: str) -> None:
@@ -1239,20 +1246,8 @@ window.CASSimTypingAids = function(editor, change) {
             )
 
     def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        async def show_home() -> None:
-            from cassim.app.home import Home  # noqa: PLC0415
-
-            self.page.controls.clear()
-            await Home(
-                self.shell,
-                lambda item: self.page.run_task(self.open_device_placeholder, item),
-            ).start()
-
-        self.page.run_task(show_home)
-
-    async def open_device_placeholder(self, item: str) -> None:
-        """The Home callback target when a device is chosen after returning from Code view."""
-        del item
+        if self.shell.home is not None:
+            self.shell.home()
 
     def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
         number = ft.SegmentedButton(

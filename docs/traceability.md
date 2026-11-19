@@ -188,7 +188,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-PROF-011 | Could | `tests/app/test_home.py` |
 | FR-PROF-012 | Could | `tests/app/test_home.py` |
 | FR-PROF-013 | Could | `tests/app/test_home.py` |
-| FR-PROF-014 | Could | `tests/app/test_home.py` |
+| FR-PROF-014 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | FR-PROF-015 | Could | `tests/app/test_home.py` |
 | FR-PROF-016 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | FR-PROF-017 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
