@@ -866,8 +866,7 @@ DOC = MenuItem(
             MenuItem("Problem", "add_problem", key="1", hint="then choose an application"),
             MenuItem("Page", "add_page", key="2", hint="ctrl+I, then choose an application"),
             MenuItem("Calculator", "add_page", "calculator", key="3"),
-            # Graphs and Notes are still placeholders (PLAN.md, M3 and M4).
-            MenuItem("Graphs", "add_page", "graphs", key="4", hint=STUB_PAGE),
+            MenuItem("Graphs", "add_page", "graphs", key="4"),
             todo("Geometry", "5"),
             MenuItem("Lists & Spreadsheet", "add_page", "spreadsheet", key="6"),
             MenuItem("Data & Statistics", "add_page", "statistics", key="7"),
@@ -1285,7 +1284,7 @@ SHEET_COLUMN = MenuItem(
 def _app_picker(action: Action, title: str) -> MenuItem:
     """The list of applications a new page or Problem offers (emulator checks: graphs2 D, graphs3,
     sharing G, split H): the device's ten items and numbers; Geometry, Vernier DataQuest and
-    Widget are greyed, while unbuilt page types say so."""
+    Widget are greyed; Notes, Program Editor and Python are not built yet."""
 
     def add(label: str, kind: str, key: str, *, stub: bool = False) -> MenuItem:
         return MenuItem(f"Add {label}", action, kind, key=key, hint=STUB_PAGE if stub else "")
@@ -1294,7 +1293,7 @@ def _app_picker(action: Action, title: str) -> MenuItem:
         title,
         items=(
             add("Calculator", "calculator", "1"),
-            add("Graphs", "graphs", "2", stub=True),
+            add("Graphs", "graphs", "2"),
             todo("Add Geometry", "3"),
             add("Lists & Spreadsheet", "spreadsheet", "4"),
             add("Data & Statistics", "statistics", "5"),

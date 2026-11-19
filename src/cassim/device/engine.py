@@ -4,8 +4,8 @@ In the browser the UI and the document model live in Flet's Python worker and `c
 a second worker that Cancel terminates. Nothing synchronous can cross between them, so:
 
 - `EngineCore` runs where the maths runs: one `Session` per Problem, driven by JSON-ready *ops*
-  (`new_problem`, `settings`, `store`, `ans`, `eval`) and answering with the result and the
-  variables that changed since its last reply (a *delta*, decision 0031).
+  (`new_problem`, `settings`, `store`, `ans`, `eval`, `graph_compile`) and answering with the result
+  and the variables that changed since its last reply (a *delta*, decision 0031).
 - `RemoteSession` stands in for a `Session` on the UI side. It answers `is_function` and
   `variables` from its `VariableStore`, queues settings changes as ops, and keeps a journal of every
   op the engine has accepted. A fresh engine is rebuilt from the journals after a Cancel.
@@ -18,12 +18,14 @@ where it enters the engine (PLAN.md section 12, A1).
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict, cast
 
 from cassim.core.builtin_names import is_builtin
 from cassim.core.results import Result, VariableInfo
 from cassim.core.settings import Settings, updated, variable_key
+from cassim.core.values import Expr
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -60,6 +62,12 @@ class EvalOp(TypedDict):
     approximate: bool
 
 
+class GraphCompileOp(TypedDict):
+    op: Literal["graph_compile"]
+    name: str
+    expression: str
+
+
 type SheetAction = Literal[
     "cell",
     "formula",
@@ -90,7 +98,7 @@ class SheetOp(TypedDict):
     args: dict[str, object]
 
 
-type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | SheetOp
+type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | GraphCompileOp | SheetOp
 
 # What each sheet action takes. "span" is [left, top, right, bottom] (columns from 0, rows from
 # 1); "choose" maps a name to "cell" or "variable" (Conflict Detected).
@@ -256,12 +264,19 @@ class SheetReply(TypedDict):
     columns: list[ColumnPayload]
 
 
+class GraphCompileReply(TypedDict):
+    name: str
+    source: str | None
+    error: str | None
+
+
 class Reply(TypedDict):
     result: ResultPayload | None  # the last `eval`'s result
     full: bool  # `changed` is every variable: replace, do not merge
     changed: list[Row]  # rows stored since the last reply
     deleted: list[str]  # names deleted since the last reply
     sheets: NotRequired[list[SheetReply]]  # the sheets that changed or were asked about
+    graph_compiles: NotRequired[list[GraphCompileReply]]
 
 
 class EngineError(RuntimeError):
@@ -317,10 +332,22 @@ def check_op(raw: object) -> Op:
             "line": _text(raw.get("line"), "the entry"),
             "approximate": approximate,
         }
-    if name == "sheet":
-        return _check_sheet_op(raw)
+    if name in {"graph_compile", "sheet"}:
+        return _check_graph_compile_op(raw) if name == "graph_compile" else _check_sheet_op(raw)
     msg = f"unknown engine op {name!r}"
     raise EngineError(msg)
+
+
+def _check_graph_compile_op(raw: dict[str, object]) -> GraphCompileOp:
+    graph_name = _text(raw.get("name"), "the graph function name")
+    if not re.fullmatch(r"f[1-9]\d?", graph_name):
+        msg = f"invalid graph function name {graph_name!r}"
+        raise EngineError(msg)
+    return {
+        "op": "graph_compile",
+        "name": graph_name,
+        "expression": _text(raw.get("expression"), "the graph expression"),
+    }
 
 
 def check_reply(raw: object) -> Reply:
@@ -375,6 +402,19 @@ def check_reply(raw: object) -> Reply:
             msg = f"not sheet replies: {str(sheets)[:80]}"
             raise EngineError(msg)
         checked["sheets"] = sheets
+    if "graph_compiles" in raw:
+        graph_compiles = raw["graph_compiles"]
+        if not isinstance(graph_compiles, list) or not all(
+            isinstance(item, dict)
+            and set(item) == {"name", "source", "error"}
+            and isinstance(item["name"], str)
+            and (item["source"] is None or isinstance(item["source"], str))
+            and (item["error"] is None or isinstance(item["error"], str))
+            for item in graph_compiles
+        ):
+            msg = f"not graph compile replies: {str(graph_compiles)[:80]}"
+            raise EngineError(msg)
+        checked["graph_compiles"] = graph_compiles
     return checked
 
 
@@ -384,6 +424,10 @@ def settings_op(settings: Settings) -> SettingsOp:
 
 def eval_op(line: str, *, approximate: bool) -> EvalOp:
     return {"op": "eval", "line": line, "approximate": approximate}
+
+
+def graph_compile_op(name: str, expression: str) -> GraphCompileOp:
+    return {"op": "graph_compile", "name": name, "expression": expression}
 
 
 def store_op(numbers: dict[str, float]) -> StoreOp:
@@ -399,6 +443,34 @@ def local_session(settings: Settings | None = None) -> Session:
     from cassim.core.session import Session  # noqa: PLC0415
 
     return Session(settings)
+
+
+def _compile_graph(session: Session, name: str, expression: str) -> GraphCompileReply:
+    definition = session.eval(f"{name}(x):={expression}")
+    if definition.error is not None:
+        return {"name": name, "source": None, "error": definition.error}
+
+    parameter = "_cassim_graph_parameter"
+    while session.is_defined(parameter):
+        parameter += "_"
+    expanded = session.preview(f"{name}({parameter})")
+    variable = session.preview(parameter)
+    if expanded.error is not None or not isinstance(expanded.value, Expr):
+        return {
+            "name": name,
+            "source": None,
+            "error": expanded.error or "graph expression is not real-valued",
+        }
+    if variable.error is not None or not isinstance(variable.value, Expr):
+        return {"name": name, "source": None, "error": "could not create graph parameter"}
+
+    from cassim.core.compat.sympy_adapter import math_source  # noqa: PLC0415 (lazy SymPy import)
+
+    try:
+        source = math_source(expanded.value.raw, variable.value.raw)
+    except ValueError as error:
+        return {"name": name, "source": None, "error": str(error)}
+    return {"name": name, "source": source, "error": None}
 
 
 # ---- the engine side ----------------------------------------------------------------------------
@@ -424,6 +496,7 @@ class EngineCore:
             session = self.sessions[problem] = local_session()
         result: ResultPayload | None = None
         sheet_replies: dict[int, SheetReply] = {}
+        graph_compiles: list[GraphCompileReply] = []
         for op in checked:
             settings = session.settings
             match op["op"]:
@@ -444,6 +517,8 @@ class EngineCore:
                         "full": done.full,
                         "warnings": list(done.warnings),
                     }
+                case "graph_compile":
+                    graph_compiles.append(_compile_graph(session, op["name"], op["expression"]))
                 case "sheet":
                     self._sheets_of(problem, session).run(op, sheet_replies)
             if problem in self.sheets:
@@ -474,6 +549,8 @@ class EngineCore:
         }
         if sheet_replies:
             reply["sheets"] = [sheet_replies[page] for page in sorted(sheet_replies)]
+        if graph_compiles:
+            reply["graph_compiles"] = graph_compiles
         return reply
 
     def _sheets_of(self, problem: int, session: Session) -> ProblemSheets:
@@ -596,6 +673,7 @@ class RemoteSession:
         self.store = VariableStore()
         # Sheet replies by page id, until the page takes them (`cassim.device.sheet_link`)
         self.sheet_inbox: dict[int, list[SheetReply]] = {}
+        self.graph_inbox: dict[str, list[GraphCompileReply]] = {}
         if self._settings != Settings():
             self.outbox.append(settings_op(self._settings))
 
@@ -655,6 +733,8 @@ class RemoteSession:
         self.store.apply(reply)
         for sheet in reply.get("sheets", []):
             self.sheet_inbox.setdefault(sheet["page"], []).append(sheet)
+        for graph in reply.get("graph_compiles", []):
+            self.graph_inbox.setdefault(graph["name"], []).append(graph)
 
     def compact(self, page: int, restore: SheetOp) -> None:
         """Keep one op for a sheet in the journal: `restore` with its contents now, where its

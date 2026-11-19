@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, expect
 from tests.e2e.test_flows_browser import AppPage
 
 from cassim.devices.nspire.pages.spreadsheet import DEFAULT_WIDTH
@@ -185,6 +185,18 @@ def test_drag_shift_click_and_headings_select_ranges(
     app.wait(lambda: "CASSIM: SHEET SELECTION C" in app.logs, "whole-column selection")
     app.page.mouse.click(x + 4, y + HEAD + FORMULA + 1.5 * ROW)
     app.wait(lambda: "CASSIM: SHEET SELECTION 2" in app.logs, "whole-row selection")
+    app.page.close()
+
+
+def test_sorter_shows_sheet_column_names(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DOC-001: the sheet's column names appear in its page-sorter preview."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    check_shared_column(app)
+    app.page.get_by_role("button", name="Page manager", exact=True).click()
+    expect(
+        app.page.get_by_role("button", name="1.2 Lists & Spreadsheet xs", exact=False)
+    ).to_be_attached(timeout=30000)
     app.page.close()
 
 

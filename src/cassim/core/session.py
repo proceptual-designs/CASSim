@@ -51,6 +51,13 @@ class Session:
         `approx(...)`, whatever the Calculation Mode is. On an empty line it gives the previous
         result (`Ans`) as a decimal, and does nothing if there is no previous result.
         """
+        return self._evaluate(line, approximate=approximate, remember=True)
+
+    def preview(self, line: str) -> Result:
+        """Evaluate an expression without changing Ans; used for graph compilation."""
+        return self._evaluate(line, approximate=False, remember=False)
+
+    def _evaluate(self, line: str, *, approximate: bool, remember: bool) -> Result:
         if approximate and not line.strip():
             if self._ans is None:
                 return Result("", "", None, None)
@@ -82,7 +89,7 @@ class Session:
         except Exception as error:  # a bug, perhaps in formatting: shown, not raised
             message = errors.internal(error).message
             return Result(message, "", None, message)
-        if not isinstance(value, Void):
+        if remember and not isinstance(value, Void):
             self._ans = value
         return Result(text, latex, value, None, full, tuple(evaluator.warnings))
 

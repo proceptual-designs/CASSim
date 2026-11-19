@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import flet as ft
 
+from cassim import bundle
 from cassim.app import about
 from cassim.app.theme import DARK
 
@@ -39,6 +40,15 @@ class BrowserOffers:
     offline_message: str = "Offline status is unavailable."
     offline_retry: bool = False
     update_ready: bool = False
+    update_fetching: bool = False
+
+    @property
+    def update_label(self) -> str:
+        if self.update_ready:
+            return "Reload for Update"
+        if self.update_fetching:
+            return "Fetching Update"
+        return "Check for Updates"
 
     @property
     def needs_attention(self) -> bool:
@@ -60,8 +70,10 @@ UNINSTALL_STEPS = (
 # tools/publish.py).
 UPDATE_TITLE = "Check for Updates"
 UPDATE_MESSAGES = {
-    "downloading": "A new version is downloading. Reload will appear in the {product} menu.",
-    "ready": "A new version is ready. Choose Reload in the {product} menu to use it.",
+    "downloading": (
+        "A new version is downloading. Reload for Update will appear in the {product} menu."
+    ),
+    "ready": "A new version is ready. Choose Reload for Update in the {product} menu to use it.",
     "offline": "{product} could not reach its site. Check the connection and try again.",
     "unsupported": "This copy of {product} cannot check for updates.",
 }
@@ -131,9 +143,12 @@ def make_text_store() -> TextStore | None:
 class Shell:
     """The browser's services for one mounted device."""
 
-    def __init__(self, page: ft.Page, device: Device) -> None:
+    def __init__(self, page: ft.Page, device: Device | None = None) -> None:
         self.page = page
         self.device = device
+        self.available_devices: tuple[str, ...] = tuple(bundle.DEVICES)
+        self.home: Callable[[], None] | None = None
+        self.open_device_callback: Callable[[str], object] | None = None
         self.theme = DARK
         # Set by the device's UI: called when what the browser offers changes (Install appears).
         self.changed: Callable[[], None] = lambda: None
@@ -144,6 +159,18 @@ class Shell:
         self.launcher = ft.UrlLauncher()
         page.services.extend([self.clipboard, self.files, self.prefs, self.launcher])
         self.texts = make_text_store()  # IndexedDB in the browser; None on the desktop
+
+    @property
+    def active_device(self) -> Device:
+        """The selected device; Home and shell services do not need one."""
+        if self.device is None:
+            msg = "no device is mounted"
+            raise RuntimeError(msg)
+        return self.device
+
+    def select(self, device: Device) -> None:
+        """Mount `device`'s storage namespace and engine behind this shell."""
+        self.device = device
 
     def _offers_changed(self) -> None:
         self.changed()  # looked up when called: the device's UI sets it after the shell is made
@@ -156,7 +183,10 @@ class Shell:
     async def read(self, key: str) -> str | None:
         """The text saved under `key`. In the browser it is in IndexedDB; a text saved by an
         earlier build is still in localStorage and is read from there until it is next written."""
-        full = self.device.storage + key
+        return await self.read_global(self.active_device.storage + key)
+
+    async def read_global(self, full: str) -> str | None:
+        """Read a shell-wide storage key without adding a device namespace."""
         if self.texts is not None:
             found = await self.texts.get(full)
             if found is not None:
@@ -165,7 +195,10 @@ class Shell:
         return saved if isinstance(saved, str) else None
 
     def write(self, key: str, text: str) -> None:
-        full = self.device.storage + key
+        self.write_global(self.active_device.storage + key, text)
+
+    def write_global(self, full: str, text: str) -> None:
+        """Write a shell-wide storage key without adding a device namespace."""
         if self.texts is None:
             self.page.run_task(self.prefs.set, full, text)
             return
@@ -179,7 +212,10 @@ class Shell:
 
     def remove(self, key: str) -> None:
         """Forget the text saved under `key` (a deleted document)."""
-        full = self.device.storage + key
+        self.remove_global(self.active_device.storage + key)
+
+    def remove_global(self, full: str) -> None:
+        """Forget a shell-wide storage key."""
 
         async def drop() -> None:
             if self.texts is not None:
@@ -187,6 +223,12 @@ class Shell:
             await self.prefs.remove(full)
 
         self.page.run_task(drop)
+
+    async def remove_global_async(self, full: str) -> None:
+        """Forget a shell-wide storage key and wait until it is persisted."""
+        if self.texts is not None:
+            await self.texts.delete(full)
+        await self.prefs.remove(full)
 
     # ---- the system clipboard -----------------------------------------------------------------
 
@@ -286,18 +328,23 @@ class Shell:
         if bridge is None:
             return BrowserOffers()
         return BrowserOffers(
-            bridge.installable,
-            bridge.can_fullscreen,
-            bridge.standalone,
-            bridge.in_fullscreen,
-            bridge.installed,
-            bridge.touch,
-            bridge.safe_area,
-            bridge.offline_state,
-            bridge.offline_message,
-            bridge.offline_retry,
-            bridge.update_ready,
+            installable=bridge.installable,
+            can_fullscreen=bridge.can_fullscreen,
+            standalone=bridge.standalone,
+            in_fullscreen=bridge.in_fullscreen,
+            installed=bridge.installed,
+            touch=bridge.touch,
+            safe_area=bridge.safe_area,
+            offline_state=bridge.offline_state,
+            offline_message=bridge.offline_message,
+            offline_retry=bridge.offline_retry,
+            update_ready=bridge.update_ready,
+            update_fetching=getattr(bridge, "update_fetching", False),
         )
+
+    @property
+    def update_label(self) -> str:
+        return self.offers.update_label
 
     def install(self) -> None:
         if self.bridge is not None:
@@ -328,13 +375,20 @@ class Shell:
         )
 
     def check_for_updates(self) -> None:
-        """Ask the server for a newer version; the menu offers Reload once it has downloaded."""
+        """Ask the server for a newer version and show the result."""
         bridge = self.bridge
         if bridge is None:
             self.notice(UPDATE_TITLE, update_message("unsupported"))
             return
         bridge.on_update = lambda result: self.notice(UPDATE_TITLE, update_message(result))
         bridge.check_update()
+
+    def activate_update(self, reload: Callable[[], None] | None = None) -> None:
+        """Check for an update, or run `reload` when one is already waiting."""
+        if self.offers.update_ready:
+            (reload or self.reload_update)()
+        else:
+            self.check_for_updates()
 
     def toggle_fullscreen(self) -> None:
         """Fullscreen, or back out of it while the page is fullscreen."""
@@ -349,7 +403,7 @@ class Shell:
     def engine(self) -> Engine | None:
         """The device's engine in its own worker, in the browser (so Cancel can end it). None on
         the desktop, where the device runs its engine in this process."""
-        spec = self.device.engine
+        spec = self.active_device.engine
         if spec is None or sys.platform != "emscripten":
             return None
         from cassim.app.web import WorkerEngine  # noqa: PLC0415

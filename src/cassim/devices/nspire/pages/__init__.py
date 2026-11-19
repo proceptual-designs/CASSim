@@ -1,7 +1,7 @@
 """The Nspire's page types (FR-PROF-006).
 
-The Calculator and Lists & Spreadsheet pages have models. The others are registered with their
-names, so the menus can add them and a file can hold them, and they show as not built yet.
+Calculator, Graphs, Lists & Spreadsheet and Data & Statistics have models. The remaining page
+types are registered by name so menus and documents can refer to them.
 
 A saved Calculator page holds the entries as typed (the editor's nodes, so templates survive), not
 their results: loading replays them in order through the engine.
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from cassim.device.editor import Node
 from cassim.device.keys import Binding
 from cassim.devices.nspire.editor_storage import dump_nodes, load_nodes
-from cassim.devices.nspire.pages import spreadsheet
+from cassim.devices.nspire.pages import graphs, spreadsheet
 from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
 from cassim.devices.nspire.pages.statistics import (
@@ -123,7 +123,13 @@ PAGES = PageTypes(
         PageType(
             PageKind.CALCULATOR, "Calculator", _new_calculator, _dump_calculator, _load_calculator
         ),
-        PageType(PageKind.GRAPHS, "Graphs"),
+        PageType(
+            PageKind.GRAPHS,
+            "Graphs",
+            graphs.new_graphs,
+            graphs.dump_graphs,
+            graphs.load_graphs,
+        ),
         PageType(
             PageKind.SPREADSHEET,
             "Lists & Spreadsheet",

@@ -15,7 +15,10 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-import yaml
+try:
+    import yaml
+except ImportError:  # the app UI has no YAML package; syntax-file loading is unavailable there
+    yaml = None
 
 type Mode = Literal["ok", "warn", "no"]
 type Policy = Literal["required", "optional", "forbidden"]
@@ -90,7 +93,8 @@ DEFAULT_DATA: dict[str, Any] = {
         "greater_equal": {"ascii": [">="], "unicode": ["≥", "⩾"]},
         "not_equal": {"ascii": ["!=", "<>"], "unicode": ["≠"]},
         "sqrt": {"ascii": ["sqrt("], "unicode": ["√(", "√"]},
-        "pi": {"ascii": ["pi"], "unicode": ["π"]},
+        "euler": {"ascii": ["@e"], "unicode": ["ⅇ"]},
+        "pi": {"ascii": ["pi", "@pi"], "unicode": ["π"]},
         "infinity": {"ascii": ["inf"], "unicode": ["∞"]},
         "abs": {"ascii": ["abs("], "unicode": ["|x|"]},
         "power": {"ascii": ["^", "**"], "unicode": ["superscript integers"]},
@@ -100,7 +104,7 @@ DEFAULT_DATA: dict[str, Any] = {
     "palette": {
         "groups": {
             "arithmetic": ["×", "÷", "±", "≤", "≥", "≠", "←", "≈"],
-            "powers_roots": ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "e", "∞"],
+            "powers_roots": ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "ⅇ", "∞"],
             "logic": ["∧", "∨", "¬"],
             "brackets": ["|x|", "( )", "[ ]"],
             "greek": ["θ", "α", "β", "δ", "λ", "μ", "σ"],
@@ -513,30 +517,44 @@ def load_syntax(data: Mapping[str, Any] | None = None) -> Syntax:
     return _compile(_merge(DEFAULT_DATA, overlay))
 
 
-class _DataLoader(yaml.SafeLoader):
-    """Safe YAML where only `true` and `false` are booleans, so a bare `no` stays the word `no`."""
+if yaml is not None:
 
+    class _DataLoader(yaml.SafeLoader):
+        """Safe YAML where only `true` and `false` are booleans."""
 
-_DataLoader.yaml_implicit_resolvers = {
-    first: [(tag, rx) for tag, rx in resolvers if tag != "tag:yaml.org,2002:bool"]
-    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
-}
-_DataLoader.add_implicit_resolver("tag:yaml.org,2002:bool", re.compile(r"^(?:true|false)$"), "tf")
+    _DataLoader.yaml_implicit_resolvers = {
+        first: [(tag, rx) for tag, rx in resolvers if tag != "tag:yaml.org,2002:bool"]
+        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+    _DataLoader.add_implicit_resolver(
+        "tag:yaml.org,2002:bool",
+        re.compile(r"^(?:true|false)$"),
+        "tf",
+    )
+else:
+
+    class _DataLoader:
+        pass
 
 
 def parse_text(text: str) -> object:
     """YAML or JSON text as plain data (no tags, no code)."""
-    return yaml.load(text, Loader=_DataLoader)
+    if yaml is None:
+        raise SyntaxFileError(["file: YAML support is unavailable"])
+    return yaml.load(text, Loader=_DataLoader)  # ty: ignore[invalid-argument-type]
 
 
 def load_syntax_text(text: str) -> Syntax:
     """Parse YAML or JSON text (data only, size-limited) and compile it (FR-SYN-009)."""
     if len(text) > MAX_FILE_CHARS:
         raise SyntaxFileError([f"file: larger than {MAX_FILE_CHARS} characters"])
-    try:
+    if yaml is None:
         raw = parse_text(text)
-    except yaml.YAMLError as e:
-        raise SyntaxFileError([f"file: not valid YAML or JSON ({type(e).__name__})"]) from e
+    else:
+        try:
+            raw = parse_text(text)
+        except yaml.YAMLError as e:
+            raise SyntaxFileError([f"file: not valid YAML or JSON ({type(e).__name__})"]) from e
     if raw is None:
         raw = {}
     if not isinstance(raw, dict):

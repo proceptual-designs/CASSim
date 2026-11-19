@@ -21,8 +21,9 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
 
 # Schema 2 writes Calculator rows as runs of text. Schema 3 adds the optional split-app state to
-# spreadsheet pages. At the v1.0 release the format restarts at 1 (PLAN.md section 12, A8).
-SCHEMA = 3
+# spreadsheet pages. Schema 4 adds complete Graphs and Data & Statistics page state.
+# At the v1.0 release the format restarts at 1 (PLAN.md section 12, A8).
+SCHEMA = 4
 FORMAT = "cassim-document"
 FIRST_DEVICE = "nspire"  # files written before files named their device
 SUFFIX = ".cassim.json"
@@ -76,6 +77,28 @@ def dumps(document: Document, *, compact: bool = False) -> str:
     return json.dumps(to_dict(document), ensure_ascii=False, indent=1)
 
 
+def _migrate_page(page: dict[str, Any]) -> None:
+    kind = page.get("kind")
+    if kind == "spreadsheet":
+        page.setdefault("split_statistics", [])
+    elif kind == "graphs":
+        page.setdefault("window", [-10.0, 10.0, -20 / 3, 20 / 3])
+        page.setdefault("show_axes", True)
+        page.setdefault("show_end_values", True)
+        page.setdefault("grid_style", "none")
+        page.setdefault("functions", [])
+        page.setdefault("active", 0)
+    elif kind == "statistics":
+        page.setdefault("x", "")
+        page.setdefault("y", "")
+        page.setdefault("summary", "")
+        page.setdefault("split", "")
+        page.setdefault("plot", "dot")
+        page.setdefault("function", "")
+        page.setdefault("plot_value", "")
+        page.setdefault("window", None)
+
+
 def migrate(data: dict[str, Any]) -> dict[str, Any]:
     """Bring older files up to `SCHEMA` (FR-DOC-004)."""
     if data.get("format") != FORMAT:
@@ -90,9 +113,12 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
         raise DocumentFileError(msg)
     if version < SCHEMA:
         for problem in data.get("problems", []):
+            if not isinstance(problem, dict):
+                continue
             for page in problem.get("pages", []):
-                if page.get("kind") == "spreadsheet":
-                    page.setdefault("split_statistics", [])
+                if not isinstance(page, dict):
+                    continue
+                _migrate_page(page)
         data["schema"] = SCHEMA
     return data
 

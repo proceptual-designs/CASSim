@@ -22,6 +22,7 @@ from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
 from cassim.devices.nspire.pages.calculator import calculator_of
+from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
     NAME_ROW,
     SHEET_ACTIONS,
@@ -31,12 +32,23 @@ from cassim.devices.nspire.pages.spreadsheet import (
 from cassim.devices.nspire.pages.statistics import REGRESSIONS, Statistics, statistics_of
 from cassim.devices.nspire.screen import Screen, render
 from cassim.doc.document import Document
+from cassim.graph.sampling import Window
 from cassim.stats.plots import PlotType
 
 if TYPE_CHECKING:
     from cassim.core.session import Session
 
 _MENU_ONLY = frozenset({"menu_pick", "menu_back", "menu_page", "select"})
+_GRAPH_GESTURE_FIELDS = 5
+_GRAPH_EDITOR_ACTIONS = frozenset(
+    {
+        "accent", "backspace", "clear", "copy", "cut", "delete", "down", "end", "escape",
+        "home", "home_key", "insert", "insert_linear", "left", "paste", "power", "right",
+        "select_all", "select_cells", "select_left", "select_right", "select_to_end",
+        "select_to_start", "select_word_left", "select_word_right", "shift_tab", "tab",
+        "template", "up", "word_left", "word_right",
+    }
+)  # fmt: skip
 # Keys the page sorter passes on: they act on the document or open a menu, never on a page.
 _SORTER_PASSES = frozenset(
     {
@@ -239,6 +251,11 @@ class AppState:
         sheet = self.sheet
         return sheet.split_statistics[-1] if sheet is not None and sheet.split_statistics else None
 
+    @property
+    def graphs(self) -> Graphs | None:
+        """The current page's function graph model, if built."""
+        return graphs_of(self.document.current)
+
     def prepare(self) -> None:
         """Before drawing: the current sheet takes the engine's replies and asks for the cells
         it shows; a dialog it wants opened is opened."""
@@ -249,6 +266,9 @@ class AppState:
         statistics = self.statistics
         if statistics is not None:
             statistics.update()
+        graphs = self.graphs
+        if graphs is not None:
+            graphs.update()
 
     def retain_sheets(self) -> None:
         """After pages are added, deleted, moved or brought back: each Problem's engine keeps
@@ -355,6 +375,10 @@ class AppState:
             self._sheet_key(sheet, binding)
             return
         statistics = self.statistics
+        graphs = self.graphs
+        if graphs is not None:
+            self._graphs_key(graphs, binding)
+            return
         if statistics is not None:
             if binding.action == "statistics":
                 self._statistics_action(statistics, binding.arg)
@@ -364,16 +388,105 @@ class AppState:
                 self._page_undo(binding.action)
                 self.retain_sheets()
             return
-        if binding.action in SHEET_ACTIONS:
-            return  # a sheet's key on another page does nothing
         calculator = calculator_of(self.document.current)
-        if binding.action in ("undo", "redo") and self._page_undo(binding.action):
+        if (
+            calculator is not None
+            and binding.action not in SHEET_ACTIONS
+            and not (binding.action in ("undo", "redo") and self._page_undo(binding.action))
+        ):
+            calculator.perform(binding)
+            if binding.action in ("copy", "cut") and self.clipboard_out is not None:
+                self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_key(self, graphs: Graphs, binding: Binding) -> None:
+        if binding.action == "graphs_submit":
+            self._graphs_submit(graphs, binding.arg)
+        elif binding.action in ("place", "extend"):
+            self._graphs_place(graphs, binding)
+        elif binding.action in ("enter", "approximate"):
+            if graphs.functions:
+                graphs.submit_editor(graphs.active_index)
+        elif binding.action in ("graphs_select", "up", "down", "goto"):
+            self._graphs_navigation(graphs, binding)
+        elif binding.action in {
+            "graphs_toggle",
+            "graphs_zoom",
+            "graphs_gesture",
+            "graphs_standard",
+            "graphs_view",
+        }:
+            self._graphs_display_action(graphs, binding)
+        elif binding.action == "context_menu":
+            self._open_menu("menu_graphs")
+        elif binding.action in ("undo", "redo"):
+            self._graphs_undo(graphs, binding)
+        elif binding.action in _GRAPH_EDITOR_ACTIONS:
+            graphs.edit(binding)
+            if binding.action in ("copy", "cut") and self.clipboard_out is not None:
+                self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_display_action(self, graphs: Graphs, binding: Binding) -> None:
+        if binding.action == "graphs_toggle":
+            graphs.toggle(binding.arg)
+        elif binding.action == "graphs_zoom":
+            graphs.zoom(float(binding.arg))
+        elif binding.action == "graphs_gesture":
+            self._graphs_gesture(graphs, binding.arg)
+        elif binding.action == "graphs_standard":
+            graphs.set_window(Window())
+        else:
+            graphs.set_view(binding.arg)
+
+    def _graphs_navigation(self, graphs: Graphs, binding: Binding) -> None:
+        if not graphs.functions:
             return
-        if calculator is None:
-            return
-        calculator.perform(binding)
-        if binding.action in ("copy", "cut") and self.clipboard_out is not None:
-            self.clipboard_out(self.document.clipboard.text)
+        if binding.action == "graphs_select":
+            graphs.select_function(int(binding.arg))
+        elif binding.action == "goto":
+            graphs.select_empty_function()
+        elif graphs.functions[graphs.active_index].editing.editor.path:
+            graphs.edit(binding)
+        else:
+            graphs.move_function(-1 if binding.action == "up" else 1)
+
+    def _graphs_gesture(self, graphs: Graphs, argument: str) -> None:
+        values = argument.split(",")
+        if len(values) != _GRAPH_GESTURE_FIELDS:
+            msg = "a graph gesture needs five values"
+            raise ValueError(msg)
+        dx, dy, factor, x, y = (float(value) for value in values)
+        graphs.gesture(dx, dy, factor, x, y)
+
+    def _graphs_undo(self, graphs: Graphs, binding: Binding) -> None:
+        if graphs.functions:
+            editing = graphs.functions[graphs.active_index].editing
+            can_step = editing.can_undo if binding.action == "undo" else editing.can_redo
+            if can_step:
+                graphs.edit(binding)
+                return
+        self._page_undo(binding.action)
+
+    def _graphs_submit(self, graphs: Graphs, argument: str) -> None:
+        index_text, separator, expression = argument.partition(":")
+        try:
+            index = int(index_text)
+        except ValueError as error:
+            raise ValueError(f"invalid graph entry index {index_text!r}") from error
+        if separator:
+            graphs.submit(index, expression)
+        else:
+            graphs.submit_editor(index)
+
+    def _graphs_place(self, graphs: Graphs, binding: Binding) -> None:
+        index_text, separator, target = binding.arg.partition(":")
+        if not separator:
+            msg = "a graph editor target needs an entry index"
+            raise ValueError(msg)
+        index = int(index_text)
+        if not 0 <= index < len(graphs.functions):
+            raise IndexError(f"no graph function at index {index}")
+        graphs.active_index = index
+        graphs.edit(Binding(binding.action, target))
 
     def _sheet_key(self, sheet: Spreadsheet, binding: Binding) -> None:
         if binding.action == "context_menu":
@@ -450,7 +563,18 @@ class AppState:
             target = self._menu_root(name)
             if target is not None:
                 same = target is self.menu.root or (
-                    (name in {"variables", "cassim", "menu_sheet"} or name.startswith("sheet_"))
+                    (
+                        name
+                        in {
+                            "variables",
+                            "cassim",
+                            "graphs_history",
+                            "menu_sheet",
+                            "menu_graphs",
+                        }
+                        or (name == "menu" and self.graphs is not None)
+                        or name.startswith("sheet_")
+                    )
                     and target.label == self.menu.root.label
                 )
                 self.menu = None if same else MenuState(target)
@@ -512,12 +636,18 @@ class AppState:
                 name = "menu_sheet"
             elif self.statistics is not None:
                 name = "menu_statistics"
+            elif self.graphs is not None:
+                name = "menu_graphs"
             elif calculator_of(self.document.current) is None:
                 return None  # a page CASSim has not built yet has no Menu
         if name == "cassim" and self.cassim_menu is not None:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
+        if name == "graphs_history":
+            return self._graphs_history_menu()
+        if name == "menu_graphs":
+            return self._graphs_menu()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if self.sheet is not None and name in {
             "menu_sheet",
@@ -538,6 +668,81 @@ class AppState:
             if root is not None:
                 root = _set_quick_graph_enabled(root, has_list)
         return root
+
+    def _graphs_history_menu(self) -> MenuItem | None:
+        graphs = self.graphs
+        if graphs is None:
+            return None
+        items = tuple(
+            MenuItem(
+                f"{entry.name}(x) = {entry.expression or entry.editing.editor.linear() or '…'}",
+                "graphs_select",
+                str(index),
+                hint="hidden" if not entry.visible else "",
+            )
+            for index, entry in enumerate(graphs.functions)
+        )
+        return MenuItem("Graph functions", items=items)
+
+    def _graphs_menu(self) -> MenuItem | None:
+        graphs = self.graphs
+        if graphs is None:
+            return None
+        grid = MenuItem(
+            "Grid",
+            key="6",
+            items=tuple(
+                MenuItem(
+                    label, "graphs_view", style.value, key=key, enabled=style != graphs.grid_style
+                )
+                for key, label, style in (
+                    ("1", "No Grid", GridStyle.NONE),
+                    ("2", "Dot Grid", GridStyle.DOT),
+                    ("3", "Lined Grid", GridStyle.LINED),
+                )
+            ),
+        )
+        return MenuItem(
+            "Menu",
+            items=(
+                MenuItem("Actions", key="1", enabled=False),
+                MenuItem(
+                    "View",
+                    key="2",
+                    items=(
+                        MenuItem("Graphing", key="1", enabled=False),
+                        MenuItem("Plane Geometry", key="2", enabled=False),
+                        MenuItem("3D Graphing", key="3", enabled=False),
+                        MenuItem("Hide Analytic Window", key="4", enabled=False),
+                        MenuItem(
+                            "Hide Axes" if graphs.show_axes else "Show Axes",
+                            "graphs_view",
+                            "axes",
+                            key="5",
+                        ),
+                        grid,
+                        MenuItem("Show Entry Line", key="7", enabled=False),
+                        MenuItem(
+                            "Hide Axes End Values"
+                            if graphs.show_end_values
+                            else "Show Axes End Values",
+                            "graphs_view",
+                            "end-values",
+                            key="8",
+                            enabled=graphs.show_axes,
+                        ),
+                        MenuItem("Hide Object Selection Guides", key="9", enabled=False),
+                    ),
+                ),
+                MenuItem("Graph Entry/Edit", key="3", enabled=False),
+                MenuItem("Window / Zoom", key="4", enabled=False),
+                MenuItem("Trace", key="5", enabled=False),
+                MenuItem("Analyze Graph", key="6", enabled=False),
+                MenuItem("Table", key="7", enabled=False),
+                MenuItem("Geometry", key="8", enabled=False),
+                MenuItem("Settings…", key="9", enabled=False),
+            ),
+        )
 
     def _statistics_menu(self, name: str) -> MenuItem | None:
         statistics = self.statistics
@@ -907,7 +1112,16 @@ class AppState:
         name cell it links the column instead (check 6, E7)."""
         sheet = self.sheet
         calculator = calculator_of(self.document.current)
-        session = sheet.session if sheet is not None else calculator.session if calculator else None
+        graphs = self.graphs
+        session = (
+            sheet.session
+            if sheet is not None
+            else graphs.session
+            if graphs is not None
+            else calculator.session
+            if calculator
+            else None
+        )
         if session is None:
             return None
         rows = sorted(session.variables(), key=lambda row: row.name.casefold())

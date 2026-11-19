@@ -80,6 +80,26 @@ def test_computer_layout_defaults_to_sidebar_workspace_and_optional_keypad() -> 
     assert app.keypad.control in descendants(app.computer_panels["keypad"])
 
 
+def test_graph_plot_fits_inside_the_padded_workspace() -> None:
+    """FR-GRAPH-006: the graph scene fits inside the computer workspace."""
+    app, _ = computer_app()
+    app.state.run_action("add_page", "graphs")
+    app.view.refresh()
+    workspace = app.computer_panels["workspace"]
+    assert isinstance(workspace.padding, int)
+    assert isinstance(workspace.width, int | float)
+    assert app.view.graphs_view._width == workspace.width - 2 * workspace.padding
+
+
+def test_handheld_graph_plot_uses_the_whole_screen_width() -> None:
+    """FR-GRAPH-006: computer-column padding does not shrink handheld graphs."""
+    app, _ = computer_app()
+    app.set_mode(Mode.HANDHELD)
+    app.state.run_action("add_page", "graphs")
+    app.view.refresh()
+    assert app.view.graphs_view._width == app.body_size()[0]
+
+
 def test_computer_columns_can_be_resized_and_swapped() -> None:
     app, _ = computer_app()
     app.toggle_keypad()

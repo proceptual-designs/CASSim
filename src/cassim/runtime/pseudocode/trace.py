@@ -30,12 +30,22 @@ class VerticalRow:
     line: int
     cells: dict[str, str]  # variable -> value, only where it changed
     calc: str
+    conditions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class VerticalTable:
     variables: list[str]
+    conditions: list[str] = field(default_factory=list)
     rows: list[VerticalRow] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class VerticalSelection:
+    """Columns requested in a vertical trace view."""
+
+    variables: tuple[str, ...] = ()
+    conditions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,10 +93,49 @@ def vertical(
         for c in s.changes:
             if c.name not in table.variables:
                 table.variables.append(c.name)
+        if s.cond is not None and s.cond[0] not in table.conditions:
+            table.conditions.append(s.cond[0])
     for s in steps:
         cells = {c.name: _show(c.new, settings) for c in s.changes}
-        table.rows.append(VerticalRow(s.index, s.line, cells, calc_text(s)))
+        conditions = {s.cond[0]: "true" if s.cond[1] else "false"} if s.cond is not None else {}
+        table.rows.append(VerticalRow(s.index, s.line, cells, calc_text(s), conditions))
     return table
+
+
+def vertical_choices(
+    result: RunResult, settings: Settings, *, max_depth: int = 0
+) -> VerticalSelection:
+    """The variable and condition columns available for one recorded run."""
+    table = vertical(result, settings, max_depth=max_depth)
+    return VerticalSelection(tuple(table.variables), tuple(table.conditions))
+
+
+def selected_vertical(
+    result: RunResult,
+    settings: Settings,
+    selection: VerticalSelection,
+    *,
+    cursor: int | None = None,
+    max_depth: int = 0,
+) -> VerticalTable:
+    """A vertical table containing only selected variable and condition columns."""
+    table = vertical(result, settings, cursor=cursor, max_depth=max_depth)
+    variables = [name for name in table.variables if name in selection.variables]
+    chosen_conditions = {
+        key.partition(": ")[2] if ": " in key else key for key in selection.conditions
+    }
+    conditions = [name for name in table.conditions if name in chosen_conditions]
+    rows = [
+        VerticalRow(
+            row.step,
+            row.line,
+            {name: value for name, value in row.cells.items() if name in selection.variables},
+            row.calc,
+            {name: value for name, value in row.conditions.items() if name in chosen_conditions},
+        )
+        for row in table.rows
+    ]
+    return VerticalTable(variables, conditions, rows)
 
 
 def _lines(stmts: list[Stmt], in_loop: bool, out: set[tuple[int, bool]]) -> None:

@@ -1,5 +1,5 @@
 # Requirements traced here: FR-DOC-001, FR-DEV-007
-"""Stub pages: Graphs and Notes can be added from Doc > Insert but have no model yet."""
+"""Graph and Notes page behavior (FR-DOC-001, FR-DEV-007)."""
 
 import pytest
 
@@ -14,7 +14,6 @@ from cassim.devices.nspire.ui.views import STUB_NOTICE, CalculatorView
 from cassim.doc.serialize import dumps
 
 STUBS = [
-    ("4", PageKind.GRAPHS, "Graphs"),
     ("8", PageKind.NOTES, "Notes"),
 ]
 
@@ -55,6 +54,14 @@ def test_a_calculator_page_is_not_a_stub() -> None:
     assert AppState().screen().stub is None
 
 
+def test_a_graphs_page_has_an_active_model_not_a_stub() -> None:
+    state = AppState()
+    insert(state, "4")
+    screen = state.screen()
+    assert screen.graphs
+    assert screen.stub is None
+
+
 @pytest.mark.parametrize(("key", "kind", "name"), STUBS)
 def test_the_view_says_the_page_is_still_to_be_built(key: str, kind: PageKind, name: str) -> None:
     state = AppState()
@@ -72,7 +79,7 @@ def test_the_view_says_the_page_is_still_to_be_built(key: str, kind: PageKind, n
 
 def test_typing_on_a_stub_page_does_nothing_and_it_has_no_menu() -> None:
     state = AppState()
-    insert(state, "4")
+    insert(state, "8")
     for char in "2+3":
         state.key_event(char)
     state.key_event("Enter")
@@ -110,7 +117,7 @@ def test_the_sidebar_and_sorter_use_the_device_name() -> None:
     assert lines[0] == "Lists & Spreadsheet"
 
 
-def test_stub_pages_survive_save_and_load() -> None:
+def test_graph_and_stub_pages_survive_save_and_load() -> None:
     """FR-DOC-003: a saved document keeps its page types, in order."""
     state = AppState()
     for char in "2+3":

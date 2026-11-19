@@ -752,7 +752,8 @@ def test_cassim_status_and_attention_follow_browser_offers() -> None:
     assert not ready.needs_attention
     labels = [item.label for item in cassim_items(handheld=True, offers=ready)]
     assert "Offline: Ready" in labels
-    assert "Reload update…" not in labels
+    assert "Check for Updates" in labels
+    assert "Reload for Update" not in labels
     failed = BrowserOffers(
         offline_state="unavailable", offline_message="Offline files incomplete.", offline_retry=True
     )
@@ -763,9 +764,17 @@ def test_cassim_status_and_attention_follow_browser_offers() -> None:
         for item in items
     )
     assert any(item.arg == "retry_offline" for item in items)
+    failed_update = BrowserOffers(
+        offline_state="update_failed", offline_message="Update failed.", offline_retry=True
+    )
+    assert not any(
+        item.arg == "retry_offline" for item in cassim_items(handheld=True, offers=failed_update)
+    )
     update = BrowserOffers(offline_state="ready", update_ready=True)
     assert update.needs_attention
-    assert any(item.arg == "reload_update" for item in cassim_items(handheld=True, offers=update))
+    items = cassim_items(handheld=True, offers=update)
+    assert [item.label for item in items if item.arg == "update"] == ["Reload for Update"]
+    assert not any(item.arg == "reload_update" for item in items)
 
 
 def test_cassim_menu_browser_items_never_move() -> None:
@@ -786,12 +795,27 @@ def test_cassim_menu_browser_items_never_move() -> None:
         ("Computer view", True),
         ("Fullscreen", True),
         ("Install CASSim", False),
-        ("Check for Updates…", True),
+        ("Check for Updates", True),
     ]
     assert items(in_fullscreen=True, standalone=True)[1] == ("Exit Fullscreen", True)
     assert items(standalone=True)[1] == ("Fullscreen", False)
     assert items(installable=True)[2] == ("Install CASSim", True)
     assert items(handheld=False)[0] == ("Handheld view", True)
+
+
+@pytest.mark.parametrize(
+    ("offers", "label"),
+    [
+        (BrowserOffers(), "Check for Updates"),
+        (BrowserOffers(update_fetching=True), "Fetching Update"),
+        (BrowserOffers(update_ready=True), "Reload for Update"),
+    ],
+)
+def test_cassim_menu_has_one_stateful_update_item(offers: BrowserOffers, label: str) -> None:
+    """FR-PWA-004: update checking and reload occupy one CASSim menu row."""
+    items = browser_menu_items(handheld=True, offers=offers)
+    assert [(item.arg, item.label) for item in items if item.arg == "update"] == [("update", label)]
+    assert sum(item.arg in ("update", "check_updates", "reload_update") for item in items) == 1
 
 
 def test_cassim_menu_hints_are_shortcuts_not_redundant_labels() -> None:
@@ -939,7 +963,9 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
         ("A", "Add Python"),
     ]
     assert not view.rows[2].enabled  # Geometry is not in CASSim
-    assert view.rows[4].hint == ""
+    assert next(row for row in view.rows if row.label == "Add Graphs").hint == ""
+    assert next(row for row in view.rows if row.label == "Add Data & Statistics").hint == ""
+    assert next(row for row in view.rows if row.label == "Add Notes").hint
     state.key_event("Escape")
     assert state.screen().title == "1.1"  # nothing added
     state.press_keypad("ctrl")
@@ -978,3 +1004,31 @@ def test_check_for_updates_asks_the_page_and_shows_its_answer(
     shell.bridge = None
     Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
     assert shown == ["This copy of CASSimᵝ cannot check for updates."]
+
+
+@pytest.mark.parametrize("fetching", [False, True])
+def test_activate_update_checks_again_until_an_update_is_ready(fetching: bool) -> None:
+    """The Fetching Update row remains active and repeats the check."""
+    checked: list[str] = []
+    shell = SimpleNamespace(
+        offers=BrowserOffers(update_fetching=fetching),
+        check_for_updates=lambda: checked.append("check"),
+        reload_update=lambda: checked.append("reload"),
+    )
+    Shell.activate_update(shell)  # ty: ignore[invalid-argument-type]
+    assert checked == ["check"]
+
+
+def test_activate_update_reloads_only_when_the_update_is_ready() -> None:
+    """FR-PWA-004: the ready update row dispatches to the document's guarded reload."""
+    reloaded: list[str] = []
+    shell = SimpleNamespace(
+        offers=BrowserOffers(update_ready=True),
+        check_for_updates=lambda: reloaded.append("check"),
+        reload_update=lambda: reloaded.append("shell reload"),
+    )
+    Shell.activate_update(
+        shell,  # ty: ignore[invalid-argument-type]
+        lambda: reloaded.append("guarded reload"),
+    )
+    assert reloaded == ["guarded reload"]
