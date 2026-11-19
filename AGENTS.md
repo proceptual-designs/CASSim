@@ -3,7 +3,7 @@
 Read `PLAN.md` first. It holds the architecture, milestones and decisions. `docs/SRS.md` holds the requirements (stable IDs such as `FR-CAT-001`, `NFR-SEC-001`; MoSCoW priorities). This file is the working brief.
 
 ## Project
-A static, installable (PWA) browser simulation of the TI-Nspire CX CAS. Python and SymPy run client-side via Pyodide; the UI is Flet. Owner: Simon Tyler, a VCE maths teacher (Methods, Specialist), strong in maths and physics, writes Python. Be accurate and concise.
+A static, installable (PWA) multi-app browser shell for calculator and programming devices. The current all-in-one build contains Nspire and Pseudocode & Python devices; ClassPad and Prime are later plug-ins. Device engines run client-side via Pyodide where needed; the UI is Flet. Owner: Simon Tyler, a VCE maths teacher (Methods, Specialist), strong in maths and physics, writes Python. Be accurate and concise.
 
 ## Current state
 See PLAN.md for milestones and architecture, docs/SRS.md for requirements, and docs/decisions/ for decisions and verified spike results. Consult docs/testing/ for simulator and browser evidence; do not infer verification from a plan.
@@ -25,7 +25,7 @@ See PLAN.md for milestones and architecture, docs/SRS.md for requirements, and d
 - IP boundary and clean room (`docs/decisions/0028`, NFR-LEG-008, NFR-LEG-009): copy behaviour, structure and vocabulary (names, syntax, menus and numbering, key positions, settings), never expression or code (artwork, fonts, help or Reference Guide prose, ROM, data tables). Learn behaviour only by using TI's software; never decompile or inspect its binaries. Paraphrase `references/`, never paste it into `src/`. Short functional labels may match the device. Open/Save are `.cassim.json` only; `.tns`, if ever built, goes under Import/Export (FR-DOC-006).
 - Library UDFs (`mm_`, `sm_`, `gm_`) are `.tns` and not loadable. Port them to native Python later (M5). LazyMath is Unlicense, so porting is permitted; record the check in `docs/decisions/` first.
 - Sites, bundles and publishing (2026-11-13; PLAN.md sections 14 and 15, README "Publishing"):
-  - `cassim-app` (stable) and `cassim-calc` (testing) are the all-in-one app with every built device; single-device bundles get their own stable-only sites (`cassim-tin`, `cassim-pseudo`, `cassim-cp`, `cassim-prime`) as they are built. `cassim-wiki` is the help site and lists the sites.
+  - `cassim-app` (stable) and `cassim-calc` (testing) are the all-in-one Home shell with every built device. The current built choices are Nspire and Pseudocode & Python; single-device bundles get their own stable-only sites (`cassim-tin`, `cassim-pseudo`, `cassim-cp`, `cassim-prime`) as they are released. `cassim-wiki` is the help site and lists the sites.
   - Each device is a plug-in package (`devices/nspire`, `classpad`, `pseudocode`, `prime`: long ids in code, short names for bundles and sites) that never imports another device; device UIs are separate from the shell. Pseudocode (the Code view) is a device with its own site (Q23 revised).
   - A merge to `main` deploys testing and the help pages; a GitHub release deploys stable. Never deploy stable by hand with wrangler unless Simon asks.
 - Decisions from the SRS review (2026-11-02; see `docs/SRS.md`):
