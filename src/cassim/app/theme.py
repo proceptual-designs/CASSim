@@ -30,6 +30,7 @@ class Theme:
     ctrl_on_text: str = "#143a60"
     key_edge: str = "#14161a"
     status_text: str = "#ffd479"
+    home_card: str = "#2b2f36"
     panel_text: str = "#f2f4f7"
     panel_accent: str = "#a6d2ff"
     menu_accent: str = "#a6d2ff"
@@ -74,6 +75,7 @@ LIGHT = replace(
     background="#f1f3f5",
     key_edge="#f1f3f5",
     status_text="#364b60",
+    home_card="#ffffff",
     panel_text="#14161a",
     panel_accent="#245c96",
 )
@@ -86,6 +88,7 @@ HIGH_CONTRAST = replace(
     key_text="#ffffff",
     key_edge="#ffffff",
     status_text="#ffffff",
+    home_card="#000000",
     key_styles={
         "digit": ("#000000", "#ffffff"),
         "fn": ("#000000", "#ffffff"),
