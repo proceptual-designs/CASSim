@@ -371,7 +371,14 @@ class CalculatorView:
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
-        self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.sheet_view = SheetView(
+            theme,
+            on_action,
+            lambda: state.scale,
+            click=self._click,
+            hold=self._hold,
+        )
+        self.sheet_view.shift = shift
         self.graphs_view = GraphsView(
             theme, on_action, lambda: state.scale, lambda: state.math_size, self._graph_extend
         )
