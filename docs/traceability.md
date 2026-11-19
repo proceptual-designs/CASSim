@@ -177,7 +177,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
 | FR-DEV-008 | Should | `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
-| FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py` |
+| FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` |
 | FR-PWA-002 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py`, `tests/unit/test_bundles.py` |
 | FR-PWA-003 | Must | `tests/e2e/test_pwa.py` |
 | FR-PWA-004 | Should | `tests/app/test_full_screen.py`, `tests/app/test_menus.py`, `tests/e2e/test_pwa.py` |
