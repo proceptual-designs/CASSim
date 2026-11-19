@@ -79,7 +79,7 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
 
 
 def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
-    """The second enabled Home choice can be entered and left without loading Nspire."""
+    """FR-PROF-014/016: Pseudocode returns through Home and can open Nspire."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
     page.on(
@@ -100,6 +100,20 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         logs.clear()
         page.get_by_role("button", name="Home", exact=True).click()
         assert wait_for_log(page, logs, "CASSIM: HOME", seconds=10), "Home did not reopen"
+        enable_semantics(page)
+        page.get_by_role("button", name=re.compile("^Pseudocode")).click()
+        expect(page.get_by_role("button", name="Pseudocode", exact=True)).to_be_attached(
+            timeout=10_000
+        )
+        page.get_by_role("button", name=re.compile("^CASSim")).click()
+        logs.clear()
+        page.get_by_role("button", name="Home", exact=True).click()
+        assert wait_for_log(page, logs, "CASSIM: HOME", seconds=10), "Home did not reopen"
+        enable_semantics(page)
+        page.get_by_role("button", name=re.compile("Nspire")).click()
+        assert wait_for_log(page, logs, "CASSIM: READY", seconds=60), (
+            "Nspire did not open from Home"
+        )
     finally:
         page.close()
 
