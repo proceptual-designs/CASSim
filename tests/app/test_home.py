@@ -17,7 +17,7 @@ import flet as ft
 import pytest
 from tests.app.test_splitter_drag import handheld_app
 
-from cassim.app.home import home_choices
+from cassim.app.home import Home, home_choices
 from cassim.app.main import LAST_DEVICE_KEY, Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
 from cassim.devices.nspire.ui.app import cassim_items
@@ -38,6 +38,13 @@ def test_home_lists_all_choices_and_only_enables_bundled_apps() -> None:
         "Scientific",
     ]
     assert [choice.available for choice in choices] == [True, False, False, True, False]
+
+
+def test_home_uses_the_published_app_icon() -> None:
+    """FR-PWA-001: Home and the installed app use the same bundle-specific icon artwork."""
+    mark = Home._mark()
+    assert isinstance(mark, ft.Image)
+    assert mark.src == "icons/icon-192.png"
 
 
 def test_startup_resumes_a_valid_device_and_repairs_missing_or_invalid_preferences() -> None:
