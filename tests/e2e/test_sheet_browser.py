@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, expect
 from tests.e2e.test_flows_browser import AppPage
 
 from cassim.devices.nspire.pages.spreadsheet import DEFAULT_WIDTH
@@ -134,6 +134,18 @@ def test_sheet_formula_journeys(browser: Browser, site: tuple[Path, str]) -> Non
     check_pointed_range(app)
     check_shifted_formula(app)
     check_clicked_reference(app)
+    app.page.close()
+
+
+def test_sorter_shows_sheet_column_names(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DOC-001: the sheet's column names appear in its page-sorter preview."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    check_shared_column(app)
+    app.page.get_by_role("button", name="Page manager", exact=True).click()
+    expect(
+        app.page.get_by_role("button", name="1.2 Lists & Spreadsheet xs", exact=False)
+    ).to_be_attached(timeout=30000)
     app.page.close()
 
 
