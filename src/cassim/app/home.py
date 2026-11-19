@@ -156,60 +156,14 @@ class Home:
             on_click=(lambda _, item=choice: self.choose(item.id)) if choice.available else None,
         )
 
-    def _mark(self) -> ft.Control:
-        beta = about.product_name().endswith("ᵝ")
-        return ft.Container(
-            ft.Column(
-                [
-                    ft.Text(
-                        "CAS",
-                        size=22,
-                        weight=ft.FontWeight.W_800,
-                        color=self.theme.panel_text,
-                        text_align=ft.TextAlign.CENTER,
-                    ),
-                    ft.Container(
-                        ft.Row(
-                            [
-                                ft.Text(
-                                    "SIM",
-                                    size=10,
-                                    weight=ft.FontWeight.W_800,
-                                    color=self.theme.background,
-                                ),
-                                *(
-                                    [
-                                        ft.Text(
-                                            "β",
-                                            size=9,
-                                            weight=ft.FontWeight.W_800,
-                                            color=self.theme.panel_text,
-                                        )
-                                    ]
-                                    if beta
-                                    else []
-                                ),
-                            ],
-                            spacing=1,
-                            tight=True,
-                            alignment=ft.MainAxisAlignment.CENTER,
-                        ),
-                        bgcolor=self.theme.panel_accent,
-                        border_radius=3,
-                        padding=ft.Padding.symmetric(horizontal=4, vertical=1),
-                    ),
-                ],
-                spacing=1,
-                tight=True,
-                alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
+    @staticmethod
+    def _mark() -> ft.Control:
+        return ft.Image(
+            src="icons/icon-192.png",
             width=66,
             height=66,
-            border=ft.Border.all(2, self.theme.panel_accent),
-            border_radius=13,
-            bgcolor="#1e1e1e",
-            alignment=ft.Alignment.CENTER,
+            fit=ft.BoxFit.CONTAIN,
+            semantics_label=f"{about.product_name()} app icon",
         )
 
     def draw(self) -> None:

@@ -604,14 +604,8 @@ class App:
             return
         ctrl = self.state.pending == "ctrl"
         self.state.clear_pending()
-        if ctrl:
-            if self.installable:
-                self.install()
-            else:
-                self.shell.notice(
-                    f"Install {about.product_name()}",
-                    "Install is not available in this browser.",
-                )
+        if ctrl and self.installable:
+            self.install()
         else:
             self.state.run_action("open_menu", "cassim")
         self.refresh()
