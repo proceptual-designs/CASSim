@@ -23,6 +23,7 @@ from cassim.device.editor import (
     substitute_ans,
 )
 from cassim.device.editor import Row as EditorRow
+from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, local_session
 
 if TYPE_CHECKING:
@@ -203,15 +204,16 @@ class Calculator:
         if picked is None:
             return
         entry = self.history[picked[0]]
+        self._recalled = Editor()
         if picked[1] == "entry" and entry.nodes:
-            self._recalled = Editor()
             self._recalled.root = copy.deepcopy(list(entry.nodes))
-            self._recalled.pos = len(self._recalled.root)
         else:
+            # Parsed, not typed key by key: a typed `^` or `√` would take in the rest of the line
             recalled = (
                 entry.text if picked[1] == "entry" else entry.result.full or entry.result.text
             )
-            self._recalled = Editor(recalled)
+            self._recalled.root = row_from_text(recalled)
+        self._recalled.pos = len(self._recalled.root)
 
     def _recall_move(self, name: str) -> Callable[[str], None]:
         """A movement key: inside the picked row while one is picked, else in the entry line."""
