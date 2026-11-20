@@ -1323,3 +1323,70 @@ def test_a_fourth_pane_goes_bottom_left_and_a_fifth_replaces_the_newest():
     assert sheet.panes == [scatter, z, t]
     sheet.add_pane(again, undoable=False)
     assert sheet.panes == [scatter, again, t]
+
+
+# ----- Quick Graph (sheet5, R5-Q1) ----------------------------------------------------------------
+
+
+def lists_sheet():
+    """A sheet whose columns A and B are linked to xs and ys."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("xs:={1,2,3}").error is None
+    assert sheet.session.eval("ys:={2,4,7}").error is None
+    for col, name in ((A, "xs"), (B, "ys")):
+        sheet.go((col, NAME_ROW))
+        sheet.menu_action(f"link:{name}")
+    return state, sheet
+
+
+def data_menu(state):
+    """Menu > 3 Data, as rows."""
+    state.run(Binding("open_menu", "menu"))
+    state.run(Binding("insert", "3"))
+    assert state.menu is not None
+    rows = {row.label: row.enabled for row in state.menu.view().rows}
+    state.menu = None
+    return rows
+
+
+def test_quick_graph_is_grey_for_a_block_and_a_single_cell():
+    """FR-SHEET-008 (R5-Q1, R5-S): grey, not a dialog, unless a column is selected."""
+    state, sheet = lists_sheet()
+    sheet.go((A, 1))
+    assert data_menu(state)["Quick Graph"] is False
+    state.run(Binding("select_cells", "row:1"))  # shift+Down: A1:A2
+    assert sheet.selection() is not None
+    assert data_menu(state)["Quick Graph"] is False
+    sheet.go((A, NAME_ROW))
+    assert data_menu(state)["Quick Graph"] is True
+
+
+def test_two_selected_columns_make_a_scatter_plot_and_one_undo_removes_it():
+    """FR-SHEET-008, FR-STAT-001 (R5-Q1): from the name cell of xs, shift+Right takes ys too;
+    Quick Graph makes a scatter plot with the first column on x; one ctrl+Z takes it away and
+    leaves the columns selected."""
+    state, sheet = lists_sheet()
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    assert sheet.whole_columns() == (A, B)
+    assert data_menu(state)["Quick Graph"] is True
+    state.run(Binding("sheet", "quick_graph"))
+    (plot,) = sheet.split_statistics
+    assert (plot.x_name, plot.y_name, plot.plot_type.value) == ("xs", "ys", "Scatter Plot")
+    keys(state, "undo")
+    assert sheet.panes == []
+    assert sheet.whole_columns() == (A, B)
+    keys(state, "redo")
+    assert len(sheet.panes) == 1
+
+
+def test_quick_graph_of_one_column_undoes_in_one_step():
+    """R5-Q1: a dot plot of d1; ctrl+Z gives the full-width sheet back."""
+    state, sheet = lists_sheet()
+    sheet.go((B, NAME_ROW))
+    keys(state, "up")  # stays on the name cell
+    state.run(Binding("sheet", "quick_graph"))
+    assert sheet.split_statistics[0].plot_type.value == "Dot Plot"
+    keys(state, "undo")
+    assert sheet.panes == []

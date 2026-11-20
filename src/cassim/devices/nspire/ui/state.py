@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -153,11 +153,8 @@ class System:
 MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}
 
 
-def _set_quick_graph_enabled(item: MenuItem, enabled: bool) -> MenuItem:
-    if item.action == "sheet" and item.arg == "quick_graph":
-        return replace(item, enabled=enabled) if item.enabled != enabled else item
-    children = tuple(_set_quick_graph_enabled(child, enabled) for child in item.items)
-    return replace(item, items=children) if children != item.items else item
+# The sheet's Menu and context menus, which grey items by what is selected (sheet5).
+SHEET_MENUS = frozenset({"menu_sheet", "sheet_cell", "sheet_block", "sheet_name", "sheet_column"})
 
 
 class AppState:
@@ -649,24 +646,8 @@ class AppState:
         if name == "menu_graphs":
             return self._graphs_menu()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
-        if self.sheet is not None and name in {
-            "menu_sheet",
-            "sheet_cell",
-            "sheet_block",
-            "sheet_name",
-            "sheet_column",
-        }:
-            column_name = self.sheet.columns[self.sheet.cursor[0]][0]
-            has_list = (
-                column_name is not None
-                and (self.sheet.whole == "column" or self.sheet.cursor[1] == NAME_ROW)
-                and any(
-                    row.name.casefold() == column_name.casefold() and row.items is not None
-                    for row in self.sheet.session.variables()
-                )
-            )
-            if root is not None:
-                root = _set_quick_graph_enabled(root, has_list)
+        if self.sheet is not None and root is not None and name in SHEET_MENUS:
+            root = self.sheet.adjust_menu(root)
         return root
 
     def _graphs_history_menu(self) -> MenuItem | None:

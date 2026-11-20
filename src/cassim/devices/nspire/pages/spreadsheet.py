@@ -21,13 +21,14 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from cassim.device.accents import next_accent
 from cassim.device.editor import MARK
 from cassim.device.engine import RemoteSession
 from cassim.device.keys import Action, Binding
+from cassim.device.menu import MenuItem
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.statistics import Statistics, dump_statistics, load_statistics
@@ -457,8 +458,11 @@ class Spreadsheet:
     def selection(self) -> tuple[int, int, int, int] | None:
         """The selected block as (left, top, right, bottom), or None for a single cell."""
         column, row = self.cursor
-        if self.whole == "column":
-            return column, 1, column, max(self.last_row(column), 1)
+        columns = self.whole_columns()
+        if columns is not None:
+            left, right = columns
+            bottom = max(self.last_row(c) for c in range(left, right + 1))
+            return left, 1, right, max(bottom, 1)
         if self.whole == "row":
             return 0, row, COLUMNS - 1, row
         if self.anchor is None or self.anchor == self.cursor:
@@ -466,6 +470,59 @@ class Spreadsheet:
         left, right = sorted((self.anchor[0], column))
         top, bottom = sorted((max(self.anchor[1], 1), max(row, 1)))
         return left, top, right, bottom
+
+    def whole_columns(self) -> tuple[int, int] | None:
+        """The first and last of the whole columns selected: one, or more taken with shift+Left
+        or shift+Right from a column or its name cell (R5-Q1)."""
+        if self.whole != "column":
+            return None
+        column = self.cursor[0]
+        other = self.anchor[0] if self.anchor is not None else column
+        return min(column, other), max(column, other)
+
+    def selection_kind(self) -> Literal["cell", "block", "column", "name", "row"]:
+        """What is selected, which greys Menu items (sheet5, R5-S: a cell, a block, a column, or
+        the name cell)."""
+        if self.whole == "column":
+            return "column"
+        if self.cursor[1] == NAME_ROW:
+            return "name"
+        if self.whole == "row":
+            return "row"
+        return "block" if self.selection() is not None else "cell"
+
+    def quick_graph_lists(self) -> tuple[str, ...]:
+        """The lists Quick Graph plots: one or two selected columns, each linked to a list
+        (R5-Q1). Empty when Quick Graph is grey."""
+        if self.selection_kind() not in ("column", "name"):
+            return ()
+        left, right = self.whole_columns() or (self.cursor[0], self.cursor[0])
+        if right - left > 1:
+            return ()
+        lists = {
+            row.name.casefold(): row.name
+            for row in self.session.variables()
+            if row.items is not None and row.text.startswith("{")
+        }
+        found = tuple(
+            lists.get((self.columns[c][0] or "").casefold(), "") for c in range(left, right + 1)
+        )
+        return found if all(found) else ()
+
+    def adjust_menu(self, root: MenuItem) -> MenuItem:
+        """The sheet's Menu or a context menu with items greyed by what is selected."""
+        graph = bool(self.quick_graph_lists())
+
+        def visit(item: MenuItem) -> MenuItem:
+            items = tuple(visit(child) for child in item.items)
+            enabled = item.enabled
+            if item.action == "sheet" and item.arg == "quick_graph":
+                enabled = graph
+            if items == item.items and enabled == item.enabled:
+                return item
+            return replace(item, items=items, enabled=enabled)
+
+        return visit(root)
 
     def _span(self) -> tuple[int, int, int, int]:
         """The selection, or the cursor's cell."""
@@ -693,6 +750,14 @@ class Spreadsheet:
 
     def move(self, columns: int, rows: int, *, extend: bool = False) -> None:
         column, row = self.cursor
+        if extend and not rows and (self.whole == "column" or row == NAME_ROW):
+            # shift+Left or Right from a column takes the next whole column too (R5-Q1)
+            if self.whole != "column" or self.anchor is None:
+                self.anchor = (column, NAME_ROW)
+            self.whole = "column"
+            self.cursor = (min(max(column + columns, 0), COLUMNS - 1), row)
+            self._follow()
+            return
         if extend:
             if self.anchor is None:
                 self.anchor = self.cursor
@@ -1307,19 +1372,15 @@ class Spreadsheet:
         return True
 
     def _quick_graph(self) -> None:
-        if self.whole != "column" and self.cursor[1] != NAME_ROW:
-            self.dialogs.append(Dialog("Quick Graph", "Select a column first."))
+        """A dot plot of one selected list, or a scatter plot of two (the first column on x),
+        beside the sheet; one undo step (R5-Q1). Grey unless columns of lists are selected."""
+        lists = self.quick_graph_lists()
+        if not lists:
             return
-        name = self.columns[self.cursor[0]][0]
         statistics = Statistics(self.session)
-        selected = next(
-            (item for item in statistics.lists if item.casefold() == (name or "").casefold()),
-            "",
-        )
-        if not selected:
-            self.dialogs.append(Dialog("Quick Graph", "Select a column containing a list."))
-            return
-        statistics.perform(f"x:{selected}")
+        statistics.perform(f"x:{lists[0]}")
+        if len(lists) > 1:
+            statistics.perform(f"y:{lists[1]}")
         self.add_pane(statistics)
 
     def _summary_plot_wizard(self) -> Wizard | None:
