@@ -9,6 +9,7 @@ from cassim.app.theme import DARK, THEMES, contrast
 from cassim.core.session import Session
 from cassim.device.editor import Kind
 from cassim.device.keys import Action
+from cassim.devices.nspire.pages import graph_tools
 from cassim.devices.nspire.pages.graphs import FUNCTION_COLOURS, Graphs
 from cassim.devices.nspire.ui.graphs_view import GraphsView, graph_colours
 
@@ -200,3 +201,19 @@ def test_wheel_zoom_uses_the_pointer_as_its_anchor() -> None:
     )
 
     assert actions == [("graphs_gesture", "0,0,1.2214027581601699,30,25")]
+
+
+def test_a_tap_on_the_plot_goes_to_the_active_tool_only() -> None:
+    """FR-GRAPH-002: Zoom - Box, In, Out and Trace take a tap as their point (touch first)."""
+    actions: list[tuple[Action, str]] = []
+    view = GraphsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1.0)
+    graphs = Graphs(Session())
+    graphs.submit(0, "x^2")
+    view.refresh(graphs, 600, 400)
+    tap = ft.TapEvent(name="tap_up", control=view._plot_gestures, local_position=ft.Offset(30, 25))
+    view._tap(tap)
+    assert actions == []
+    graphs.tools.tool = graph_tools.Tool.ZOOM_IN
+    view.refresh(graphs, 600, 400)
+    view._tap(tap)
+    assert actions == [("graphs", "tap:30,25")]

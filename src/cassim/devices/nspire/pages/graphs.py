@@ -13,6 +13,7 @@ from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
 from cassim.device.engine import RemoteSession, graph_compile_op
 from cassim.device.keys import Binding
+from cassim.devices.nspire.pages import graph_tools
 from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.doc.document import PageType
 from cassim.graph.sampling import (
@@ -94,6 +95,12 @@ class Graphs:
         self._next_name = int(first[1:]) + 1
         self._viewport_width = 1.0
         self._viewport_height = 1.0
+        self.tools = graph_tools.ToolState()
+
+    @property
+    def viewport_size(self) -> tuple[float, float]:
+        """The plot's size in pixels when the scene was last built."""
+        return self._viewport_width, self._viewport_height
 
     def _entry(self, name: str) -> FunctionEntry:
         return FunctionEntry(name, Calculator(self.session, self.clipboard))
@@ -313,6 +320,7 @@ class Graphs:
                         )
                     ),
                 ),
+                Layer("tool", graph_tools.shapes(self, viewport, function_colour)),
             ),
         )
         return scene

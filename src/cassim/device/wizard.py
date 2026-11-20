@@ -67,13 +67,18 @@ class Wizard:
     copies: tuple[tuple[str, str], ...] = ()  # (source, target): typing in source sets target
     # Variables a live dialog leaves behind after each calculation: name -> number, from the values
     store: Callable[[Mapping[str, str]], dict[str, float]] | None = None
+    # Checks across the fields (Window Settings: XMin below XMax); messages for the user
+    check: Callable[[Mapping[str, str]], list[str]] | None = None
 
     def defaults(self) -> dict[str, str]:
         return {field.name: field.default for field in self.fields}
 
     def problems(self, values: Mapping[str, str]) -> list[str]:
         found = (field.problem(values.get(field.name, "").strip()) for field in self.fields)
-        return [problem for problem in found if problem]
+        problems = [problem for problem in found if problem]
+        if not problems and self.check is not None:
+            problems = self.check({name: value.strip() for name, value in values.items()})
+        return problems
 
     def bindings(self, values: Mapping[str, str]) -> list[Binding]:
         """The key actions that paste the command (and run it). Check `problems` first."""

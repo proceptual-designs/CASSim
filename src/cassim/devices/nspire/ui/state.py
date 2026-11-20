@@ -21,6 +21,7 @@ from cassim.device.wizard import Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
+from cassim.devices.nspire.pages import graph_tools
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
@@ -399,7 +400,11 @@ class AppState:
                 self.clipboard_out(self.document.clipboard.text)
 
     def _graphs_key(self, graphs: Graphs, binding: Binding) -> None:
-        if binding.action == "graphs_submit":
+        if binding.action == "graphs":
+            self._graphs_tool_action(graphs, binding.arg)
+        elif graph_tools.key(graphs, binding):
+            return  # a zoom tool or a trace has the key
+        elif binding.action == "graphs_submit":
             self._graphs_submit(graphs, binding.arg)
         elif binding.action in ("place", "extend"):
             self._graphs_place(graphs, binding)
@@ -424,6 +429,18 @@ class AppState:
             graphs.edit(binding)
             if binding.action in ("copy", "cut") and self.clipboard_out is not None:
                 self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_tool_action(self, graphs: Graphs, argument: str) -> None:
+        """Window / Zoom and Trace: a dialog opens here, everything else is the page's."""
+        dialogs = {
+            "dialog:window": graph_tools.window_wizard,
+            "dialog:trace_step": graph_tools.trace_step_wizard,
+        }
+        if argument in dialogs:
+            if self.show_wizard is not None:
+                self.show_wizard(dialogs[argument](graphs))
+            return
+        graph_tools.perform(graphs, argument)
 
     def _graphs_display_action(self, graphs: Graphs, binding: Binding) -> None:
         if binding.action == "graphs_toggle":
@@ -735,8 +752,8 @@ class AppState:
                     ),
                 ),
                 MenuItem("Graph Entry/Edit", key="3", enabled=False),
-                MenuItem("Window / Zoom", key="4", enabled=False),
-                MenuItem("Trace", key="5", enabled=False),
+                graph_tools.window_zoom_menu(),
+                graph_tools.trace_menu(),
                 MenuItem("Analyze Graph", key="6", enabled=False),
                 MenuItem("Table", key="7", enabled=False),
                 MenuItem("Geometry", key="8", enabled=False),

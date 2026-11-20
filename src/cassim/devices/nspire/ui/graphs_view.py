@@ -55,6 +55,7 @@ class GraphsView:
         self._height = 200.0
         self._plot_height = 100.0
         self._gesture_scale = 1.0
+        self._tool_active = False
         self.functions = ft.Column(spacing=0)
         self.plot = ft.Container(expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
         self._context_region = context_menu_region()
@@ -63,6 +64,7 @@ class GraphsView:
             on_scale_start=self._scale_start,
             on_scale_update=self._scale_update,
             on_scroll=self._scroll,
+            on_tap_up=self._tap,
             on_secondary_tap_down=self._context,
             on_long_press_start=self._context,
             drag_interval=16,
@@ -76,6 +78,7 @@ class GraphsView:
 
     def refresh(self, graphs: Graphs, width: float, height: float) -> None:
         self._width, self._height = max(width, 120), max(height, 100)
+        self._tool_active = graphs.tools.tool is not None
         scale = self.scale()
         controls: list[ft.Control] = []
         controls_height = 0.0
@@ -251,6 +254,12 @@ class GraphsView:
             return
         factor = math.exp(delta / _WHEEL_ZOOM_STEP)
         self._gesture(0, 0, factor, event.local_position.x, event.local_position.y)
+
+    def _tap(self, event: ft.TapEvent) -> None:
+        """A tap on the plot is a zoom tool's point or a trace's x (touch first, FR-GRAPH-002)."""
+        position = event.local_position
+        if self._tool_active and position is not None:
+            self._act("graphs", f"tap:{position.x:.17g},{position.y:.17g}")
 
     def _context(self, _: ft.TapEvent | ft.LongPressStartEvent) -> None:
         self._act("context_menu", "")
