@@ -60,6 +60,7 @@ class PlotData:
     y_name: str = ""
     y: tuple[DataValue, ...] = ()
     summary: tuple[float | None, ...] = ()
+    summary_name: str = ""
     split_name: str = ""
     split: tuple[DataValue, ...] = ()
     force_categorical_x: bool = False
@@ -391,16 +392,24 @@ def _dot_plot(data: PlotData, width: float, height: float) -> Scene:
 
 
 def _histogram(data: PlotData, width: float, height: float) -> Scene:
-    values = _finite(data.x)
+    """A histogram; with a Summary List, each X value counts as its summary value (R5-Q2)."""
+    weighted = [
+        (float(value), 1.0 if not data.summary else (data.summary[index] or 0.0))
+        for index, value in enumerate(data.x)
+        if isinstance(value, float)
+        and math.isfinite(value)
+        and (not data.summary or index < len(data.summary))
+    ]
+    values = tuple(value for value, _ in weighted)
     if not values:
         return _empty(width, height, data.x_name, "Frequency")
     bin_width = data.histogram_width if data.histogram_width > 0 else 1.0
     start = min(values)
-    counts: dict[int, int] = {}
-    for value in values:
+    counts: dict[int, float] = {}
+    for value, weight in weighted:
         index = math.floor((value - start) / bin_width)
-        counts[index] = counts.get(index, 0) + 1
-    count = len(values)
+        counts[index] = counts.get(index, 0) + weight
+    count = sum(weight for _, weight in weighted) or 1.0
     bins = tuple(
         (
             start + index * bin_width,
@@ -428,7 +437,7 @@ def _histogram(data: PlotData, width: float, height: float) -> Scene:
         x1, y1 = area.point(right, amount)
         shapes.append(Fill(((x0, y0), (x1, y0), (x1, y1), (x0, y1)), "curve1", 0.65))
         shapes.append(Box(x0, y1, x1 - x0, y0 - y1, Stroke("axis", 0.8)))
-    title = data.histogram_scale
+    title = data.summary_name or data.histogram_scale
     if data.normal_pdf:
         shapes.append(Polyline(_map_points(data.normal_pdf, area), Stroke("curve4", 2)))
     if data.function:

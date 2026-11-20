@@ -181,8 +181,14 @@ class Statistics:
     def available_plot_types(self) -> tuple[PlotType, ...]:
         if not self.x_name:
             return ()
-        if self.summary_name:
-            return (PlotType.BAR,) if self.split_name else (PlotType.BAR, PlotType.PIE)
+        if self.summary_name:  # a numeric X List summarised is a histogram (R5-Q2)
+            return (
+                (PlotType.HISTOGRAM,)
+                if not self.categorical_x
+                else (PlotType.BAR,)
+                if self.split_name
+                else (PlotType.BAR, PlotType.PIE)
+            )
         if self.y_name and self.categorical_x:
             return (
                 PlotType.DOT,
@@ -240,7 +246,7 @@ class Statistics:
             case "summary":
                 self.summary_name = value
                 self.split_name = ""
-                self.plot_type = PlotType.BAR
+                self.plot_type = PlotType.BAR if self.categorical_x else PlotType.HISTOGRAM
             case "split":
                 self.split_name = value
         self._scene = None
@@ -465,6 +471,7 @@ class Statistics:
             y_name=self.y_name,
             y=y,
             summary=summary_values,
+            summary_name=self.summary_name,
             split_name=self.split_name,
             split=split,
             force_categorical_x=self.force_categorical_x,

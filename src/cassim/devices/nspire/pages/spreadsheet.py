@@ -1384,38 +1384,36 @@ class Spreadsheet:
         self.add_pane(statistics)
 
     def _summary_plot_wizard(self) -> Wizard | None:
+        """Summary Plot (R5-Q2): X List is a category or a numeric list, Summary List a numeric
+        list, each taken from the selected columns first; Display On is Split Page first."""
         statistics = Statistics(self.session)
-        categories, summaries = statistics.category_lists, statistics.numeric_lists
-        if not categories or not summaries:
-            self.dialogs.append(
-                Dialog("Summary Plot", "Select a category list and a numeric list.")
-            )
+        lists, summaries = statistics.lists, statistics.numeric_lists
+        if not lists or not summaries:
+            self.dialogs.append(Dialog("Summary Plot", "Enter a list and a numeric list first."))
             return None
-        selected = self.selection()
-        x_default = ""
-        summary_default = ""
-        if selected is not None:
-            left, _, right, _ = selected
-            names = [self.columns[column][0] for column in range(left, right + 1)]
-            category_names = {item.casefold() for item in categories}
-            summary_names = {item.casefold() for item in summaries}
-            x_default = next(
-                (name for name in names if name and name.casefold() in category_names), ""
-            )
-            summary_default = next(
-                (name for name in names if name and name.casefold() in summary_names), ""
-            )
+        left, _, right, _ = self._span()
+        known = {name.casefold(): name for name in lists}
+        names = [
+            known.get((self.columns[c][0] or "").casefold(), "") for c in range(left, right + 1)
+        ]
+        names = [name for name in names if name]
+        x_default = names[0] if names else lists[0]
+        summary_default = next(
+            (name for name in names[1:] if name in summaries),
+            next((name for name in summaries if name != x_default), summaries[0]),
+        )
+        categories = lists
         fields = (
             Field(
                 "x",
                 "X List",
-                x_default or categories[0],
+                x_default,
                 choices=tuple((name, name) for name in categories),
             ),
             Field(
                 "summary",
                 "Summary List",
-                summary_default or summaries[0],
+                summary_default,
                 choices=tuple((name, name) for name in summaries),
             ),
             Field(

@@ -312,3 +312,25 @@ def test_grouped_box_plot_applies_whisker_setting() -> None:
     assert not any(
         isinstance(shape, Dots) for shape in _shapes(replace(data, extend_whiskers=True))
     )
+
+
+def test_a_numeric_x_list_with_a_summary_list_is_a_weighted_histogram():
+    """FR-STAT-003 (R5-Q2, Computer view): d1 summarised against xs gives bars of those heights,
+    the y axis named after the summary list."""
+    data = PlotData(
+        plot_type=PlotType.HISTOGRAM,
+        x_name="xs",
+        x=(1.0, 2.0, 3.0),
+        summary=(2.0, 4.0, 7.0),
+        summary_name="d1",
+    )
+    scene = plot_scene(data, 240, 180)
+    bars = [shape for shape in scene.layers[1].shapes if isinstance(shape, Fill)]
+    heights = [round(max(y for _, y in bar.points) - min(y for _, y in bar.points)) for bar in bars]
+    assert len(bars) == 3
+    assert heights[0] * 2 == pytest.approx(heights[1], abs=2)
+    assert any(
+        isinstance(shape, Label) and shape.text == "d1"
+        for layer in scene.layers
+        for shape in layer.shapes
+    )

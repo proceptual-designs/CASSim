@@ -1390,3 +1390,46 @@ def test_quick_graph_of_one_column_undoes_in_one_step():
     assert sheet.split_statistics[0].plot_type.value == "Dot Plot"
     keys(state, "undo")
     assert sheet.panes == []
+
+
+# ----- Summary Plot (sheet5, R5-Q2) ---------------------------------------------------------------
+
+
+def test_summary_plot_takes_a_numeric_x_list_from_the_selected_columns():
+    """FR-STAT-003, FR-SHEET-008 (R5-Q2): with xs and ys selected the dialog offers X List xs and
+    Summary List ys, Display On Split Page first; the plot is a histogram of ys against xs."""
+    state, sheet = lists_sheet()
+    state.wizards.clear()
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    state.run(Binding("sheet", "summary_plot"))
+    state.prepare()
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("X List", "xs"),
+        ("Summary List", "ys"),
+        ("Display On", "split"),
+    ]
+    assert wizard.fields[2].choices == (("split", "Split Page"), ("new", "New Page"))
+    assert ("xs", "xs") in wizard.fields[0].choices
+    finish_wizard(state)
+    (plot,) = sheet.split_statistics
+    data = plot.plot_data()
+    assert (data.plot_type.value, data.x, data.summary) == (
+        "Histogram",
+        (1.0, 2.0, 3.0),
+        (2.0, 4.0, 7.0),
+    )
+    keys(state, "undo")
+    assert sheet.panes == []
+
+
+def test_a_single_selected_column_offers_the_first_other_numeric_list_to_summarise():
+    """R5-Q2 (Computer view): name cell xs, Summary Plot: X List xs, Summary List the first
+    other numeric list."""
+    state, sheet = lists_sheet()
+    state.wizards.clear()
+    sheet.go((B, NAME_ROW))
+    state.run(Binding("sheet", "summary_plot"))
+    state.prepare()
+    assert [f.default for f in state.wizards[-1].fields][:2] == ["ys", "xs"]
