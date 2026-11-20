@@ -73,7 +73,8 @@ HANDHELD: Keymap = {
     "ctrl+10x": Binding("template", "log"),  # log with a base slot first
     "ctrl+(": Binding("insert_linear", f"[{MARK}]"),  # a bracket pair, cursor inside
     "ctrl+)": Binding("insert_linear", f"{{{MARK}}}"),
-    "neg": Binding("insert", "-"),
+    # (−) negates: typed as it stands, so first on a line it does not take Ans as − does
+    "neg": Binding("insert_linear", "-"),
     "ctrl+neg": Binding("insert", "Ans"),
     "space": Binding("insert", " "),
     "ctrl+space": Binding("insert", "_"),
