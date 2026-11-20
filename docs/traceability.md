@@ -139,7 +139,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-001 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 14 more |
+| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 15 more |
 | FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |

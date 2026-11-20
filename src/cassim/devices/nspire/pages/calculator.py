@@ -25,6 +25,7 @@ from cassim.device.editor import (
 from cassim.device.editor import Row as EditorRow
 from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, local_session
+from cassim.device.recall import full_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,6 +93,8 @@ class Calculator:
         self.error: str | None = None  # a dialog waiting for a key press
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
         self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
+        # A picked result at full precision: what Enter and copy take (the row shows `text`)
+        self._recalled_full: EditorRow | None = None
         self.recall_touched = False  # a key or click has moved inside the picked row
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
@@ -205,15 +208,26 @@ class Calculator:
             return
         entry = self.history[picked[0]]
         self._recalled = Editor()
+        self._recalled_full = None
         if picked[1] == "entry" and entry.nodes:
             self._recalled.root = copy.deepcopy(list(entry.nodes))
-        else:
+        elif picked[1] == "entry":
             # Parsed, not typed key by key: a typed `^` or `√` would take in the rest of the line
-            recalled = (
-                entry.text if picked[1] == "entry" else entry.result.full or entry.result.text
-            )
-            self._recalled.root = row_from_text(recalled)
+            self._recalled.root = row_from_text(entry.text)
+        else:
+            # The row moves through the digits it shows; Enter and copy take the full value
+            self._recalled.root = row_from_text(entry.result.text)
+            if entry.result.full and entry.result.full != entry.result.text:
+                self._recalled_full = row_from_text(entry.result.full)
         self._recalled.pos = len(self._recalled.root)
+
+    def _recall_nodes(self) -> EditorRow:
+        """What the picked row gives Enter or copy: its selected part (all of it if nothing is
+        selected), at full precision for a result."""
+        picked = self._recalled
+        if self._recalled_full is not None:
+            return full_selection(picked, self._recalled_full)
+        return picked.selection() or copy.deepcopy(picked.root)
 
     def _recall_move(self, name: str) -> Callable[[str], None]:
         """A movement key: inside the picked row while one is picked, else in the entry line."""
@@ -299,12 +313,8 @@ class Calculator:
 
     def _copy(self) -> None:
         """Copy the selection in the entry line or, with a history row picked, the selected part
-        of that row (all of it if nothing in it is selected)."""
-        if self.recall is not None:
-            picked = self._recalled
-            nodes = picked.selection() or copy.deepcopy(picked.root)
-        else:
-            nodes = self.editor.selection()
+        of that row (all of it if nothing in it is selected), at full precision for a result."""
+        nodes = self._recall_nodes() if self.recall is not None else self.editor.selection()
         if nodes:
             self.clipboard.nodes = nodes
 
@@ -420,9 +430,8 @@ class Calculator:
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:
             # What is selected in the picked row comes down to the entry line, else the whole row;
-            # fractions and powers stay templates
-            picked = self._recalled
-            nodes = picked.selection() or copy.deepcopy(picked.root)
+            # fractions and powers stay templates, and a result's numbers come at full precision
+            nodes = self._recall_nodes()
             self.recall = None
             self.editor.paste(nodes)
             return
