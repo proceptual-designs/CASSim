@@ -20,6 +20,7 @@ from cassim.device.editor import (
     linear_text,
     modernised,
     parse_target,
+    position_near,
     substitute_ans,
 )
 from cassim.device.editor import Row as EditorRow
@@ -200,8 +201,8 @@ class Calculator:
         return self._recalled if self.recall is not None else None
 
     def _pick(self, picked: tuple[int, Row] | None) -> None:
-        """Pick a history row (or none). The row opens as an editor, cursor at its end, so the
-        keys and clicks can move inside it and select part of it."""
+        """Pick a history row (or none). The row opens as an editor with the cursor at its left
+        (Simon, 2026-11-20), so the keys and clicks can move inside it and select part of it."""
         self.recall = picked
         self.recall_touched = False
         if picked is None:
@@ -219,7 +220,6 @@ class Calculator:
             self._recalled.root = row_from_text(entry.result.text)
             if entry.result.full and entry.result.full != entry.result.text:
                 self._recalled_full = row_from_text(entry.result.full)
-        self._recalled.pos = len(self._recalled.root)
 
     def _recall_nodes(self) -> EditorRow:
         """What the picked row gives Enter or copy: its selected part (all of it if nothing is
@@ -416,16 +416,25 @@ class Calculator:
         self._mover(lambda: self.editor.place(path, pos, extend=extend))("")
 
     def _recall_at(self, spec: str) -> None:
-        """A click on a history row (`INDEX:entry` or `INDEX:result`): the first click picks it,
-        a second click on the same row brings it into the entry line."""
+        """A click on a history row (`INDEX:entry` or `INDEX:result`, with `@EMS` when the click
+        was on the maths, that many ems from its left): the first click picks the row with the
+        cursor near the click, a second click on the same row brings it into the entry line."""
+        spec, _, ems = spec.partition("@")
         index, _, row = spec.partition(":")
         picked = (int(index), "result" if row == "result" else "entry")
         if not 0 <= picked[0] < len(self.history):
             return
         if self.recall == picked:
             self._enter(approximate=False)
-        else:
-            self._pick(picked)
+            return
+        self._pick(picked)
+        try:
+            near = float(ems) if ems else None
+        except ValueError:
+            near = None
+        if near is not None:  # the cursor shows where the click was
+            self._recalled.pos = position_near(self._recalled.root, near)
+            self.recall_touched = True
 
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:

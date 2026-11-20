@@ -152,6 +152,7 @@ def test_moving_in_a_picked_result_keeps_each_root_to_its_radicand() -> None:
     calc.perform(Binding("insert_linear", "solve(x^2=3,x)"))
     calc.perform(Binding("enter"))
     calc.perform(Binding("up"))
+    calc.perform(Binding("end"))
     calc.perform(Binding("left"))
     picked = calc.recall_editor
     assert picked is not None

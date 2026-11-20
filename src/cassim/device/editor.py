@@ -851,6 +851,46 @@ def substitute_ans(row: Row, value: str) -> Row:
     return out
 
 
+def position_near(row: Row, em: float) -> int:
+    """The gap in `row` nearest a click `em` ems from the left of its drawing. The history is
+    drawn on the Flutter canvas, which gives Python no layout, so the widths are estimates
+    (`estimated_width`): the cursor lands near the click, at the top level of the row."""
+    left = 0.0
+    for index, node in enumerate(row):
+        width = _node_width(node)
+        if em < left + width / 2:
+            return index
+        left += width
+    return len(row)
+
+
+def estimated_width(row: Row) -> float:
+    """A row's width in ems as KaTeX sets it inline (`$...$`): fraction parts and exponents are
+    at 70 per cent, binary operators and relations carry their spacing."""
+    return sum(_node_width(node) for node in row)
+
+
+_WIDE = {**dict.fromkeys("+-−", 1.22), **dict.fromkeys("=<>≤≥≠", 1.33), "*": 0.72, " ": 0.25}
+_NARROW = {**dict.fromkeys(".,:;'!|", 0.28), **dict.fromkeys("()[]{}", 0.39)}
+_SCRIPT = 0.7  # a fraction's parts and an exponent, set at script size
+
+
+def _node_width(node: Node) -> float:
+    if isinstance(node, str):
+        return _WIDE.get(node) or _NARROW.get(node) or (0.72 if node.isupper() else 0.5)
+    slots = [estimated_width(slot) or 0.6 for slot in node.slots]  # an empty slot is a box
+    if node.kind is Kind.FRACTION:
+        return _SCRIPT * max(slots) + 0.24
+    if node.kind is Kind.POWER:
+        return _SCRIPT * slots[0]
+    if node.kind is Kind.ROOT:
+        return 0.83 + slots[0]
+    if node.kind is Kind.MATRIX and node.cols:
+        columns = [max(slots[c :: node.cols]) for c in range(node.cols)]
+        return sum(columns) + node.cols + 0.5
+    return sum(slots) + 1.0
+
+
 def linear_text(nodes: Row) -> str:
     """The TI text of some nodes, as for the system clipboard."""
     return _linear(nodes)

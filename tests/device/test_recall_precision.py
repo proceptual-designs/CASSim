@@ -49,7 +49,7 @@ def test_a_selected_number_comes_down_at_full_precision() -> None:
     calc = calc_float3()
     evaluate(calc, "{1/3.,2/3.}")
     assert calc.history[-1].result.text == "{0.333,0.667}"
-    keys(calc, "up", "left")  # before the closing brace
+    keys(calc, "up", "end", "left")  # before the closing brace
     keys(calc, *repeat("select_left", 5))  # 0.667
     calc.perform(Binding("enter"))
     assert calc.editor.linear() == "0.66666666666667"
@@ -58,7 +58,7 @@ def test_a_selected_number_comes_down_at_full_precision() -> None:
 def test_a_selection_edge_inside_a_number_takes_the_whole_number() -> None:
     calc = calc_float3()
     evaluate(calc, "{1/3.,2/3.}")
-    keys(calc, "up", "left", "select_left", "select_left")  # "67" of 0.667
+    keys(calc, "up", "end", "left", "select_left", "select_left")  # "67" of 0.667
     calc.perform(Binding("enter"))
     assert calc.editor.linear() == "0.66666666666667"
 
