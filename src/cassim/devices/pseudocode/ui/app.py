@@ -225,6 +225,8 @@ class CodeApp:
             text_style=self.editor_text_style(),
             content_padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
             border=ft.OutlineInputBorder(side=ft.BorderSide.none()),
+            label="Code",
+            label_style=ft.TextStyle(size=1, color="transparent"),
             tooltip="Code editor",
             on_change=self.on_fallback_source,
         )
@@ -595,7 +597,7 @@ class CodeApp:
     def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
         text = str(event.control.value or "")
         previous = self.current_source
-        if self.typing_aid or self.typing_aids:
+        if self.typing_aid and not self.typing_aids:
             selection = event.control.selection
             cursor = selection.end if selection is not None else len(text)
             replacement = replacement_before_cursor(text, cursor)
@@ -604,18 +606,18 @@ class CodeApp:
                     text[: replacement.start] + replacement.replacement + text[replacement.end :]
                 )
                 event.control.update()
-                self.typing_undo = (str(event.control.value or ""), previous)
+                self.typing_undo = (str(event.control.value or ""), text)
                 self.current_source = str(event.control.value or "")
                 self.refresh_line_numbers()
                 self.mark_dirty()
                 return
-            if self.typing_aids and self.symbol_style == "unicode":
-                converted = convert_typing(previous, text)
-                if converted != text:
-                    self.typing_undo = (converted, text)
-                    event.control.value = converted
-                    event.control.update()
-                    text = converted
+        if self.typing_aids and self.symbol_style == "unicode":
+            converted = convert_typing(previous, text)
+            if converted != text:
+                self.typing_undo = (converted, text)
+                event.control.value = converted
+                event.control.update()
+                text = converted
         self.current_source = text
         self.refresh_line_numbers()
         self.mark_dirty()
@@ -978,7 +980,11 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.install_typing_aids()
 
         def changed(_instance: object, change: object) -> None:
-            if self.typing_aid and str(getattr(change, "origin", "")) == "+input":
+            if (
+                self.typing_aid
+                and not self.typing_aids
+                and str(getattr(change, "origin", "")) == "+input"
+            ):
                 cursor = cm.getCursor()
                 source = str(cm.getValue())
                 line = int(cursor.line)
@@ -1134,14 +1140,16 @@ window.CASSimTypingAids = function(editor, change) {
         self.position_codemirror()
 
     def on_keyboard(self, event: ft.KeyboardEvent) -> None:
-        if (event.ctrl or event.meta) and event.key.lower() == "z" and self.typing_undo:
+        if (
+            self.cm is None
+            and (event.ctrl or event.meta)
+            and event.key.lower() == "z"
+            and self.typing_undo
+        ):
             converted, original = self.typing_undo
             if self.source() == converted:
                 self.fallback_editor.value = original
-                if self.cm is not None:
-                    self.cm.setValue(original)
-                else:
-                    self.fallback_editor.update()
+                self.fallback_editor.update()
                 self.current_source = original
                 self.typing_undo = None
                 self.mark_dirty()

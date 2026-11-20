@@ -155,9 +155,9 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         expect(editor).to_be_attached()
 
         def replace(value: str) -> None:
-            editor.click()
-            page.keyboard.press("Control+A")
-            page.keyboard.type(value)
+            editor.focus()
+            editor.press("Control+A")
+            editor.press_sequentially(value)
             expect(editor).to_have_value(value)
 
         def source() -> str:
@@ -174,6 +174,10 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("x <-")
 
+        page.goto(site[1] + "#/app/pseudocode", wait_until="load")
+        enable_semantics(page)
+        editor = page.get_by_role("textbox", name="Code")
+        expect(editor).to_be_attached(timeout=60_000)
         replace("print @")
         page.keyboard.type("pi", delay=30)
         expect(editor).to_have_value("print π")
