@@ -15,7 +15,7 @@ from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
 
-WELCOME = "Hi! Choose a CAS calculator or algorithm tool to start."
+WELCOME = "Hi! Choose a CAS Calculator or other tool to start"
 SYSTEM_KEY = "cassim.system"  # the Nspire shell's existing, device-prefixed system settings
 APP_CHOICES = ("nspire", "classpad", "prime", "pseudocode", "scientific")
 APP_NAMES = {

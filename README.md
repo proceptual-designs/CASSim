@@ -44,7 +44,7 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 
 ## What it does
 
-- **Home chooser** for the all-in-one app, with remembered last-used device and disabled future
+- **Home chooser** for the all-in-one app, opened on every launch, with disabled future
   choices.
 - **Nspire calculator app** with an Nspire-like keypad, numbered menus, 2D templates (fractions, roots,
   piecewise, systems, calculus) and the document, problem and page model.
