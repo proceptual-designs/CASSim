@@ -9,10 +9,15 @@ import flet as ft
 from cassim.devices.pseudocode.ui.app import (
     BISECTION,
     CONDITION_COLUMN_WIDTH,
+    D4_SAMPLE_SPACE,
+    DICE_MAX_STATS,
     EXAMPLE,
+    GCD_LCM,
+    LEFT_RIEMANN,
     LINE_COLUMN_WIDTH,
     LINEAR,
     OUTPUT_COLUMN_WIDTH,
+    POLYNOMIAL_NEWTON,
     VARIABLE_COLUMN_WIDTH,
     CodeApp,
 )
@@ -135,6 +140,16 @@ def test_new_examples_run_as_intended() -> None:
     assert result.output == ["7"]
 
 
+def test_classic_algorithm_examples_run() -> None:
+    assert run(GCD_LCM, Settings()).output == ["6", "420"]
+    assert run(DICE_MAX_STATS, Settings()).error is None
+    sample_space = run(D4_SAMPLE_SPACE, Settings())
+    assert sample_space.error is None
+    assert sample_space.output[0].count("[") == 17
+    assert run(LEFT_RIEMANN, Settings()).error is None
+    assert run(POLYNOMIAL_NEWTON, Settings()).error is None
+
+
 def test_run_discovers_constants_and_starts_at_the_first_trace_step() -> None:
     app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
     app.set_source(BISECTION)
@@ -203,6 +218,9 @@ def test_workspace_split_and_trace_columns_resize() -> None:
     app.resize_symbol_columns(0, event)  # ty: ignore[invalid-argument-type]
     assert tuple(app.symbol_widths) != original
     assert len(app.symbol_columns) == 3
+    assert app.resize_trace_column("__line__", event) is None  # ty: ignore[invalid-argument-type]
+    app.resize_trace_column("__code__", event)  # ty: ignore[invalid-argument-type]
+    assert app.trace_widths["__code__"] > 0
 
 
 def test_console_entry_does_not_repeat_program_output() -> None:
@@ -220,6 +238,16 @@ def test_console_entry_does_not_repeat_program_output() -> None:
 
     assert str(app.console.value).count("\n4\n") == 0
     assert str(app.console.value).endswith("> x + 1\n5")
+
+
+def test_editor_gutter_shares_the_outer_scroller() -> None:
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+
+    app.set_source("\n".join(f"print {number}" for number in range(30)))
+
+    assert app.fallback_editor.min_lines == 31
+    assert app.fallback_editor.max_lines == 5000
+    assert len(str(app.line_number_gutter.value).splitlines()) == 30
 
 
 def test_trace_layout_cycles() -> None:
@@ -249,7 +277,7 @@ def test_horizontal_trace_at_first_does_not_report_unavailable() -> None:
 
 
 def test_fixed_trace_column_widths_are_precomputed() -> None:
-    assert (LINE_COLUMN_WIDTH, VARIABLE_COLUMN_WIDTH) == (48, 76)
+    assert (LINE_COLUMN_WIDTH, VARIABLE_COLUMN_WIDTH) == (40, 76)
     assert (CONDITION_COLUMN_WIDTH, OUTPUT_COLUMN_WIDTH) == (130, 140)
 
 

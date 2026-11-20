@@ -44,7 +44,7 @@ class BoxedPane:
         self.collapsed = options.collapsed
         self.on_change = options.on_change
         self.content = content
-        self.content_host = ft.Container(content, expand=True, padding=8)
+        self.content_host = ft.Container(content, expand=True, padding=4)
         self.grip = ft.GestureDetector(
             ft.Container(
                 ft.Icon(ft.Icons.DRAG_HANDLE, size=15),

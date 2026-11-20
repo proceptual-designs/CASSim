@@ -61,8 +61,91 @@ BISECTION = (
     "end while\n"
     "print c"
 )
+GCD_LCM = (
+    "define gcd(a, b)\n"
+    "  while b ≠ 0 do\n"
+    "    remainder ← a mod b\n"
+    "    a ← b\n"
+    "    b ← remainder\n"
+    "  end while\n"
+    "  return a\n"
+    "end\n"
+    "a ← 84\n"
+    "b ← 30\n"
+    "g ← gcd(a, b)\n"
+    "print g\n"
+    "print (a*b) div g"
+)
+DICE_MAX_STATS = (
+    "seed(42)\n"
+    "trials ← 200\n"
+    "sum ← 0\n"
+    "sum_squares ← 0\n"
+    "for trial from 1 to trials\n"
+    "  die1 ← randint(1, 6)\n"
+    "  die2 ← randint(1, 6)\n"
+    "  if die1 > die2 then\n"
+    "    largest ← die1\n"
+    "  else\n"
+    "    largest ← die2\n"
+    "  end if\n"
+    "  sum ← sum + largest\n"
+    "  sum_squares ← sum_squares + largest*largest\n"
+    "end for\n"
+    "mean ← sum/trials\n"
+    "sd ← sqrt((sum_squares - trials*mean*mean)/(trials - 1))\n"
+    "print mean\n"
+    "print sd"
+)
+D4_SAMPLE_SPACE = (
+    "outcomes ← []\n"
+    "for first from 1 to 4\n"
+    "  for second from 1 to 4\n"
+    "    append [first, second] to outcomes\n"
+    "  end for\n"
+    "end for\n"
+    "print outcomes"
+)
+LEFT_RIEMANN = (
+    "define f(x)\n"
+    "  return e^x\n"
+    "end\n"
+    "rectangles ← 10\n"
+    "left ← 0\n"
+    "right ← 1\n"
+    "width ← (right-left)/rectangles\n"
+    "total ← 0\n"
+    "for i from 0 to rectangles-1\n"
+    "  total ← total + f(left + i*width)*width\n"
+    "end for\n"
+    "print total"
+)
+POLYNOMIAL_NEWTON = (
+    "define polynomial(coefficients, x)\n"
+    "  value ← 0\n"
+    "  for each coefficient in coefficients\n"
+    "    value ← value*x + coefficient\n"
+    "  end for\n"
+    "  return value\n"
+    "end\n"
+    "define derivative(coefficients, x)\n"
+    "  value ← 0\n"
+    "  power ← len(coefficients) - 1\n"
+    "  for i from 1 to len(coefficients)-1\n"
+    "    value ← value*x + coefficients[i]*power\n"
+    "    power ← power - 1\n"
+    "  end for\n"
+    "  return value\n"
+    "end\n"
+    "coefficients ← [1, 0, -2, -5]\n"
+    "x ← 2\n"
+    "for iteration from 1 to 8\n"
+    "  x ← x - polynomial(coefficients, x)/derivative(coefficients, x)\n"
+    "end for\n"
+    "print x"
+)
 MOBILE_BREAKPOINT = 900
-LINE_COLUMN_WIDTH = 48
+LINE_COLUMN_WIDTH = 40
 VARIABLE_COLUMN_WIDTH = 76
 CONDITION_COLUMN_WIDTH = 130
 OUTPUT_COLUMN_WIDTH = 140
@@ -125,28 +208,29 @@ class CodeApp:
         self.fallback_editor = ft.TextField(
             value=EXAMPLE,
             multiline=True,
-            min_lines=12,
-            expand=True,
+            min_lines=len(EXAMPLE.splitlines()) + 1,
+            max_lines=5000,
             autocorrect=False,
             enable_suggestions=False,
-            text_style=ft.TextStyle(font_family="monospace", size=14),
+            text_style=ft.TextStyle(font_family="monospace", size=14, height=20 / 14),
+            content_padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
+            border=ft.OutlineInputBorder(side=ft.BorderSide.none()),
             tooltip="Code editor",
             on_change=self.on_fallback_source,
         )
         self.line_number_gutter = ft.Text(
             self._line_numbers_for(EXAMPLE),
-            font_family="monospace",
-            size=14,
+            style=ft.TextStyle(font_family="monospace", size=14, height=20 / 14),
             selectable=False,
             width=42,
             text_align=ft.TextAlign.RIGHT,
         )
-        editor_content = ft.Row(
+        editor_row = ft.Row(
             [
                 ft.Container(
                     self.line_number_gutter,
                     width=42,
-                    padding=ft.Padding.only(top=12),
+                    padding=ft.Padding.only(top=8),
                     alignment=ft.Alignment.TOP_RIGHT,
                 ),
                 self.fallback_editor,
@@ -154,6 +238,12 @@ class CodeApp:
             expand=True,
             spacing=6,
             vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        editor_content = ft.Column(
+            [editor_row],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            spacing=0,
         )
 
         self.number_button = ft.Button("Approx", on_click=self.cycle_number, style=_control_style())
@@ -173,23 +263,7 @@ class CodeApp:
                 ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
             ],
         )
-        examples = ft.SubmenuButton(
-            content="Examples",
-            controls=[
-                ft.MenuItemButton(
-                    content="Linear",
-                    on_click=lambda _: self.load_example(LINEAR),
-                ),
-                ft.MenuItemButton(
-                    content="Loop",
-                    on_click=lambda _: self.load_example(EXAMPLE),
-                ),
-                ft.MenuItemButton(
-                    content="Bisection",
-                    on_click=lambda _: self.load_example(BISECTION),
-                ),
-            ],
-        )
+        examples = self.build_examples_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
@@ -233,6 +307,7 @@ class CodeApp:
         self.console_input = ft.TextField(
             hint_text="Input or expression",
             dense=True,
+            width=180,
             on_submit=self.submit_console,
         )
         self.console_scroll = ft.Column(
@@ -242,22 +317,8 @@ class CodeApp:
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
-        console_scroll_box = ft.Container(
-            self.console_scroll,
-            border=ft.Border.all(1),
-            padding=6,
-            expand=True,
-        )
-        console_content = ft.Column(
-            [
-                console_scroll_box,
-                self.console_input,
-            ],
-            expand=True,
-            spacing=6,
-        )
+        console_content = ft.Container(self.console_scroll, expand=True)
         self.trace = ft.Column(expand=True, spacing=0)
-        self.status = ft.Text("")
         self.trace_controls = self._build_trace_controls()
 
         self.editor_pane = BoxedPane(
@@ -278,6 +339,7 @@ class CodeApp:
                 minimum=120,
                 collapsed=True,
                 on_change=self.position_codemirror,
+                title_controls=[self.console_input],
             ),
         )
         self.items_pane = BoxedPane(
@@ -303,6 +365,44 @@ class CodeApp:
         )
         self.root = ft.Column(expand=True)
 
+    def build_examples_menu(self) -> ft.SubmenuButton:
+        def group(title: str, items: tuple[tuple[str, str], ...]) -> ft.SubmenuButton:
+            return ft.SubmenuButton(
+                content=title,
+                controls=[
+                    ft.MenuItemButton(
+                        content=label,
+                        on_click=lambda _event, source=source: self.load_example(source),
+                    )
+                    for label, source in items
+                ],
+            )
+
+        return ft.SubmenuButton(
+            content="Examples",
+            controls=[
+                group(
+                    "Intro",
+                    (("Linear", LINEAR), ("Loop", EXAMPLE), ("Bisection", BISECTION)),
+                ),
+                group(
+                    "Number theory",
+                    (
+                        ("GCD and LCM", GCD_LCM),
+                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
+                    ),
+                ),
+                group(
+                    "Probability",
+                    (
+                        ("Two D6: larger", DICE_MAX_STATS),
+                        ("Two D4 sample space", D4_SAMPLE_SPACE),
+                    ),
+                ),
+                group("Numerical methods", (("Left Riemann sum", LEFT_RIEMANN),)),
+            ],
+        )
+
     def _init_workspace_state(self) -> None:
         self.generated_python = False
         self.python_header = ""
@@ -320,6 +420,7 @@ class CodeApp:
         self.symbol_columns: list[ft.Container] = []
 
     def _build_trace_controls(self) -> ft.Row:
+        self.status = ft.Text("")
         self.run_button = ft.Button("Run", on_click=self.run_code)
         self.stop_button = ft.Button("Stop", on_click=self.stop_code, visible=False)
         self.step_button = ft.Button("Step", on_click=self.step_forward)
@@ -454,11 +555,12 @@ class CodeApp:
         return "\n".join(str(number) for number in range(1, len(source.splitlines()) + 1))
 
     def refresh_line_numbers(self) -> None:
-        self.line_number_gutter.value = self._line_numbers_for(
-            str(self.fallback_editor.value or "")
-        )
+        source = str(self.fallback_editor.value or "")
+        self.line_number_gutter.value = self._line_numbers_for(source)
+        self.fallback_editor.min_lines = max(12, len(source.splitlines()) + 1)
         self.line_number_gutter.visible = self.line_numbers_visible
         _safe_update(self.line_number_gutter)
+        _safe_update(self.fallback_editor)
 
     def cycle_trace_layout(self, _: ft.Event[ft.Button]) -> None:
         modes = ("vertical", "horizontal", "none")
@@ -623,7 +725,11 @@ class CodeApp:
             page = self.console_scroll.page
         except RuntimeError:
             return
-        page.run_task(self.console_scroll.scroll_to, offset=-1, duration=0)
+        page.run_task(self.scroll_console_after_render)
+
+    async def scroll_console_after_render(self) -> None:
+        await asyncio.sleep(0.05)
+        await self.console_scroll.scroll_to(offset=-1, duration=100)
 
     def mark_dirty(self) -> None:
         if not self.dirty:
@@ -1174,6 +1280,7 @@ if (!window.CASSimPseudocodeModeDefined) {
                 spacing=2,
                 tight=True,
                 scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START,
             )
         ]
         if hasattr(self.page, "update"):
@@ -1226,6 +1333,22 @@ if (!window.CASSimPseudocodeModeDefined) {
         title: str,
         width: float,
     ) -> ft.Container:
+        if key == "__line__":
+            return ft.Container(
+                ft.Text(
+                    title,
+                    weight=ft.FontWeight.BOLD,
+                    size=12,
+                    no_wrap=True,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+                width=LINE_COLUMN_WIDTH,
+                height=38,
+                padding=0,
+                border=ft.Border.all(1),
+                alignment=ft.Alignment.CENTER,
+            )
+
         def resize(event: ft.DragUpdateEvent) -> None:
             self.resize_trace_column(key, event)
 
@@ -1250,7 +1373,7 @@ if (!window.CASSimPseudocodeModeDefined) {
         )
 
     def resize_trace_column(self, key: str, event: ft.DragUpdateEvent) -> None:
-        if event.global_delta is None:
+        if key == "__line__" or event.global_delta is None:
             return
         current = self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH)
         self.trace_widths[key] = min(420, max(48, current + event.global_delta.x))
@@ -1270,6 +1393,7 @@ if (!window.CASSimPseudocodeModeDefined) {
                 size=12,
                 weight=ft.FontWeight.BOLD if header else None,
                 selectable=not header,
+                no_wrap=key == "__line__",
             ),
             width=self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH),
             height=38,
@@ -1394,7 +1518,7 @@ if (!window.CASSimPseudocodeModeDefined) {
     def update_horizontal_trace(self) -> list[list[str]] | None:
         if self.result is None:
             self.draw_trace_table(
-                [("__line__", "Code", VARIABLE_COLUMN_WIDTH)],
+                [("__code__", "Code", VARIABLE_COLUMN_WIDTH)],
                 [],
             )
             return []
@@ -1407,7 +1531,7 @@ if (!window.CASSimPseudocodeModeDefined) {
         if table is None:
             return None
         columns: list[tuple[str, str, float]] = [
-            ("__line__", "Code", 220),
+            ("__code__", "Code", 220),
             *((f"pass:{column}", column, VARIABLE_COLUMN_WIDTH) for column in table.columns),
         ]
         self.draw_trace_table(

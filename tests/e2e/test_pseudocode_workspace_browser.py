@@ -116,6 +116,10 @@ def test_trace_controls_discover_and_toggle_constants(browser: Browser, site) ->
         expect(page.get_by_text("Functions", exact=True)).to_be_attached()
         expect(page.get_by_text("Resize Symbols column 1", exact=True)).to_be_attached()
         expect(page.get_by_text("Resize Symbols column 2", exact=True)).to_be_attached()
+        expect(page.get_by_role("textbox", name="Input or expression", exact=True)).to_be_attached()
+        page.get_by_role("button", name="Trace: Vertical", exact=True).click()
+        expect(page.get_by_text("Resize Code column", exact=True)).to_be_attached()
+        expect(page.get_by_text("Resize Line column", exact=True)).not_to_be_attached()
 
 
 def test_boxed_panes_offer_grips_and_resize(browser: Browser, site) -> None:
@@ -159,8 +163,10 @@ def test_workspace_and_trace_columns_resize(browser: Browser, site) -> None:
 
         page.get_by_role("button", name="Run", exact=True).click()
         header = page.get_by_text("Line", exact=True).bounding_box()
+        assert page.get_by_text("Resize Line column", exact=True).count() == 0
         variable_grip = page.get_by_text("Resize a column", exact=True).bounding_box()
         assert header is not None
+        assert header["width"] <= 45
         assert variable_grip is not None
         original_header_y = header["y"]
         page.mouse.move(header["x"] + 12, header["y"] + 140)
