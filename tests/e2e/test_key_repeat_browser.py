@@ -25,7 +25,7 @@ REPEATED_RESULTS = _repeated_results(ENTRY)
 
 def _hold(app: AppPage, key: str) -> None:
     app.page.keyboard.down(key)
-    app.page.wait_for_timeout(1400)
+    app.page.wait_for_timeout(2500)
     app.page.keyboard.up(key)
     app.page.wait_for_timeout(500)
 
