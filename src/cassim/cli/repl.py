@@ -282,6 +282,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--view", choices=("handheld", "computer"), help="the app's view (default: as last used)"
     )
+    parser.add_argument(
+        "--app",
+        choices=("nspire", "pseudocode"),
+        help="open directly to an app in the graphical interface",
+    )
     parser.add_argument("--course", choices=sorted(PRESETS), help="start from a course preset")
     parser.add_argument(
         "--set",
@@ -311,8 +316,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
     text = args.text or args.ascii or args.expression is not None or args.command == "run"
-    if text and (args.web or args.view):
-        parser.error("--web and --view are for the graphical app, not the text interface")
+    if text and (args.web or args.view or args.app):
+        parser.error("--web, --view and --app are for the graphical app, not the text interface")
     try:
         settings = build_settings(args.course, args.set)
     except ValueError as error:
@@ -324,7 +329,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         view = Mode(args.view) if args.view else None
         # --course and --set change the settings; with neither, the app keeps its own
-        run(web=args.web, view=view, settings=settings if args.course or args.set else None)
+        run(
+            web=args.web,
+            view=view,
+            app=args.app,
+            settings=settings if args.course or args.set else None,
+        )
         return 0
     session = Session(settings)
     if args.command == "run":

@@ -107,7 +107,10 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         expect(page.get_by_role("button", name="Pseudocode", exact=True)).to_be_attached(
             timeout=10_000
         )
-        expect(page.get_by_role("switch", name="Line numbers")).to_be_checked()
+        expect(page.get_by_role("button", name="Approx", exact=True)).to_be_attached()
+        expect(page.get_by_role("button", name="Radian", exact=True)).to_be_attached()
+        expect(page.get_by_text("Symbols", exact=True)).to_be_attached()
+        expect(page.get_by_text("Trace Table", exact=True)).to_be_attached()
         assert "CASSIM: UI" not in logs
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         expect(page.get_by_text("Check for Updates", exact=True)).to_be_attached()
