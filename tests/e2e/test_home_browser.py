@@ -113,7 +113,10 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         expect(page.get_by_role("button", name="Pseudocode", exact=True)).to_be_attached(
             timeout=10_000
         )
-        expect(page.get_by_role("switch", name="Line numbers")).to_be_checked()
+        expect(page.get_by_role("button", name="Approx", exact=True)).to_be_attached()
+        expect(page.get_by_role("button", name="Radian", exact=True)).to_be_attached()
+        expect(page.get_by_text("Symbols", exact=True)).to_be_attached()
+        expect(page.get_by_text("Trace Table", exact=True)).to_be_attached()
         assert "CASSIM: UI" not in logs
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         logs.clear()
@@ -152,33 +155,41 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         expect(editor).to_be_attached()
 
         def replace(value: str) -> None:
-            editor.click()
-            page.keyboard.press("Control+A")
-            page.keyboard.type(value)
+            editor.focus()
+            editor.press("Control+A")
+            editor.press_sequentially(value)
             expect(editor).to_have_value(value)
 
         def source() -> str:
             return str(editor.input_value())
 
         replace("x <")
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         assert source() == "x <-"
 
         typing_aids.click()
+        page.wait_for_timeout(300)
+        editor = page.get_by_role("textbox", name="Code")
+        expect(editor).to_be_attached()
         replace("x <")
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         expect(editor).to_have_value("x ←")
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("x <-")
 
+        page.goto(site[1] + "#/app/pseudocode", wait_until="load")
+        enable_semantics(page)
+        editor = page.get_by_role("textbox", name="Code")
+        expect(editor).to_be_attached(timeout=60_000)
+        page.wait_for_timeout(300)
         replace("print @")
-        page.keyboard.type("pi", delay=30)
+        editor.press_sequentially("pi", delay=30)
         expect(editor).to_have_value("print π")
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("print @pi")
 
         replace('print "<')
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         expect(editor).to_have_value('print "<-')
     finally:
         page.close()

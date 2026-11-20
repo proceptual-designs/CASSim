@@ -1,6 +1,11 @@
 # SDD-05. User interface (Flet)
 
-Status: describes `src/cassim/app/` at 2026-11-18. Requirements: FR-DEV-001, FR-DEV-002, FR-DEV-004, FR-DEV-006, FR-DEV-010, FR-CALC-003 to FR-CALC-005, FR-THEME-001, FR-PROF-010 to FR-PROF-018, NFR-PERF-007, NFR-PORT-002, NFR-PORT-003. Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 0032.
+Status: describes `src/cassim/app/` and the pseudocode teaching workspace at 2026-11-19.
+Requirements: FR-DEV-001, FR-DEV-002, FR-DEV-004, FR-DEV-006, FR-DEV-010,
+FR-CALC-003 to FR-CALC-005, FR-RUN-008, FR-RUN-012, FR-XLT-001 to FR-XLT-006,
+FR-TRC-001 to FR-TRC-008, FR-SET-001, FR-SYN-013, FR-THEME-001,
+FR-PROF-010 to FR-PROF-018, NFR-PERF-007, NFR-PORT-002, NFR-PORT-003.
+Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 0032.
 
 ## Rule
 
@@ -58,6 +63,35 @@ verification (`docs/testing/simulator-todo.md`, I1). Colours follow the selected
 ## Refresh and persistence
 
 `App.refresh` autosaves, redraws the view, keypad and sidebar, rebuilds the toolbar and calls `kick`, which starts a queued entry or a settings sync when the engine is idle. Autosave writes the document JSON to Flet `SharedPreferences` (browser localStorage, not IndexedDB) when it changed; System Settings are saved under their own key. `recover` reads both on start, then `--course` and `--set` (from `cassim`) replace the document's settings. A damaged autosave is ignored and overwritten.
+
+## Pseudocode teaching workspace
+
+The standalone pseudocode device uses `devices/pseudocode/ui/` rather than the Nspire screen
+renderer. Wide layouts hold a Code/Console column beside Run controls, Symbols and
+the Trace Table; layouts below 900 px stack those columns in that order. A draggable divider
+resizes the two wide columns. Every content pane owns its visible title, collapse state and a
+clamped vertical height. The bottom-right drag grip changes only the pane height; the CodeMirror
+overlay, when available, is repositioned from the same pane state. The Flet editor and line-number
+gutter are the fallback path.
+
+Run records one `RunResult`, fills the trace headings and Symbols panel, then leaves the cursor
+at zero. Step, Start and End only move the cursor through that result, so random values and input
+are not regenerated. Constants show their recorded values and are excluded from the trace by
+default. Constants, variables, functions and conditions are wrapped symbol rows with a vertical
+scroller; their checkboxes change the trace view without a second execution. Console begins
+folded, opens automatically for output or an error, scrolls vertically, and is moved to its end
+after each update. Console expressions remove the source program's existing output before
+appending the expression result.
+
+The trace heading is a separate fixed row above a vertically scrolling body. A horizontal
+scroller contains the table when its columns exceed the pane. Header grip controls resize each
+column live; row cells follow the same width map. Number, angle and trace-cycle buttons share the
+top toolbar with CASSim and Doc.
+
+Line numbers and the optional typing aid live in Settings. The aid replaces only unambiguous
+operator suffixes and terminated LaTeX-style spellings; plain names remain unchanged. The
+Pseudocode/Python selector calls the runtime's program-tree converters before changing the source
+or language. A `TranslationError` leaves both unchanged and is shown to the user.
 
 ## Dialogs and services
 

@@ -80,6 +80,17 @@ def test_single_device_bundles_bypass_home() -> None:
     assert startup_device("/", "classpad", "tin", ("nspire",)) == "nspire"
 
 
+@pytest.mark.parametrize("route", ["/pseudocode", "/app/pseudocode"])
+def test_direct_app_route_opens_that_device(route: str) -> None:
+    assert startup_device(route, "nspire", "all", ("nspire", "pseudocode")) == "pseudocode"
+
+
+def test_direct_app_option_overrides_saved_device() -> None:
+    assert (
+        startup_device("/", "nspire", "all", ("nspire", "pseudocode"), "pseudocode") == "pseudocode"
+    )
+
+
 def test_share_link_selects_its_device_before_the_remembered_preference() -> None:
     route = fragment("pseudocode")
     assert shared_device(route) == "pseudocode"

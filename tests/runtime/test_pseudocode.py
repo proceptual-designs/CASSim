@@ -488,6 +488,18 @@ def test_horizontal_layout_needs_exactly_one_unnested_loop() -> None:
     assert trace.horizontal(result, program, Settings()) is None
 
 
+def test_horizontal_layout_is_available_before_step_cursor_moves() -> None:
+    """FR-TRC-004: layout eligibility comes from the completed recording, not the cursor."""
+    program = parse(BISECTION)
+    result = Interpreter(program, Settings(number="auto")).run()
+
+    table = trace.horizontal(result, program, Settings(number="auto"), cursor=0)
+
+    assert table is not None
+    assert table.columns == ["Init", "Loop 1", "Loop 2", "Loop 3"]
+    assert all(cell == "" for row in table.rows for cell in row.cells)
+
+
 def test_trace_off_records_nothing_but_runs() -> None:
     result = run(BISECTION, Settings(number="auto"), trace=False)
     assert result.output == ["-11/8"]

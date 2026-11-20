@@ -14,35 +14,144 @@ import flet as ft
 
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
 from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
-from cassim.runtime.pseudocode import Settings, arith, run, trace
+from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
+from cassim.runtime.pseudocode import (
+    TRANSLATION_MARKER,
+    PseudocodeError,
+    Settings,
+    TranslationError,
+    arith,
+    parse,
+    pseudocode_to_python,
+    python_to_pseudocode,
+    run,
+    trace,
+)
 from cassim.runtime.pseudocode.settings import AngleMode, NumberMode
+from cassim.runtime.pseudocode.typing_aid import replacement_before_cursor
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
 
 
-EXAMPLE = "x ← 1\nwhile x <= 3\n  x ← x + 1\nend while\nprint x"
+EXAMPLE = (
+    "terms ← 10\n"
+    "a ← 0\n"
+    "b ← 1\n"
+    "for i from 1 to terms\n"
+    "  c ← a + b\n"
+    "  a ← b\n"
+    "  b ← c\n"
+    "end for\n"
+    "print b"
+)
+LINEAR = "die1 ← randint(1, 6)\ndie2 ← randint(1, 6)\ntotal ← die1 + die2\nprint total"
 BISECTION = (
     "define f(x)\n"
     "  return x*x - 2\n"
     "end\n"
-    "a ← -2\n"
-    "b ← -1\n"
-    "while (b-a)/2 > 0.2\n"
+    "precision ← 0.001\n"
+    "a ← 1\n"
+    "b ← 2\n"
+    "while b-a > precision\n"
     "  c ← (a+b)/2\n"
-    "  if f(a)*f(c) < 0 then\n"
-    "    b ← c\n"
-    "  else\n"
+    "  if f(c) < 0 then\n"
     "    a ← c\n"
+    "  else\n"
+    "    b ← c\n"
     "  end if\n"
     "end while\n"
     "print c"
 )
-MOBILE_BREAKPOINT = 700
-LINE_COLUMN_WIDTH = 48
+GCD_LCM = (
+    "define gcd(a, b)\n"
+    "  while b ≠ 0 do\n"
+    "    remainder ← a mod b\n"
+    "    a ← b\n"
+    "    b ← remainder\n"
+    "  end while\n"
+    "  return a\n"
+    "end\n"
+    "a ← 84\n"
+    "b ← 30\n"
+    "g ← gcd(a, b)\n"
+    "print g\n"
+    "print (a*b) div g"
+)
+DICE_MAX_STATS = (
+    "seed(42)\n"
+    "trials ← 200\n"
+    "sum ← 0\n"
+    "sum_squares ← 0\n"
+    "for trial from 1 to trials\n"
+    "  die1 ← randint(1, 6)\n"
+    "  die2 ← randint(1, 6)\n"
+    "  if die1 > die2 then\n"
+    "    largest ← die1\n"
+    "  else\n"
+    "    largest ← die2\n"
+    "  end if\n"
+    "  sum ← sum + largest\n"
+    "  sum_squares ← sum_squares + largest*largest\n"
+    "end for\n"
+    "mean ← sum/trials\n"
+    "sd ← sqrt((sum_squares - trials*mean*mean)/(trials - 1))\n"
+    "print mean\n"
+    "print sd"
+)
+D4_SAMPLE_SPACE = (
+    "outcomes ← []\n"
+    "for first from 1 to 4\n"
+    "  for second from 1 to 4\n"
+    "    append [first, second] to outcomes\n"
+    "  end for\n"
+    "end for\n"
+    "print outcomes"
+)
+LEFT_RIEMANN = (
+    "define f(x)\n"
+    "  return e^x\n"
+    "end\n"
+    "rectangles ← 10\n"
+    "left ← 0\n"
+    "right ← 1\n"
+    "width ← (right-left)/rectangles\n"
+    "total ← 0\n"
+    "for i from 0 to rectangles-1\n"
+    "  total ← total + f(left + i*width)*width\n"
+    "end for\n"
+    "print total"
+)
+POLYNOMIAL_NEWTON = (
+    "define polynomial(coefficients, x)\n"
+    "  value ← 0\n"
+    "  for each coefficient in coefficients\n"
+    "    value ← value*x + coefficient\n"
+    "  end for\n"
+    "  return value\n"
+    "end\n"
+    "define derivative(coefficients, x)\n"
+    "  value ← 0\n"
+    "  power ← len(coefficients) - 1\n"
+    "  for i from 1 to len(coefficients)-1\n"
+    "    value ← value*x + coefficients[i]*power\n"
+    "    power ← power - 1\n"
+    "  end for\n"
+    "  return value\n"
+    "end\n"
+    "coefficients ← [1, 0, -2, -5]\n"
+    "x ← 2\n"
+    "for iteration from 1 to 8\n"
+    "  x ← x - polynomial(coefficients, x)/derivative(coefficients, x)\n"
+    "end for\n"
+    "print x"
+)
+MOBILE_BREAKPOINT = 900
+LINE_COLUMN_WIDTH = 40
 VARIABLE_COLUMN_WIDTH = 76
 CONDITION_COLUMN_WIDTH = 130
 OUTPUT_COLUMN_WIDTH = 140
+SYMBOL_COLUMN_COUNT = 3
 EDITOR_SETTINGS_KEY = "editor"
 CODE_FONT = "CASSim Code"
 MATH_FONT = "CASSim Math"
@@ -71,10 +180,16 @@ def _control_style() -> ft.ButtonStyle:
     )
 
 
+def _safe_update(control: ft.Control) -> None:
+    with contextlib.suppress(RuntimeError):
+        control.update()
+
+
 class CodeApp:
     def __init__(self, shell: Shell) -> None:  # noqa: PLR0915
         self.shell = shell
         self.page = shell.page
+        shell.changed = self.on_bridge
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -83,46 +198,71 @@ class CodeApp:
         self.running = False
         self.dirty = False
         self.current_source = EXAMPLE
-        self.console_visible = False
+        self.trace_source = EXAMPLE
         self.line_numbers_visible = True
+        self.typing_aid = False
+        self.typing_aids = False
+        self.typing_undo: tuple[str, str] | None = None
+        self.code_style = "monospace"
+        self.symbol_style = "unicode"
         self.console_inputs: list[str] = []
-        self.editor_collapsed = False
-        self.editor_share = 0.48
         self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
         self.angle_mode: AngleMode = "radian"
         self.theme_name = "Dark"
-        self.typing_aids = False
-        self.code_style = "monospace"
-        self.symbol_style = "unicode"
-        self.typing_undo: tuple[str, str] | None = None
         self.cm = None
         self.cm_change_proxy = None
+        self._init_workspace_state()
 
         self.fallback_editor = ft.TextField(
-            label="Code",
             value=EXAMPLE,
             multiline=True,
-            min_lines=12,
-            expand=True,
+            min_lines=len(EXAMPLE.splitlines()) + 1,
+            max_lines=5000,
             autocorrect=False,
             enable_suggestions=False,
             text_style=self.editor_text_style(),
+            content_padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
+            border=ft.OutlineInputBorder(side=ft.BorderSide.none()),
+            label="Code",
+            label_style=ft.TextStyle(size=1, color="transparent"),
+            tooltip="Code editor",
             on_change=self.on_fallback_source,
         )
-
-        self.number_button = ft.Button("Number: Approx", on_click=self.cycle_number)
-        self.angle_button = ft.Button("Angle: Radian", on_click=self.toggle_angle)
-        self.console_toggle = ft.Switch(
-            label="Console",
-            value=False,
-            on_change=self.toggle_console,
+        self.line_number_gutter = ft.Text(
+            self._line_numbers_for(EXAMPLE),
+            style=ft.TextStyle(font_family="monospace", size=14, height=20 / 14),
+            selectable=False,
+            width=42,
+            text_align=ft.TextAlign.RIGHT,
         )
-        self.typing_aids_switch = ft.Switch(
-            label="Typing aids",
-            value=False,
-            on_change=self.toggle_typing_aids,
+        editor_row = ft.Row(
+            [
+                ft.Container(
+                    self.line_number_gutter,
+                    width=42,
+                    padding=ft.Padding.only(top=8),
+                    alignment=ft.Alignment.TOP_RIGHT,
+                ),
+                self.fallback_editor,
+            ],
+            expand=True,
+            spacing=6,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        editor_content = ft.Column(
+            [editor_row],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            spacing=0,
+        )
+
+        self.number_button = ft.Button("Approx", on_click=self.cycle_number, style=_control_style())
+        self.angle_button = ft.Button("Radian", on_click=self.toggle_angle, style=_control_style())
+        self.update_item = ft.MenuItemButton(
+            content=getattr(self.shell, "update_label", "Check for Updates"),
+            on_click=self.activate_update,
         )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
@@ -134,30 +274,12 @@ class CodeApp:
                 ),
                 ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
                 ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
-                ft.MenuItemButton(content="Check for Updates…", on_click=self.check_updates),
+                self.update_item,
                 ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
                 ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
             ],
         )
-        examples = ft.SubmenuButton(
-            content="Examples",
-            controls=[
-                ft.MenuItemButton(
-                    content="Linear",
-                    on_click=lambda _: self.load_example("x ← 1\nprint x"),
-                ),
-                ft.MenuItemButton(
-                    content="Loop",
-                    on_click=lambda _: self.load_example(
-                        "x ← 1\nwhile x <= 3\n  x ← x + 1\nend while\nprint x"
-                    ),
-                ),
-                ft.MenuItemButton(
-                    content="Bisection",
-                    on_click=lambda _: self.load_example(BISECTION),
-                ),
-            ],
-        )
+        examples = self.build_examples_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
@@ -167,7 +289,14 @@ class CodeApp:
                 examples,
             ],
         )
-        self.app_menu = ft.MenuBar(controls=[self.cassim_menu, self.doc_menu])
+        self.app_menu = ft.Row(
+            [
+                ft.MenuBar(controls=[self.cassim_menu]),
+                ft.MenuBar(controls=[self.doc_menu]),
+            ],
+            spacing=4,
+            tight=True,
+        )
         self.language_switch = ft.SegmentedButton(
             selected=["pseudocode"],
             segments=[
@@ -178,38 +307,21 @@ class CodeApp:
             style=_control_style(),
             on_change=self.toggle_language,
         )
-        self.line_numbers_toggle = ft.Switch(
-            label="Line numbers",
-            value=True,
-            on_change=self.toggle_line_numbers,
-        )
-
-        self.run_button = ft.Button("Run", on_click=self.run_code)
-        self.step_button = ft.Button("Step", on_click=self.step_forward)
-        self.start_button = ft.Button("Start", on_click=self.to_start)
-        self.end_button = ft.Button("End", on_click=self.to_end)
-        self.vertical_button = ft.Button("Vertical", disabled=True)
-        self.trace_layout = ft.PopupMenuButton(
-            content="Trace: Vertical",
-            items=[
-                ft.PopupMenuItem(
-                    content="None", on_click=lambda _: self.change_trace_layout("none")
-                ),
-                ft.PopupMenuItem(
-                    content="Vertical",
-                    on_click=lambda _: self.change_trace_layout("vertical"),
-                ),
-                ft.PopupMenuItem(
-                    content="Horizontal",
-                    on_click=lambda _: self.change_trace_layout("horizontal"),
-                ),
-            ],
+        self.trace_layout = ft.Button(
+            "Trace: Vertical",
+            on_click=self.cycle_trace_layout,
             style=_control_style(),
         )
-        self.variables_button = ft.PopupMenuButton(
-            content="Variables",
-            items=[ft.PopupMenuItem(content="Run to discover items")],
-            style=_control_style(),
+        self.typing_aids_switch = ft.Switch(
+            label="Typing aids",
+            value=False,
+            on_change=self.toggle_typing_aids,
+        )
+        self.trace_items = ft.Column(
+            [ft.Text("Run to discover constants, variables, functions, and conditions", size=12)],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            spacing=4,
         )
 
         self.console = ft.Text(
@@ -217,104 +329,152 @@ class CodeApp:
             selectable=True,
             font_family=CODE_FONT,
             font_family_fallback=[MATH_FONT, SYMBOL_FONT],
+            expand=True,
         )
         self.console_input = ft.TextField(
             hint_text="Input or expression",
             dense=True,
+            width=180,
             on_submit=self.submit_console,
         )
-        self.console_box = ft.Container(
-            ft.Column(
-                [
-                    ft.Text("Console", weight=ft.FontWeight.BOLD),
-                    ft.Container(self.console, expand=True),
-                    self.console_input,
-                ],
-                expand=True,
-            ),
-            border=ft.Border.all(1),
-            padding=8,
-            expand=True,
-            visible=False,
-        )
-        self.trace = ft.Column(expand=True)
-        self.status = ft.Text("")
-        self.line_numbers_toggle = ft.Switch(
-            label="Line numbers",
-            value=True,
-            on_change=self.toggle_line_numbers,
-        )
-        self.editor_toggle = ft.IconButton(
-            icon=ft.Icons.CHEVRON_LEFT,
-            tooltip="Collapse code editor",
-            on_click=self.toggle_editor,
-        )
-        self.constants_panel = ft.ExpansionTile(
-            title="Values and functions",
-            controls=[ft.Text("Run a program to discover values and functions.")],
-            maintain_state=True,
-            dense=True,
-        )
-
-        self.editor_pane = ft.Container(
-            ft.Column(
-                [
-                    ft.Row(
-                        [
-                            self.line_numbers_toggle,
-                            self.language_switch,
-                            self.editor_toggle,
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        spacing=12,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                    self.fallback_editor,
-                ],
-                expand=True,
-            ),
-            expand=True,
-            padding=8,
-            border=ft.Border.all(1),
-        )
-        self.trace_controls = ft.Row(
+        self.console_scroll = ft.Column(
             [
-                self.run_button,
-                self.step_button,
-                self.start_button,
-                self.end_button,
+                self.console,
             ],
-            wrap=True,
-            spacing=6,
-        )
-        self.trace_pane = ft.Container(
-            ft.Column(
-                [
-                    self.constants_panel,
-                    self.status,
-                    self.trace,
-                ],
-                expand=True,
-                spacing=8,
-            ),
+            scroll=ft.ScrollMode.AUTO,
             expand=True,
-            padding=8,
         )
+        console_content = ft.Container(self.console_scroll, expand=True)
+        self.trace = ft.Column(expand=True, spacing=0)
+        self.trace_controls = self._build_trace_controls()
 
+        self.editor_pane = BoxedPane(
+            "Code",
+            editor_content,
+            PaneOptions(
+                height=470,
+                minimum=240,
+                title_controls=[self.language_switch],
+                on_change=self.position_codemirror,
+            ),
+        )
+        self.console_pane = BoxedPane(
+            "Console",
+            console_content,
+            PaneOptions(
+                height=190,
+                minimum=120,
+                collapsed=True,
+                on_change=self.position_codemirror,
+                title_controls=[self.console_input],
+            ),
+        )
+        self.items_pane = BoxedPane(
+            "Symbols",
+            self.trace_items,
+            PaneOptions(height=180, minimum=120),
+        )
+        self.trace_pane = BoxedPane(
+            "Trace Table",
+            self.trace,
+            PaneOptions(height=420, minimum=240),
+        )
         self.toolbar = ft.Row(
             [
                 self.app_menu,
                 self.number_button,
                 self.angle_button,
-                self.console_toggle,
-                self.typing_aids_switch,
                 self.trace_layout,
-                self.variables_button,
+                self.typing_aids_switch,
             ],
-            wrap=True,
+            scroll=ft.ScrollMode.AUTO,
             spacing=8,
+            tight=True,
         )
         self.root = ft.Column(expand=True)
+
+    def build_examples_menu(self) -> ft.SubmenuButton:
+        def group(title: str, items: tuple[tuple[str, str], ...]) -> ft.SubmenuButton:
+            return ft.SubmenuButton(
+                content=title,
+                controls=[
+                    ft.MenuItemButton(
+                        content=label,
+                        on_click=lambda _event, source=source: self.load_example(source),
+                    )
+                    for label, source in items
+                ],
+            )
+
+        return ft.SubmenuButton(
+            content="Examples",
+            controls=[
+                group(
+                    "Intro",
+                    (("Linear", LINEAR), ("Loop", EXAMPLE), ("Bisection", BISECTION)),
+                ),
+                group(
+                    "Number theory",
+                    (
+                        ("GCD and LCM", GCD_LCM),
+                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
+                    ),
+                ),
+                group(
+                    "Probability",
+                    (
+                        ("Two D6: larger", DICE_MAX_STATS),
+                        ("Two D4 sample space", D4_SAMPLE_SPACE),
+                    ),
+                ),
+                group("Numerical methods", (("Left Riemann sum", LEFT_RIEMANN),)),
+            ],
+        )
+
+    def _init_workspace_state(self) -> None:
+        self.generated_python = False
+        self.python_header = ""
+        self.column_split = 0.5
+        self.left_host: ft.Container | None = None
+        self.trace_mode = "vertical"
+        self.trace_widths: dict[str, float] = {
+            "__line__": LINE_COLUMN_WIDTH,
+            "__output__": OUTPUT_COLUMN_WIDTH,
+        }
+        self.trace_active_columns: list[str] = []
+        self.trace_resize_controls: dict[str, list[ft.Container]] = {}
+        self.trace_table_container: ft.Container | None = None
+        self.symbol_widths = [150.0, 150.0, 150.0]
+        self.symbol_columns: list[ft.Container] = []
+
+    def _build_trace_controls(self) -> ft.Row:
+        self.status = ft.Text("")
+        self.run_button = ft.Button("Run", on_click=self.run_code)
+        self.stop_button = ft.Button("Stop", on_click=self.stop_code, visible=False)
+        self.step_button = ft.Button("Step", on_click=self.step_forward)
+        self.start_button = ft.Button("First", on_click=self.to_start)
+        self.end_button = ft.Button("Last", on_click=self.to_end)
+        for button in (
+            self.run_button,
+            self.stop_button,
+            self.step_button,
+            self.start_button,
+            self.end_button,
+        ):
+            button.style = _control_style()
+        return ft.Row(
+            [
+                self.run_button,
+                self.stop_button,
+                self.step_button,
+                self.start_button,
+                self.end_button,
+                self.status,
+            ],
+            wrap=True,
+            spacing=6,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
 
     async def start(self, **_options: object) -> None:
         self.page.fonts = {
@@ -330,17 +490,17 @@ class CodeApp:
         self.page.add(self.root)
         self.apply_theme("Dark")
         self.arrange()
-        try:
-            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
-        except ImportError:
-            return
-        else:
-            del js
+        if self._has_browser_dom():
             await self.start_codemirror()
 
     def editor_text_style(self) -> ft.TextStyle:
         family = CODE_FONT if self.code_style == "monospace" else "sans-serif"
-        return ft.TextStyle(font_family=family, font_family_fallback=[MATH_FONT, SYMBOL_FONT])
+        return ft.TextStyle(
+            font_family=family,
+            font_family_fallback=[MATH_FONT, SYMBOL_FONT],
+            size=14,
+            height=20 / 14,
+        )
 
     async def load_editor_settings(self) -> None:
         saved = await self.shell.read(EDITOR_SETTINGS_KEY)
@@ -363,14 +523,12 @@ class CodeApp:
             self.symbol_style = str(symbol_style)
         if isinstance(typing_aids, bool):
             self.typing_aids = typing_aids
+            self.typing_aid = typing_aids
         self.typing_aids_switch.value = self.typing_aids
-        self.typing_aids_switch.disabled = (
-            self.language != "pseudocode" or self.symbol_style == "ascii"
-        )
+        self.update_typing_aids()
         self.apply_code_style()
         if self.symbol_style == "ascii":
-            self.current_source = convert_symbols(self.current_source, "ascii")
-            self.fallback_editor.value = self.current_source
+            self.set_source(convert_symbols(self.current_source, "ascii"))
 
     def save_editor_settings(self) -> None:
         self.shell.write(
@@ -406,11 +564,26 @@ class CodeApp:
         self.page.on_resize = None
         self.page.controls.clear()
 
+    @staticmethod
+    def _has_browser_dom() -> bool:
+        try:
+            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415, F401
+        except ImportError:
+            return False
+        return True
+
+    def on_bridge(self) -> None:
+        self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
+        _safe_update(self.update_item)
+
     def apply_theme(self, name: str) -> None:
         theme = THEMES[name]
         self.theme_name = name
         self.page.theme_mode = ft.ThemeMode.LIGHT if name == "Light" else ft.ThemeMode.DARK
         self.page.bgcolor = theme.background
+        if self.cm is not None:
+            self.cm.setOption("theme", "default" if name == "Light" else "dracula")
+            self.cm.refresh()
         self.page.update()
 
     def settings(self) -> Settings:
@@ -421,25 +594,55 @@ class CodeApp:
             return str(self.cm.getValue())
         return str(self.fallback_editor.value or "")
 
-    def on_fallback_source(self, _: ft.Event[ft.TextField]) -> None:
-        current = str(self.fallback_editor.value or "")
-        if self.typing_aids and self.symbol_style == "unicode" and self.language == "pseudocode":
-            converted = convert_typing(self.current_source, current)
-            if converted != current:
-                self.typing_undo = (converted, current)
-                self.fallback_editor.value = converted
-                self.fallback_editor.update()
-                current = converted
-            elif self.typing_undo and current != self.typing_undo[0]:
-                self.typing_undo = None
-        else:
-            self.typing_undo = None
-        self.current_source = current
+    def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
+        text = str(event.control.value or "")
+        previous = self.current_source
+        if self.typing_aid and not self.typing_aids:
+            selection = event.control.selection
+            cursor = selection.end if selection is not None else len(text)
+            replacement = replacement_before_cursor(text, cursor)
+            if replacement is not None:
+                event.control.value = (
+                    text[: replacement.start] + replacement.replacement + text[replacement.end :]
+                )
+                event.control.update()
+                self.typing_undo = (str(event.control.value or ""), text)
+                self.current_source = str(event.control.value or "")
+                self.refresh_line_numbers()
+                self.mark_dirty()
+                return
+        if self.typing_aids and self.symbol_style == "unicode":
+            converted = convert_typing(previous, text)
+            if converted != text:
+                self.typing_undo = (converted, text)
+                event.control.value = converted
+                event.control.update()
+                text = converted
+        self.current_source = text
+        self.refresh_line_numbers()
         self.mark_dirty()
 
     def toggle_language(self, event: ft.Event[ft.SegmentedButton]) -> None:
         selected = event.control.selected
-        self.language = selected[0] if selected else "pseudocode"
+        target = selected[0] if selected else "pseudocode"
+        if target == self.language:
+            return
+        try:
+            translated = (
+                pseudocode_to_python(self.source(), self.settings())
+                if target == "python"
+                else python_to_pseudocode(self.python_translation_source())
+            )
+        except (PseudocodeError, SyntaxError, TranslationError) as error:
+            event.control.selected = [self.language]
+            event.control.update()
+            self.shell.notice("Translation not available", str(error))
+            return
+        self.language = target
+        if target == "python":
+            self.set_generated_python(translated)
+        else:
+            self.set_source(translated, generated_python=False)
         if self.cm is not None:
             self.cm.setOption("mode", "pseudocode" if self.language == "pseudocode" else "python")
             self.cm.refresh()
@@ -449,31 +652,41 @@ class CodeApp:
 
     def toggle_line_numbers(self, event: ft.Event[ft.Switch]) -> None:
         self.line_numbers_visible = bool(event.control.value)
+        self.line_number_gutter.visible = self.line_numbers_visible
+        _safe_update(self.line_number_gutter)
         if self.cm is not None:
             self.cm.setOption("lineNumbers", self.line_numbers_visible)
             self.cm.refresh()
 
+    @staticmethod
+    def _line_numbers_for(source: str) -> str:
+        return "\n".join(str(number) for number in range(1, len(source.splitlines()) + 1))
+
+    def refresh_line_numbers(self) -> None:
+        source = str(self.fallback_editor.value or "")
+        self.line_number_gutter.value = self._line_numbers_for(source)
+        self.fallback_editor.min_lines = max(12, len(source.splitlines()) + 1)
+        self.line_number_gutter.visible = self.line_numbers_visible
+        _safe_update(self.line_number_gutter)
+        _safe_update(self.fallback_editor)
+
+    def cycle_trace_layout(self, _: ft.Event[ft.Button]) -> None:
+        modes = ("vertical", "horizontal", "none")
+        self.change_trace_layout(modes[(modes.index(self.trace_mode) + 1) % len(modes)])
+
     def change_trace_layout(self, value: str) -> None:
+        self.trace_mode = value
         self.trace_layout.content = f"Trace: {value.title()}"
-        if hasattr(self.page, "update"):
-            self.trace_layout.update()
-        if value == "none":
-            self.trace.controls = []
-            self.trace.update()
-        elif value == "horizontal":
-            self.shell.notice(
-                "Horizontal trace",
-                "The horizontal trace table is available after the vertical trace is complete.",
-            )
-            self.change_trace_layout("vertical")
-            self.update_trace()
-        else:
-            self.update_trace()
+        _safe_update(self.trace_layout)
+        self.update_trace()
 
     async def open_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
         text = await self.shell.pick_file(("py", "txt", "pseudo"), "Open code")
         if text is not None:
-            self.set_source(text)
+            if TRANSLATION_MARKER in text.splitlines():
+                self.set_generated_python(text)
+            else:
+                self.set_source(text)
 
     async def save_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
         extension = "py" if self.language == "python" else "txt"
@@ -507,29 +720,63 @@ class CodeApp:
         )
 
     def load_example(self, text: str) -> None:
-        self.set_source(text)
+        try:
+            source = (
+                pseudocode_to_python(text, self.settings()) if self.language == "python" else text
+            )
+        except (PseudocodeError, SyntaxError, TranslationError) as error:
+            self.shell.notice("Cannot load example", str(error))
+            return
+        if self.language == "python":
+            self.set_generated_python(source)
+        else:
+            self.set_source(source)
 
-    def set_source(self, text: str) -> None:
+    @staticmethod
+    def split_generated_python(source: str) -> tuple[str, str]:
+        lines = source.splitlines()
+        if TRANSLATION_MARKER in lines:
+            marker = lines.index(TRANSLATION_MARKER)
+            return "\n".join(lines[: marker + 1]), "\n".join(lines[marker + 1 :]) + "\n"
+        return "", source
+
+    def set_generated_python(self, source: str) -> None:
+        self.python_header, visible = self.split_generated_python(source)
+        self.set_source(visible, generated_python=True)
+
+    def python_translation_source(self) -> str:
+        source = self.source()
+        if self.generated_python:
+            return f"{self.python_header}\n{source}"
+        return source
+
+    def set_source(self, text: str, *, generated_python: bool = False) -> None:
         if self.symbol_style == "ascii":
             text = convert_symbols(text, "ascii")
+        self.generated_python = generated_python
+        if not generated_python:
+            self.python_header = ""
         if self.cm is not None:
             self.cm.setValue(text)
         self.fallback_editor.value = text
+        self.refresh_line_numbers()
         if hasattr(self.page, "update"):
             self.fallback_editor.update()
         self.current_source = text
+        self.trace_source = text
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
         self.choices = trace.VerticalSelection()
-        self.variables_button.items = [ft.PopupMenuItem(content="Run to discover items")]
+        self.trace_items.controls = [
+            ft.Text("Run to discover constants, variables, functions, and conditions", size=12)
+        ]
         if hasattr(self.page, "update"):
-            self.variables_button.update()
+            _safe_update(self.trace_items)
         self.status.value = ""
         if hasattr(self.page, "update"):
-            self.status.update()
+            _safe_update(self.status)
         self.update_trace()
-        self.build_constants()
         self.mark_dirty()
 
     def submit_console(self, event: ft.Event[ft.TextField]) -> None:
@@ -543,8 +790,9 @@ class CodeApp:
         source = self.source()
         if self.language == "python":
             output = self.submit_python_console(text)
-            self.console.value = f"{previous}\n> {text}\n{output}".strip()
-            self.console.update()
+            self.console.value = self.console_entry(previous, text, output)
+            _safe_update(self.console)
+            self.scroll_console_end()
             return
         if "input " in source.lower() or "input(" in source.lower():
             self.console_inputs.append(text)
@@ -555,30 +803,83 @@ class CodeApp:
             output = "\n".join(result.output)
             if result.error:
                 output = "\n".join(part for part in (output, f"Error: {result.error}") if part)
-            self.console.value = f"{previous}\n> {text}\n{output}".strip()
-            self.console.update()
+            self.console.value = self.console_entry(previous, text, output)
+            _safe_update(self.console)
+            self.scroll_console_end()
             self.choices = trace.vertical_choices(result, self.settings())
+            constants = set(self.constant_names())
             self.selection = trace.VerticalSelection(
-                tuple(
-                    name
-                    for name in self.choices.variables
-                    if name not in getattr(result, "constants", ())
-                ),
-                self.condition_labels(),
+                tuple(name for name in self.choices.variables if name not in constants),
+                self.condition_selection_values(),
             )
             self.build_variables()
-            self.build_constants()
             self.update_trace()
         else:
+            baseline = run(source, self.settings(), trace=True)
             console_source = self.pseudocode_console_source(source, text)
             result = run(console_source, self.settings(), trace=True)
-            output = "\n".join(result.output)
+            output = "\n".join(result.output[len(baseline.output) :])
             if result.error:
                 output = "\n".join(part for part in (output, f"Error: {result.error}") if part)
-            self.console.value = f"{previous}\n> {text}\n{output}".strip()
-            self.console.update()
+            self.console.value = self.console_entry(previous, text, output)
+            _safe_update(self.console)
+            self.scroll_console_end()
+
+    @staticmethod
+    def console_entry(previous: str, entered: str, output: str) -> str:
+        parts = [previous.rstrip("\n"), f"> {entered}", output.rstrip("\n")]
+        return "\n".join(part for part in parts if part).strip()
+
+    def scroll_console_end(self) -> None:
+        try:
+            page = self.console_scroll.page
+        except RuntimeError:
+            return
+        page.run_task(self.scroll_console_after_render)
+
+    async def scroll_console_after_render(self) -> None:
+        await asyncio.sleep(0.05)
+        await self.console_scroll.scroll_to(offset=-1, duration=100)
+
+    def mark_dirty(self) -> None:
+        if not self.dirty:
+            self.dirty = True
+            self.run_button.content = "Run *"
+            if hasattr(self.page, "update"):
+                _safe_update(self.run_button)
+
+    def submit_python_console(self, text: str) -> str:
+        """Execute a Python console line or expression in a persistent namespace."""
+        try:
+            parsed = ast.parse(text, mode="exec")
+            is_print_call = (
+                len(parsed.body) == 1
+                and isinstance(parsed.body[0], ast.Expr)
+                and isinstance(parsed.body[0].value, ast.Call)
+                and isinstance(parsed.body[0].value.func, ast.Name)
+                and parsed.body[0].value.func.id == "print"
+            )
+            if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr) and not is_print_call:
+                parsed = ast.Expression(parsed.body[0].value)
+                value = eval(
+                    compile(parsed, "<console>", "eval"),
+                    {"__builtins__": __builtins__},
+                    self.python_console_namespace,
+                )
+                return str(value)
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                exec(
+                    compile(parsed, "<console>", "exec"),
+                    {"__builtins__": __builtins__},
+                    self.python_console_namespace,
+                )
+            return buffer.getvalue().rstrip("\n")
+        except Exception as error:
+            return f"Error: {type(error).__name__}: {error}"
 
     def pseudocode_console_source(self, source: str, text: str) -> str:
+        """Turn a console line into valid pseudocode in the selected language."""
         stripped = text.strip()
         statement_prefixes = (
             "print ",
@@ -597,42 +898,6 @@ class CodeApp:
             return f"{source}\n{stripped}"
         return f"{source}\nprint {stripped}"
 
-    def submit_python_console(self, text: str) -> str:
-        try:
-            parsed = ast.parse(text, mode="exec")
-            is_print_call = (
-                len(parsed.body) == 1
-                and isinstance(parsed.body[0], ast.Expr)
-                and isinstance(parsed.body[0].value, ast.Call)
-                and isinstance(parsed.body[0].value.func, ast.Name)
-                and parsed.body[0].value.func.id == "print"
-            )
-            if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr) and not is_print_call:
-                expression = ast.Expression(parsed.body[0].value)
-                value = eval(
-                    compile(expression, "<console>", "eval"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-                return str(value)
-            buffer = io.StringIO()
-            with contextlib.redirect_stdout(buffer):
-                exec(
-                    compile(parsed, "<console>", "exec"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-            return buffer.getvalue().rstrip("\n")
-        except Exception as error:
-            return f"Error: {type(error).__name__}: {error}"
-
-    def mark_dirty(self) -> None:
-        if not self.dirty:
-            self.dirty = True
-            self.run_button.content = "Run *"
-            if hasattr(self.page, "update"):
-                self.run_button.update()
-
     async def start_codemirror(self) -> None:
         import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
         from pyodide.ffi import create_proxy, to_js  # ty: ignore[unresolved-import]  # noqa: PLC0415
@@ -649,6 +914,7 @@ class CodeApp:
         for url in (
             "codemirror/codemirror.min.js",
             "codemirror/simple.min.js",
+            "codemirror/python.min.js",
         ):
             script = document.createElement("script")
             script.src = f"assets/{url}"
@@ -691,25 +957,50 @@ if (!window.CASSimPseudocodeModeDefined) {
             to_js(
                 {
                     "value": self.current_source,
-                    "mode": "pseudocode",
+                    "mode": "pseudocode" if self.language == "pseudocode" else "python",
                     "theme": "dracula",
-                    "lineNumbers": True,
+                    "lineNumbers": self.line_numbers_visible,
                     "lineWrapping": True,
                     "indentUnit": 2,
                     "tabSize": 2,
                     "autofocus": False,
-                    "cassimTypingAids": False,
+                    "cassimTypingAids": self.typing_aids
+                    and self.language == "pseudocode"
+                    and self.symbol_style == "unicode",
                 },
                 dict_converter=js.Object.fromEntries,
             ),
         )
         self.cm = cm
         self.fallback_editor.visible = False
+        self.line_number_gutter.visible = False
+        _safe_update(self.line_number_gutter)
         self.apply_code_style()
         self.update_typing_aids()
         self.install_typing_aids()
 
-        def changed(*_args: object) -> None:
+        def changed(_instance: object, change: object) -> None:
+            if (
+                self.typing_aid
+                and not self.typing_aids
+                and str(getattr(change, "origin", "")) == "+input"
+            ):
+                cursor = cm.getCursor()
+                source = str(cm.getValue())
+                line = int(cursor.line)
+                offset = sum(len(part) + 1 for part in source.splitlines()[:line])
+                index = offset + int(cursor.ch)
+                replacement = replacement_before_cursor(source, index)
+                if replacement is not None:
+                    from_cursor = to_js(
+                        {
+                            "line": line,
+                            "ch": int(cursor.ch) - (replacement.end - replacement.start),
+                        },
+                        dict_converter=js.Object.fromEntries,
+                    )
+                    cm.replaceRange(replacement.replacement, from_cursor, cursor, "+typingAid")
+                    return
             self.current_source = str(cm.getValue())
             self.mark_dirty()
 
@@ -748,9 +1039,8 @@ window.CASSimTypingAids = function(editor, change) {
                         CodeMirror.Pos(change.from.line, end), "+typingAid");
     return;
   }
-  const macro = line;
   const aliases = {"@e": "ⅇ", "@pi": "π"};
-  const name = macro.endsWith("@pi") ? "@pi" : macro.endsWith("@e") ? "@e" : null;
+  const name = line.endsWith("@pi") ? "@pi" : line.endsWith("@e") ? "@e" : null;
   if (name) {
     const start = end - name.length;
     editor.replaceRange(aliases[name], CodeMirror.Pos(change.from.line, start),
@@ -769,66 +1059,64 @@ window.CASSimTypingAids = function(editor, change) {
         if not host:
             return
         width = self.page.width or 1000
-        height = self.page.height or 700
-        if self.editor_collapsed:
-            host.style.width = "0px"
-            host.style.height = "0px"
-            self.cm.refresh()
-            return
+        editor_height = 0 if self.editor_pane.collapsed else self.editor_pane.height - 58
+        host.style.display = "none" if self.editor_pane.collapsed else "block"
+        host.style.top = "58px"
+        host.style.left = "16px"
         if width < MOBILE_BREAKPOINT:
-            host.style.left = "8px"
-            host.style.top = "150px"
-            host.style.width = f"{max(1, width - 16)}px"
-            host.style.height = "300px"
+            host.style.width = f"{max(1, width - 32)}px"
         else:
-            host.style.left = "8px"
-            host.style.top = "112px"
-            host.style.width = f"{max(220, width * self.editor_share - 24)}px"
-            console_reserve = 230 if self.console_visible else 0
-            host.style.height = f"{max(220, height - 112 - console_reserve - 8)}px"
-        self.cm.refresh()
+            host.style.width = f"{max(1, (width - 28) * self.column_split - 20)}px"
+        host.style.height = f"{max(120, editor_height)}px"
+        if self.cm is not None:
+            self.cm.refresh()
 
     def arrange(self) -> None:
         width = getattr(self.page, "width", 1000) or 1000
-        self.editor_pane.visible = not self.editor_collapsed
+        left = ft.Column(
+            [self.editor_pane.container, self.console_pane.container],
+            expand=width >= MOBILE_BREAKPOINT,
+            spacing=8,
+        )
+        right = ft.Column(
+            [
+                self.trace_controls,
+                self.items_pane.container,
+                self.trace_pane.container,
+            ],
+            expand=width >= MOBILE_BREAKPOINT,
+            spacing=8,
+        )
         if width < MOBILE_BREAKPOINT:
-            left = [self.editor_pane]
-            if self.console_visible:
-                left.append(self.console_box)
-            body = ft.Column([*left, self.trace_pane], expand=True, spacing=4)
+            body = ft.Column([left, right], scroll=ft.ScrollMode.AUTO, expand=True, spacing=8)
         else:
-            left = ft.Column(
-                [self.editor_pane, self.console_box]
-                if self.console_visible
-                else [self.editor_pane],
-                expand=True,
-                spacing=4,
+            available = max(640, width - 28)
+            self.left_host = ft.Container(
+                left,
+                width=available * self.column_split,
+                expand=False,
             )
-            left_width = max(220, int(width * self.editor_share))
-            if self.editor_collapsed:
-                left_width = 0
-                left.visible = False
             divider = ft.GestureDetector(
                 ft.Container(
-                    ft.Container(width=2, bgcolor=THEMES[self.theme_name].key_label, expand=True),
-                    width=10,
-                    bgcolor=ft.Colors.TRANSPARENT,
+                    ft.Icon(ft.Icons.DRAG_INDICATOR, size=14),
+                    width=12,
+                    expand=True,
                     alignment=ft.Alignment.CENTER,
-                    tooltip="Drag to resize code and trace",
+                    tooltip="Resize columns",
                 ),
                 mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
-                drag_interval=16,
-                on_horizontal_drag_update=self.resize_editor,
-                visible=not self.editor_collapsed,
+                on_horizontal_drag_update=self.resize_columns,
+                drag_interval=25,
             )
             body = ft.Row(
                 [
-                    ft.Container(left, width=left_width, expand=not self.editor_collapsed),
+                    self.left_host,
                     divider,
-                    ft.Container(self.trace_pane, expand=True),
+                    ft.Container(right, expand=True),
                 ],
                 expand=True,
-                spacing=0,
+                spacing=4,
+                tight=True,
             )
         self.root.controls = [self.toolbar, body]
         self.root.expand = True
@@ -836,28 +1124,28 @@ window.CASSimTypingAids = function(editor, change) {
             self.page.update()
             self.position_codemirror()
 
-    def toggle_editor(self, _: ft.Event[ft.IconButton]) -> None:
-        self.editor_collapsed = not self.editor_collapsed
-        self.editor_toggle.icon = (
-            ft.Icons.CHEVRON_RIGHT if self.editor_collapsed else ft.Icons.CHEVRON_LEFT
-        )
-        self.editor_toggle.tooltip = (
-            "Expand code editor" if self.editor_collapsed else "Collapse code editor"
-        )
-        self.editor_toggle.update()
-        self.arrange()
-
-    def resize_editor(self, event: ft.DragUpdateEvent) -> None:
-        width = self.page.width or 1000
-        delta = event.global_delta.x if event.global_delta is not None else 0
-        self.editor_share = min(0.75, max(0.25, self.editor_share + delta / width))
-        self.arrange()
-
     def on_resize(self, _: ft.PageResizeEvent) -> None:
         self.arrange()
 
+    def resize_columns(self, event: ft.DragUpdateEvent) -> None:
+        if event.global_delta is None or self.left_host is None:
+            return
+        width = max(640, (getattr(self.page, "width", 1000) or 1000) - 28)
+        self.column_split = min(
+            0.72,
+            max(0.28, self.column_split + event.global_delta.x / width),
+        )
+        self.left_host.width = width * self.column_split
+        _safe_update(self.left_host)
+        self.position_codemirror()
+
     def on_keyboard(self, event: ft.KeyboardEvent) -> None:
-        if (event.ctrl or event.meta) and event.key.lower() == "z" and self.typing_undo:
+        if (
+            self.cm is None
+            and (event.ctrl or event.meta)
+            and event.key.lower() == "z"
+            and self.typing_undo
+        ):
             converted, original = self.typing_undo
             if self.source() == converted:
                 self.fallback_editor.value = original
@@ -879,29 +1167,25 @@ window.CASSimTypingAids = function(editor, change) {
         modes = ("approx", "auto", "exact")
         index = modes.index(self.number_mode)
         self.number_mode = modes[(index + 1) % len(modes)]
-        self.number_button.content = f"Number: {self.number_mode.title()}"
-        self.number_button.update()
+        self.number_button.content = self.number_mode.title()
+        _safe_update(self.number_button)
 
     def toggle_angle(self, _: ft.Event[ft.Button]) -> None:
         self.angle_mode = "degree" if self.angle_mode == "radian" else "radian"
-        self.angle_button.content = f"Angle: {self.angle_mode.title()}"
-        self.angle_button.update()
-
-    def toggle_console(self, event: ft.Event[ft.Switch]) -> None:
-        self.console_visible = bool(event.control.value)
-        self.console_box.visible = self.console_visible
-        if hasattr(self.page, "update"):
-            self.page.update()
-        self.arrange()
+        self.angle_button.content = self.angle_mode.title()
+        _safe_update(self.angle_button)
 
     def toggle_typing_aids(self, event: ft.Event[ft.Switch]) -> None:
-        self.typing_aids = bool(event.control.value)
+        enabled = bool(event.control.value)
+        self.typing_aids = enabled
+        self.typing_aid = enabled
         self.update_typing_aids()
         self.save_editor_settings()
 
     def update_typing_aids(self) -> None:
         available = self.language == "pseudocode" and self.symbol_style == "unicode"
         self.typing_aids_switch.disabled = not available
+        self.typing_aids_switch.value = self.typing_aids
         if not available:
             self.typing_undo = None
         if hasattr(self.page, "update"):
@@ -910,51 +1194,60 @@ window.CASSimTypingAids = function(editor, change) {
             self.cm.setOption("cassimTypingAids", self.typing_aids and available)
 
     async def run_code(self, _: ft.Event[ft.Button]) -> None:
-        if self.language == "python":
-            self.shell.notice(
-                "Python",
-                "Python execution is not included in this trace-table slice.",
+        source = self.source()
+        try:
+            trace_source = (
+                python_to_pseudocode(self.python_translation_source())
+                if self.language == "python"
+                else source
             )
+        except (SyntaxError, TranslationError) as error:
+            self.shell.notice("Cannot trace Python", str(error))
             return
         self.running = True
         self.cancelled = False
         self.console_inputs = []
         self.run_button.disabled = True
+        self.stop_button.visible = True
         self.status.value = "Running..."
-        self.status.update()
+        _safe_update(self.status)
         await asyncio.sleep(0)
         result = run(
-            self.source(),
+            trace_source,
             self.settings(),
             trace=True,
             cancelled=lambda: self.cancelled,
         )
         self.running = False
         self.run_button.disabled = False
+        self.stop_button.visible = False
         self.run_button.content = "Run"
         self.dirty = False
         self.current_source = self.source()
+        self.trace_source = trace_source
         self.result = result
         self.choices = trace.vertical_choices(result, self.settings())
+        constants = set(self.constant_names())
         self.selection = trace.VerticalSelection(
-            tuple(
-                name
-                for name in self.choices.variables
-                if name not in getattr(result, "constants", ())
-            ),
-            self.condition_labels(),
+            tuple(name for name in self.choices.variables if name not in constants),
+            self.condition_selection_values(),
         )
-        self.cursor = len([step for step in result.steps if step.kind != "halt"])
+        self.cursor = 0
         self.console.value = "\n".join(result.output)
         if result.error:
             self.console.value = "\n".join(
                 part for part in (self.console.value, f"Error: {result.error}") if part
             )
         self.build_variables()
-        self.build_constants()
         self.update_trace()
-        self.run_button.update()
-        self.console.update()
+        _safe_update(self.run_button)
+        _safe_update(self.stop_button)
+        _safe_update(self.console)
+        self.scroll_console_end()
+        if result.output or result.error:
+            self.console_pane.set_collapsed(False)
+            _safe_update(self.console_pane.container)
+            self.position_codemirror()
 
     def stop_code(self, _: ft.Event[ft.Button]) -> None:
         self.cancelled = True
@@ -978,263 +1271,500 @@ window.CASSimTypingAids = function(editor, change) {
             self.cursor = min(shown, self.cursor + 1)
         self.update_trace()
 
-    def variable_toggle(self, name: str) -> Callable[[ft.Event[ft.PopupMenuItem]], None]:
-        def toggle(_: ft.Event[ft.PopupMenuItem]) -> None:
+    def variable_toggle(self, name: str) -> Callable[[ft.Event[ft.Checkbox]], None]:
+        def toggle(event: ft.Event[ft.Checkbox]) -> None:
             values = set(self.selection.variables)
-            if name in values:
-                values.remove(name)
-            else:
+            if bool(event.control.value):
                 values.add(name)
+            else:
+                values.discard(name)
             self.selection = trace.VerticalSelection(
                 tuple(value for value in self.choices.variables if value in values),
                 self.selection.conditions,
             )
-            self.build_variables()
             self.update_trace()
 
         return toggle
 
-    def condition_toggle(self, label: str) -> Callable[[ft.Event[ft.PopupMenuItem]], None]:
-        def toggle(_: ft.Event[ft.PopupMenuItem]) -> None:
+    def condition_toggle(self, label: str) -> Callable[[ft.Event[ft.Checkbox]], None]:
+        def toggle(event: ft.Event[ft.Checkbox]) -> None:
             values = set(self.selection.conditions)
-            if label in values:
-                values.remove(label)
-            else:
+            if bool(event.control.value):
                 values.add(label)
+            else:
+                values.discard(label)
             labels = self.condition_labels()
+            selected = set()
+            for item in labels:
+                if item in values:
+                    selected.add(item)
+                    selected_line = item.partition(":")[0].strip()
+                    if selected_line.isdigit():
+                        selected.update(
+                            step.cond[0]
+                            for step in (self.result.steps if self.result is not None else [])
+                            if step.line == int(selected_line) and step.cond is not None
+                        )
             self.selection = trace.VerticalSelection(
                 self.selection.variables,
-                tuple(value for value in labels if value in values),
+                tuple(selected),
             )
-            self.build_variables()
             self.update_trace()
 
         return toggle
 
-    def build_variables(self) -> None:
-        items: list[ft.PopupMenuItem] = []
-        if self.choices.variables:
-            items.append(ft.PopupMenuItem(content="Variables", checked=False))
-            items.extend(
-                ft.PopupMenuItem(
-                    content=name,
-                    checked=name in self.selection.variables,
-                    on_click=self.variable_toggle(name),
-                )
-                for name in self.choices.variables
+    def function_toggle(self, name: str) -> Callable[[ft.Event[ft.Checkbox]], None]:
+        labels = tuple(label for label in self.condition_labels() if f"{name}(" in label)
+
+        def toggle(event: ft.Event[ft.Checkbox]) -> None:
+            selected_labels = set(
+                label for label in self.condition_labels() if label in self.selection.conditions
             )
-        if self.choices.conditions:
-            items.append(ft.PopupMenuItem(content="Decision conditions", checked=False))
-            labels = self.condition_labels()
-            items.extend(
-                ft.PopupMenuItem(
-                    content=label,
-                    checked=label in self.selection.conditions,
-                    on_click=self.condition_toggle(label),
+            if bool(event.control.value):
+                selected_labels.update(labels)
+            else:
+                selected_labels.difference_update(labels)
+            self.selection = trace.VerticalSelection(
+                self.selection.variables,
+                self.condition_values_for(selected_labels),
+            )
+            self.update_trace()
+
+        return toggle
+
+    def constant_names(self) -> tuple[str, ...]:
+        if self.result is None:
+            return ()
+        counts: dict[str, int] = {}
+        for step in self.result.steps:
+            for change in step.changes:
+                counts[change.name] = counts.get(change.name, 0) + 1
+        return tuple(name for name in self.choices.variables if counts.get(name) == 1)
+
+    def function_names(self) -> tuple[str, ...]:
+        if self.result is None:
+            return ()
+        found: dict[str, None] = {}
+        for step in self.result.steps:
+            if step.function:
+                found.setdefault(step.function, None)
+        return tuple(found)
+
+    def constant_value(self, name: str) -> str:
+        if self.result is None:
+            return ""
+        for step in self.result.steps:
+            for change in step.changes:
+                if change.name == name:
+                    return arith.format_value(change.new, self.settings(), minus=arith.MINUS)
+        return ""
+
+    @staticmethod
+    def symbol_section(label: str, controls: list[ft.Control]) -> ft.Column:
+        return ft.Column(
+            [
+                ft.Text(label, weight=ft.FontWeight.BOLD, size=13),
+                *controls,
+            ],
+            spacing=3,
+            tight=True,
+        )
+
+    def resize_symbol_columns(
+        self,
+        divider: int,
+        event: ft.DragUpdateEvent,
+    ) -> None:
+        if event.global_delta is None or len(self.symbol_columns) != SYMBOL_COLUMN_COUNT:
+            return
+        left = divider
+        right = divider + 1
+        total = self.symbol_widths[left] + self.symbol_widths[right]
+        left_width = min(
+            total - 90,
+            max(90, self.symbol_widths[left] + event.global_delta.x),
+        )
+        self.symbol_widths[left] = left_width
+        self.symbol_widths[right] = total - left_width
+        for control, width in zip(self.symbol_columns, self.symbol_widths, strict=True):
+            control.width = width
+            _safe_update(control)
+
+    def symbol_divider(self, index: int) -> ft.GestureDetector:
+        def resize(event: ft.DragUpdateEvent) -> None:
+            self.resize_symbol_columns(index, event)
+
+        return ft.GestureDetector(
+            ft.Container(
+                ft.Icon(ft.Icons.DRAG_INDICATOR, size=12),
+                width=14,
+                expand=True,
+                tooltip=f"Resize Symbols column {index + 1}",
+                alignment=ft.Alignment.CENTER,
+            ),
+            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
+            on_horizontal_drag_update=resize,
+            drag_interval=25,
+        )
+
+    def build_variables(self) -> None:
+        constants = set(self.constant_names())
+        variables = tuple(name for name in self.choices.variables if name not in constants)
+        functions = self.function_names()
+        labels = self.condition_labels()
+        variable_controls: list[ft.Control] = [
+            ft.Checkbox(
+                label=name,
+                value=name in self.selection.variables,
+                on_change=self.variable_toggle(name),
+            )
+            for name in variables
+        ]
+        constant_controls: list[ft.Control] = [
+            ft.Checkbox(
+                label=f"{name} = {self.constant_value(name)}",
+                value=name in self.selection.variables,
+                on_change=self.variable_toggle(name),
+            )
+            for name in self.choices.variables
+            if name in constants
+        ]
+        function_controls: list[ft.Control] = [
+            *(
+                ft.Checkbox(
+                    label=name,
+                    value=any(
+                        f"{name}(" in label and label in self.selection.conditions
+                        for label in labels
+                    ),
+                    on_change=self.function_toggle(name),
+                )
+                for name in functions
+            ),
+            *(
+                ft.Checkbox(
+                    label=label,
+                    value=label in self.selection.conditions,
+                    on_change=self.condition_toggle(label),
                 )
                 for label in labels
-            )
-        if not items:
-            items = [ft.PopupMenuItem(content="Run to discover items")]
-        self.variables_button.items = items
-        self.variables_button.update()
-
-    def build_constants(self) -> None:
-        controls: list[ft.Control] = []
-        if self.result is None:
-            controls = [ft.Text("Run a program to discover values and functions.")]
-        else:
-            constants = getattr(self.result, "constants", ())
-            functions = getattr(self.result, "functions", {})
-            if constants:
-                controls.append(ft.Text("Constants", weight=ft.FontWeight.BOLD))
-                controls.extend(
-                    ft.Row(
-                        [
-                            ft.Text(name, width=100),
-                            ft.Text(
-                                arith.format_value(
-                                    self.result.variables.get(name),
-                                    self.settings(),
-                                    minus=arith.MINUS,
-                                )
-                            ),
-                        ],
-                        spacing=8,
-                    )
-                    for name in constants
-                )
-            if functions:
-                controls.append(ft.Text("Functions", weight=ft.FontWeight.BOLD))
-                controls.extend(ft.Text(description) for description in functions.values())
+            ),
+        ]
+        for controls in (variable_controls, constant_controls, function_controls):
             if not controls:
-                controls = [ft.Text("No constants or functions detected.")]
-        self.constants_panel.controls = controls
+                controls.append(ft.Text("None", size=12))
+        sections = [
+            self.symbol_section("Variables", variable_controls),
+            self.symbol_section("Constants", constant_controls),
+            self.symbol_section("Functions", function_controls),
+        ]
+        self.symbol_columns = [
+            ft.Container(section, width=width, alignment=ft.Alignment.TOP_LEFT)
+            for section, width in zip(sections, self.symbol_widths, strict=True)
+        ]
+        self.trace_items.controls = [
+            ft.Row(
+                [
+                    self.symbol_columns[0],
+                    self.symbol_divider(0),
+                    self.symbol_columns[1],
+                    self.symbol_divider(1),
+                    self.symbol_columns[2],
+                ],
+                spacing=2,
+                tight=True,
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+        ]
         if hasattr(self.page, "update"):
-            self.constants_panel.update()
+            _safe_update(self.trace_items)
 
     def condition_labels(self) -> tuple[str, ...]:
         """Each executed boolean expression once, labelled by source line."""
         if self.result is None:
             return ()
+        source_lines = self.trace_source.splitlines()
         found: dict[tuple[int, str], None] = {}
         for step in self.result.steps:
-            if step.cond is not None:
-                found.setdefault((step.line, step.cond[0]), None)
+            if step.cond is None:
+                continue
+            line = step.line
+            if not 1 <= line <= len(source_lines):
+                continue
+            source = source_lines[line - 1].strip()
+            expression = source
+            for prefix in ("while ", "if ", "repeat until ", "until "):
+                if source.lower().startswith(prefix):
+                    expression = (
+                        source[len(prefix) :].strip().removesuffix(" do").removesuffix(" then")
+                    )
+                    break
+            found.setdefault((line, expression), None)
         return tuple(f"{line}: {expression}" for line, expression in found)
 
-    def update_trace(self) -> None:
-        if self.result is None:
-            data = ft.DataTable(
-                columns=[
-                    ft.DataColumn(
-                        label=ft.Container(
-                            ft.Text("Line", text_align=ft.TextAlign.CENTER),
-                            width=48,
-                            alignment=ft.Alignment.CENTER,
-                        )
+    def condition_selection_values(self) -> tuple[str, ...]:
+        """Labels plus runtime condition text, so the trace view can filter by source line."""
+        return self.condition_values_for(self.condition_labels())
+
+    def condition_values_for(self, labels: tuple[str, ...] | set[str]) -> tuple[str, ...]:
+        values: set[str] = set(labels)
+        if self.result is not None:
+            for label in labels:
+                line_text = label.partition(":")[0].strip()
+                if line_text.isdigit():
+                    line = int(line_text)
+                    values.update(
+                        step.cond[0]
+                        for step in self.result.steps
+                        if step.line == line and step.cond is not None
                     )
-                ],
-                rows=[],
+        return tuple(values)
+
+    def _trace_header(
+        self,
+        key: str,
+        title: str,
+        width: float,
+    ) -> ft.Container:
+        if key == "__line__":
+            return ft.Container(
+                ft.Text(
+                    title,
+                    weight=ft.FontWeight.BOLD,
+                    size=12,
+                    no_wrap=True,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+                width=LINE_COLUMN_WIDTH,
+                height=38,
+                padding=0,
                 border=ft.Border.all(1),
-                horizontal_lines=ft.BorderSide(width=1),
-                vertical_lines=ft.BorderSide(width=1),
-                column_spacing=20,
-                horizontal_margin=8,
-                data_row_min_height=36,
+                alignment=ft.Alignment.CENTER,
             )
-            self.trace.controls = [ft.Row([data], expand=False)]
-            if hasattr(self.page, "update"):
-                self.trace.update()
+
+        def resize(event: ft.DragUpdateEvent) -> None:
+            self.resize_trace_column(key, event)
+
+        grip = ft.GestureDetector(
+            ft.Icon(ft.Icons.DRAG_INDICATOR, size=12),
+            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
+            on_horizontal_drag_update=resize,
+            drag_interval=25,
+            tooltip=f"Resize {title} column",
+        )
+        return ft.Container(
+            ft.Row(
+                [ft.Text(title, weight=ft.FontWeight.BOLD, size=12, expand=True), grip],
+                tight=True,
+                spacing=2,
+            ),
+            width=width,
+            height=38,
+            padding=ft.Padding.symmetric(horizontal=6),
+            border=ft.Border.all(1),
+            alignment=ft.Alignment.CENTER_LEFT,
+        )
+
+    def resize_trace_column(self, key: str, event: ft.DragUpdateEvent) -> None:
+        if key == "__line__" or event.global_delta is None:
             return
+        current = self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH)
+        self.trace_widths[key] = min(420, max(48, current + event.global_delta.x))
+        for control in self.trace_resize_controls.get(key, []):
+            control.width = self.trace_widths[key]
+            _safe_update(control)
+        if self.trace_table_container is not None:
+            self.trace_table_container.width = sum(
+                self.trace_widths[column] for column in self.trace_active_columns
+            )
+            _safe_update(self.trace_table_container)
+
+    def _trace_cell(self, key: str, value: str, *, header: bool = False) -> ft.Container:
+        return ft.Container(
+            ft.Text(
+                value,
+                size=12,
+                weight=ft.FontWeight.BOLD if header else None,
+                selectable=not header,
+                no_wrap=key == "__line__",
+            ),
+            width=self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH),
+            height=38,
+            padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+            border=ft.Border.all(1),
+            alignment=ft.Alignment.CENTER_LEFT,
+        )
+
+    def draw_trace_table(
+        self,
+        columns: list[tuple[str, str, float]],
+        rows: list[list[str]],
+    ) -> None:
+        for key, _, default in columns:
+            self.trace_widths.setdefault(key, default)
+        self.trace_active_columns = [key for key, _, _ in columns]
+        self.trace_resize_controls = {key: [] for key in self.trace_active_columns}
+        header_containers = [
+            self._trace_header(key, title, self.trace_widths[key]) for key, title, _ in columns
+        ]
+        for (key, _, _), control in zip(columns, header_containers, strict=True):
+            self.trace_resize_controls[key].append(control)
+        header_controls: list[ft.Control] = list(header_containers)
+        header = ft.Row(
+            header_controls,
+            spacing=0,
+            tight=True,
+        )
+        body_rows: list[ft.Control] = []
+        for row in rows:
+            row_containers = [
+                self._trace_cell(key, value)
+                for (key, _, _), value in zip(columns, row, strict=True)
+            ]
+            for (key, _, _), control in zip(columns, row_containers, strict=True):
+                self.trace_resize_controls[key].append(control)
+            row_controls: list[ft.Control] = list(row_containers)
+            body_rows.append(
+                ft.Row(
+                    row_controls,
+                    spacing=0,
+                    tight=True,
+                    height=38,
+                )
+            )
+        body = ft.Column(
+            body_rows,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            spacing=0,
+        )
+        total_width = sum(self.trace_widths[key] for key, _, _ in columns)
+        table = ft.Container(
+            ft.Column([header, body], spacing=0, expand=True),
+            width=total_width,
+            expand=True,
+        )
+        self.trace_table_container = table
+        self.trace.controls = [ft.Row([table], scroll=ft.ScrollMode.AUTO, expand=True, spacing=0)]
+        _safe_update(self.trace)
+
+    def condition_name(self, line: int) -> str:
+        source_lines = self.trace_source.splitlines()
+        if not 1 <= line <= len(source_lines):
+            return ""
+        source = source_lines[line - 1].strip()
+        for prefix in ("while ", "if ", "repeat until ", "until "):
+            if source.lower().startswith(prefix):
+                return source[len(prefix) :].strip().removesuffix(" do").removesuffix(" then")
+        return source
+
+    def update_vertical_trace(
+        self,
+    ) -> tuple[trace.VerticalTable, list[tuple[str, str, float]], list[list[str]]]:
+        columns: list[tuple[str, str, float]] = [("__line__", "Line", LINE_COLUMN_WIDTH)]
+        rows: list[list[str]] = []
+        if self.result is None:
+            return trace.VerticalTable([]), columns, rows
         table = trace.selected_vertical(
             self.result,
             self.settings(),
             self.selection,
             cursor=self.cursor,
         )
-        source_lines = self.source().splitlines()
-
-        def condition_name(line: int) -> str:
-            if not 1 <= line <= len(source_lines):
-                return ""
-            source = source_lines[line - 1].strip()
-            for prefix in ("while ", "if ", "repeat until ", "until "):
-                if source.lower().startswith(prefix):
-                    return source[len(prefix) :].strip().removesuffix(" do").removesuffix(" then")
-            return source
 
         condition_names = list(
             dict.fromkeys(
                 name
                 for step in self.result.steps
                 if step.cond is not None
-                for name in (condition_name(step.line),)
+                for name in (self.condition_name(step.line),)
                 if name and f"{step.line}: {name}" in self.selection.conditions
             )
         )
         variable_names = [
             name for name in self.choices.variables if name in self.selection.variables
         ]
-        columns = [
-            ft.DataColumn(
-                label=ft.Container(
-                    ft.Text("Line", text_align=ft.TextAlign.CENTER),
-                    width=48,
-                    alignment=ft.Alignment.CENTER,
-                )
-            ),
-            *(
-                ft.DataColumn(
-                    label=ft.Container(
-                        ft.Text(name),
-                        width=76,
-                        alignment=ft.Alignment.CENTER,
-                    )
-                )
-                for name in variable_names
-            ),
-            *(
-                ft.DataColumn(
-                    label=ft.Container(
-                        ft.Text(name),
-                        width=130,
-                        alignment=ft.Alignment.CENTER,
-                    )
-                )
-                for name in condition_names
-            ),
-            ft.DataColumn(
-                label=ft.Container(
-                    ft.Text("Output"),
-                    width=140,
-                    alignment=ft.Alignment.CENTER,
-                )
-            ),
-        ]
-        rows: list[ft.DataRow] = []
+        columns.extend((f"variable:{name}", name, VARIABLE_COLUMN_WIDTH) for name in variable_names)
+        columns.extend(
+            (f"condition:{name}", name, CONDITION_COLUMN_WIDTH) for name in condition_names
+        )
+        columns.append(("__output__", "Calcs / Output", OUTPUT_COLUMN_WIDTH))
         for row in table.rows:
             step_output = (
                 self.result.steps[row.step].output if row.step < len(self.result.steps) else None
             )
-            cells = [
-                ft.DataCell(
-                    ft.Container(
-                        ft.Text(str(row.line), text_align=ft.TextAlign.CENTER),
-                        width=48,
-                        alignment=ft.Alignment.CENTER,
-                    )
-                ),
-                *(
-                    ft.DataCell(
-                        ft.Container(
-                            ft.Text(row.cells.get(name, "")),
-                            width=76,
-                            alignment=ft.Alignment.CENTER,
-                        )
-                    )
-                    for name in variable_names
-                ),
-                *(
-                    ft.DataCell(
-                        ft.Container(
-                            ft.Text(
-                                next(iter(row.conditions.values()), "")
-                                if condition_name(row.line) == name
-                                else ""
-                            ),
-                            width=130,
-                            alignment=ft.Alignment.CENTER,
-                        )
-                    )
-                    for name in condition_names
-                ),
-                ft.DataCell(
-                    ft.Container(
-                        ft.Text(step_output or ""),
-                        width=140,
-                        alignment=ft.Alignment.CENTER,
-                    )
-                ),
-            ]
-            rows.append(ft.DataRow(cells=cells))
-        data = ft.DataTable(
-            columns=columns,
-            rows=rows,
-            border=ft.Border.all(1),
-            horizontal_lines=ft.BorderSide(width=1),
-            vertical_lines=ft.BorderSide(width=1),
-            column_spacing=20,
-            horizontal_margin=8,
-            data_row_min_height=36,
+            rows.append(
+                [
+                    str(row.line),
+                    *(row.cells.get(name, "") for name in variable_names),
+                    *(
+                        next(iter(row.conditions.values()), "")
+                        if self.condition_name(row.line) == name
+                        else ""
+                        for name in condition_names
+                    ),
+                    row.calc or step_output or "",
+                ]
+            )
+        return table, columns, rows
+
+    def update_horizontal_trace(self) -> list[list[str]] | None:
+        if self.result is None:
+            self.draw_trace_table(
+                [("__code__", "Code", VARIABLE_COLUMN_WIDTH)],
+                [],
+            )
+            return []
+        table = trace.horizontal(
+            self.result,
+            parse(self.trace_source),
+            self.settings(),
+            cursor=self.cursor,
         )
-        self.trace.controls = [ft.Row([data], expand=True)]
-        shown = len([step for step in self.result.steps if step.kind != "halt"])
+        if table is None:
+            return None
+        columns: list[tuple[str, str, float]] = [
+            ("__code__", "Code", 220),
+            *((f"pass:{column}", column, VARIABLE_COLUMN_WIDTH) for column in table.columns),
+        ]
+        self.draw_trace_table(
+            columns,
+            [[row.code, *row.cells] for row in table.rows],
+        )
+        return [[row.code, *row.cells] for row in table.rows]
+
+    def update_trace(self) -> None:
+        if self.trace_mode == "none":
+            self.trace.controls = []
+            _safe_update(self.trace)
+            return
+        if self.trace_mode == "horizontal":
+            if self.update_horizontal_trace() is not None:
+                vertical = None
+                rows: list[object] = []
+            else:
+                self.shell.notice(
+                    "Horizontal trace unavailable",
+                    "This run does not have exactly one non-nested loop.",
+                )
+                self.trace_mode = "vertical"
+                self.trace_layout.content = "Trace: Vertical"
+                _safe_update(self.trace_layout)
+                vertical, columns, rows = self.update_vertical_trace()
+                self.draw_trace_table(columns, rows)
+        else:
+            vertical, columns, rows = self.update_vertical_trace()
+            self.draw_trace_table(columns, rows)
+        shown = (
+            len([step for step in self.result.steps if step.kind != "halt"])
+            if self.result is not None
+            else 0
+        )
         self.status.value = f"{self.cursor} / {shown} steps"
-        self.status.update()
-        self.trace.update()
-        if self.cm is not None and table.rows:
-            line = table.rows[-1].line
+        _safe_update(self.status)
+        if self.cm is not None and vertical is not None and vertical.rows:
+            line = vertical.rows[-1].line
             import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
             from pyodide.ffi import to_js  # ty: ignore[unresolved-import]  # noqa: PLC0415
 
@@ -1246,10 +1776,15 @@ window.CASSimTypingAids = function(editor, change) {
             )
 
     def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        if self.shell.home is not None:
-            self.shell.home()
+        home = getattr(self.shell, "home", None)
+        if home is not None:
+            home()
 
     def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
+        def switch_changed(event: ft.Event[ft.Switch]) -> None:
+            event.control.value = bool(event.control.value)
+            _safe_update(event.control)
+
         number = ft.SegmentedButton(
             selected=[self.number_mode],
             segments=[
@@ -1264,6 +1799,21 @@ window.CASSimTypingAids = function(editor, change) {
                 ft.Segment(value="radian", label="Radian"),
                 ft.Segment(value="degree", label="Degree"),
             ],
+        )
+        line_numbers = ft.Switch(
+            label="Line numbers",
+            value=self.line_numbers_visible,
+            tooltip="Show source line numbers in the Code pane.",
+            on_change=switch_changed,
+        )
+        typing_aid = ft.Switch(
+            label="Typing aid",
+            value=self.typing_aid,
+            on_change=switch_changed,
+            tooltip=(
+                "Convert unambiguous spellings such as <-, <= and \\theta while typing. "
+                "Plain names such as pi are never changed."
+            ),
         )
         code_style = ft.Dropdown(
             label="Code style",
@@ -1285,21 +1835,31 @@ window.CASSimTypingAids = function(editor, change) {
         def save(_: ft.Event[ft.TextButton]) -> None:
             self.number_mode = cast(NumberMode, number.selected[0])
             self.angle_mode = cast(AngleMode, angle.selected[0])
+            self.line_numbers_visible = bool(line_numbers.value)
+            self.typing_aid = bool(typing_aid.value)
+            self.typing_aids = self.typing_aid
             self.code_style = str(code_style.value or "monospace")
             new_symbol_style = str(symbol_style.value or "unicode")
             if new_symbol_style != self.symbol_style:
                 old_source = self.source()
+                self.symbol_style = new_symbol_style
                 new_source = convert_symbols(old_source, new_symbol_style)
                 if new_source != old_source:
                     self.set_source(new_source)
                     self.typing_undo = (new_source, old_source)
             self.symbol_style = new_symbol_style
-            self.number_button.content = f"Number: {self.number_mode.title()}"
-            self.angle_button.content = f"Angle: {self.angle_mode.title()}"
-            self.number_button.update()
-            self.angle_button.update()
+            self.number_button.content = self.number_mode.title()
+            self.angle_button.content = self.angle_mode.title()
+            _safe_update(self.number_button)
+            _safe_update(self.angle_button)
+            if self.cm is not None:
+                self.cm.setOption("lineNumbers", self.line_numbers_visible)
+                self.cm.refresh()
+            else:
+                self.line_number_gutter.visible = self.line_numbers_visible
+                _safe_update(self.line_number_gutter)
             self.apply_code_style()
-            self.fallback_editor.update()
+            _safe_update(self.fallback_editor)
             self.update_typing_aids()
             self.save_editor_settings()
             self.page.pop_dialog()
@@ -1315,8 +1875,17 @@ window.CASSimTypingAids = function(editor, change) {
                         angle,
                         code_style,
                         symbol_style,
+                        ft.Divider(),
+                        line_numbers,
+                        typing_aid,
                         ft.Text(
-                            "Formatted keeps linear source; it uses a proportional display face."
+                            "Typing aid converts unambiguous symbols while you type. "
+                            "Plain names such as pi are never changed.",
+                            size=12,
+                        ),
+                        ft.Text(
+                            "Formatted keeps linear source; it uses a proportional display face.",
+                            size=12,
                         ),
                     ],
                     tight=True,
@@ -1330,15 +1899,15 @@ window.CASSimTypingAids = function(editor, change) {
         )
 
     def open_appearance(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        choice = ft.Dropdown(
-            label="Theme",
-            value=self.theme_name,
-            options=[ft.DropdownOption(key=name, text=name) for name in THEMES],
+        choice = ft.SegmentedButton(
+            selected=[self.theme_name],
+            segments=[ft.Segment(value=name, label=name) for name in THEMES],
         )
 
         def save(_: ft.Event[ft.TextButton]) -> None:
-            if choice.value in THEMES:
-                self.apply_theme(choice.value)
+            selected = choice.selected[0] if choice.selected else self.theme_name
+            if selected in THEMES:
+                self.apply_theme(selected)
             self.page.pop_dialog()
 
         self.page.show_dialog(
@@ -1352,8 +1921,8 @@ window.CASSimTypingAids = function(editor, change) {
             )
         )
 
-    def check_updates(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.check_for_updates()
+    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
+        self.shell.activate_update()
 
     def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.help()
