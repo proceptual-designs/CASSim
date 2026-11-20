@@ -3,7 +3,9 @@
 A result brought down from the history must keep its structure: `(x-1)^2-1` has an exponent of
 `2`, not `2-1`, and the `√` in `-√(3)*sin(π/9)` holds only `3`. Typing the text key by key cannot
 know where a template ends, so the text is parsed with the real parser and the AST is turned into
-templates (fraction, power, root, nth root, log, absolute value, matrix) and characters.
+templates and characters: `/` is a fraction, `^` a power, a matrix a matrix, and a call is the
+template written as it (`Spec.call` in `templates.py`: `√`, `root`, `log`, `abs`, `derivative`,
+`∫`, `Σ`, `Π`).
 
 The tree's linear text parses back to the same AST (`row_from_text` checks it and falls back to a
 plain paste if it ever does not), so a recalled value is never changed by the trip.
@@ -15,17 +17,11 @@ from cassim.core import ast
 from cassim.core.ast import RIGHT_ASSOCIATIVE, UNARY_OPERAND_PREC, Prec
 from cassim.core.errors import TIError
 from cassim.core.parser import parse_expression
-from cassim.device.editor import Editor, Kind, Row, Template, linear_text
+from cassim.device.editor import Editor, Row, Template, linear_text
+from cassim.device.templates import SPECS, Kind
 
 # Binary operators written with a space either side, as `ast.Binary` prints them
 _SPACED = frozenset({"and", "or", "xor", "nor", "nand", "|"})
-# Calls drawn as templates: the function name and the template's slots from the call's arguments
-_CALL_TEMPLATES: dict[tuple[str, int], tuple[Kind, tuple[int, ...]]] = {
-    ("√", 1): (Kind.ROOT, (0,)),
-    ("root", 2): (Kind.NTH_ROOT, (1, 0)),  # root(x, n): index n, radicand x
-    ("log", 2): (Kind.LOG, (1, 0)),  # log(x, b): base b, argument x
-    ("abs", 1): (Kind.ABS, (0,)),
-}
 
 
 def row_from_text(text: str) -> Row:
@@ -109,10 +105,20 @@ def _binary(node: ast.Binary) -> Row:
 
 
 def _call(node: ast.Call) -> Row:
-    template = _CALL_TEMPLATES.get((node.func, len(node.args)))
-    if template is not None:
-        kind, order = template
-        return [Template(kind, [row_from_ast(node.args[i]) for i in order])]
+    """A call a template is written as becomes that template (the first that fits, in the order
+    `SPECS` lists them); any other call stays a name and its bracketed arguments."""
+    for kind, spec in SPECS.items():
+        call = spec.call
+        if call is None or call.name != node.func or len(call.arguments) != len(node.args):
+            continue
+        pairs = list(zip(call.arguments, node.args, strict=True))
+        if any(isinstance(want, str) and str(arg) != want for want, arg in pairs):
+            continue  # a fixed argument (`2` for d²/dx²) that differs
+        slots: list[Row] = [[] for _ in range(spec.slots)]
+        for want, arg in pairs:
+            if isinstance(want, int):
+                slots[want] = row_from_ast(arg)
+        return [Template(kind, slots)]
     return [*node.func, "(", *_joined(node.args), ")"]
 
 

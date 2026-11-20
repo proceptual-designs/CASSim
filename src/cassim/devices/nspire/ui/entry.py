@@ -245,7 +245,7 @@ class EntryLine:
             body = self._power(slots[0])
         elif node.kind is Kind.ROOT:
             body = self._root(slots[0], chrome, row_height(node.slots[0]))
-        else:
+        else:  # Kind.MATRIX: `DRAWN_KINDS` lists every kind this draws
             body = self._matrix(slots, node.cols, chrome)
         # The zones also sit behind the contents, for the gaps the chrome leaves; a slot's own zones
         # are on top, so anything inside a slot is that slot's.
@@ -525,6 +525,9 @@ _DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
     Kind.LIMIT: _limit,
     Kind.LIST: _list,
 }
+# Every kind the entry line can draw: the older ones by `EntryLine` itself, the rest by `_DRAWN`.
+# A test checks this against `device.templates.Kind`, so a new kind cannot fall through unseen.
+DRAWN_KINDS = frozenset(_DRAWN) | {Kind.FRACTION, Kind.POWER, Kind.ROOT, Kind.MATRIX}
 
 
 # ---- how tall a row is, in lines of text (for stretching signs) ---------------------------------
