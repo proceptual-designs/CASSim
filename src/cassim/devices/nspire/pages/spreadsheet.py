@@ -20,6 +20,7 @@ right-click is also a Menu item or a context-menu item, so touch can reach it (d
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -31,7 +32,7 @@ from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.statistics import Statistics, dump_statistics, load_statistics
 from cassim.devices.nspire.statistics import INTERVALS, TESTS, build_command
-from cassim.devices.nspire.statistics_plot import PValuePlot
+from cassim.devices.nspire.statistics_plot import AreaPlot, PValuePlot
 from cassim.sheet import refs
 from cassim.sheet.fileio import FileCell
 from cassim.sheet.refs import COLUMNS, ROWS
@@ -148,10 +149,56 @@ class ReferenceSelection:
     end: int
 
 
+@dataclass
+class ShadePane:
+    """Draw: Shade P Value (stats4 I2): the test's statistic and p-value, read from the engine's
+    `stat.` results once the test has run and then kept, so a later test leaves this pane as it
+    was (the 2×2 page in R5-I2 shows a z and a t pane side by side)."""
+
+    variable: str  # "z" or "t"
+    alternative: int  # 0 ≠, 1 <, 2 >
+    plot: PValuePlot | None = None
+
+
+@dataclass(frozen=True)
+class AreaPane:
+    """Draw: Shade area in the Normal Cdf dialog (split2 H14)."""
+
+    plot: AreaPlot
+
+
+type Pane = Statistics | ShadePane | AreaPane
+MAX_PANES = 4  # the sheet and up to three more (decision 0034 item 2); Custom Split stays grey
+
+
+def pane_boxes(count: int, width: float, height: float) -> list[tuple[float, float, float, float]]:
+    """Where each of a page's panes goes, as (left, top, width, height): one fills the page; two
+    are left and right halves; three put the first on the left and the others one above the other
+    on the right (R5-I2, t Test); four are 2×2 in reading order (R5-I2, 1-Prop z Test)."""
+    half_w, half_h = width / 2, height / 2
+    if count <= 1:
+        return [(0, 0, width, height)]
+    if count == 2:  # noqa: PLR2004 (the layouts are by count)
+        return [(0, 0, half_w, height), (half_w, 0, half_w, height)]
+    if count == 3:  # noqa: PLR2004
+        return [
+            (0, 0, half_w, height),
+            (half_w, 0, half_w, half_h),
+            (half_w, half_h, half_w, half_h),
+        ]
+    return [
+        (0, 0, half_w, half_h),
+        (half_w, 0, half_w, half_h),
+        (0, half_h, half_w, half_h),
+        (half_w, half_h, half_w, half_h),
+    ]
+
+
 @dataclass(frozen=True)
 class Snapshot:
     cells: dict[Key, tuple[str, str]]
     columns: tuple[ColumnPayload, ...]
+    panes: tuple[Pane, ...] | None = None  # set for a step that changed the page's panes
 
 
 @dataclass(frozen=True)
@@ -197,9 +244,9 @@ class Spreadsheet:
         self.widths: dict[int, int] = {}
         # The cells on show, from the engine's last view.
         self.view: dict[Key, CellView] = {}
-        self.split_statistics: list[Statistics] = []
-        self.shade_alternative: int | None = None
-        self.pvalue_plot: PValuePlot | None = None
+        # The page's other panes, after the sheet (decision 0034 item 2).
+        self.panes: list[Pane] = []
+        self._pending_shade: ShadePane | None = None  # waits for its test's results
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -252,8 +299,27 @@ class Spreadsheet:
         columns = [list(info) for info in snapshot.columns]
         return self.op("restore", cells=cells, columns=columns)
 
-    def _snapshot(self) -> Snapshot:
-        return Snapshot(dict(self.cells), tuple(self.columns))
+    def _snapshot(self, *, panes: bool = False) -> Snapshot:
+        return Snapshot(dict(self.cells), tuple(self.columns), tuple(self.panes) if panes else None)
+
+    @property
+    def split_statistics(self) -> list[Statistics]:
+        """The Data & Statistics panes, in page order."""
+        return [pane for pane in self.panes if isinstance(pane, Statistics)]
+
+    def add_pane(self, pane: Pane, *, undoable: bool = True) -> None:
+        """Put another app on the page: a second pane on the right, a third under it, a fourth
+        making a 2×2 page whose new pane is bottom left (R5-I2). A full page replaces its newest
+        pane. `undoable`: one ctrl+Z removes it again (R5-Q1: Quick Graph); a shaded pane stays
+        when its cell is undone (R5-H14), so it is not."""
+        if undoable:
+            self._undo.append(self._snapshot(panes=True))
+            del self._undo[:-UNDO_DEPTH]
+            self._redo.clear()
+        if len(self.panes) >= MAX_PANES - 1:
+            self.panes[1] = pane
+        else:
+            self.panes.insert(min(len(self.panes), 1), pane)
 
     def loaded(self) -> None:
         """After a document's pages are loaded: rebuild the sheet in the engine. This runs after
@@ -285,8 +351,7 @@ class Spreadsheet:
 
     def _accept(self, reply: SheetReply) -> None:
         if reply["error"] is not None and reply["error"]["title"] != DATA_LOSS:
-            self.shade_alternative = None
-            self.pvalue_plot = None
+            self._pending_shade = None
         for column, row, kind, text in reply["edits"]:
             if kind:
                 self.cells[(column, row)] = (kind, text)
@@ -312,20 +377,33 @@ class Spreadsheet:
         if reply["error"] is not None:
             self._failed(reply["error"])
         if reply["error"] is None:
-            self._refresh_pvalue_plot()
+            self._refresh_shading()
 
-    def _refresh_pvalue_plot(self) -> None:
-        if self.shade_alternative is None:
+    def _refresh_shading(self) -> None:
+        """A shaded pane whose test has run takes its statistic and p-value; a new one joins the
+        page then."""
+        waiting = [pane for pane in self.panes if isinstance(pane, ShadePane) and not pane.plot]
+        pending = self._pending_shade
+        if pending is None and not waiting:
             return
         values = {row.name.casefold(): row.text for row in self.session.variables()}
-        statistic = values.get("stat.z")
-        p_value = values.get("stat.pval")
-        if statistic is not None and p_value is not None:
-            self.pvalue_plot = PValuePlot(
-                float(statistic.replace("ᴇ", "e")),
-                float(p_value.replace("ᴇ", "e")),
-                self.shade_alternative,
-            )
+
+        def number(name: str) -> float | None:
+            text = values.get(name)
+            try:
+                return float(text.replace("ᴇ", "e")) if text is not None else None
+            except ValueError:
+                return None
+
+        for pane in [*waiting, *([pending] if pending is not None else [])]:
+            statistic, p_value = number(f"stat.{pane.variable}"), number("stat.pval")
+            if statistic is None or p_value is None:
+                continue
+            df = number("stat.df") if pane.variable == "t" else None
+            pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
+            if pane is pending:
+                self._pending_shade = None
+                self.add_pane(pane, undoable=False)
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -527,9 +605,8 @@ class Spreadsheet:
         elif action in ("escape", "sheet_cancel") or not dialog.cancel:
             if self._pending_import is not None:
                 self._pending_import = None
-            if dialog.title == DATA_LOSS and self.shade_alternative is not None:
-                self.shade_alternative = None
-                self.pvalue_plot = None
+            if dialog.title == DATA_LOSS:
+                self._pending_shade = None
             self.dialogs.pop(0)
 
     def _keys(self) -> dict[Action, Callable[[str], None]]:
@@ -1113,16 +1190,22 @@ class Spreadsheet:
     def undo(self) -> None:
         if not self._undo:
             return
-        self._redo.append(self._snapshot())
-        self._sendback(self._undo.pop())
+        snapshot = self._undo.pop()
+        self._redo.append(self._snapshot(panes=snapshot.panes is not None))
+        self._sendback(snapshot)
 
     def redo(self) -> None:
         if not self._redo:
             return
-        self._undo.append(self._snapshot())
-        self._sendback(self._redo.pop())
+        snapshot = self._redo.pop()
+        self._undo.append(self._snapshot(panes=snapshot.panes is not None))
+        self._sendback(snapshot)
 
     def _sendback(self, snapshot: Snapshot) -> None:
+        if snapshot.panes is not None:
+            self.panes = list(snapshot.panes)
+            if snapshot.cells == self.cells and snapshot.columns == tuple(self.columns):
+                return
         op = self._restore_of(snapshot)
         self.last = op
         self.link.send(op)
@@ -1237,9 +1320,7 @@ class Spreadsheet:
             self.dialogs.append(Dialog("Quick Graph", "Select a column containing a list."))
             return
         statistics.perform(f"x:{selected}")
-        self.split_statistics.append(statistics)
-        self.shade_alternative = None
-        self.pvalue_plot = None
+        self.add_pane(statistics)
 
     def _summary_plot_wizard(self) -> Wizard | None:
         statistics = Statistics(self.session)
@@ -1304,9 +1385,7 @@ class Spreadsheet:
         statistics = Statistics(self.session)
         statistics.perform(f"x:{values['x']}")
         statistics.perform(f"summary:{values['summary']}")
-        self.split_statistics.append(statistics)
-        self.shade_alternative = None
-        self.pvalue_plot = None
+        self.add_pane(statistics)
 
     def import_rows(self, rows: list[list[FileCell]]) -> None:
         if not rows:
@@ -1511,12 +1590,11 @@ class Spreadsheet:
             if target is None or len(column_name) != 1:
                 return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
             formula = build_command(name, command_fields, values)
-            self.shade_alternative = (
-                int(values["alternative"])
+            self._pending_shade = (
+                ShadePane("z", int(values["alternative"]))
                 if command == "zTest_1Prop" and values.get("shade") == "1"
                 else None
             )
-            self.pvalue_plot = None
             args = {
                 "formula": formula,
                 "column": target.column,
@@ -1709,22 +1787,78 @@ def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) 
 
 
 def dump(sheet: Spreadsheet) -> dict[str, Any]:
-    """A sheet page in a document file: its definitions and view state, not its values."""
+    """A sheet page in a document file: its definitions and view state, not its values. The
+    cursor and selection are not kept: a reopened sheet starts at A1 (R5-Q3)."""
     columns = {letter(c): list(info) for c, info in enumerate(sheet.columns) if any(info)}
     data: dict[str, Any] = {
         "cells": [[c, r, kind, text] for (c, r), (kind, text) in sorted(sheet.cells.items())],
         "columns": columns,
         "widths": {letter(c): w for c, w in sorted(sheet.widths.items())},
-        "cursor": list(sheet.cursor),
-        "top": sheet.top,
-        "left": sheet.left,
-        "shade_alternative": sheet.shade_alternative,
     }
-    if sheet.split_statistics:
-        data["split_statistics"] = [
-            dump_statistics(statistics) for statistics in sheet.split_statistics
-        ]
+    if sheet.panes:
+        data["panes"] = [_dump_pane(pane) for pane in sheet.panes]
     return data
+
+
+def _dump_pane(pane: Pane) -> dict[str, Any]:
+    if isinstance(pane, Statistics):
+        return {"kind": "statistics", **dump_statistics(pane)}
+    if isinstance(pane, ShadePane):
+        plot = pane.plot
+        return {
+            "kind": "shade",
+            "variable": pane.variable,
+            "alternative": pane.alternative,
+            "statistic": plot.statistic if plot is not None else None,
+            "p_value": plot.p_value if plot is not None else None,
+            "df": plot.df if plot is not None else None,
+        }
+    area = pane.plot
+    return {
+        "kind": "area",
+        "lower": area.lower if math.isfinite(area.lower) else None,
+        "upper": area.upper if math.isfinite(area.upper) else None,
+        "mu": area.mu,
+        "sigma": area.sigma,
+    }
+
+
+def _saved_number(value: object) -> float | None:
+    if isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value):
+        return float(value)
+    return None
+
+
+def _load_pane(sheet: Spreadsheet, saved: dict[str, Any]) -> Pane:
+    kind = saved.get("kind")
+    if kind == "statistics":
+        return load_statistics(Statistics(sheet.session), saved)
+    if kind == "shade":
+        variable = saved.get("variable") if saved.get("variable") in ("z", "t") else "z"
+        alternative = saved.get("alternative")
+        if alternative not in (0, 1, 2) or isinstance(alternative, bool):
+            alternative = 0
+        pane = ShadePane(str(variable), int(alternative))
+        statistic, p_value = (
+            _saved_number(saved.get("statistic")),
+            _saved_number(saved.get("p_value")),
+        )
+        if statistic is not None and p_value is not None:
+            df = _saved_number(saved.get("df"))
+            pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
+        return pane
+    if kind == "area":
+        lower, upper = _saved_number(saved.get("lower")), _saved_number(saved.get("upper"))
+        mu, sigma = _saved_number(saved.get("mu")), _saved_number(saved.get("sigma"))
+        return AreaPane(
+            AreaPlot(
+                -math.inf if lower is None else lower,
+                math.inf if upper is None else upper,
+                0.0 if mu is None else mu,
+                sigma if sigma is not None and sigma > 0 else 1.0,
+            )
+        )
+    raise ValueError(f"unknown pane {kind!r}")
 
 
 def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
@@ -1740,25 +1874,10 @@ def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
         refs.column_index(name): min(max(int(w), MIN_WIDTH), MAX_WIDTH)
         for name, w in data.get("widths", {}).items()
     }
-    alternative = data.get("shade_alternative")
-    if (
-        isinstance(alternative, int)
-        and not isinstance(alternative, bool)
-        and alternative in (0, 1, 2)
-    ):
-        sheet.shade_alternative = alternative
-    split_statistics = data.get("split_statistics", [])
-    if not isinstance(split_statistics, list) or not all(
-        isinstance(saved, dict) for saved in split_statistics
-    ):
-        raise ValueError("invalid split statistics")
-    sheet.split_statistics = [
-        load_statistics(Statistics(sheet.session), saved) for saved in split_statistics
-    ]
-    column, row = data.get("cursor", [0, 1])
-    sheet.go((int(column), int(row)))
-    sheet.top = min(max(int(data.get("top", 1)), 1), ROWS)
-    sheet.left = min(max(int(data.get("left", 0)), 0), COLUMNS - 1)
+    panes = data.get("panes", [])
+    if not isinstance(panes, list) or not all(isinstance(saved, dict) for saved in panes):
+        raise ValueError("invalid panes")
+    sheet.panes = [_load_pane(sheet, saved) for saved in panes[: MAX_PANES - 1]]
     return sheet
 
 

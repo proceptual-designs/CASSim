@@ -19,9 +19,11 @@ from cassim.devices.nspire.pages.spreadsheet import (
     FORMULA_ROW,
     NAME_ROW,
     WIDE,
+    ShadePane,
     Spreadsheet,
     dump,
     load,
+    pane_boxes,
     spreadsheet_of,
 )
 from cassim.devices.nspire.runner import Runner
@@ -1223,15 +1225,15 @@ def test_shade_p_value_splits_the_spreadsheet_view():
         alternative="0",
         shade="1",
     )
-    assert sheet.shade_alternative == 0
-    assert sheet.pvalue_plot is not None
-    assert sheet.pvalue_plot.statistic == pytest.approx(0.89442719)
-    assert sheet.pvalue_plot.p_value == pytest.approx(0.37109337)
+    (pane,) = sheet.panes
+    assert isinstance(pane, ShadePane)
+    assert pane.plot is not None
+    assert pane.plot.statistic == pytest.approx(0.89442719)
+    assert pane.plot.p_value == pytest.approx(0.37109337)
     restored = load(Spreadsheet(sheet.session, sheet.clipboard), dump(sheet))
-    assert restored.shade_alternative == 0
-    assert restored.pvalue_plot is None
-    restored.loaded()
-    assert restored.pvalue_plot is not None
+    (kept,) = restored.panes
+    assert isinstance(kept, ShadePane)
+    assert kept.plot == pane.plot
 
 
 def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
@@ -1273,10 +1275,9 @@ def test_cancelling_inference_data_loss_discards_pending_shade():
         shade="1",
     )
     assert sheet.dialogs[-1].title == "Data Loss"
-    assert sheet.shade_alternative == 0
+    assert sheet.panes == []
     keys(state, "escape")
-    assert sheet.shade_alternative is None
-    assert sheet.pvalue_plot is None
+    assert sheet.panes == []
     assert shown(state, D, 1) == "17"
 
 
@@ -1298,3 +1299,27 @@ def test_the_statistics_menu():
         "Linear Regression (mx+b)…",
         False,
     )
+
+
+# ----- panes (decision 0034 item 2) ---------------------------------------------------------------
+
+
+def test_pane_layouts_go_from_halves_to_three_to_two_by_two():
+    """FR-DOC-009 (R5-I2): a second pane on the right, a third under it, a fourth making 2×2."""
+    assert pane_boxes(1, 320, 200) == [(0, 0, 320, 200)]
+    assert pane_boxes(2, 320, 200) == [(0, 0, 160, 200), (160, 0, 160, 200)]
+    assert pane_boxes(3, 320, 200) == [(0, 0, 160, 200), (160, 0, 160, 100), (160, 100, 160, 100)]
+    assert pane_boxes(4, 320, 200)[2:] == [(0, 100, 160, 100), (160, 100, 160, 100)]
+
+
+def test_a_fourth_pane_goes_bottom_left_and_a_fifth_replaces_the_newest():
+    """R5-I2: scatter top right and the t pane under it; the z pane then goes bottom left and
+    the t pane bottom right. Beyond four the newest pane is replaced (not seen on the device)."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    scatter, t, z, again = (ShadePane(name, 0) for name in ("x", "t", "z", "again"))
+    for pane in (scatter, t, z):
+        sheet.add_pane(pane, undoable=False)
+    assert sheet.panes == [scatter, z, t]
+    sheet.add_pane(again, undoable=False)
+    assert sheet.panes == [scatter, again, t]
