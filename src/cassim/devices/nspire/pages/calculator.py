@@ -145,8 +145,8 @@ class Calculator:
                 "template": self._template,
                 "power": self._power,
                 "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
-                "backspace": lambda _: self._delete(self.editor.backspace),
-                "delete": lambda _: self._delete(self.editor.delete),
+                "backspace": lambda _: self._delete(self.editor.backspace, forward=False),
+                "delete": lambda _: self._delete(self.editor.delete, forward=True),
                 "clear": lambda _: self._edit("other", self.editor.clear),
                 "copy": lambda _: self._copy(),
                 "cut": lambda _: self._cut(),
@@ -237,10 +237,14 @@ class Calculator:
         self.recall_touched = True
         self._recalled.place(path, pos, extend=extend)
 
-    def _delete(self, remove_in_entry: Callable[[], None]) -> None:
+    def _delete(self, remove_in_entry: Callable[[], None], *, forward: bool) -> None:
         """Del or Backspace: on a picked history row it deletes that entry and its result, and
         undo brings them back; on an empty entry line it does nothing (emulator check 3, H5 c);
-        otherwise it edits the entry line."""
+        otherwise it edits the entry line.
+
+        After a delete the input of the pair that takes its place is picked, as a text editor
+        moves: Delete picks the next pair, Backspace (and the keypad's del) the previous one, and
+        either takes the other side at an end of the history (run 5, H5 a, b, e, f, g, j)."""
         if self.recall is None:
             if not self.editor.is_empty:
                 self._edit("other", remove_in_entry)
@@ -251,14 +255,12 @@ class Calculator:
         del self.history[index]
         self._group = None
         self._sync_ans()
-        # The line above is picked next, so Del again deletes it too (the first line is followed
-        # by the one that moved up into its place)
         if not self.history:
             self._pick(None)
-        elif index:
-            self._pick((index - 1, "result"))
-        else:
-            self._pick((0, "entry"))
+            return
+        after = index < len(self.history)  # a pair moved up into the deleted one's place
+        before = index > 0
+        self._pick((index if after and (forward or not before) else index - 1, "entry"))
 
     # ---- editing, with undo groups ----------------------------------------------------------
 
