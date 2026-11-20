@@ -13,6 +13,10 @@ plain paste if it ever does not), so a recalled value is never changed by the tr
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass, replace
+from functools import lru_cache
+from typing import Any
+
 from cassim.core import ast
 from cassim.core.ast import RIGHT_ASSOCIATIVE, UNARY_OPERAND_PREC, Prec
 from cassim.core.errors import TIError
@@ -27,16 +31,72 @@ _SPACED = frozenset({"and", "or", "xor", "nor", "nand", "|"})
 def row_from_text(text: str) -> Row:
     """The editor tree for engine text. Text the parser cannot read, or whose tree would not
     read back the same, is pasted as linear text instead."""
-    try:
-        expected = parse_expression(text)
-        row = row_from_ast(expected)
-        if parse_expression(linear_text(row)) == expected:
-            return row
-    except TIError, RecursionError:
-        pass
+    parsed = _parsed(text)
+    if parsed is not None:
+        return parsed[1]
     editor = Editor()
     editor.insert_linear(text)
     return editor.root
+
+
+# Results SymPy's LaTeX draws closer to the device: `when` and `piecewise` as a brace (emulator
+# calc2 results), and the message `Done`
+_SYMPY_CALLS = frozenset({"when", "piecewise"})
+_MESSAGES = frozenset({"Done"})
+
+
+@lru_cache(maxsize=512)
+def result_latex(text: str) -> str | None:
+    """A result drawn from its text through the editor tree (decision 0035 stage 3), so a picked
+    row looks the same before and after the cursor moves into it, products show their `·` as on
+    the device, and `and`/`or` are upright. None for text the tree should not draw (it does not
+    parse, or SymPy draws it closer to the device): the caller keeps SymPy's LaTeX."""
+    parsed = _parsed(text)
+    if parsed is None:
+        return None
+    node, row = parsed
+    if (isinstance(node, ast.Name) and node.text in _MESSAGES) or _calls(node, _SYMPY_CALLS):
+        return None
+    editor = Editor()
+    editor.root = row
+    return editor.latex(cursor=False)
+
+
+def _parsed(text: str) -> tuple[ast.Expr, Row] | None:
+    """The text's AST and its tree, if it parses and the tree reads back as the same value."""
+    try:
+        node = parse_expression(text)
+        row = row_from_ast(node)
+        if normal_form(parse_expression(linear_text(row))) == normal_form(node):
+            return node, row
+    except TIError, RecursionError:
+        pass
+    return None
+
+
+def normal_form(value: Any) -> Any:  # noqa: ANN401 (any AST field)
+    """The AST with the rewrite the tree makes undone in a single form: `(-a)/b`, drawn as −a over
+    b with the minus outside the fraction, is `-(a/b)`."""
+    if isinstance(value, tuple):
+        return tuple(normal_form(item) for item in value)
+    if not is_dataclass(value) or isinstance(value, type):
+        return value
+    node = replace(value, **{f.name: normal_form(getattr(value, f.name)) for f in fields(value)})
+    match node:
+        case ast.Binary(op="/", left=ast.Unary(op="-", operand=top), right=bottom):
+            return ast.Unary("-", ast.Binary("/", top, bottom))
+    return node
+
+
+def _calls(node: Any, names: frozenset[str]) -> bool:  # noqa: ANN401 (any AST field)
+    """Whether the AST calls any of `names`."""
+    if isinstance(node, tuple):
+        return any(_calls(item, names) for item in node)
+    if not is_dataclass(node) or isinstance(node, type):
+        return False
+    if isinstance(node, ast.Call) and node.func in names:
+        return True
+    return any(_calls(getattr(node, f.name), names) for f in fields(node))
 
 
 def row_from_ast(node: ast.Expr) -> Row:
@@ -85,7 +145,13 @@ def _row(node: ast.Expr) -> Row:  # noqa: PLR0911 (one case a node type)
 
 def _binary(node: ast.Binary) -> Row:
     if node.op == "/":
-        return [Template(Kind.FRACTION, [row_from_ast(node.left), row_from_ast(node.right)])]
+        top = node.left
+        if isinstance(top, ast.Unary) and top.op == "-":  # −½, not (−1)/2: the minus goes in front
+            return [
+                "-",
+                Template(Kind.FRACTION, [row_from_ast(top.operand), row_from_ast(node.right)]),
+            ]
+        return [Template(Kind.FRACTION, [row_from_ast(top), row_from_ast(node.right)])]
     if node.op == "^":
         return [
             *_wrapped(node.left, Prec.POWER + 1),

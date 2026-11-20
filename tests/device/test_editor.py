@@ -296,7 +296,8 @@ class TestLatex:
         assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")  # after the inserted Ans
 
     def test_nested_templates(self):
-        assert keys("1F(√2R)").latex(cursor=False) == r"\frac{1}{(\sqrt{2})}"
+        # brackets round a root grow with it (decision 0035)
+        assert keys("1F(√2R)").latex(cursor=False) == r"\frac{1}{\left(\sqrt{2}\right)}"
 
 
 def test_matrix_template_reads_as_ti_text_and_moves_by_cells() -> None:

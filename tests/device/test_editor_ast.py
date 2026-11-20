@@ -13,7 +13,7 @@ from cassim.core import ast
 from cassim.core.parser import parse_expression
 from cassim.core.session import Session
 from cassim.device.editor import Kind, Row, Template, linear_text
-from cassim.device.editor_ast import row_from_ast, row_from_text
+from cassim.device.editor_ast import normal_form, row_from_ast, row_from_text
 from cassim.device.keys import Binding
 from cassim.devices.nspire.pages.calculator import Calculator
 
@@ -122,7 +122,9 @@ _EXPRESSIONS = st.recursive(_LEAVES, _branches, max_leaves=12)
 def test_the_tree_reads_back_as_the_same_expression(node: ast.Expr) -> None:
     """Any expression, in the canonical form the parser gives, survives the trip unchanged."""
     expected = parse_expression(str(node))
-    assert parse_expression(linear_text(row_from_ast(expected))) == expected
+    assert normal_form(parse_expression(linear_text(row_from_ast(expected)))) == normal_form(
+        expected
+    )
 
 
 # ---- the Calculator page ------------------------------------------------------------------------

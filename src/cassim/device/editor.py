@@ -983,8 +983,9 @@ class Style(StrEnum):
     BOLD_ITALIC = "bold italic"  # the imaginary unit ⅈ
 
 
-# Names that are never a plain variable: `ans`, and the words that join conditions.
-_WORDS = frozenset({"ans", "and", "or", "xor", "not"})
+# Names that are never a plain variable: `ans`, the words that join conditions, and the values
+# `true`, `false` and `undef` (upright on the device, emulator calc2 results)
+_WORDS = frozenset({"ans", "and", "or", "xor", "not", "true", "false", "undef"})
 # The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, bold once set.
 _SYSTEM_PREFIXES = ("tvm.", "stat.")
 
@@ -1000,10 +1001,18 @@ def name_styles(row: Row, is_defined: Callable[[str], bool]) -> dict[int, Style]
     names (`Define`, `solve`, `sin`, `ans`, `and`) upright, and names the Problem defines (any
     value or function, and `tvm.pmt` style system variables once something has set them) bold.
     Any other name is italic. The device draws bold only on the entry line: a history row is
-    drawn with `is_defined` false for every name (emulator check 4, A4)."""
+    drawn with `is_defined` false for every name (emulator check 4, A4). Letters inside a string
+    (between quotes) are text, so they are upright too."""
     styles: dict[int, Style] = {}
     run: list[int] = []
+    in_text = False
     for index, node in enumerate([*row, ""]):
+        if node == '"':
+            in_text = not in_text
+        elif in_text:
+            if isinstance(node, str) and node.isalpha():
+                styles[index] = Style.ROMAN
+            continue
         if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
             run.append(index)
             continue
@@ -1028,18 +1037,25 @@ def _dotted(row: Row, run: list[int], index: int) -> bool:
 
 
 def at_constants(row: Row) -> dict[int, str]:
-    """TI's typed constants `@e` and `@i`: the index of the `@` (shown as nothing) and of the
-    letter (shown as bold ⅇ or ⅈ), so they read as the constants the palette's ⅇ and ⅈ give."""
+    """TI's `@` names: the index of the `@` (shown as nothing) and of each character after it, as
+    shown. `@e` and `@i` are the constants the palette's ⅇ and ⅈ give; `@n1` and `@c1` are the
+    arbitrary integers and constants `solve` names (shown `n1`, `c1`; emulator calc4 results)."""
     shown: dict[int, str] = {}
     for index in range(len(row) - 1):
-        letter = row[index + 1]
-        after = row[index + 2] if index + 2 < len(row) else ""
-        if (
-            row[index] == "@"
-            and letter in ("e", "i")
-            and not (isinstance(after, str) and after.isalnum())
-        ):
-            shown[index], shown[index + 1] = "", str(letter)
+        if row[index] != "@" or not isinstance(letter := row[index + 1], str):
+            continue
+        end = index + 2
+        if letter in ("n", "c"):
+            while end < len(row) and isinstance(row[end], str) and str(row[end]).isdigit():
+                end += 1
+            if end == index + 2:
+                continue  # `@n` alone is not one of them
+        elif letter not in ("e", "i"):
+            continue
+        after = row[end] if end < len(row) else ""
+        if not (isinstance(after, str) and after.isalnum()):
+            shown[index] = ""
+            shown.update({i: str(row[i]) for i in range(index + 1, end)})
     return shown
 
 
@@ -1047,11 +1063,36 @@ _FONTS = {Style.ROMAN: "mathrm", Style.BOLD: "mathbf", Style.BOLD_ITALIC: "bolds
 
 
 def constant_style(letter: str) -> Style:
-    """ⅇ is drawn bold upright and ⅈ bold italic (emulator check 4, A13)."""
-    return Style.BOLD_ITALIC if letter == "i" else Style.BOLD
+    """ⅇ is drawn bold upright, ⅈ and the `solve` constants (`n1`) bold italic (emulator check 4,
+    A13; calc4 results)."""
+    return Style.BOLD if letter == "e" else Style.BOLD_ITALIC
 
 
 type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
+
+
+def _stretch_brackets(row: Row, pieces: list[str], span: tuple[int, int]) -> None:
+    """Round brackets around something taller than a line (a fraction, a root, a matrix) grow
+    with it, as `\\left( \\right)`. A pair split by the selection's edge stays plain, since the
+    highlight box cannot hold one half of a `\\left \\right` pair."""
+    low, high = span
+    opened: list[int] = []
+    in_text = False
+    for index, node in enumerate(row):
+        if node == '"':
+            in_text = not in_text
+        elif in_text:
+            continue
+        elif node == "(":
+            opened.append(index)
+        elif node == ")" and opened:
+            start = opened.pop()
+            tall = any(
+                isinstance(n, Template) and n.kind is not Kind.POWER for n in row[start + 1 : index]
+            )
+            whole = (low <= start and index < high) or index < low or start >= high
+            if tall and whole:
+                pieces[start], pieces[index] = r"\left(", r"\right)"
 
 
 def _latex(
@@ -1079,6 +1120,7 @@ def _latex(
             _latex(slot, place, [*here, (i, s)], is_defined) for s, slot in enumerate(node.slots)
         ]
         pieces.append(SPECS[node.kind].latex(slots, node.cols))
+    _stretch_brackets(row, pieces, (low, high))
     cursor = _CURSOR if here_cursor else ""
     if high > low:
         chosen = "".join(pieces[low:high])
