@@ -43,6 +43,8 @@ _SHOWN = {"*": "·", "-": "−", "ⅇ": "ⅇ", "ᴇ": "ᴇ", "/": "/", " ": " "}
 # (italic by design), everything else in KaTeX_Main.
 _MATH_FONT = "packages/flutter_math_fork/KaTeX_Math"
 _MAIN_FONT = "packages/flutter_math_fork/KaTeX_Main"
+# A string's quote is straight, as on the device; KaTeX_Main draws it curly, KaTeX_Typewriter not
+_QUOTE_FONT = "packages/flutter_math_fork/KaTeX_Typewriter"
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
 _BINARY = frozenset("+-*=<>≤≥≠")  # set with a little space either side, as TeX does
 
@@ -195,7 +197,9 @@ class EntryLine:
             size=self.size,
             color=self.theme.screen_text,
             weight=ft.FontWeight.BOLD if style in (Style.BOLD, Style.BOLD_ITALIC) else None,
-            font_family=_MATH_FONT
+            font_family=_QUOTE_FONT
+            if char == '"'
+            else _MATH_FONT
             if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
             else _MAIN_FONT,
             no_wrap=True,
@@ -245,7 +249,7 @@ class EntryLine:
             body = self._power(slots[0])
         elif node.kind is Kind.ROOT:
             body = self._root(slots[0], chrome, row_height(node.slots[0]))
-        else:
+        else:  # Kind.MATRIX: `DRAWN_KINDS` lists every kind this draws
             body = self._matrix(slots, node.cols, chrome)
         # The zones also sit behind the contents, for the gaps the chrome leaves; a slot's own zones
         # are on top, so anything inside a slot is that slot's.
@@ -525,6 +529,9 @@ _DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
     Kind.LIMIT: _limit,
     Kind.LIST: _list,
 }
+# Every kind the entry line can draw: the older ones by `EntryLine` itself, the rest by `_DRAWN`.
+# A test checks this against `device.templates.Kind`, so a new kind cannot fall through unseen.
+DRAWN_KINDS = frozenset(_DRAWN) | {Kind.FRACTION, Kind.POWER, Kind.ROOT, Kind.MATRIX}
 
 
 # ---- how tall a row is, in lines of text (for stretching signs) ---------------------------------
