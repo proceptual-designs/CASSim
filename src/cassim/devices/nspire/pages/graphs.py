@@ -33,8 +33,25 @@ if TYPE_CHECKING:
 
 _FUNCTION_RE = re.compile(r"f([1-9]\d?)$")
 _MAX_FUNCTION_NUMBER = 99
-_COLOURS = ("curve1", "curve2", "curve3", "curve4")
 _WINDOW_FIELDS = 4
+# The device's default colours in order (emulator run 5, R5-D36; f8 is blue again, G-D12h).
+# Names are theme tokens; `ink` is TI's black, the screen's foreground colour.
+FUNCTION_COLOURS = (
+    "graph_blue",
+    "graph_red",
+    "ink",
+    "graph_magenta",
+    "graph_green",
+    "graph_orange",
+    "graph_brown",
+)
+
+
+def function_colour(name: str) -> str:
+    """A function's colour follows its number, so it is the same on every page of a Problem."""
+    match = _FUNCTION_RE.fullmatch(name)
+    number = int(match[1]) if match is not None else 1
+    return FUNCTION_COLOURS[(number - 1) % len(FUNCTION_COLOURS)]
 
 
 class GridStyle(StrEnum):
@@ -287,12 +304,12 @@ class Graphs:
                     "curves",
                     tuple(
                         curve
-                        for index, entry in enumerate(self.functions)
+                        for entry in self.functions
                         if entry.visible and entry.compiled is not None
                         for curve in sample_function(
                             entry.compiled,
                             viewport,
-                            stroke=Stroke(_COLOURS[index % len(_COLOURS)], 2),
+                            stroke=Stroke(function_colour(entry.name), 2),
                         )
                     ),
                 ),

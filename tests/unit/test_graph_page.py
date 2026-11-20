@@ -7,7 +7,13 @@ from cassim.device.editor import Kind, Template, format_target
 from cassim.device.engine import EngineCore, EngineError, RemoteSession, graph_compile_op
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, PageKind, loads
-from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
+from cassim.devices.nspire.pages.graphs import (
+    FUNCTION_COLOURS,
+    Graphs,
+    GridStyle,
+    function_colour,
+    graphs_of,
+)
 from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
 from cassim.graph.sampling import Window
@@ -477,3 +483,42 @@ def test_f99_reloads_when_earlier_function_slots_are_reserved() -> None:
     assert [entry.name for entry in graphs.functions] == ["f99"]
     assert graphs.functions[0].compiled is not None
     assert graphs.functions[0].compiled(2) == 3
+
+
+def test_function_colours_follow_the_function_number_in_ti_order() -> None:
+    """FR-GRAPH-001: blue, red, black, magenta, green, orange, brown, then round again (R5-D36,
+    G-D12h: f8 is blue and f9 red)."""
+    names = [f"f{number}" for number in range(1, 10)]
+    assert [function_colour(name) for name in names] == [
+        "graph_blue",
+        "graph_red",
+        "ink",
+        "graph_magenta",
+        "graph_green",
+        "graph_orange",
+        "graph_brown",
+        "graph_blue",
+        "graph_red",
+    ]
+    assert tuple(function_colour(name) for name in names[:7]) == FUNCTION_COLOURS
+
+
+def test_a_curve_keeps_its_colour_across_pages_of_a_problem() -> None:
+    """FR-GRAPH-001: the colour follows fN, so f2 on a second page is red, not blue."""
+    document = Document()
+    first = graphs_of(document.add_page(PageKind.GRAPHS))
+    assert first is not None
+    first.submit(0, "x")
+    second = graphs_of(document.add_page(PageKind.GRAPHS))
+    assert second is not None
+    second.submit(0, "x+1")
+    curves = second.scene(400, 280).layer("curves")
+    assert curves is not None
+    assert {shape.stroke.colour for shape in curves.shapes if isinstance(shape, Polyline)} == {
+        "graph_red"
+    }
+    first_curves = first.scene(400, 280).layer("curves")
+    assert first_curves is not None
+    assert {
+        shape.stroke.colour for shape in first_curves.shapes if isinstance(shape, Polyline)
+    } == {"graph_blue"}

@@ -3,13 +3,14 @@
 from collections.abc import Callable
 
 import flet as ft
+import pytest
 
-from cassim.app.theme import DARK
+from cassim.app.theme import DARK, THEMES, contrast
 from cassim.core.session import Session
 from cassim.device.editor import Kind
 from cassim.device.keys import Action
-from cassim.devices.nspire.pages.graphs import Graphs
-from cassim.devices.nspire.ui.graphs_view import GraphsView
+from cassim.devices.nspire.pages.graphs import FUNCTION_COLOURS, Graphs
+from cassim.devices.nspire.ui.graphs_view import GraphsView, graph_colours
 
 
 def test_graph_rows_use_shared_entry_renderer_and_target_the_selected_function() -> None:
@@ -121,7 +122,35 @@ def test_graph_labels_are_in_the_curve_colour() -> None:
     assert isinstance(label, ft.Container)
     assert isinstance(label.content, ft.Markdown)
     assert label.content.latex_style is not None
-    assert label.content.latex_style.color == "#4f9dff"
+    assert label.content.latex_style.color == DARK.graph_blue
+    assert "mathbf{f1}" in label.content.value
+
+
+def test_function_number_sets_the_label_colour_and_black_is_the_screen_text() -> None:
+    """FR-GRAPH-001: f3 is TI's black, drawn in the theme's foreground colour."""
+    view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
+    graphs = Graphs(Session(), ("f1", "f2"))
+    graphs.submit(0, "x")
+
+    view.refresh(graphs, 600, 400)
+
+    assert isinstance(view.plot.content, ft.Stack)
+    label = view.plot.content.controls[1]
+    assert isinstance(label, ft.Container)
+    assert isinstance(label.content, ft.Markdown)
+    assert label.content.latex_style is not None
+    assert label.content.latex_style.color == DARK.screen_text
+
+
+@pytest.mark.parametrize("name", list(THEMES))
+def test_graph_colours_read_well_on_the_screen_in_every_theme(name: str) -> None:
+    """FR-GRAPH-001: TI's colour order as theme tokens, legible on the screen colour."""
+    theme = THEMES[name]
+    colours = graph_colours(theme)
+    values = [colours[colour] for colour in FUNCTION_COLOURS]
+    assert len(set(values)) == len(values)
+    for value in values:
+        assert contrast(value, theme.screen) >= 3
 
 
 def test_pinch_event_dispatches_an_anchored_zoom_gesture() -> None:
