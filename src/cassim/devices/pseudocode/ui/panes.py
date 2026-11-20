@@ -64,20 +64,31 @@ class BoxedPane:
             width=36,
             height=36,
         )
+        title_controls: list[ft.Control] = []
+        if options.title_controls:
+            title_controls.append(
+                ft.Container(
+                    ft.Row(options.title_controls, tight=True, spacing=4),
+                    expand=True,
+                    alignment=ft.Alignment.CENTER,
+                )
+            )
         title_row = ft.Row(
             [
-                ft.Text(title, weight=ft.FontWeight.BOLD, expand=True),
-                *options.title_controls,
+                ft.Text(title, weight=ft.FontWeight.BOLD),
+                *title_controls,
+                *([] if options.title_controls else [ft.Container(expand=True)]),
                 self.toggle,
             ],
             spacing=4,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        self.body = ft.Column(
-            [self.content_host, ft.Row([ft.Container(expand=True), self.grip], spacing=0)],
-            spacing=0,
+        grip_overlay = ft.Container(
+            self.grip,
+            alignment=ft.Alignment.BOTTOM_RIGHT,
             expand=True,
         )
+        self.body = ft.Stack([self.content_host, grip_overlay], expand=True)
         self.container = ft.Container(
             ft.Column(
                 [
