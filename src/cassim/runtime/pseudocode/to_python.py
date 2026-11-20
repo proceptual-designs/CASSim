@@ -337,15 +337,17 @@ class _Translator:
         if any(param.sig is not None for param in stmt.params):
             raise self.fail(stmt.line, "function-valued parameter")
         args = [ast.arg(self.rename(param.name)) for param in stmt.params]
-        defaults = [
-            self.expression(param.default) for param in stmt.params if param.default is not None
-        ]
-        if defaults and defaults != [
-            self.expression(param.default)
-            for param in stmt.params[-len(defaults) :]
-            if param.default is not None
-        ]:
+        first_default = next(
+            (index for index, param in enumerate(stmt.params) if param.default is not None),
+            len(stmt.params),
+        )
+        if any(param.default is None for param in stmt.params[first_default:]):
             raise self.fail(stmt.line, "function default parameter", "defaults must be trailing")
+        defaults = [
+            self.expression(param.default)
+            for param in stmt.params[first_default:]
+            if param.default is not None
+        ]
         return ast.FunctionDef(
             self.rename(stmt.name),
             _arguments(args, defaults),

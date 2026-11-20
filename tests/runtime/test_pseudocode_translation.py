@@ -13,6 +13,8 @@ from cassim.runtime.pseudocode import (
     shape,
 )
 from cassim.runtime.pseudocode.settings import Settings
+from cassim.runtime.pseudocode.to_python import pseudocode_to_python as _to_python
+from cassim.runtime.pseudocode.tree import Binary, If, Name, Num, Program
 
 
 def same_program(before: str, after: str) -> bool:
@@ -146,3 +148,136 @@ def test_translated_program_runs_with_pseudocode_output(
     monkeypatch.setattr("sys.stdout", output)
     exec(translated, {})
     assert output.getvalue() == "1\n2\n3\n4.0\n"
+
+
+def test_python_translation_covers_expression_and_statement_forms() -> None:
+    source = """\
+def helper(x, step=1):
+    if x > 0 and x != 2:
+        return x
+    elif not x:
+        return -step
+    else:
+        return +step
+
+values = [True, False, 2.5]
+values.append(values[1])
+helper(values[0])
+for _ in range(2):
+    print("repeat")
+for i in range(3):
+    print(i)
+for i in range(1, 8, 2):
+    print(i)
+for i in range(8, 0, -2):
+    print(i)
+"""
+
+    pseudocode = python_to_pseudocode(source)
+    translated = pseudocode_to_python(pseudocode)
+
+    assert "define helper(x, step = 1)" in pseudocode
+    assert "append values[1 + 1] to values" in pseudocode
+    assert "for i from 1 to 8 - 1 step 2" in pseudocode
+    compile(translated, "<translated>", "exec")
+
+
+def test_pseudocode_translation_covers_control_flow_forms() -> None:
+    source = """\
+define choose(x)
+  if x > 0 then
+    return x
+  else
+    return
+  end if
+end
+P(x) ← x^2
+items ← [1, 2, 3]
+append 4 to items
+choose(1)
+for each item in items
+  print item
+end for
+repeat 2 times
+  print "again"
+end repeat
+repeat
+  print "once"
+until true
+while false
+  break
+end while
+"""
+
+    translated = pseudocode_to_python(source)
+
+    assert "def P(" in translated
+    assert "items.append(4)" in translated
+    assert "for item in items:" in translated
+    assert "for _ in range(2):" in translated
+    assert "while True:" in translated
+    compile(translated, "<translated>", "exec")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "x = y = 1",
+        "x: int = 1",
+        "x += 1",
+        "x.a = 1",
+        "x[1:2] = 3",
+        "1 + 2",
+        "print(1, end='')",
+        "f(x=1)",
+        "obj.method()",
+        "x = (1, 2)",
+        "x = {1, 2}",
+        "x = ~1",
+        "while True:\n    print(1)\n",
+        "while True:\n    print(1)\nelse:\n    pass",
+        "for x in [1, 2]:\n    pass",
+        "for x, y in range(2):\n    pass",
+        "for x in range():\n    pass",
+        "for x in range(4, 1, 0):\n    pass",
+        "for x in range(1, n, step):\n    pass",
+        "@decorator\ndef f():\n    return",
+        "def f() -> int:\n    return 1",
+        "def f(*args):\n    return 1",
+        "def f(x: int):\n    return x",
+        "try:\n    x = 1\nexcept Exception:\n    pass",
+    ],
+)
+def test_python_translation_rejects_unsupported_forms(source: str) -> None:
+    with pytest.raises(TranslationError):
+        python_to_pseudocode(source)
+
+
+def test_python_translation_handles_generated_helpers_and_angle_wrappers() -> None:
+    source = """\
+for x from 0.5 to 2.5 step 0.5
+  y ← degrees(asin(x/3))
+  z ← radians(y)
+end for
+"""
+    translated = pseudocode_to_python(
+        source,
+        Settings(number="auto", angle="degree"),
+    )
+
+    assert "def _inclusive_range" in translated
+    assert "from math import" in translated
+    assert "degrees(asin" in translated
+    compile(translated, "<translated>", "exec")
+
+
+def test_pseudocode_translation_rejects_empty_if_and_unknown_nodes() -> None:
+    with pytest.raises(TranslationError, match="has no branch"):
+        _to_python(Program([If([], None, 1)], []))
+    with pytest.raises(TranslationError, match="operator"):
+        _to_python(
+            Program(
+                [If([(Binary("unknown", Name("x"), Num("1")), [], 1)], None, 1)],
+                [],
+            )
+        )
