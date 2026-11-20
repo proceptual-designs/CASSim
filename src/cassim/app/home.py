@@ -232,11 +232,6 @@ class Home:
                     width=self.card_width,
                 ),
                 ft.Column([self._card(choice) for choice in choices], spacing=8),
-                ft.Text(
-                    "Your last-used app opens next time.",
-                    size=12,
-                    color=self.theme.menu_disabled,
-                ),
             ],
             spacing=10,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,

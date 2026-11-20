@@ -7,6 +7,8 @@ from contextlib import contextmanager
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from cassim.app.home import WELCOME
+
 pytestmark = pytest.mark.e2e
 
 
@@ -200,6 +202,56 @@ def test_python_toggle_translates_and_traces(browser: Browser, site) -> None:
         page.get_by_role("button", name="Pseudocode", exact=True).click()
         page.get_by_role("button", name=re.compile("^Run")).click()
         expect(page.get_by_text("0 /", exact=False)).to_be_attached()
+
+
+ANDROID_UA = (
+    "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+)
+
+
+def test_phone_opens_runs_and_traces_typed_pseudocode(browser: Browser, site) -> None:
+    """FR-RUN-008, FR-PROF-014: on a touch phone Home opens Pseudocode, and code typed as an
+    on-screen keyboard types it runs and traces. No request fails (fallback fonts are shipped)."""
+    context = browser.new_context(
+        viewport={"width": 412, "height": 839},
+        device_scale_factor=2.625,
+        is_mobile=True,
+        has_touch=True,
+        user_agent=ANDROID_UA,
+    )
+    page = context.new_page()
+    failed: list[str] = []
+    page.on("response", lambda r: failed.append(f"{r.status} {r.url}") if r.status >= 400 else None)
+    page.on("pageerror", lambda error: failed.append(str(error)))
+    try:
+        page.goto(site[1], wait_until="load")
+        pseudocode = page.get_by_role("button", name=re.compile("^Pseudocode"))
+        placeholder = page.locator("flt-semantics-placeholder")
+        expect(placeholder).to_be_attached(timeout=60_000)
+        for _ in range(20):  # a mobile Flutter page enables semantics on a real tap
+            if pseudocode.count():
+                break
+            if placeholder.count():
+                placeholder.tap(force=True, timeout=5_000)
+            page.wait_for_timeout(500)
+        expect(page.get_by_text(WELCOME)).to_be_attached()
+        pseudocode.tap()
+        editor = page.locator("textarea").first
+        expect(editor).to_be_attached(timeout=15_000)
+        editor.tap()
+        editor.fill("")
+        page.keyboard.insert_text("total ← 0\nfor k from 1 to 4\n  total ← total + k\nend for\n")
+        page.keyboard.insert_text("print total")
+        page.get_by_role("button", name=re.compile("^Run")).tap()
+        expect(page.get_by_text("0 / 10 steps", exact=False)).to_be_attached(timeout=15_000)
+        page.get_by_role("button", name="Last", exact=True).tap()
+        expect(page.get_by_text("10 / 10 steps", exact=False)).to_be_attached()
+        expect(page.get_by_role("checkbox", name="total", exact=True)).to_be_attached()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert failed == []
+    finally:
+        context.close()
 
 
 def test_typing_aid_rewrites_only_while_enabled(browser: Browser, site) -> None:
