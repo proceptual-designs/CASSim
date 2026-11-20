@@ -12,8 +12,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from cassim.device.editor import Kind, Node, Row, Template
+from cassim.device.editor import Node
 from cassim.device.keys import Binding
+from cassim.devices.nspire.editor_storage import dump_nodes, load_nodes
 from cassim.devices.nspire.pages import graphs, spreadsheet
 from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
@@ -24,7 +25,6 @@ from cassim.devices.nspire.pages.statistics import (
     new_statistics,
 )
 from cassim.doc.document import PageType, PageTypes
-from cassim.doc.serialize import DocumentFileError
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -46,55 +46,6 @@ class PageKind(StrEnum):
 
 
 # ---- the Calculator page ------------------------------------------------------------------------
-
-
-def dump_nodes(nodes: Row | tuple[Node, ...]) -> str | list[Any]:
-    """A row as compact JSON (schema 2): plain text when it holds no template, else a list in
-    which each run of characters is one string and each template an object, so `solve(x^2=4,x)`
-    is `["solve(x", {"kind": "power", "slots": ["2"]}, "=4,x)"]`."""
-    out: list[Any] = []
-    for node in nodes:
-        if isinstance(node, str):
-            if out and isinstance(out[-1], str):
-                out[-1] += node
-            else:
-                out.append(node)
-        else:
-            item: dict[str, Any] = {
-                "kind": node.kind.value,
-                "slots": [dump_nodes(slot) for slot in node.slots],
-            }
-            if node.cols:
-                item["cols"] = node.cols
-            out.append(item)
-    if not out:
-        return ""
-    if len(out) == 1 and isinstance(out[0], str):
-        return out[0]
-    return out
-
-
-def load_nodes(items: str | list[Any]) -> Row:
-    """The inverse of `dump_nodes`. Schema 1 files wrote one character per string, which reads
-    the same way."""
-    if isinstance(items, str):
-        return list(items)
-    row: Row = []
-    for item in items:
-        if isinstance(item, str):
-            row.extend(item)
-        elif isinstance(item, dict):
-            row.append(
-                Template(
-                    Kind(item["kind"]),
-                    [load_nodes(slot) for slot in item["slots"]],
-                    int(item.get("cols", 0)),
-                )
-            )
-        else:
-            msg = f"bad editor node {item!r}"
-            raise DocumentFileError(msg)
-    return row
 
 
 def _new_calculator(problem: Problem) -> Calculator:

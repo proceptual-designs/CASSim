@@ -11,7 +11,8 @@ one-finger drag scrolls and a mouse drag selects a block (run 2, E4), and the wh
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 
 import flet as ft
 import flet.canvas as cv
@@ -19,9 +20,11 @@ import flet.canvas as cv
 from cassim.app.context_menu import context_menu_region
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
+from cassim.device.editor import Template, format_target
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
+from cassim.devices.nspire.ui.entry import EntryLine, row_height
 from cassim.graph.scene import Layer
 
 BAR = 22  # the bar under the grid, in the handheld's pixels
@@ -47,11 +50,16 @@ class SheetView:
         theme: Theme,
         on_action: Callable[[Action, str], None],
         scale: Callable[[], float],
+        click: Callable[[Sequence[tuple[int, int]], int], None] | None = None,
+        hold: Callable[[Sequence[tuple[int, int]], int], None] | None = None,
     ) -> None:
         self.theme = theme
         self.colours = sheet_colours(theme)
         self.on_action = on_action
         self.scale = scale
+        self.click = click or (lambda path, pos: on_action("place", format_target(path, pos)))
+        self.hold = hold or (lambda path, pos: on_action("extend", format_target(path, pos)))
+        self.shift: Callable[[], bool] = lambda: False
         self.sheet: Spreadsheet | None = None
         self._layers: dict[str, tuple[Layer, cv.Canvas]] = {}
         self._drag = 0.0  # pixels dragged and not yet turned into rows
@@ -72,11 +80,12 @@ class SheetView:
         )
         self.address = ft.Text("", color=theme.title_text, weight=ft.FontWeight.BOLD)
         self.entry = ft.Text("", color=theme.title_text, no_wrap=True, expand=True)
+        self.entry_box = ft.Container(self.entry, expand=True, on_click=self._edit_bar)
         self.bar = ft.Container(
             ft.Row(
                 [
                     self.address,
-                    ft.Container(self.entry, expand=True, on_click=self._edit_bar),
+                    self.entry_box,
                 ],
                 spacing=8,
             ),
@@ -94,7 +103,12 @@ class SheetView:
         """Draw `sheet` in a body `width` by `height` (the bar included)."""
         self.sheet = sheet
         scale = self.scale()
-        grid_height = max(height - BAR * scale, ROW * scale)
+        editor = sheet.editor
+        bar_height = BAR * scale
+        if editor and any(isinstance(node, Template) for node in editor.root):
+            wanted = max(52, 16 + 16 * row_height(editor.root)) * scale
+            bar_height = min(wanted, max(BAR * scale, height - ROW * scale))
+        grid_height = max(height - bar_height, ROW * scale)
         rows, columns = fit(width, grid_height, sheet, scale)
         if (rows, columns) != (sheet.rows_shown, sheet.columns_shown):
             sheet.set_window(rows, columns)
@@ -118,13 +132,32 @@ class SheetView:
         self.grid.controls = canvases
         size = 12 * scale
         self.address.value, self.address.size = screen.address, size
-        self.entry.value = (
-            screen.entry[: sheet.caret] + "|" + screen.entry[sheet.caret :]
-            if sheet.editing is not None
-            else screen.entry
-        )
+        self.entry.value = screen.entry
         self.entry.size = size
-        self.bar.height = BAR * scale
+        self.entry_box.content = (
+            ft.Column(
+                [
+                    ft.Row(
+                        [
+                            EntryLine(
+                                replace(self.theme, screen_text=self.theme.title_text),
+                                size,
+                                self.click,
+                                sheet.session.is_defined,
+                                self.hold,
+                            ).build(editor)
+                        ],
+                        spacing=0,
+                        scroll=ft.ScrollMode.AUTO,
+                    )
+                ],
+                spacing=0,
+                scroll=ft.ScrollMode.AUTO,
+            )
+            if editor is not None
+            else self.entry
+        )
+        self.bar.height = bar_height
         self._show_dialog(screen.dialog, scale)
 
     def _show_dialog(self, dialog: Dialog | None, scale: float) -> None:
@@ -180,13 +213,16 @@ class SheetView:
         return True
 
     def _tap(self, event: ft.TapEvent) -> None:
-        self._pick(event.local_position)
+        self._pick(event.local_position, extend=self.shift())
 
     def click_at(self, x: float, y: float) -> bool:
         """A click by the keypad's pointer at (`x`, `y`) in the sheet's frame, as a tap there."""
         return self._pick(ft.Offset(x, y))
 
     def _double_tap(self, event: ft.TapEvent) -> None:
+        if self.shift():
+            self._pick(event.local_position, extend=True)
+            return
         editing_formula = (
             self.sheet is not None
             and self.sheet.editing is not None
@@ -207,7 +243,7 @@ class SheetView:
         self._drag = 0.0
         self._mouse = event.kind == ft.PointerDeviceType.MOUSE
         if self._mouse:
-            self._pick(event.local_position)
+            self._pick(event.local_position, extend=self.shift())
 
     def _pan(self, event: ft.DragUpdateEvent) -> None:
         if self._mouse:

@@ -6,12 +6,14 @@ import ast
 import asyncio
 import contextlib
 import io
+import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
+from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
 from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
@@ -150,6 +152,10 @@ VARIABLE_COLUMN_WIDTH = 76
 CONDITION_COLUMN_WIDTH = 130
 OUTPUT_COLUMN_WIDTH = 140
 SYMBOL_COLUMN_COUNT = 3
+EDITOR_SETTINGS_KEY = "editor"
+CODE_FONT = "CASSim Code"
+MATH_FONT = "CASSim Math"
+SYMBOL_FONT = "Symbols"
 THEMES: dict[str, Theme] = {
     "Dark": DARK,
     "Light": LIGHT,
@@ -180,7 +186,7 @@ def _safe_update(control: ft.Control) -> None:
 
 
 class CodeApp:
-    def __init__(self, shell: Shell) -> None:
+    def __init__(self, shell: Shell) -> None:  # noqa: PLR0915
         self.shell = shell
         self.page = shell.page
         shell.changed = self.on_bridge
@@ -195,6 +201,10 @@ class CodeApp:
         self.trace_source = EXAMPLE
         self.line_numbers_visible = True
         self.typing_aid = False
+        self.typing_aids = False
+        self.typing_undo: tuple[str, str] | None = None
+        self.code_style = "monospace"
+        self.symbol_style = "unicode"
         self.console_inputs: list[str] = []
         self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
         self.language = "pseudocode"
@@ -212,7 +222,7 @@ class CodeApp:
             max_lines=5000,
             autocorrect=False,
             enable_suggestions=False,
-            text_style=ft.TextStyle(font_family="monospace", size=14, height=20 / 14),
+            text_style=self.editor_text_style(),
             content_padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
             border=ft.OutlineInputBorder(side=ft.BorderSide.none()),
             tooltip="Code editor",
@@ -249,13 +259,17 @@ class CodeApp:
         self.number_button = ft.Button("Approx", on_click=self.cycle_number, style=_control_style())
         self.angle_button = ft.Button("Radian", on_click=self.toggle_angle, style=_control_style())
         self.update_item = ft.MenuItemButton(
-            content=self.shell.update_label,
+            content=getattr(self.shell, "update_label", "Check for Updates"),
             on_click=self.activate_update,
         )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
-                ft.MenuItemButton(content="Home", on_click=self.home),
+                *(
+                    [ft.MenuItemButton(content="Home", on_click=self.home)]
+                    if getattr(self.shell, "home", None) is not None
+                    else []
+                ),
                 ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
                 ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
                 self.update_item,
@@ -296,6 +310,11 @@ class CodeApp:
             on_click=self.cycle_trace_layout,
             style=_control_style(),
         )
+        self.typing_aids_switch = ft.Switch(
+            label="Typing aids",
+            value=False,
+            on_change=self.toggle_typing_aids,
+        )
         self.trace_items = ft.Column(
             [ft.Text("Run to discover constants, variables, functions, and conditions", size=12)],
             scroll=ft.ScrollMode.AUTO,
@@ -303,7 +322,13 @@ class CodeApp:
             spacing=4,
         )
 
-        self.console = ft.Text("", selectable=True, font_family="monospace", expand=True)
+        self.console = ft.Text(
+            "",
+            selectable=True,
+            font_family=CODE_FONT,
+            font_family_fallback=[MATH_FONT, SYMBOL_FONT],
+            expand=True,
+        )
         self.console_input = ft.TextField(
             hint_text="Input or expression",
             dense=True,
@@ -358,6 +383,7 @@ class CodeApp:
                 self.number_button,
                 self.angle_button,
                 self.trace_layout,
+                self.typing_aids_switch,
             ],
             scroll=ft.ScrollMode.AUTO,
             spacing=8,
@@ -449,6 +475,12 @@ class CodeApp:
         )
 
     async def start(self, **_options: object) -> None:
+        self.page.fonts = {
+            CODE_FONT: "fonts/RobotoMono-Regular.ttf",
+            MATH_FONT: "fonts/NotoSansMath-Regular.ttf",
+            SYMBOL_FONT: "fonts/NotoSansSymbols2-Regular.ttf",
+        }
+        await self.load_editor_settings()
         self.page.title = "CASSim-pseudocode"
         self.page.padding = 8
         self.page.on_resize = self.on_resize
@@ -459,6 +491,65 @@ class CodeApp:
         if self._has_browser_dom():
             await self.start_codemirror()
 
+    def editor_text_style(self) -> ft.TextStyle:
+        family = CODE_FONT if self.code_style == "monospace" else "sans-serif"
+        return ft.TextStyle(
+            font_family=family,
+            font_family_fallback=[MATH_FONT, SYMBOL_FONT],
+            size=14,
+            height=20 / 14,
+        )
+
+    async def load_editor_settings(self) -> None:
+        saved = await self.shell.read(EDITOR_SETTINGS_KEY)
+        if saved is None:
+            return
+        try:
+            data = json.loads(saved)
+        except json.JSONDecodeError:
+            self.shell.notice("Code settings", "Saved code display settings could not be read.")
+            return
+        if not isinstance(data, dict):
+            self.shell.notice("Code settings", "Saved code display settings could not be read.")
+            return
+        code_style = data.get("code_style")
+        symbol_style = data.get("symbol_style")
+        typing_aids = data.get("typing_aids")
+        if code_style in ("monospace", "formatted"):
+            self.code_style = str(code_style)
+        if symbol_style in ("unicode", "ascii"):
+            self.symbol_style = str(symbol_style)
+        if isinstance(typing_aids, bool):
+            self.typing_aids = typing_aids
+            self.typing_aid = typing_aids
+        self.typing_aids_switch.value = self.typing_aids
+        self.update_typing_aids()
+        self.apply_code_style()
+        if self.symbol_style == "ascii":
+            self.set_source(convert_symbols(self.current_source, "ascii"))
+
+    def save_editor_settings(self) -> None:
+        self.shell.write(
+            EDITOR_SETTINGS_KEY,
+            json.dumps(
+                {
+                    "code_style": self.code_style,
+                    "symbol_style": self.symbol_style,
+                    "typing_aids": self.typing_aids,
+                }
+            ),
+        )
+
+    def apply_code_style(self) -> None:
+        self.fallback_editor.text_style = self.editor_text_style()
+        if self.cm is not None:
+            family = (
+                f'"{CODE_FONT}", "{MATH_FONT}", monospace'
+                if self.code_style == "monospace"
+                else f'sans-serif, "{MATH_FONT}"'
+            )
+            self.cm.getWrapperElement().style.fontFamily = family
+
     def unmount(self) -> None:
         if self.cm is not None:
             import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
@@ -467,6 +558,8 @@ class CodeApp:
             if host:
                 host.remove()
         self.shell.changed = lambda: None
+        self.page.on_keyboard_event = None
+        self.page.on_resize = None
         self.page.controls.clear()
 
     @staticmethod
@@ -478,7 +571,7 @@ class CodeApp:
         return True
 
     def on_bridge(self) -> None:
-        self.update_item.content = self.shell.update_label
+        self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
         _safe_update(self.update_item)
 
     def apply_theme(self, name: str) -> None:
@@ -500,8 +593,9 @@ class CodeApp:
         return str(self.fallback_editor.value or "")
 
     def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
-        if self.typing_aid:
-            text = str(event.control.value or "")
+        text = str(event.control.value or "")
+        previous = self.current_source
+        if self.typing_aid or self.typing_aids:
             selection = event.control.selection
             cursor = selection.end if selection is not None else len(text)
             replacement = replacement_before_cursor(text, cursor)
@@ -510,8 +604,19 @@ class CodeApp:
                     text[: replacement.start] + replacement.replacement + text[replacement.end :]
                 )
                 event.control.update()
+                self.typing_undo = (str(event.control.value or ""), previous)
+                self.current_source = str(event.control.value or "")
                 self.refresh_line_numbers()
+                self.mark_dirty()
                 return
+            if self.typing_aids and self.symbol_style == "unicode":
+                converted = convert_typing(previous, text)
+                if converted != text:
+                    self.typing_undo = (converted, text)
+                    event.control.value = converted
+                    event.control.update()
+                    text = converted
+        self.current_source = text
         self.refresh_line_numbers()
         self.mark_dirty()
 
@@ -540,6 +645,7 @@ class CodeApp:
             self.cm.setOption("mode", "pseudocode" if self.language == "pseudocode" else "python")
             self.cm.refresh()
         event.control.update()
+        self.update_typing_aids()
         self.mark_dirty()
 
     def toggle_line_numbers(self, event: ft.Event[ft.Switch]) -> None:
@@ -643,6 +749,8 @@ class CodeApp:
         return source
 
     def set_source(self, text: str, *, generated_python: bool = False) -> None:
+        if self.symbol_style == "ascii":
+            text = convert_symbols(text, "ascii")
         self.generated_python = generated_python
         if not generated_python:
             self.python_header = ""
@@ -846,14 +954,17 @@ if (!window.CASSimPseudocodeModeDefined) {
             host,
             to_js(
                 {
-                    "value": EXAMPLE,
-                    "mode": "pseudocode",
+                    "value": self.current_source,
+                    "mode": "pseudocode" if self.language == "pseudocode" else "python",
                     "theme": "dracula",
-                    "lineNumbers": True,
+                    "lineNumbers": self.line_numbers_visible,
                     "lineWrapping": True,
                     "indentUnit": 2,
                     "tabSize": 2,
                     "autofocus": False,
+                    "cassimTypingAids": self.typing_aids
+                    and self.language == "pseudocode"
+                    and self.symbol_style == "unicode",
                 },
                 dict_converter=js.Object.fromEntries,
             ),
@@ -862,6 +973,9 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.fallback_editor.visible = False
         self.line_number_gutter.visible = False
         _safe_update(self.line_number_gutter)
+        self.apply_code_style()
+        self.update_typing_aids()
+        self.install_typing_aids()
 
         def changed(_instance: object, change: object) -> None:
             if self.typing_aid and str(getattr(change, "origin", "")) == "+input":
@@ -887,6 +1001,48 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.cm_change_proxy = create_proxy(changed)
         cm.on("change", self.cm_change_proxy)
         self.position_codemirror()
+
+    def install_typing_aids(self) -> None:
+        import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
+
+        assert self.cm is not None
+
+        js.eval(r"""
+window.CASSimTypingAids = function(editor, change) {
+  if (!editor.getOption("cassimTypingAids") || change.origin !== "+input") return;
+  if (change.text.length !== 1 || change.text[0].length !== 1) return;
+  const inserted = change.text[0];
+  const end = change.from.ch + 1;
+  const pos = CodeMirror.Pos(change.from.line, change.from.ch);
+  const token = editor.getTokenAt(pos);
+  if (token && token.type && /string|comment/.test(token.type)) return;
+  const line = editor.getLine(change.from.line).slice(0, end);
+  const operators = {"-": ["<", "←"], "=": ["<", "≤"]};
+  if (inserted in operators) {
+    const pair = operators[inserted];
+    if (line.endsWith(pair[0] + inserted)) {
+      editor.replaceRange(pair[1], CodeMirror.Pos(change.from.line, end - 2),
+                          CodeMirror.Pos(change.from.line, end), "+typingAid");
+      return;
+    }
+  }
+  const extra = {">=": "≥", "!=": "≠"};
+  const operator = line.slice(-2);
+  if (operator in extra) {
+    editor.replaceRange(extra[operator], CodeMirror.Pos(change.from.line, end - 2),
+                        CodeMirror.Pos(change.from.line, end), "+typingAid");
+    return;
+  }
+  const aliases = {"@e": "ⅇ", "@pi": "π"};
+  const name = line.endsWith("@pi") ? "@pi" : line.endsWith("@e") ? "@e" : null;
+  if (name) {
+    const start = end - name.length;
+    editor.replaceRange(aliases[name], CodeMirror.Pos(change.from.line, start),
+                        CodeMirror.Pos(change.from.line, end), "+typingAid");
+  }
+};
+""")
+        self.cm.on("change", js.window.CASSimTypingAids)
 
     def position_codemirror(self) -> None:
         if self.cm is None:
@@ -978,6 +1134,18 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.position_codemirror()
 
     def on_keyboard(self, event: ft.KeyboardEvent) -> None:
+        if (event.ctrl or event.meta) and event.key.lower() == "z" and self.typing_undo:
+            converted, original = self.typing_undo
+            if self.source() == converted:
+                self.fallback_editor.value = original
+                if self.cm is not None:
+                    self.cm.setValue(original)
+                else:
+                    self.fallback_editor.update()
+                self.current_source = original
+                self.typing_undo = None
+                self.mark_dirty()
+                return
         if event.key == "ArrowLeft":
             self.step_back(None)
         elif event.key == "ArrowRight":
@@ -998,6 +1166,24 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.angle_mode = "degree" if self.angle_mode == "radian" else "radian"
         self.angle_button.content = self.angle_mode.title()
         _safe_update(self.angle_button)
+
+    def toggle_typing_aids(self, event: ft.Event[ft.Switch]) -> None:
+        enabled = bool(event.control.value)
+        self.typing_aids = enabled
+        self.typing_aid = enabled
+        self.update_typing_aids()
+        self.save_editor_settings()
+
+    def update_typing_aids(self) -> None:
+        available = self.language == "pseudocode" and self.symbol_style == "unicode"
+        self.typing_aids_switch.disabled = not available
+        self.typing_aids_switch.value = self.typing_aids
+        if not available:
+            self.typing_undo = None
+        if hasattr(self.page, "update"):
+            self.typing_aids_switch.update()
+        if self.cm is not None:
+            self.cm.setOption("cassimTypingAids", self.typing_aids and available)
 
     async def run_code(self, _: ft.Event[ft.Button]) -> None:
         source = self.source()
@@ -1582,21 +1768,9 @@ if (!window.CASSimPseudocodeModeDefined) {
             )
 
     def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        async def show_home() -> None:
-            from cassim.app.home import Home  # noqa: PLC0415
-
-            self.unmount()
-            self.shell.device = None
-            open_device = getattr(self.shell, "open_device_callback", None)
-
-            def choose(item: str) -> object:
-                if callable(open_device):
-                    return self.page.run_task(open_device, item)
-                return None
-
-            await Home(self.shell, choose).start()
-
-        self.page.run_task(show_home)
+        home = getattr(self.shell, "home", None)
+        if home is not None:
+            home()
 
     def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
         def switch_changed(event: ft.Event[ft.Switch]) -> None:
@@ -1633,12 +1807,39 @@ if (!window.CASSimPseudocodeModeDefined) {
                 "Plain names such as pi are never changed."
             ),
         )
+        code_style = ft.Dropdown(
+            label="Code style",
+            value=self.code_style,
+            options=[
+                ft.DropdownOption(key="monospace", text="Monospace"),
+                ft.DropdownOption(key="formatted", text="Formatted (linear)"),
+            ],
+        )
+        symbol_style = ft.Dropdown(
+            label="Symbols",
+            value=self.symbol_style,
+            options=[
+                ft.DropdownOption(key="unicode", text="Unicode symbols"),
+                ft.DropdownOption(key="ascii", text="Plain ASCII"),
+            ],
+        )
 
         def save(_: ft.Event[ft.TextButton]) -> None:
             self.number_mode = cast(NumberMode, number.selected[0])
             self.angle_mode = cast(AngleMode, angle.selected[0])
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
+            self.typing_aids = self.typing_aid
+            self.code_style = str(code_style.value or "monospace")
+            new_symbol_style = str(symbol_style.value or "unicode")
+            if new_symbol_style != self.symbol_style:
+                old_source = self.source()
+                self.symbol_style = new_symbol_style
+                new_source = convert_symbols(old_source, new_symbol_style)
+                if new_source != old_source:
+                    self.set_source(new_source)
+                    self.typing_undo = (new_source, old_source)
+            self.symbol_style = new_symbol_style
             self.number_button.content = self.number_mode.title()
             self.angle_button.content = self.angle_mode.title()
             _safe_update(self.number_button)
@@ -1649,6 +1850,10 @@ if (!window.CASSimPseudocodeModeDefined) {
             else:
                 self.line_number_gutter.visible = self.line_numbers_visible
                 _safe_update(self.line_number_gutter)
+            self.apply_code_style()
+            _safe_update(self.fallback_editor)
+            self.update_typing_aids()
+            self.save_editor_settings()
             self.page.pop_dialog()
 
         self.page.show_dialog(
@@ -1660,12 +1865,18 @@ if (!window.CASSimPseudocodeModeDefined) {
                         number,
                         ft.Text("Angle"),
                         angle,
+                        code_style,
+                        symbol_style,
                         ft.Divider(),
                         line_numbers,
                         typing_aid,
                         ft.Text(
                             "Typing aid converts unambiguous symbols while you type. "
                             "Plain names such as pi are never changed.",
+                            size=12,
+                        ),
+                        ft.Text(
+                            "Formatted keeps linear source; it uses a proportional display face.",
                             size=12,
                         ),
                     ],

@@ -1,6 +1,7 @@
 """Focused state tests for the standalone pseudocode Code view."""
 
 import asyncio
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
 
@@ -29,6 +30,7 @@ class DummyShell:
         self.page = SimpleNamespace()
         self.update_label = "Check for Updates"
         self.changed = lambda: None
+        self.home: Callable[[], None] | None = None
         self.notices: list[tuple[str, str]] = []
 
     def notice(self, title: str, message: str) -> None:
@@ -40,6 +42,28 @@ def test_bisection_example_starts_with_expression_function() -> None:
     assert "precision ← 0.001" in BISECTION
     assert "while b-a > precision" in BISECTION
     assert run(BISECTION, Settings()).output == ["1.41504"]
+
+
+def test_home_delegates_to_the_application_shell() -> None:
+    shell = DummyShell()
+    requested: list[bool] = []
+    shell.home = lambda: requested.append(True)
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+
+    app.home(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+
+    assert requested == [True]
+
+
+def test_single_device_code_view_does_not_offer_home() -> None:
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+
+    labels = [
+        control.content
+        for control in app.cassim_menu.controls
+        if isinstance(control, ft.MenuItemButton)
+    ]
+    assert "Home" not in labels
 
 
 def test_set_source_clears_the_previous_trace() -> None:

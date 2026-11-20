@@ -172,7 +172,7 @@ def test_noninstalled_phone_keeps_browser_fullscreen_action() -> None:
 
 
 def test_cassim_key_opens_menu_and_ctrl_installs() -> None:
-    """FR-PWA-001: the new key works even when no install offer is present."""
+    """FR-PWA-001: Ctrl installs when offered and otherwise opens the CASSim menu."""
     app, _ = handheld_app(400, 900)
     shell: Any = app.shell
     shell.bridge = offers(standalone=False)
@@ -181,9 +181,14 @@ def test_cassim_key_opens_menu_and_ctrl_installs() -> None:
         assert app.state.menu is not None
         app.press_cassim()
         assert app.state.menu is None
+        app.state.press_keypad("ctrl")
         app.press_cassim()
         assert app.state.menu is not None
         assert app.state.menu.root.label == "CASSim"
+        install.assert_not_called()
+        assert app.state.pending == ""
+        app.press_cassim()
+        assert app.state.menu is None
         shell.bridge.installable = True
         app.state.press_keypad("ctrl")
         app.press_cassim()
