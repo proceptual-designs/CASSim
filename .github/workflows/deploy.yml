@@ -1,9 +1,9 @@
 name: Deploy
 # Cloudflare Pages, three projects (PLAN.md section 14):
-#   cassim-calc  testing: every push to main
+#   cassim-calc  testing: a push to main (one per batch merge) that changes the app, or a manual run
 #   cassim-app   stable: a published GitHub release, or a manual run with target "stable"
 #   cassim-tin   the Nspire alone (bundle tin), stable only: with cassim-app (decision 0032)
-#   cassim-wiki  help pages from docs/wiki: every push to main
+#   cassim-wiki  help pages: a push to main that changes docs/wiki or its tool, or a manual run
 # Needs the repository secrets CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit) and
 # CLOUDFLARE_ACCOUNT_ID.
 on:
@@ -28,7 +28,35 @@ env:
   WRANGLER: npx --yes wrangler@4.160.1
 
 jobs:
+  changes:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    outputs:
+      site: ${{ steps.filter.outputs.site }}
+      wiki: ${{ steps.filter.outputs.wiki }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Decide which sites changed
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "site=true" >> "$GITHUB_OUTPUT"; echo "wiki=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$BEFORE" HEAD)
+          echo "$changed"
+          site=false; wiki=false
+          echo "$changed" | grep -qvE '^(docs/|tests/|corpus/|spikes/|\.github/|[^/]+\.md$|LICENSE$)' && site=true
+          echo "$changed" | grep -qE '^(docs/wiki/|tools/wiki_site\.py)' && wiki=true
+          echo "site=$site" >> "$GITHUB_OUTPUT"; echo "wiki=$wiki" >> "$GITHUB_OUTPUT"
+
   site:
+    needs: changes
+    if: >-
+      always() && (github.event_name != 'push' || needs.changes.outputs.site == 'true')
     runs-on: ubuntu-24.04
     concurrency:
       group: site-${{ (github.event_name == 'release' || inputs.target == 'stable') && 'stable' || 'testing' }}
@@ -71,7 +99,10 @@ jobs:
           --branch main --commit-hash ${{ github.sha }}
 
   wiki:
-    if: github.event_name != 'release'
+    needs: changes
+    if: >-
+      always() && github.event_name != 'release'
+      && (github.event_name != 'push' || needs.changes.outputs.wiki == 'true')
     runs-on: ubuntu-24.04
     concurrency:
       group: wiki
