@@ -963,6 +963,7 @@ _SYMBOLS = {
     "ⅈ": r"\boldsymbol{i}",  # bold italic, as the device draws it
     " ": r"\ ",  # TeX drops a plain space, which would run `and` into its equations
     "%": r"\%",
+    '"': r'\mathtt{"}',  # straight, as the device draws it: KaTeX_Main's quote is curly
     "_": r"\_",
     "#": r"\#",
     "&": r"\&",

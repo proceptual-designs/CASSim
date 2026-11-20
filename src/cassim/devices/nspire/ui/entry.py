@@ -43,6 +43,8 @@ _SHOWN = {"*": "·", "-": "−", "ⅇ": "ⅇ", "ᴇ": "ᴇ", "/": "/", " ": " "}
 # (italic by design), everything else in KaTeX_Main.
 _MATH_FONT = "packages/flutter_math_fork/KaTeX_Math"
 _MAIN_FONT = "packages/flutter_math_fork/KaTeX_Main"
+# A string's quote is straight, as on the device; KaTeX_Main draws it curly, KaTeX_Typewriter not
+_QUOTE_FONT = "packages/flutter_math_fork/KaTeX_Typewriter"
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
 _BINARY = frozenset("+-*=<>≤≥≠")  # set with a little space either side, as TeX does
 
@@ -195,7 +197,9 @@ class EntryLine:
             size=self.size,
             color=self.theme.screen_text,
             weight=ft.FontWeight.BOLD if style in (Style.BOLD, Style.BOLD_ITALIC) else None,
-            font_family=_MATH_FONT
+            font_family=_QUOTE_FONT
+            if char == '"'
+            else _MATH_FONT
             if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
             else _MAIN_FONT,
             no_wrap=True,

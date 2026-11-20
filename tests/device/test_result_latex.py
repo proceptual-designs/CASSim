@@ -31,8 +31,8 @@ from cassim.devices.nspire.screen import render
         # brackets round something tall grow with it
         ("cos(π/9)", r"\mathrm{c}\mathrm{o}\mathrm{s}\left(\frac{\pi }{9}\right)"),
         ("(x-1)^2", r"(x-1){}^{2}"),
-        # a string keeps its quotes, and its letters are upright text
-        ('"hi"', r'"\mathrm{h}\mathrm{i}"'),
+        # a string keeps its quotes, straight as on the device, and its letters are upright text
+        ('"hi"', r'\mathtt{"}\mathrm{h}\mathrm{i}\mathtt{"}'),
         # solve's arbitrary integers are bold italic, without the @ (emulator calc4 results)
         ("x=2*π*@n1", r"x=2\cdot \pi \cdot \boldsymbol{n}\boldsymbol{1}"),
     ],
