@@ -1,0 +1,9 @@
+# 0034: Choices after emulator check 6, run 5
+
+Status: accepted (Simon, 2026-11-20). Context: `docs/testing/emulator-check6-run5-plan.md`, section 2.
+
+1. **Standard affordances stay where they do not clash with the device.** The simulator showed no mouse-wheel zoom on a Graphs page. CASSim keeps its wheel zoom about the pointer (and pinch zoom). The general rule: a common desktop or touch affordance is kept when the device gives that gesture no other meaning, and is documented as a CASSim extension.
+2. **Up to four panes on a page.** Shade P Value and Shade area add a pane on the device, giving three panes and then a 2×2 layout. CASSim allows the same, up to four panes. This replaces decision 0031's "layouts of more than two panes are greyed" for these layouts; Custom Split stays greyed.
+3. **Catalog search narrows as you type.** The device jumps to the first entry for the last letter typed. CASSim keeps narrowing on the accumulated letters (`getN` finds `getNum(`). Esc clears the accumulated search; a second Esc closes the Catalog. This is a deliberate improvement on the device.
+4. **Arbitrary constants are named the TI way.** `solve` names free parameters `c1`, `c2`, … and periodic or integer families `n1`, `n2`, … with a counter that runs through the Problem (the numbering details come from run 6, R6-C3). Free parameters (`c`) come first; `n` comes with the `fMin` and trigonometric work.
+5. The exam-paper screenshots (`K4` to `K7`) are committed with the other run 5 evidence. The SAC results stay outside the repository.
