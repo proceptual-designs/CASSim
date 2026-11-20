@@ -164,12 +164,15 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
             return str(editor.input_value())
 
         replace("x <")
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         assert source() == "x <-"
 
         typing_aids.click()
+        page.wait_for_timeout(300)
+        editor = page.get_by_role("textbox", name="Code")
+        expect(editor).to_be_attached()
         replace("x <")
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         expect(editor).to_have_value("x ←")
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("x <-")
@@ -178,14 +181,15 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         enable_semantics(page)
         editor = page.get_by_role("textbox", name="Code")
         expect(editor).to_be_attached(timeout=60_000)
+        page.wait_for_timeout(300)
         replace("print @")
-        page.keyboard.type("pi", delay=30)
+        editor.press_sequentially("pi", delay=30)
         expect(editor).to_have_value("print π")
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("print @pi")
 
         replace('print "<')
-        page.keyboard.type("-")
+        editor.press_sequentially("-")
         expect(editor).to_have_value('print "<-')
     finally:
         page.close()
