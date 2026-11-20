@@ -31,6 +31,7 @@ from cassim.runtime.pseudocode.tree import (
     Break,
     Call,
     Compare,
+    Constant,
     Define,
     Expr,
     ExprStmt,
@@ -164,6 +165,16 @@ def test_superscripts_follow_the_syntax() -> None:
     assert print_program(tree, PRESETS["strict"]) == "y ← x^2 + a^-1\n"
 
 
+def test_explicit_constants_print_in_the_selected_symbol_style() -> None:
+    tree = parse("print @e + @pi")
+    assert print_program(tree) == "print ⅇ + π\n"
+    assert print_program(tree, load_syntax({"emit": {"symbols": "ascii"}})) == "print @e + @pi\n"
+    assert shape(parse(print_program(tree)).body) == shape(tree.body)
+    assert shape(parse(print_program(tree, load_syntax({"emit": {"symbols": "ascii"}}))).body) == (
+        shape(tree.body)
+    )
+
+
 def test_printer_never_writes_a_spelling_the_syntax_refuses() -> None:
     """Strict refuses `*`, `/`, `<-`, `=`, `endif`, `do` and `then`-less ifs; the output obeys."""
     src = "x <- 6 / 3 * 2\nwhile x > 0 do\n x <- x - 1\nwend\nif x = 0\n print x\nendif"
@@ -240,10 +251,16 @@ def test_emit_entries_are_validated(bad: dict[str, Any]) -> None:
 
 NAMES = st.sampled_from(["x", "y", "n", "total", "a1", "pi"])
 NUMS = st.sampled_from(["0", "1", "2", "10", "3.5", ".5", "2E3"])
+CONSTANTS = st.sampled_from(["ⅇ", "π"])
 
 
 def leaf() -> st.SearchStrategy[Expr]:
-    return st.one_of(NUMS.map(Num), NAMES.map(Name), st.sampled_from(["", "hi", "a b"]).map(Str))
+    return st.one_of(
+        NUMS.map(Num),
+        NAMES.map(Name),
+        CONSTANTS.map(Constant),
+        st.sampled_from(["", "hi", "a b"]).map(Str),
+    )
 
 
 def tame(e: Expr) -> bool:

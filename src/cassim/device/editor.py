@@ -89,6 +89,22 @@ class Editor:
             row = _template(row[index]).slots[slot]
         return row
 
+    @property
+    def in_grid(self) -> bool:
+        """Whether the cursor is in a matrix-like template."""
+        return bool(self.path and self._parent().kind in GRIDS)
+
+    @property
+    def in_string(self) -> bool:
+        """Whether the cursor is inside quoted text."""
+        row = self.root
+        prefix = ""
+        for index, slot in self.path:
+            prefix += linear_text(row[:index])
+            row = _template(row[index]).slots[slot]
+        prefix += linear_text(row[: self.pos])
+        return prefix.count('"') % 2 == 1
+
     def _parent(self) -> Template:
         row = self.root
         for index, slot in self.path[:-1]:
@@ -118,12 +134,13 @@ class Editor:
     def _paste_linear(self, text: str, mark: str) -> tuple[list[tuple[int, int]], int] | None:
         spot: tuple[list[tuple[int, int]], int] | None = None
         index = 0
+        quoted = self.in_string
         while index < len(text):
             char = text[index]
             if mark and char == mark:
                 spot = (list(self.path), self.pos)
                 index += 1
-            elif char in "^√":
+            elif char in "^√" and not quoted:
                 operand, index = _operand(text, index + 1, root=char == "√")
                 self.insert_template(Kind.POWER if char == "^" else Kind.ROOT)
                 spot = self._paste_linear(operand, mark) or spot
@@ -132,6 +149,8 @@ class Editor:
                 self.row().insert(self.pos, char)
                 self.pos += 1
                 index += 1
+                if char == '"':
+                    quoted = not quoted
         return spot
 
     def insert(self, char: str) -> None:
@@ -140,15 +159,16 @@ class Editor:
         The fraction is stacked only after Return or from the palette (`insert_template`).
         """
         self._unselect(replace=True)
-        if char == "," and self.path and self._parent().kind is Kind.LIST:
+        quoted = self.in_string
+        if char == "," and not quoted and self.path and self._parent().kind is Kind.LIST:
             self._split_list_cell()
             return
         if char in _ANS_OPERATORS and not self.root:
             self.root.extend("Ans")
             self.pos = 3
-        if char == "^":
+        if char == "^" and not quoted:
             self.insert_template(Kind.POWER)
-        elif char == "√":
+        elif char == "√" and not quoted:
             self.insert_template(Kind.ROOT)
         else:
             self.row().insert(self.pos, char)

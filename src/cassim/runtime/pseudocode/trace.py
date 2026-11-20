@@ -185,7 +185,7 @@ def horizontal(
     if not result.horizontal_eligible:
         return None
     steps = _shown(result, cursor)
-    looped = [s for s in steps if s.loop is not None]
+    looped = [s for s in result.steps if s.kind != "halt" and s.loop is not None]
     if not looped:
         return None
     assert looped[0].loop is not None

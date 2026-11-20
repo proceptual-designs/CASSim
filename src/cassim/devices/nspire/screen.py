@@ -15,6 +15,7 @@ from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 from cassim.devices.nspire.pages.graphs import graphs_of
 from cassim.devices.nspire.pages.spreadsheet import SheetScreen, spreadsheet_of
+from cassim.devices.nspire.pages.statistics import statistics_of
 from cassim.doc.document import Document, Page
 
 
@@ -73,7 +74,23 @@ def thumbnail(page: Page, rows: int = 3, names: Mapping[str, str] | None = None)
     """The last few lines of a page as plain text, for the page sorter."""
     sheet = spreadsheet_of(page)
     if sheet is not None:
-        return (page_name(page, names), f"{len(sheet.cells)} cells")
+        headings = ", ".join(shown for _, shown, _ in sheet.columns if shown)
+        return (
+            page_name(page, names),
+            *((headings,) if headings else ()),
+            f"{len(sheet.cells)} cells",
+        )
+    statistics = statistics_of(page)
+    if statistics is not None:
+        if statistics.x_name and statistics.y_name:
+            variables = f"{statistics.y_name} vs {statistics.x_name}"
+        elif statistics.x_name:
+            variables = f"X: {statistics.x_name}"
+        elif statistics.y_name:
+            variables = f"Y: {statistics.y_name}"
+        else:
+            variables = "(no variables)"
+        return (page_name(page, names), variables, statistics.plot_type.value)
     graphs = graphs_of(page)
     if graphs is not None:
         functions = (

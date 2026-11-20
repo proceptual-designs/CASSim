@@ -1,32 +1,37 @@
 # CASSim
 
-A free, installable simulator of the TI-Nspire CX CAS that runs entirely in your browser.
+A free, installable family of calculator and programming apps that runs entirely in your browser.
+The current all-in-one build contains Nspire and Pseudocode & Python apps, with ClassPad and Prime
+available as future choices.
 
 **Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after setup).
 
 | Site | Address | What it is |
 |---|---|---|
-| CASSim (stable) | <https://cassim-app.pages.dev/> | The released version. Use this one. |
-| CASSim (testing) | <https://cassim-calc.pages.dev/> | The newest changes, updated on every merge. May break. |
+| CASSim (stable) | <https://cassim-app.pages.dev/> | The released all-in-one app. |
+| CASSim (testing) | <https://cassim-calc.pages.dev/> | The newest all-in-one build, updated on every merge. May break. |
 | Help | <https://cassim-wiki.pages.dev/> | The user guide; the app's Help link opens it. |
 
-Plans for other simulated devices are in [PLAN.md](PLAN.md).
 Built for the VCE Mathematics courses, but should be more generally useful.
 Usable on a desktop, laptop, netbook (Chromebook), tablet or a phone.
 
-> **Status: in development.** The calculation engine is complete and the app shell is working.
-> Graphs, lists and spreadsheet, statistics and notes pages are not built yet: Doc > Insert adds them as placeholders that say so. See [PLAN.md](PLAN.md).
+> **Status: in development.** The all-in-one Home shell is working. Nspire has Calculator, Graphs,
+> Lists & Spreadsheet and Data & Statistics; Pseudocode has an integrated editor, run/step and
+> trace-table app. Python execution, translation, Notes and later profiles are still in progress.
+> See [PLAN.md](PLAN.md) and [docs/SRS.md](docs/SRS.md).
 
-CASSim is an independently made simulator for educational purposes. 
-For this reason, the behaviour, layout, and menu structure of the simulator is designed to be similar to the TI-Nspire CX CAS, but it is not an exact copy.
+CASSim is an independently made simulator for educational purposes.
+Each calculator app's behaviour, layout and menu structure is designed to be familiar to users of
+that calculator without being an exact copy. The first calculator is the TI-Nspire CX CAS; future
+devices keep their own behaviour and corpus.
 It is not affiliated with, endorsed by or sponsored by Texas Instruments. 
 It is not an approved exam calculator and must not be used in assessments that require an approved device. 
 TI-Nspire is a trademark of Texas Instruments.
 
 ### Design and IP
 
-CASSim mirrors the handheld's layout, menus and commands so that practice transfers to the real
-calculator. All artwork and help text are CASSim's own. Its behaviour was learned only by using
+CASSim's calculator apps mirror the relevant layout, menus and commands so that practice transfers
+to the real calculator. All artwork and help text are CASSim's own. Nspire behaviour was learned by using
 TI's software as a user, typing inputs and recording the outputs; nothing was decompiled. It is not
 an approved exam calculator. The rule is written up in
 [docs/decisions/0028-ip-boundary-and-clean-room.md](docs/decisions/0028-ip-boundary-and-clean-room.md).
@@ -39,18 +44,22 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 
 ## What it does
 
-- **Calculator page** with an Nspire-like keypad, numbered menus, 2D templates (fractions, roots,
+- **Home chooser** for the all-in-one app, with remembered last-used device and disabled future
+  choices.
+- **Nspire calculator app** with an Nspire-like keypad, numbered menus, 2D templates (fractions, roots,
   piecewise, systems, calculus) and the document, problem and page model.
-- **CAS engine** (SymPy and SciPy through Pyodide) that parses TI syntax with a real tokenizer
+- **Nspire CAS engine** (SymPy and mpmath through Pyodide) that parses TI syntax with a real tokenizer
   and parser. Results are judged by symbolic and numeric equality, not TI's exact text.
+- **Data and graph pages** for spreadsheets, statistics, charts and function plotting, sharing the
+  Problem's variables.
 - **Two views**: Handheld (a keypad you tap or type on) and Computer (a laptop layout).
-- **Pseudocode runtime** with trace tables for the VCE algorithms and programming content
-  (engine only; its pages are not in the app yet).
+- **Pseudocode & Python app** with a standalone editor, pseudocode execution and vertical/horizontal
+  trace views. Python execution and translation remain planned.
 - **Private and offline.** No server, no telemetry, no account. Wait for “Offline: Ready” in the CASSim menu
   before disconnecting. Documents are saved in browser storage or as files
   or shared as a link that carries the document in the URL fragment.
-- **Files.** Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot be
-  opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
+- **Files.** Nspire Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot
+  be opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
 
 ## Related software
 
@@ -77,7 +86,7 @@ uv run cassim --view handheld         # choose the view (handheld or computer)
 uv run cassim --course methods        # the app with the Methods settings
 uv run cassim --text                  # text interface, like the Calculator page
 uv run cassim -c "solve(x^2=2,x)"     # one entry, then exit
-uv run python -m tools.publish        # build the installable offline site into build/web (--bundle all|tin)
+uv run python -m tools.publish        # build the installable offline site (--bundle all|tin|pseudo)
 ```
 
 The text interface is described in [docs/user/repl.md](docs/user/repl.md).
@@ -90,8 +99,9 @@ only one tested: copy `build/web` to the root of any static host, or pass `--bas
 serve it below a sub-path. Users can install it as an app (PWA); once the offline-ready indicator
 appears, it works offline. Clearing browser storage removes the offline installation.
 
-The stable and testing sites are the all-in-one app. Smaller single-device sites (CASSim-TIN,
-CASSim-pseudo, and later CASSim-CP) are planned: see [PLAN.md](PLAN.md) section 15.
+The stable and testing sites are the all-in-one app. The build can also produce CASSim-TIN and
+CASSim-pseudo bundles now; CASSim-CP and CASSim-Prime remain future builds. See
+[PLAN.md](PLAN.md) section 15 for site and release status.
 
 ## Publishing
 
@@ -147,8 +157,9 @@ python -m tools.replay                # corpus progress
 - Core engine (`src/cassim/core`) is pure Python, never imports Flet and passes Ty strict.
   SymPy is touched only in `core/compat/sympy_adapter.py`.
 - Every behaviour change ships with a test that cites the SRS requirement ID where one applies.
-- Layout: `core` (engine), `device` (framework), `doc` (documents), `devices/nspire` (the Nspire), `app` (Flet UI),
-  `runtime` (pseudocode), `tools` (build and corpus scripts), `corpus` (golden cases).
+- Layout: `app` (multi-app shell), `devices` (plug-in device packages), `core` (Nspire engine),
+  `device` (shared framework), `doc` (documents), `runtime` (pseudocode), `tools` (build and corpus
+  scripts), and `corpus` (golden cases).
 
 ## Documents
 
