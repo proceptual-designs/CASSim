@@ -113,3 +113,69 @@ def test_a_selection_drags_and_places_accept_drops() -> None:
     assert ((), 4) in dropped
     plain = EntryLine(DARK, 20, lambda path, pos: None).build(editor)
     assert not [c for c in walk(plain) if isinstance(c, (ft.Draggable, ft.DragTarget))]
+
+
+# ---- E5: the history layout (H9) --------------------------------------------------------------
+
+
+def _texts(control: ft.Control) -> list[str]:
+    return [str(c.value) for c in walk(control) if isinstance(c, ft.Text)]
+
+
+def _laid_out(*entries: str) -> CalculatorView:
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    for entry in entries:
+        calculator.editor.insert_linear(entry)
+        state.key_event("Enter")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    return view
+
+
+def test_pairs_alternate_a_band_and_the_plain_screen() -> None:
+    """H9 e: the first pair banded, the next plain, no rule between them."""
+    view = _laid_out("1", "2", "3")
+    pairs = [c for c in view.history.controls[1:4] if isinstance(c, ft.Container)]
+    band = views_module.history_band(DARK)
+    assert [pair.bgcolor for pair in pairs] == [band, None, band]
+    assert all(pair.border is None for pair in pairs)
+
+
+def test_a_long_input_is_cut_with_a_mark_and_its_result_has_its_own_line() -> None:
+    """H9 b: the 45-character sum is not wrapped; ▸ ends it, and the result moves under it."""
+    view = _laid_out("1234567+2345678+3456789+4567891+5678912+67891")
+    pair = view.history.controls[1]
+    assert isinstance(pair, ft.Container)
+    assert isinstance(pair.content, ft.Column)  # input and result on lines of their own
+    assert "▸" in _texts(pair)
+    result = pair.content.controls[1]
+    assert isinstance(result, ft.GestureDetector)
+    assert isinstance(result.content, ft.Container)
+    assert result.content.alignment == ft.Alignment.CENTER_LEFT  # from the left edge (H9 d)
+
+
+def test_a_long_result_is_cut_on_its_own_line() -> None:
+    """H9 d: `seq(n,n,1,25)` gives a list longer than the screen."""
+    view = _laid_out("seq(n,n,1,25)")
+    pair = view.history.controls[1]
+    assert isinstance(pair, ft.Container)
+    assert isinstance(pair.content, ft.Column)
+    assert _texts(pair.content.controls[1]).count("▸") == 1
+
+
+def test_a_long_entry_line_scrolls_sideways_with_marks() -> None:
+    """H3 f: ◂ at the left; ▸ too once the cursor has moved back from the end."""
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    calculator.editor.insert_linear("1111111+2222222+3333333+4444444+5555555+6666666+7777777+")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    assert "◂" in _texts(view.entry)
+    assert "▸" not in _texts(view.entry)
+    calculator.editor.home()
+    view.refresh()
+    assert {"◂", "▸"} <= set(_texts(view.entry))
+    calculator.editor.clear()
+    view.refresh()
+    assert "◂" not in _texts(view.entry)

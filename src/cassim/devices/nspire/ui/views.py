@@ -46,6 +46,40 @@ MULTI_CLICK = 0.45  # seconds between the clicks of a double or triple click
 _ANY_PLACE = "*"  # a click that the next one counts with wherever it lands
 
 
+def text_width(text: str) -> int:
+    """A line's width in characters, about: fractions, powers, roots and matrices weigh double."""
+    return len(text) + sum(text.count(char) for char in "/^√[")
+
+
+def history_band(theme: Theme) -> str:
+    """The light band behind every other history pair: a faint wash of the theme's screen text
+    colour, so it follows every theme (Dark is the default)."""
+    return "#14" + theme.screen_text[1:]
+
+
+def cut_off(
+    content: ft.Control, theme: Theme, size: float, *, left: bool, right: bool
+) -> ft.Control:
+    """`content` on one line, cut at the screen's edges and scrolled to its end when
+    `right` is False; ◂ and ▸ mark the sides that have more."""
+
+    def mark(sign: str) -> ft.Control:
+        return ft.Text(sign, size=size * 0.6, color=theme.screen_text, no_wrap=True)
+
+    strip = ft.Row(
+        [content],
+        scroll=ft.ScrollMode.HIDDEN,
+        auto_scroll=not right,
+        tight=True,
+        expand=True,
+    )
+    return ft.Row(
+        [*([mark("◂")] if left else []), strip, *([mark("▸")] if right else [])],
+        spacing=2,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+
 def label_text(text: str, **style: object) -> ft.Text:
     """Text whose arrow glyphs use the vendored symbols font; `style` is `ft.Text` keywords."""
     if not SYMBOLS.intersection(text):
@@ -825,6 +859,12 @@ class CalculatorView:
         )
         line.drop = self._drop
         built = line.build(calculator.editor)
+        editor = calculator.editor
+        if text_width(editor.linear()) > self._room:
+            # a long entry does not wrap: it scrolls sideways, ◂ and ▸ saying there is more
+            # (run 5, H3 f); the view keeps to the end while the cursor is there
+            at_end = not editor.path and editor.pos == len(editor.root)
+            built = cut_off(built, self.theme, self.state.math_size, left=True, right=not at_end)
         return ft.GestureDetector(
             built,
             on_secondary_tap_down=lambda _: self._context_entry(),
@@ -888,30 +928,35 @@ class CalculatorView:
         """A long press: the touch screen's shift+click."""
         self.on_action("extend", format_target(path, pos))
 
+    @property
+    def _room(self) -> float:
+        """About how many characters fit across the screen. LaTeX cannot be measured here."""
+        return self.state.px(300) / (0.62 * self.state.math_size)
+
     def _fits(self, entry: Line, result: Line) -> bool:
-        """Whether an entry and its result are short enough to share a line. LaTeX cannot be
-        measured here, so this counts characters (fractions, powers and roots weigh double)
-        against the screen width, with room to spare."""
-
-        def width(text: str) -> int:
-            return len(text) + sum(text.count(char) for char in "/^√[")
-
-        room = self.state.px(300) / (0.62 * self.state.math_size)
-        return width(entry.text) + width(result.text) + 3 <= room
+        """Whether an entry and its result are short enough to share a line: this counts
+        characters (fractions, powers and roots weigh double) against the screen width, with
+        room to spare."""
+        return text_width(entry.text) + text_width(result.text) + 3 <= self._room
 
     def _pair(self, entry: Line, result: Line, number: int) -> ft.Control:
-        """An entry and its result with a thin rule under them: one line if both are short."""
+        """An entry and its result: one line if both are short, else the result on a line of its
+        own from the left edge (run 5, H9 b, d). Pairs alternate a light band and the plain
+        screen, with no rule between them (H9 e)."""
+        fits = self._fits(entry, result)
         first = self._line(entry, number)
-        second = self._line(result, number + 1)
-        self._side_by_side[number // 2] = self._fits(entry, result)
-        if self._fits(entry, result):
+        second = self._line(result, number + 1, own_line=not fits)
+        self._side_by_side[number // 2] = fits
+        if fits:
             second.expand = True  # takes the rest of the line, result at the right edge
             body: ft.Control = ft.Row([first, second], spacing=0)
         else:
             body = ft.Column([first, second], spacing=0)
-        rule = ft.BorderSide(1, "#40" + self.theme.screen_text[1:])
+        banded = number // 2 % 2 == 0  # the first pair is banded, as on the device
         return ft.Container(
-            body, border=ft.Border(bottom=rule), padding=ft.Padding.only(bottom=self.state.px(2))
+            body,
+            bgcolor=history_band(self.theme) if banded else None,
+            padding=ft.Padding.only(bottom=self.state.px(2)),
         )
 
     def _history_pair(self, entry: Line, result: Line, number: int) -> ft.Control:
@@ -926,10 +971,11 @@ class CalculatorView:
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
 
-    def _line(self, line: Line, number: int) -> ft.GestureDetector:
+    def _line(self, line: Line, number: int, *, own_line: bool = False) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
-        place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
-        right = line.kind == "result"
+        place as before; once moved into, its own LaTeX draws the cursor and the selected part.
+        A row too long for the screen is not wrapped: it is cut at the right edge with ▸ (H9 b)."""
+        right = line.kind == "result" and not own_line
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
         calculator = calculator_of(self.state.document.current)
         editor = calculator.recall_editor if calculator is not None and line.part else None
@@ -959,6 +1005,8 @@ class CalculatorView:
                 tight=True,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
+        if text_width(line.text) > self._room:
+            shown = cut_off(shown, self.theme, self.state.math_size, left=False, right=True)
         # A right-click picks the line (if it is not picked already) and opens its context menu;
         # the context-menu cursor tells the page to keep the browser's own menu away (H3 j)
         return ft.GestureDetector(
