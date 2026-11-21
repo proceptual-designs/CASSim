@@ -19,6 +19,7 @@ from cassim.device.profile import Profile
 from cassim.device.sheet_link import link_for
 from cassim.device.wizard import Wizard
 from cassim.devices.nspire import keymap as nspire
+from cassim.devices.nspire import statistics_menus
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
 from cassim.devices.nspire.pages.calculator import calculator_of
@@ -1021,6 +1022,8 @@ class AppState:
         statistics = self.statistics
         if statistics is None:
             return None
+        if target in statistics_menus.TARGETS:  # a box, a bar or a regression (stats4, R5-G2)
+            return statistics_menus.context_menu(statistics, target)
         zoom = MenuItem(
             "Zoom",
             items=(MenuItem("Zoom - Data", "statistics", "zoom-data"),),

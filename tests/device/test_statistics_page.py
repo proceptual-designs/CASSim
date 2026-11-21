@@ -1,6 +1,9 @@
 # Requirements traced here: FR-STAT-001, FR-STAT-003, FR-STAT-005
 """Data & Statistics views over live Problem variables."""
 
+from types import SimpleNamespace
+from typing import Any, cast
+
 from cassim.app.theme import DARK
 from cassim.core.session import Session
 from cassim.devices.nspire.pages.statistics import (
@@ -10,7 +13,7 @@ from cassim.devices.nspire.pages.statistics import (
 )
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.statistics_view import StatisticsView
-from cassim.graph.scene import Label
+from cassim.graph.scene import Box, Fill, Label
 
 
 def _eval(session: Session, expression: str) -> None:
@@ -238,3 +241,139 @@ def test_the_selection_is_shared_by_row_across_the_plots_of_a_problem() -> None:
     view.refresh(dots, 320, 220)
     view.click_at(300, 20)
     assert scatter.selected == set()
+
+
+def _rows(state: AppState) -> list[tuple[str, bool]]:
+    assert state.menu is not None
+    return [(row.label, row.enabled) for row in state.menu.view().rows]
+
+
+def _d1_page(plot: str) -> AppState:
+    state = AppState()
+    state.run_action("add_page", "statistics")
+    statistics = state.statistics
+    assert statistics is not None
+    session = cast("Session", statistics.session)
+    _eval(session, "d1:={2,4,4,4.536,5,5,7.536,9}")
+    _eval(session, "xs:={1,2,3,4.435,5,6,7,8}")
+    statistics.update()
+    statistics.perform("x:d1")
+    statistics.perform(f"plot:{plot}")
+    return state
+
+
+def test_box_plot_and_histogram_context_menus() -> None:
+    """FR-STAT-001, FR-STAT-003 (stats4, R5-G2): the device's items, numbers and grey states."""
+    state = _d1_page("Box Plot")
+    state.run_action("context_menu", "statistics_context_box")
+    assert _rows(state) == [
+        ("Dot Plot", True),
+        ("Histogram", True),
+        ("Normal Probability Plot", True),
+        ("Extend Box Plot Whiskers", True),
+        ("Zoom", True),
+        ("Color", True),
+    ]
+    state.run_action("insert", "5")
+    assert _rows(state)[-4:] == [
+        ("Window Settings…", True),
+        ("Zoom - Data", True),
+        ("Zoom - In", False),
+        ("Zoom - Out", False),
+    ]
+    state.menu = None
+    state.run_action("context_menu", "statistics_context_box")
+    state.run_action("insert", "2")
+    statistics = state.statistics
+    assert statistics is not None
+    assert statistics.plot_type.value == "Histogram"
+    state.run_action("context_menu", "statistics_context_histogram")
+    assert [label for label, _ in _rows(state)] == [
+        "Dot Plot",
+        "Box Plot",
+        "Normal Probability Plot",
+        "Scale",
+        "Bin Settings",
+        "Zoom",
+        "Color",
+    ]
+    state.run_action("insert", "4")
+    assert _rows(state)[-2:] == [("Percent", True), ("Density", True)]
+    state.run_action("insert", "2")
+    assert statistics.histogram_scale == "Density"
+    state.run_action("context_menu", "statistics_context_histogram")
+    state.run_action("insert", "5")
+    assert _rows(state)[-2:] == [("Equal Bin Width", True), ("Variable Bin Width", False)]
+
+
+def test_regression_context_menu() -> None:
+    """Stats4, R5-G2: the line and its label have the same list."""
+    state = _d1_page("Dot Plot")
+    statistics = state.statistics
+    assert statistics is not None
+    statistics.perform("x:xs")
+    statistics.perform("y:d1")
+    statistics.perform("regression:LinRegMx")
+    state.run_action("context_menu", "statistics_context_regression")
+    assert _rows(state) == [
+        ("Remove Regression", True),
+        ("Shade Under Function", False),
+        ("Show Residual Squares", True),
+        ("Show Residual Plot", True),
+        ("Graph Trace", False),
+        ("Color", True),
+    ]
+    state.run_action("insert", "6")
+    assert _rows(state)[-3:] == [
+        ("Line Color", False),
+        ("Fill Color", False),
+        ("Text Color", False),
+    ]
+    state.menu = None
+    state.run_action("context_menu", "statistics_context_regression")
+    state.run_action("insert", "1")
+    assert statistics.regression == ""
+
+
+def test_a_right_click_finds_the_mark_under_it() -> None:
+    """R5-G2: a right-click on the regression's label, a bar or a box opens that mark's menu."""
+    session = Session()
+    _eval(session, "d1:={2,4,4,4.536,5,5,7.536,9}")
+    _eval(session, "xs:={1,2,3,4.435,5,6,7,8}")
+    statistics = Statistics(session)
+    actions: list[tuple[str, str]] = []
+    view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
+
+    def data_shapes() -> tuple[Any, ...]:
+        layer = statistics.scene(view._width, view._chart_height, axis_labels=False).layer("data")
+        assert layer is not None
+        return layer.shapes
+
+    def right_click(x: float, y: float) -> str:
+        view._context(cast("Any", SimpleNamespace(local_position=SimpleNamespace(x=x, y=y))))
+        return actions[-1][1]
+
+    statistics.perform("x:xs")
+    statistics.perform("y:d1")
+    statistics.perform("regression:LinRegMx")
+    view.refresh(statistics, 320, 220)
+    label = next(
+        shape
+        for layer in statistics.scene(view._width, view._chart_height, axis_labels=False).layers
+        for shape in layer.shapes
+        if isinstance(shape, Label) and shape.colour == "curve2"
+    )
+    assert right_click(label.x + 5, label.y + 5) == "statistics_context_regression"
+
+    statistics.perform("y:")
+    statistics.perform("x:d1")
+    statistics.perform("plot:Histogram")
+    view.refresh(statistics, 320, 220)
+    bar = next(shape for shape in data_shapes() if isinstance(shape, Fill))
+    x = sum(px for px, _ in bar.points) / len(bar.points)
+    y = sum(py for _, py in bar.points) / len(bar.points)
+    assert right_click(x, y) == "statistics_context_histogram"
+    statistics.perform("plot:Box Plot")
+    view.refresh(statistics, 320, 220)
+    box = next(shape for shape in data_shapes() if isinstance(shape, Box))
+    assert right_click(box.x + 2, box.y + 2) == "statistics_context_box"
