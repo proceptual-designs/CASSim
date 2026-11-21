@@ -3,17 +3,21 @@
 from collections.abc import Callable, Iterable
 
 from cassim.runtime.pseudocode.errors import PseudocodeError, PseudocodeSyntaxError
+from cassim.runtime.pseudocode.from_python import python_to_program, python_to_pseudocode
 from cassim.runtime.pseudocode.interp import Interpreter
 from cassim.runtime.pseudocode.parser import parse
 from cassim.runtime.pseudocode.printer import PrintError, print_expr, print_program, shape
 from cassim.runtime.pseudocode.settings import Settings
 from cassim.runtime.pseudocode.steps import RunResult, Step
 from cassim.runtime.pseudocode.syntax import DEFAULT, PRESETS, Syntax, SyntaxFileError, load_syntax
+from cassim.runtime.pseudocode.to_python import TRANSLATION_MARKER, pseudocode_to_python
+from cassim.runtime.pseudocode.translation_error import TranslationError
 from cassim.runtime.pseudocode.tree import Diagnostic, Program
 
 __all__ = [
     "DEFAULT",
     "PRESETS",
+    "TRANSLATION_MARKER",
     "Diagnostic",
     "Interpreter",
     "PrintError",
@@ -25,10 +29,14 @@ __all__ = [
     "Step",
     "Syntax",
     "SyntaxFileError",
+    "TranslationError",
     "load_syntax",
     "parse",
     "print_expr",
     "print_program",
+    "pseudocode_to_python",
+    "python_to_program",
+    "python_to_pseudocode",
     "run",
     "shape",
 ]  # fmt: skip

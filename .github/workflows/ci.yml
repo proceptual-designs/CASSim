@@ -1,11 +1,47 @@
 name: CI
+# Batched CI (AGENTS.md, "Development workflow"): the real gate is `tools.local_ci`, run locally
+# before work is merged. CI runs once per batch PR, when it is ready for review, and never on
+# drafts or on the push to main that merging makes (the PR already tested that merge). Each job
+# runs a group of `tools.local_ci`, so CI and the local checks are the same commands.
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  changes:
+    if: github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    outputs:
+      browser: ${{ steps.filter.outputs.browser }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Decide whether the browser tests are needed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Manual runs test everything. Otherwise the browser job is skipped when the batch
+          # changes only docs, the corpus, non-browser tests or the UI-free engine packages.
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            echo "browser=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qvE '^(docs/|corpus/|spikes/|tests/(unit|corpus|runtime)/|src/cassim/(core|stats|runtime|basic)/|[^/]+\.md$|LICENSE$)'; then
+            echo "browser=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "browser=false" >> "$GITHUB_OUTPUT"
+          fi
+
   python:
+    needs: changes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -13,14 +49,11 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv sync --locked --group web
-      - run: uv run ruff format --check
-      - run: uv run ruff check
-      - run: uv run ty check
-      - run: uv run pytest -m "not e2e" --cov=cassim --cov-branch --cov-report=json
-      - run: uv run python -m tools.coverage_check
-      - run: uv run python -m tools.traceability --check
+      - run: uv run python -m tools.local_ci python
 
   browser:
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -29,31 +62,19 @@ jobs:
           python-version: "3.14"
       - run: uv sync --locked --group web
       - run: uv run playwright install --with-deps chromium
-      - run: >-
-          uv run pytest -m e2e
-          tests/e2e/test_pwa.py::test_loads_and_works_offline
-          tests/e2e/test_pwa.py::test_root_hosted_site_works_offline
-          tests/e2e/test_pwa.py::test_redirected_index_allows_online_and_offline_launch
-          tests/e2e/test_pwa.py::test_cas_after_host_failure_and_offline
-          tests/e2e/test_pwa.py::test_cached_navigation_offers_and_applies_update
-          tests/e2e/test_pwa.py::test_failed_precache_is_reported_and_can_be_retried
-          tests/e2e/test_pwa.py::test_incomplete_update_leaves_working_cache
-          tests/e2e/test_pwa.py::test_missing_cached_file_is_reported_and_repaired
-          tests/e2e/test_theme_browser.py::test_saved_custom_theme_is_applied_after_reload
-          tests/e2e/test_autosave_browser.py::test_the_document_comes_back_after_a_reload
-          tests/e2e/test_key_repeat_browser.py
-          tests/e2e/test_sheet_browser.py::test_right_click_context_menus
-          tests/e2e/test_sheet_browser.py::test_long_press_still_opens_the_cell_menu
+      - run: uv run python -m tools.local_ci browser
 
   check:
     if: ${{ always() }}
-    needs: [python, browser]
+    needs: [changes, python, browser]
     runs-on: ubuntu-24.04
     steps:
-      - name: Require both test jobs to pass
+      - name: Require the test jobs to pass (a skipped browser job counts as a pass)
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
           PYTHON_RESULT: ${{ needs.python.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
         run: |
-          echo "Python: $PYTHON_RESULT; browser: $BROWSER_RESULT"
-          [[ "$PYTHON_RESULT" == success && "$BROWSER_RESULT" == success ]]
+          echo "Changes: $CHANGES_RESULT; Python: $PYTHON_RESULT; browser: $BROWSER_RESULT"
+          [[ "$CHANGES_RESULT" == success && "$PYTHON_RESULT" == success ]]
+          [[ "$BROWSER_RESULT" == success || "$BROWSER_RESULT" == skipped ]]

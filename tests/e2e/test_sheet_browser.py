@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, expect
 from tests.e2e.test_flows_browser import AppPage
 
 from cassim.devices.nspire.pages.spreadsheet import DEFAULT_WIDTH
@@ -103,6 +103,23 @@ def check_pointed_range(app: AppPage) -> None:
     app.wait(lambda: "CASSIM: SHEET C1 116" in app.logs, "C1 116")
 
 
+def test_structured_fraction_in_a_sheet_formula(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-SHEET-001: the sheet accepts the Calculator's fraction template."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    app.type_text("=1")
+    app.press("ctrl+/")
+    app.type_text("2")
+    app.press("Right")
+    app.type_text("+1")
+    app.press("Enter")
+    app.press("Up")
+    sheet_line(app, "A1 3/2")
+    app.page.close()
+
+
 def check_shifted_formula(app: AppPage) -> None:
     app.press("Right")
     app.type_text("=2")
@@ -134,6 +151,52 @@ def test_sheet_formula_journeys(browser: Browser, site: tuple[Path, str]) -> Non
     check_pointed_range(app)
     check_shifted_formula(app)
     check_clicked_reference(app)
+    app.page.close()
+
+
+def test_drag_shift_click_and_headings_select_ranges(
+    browser: Browser, site: tuple[Path, str]
+) -> None:
+    """FR-SHEET-005 to 007: pointer and keyboard modifiers select spreadsheet ranges."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    for key in ("F4", "4", "6"):
+        app.press(key)
+    sheet_line(app, "A1")
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+
+    a1, b2 = cell_point(app, 0, 0), cell_point(app, 1, 1)
+    app.page.mouse.click(*a1)
+    app.page.keyboard.down("Shift")
+    app.page.wait_for_timeout(100)
+    app.page.mouse.click(*b2)
+    app.page.keyboard.up("Shift")
+    app.wait(lambda: "CASSIM: SHEET SELECTION A1:B2" in app.logs, "shift-click range")
+    app.page.mouse.click(*b2)
+    app.wait(lambda: "CASSIM: SHEET SELECTION NONE" in app.logs, "single-cell selection")
+
+    app.page.mouse.move(*b2)
+    app.page.mouse.down()
+    app.page.mouse.move(*a1)
+    app.page.mouse.up()
+    app.wait(lambda: "CASSIM: SHEET SELECTION A1:B2" in app.logs, "drag range")
+
+    x, y = sheet_origin(app)
+    app.page.mouse.click(x + ROW_LABELS + 2.5 * DEFAULT_WIDTH, y + HEAD / 2)
+    app.wait(lambda: "CASSIM: SHEET SELECTION C" in app.logs, "whole-column selection")
+    app.page.mouse.click(x + 4, y + HEAD + FORMULA + 1.5 * ROW)
+    app.wait(lambda: "CASSIM: SHEET SELECTION 2" in app.logs, "whole-row selection")
+    app.page.close()
+
+
+def test_sorter_shows_sheet_column_names(browser: Browser, site: tuple[Path, str]) -> None:
+    """FR-DOC-001: the sheet's column names appear in its page-sorter preview."""
+    app = ready(AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1]))
+    app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    check_shared_column(app)
+    app.page.get_by_role("button", name="Page manager", exact=True).click()
+    expect(
+        app.page.get_by_role("button", name="1.2 Lists & Spreadsheet xs", exact=False)
+    ).to_be_attached(timeout=30000)
     app.page.close()
 
 

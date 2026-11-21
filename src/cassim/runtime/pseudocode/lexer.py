@@ -30,6 +30,7 @@ _CANONICAL = {
     "⩽": "≤", "⩾": "≥", "**": "^", "−": "-", "–": "-", "×": "*", "·": "*", "∧": "and",
     "∨": "or", "¬": "not", "÷": "÷",
 }  # fmt: skip
+_CONSTANT_ALIASES = (("@pi", "π"), ("@e", "ⅇ"))
 _QUOTES = {'"': '"', "“": "”", "”": "”"}
 
 
@@ -85,6 +86,15 @@ def _comment_marker(text: str, i: int, syntax: Syntax) -> str | None:
     return None
 
 
+def _scan_constant_alias(text: str, i: int, line: int, out: list[Token]) -> int:
+    for alias, canonical in _CONSTANT_ALIASES:
+        end = i + len(alias)
+        if text.startswith(alias, i) and (end == len(text) or not _is_name_part(text[end])):
+            out.append(Token("NAME", canonical, line, i, end, alias))
+            return end
+    raise PseudocodeSyntaxError(f"unexpected character {text[i]!r}", line, i)
+
+
 def _tokenize_line(  # noqa: PLR0912
     text: str, lineno: int, out: list[Token], syntax: Syntax, warn: Warn
 ) -> None:
@@ -120,6 +130,8 @@ def _tokenize_line(  # noqa: PLR0912
             tok = _scan_superscript(text, i, lineno)
             out.append(tok)
             i = tok.end
+        elif c == "@":
+            i = _scan_constant_alias(text, i, lineno, out)
         elif _is_name_start(c):
             j = i + 1
             while j < n and _is_name_part(text[j]):

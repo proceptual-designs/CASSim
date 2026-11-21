@@ -18,6 +18,14 @@ class Str:
 
 
 @dataclass(frozen=True, slots=True)
+class Constant:
+    """An explicit mathematical constant: `ⅇ`, `π`, `@e` or `@pi`."""
+
+    name: str
+    line: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class Name:
     name: str
     line: int = 0
@@ -77,7 +85,7 @@ class ListLit:
     line: int = 0
 
 
-type Expr = Num | Str | Name | Unary | Binary | Compare | Paren | Call | Index | ListLit
+type Expr = Num | Str | Constant | Name | Unary | Binary | Compare | Paren | Call | Index | ListLit
 
 
 @dataclass(frozen=True, slots=True)

@@ -477,3 +477,15 @@ def test_f99_reloads_when_earlier_function_slots_are_reserved() -> None:
     assert [entry.name for entry in graphs.functions] == ["f99"]
     assert graphs.functions[0].compiled is not None
     assert graphs.functions[0].compiled(2) == 3
+
+
+def test_a_function_set_from_text_keeps_its_templates() -> None:
+    """FR-CALC-004: text from a saved file or a menu is parsed into templates (decision 0035), so
+    `(x-1)^2-1` keeps `2` as its exponent and a saved fraction comes back stacked."""
+    graphs = Graphs(Session())
+    graphs.submit(0, "(x-1)^2-1+((1)/(2))")
+    editor = graphs.functions[0].editing.editor
+    templates = [node for node in editor.root if isinstance(node, Template)]
+    assert [t.kind for t in templates] == [Kind.POWER, Kind.FRACTION]
+    assert templates[0].slots == [["2"]]
+    assert editor.pos == len(editor.root)

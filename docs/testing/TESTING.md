@@ -2,19 +2,25 @@
 
 Status: draft 1 (2026-10-31). Covers what must exist before M1 coding starts: the golden corpus, how it is replayed, how comparison works, and how cases are captured from the real simulator. Companion files: `corpus/schema.json`, `corpus/validate.py`, `corpus/seed/001_core.yaml` (20 seed cases).
 
-## Development and pre-PR test selection
+## Development and pre-merge test selection
 
-The complete Python suite stays in PR CI. During development, run the narrowest test that can fail
-because of the change, then widen to the affected boundary. Pre-commit runs Ruff and Ty only; it no
-longer reruns the complete fast pytest suite on every commit.
+CI runs once per batch PR (AGENTS.md, "Development workflow"), so the complete checks run locally.
+During development, run the narrowest test that can fail because of the change, then widen to the
+affected boundary. Pre-commit runs Ruff and Ty only.
 
-Before opening a PR, run:
+Before a feature branch merges into local `main`, run the same checks CI runs:
 
 ```powershell
-uv run pytest tests/flows/
+uv run python -m tools.local_ci             # python and browser groups; records the pass
+uv run python -m tools.local_ci --full-e2e  # also the whole browser suite, for cross-cutting work
+uv run python -m tools.local_ci --status    # has HEAD's tree passed?
 ```
 
-Then run the affected test directories or files from this map:
+`tools.local_ci` holds the one list of browser tests CI runs; CI calls it for each job. The
+pre-push hook (`uv run pre-commit install`) refuses a push whose tree has not passed.
+
+While working, also run `uv run pytest tests/flows/` and the affected test directories or files
+from this map:
 
 | Change | Focused tests | Add before a PR |
 |---|---|---|

@@ -17,15 +17,15 @@ def test_a_tap_on_the_entry_line_takes_typing(browser: Browser, site: tuple[Path
     page = context.new_page()
     assert page.evaluate("matchMedia('(pointer: coarse)').matches")
     app = AppPage(page, site[1])
+    app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     import os  # noqa: PLC0415
 
     if shots := os.environ.get("CASSIM_SHOTS"):
         page.screenshot(path=f"{shots}/touch_computer.png")
-    page.touchscreen.tap(600, 100)  # the empty entry line
-    page.wait_for_timeout(500)
+    page.touchscreen.tap(347, 60)  # the empty entry cursor at the top of the history
     app.wait(
-        lambda: page.evaluate("['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)"),
-        "a focused text box",
+        lambda: "CASSIM: KEYBOARD place touch=True" in app.logs,
+        "the on-screen keyboard request",
         20,
     )
     page.keyboard.insert_text("2+3")  # as an on-screen keyboard does: text, no key events

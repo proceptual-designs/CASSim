@@ -41,12 +41,26 @@ def test_sorter_switches_between_calculator_and_statistics(
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1])
     app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+    app.type_text("scores:={1,2,3}")
+    app.press("Enter")
+    app.wait(lambda: app.results, "the list assignment")
+    before = len(app.results)
+    app.type_text("time:={2,4,6}")
+    app.press("Enter")
+    app.wait(lambda: len(app.results) > before, "the second list assignment")
     for key in ("F4", "4", "7"):
         app.press(key)
     expect(app.page.get_by_role("button", name="Page Sorter 1.2")).to_be_attached()
+    app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
+    app.page.get_by_role("button", name="time", exact=True).click(force=True)
     app.page.get_by_role("button", name="Page manager", exact=True).click()
     close = app.page.get_by_role("button", name="Close the sorter (enter or esc)")
     expect(close).to_be_attached()
+    expect(
+        app.page.get_by_role(
+            "button", name="1.2 Data & Statistics time vs scores Scatter Plot", exact=True
+        )
+    ).to_be_attached()
     app.press("Left")
     app.press("Enter")
     expect(close).not_to_be_attached()

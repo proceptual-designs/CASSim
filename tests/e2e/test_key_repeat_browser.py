@@ -25,7 +25,7 @@ REPEATED_RESULTS = _repeated_results(ENTRY)
 
 def _hold(app: AppPage, key: str) -> None:
     app.page.keyboard.down(key)
-    app.page.wait_for_timeout(1400)
+    app.page.wait_for_timeout(2500)
     app.page.keyboard.up(key)
     app.page.wait_for_timeout(500)
 
@@ -34,6 +34,18 @@ def test_arrow_repeat_moves_calculator_caret_and_sheet_cursor(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1])
+    app.page.evaluate("""() => {
+      window.cassimKeyEvents = [];
+      for (const type of ["keydown", "keyup"]) {
+        document.addEventListener(type, event => {
+          if (event.code.startsWith("Arrow")) {
+            window.cassimKeyEvents.push({
+              type, code: event.code, repeat: event.repeat, target: event.target.tagName
+            });
+          }
+        }, true);
+      }
+    }""")
     app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     app.type_text(ENTRY)
     app.page.wait_for_timeout(1000)
@@ -68,7 +80,7 @@ def test_arrow_repeat_moves_calculator_caret_and_sheet_cursor(
     app.press("Up")
     app.wait(
         lambda: any(f"CASSIM: SHEET A{row} {result}" in app.logs for result in REPEATED_RESULTS),
-        "sheet formula result",
+        "sheet formula result " + str(app.page.evaluate("window.cassimKeyEvents")),
     )
     app.page.close()
 
