@@ -95,7 +95,7 @@ def test_the_sheet_draws_in_place_of_the_history():
     state.prepare()
     view.refresh()
     assert view.body.controls == [view.sheet_panes]
-    assert [pane.content for pane in placed(view)] == [view.sheet_view.control]
+    assert view.sheet_panes.controls == [view.sheet_view.control]
     assert texts(view.sheet_view.bar) == ["A2", ""]
     state.run_action("prev_page")
     view.refresh()
@@ -137,7 +137,7 @@ def test_shade_p_value_draws_a_second_pane():
     view.refresh()
     assert view.body.controls == [view.sheet_panes]
     sheet_pane, shade_pane = placed(view)
-    assert sheet_pane.content is view.sheet_view.control
+    assert sheet_pane is view.sheet_view.control
     assert (shade_pane.left, shade_pane.width) == (160, 160)
     assert cast(ft.Container, shade_pane.content).content is not None
 

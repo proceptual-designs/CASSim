@@ -517,7 +517,11 @@ class CalculatorView:
         self.pane_boxes_shown = boxes
         _, _, pane_width, pane_height = boxes[0]
         self.sheet_view.refresh(sheet, pane_width, pane_height)
-        controls: list[ft.Control] = [self._placed(self.sheet_view.control, boxes[0])]
+        # The sheet's own control is placed, not wrapped: a wrapping container stopped a touch
+        # long press reaching the grid (the e2e long-press test).
+        sheet_control = self.sheet_view.control
+        sheet_control.left, sheet_control.top, sheet_control.width, sheet_control.height = boxes[0]
+        controls: list[ft.Control] = [sheet_control]
         statistics = sheet.split_statistics
         self.split_statistics_views = self.split_statistics_views[: len(statistics)]
         while len(self.split_statistics_views) < len(statistics):
