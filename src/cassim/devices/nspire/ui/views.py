@@ -1081,9 +1081,12 @@ class CalculatorView:
     def _header(self, view: MenuView, depth: int, panel: Panel) -> ft.Control:
         """The panel's title; on a submenu it is a back button (it closes this level)."""
         back = f"{depth - 1}:{selected_index(view.panels[depth - 1])}" if depth else ""
+        # a jump list's typed search shows after its title (decision 0034)
+        deepest = depth == len(view.panels) - 1
+        search = f"  {view.search}▏" if deepest and view.search else ""
         return ft.Container(
             label_text(
-                ("◀ " if depth else "") + panel.title,
+                ("◀ " if depth else "") + panel.title + search,
                 size=self.state.px(12),
                 weight=ft.FontWeight.BOLD,
                 color=self.theme.key_label,

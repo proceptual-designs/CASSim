@@ -126,3 +126,55 @@ def test_actions_clear_history() -> None:
     state.key_event("1")
     state.key_event("5")
     assert not _calculator(state).history
+
+
+# ---- E8: the Catalog narrows as letters are typed (decision 0034, item 3) ----------------------
+
+
+def _chosen(state: AppState) -> str:
+    return next(row.label for row in _menu(state).rows if row.selected)
+
+
+def test_catalog_letters_accumulate_and_esc_clears_then_closes() -> None:
+    """FR-CAT-004: `n`, `i` reaches `nInt(` (the device would jump to the first `i`); the search
+    is shown; Esc clears it, a second Esc closes the Catalog."""
+    state = AppState()
+    state.press_keypad("catalog")
+    state.key_event("n")
+    assert _chosen(state).startswith("n")
+    state.key_event("i")
+    assert _chosen(state) == "nInt("
+    assert _menu(state).search == "ni"
+    state.key_event("q")  # nothing starts `niq`: the letter is not taken
+    assert _menu(state).search == "ni"
+    state.key_event("Backspace")  # takes the last letter back
+    assert _menu(state).search == "n"
+    state.key_event("Escape")
+    assert state.menu is not None
+    assert _menu(state).search == ""
+    state.key_event("Escape")
+    assert state.menu is None
+
+
+def test_catalog_opens_again_on_its_tab_and_row() -> None:
+    """Run 5, E5: the Catalog reopens where it was left."""
+    state = AppState()
+    state.press_keypad("catalog")
+    for char in "ni":
+        state.key_event(char)
+    state.key_event("Escape")
+    state.key_event("Escape")
+    state.press_keypad("catalog")
+    assert _chosen(state) == "nInt("
+    assert _menu(state).search == ""
+    state.key_event("4")  # the Symbols tab
+    state.key_event("Escape")
+    state.press_keypad("catalog")
+    assert _menu(state).title == "Catalog > Symbols"
+    state.key_event("1")  # back to the list, at its top
+    for char in "ni":
+        state.key_event(char)
+    state.key_event("Enter")  # choosing a row closes it; it opens there next time
+    assert _calculator(state).editor.linear() == "nInt("
+    state.press_keypad("catalog")
+    assert _chosen(state) == "nInt("

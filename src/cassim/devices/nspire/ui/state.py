@@ -184,6 +184,7 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        self._catalog_at: list[int] = []  # the Catalog's tab and row, where it opens next time
         self._statistics_wizard: tuple[Statistics, str, Wizard] | None = None
         # The page sorter is open on the screen (ctrl+up). The page it highlights is the current
         # page, so moving the highlight goes to that page and Enter only closes the sorter.
@@ -568,6 +569,7 @@ class AppState:
             if self.sorting and name not in {"doc", "cassim", "add_page", "add_problem"}:
                 return
             target = self._menu_root(name)
+            self._remember_catalog()
             if target is not None:
                 same = target is self.menu.root or (
                     (
@@ -584,7 +586,7 @@ class AppState:
                     )
                     and target.label == self.menu.root.label
                 )
-                self.menu = None if same else MenuState(target)
+                self.menu = None if same else self._menu_state(name, target)
             return
         self._menu_key(binding)
 
@@ -1127,7 +1129,19 @@ class AppState:
     def _open_menu(self, name: str) -> None:
         root = self._menu_root(name)
         if root is not None:
-            self.menu = MenuState(root)
+            self.menu = self._menu_state(name, root)
+
+    def _menu_state(self, name: str, root: MenuItem) -> MenuState:
+        """A menu opening; the Catalog where it was left."""
+        menu = MenuState(root)
+        if name == "catalog" and self._catalog_at:
+            menu.reopen(self._catalog_at)
+        return menu
+
+    def _remember_catalog(self) -> None:
+        """Keep the open Catalog's tab and row for the next time it opens (run 5, E5)."""
+        if self.menu is not None and self.menu.root is self.profile.menus.get("catalog"):
+            self._catalog_at = self.menu.positions()
 
     def _variables_menu(self) -> MenuItem | None:
         """The var key: the current Problem's variables, each typed by choosing it. On a sheet's
@@ -1210,6 +1224,7 @@ class AppState:
         """While a menu is open it takes every key; a chosen leaf runs once the menu has closed."""
         assert self.menu is not None
         chosen = self.menu.press(binding.action, binding.arg)
+        self._remember_catalog()
         if not self.menu.open:
             self.menu = None
         if chosen is not None:
