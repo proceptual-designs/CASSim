@@ -31,8 +31,8 @@ from cassim.device.keys import Action, Binding
 from cassim.device.menu import MenuItem
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire import sheet_inference
 from cassim.devices.nspire.pages.statistics import Statistics, dump_statistics, load_statistics
-from cassim.devices.nspire.statistics import INTERVALS, TESTS, build_command
 from cassim.devices.nspire.statistics_plot import AreaPlot, PValuePlot
 from cassim.sheet import refs
 from cassim.sheet.fileio import FileCell
@@ -351,8 +351,9 @@ class Spreadsheet:
                 self._accept(reply)
 
     def _accept(self, reply: SheetReply) -> None:
-        if reply["error"] is not None and reply["error"]["title"] != DATA_LOSS:
-            self._pending_shade = None
+        error = reply["error"]
+        if error is not None and error["title"] != DATA_LOSS and not error["names"]:
+            self._pending_shade = None  # refused; a Data Loss or a Conflict asks first
         for column, row, kind, text in reply["edits"]:
             if kind:
                 self.cells[(column, row)] = (kind, text)
@@ -1621,48 +1622,52 @@ class Spreadsheet:
         fields = (*lists, *saving, *extra, Field("results", "1st Result Column", results))
         return Wizard(title, fields, steps=steps)
 
-    def _inference_wizard(self, command: str) -> Wizard:
-        """A Confidence Interval or Stat Test dialog writing a live result column."""
-        definition = next(
-            (item for item in (*INTERVALS, *TESTS) if item[1] == command),
-            None,
-        )
-        if definition is None:
+    def _inference_wizard(self, arg: str) -> Wizard:
+        """A Confidence Interval or Stat Test dialog writing a live result column (stats4, R5-I2):
+        first the Data Input Method where the device asks it, then the form."""
+        command, _, method = arg.partition(":")
+        found = sheet_inference.inference(command)
+        if found is None:
             raise ValueError(f"Unknown statistical command: {command}")
-        title, name, _, command_fields = definition
-        result_default = "a[]" if command == "zTest_1Prop" else f"{letter(self.free_column())}[]"
-        fields: tuple[Field, ...] = (
-            *command_fields,
-            Field("results", "1st Result Column", result_default),
-            *(
-                (Field("shade", "Draw: Shade P Value", "0", toggle=True),)
-                if command == "zTest_1Prop"
-                else ()
-            ),
-        )
+        if found.method and not method:
+            methods = (("data", "Data"), *((("stats", "Stats"),) if found.stats else ()))
+            return Wizard(
+                found.title,
+                (Field("method", "Data Input Method", "data", choices=methods),),
+                steps=lambda values: [Binding("sheet", f"inference:{command}:{values['method']}")],
+            )
+        form = found.stats if method == "stats" and found.stats is not None else found.data
+        here = f"{letter(self.cursor[0])}[]"
+        fields: list[Field] = [
+            replace(field, default=here) if field.default == sheet_inference.LIST else field
+            for field in form.fields
+        ]
+        if found.save:
+            fields.insert(2, Field("save", "Save RegEqn to", self.free_function()))
+        following = f"{letter(min(self.cursor[0] + 1, COLUMNS - 1))}[]"
+        fields.append(Field("results", "1st Result Column", following))
+        if found.shade:
+            fields.append(Field("shade", "Draw: Shade P Value", "0", toggle=True))
 
         def steps(values: Mapping[str, str]) -> list[Binding]:
-            if any(not values.get(field.name, "").strip() for field in command_fields):
+            if any(not values.get(field.name, "").strip() for field in form.fields):
                 return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
             column_name = values["results"].strip().removesuffix("[]")
             target = refs.address(f"{column_name}1")
             if target is None or len(column_name) != 1:
                 return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
-            formula = build_command(name, command_fields, values)
+            formula = form.command(found.command, values)
+            if found.save and values.get("save", "").strip():
+                formula += f": CopyVar stat.RegEqn,{values['save'].strip()}"
             self._pending_shade = (
-                ShadePane("z", int(values["alternative"]))
-                if command == "zTest_1Prop" and values.get("shade") == "1"
+                ShadePane(found.shade, int(values.get("alternative", "0")))
+                if found.shade and values.get("shade") == "1"
                 else None
             )
-            args = {
-                "formula": formula,
-                "column": target.column,
-                "choose": {},
-                "confirm": False,
-            }
+            args = {"formula": formula, "column": target.column, "choose": {}, "confirm": False}
             return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
 
-        return Wizard(title, fields, steps=steps)
+        return Wizard(found.title, tuple(fields), steps=steps)
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(

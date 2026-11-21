@@ -28,11 +28,12 @@ from cassim.devices.nspire.pages.spreadsheet import (
 )
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
+from cassim.devices.nspire.sheet_inference import RHO
 from cassim.devices.nspire.ui.state import AppState
 from cassim.doc.serialize import dumps
 from cassim.sheet.fileio import FileCell
 
-A, B, C, D, E, F, G, H = range(8)
+A, B, C, D, E, F, G, H, _, J = range(10)
 
 
 class Recording(AppState):
@@ -1208,6 +1209,7 @@ def test_inference_wizard_writes_a_live_result_column():
     sheet.go((F, 2))
     state.run(Binding("sheet", "inference:tInterval"))
     assert state.wizards[-1].title == "t Interval"
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="5", sd="2", n="8", level="0.95")
     assert sheet.columns[H][2] == "tInterval 5,2,8,0.95"
     assert column(state, G, [1, 2, 3]) == ["Title", "x̄", "CLower"]
@@ -1236,14 +1238,16 @@ def test_shade_p_value_splits_the_spreadsheet_view():
     assert kept.plot == pane.plot
 
 
-def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
+def test_the_result_column_is_the_one_after_the_cursor_and_data_loss_asks():
+    """R5-I2: with the cursor in A, 1st Result Column is b[] even when B holds data; OK then
+    asks before writing over it."""
     state = sheet_app()
     sheet = sheet_of(state)
-    sheet.go((A, 1))
+    sheet.go((B, 1))
     type_cell(state, "1")
-    sheet.go((25, 2))
+    sheet.go((A, 1))
     state.run(Binding("sheet", "inference:zTest_1Prop"))
-    assert state.wizards[-1].fields[-2].default == "a[]"
+    assert state.wizards[-1].fields[-2].default == "b[]"
     finish_wizard(state, p0="0.5", successes="12", n="20")
     assert sheet.dialogs[-1].title == "Data Loss"
 
@@ -1251,11 +1255,13 @@ def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
 def test_inference_wizard_rejects_missing_fields_and_invalid_result_columns():
     state, sheet = stats_sheet()
     state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="", sd="2", n="8")
     assert sheet.dialogs[-1].title == "Input Error"
     keys(state, "enter")
 
     state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="5", sd="2", n="8", results="aa[]")
     assert sheet.dialogs[-1].title == "Syntax Error"
     assert sheet.dialogs[-1].message == "Cannot accept change: Invalid input."
@@ -1433,3 +1439,135 @@ def test_a_single_selected_column_offers_the_first_other_numeric_list_to_summari
     state.run(Binding("sheet", "summary_plot"))
     state.prepare()
     assert [f.default for f in state.wizards[-1].fields][:2] == ["ys", "xs"]
+
+
+# ----- stat test and interval dialogs (stats4, R5-I2) ---------------------------------------------
+
+
+def test_t_test_asks_the_data_input_method_then_has_the_device_defaults():
+    """FR-STAT-004 (R5-I2): Data first; List is the cursor's column, Frequency 1, Ha μ ≠ μ0 with
+    > first, 1st Result Column the next column, Draw: Shade P Value unticked."""
+    state, sheet = stats_sheet()
+    sheet.go((A, 1))
+    state.run(Binding("sheet", "inference:tTest"))
+    method = state.wizards[-1]
+    assert (method.title, method.fields[0].label, method.fields[0].default) == (
+        "t Test",
+        "Data Input Method",
+        "data",
+    )
+    assert [label for _, label in method.fields[0].choices] == ["Data", "Stats"]
+    finish_wizard(state)
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("μ0", ""),
+        ("List", "a[]"),
+        ("Frequency List", "1"),
+        ("Alternate Hyp", "0"),
+        ("1st Result Column", "b[]"),
+        ("Draw: Shade P Value", "0"),
+    ]
+    assert [label for _, label in wizard.fields[3].choices] == [
+        "Ha: μ > μ0",
+        "Ha: μ ≠ μ0",
+        "Ha: μ < μ0",
+    ]
+
+
+def test_a_shaded_t_test_adds_a_t_pane_and_a_shaded_z_test_makes_a_third():
+    """FR-STAT-004, FR-DOC-009 (R5-I2): t Test of d1 against μ0 = 4, Ha μ > μ0, shaded: a t pane
+    with t = 1.4661 and PVal = 0.0930 (d1 as after the drag); then a 1-Prop z Test pane."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("d1:={2,4,4,4.536,5,5,7.536,9}").error is None
+    sheet.go((C, 1))
+    state.run(Binding("sheet", "inference:tTest:data"))
+    finish_wizard(state, null="4", x="d1", alternative="2", shade="1")
+    assert state.wizards[-1].title == "Conflict Detected"  # d1 is also a cell
+    finish_wizard(state, d1="variable")
+    (pane,) = sheet.panes
+    assert isinstance(pane, ShadePane)
+    assert pane.plot is not None
+    assert (pane.plot.variable, pane.plot.df) == ("t", 7)
+    assert pane.plot.statistic == pytest.approx(1.4661067, abs=1e-6)
+    assert pane.plot.p_value == pytest.approx(0.09302381, abs=1e-7)
+    sheet.go((F, 1))
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    finish_wizard(state, p0="0.5", successes="30", n="50", alternative="2", shade="1")
+    assert [p.plot.variable for p in sheet.panes if isinstance(p, ShadePane) and p.plot] == [
+        "t",
+        "z",
+    ]
+    z_pane = sheet.panes[1]
+    assert isinstance(z_pane, ShadePane)
+    assert z_pane.plot is not None
+    assert z_pane.plot.statistic == pytest.approx(1.4142, abs=1e-4)
+    assert sheet.panes[0] is pane  # the t pane kept its own numbers
+
+
+def test_two_sample_t_interval_and_linear_reg_t_test_fields():
+    """R5-I2: 2-Sample t Interval: List 1 (this column), List 2, Frequency 1 and 2, C Level 0.95,
+    Pooled No, then the result column; Linear Reg t Test saves RegEqn to f1 and has no Draw."""
+    state, sheet = stats_sheet()
+    sheet.go((E, 1))
+    state.run(Binding("sheet", "inference:tInterval_2Samp"))
+    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data"]
+    finish_wizard(state)
+    assert [(f.label, f.default) for f in state.wizards[-1].fields] == [
+        ("List 1", "e[]"),
+        ("List 2", ""),
+        ("Frequency 1", "1"),
+        ("Frequency 2", "1"),
+        ("C Level", "0.95"),
+        ("Pooled", "0"),
+        ("1st Result Column", "f[]"),
+    ]
+    sheet.go((H, 1))
+    state.run(Binding("sheet", "inference:LinRegtTest"))
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("X List", "h[]"),
+        ("Y List", ""),
+        ("Save RegEqn to", "f1"),
+        ("Frequency List", "1"),
+        ("Alternate Hyp", "0"),
+        ("1st Result Column", "i[]"),
+    ]
+    assert wizard.fields[4].choices[1][1] == f"Ha: β & {RHO} ≠ 0"
+    finish_wizard(state, x="c[]", y="c[]^2")
+    assert sheet.columns[J][2] == "LinRegtTest c[],c[]^2,1,0,0: CopyVar stat.RegEqn,f1"
+
+
+def test_the_stat_tests_and_intervals_lists():
+    """R5-I2: the Stat Tests and Confidence Intervals lists as recorded."""
+    state, _ = stats_sheet()
+    labels = []
+    for key in ("3", "4"):
+        state.run(Binding("open_menu", "menu"))
+        state.run(Binding("insert", "4"))
+        state.run(Binding("insert", key))
+        assert state.menu is not None
+        labels.append([row.label for row in state.menu.view().rows])
+        state.menu = None
+    assert labels[0] == [
+        "z Interval…",
+        "t Interval…",
+        "2-Sample z Interval…",
+        "2-Sample t Interval…",
+        "1-Prop z Interval…",
+        "2-Prop z Interval…",
+        "Linear Reg t Intervals…",
+        "Multiple Reg Intervals…",
+    ]
+    assert labels[1][:10] == [
+        "z Test…",
+        "t Test…",
+        "2-Sample z Test…",
+        "2-Sample t Test…",
+        "1-Prop z Test…",
+        "2-Prop z Test…",
+        "χ² GOF…",
+        "χ² 2-way Test…",
+        "2-Sample F Test…",
+        "Linear Reg t Test…",
+    ]
