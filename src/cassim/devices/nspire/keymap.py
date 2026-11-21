@@ -31,6 +31,7 @@ HANDHELD: Keymap = {
     "ctrl+right": Binding("next_page"),
     "esc": Binding("escape"),
     "ctrl+esc": Binding("undo"),
+    "shift+esc": Binding("redo"),  # the keypad's shift, then esc (run 5, H8 b)
     "doc": Binding("open_menu", "doc"),
     "ctrl+doc": Binding("add_page"),
     "shift+doc": Binding("add_problem"),
@@ -85,8 +86,8 @@ HANDHELD: Keymap = {
     "ctrl+c": Binding("copy"),  # as on the handheld: ctrl, then the letter
     "ctrl+x": Binding("cut"),
     "ctrl+v": Binding("paste"),
-    "ctrl+z": Binding("undo"),  # TI's shortcut sheet lists both for the handheld; shift+esc is
-    "ctrl+y": Binding("redo"),  # not redo on the emulator (S7 g)
+    "ctrl+z": Binding("undo"),  # TI's shortcut sheet lists both for the handheld; a computer's
+    "ctrl+y": Binding("redo"),  # shift+Escape is not redo on the emulator (S7 g)
     "ctrl+8": Binding("home"),
     "ctrl+2": Binding("end"),
     "ctrl+7": Binding("first_line"),  # the first history row (S5 b)

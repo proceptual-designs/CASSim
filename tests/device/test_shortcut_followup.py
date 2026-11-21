@@ -91,18 +91,21 @@ def test_undo_steps_back_over_the_evaluation_before_the_page_insert() -> None:
     assert len(state.document.sorter()) == 1
 
 
-def test_the_keypad_has_ctrl_z_and_ctrl_y_and_shift_esc_is_not_redo() -> None:
-    """S7 g: shift+esc does not redo; redo is ctrl+Y."""
+def test_the_keypad_has_ctrl_z_and_ctrl_y_and_shift_esc_redoes() -> None:
+    """Redo is ctrl+Y, and the keypad's shift then esc (run 5, H8 b); the computer's
+    shift+Escape does not redo (S7 g)."""
     state = AppState(mode=Mode.HANDHELD)
     for key in ("a", "plus", "b"):
         state.press_keypad(key)
     for key in ("ctrl", "z"):
         state.press_keypad(key)
     assert line(state) == "a+"
+    state.key_event("Escape", shift=True)
+    assert line(state) == "a+"
     for key in ("shift", "esc"):
         state.press_keypad(key)
-    assert line(state) == "a+"
-    for key in ("ctrl", "y"):
+    assert line(state) == "a+b"
+    for key in ("ctrl", "z", "ctrl", "y"):
         state.press_keypad(key)
     assert line(state) == "a+b"
 

@@ -92,9 +92,14 @@ _SYSTEM_FIELDS = (
 )
 
 
+# The inverse binomial dialogs end with a Matrix Form box (run 5, E2). What it does when ticked
+# was not recorded, so CASSim shows it, unticked, and pastes the same command either way.
+_MATRIX_FORM = Field("matrix", "Matrix Form", "0", toggle=True)
+
+
 def _dist(title: str, name: str, *fields: Field) -> Wizard:
     """A distribution dialog: pastes `name(fields…)` and runs it on OK, as the handheld does."""
-    names = [field.name for field in fields]
+    names = [field.name for field in fields if field is not _MATRIX_FORM]
     return Wizard(title, fields, run=True, build=lambda v: call(name, *(v[n] for n in names)))
 
 
@@ -260,12 +265,12 @@ _DISTRIBUTIONS = (
     ("Inverse χ²", "invχ²", "9", (_AREA, _DF)),
     ("Binomial Pdf", "binomPdf", "A", (_N, _P, Field("x", "X Value (optional)"))),
     ("Binomial Cdf", "binomCdf", "B", (_N, _P, *_BOUNDS_FROM_0)),
-    ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P)),
+    ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P, _MATRIX_FORM)),
     (
         "Inverse Binomial N",
         "invBinomN",
         "D",
-        (Field("c", "Cumulative Prob"), _P, Field("x", "Successes, x")),
+        (Field("c", "Cumulative Prob"), _P, Field("x", "Successes, x"), _MATRIX_FORM),
     ),
     ("F Pdf", "FPdf", "E", (_X, _DFN, _DFD)),
     ("F Cdf", "FCdf", "F", (*_BOUNDS_FROM_0, _DFN, _DFD)),
@@ -473,7 +478,7 @@ MENU = MenuItem(
                     "Solve System of Linear Equations",
                     "solve_linear_system",
                     "2",
-                    "solve({Eq1, Eq2}, {Var1, Var2})",
+                    "linSolve({Eq1, Eq2}, {Var1, Var2})",
                 ),
             ),
             sub(
