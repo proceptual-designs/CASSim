@@ -10,6 +10,7 @@ Same environment as 0002 (Flet 1.0.5, Pyodide 314.0.7, Edge headless).
 - [Hackspire's TNS File Format page](https://www.hackspire.org/TNS_File_Format) describes the same signature and TI's private compression method 13, and states there is "currently no known way to get data from it".
 - Consequence: no dependency on `.tns`. Libraries are ported by behaviour (PLAN.md 5.5): read the UDF guides, then verify each function against the simulator. Revisit only if a decoder appears.
 - The unit test pins the header and signature, so a differing file fails loudly.
+- Update (2026-11-21): documents saved by other TI software versions in `references/` carry other format versions after the magic (`*TIMLP0500`, `*TIMLP0703`) with the same entry signature, so the test now pins `*TIMLP` and a four-digit version.
 
 ## Spike 4: IndexedDB from Pyodide: **GO**
 

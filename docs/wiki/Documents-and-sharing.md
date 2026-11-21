@@ -9,6 +9,7 @@ to a Problem, so a new Problem starts clean.
   of its first page from the picker.
 - Move between pages with Ctrl+Left and Ctrl+Right (or Alt+Left and Alt+Right), or click the page list.
 - The **Page Sorter** (Ctrl+Up, or click the problem.page number at the top left of the screen) shows the pages as tiles on the calculator's screen, a row per Problem, so the keypad still works. The arrow keys move the highlight (left and right through the pages, up and down between Problems), **Enter** or **Esc** opens the highlighted page, and **Delete** (or **del**) removes it. Tap a tile to highlight it and tap it again to open it. The buttons above the tiles move the page earlier or later, delete it, undo, redo and close the sorter.
+- Spreadsheet tiles show named columns; Data & Statistics tiles show the selected variables and plot type. Long previews are shortened to fit.
 
 ## Saving
 

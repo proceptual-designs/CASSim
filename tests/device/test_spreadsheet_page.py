@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 003, FR-SHEET-008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from cassim.device.editor import MARK
+from cassim.device.editor import MARK, Kind, Template
 from cassim.device.engine import LocalEngine
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import loads
@@ -18,8 +18,11 @@ from cassim.devices.nspire.pages.spreadsheet import (
     DEFAULT_WIDTH,
     FORMULA_ROW,
     NAME_ROW,
+    ROWS,
     WIDE,
     Spreadsheet,
+    _sheet_text,
+    _shift_entry_nodes,
     dump,
     load,
     spreadsheet_of,
@@ -27,7 +30,7 @@ from cassim.devices.nspire.pages.spreadsheet import (
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
 from cassim.devices.nspire.ui.state import AppState
-from cassim.doc.serialize import dumps
+from cassim.doc.serialize import DocumentFileError, dumps
 from cassim.sheet.fileio import FileCell
 
 A, B, C, D, E, F, G, H = range(8)
@@ -166,6 +169,52 @@ def test_pointing_after_a_comparison_but_not_inside_a_string():
     assert sheet.caret == 3
 
 
+def test_quoted_formula_text_keeps_power_symbols_and_does_not_point_on_tap():
+    """FR-SHEET-008: quoted text is not a spreadsheet reference or a maths template."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", '="a^2"'))
+    assert sheet.editing == '="a^2"'
+    keys(state, "left")
+    state.run(Binding("sheet_tap", "0,1"))
+    assert sheet.reference is None
+    assert sheet.entry_text((B, 1)) == '="a^2"'
+    assert sheet.cursor == (A, 1)
+
+
+def test_pasting_formula_text_preserves_quoted_powers_and_spaces():
+    state = sheet_app()
+    state.run(Binding("insert", "="))
+    state.run(Binding("paste", '"a  ^2"'))
+    assert sheet_of(state).editing == '="a  ^2"'
+
+
+def test_point_mode_cannot_be_enabled_inside_a_quoted_formula():
+    """FR-SHEET-008: forcing point mode still leaves quoted text alone."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", '="a+"'))
+    keys(state, "left")
+    assert state.key_event("F2")
+    keys(state, "left")
+    assert sheet.editing == '="a+"'
+    assert sheet.reference is None
+
+
+def test_clicking_a_cell_where_a_reference_is_not_accepted_commits_the_formula():
+    """FR-SHEET-008: a click only points when the caret accepts a reference."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=12"))
+    state.run(Binding("sheet_tap", "0,1"))
+    assert sheet.entry_text((B, 1)) == "=12"
+    assert sheet.cursor == (A, 1)
+    assert sheet.reference is None
+
+
 def test_formula_point_mode_can_be_toggled_and_fixed_references_cycled():
     state = sheet_app()
     sheet = sheet_of(state)
@@ -252,6 +301,145 @@ def test_clicking_bar_edits_existing_formula_without_replacing_it():
     state.run(Binding("insert", "+1"))
     keys(state, "enter")
     assert sheet.entry_text((A, 1)) == "=2+3+1"
+
+
+def test_fraction_template_points_to_a_cell_inside_its_denominator():
+    """FR-SHEET-001: structured slots retain spreadsheet reference pointing."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "2")
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    keys(state, "left")
+    assert sheet.editing == "=((1)/(a1))"
+    assert sheet.screen().reference == (A, 1, A, 1)
+    state.run(Binding("sheet_ref_fixed"))
+    assert sheet.editing == "=((1)/($a$1))"
+    state.run(Binding("insert", "+1"))
+    keys(state, "right")
+    state.run(Binding("insert", "+1"))
+    keys(state, "enter")
+    assert shown(state, B, 1) == "4/3"
+
+
+def test_copying_a_spreadsheet_template_preserves_it_on_the_calculator():
+    """FR-SHEET-001: the shared clipboard keeps structured templates between pages."""
+    state = sheet_app()
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    state.run(Binding("select_all"))
+    state.run(Binding("copy"))
+    state.run_action("prev_page")
+    state.run(Binding("paste"))
+    calculator = calculator_on(state.document.current)
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in calculator.editor.root
+    )
+
+
+def test_sheet_template_is_preserved_when_reopened_and_after_save():
+    """FR-DOC-003: a saved formula reopens with its structured editor nodes."""
+    state = sheet_app()
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    state.run(Binding("enter"))
+    state.run(Binding("up"))
+    state.run(Binding("sheet_bar"))
+    sheet = sheet_of(state)
+    assert sheet.editor is not None
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in sheet.editor.root
+    )
+    state.run(Binding("escape"))
+
+    restored = Recording(loads(dumps(state.document)))
+    restored.run(Binding("sheet_bar"))
+    sheet = sheet_of(restored)
+    assert sheet.editor is not None
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in sheet.editor.root
+    )
+
+
+def test_formula_column_template_survives_normalisation_and_reload():
+    """FR-DOC-003: an implicit leading equals does not discard the template."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, FORMULA_ROW))
+    state.run(Binding("insert", "1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    assert sheet.entry_text((B, FORMULA_ROW)) == "=((1)/(2))"
+    restored = Recording(loads(dumps(state.document)))
+    restored_sheet = sheet_of(restored)
+    restored_sheet.go((B, FORMULA_ROW))
+    restored.run(Binding("sheet_bar"))
+    assert restored_sheet.editor is not None
+    assert any(isinstance(node, Template) for node in restored_sheet.editor.root)
+
+
+def test_invalid_saved_template_metadata_is_rejected():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "=1")
+    saved = dump(sheet)
+    saved["entry_nodes"] = [[A, 1, [{"kind": "matrix", "slots": ["1"], "cols": 0}]]]
+    with pytest.raises(DocumentFileError, match="template shape"):
+        load(sheet, saved)
+
+
+def test_rejected_structured_formula_keeps_its_template():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, 5))
+    state.run(Binding("insert", "=a5+1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    assert sheet.screen().dialog is not None
+    assert sheet.editor is not None
+    assert any(isinstance(node, Template) for node in sheet.editor.root)
+
+
+def test_undo_restores_the_original_structured_entry():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter", "up")
+    type_cell(state, "=3")
+    keys(state, "undo")
+    sheet.go((A, 1))
+    state.run(Binding("sheet_bar"))
+    assert sheet.editor is not None
+    assert any(isinstance(node, Template) for node in sheet.editor.root)
+
+
+def test_power_followed_by_a_term_preserves_its_exponent_boundary():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=2"))
+    state.run(Binding("power", "2"))
+    keys(state, "right")
+    state.run(Binding("insert", "*3"))
+    keys(state, "enter")
+    assert shown(state, A, 1) == "12"
+    assert sheet.entry_text((A, 1)) == "=2^2*3"
+
+
+def test_caret_after_a_power_does_not_change_its_serialisation():
+    state = sheet_app()
+    state.run(Binding("insert", "=2"))
+    state.run(Binding("power", "2"))
+    keys(state, "right")
+    sheet = sheet_of(state)
+    assert sheet.editing == "=2^2"
+    assert sheet.screen().editing == f"=2^2{MARK}"
 
 
 def test_a_formula_column():
@@ -484,6 +672,47 @@ def test_copy_and_paste_move_formulas():
     assert sheet.entry_text((B, 3)) == "=a3*10"
 
 
+def test_copying_a_structured_formula_shifts_references_and_preserves_templates():
+    """FR-SHEET-001: copied formulae retain their editor structure and relative references."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "2")
+    type_cell(state, "4")
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=a1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    sheet.go((B, 1))
+    keys(state, "copy")
+    sheet.go((B, 2))
+    keys(state, "paste")
+    assert shown(state, B, 2) == "2"
+    assert sheet.entry_text((B, 2)) == "=((a2)/(2))"
+    state.run(Binding("sheet_bar"))
+    assert sheet.editor is not None
+    assert isinstance(sheet.editor.root[1], Template)
+    assert sheet.editor.root[1].slots[0] == list("a2")
+
+
+def test_shifting_nested_structured_references_keeps_strings_and_fixed_parts():
+    nodes = [
+        *'="a1"+',
+        Template(
+            Kind.FRACTION,
+            [
+                list("$a1+b$2"),
+                [Template(Kind.NTH_ROOT, [list("2"), list("c3")])],
+            ],
+        ),
+    ]
+    shifted = _shift_entry_nodes(nodes, 1, 2)
+    assert shifted is not None
+    assert _sheet_text(shifted) == '="a1"+(($a3+c$2)/(root(d5,2)))'
+    assert _sheet_text(nodes) == '="a1"+(($a1+b$2)/(root(c3,2)))'
+    assert _shift_entry_nodes(nodes, -3, 0) is None
+
+
 def test_cut_and_undo():
     """Check 6, E11: cut empties the cells, ctrl+Z brings them back."""
     state = sheet_app()
@@ -702,10 +931,21 @@ def test_save_and_open_keep_the_sheet_and_its_values_win():
 
 
 def test_the_sorter_shows_a_sheet():
+    """FR-DOC-001: previews use the sheet's displayed column names."""
     state = sheet_app()
     type_cell(state, "1")
     assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
         "Lists & Spreadsheet",
+        "1 cells",
+    )
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "time")
+    sheet.go((C, NAME_ROW))
+    type_cell(state, "distance")
+    assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
+        "Lists & Spreadsheet",
+        "time, distance",
         "1 cells",
     )
 
@@ -784,11 +1024,83 @@ def test_whole_rows_and_columns():
     assert sheet.selection() == (0, 2, 25, 2)
     state.run(Binding("sheet", "select_column"))
     assert (sheet.address(), sheet.context_menu()) == ("A", "sheet_column")
-    assert sheet.selection() == (0, 1, 0, 2)
+    assert sheet.selection() == (0, 1, 0, ROWS)
     keys(state, "escape")
     assert sheet.selection() is None
     sheet.go((A, FORMULA_ROW))
     assert sheet.address() == "A="
+
+
+def test_sheet_navigation_replaces_selection_stays_in_bounds_and_follows_cursor():
+    """FR-SHEET-004: arrows move one cell without wrapping and keep the cursor visible."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.set_window(3, 2)
+    sheet.go((0, 1))
+    keys(state, "left")
+    assert sheet.cursor == (0, 1)
+    keys(state, "right")
+    assert sheet.cursor == (1, 1)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (1, 1, 2, 1)
+    keys(state, "right")
+    assert sheet.cursor == (3, 1)
+    assert sheet.selection() is None
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.cursor == (3, 2)
+    keys(state, "down")
+    assert sheet.cursor == (3, 3)
+    assert sheet.top == 1
+    keys(state, "down")
+    assert sheet.cursor == (3, 4)
+    assert sheet.top == 2
+    sheet.go((25, 2500))
+    keys(state, "right", "down")
+    assert sheet.cursor == (25, 2500)
+
+
+def test_shift_arrows_select_ranges_and_heading_edges_select_whole_axes():
+    """FR-SHEET-005, FR-SHEET-007: extend ranges and convert at row/column headings."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.selection() == (0, 2, 1, 2)
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.whole == "row"
+    assert sheet.selection() == (0, 2, 25, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (0, 2, 25, 3)
+    assert sheet.address() == "2:3"
+
+    sheet.go((2, 1))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.whole == "column"
+    assert sheet.selection() == (2, 1, 2, ROWS)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (2, 1, 3, ROWS)
+    assert sheet.address() == "C:D"
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.address() == "C"
+
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.selection() == (1, 1, 1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() is None
+    assert sheet.cursor == (1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (1, 2, 1, 3)
+
+
+def test_clicking_a_column_heading_selects_the_column_for_header_actions():
+    """FR-SHEET-007: the column heading selects its logical column."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("sheet_tap", "2,-1"))
+    assert sheet.cursor == (2, NAME_ROW)
+    assert sheet.whole == "column"
+    assert (sheet.address(), sheet.context_menu()) == ("C", "sheet_column")
 
 
 def test_select_all_and_end():

@@ -17,9 +17,10 @@ import flet as ft
 import pytest
 from tests.app.test_splitter_drag import handheld_app
 
-from cassim.app.home import home_choices
+from cassim.app.home import WELCOME, Home, HomeChoice, home_choices
 from cassim.app.main import LAST_DEVICE_KEY, Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
+from cassim.app.theme import DARK, LIGHT
 from cassim.devices.nspire.ui.app import cassim_items
 
 
@@ -40,6 +41,33 @@ def test_home_lists_all_choices_and_only_enables_bundled_apps() -> None:
     assert [choice.available for choice in choices] == [True, False, False, True, False]
 
 
+def test_home_uses_the_published_app_icon() -> None:
+    """FR-PWA-001: Home and the installed app use the same bundle-specific icon artwork."""
+    mark = Home._mark()
+    assert isinstance(mark, ft.Image)
+    assert mark.src == "icons/icon-192.png"
+
+
+def test_light_home_cards_are_not_coloured_like_dark_keypad_keys() -> None:
+    """FR-PROF-011/017: the Home cards follow the shell theme instead of the keypad."""
+    shell = FakeShell()
+    home = Home(cast(Any, shell), lambda _item: None)
+    home.card_width = 560
+    choice = HomeChoice("nspire", "Nspire", "Handheld graphing and CAS", True)
+
+    home.theme = DARK
+    dark = cast(ft.Button, home._card(choice))
+    home.theme = LIGHT
+    light = cast(ft.Button, home._card(choice))
+
+    assert dark.style is not None
+    assert light.style is not None
+    assert dark.style.bgcolor == DARK.home_card
+    assert light.style.bgcolor == LIGHT.home_card
+    assert light.style.bgcolor != DARK.key
+    assert WELCOME == "Hi! Choose a CAS calculator or algorithm tool to start."
+
+
 def test_startup_resumes_a_valid_device_and_repairs_missing_or_invalid_preferences() -> None:
     devices = ("nspire", "pseudocode")
     assert startup_device("/", "pseudocode", "all", devices) == "pseudocode"
@@ -50,6 +78,17 @@ def test_startup_resumes_a_valid_device_and_repairs_missing_or_invalid_preferenc
 def test_single_device_bundles_bypass_home() -> None:
     assert startup_device("/", None, "tin", ("nspire",)) == "nspire"
     assert startup_device("/", "classpad", "tin", ("nspire",)) == "nspire"
+
+
+@pytest.mark.parametrize("route", ["/pseudocode", "/app/pseudocode"])
+def test_direct_app_route_opens_that_device(route: str) -> None:
+    assert startup_device(route, "nspire", "all", ("nspire", "pseudocode")) == "pseudocode"
+
+
+def test_direct_app_option_overrides_saved_device() -> None:
+    assert (
+        startup_device("/", "nspire", "all", ("nspire", "pseudocode"), "pseudocode") == "pseudocode"
+    )
 
 
 def test_share_link_selects_its_device_before_the_remembered_preference() -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -138,6 +139,7 @@ def icon_canvas(icon: Icon, scale: float, colour: str) -> cv.Canvas:
 
 
 SELECTED_KEY = "picked-line"
+_SETTLE = 0.08  # seconds: a redraw's new lines are laid out by then, for a second scroll
 
 
 def _scroll_key() -> ft.ScrollKey:
@@ -334,14 +336,15 @@ class CalculatorView:
         self.status = ft.Row(spacing=8, tight=True)
         self.title = ft.Text(size=12, color=theme.title_text)
         # The entry line sits in the list with a blank line under it, so the end of the list always
-        # leaves room below the entry. No animation: it lagged when the page was full.
-        # A Column, not a ListView: it builds every line, so `scroll_to` can find a line by key
-        # (Up selects a line to recall, and the view follows it).
+        # leaves room below the entry. A Column, not a ListView: it builds every line, so
+        # `scroll_to` can find a line by key (Up selects a line to recall, and the view follows
+        # it). The scrolling is steered after each redraw (`follow_selection`), never by Flet's
+        # `auto_scroll`: turning that off to follow a picked line reset the view to the top, and
+        # once off the end it stopped pinning, which hid the last result (Simon, 2026-11-20).
         self.history = ft.Column(
             expand=True,
             scroll=ft.ScrollMode.AUTO,
-            auto_scroll=True,
-            auto_scroll_animation=ft.Animation(duration=0),
+            auto_scroll=False,
             spacing=2,
             on_scroll=self._scrolled,  # where it is scrolled to, for pointer clicks
         )
@@ -362,6 +365,9 @@ class CalculatorView:
         self._clicked = False  # the next pick came from a click: the line is in view already
         self._held: int | None = None  # the line a click picked, which the view does not follow
         self._keep: float | None = None  # the scroll offset when that click was made
+        self._tapped: str | None = None  # a line whose maths took a tap its line may see too
+        self._to_end = False  # after this redraw, scroll the history to its end (the entry line)
+        self._last_drawn: tuple[object, ...] | None = None  # what the last Calculator redraw showed
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
         self._history_page: object | None = None
@@ -412,7 +418,14 @@ class CalculatorView:
             padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         )
         # The Lists & Spreadsheet page draws here instead of the history (slice 3b)
-        self.sheet_view = SheetView(theme, on_action, lambda: state.scale)
+        self.sheet_view = SheetView(
+            theme,
+            on_action,
+            lambda: state.scale,
+            click=self._click,
+            hold=self._hold,
+        )
+        self.sheet_view.shift = shift
         self.graphs_view = GraphsView(
             theme, on_action, lambda: state.scale, lambda: state.math_size, self._graph_extend
         )
@@ -461,7 +474,6 @@ class CalculatorView:
         if screen.sorter is not None:  # the page sorter, in place of the page
             self.history.controls = [self._sorter_bar(), *map(self._sorter_row, screen.sorter)]
             self._calculator_shown = False
-            self.history.auto_scroll = False
             self._follow = True  # the highlighted tile stays in view
             self._error(screen)
             self._menu(screen.menu)
@@ -470,7 +482,6 @@ class CalculatorView:
         if screen.stub is not None:  # a page type with nothing behind it yet
             self.history.controls = [stub_notice(screen.stub, self.theme, self.state.px)]
             self._calculator_shown = False
-            self.history.auto_scroll = False
             self._follow = False
             self._error(screen)
             self._menu(screen.menu)
@@ -493,9 +504,13 @@ class CalculatorView:
         ]
         self._calculator_shown = True
         self._measure()
-        # While a line is picked the view follows it; otherwise it stays at the entry line
-        self.history.auto_scroll = picked is None
-        if picked is None:  # the redraw takes the view to its end, which Flet may not report
+        # While a line is picked the view follows it; otherwise it goes to the entry line at the
+        # end, when the page, the history or the entry line has changed (a redraw for nothing
+        # else leaves a history the user has scrolled back through where it is)
+        shown = (id(self.state.document.current), len(screen.lines), screen.entry, picked)
+        self._to_end = picked is None and shown != self._last_drawn
+        self._last_drawn = shown
+        if picked is None:  # the view goes to its end, which Flet may not report
             self._scroll = None
         # follow a picked line (Up, ctrl+7), but not one picked by a click: it is under the
         # finger or the pointer, and scrolling would move it away. A click is followed by more
@@ -785,6 +800,9 @@ class CalculatorView:
     def _click_line(self, spec: str) -> None:
         """A tap on a history line picks it where it is, without scrolling. It is the first
         click of a double click that the line, now drawn as an editor, goes on with."""
+        if self._tapped == spec:  # the maths inside took this tap already (`_tap_line`)
+            self._tapped = None
+            return
         self._tap_time, self._tap_count, self._tap_target = time.monotonic(), 1, _ANY_PLACE
         self._clicked = True
         self._keep = self._scroll
@@ -802,6 +820,19 @@ class CalculatorView:
         if calculator is not None and calculator.recall is not None:
             self.on_action("escape", "")  # back to the entry line
         self.on_action("context_menu", "")
+
+    def _tap_line(self, spec: str, event: ft.TapEvent) -> None:
+        """A tap on a history line's maths: picked as `_click_line` does, with the cursor near
+        the tap (the distance from the maths' left edge, in ems)."""
+        self._tap_time, self._tap_count, self._tap_target = time.monotonic(), 1, _ANY_PLACE
+        position = event.local_position
+        if position is None:
+            self._click_line(spec)
+            return
+        self._tapped = spec
+        self._clicked = True
+        self._keep = self._scroll
+        self.on_action("recall_at", f"{spec}@{position.x / self.state.math_size:.2f}")
 
     def _history_hit(self, index: int, x: float, y: float) -> bool:
         pairs = len(self._side_by_side)
@@ -821,21 +852,30 @@ class CalculatorView:
         return True
 
     def follow_selection(self) -> None:
-        """Scroll the history to the picked line, or, for a line picked by a click, keep the
-        view where it was: Flet resets the scroll position when the history stops keeping
-        itself at its end, which is what picking a line does. Called after the page update."""
+        """Steer the history after the page update: to its end (the entry line) when that is
+        due, to the picked line, or, for a line picked by a click, back where the view was."""
+        to_end, self._to_end = self._to_end and self._calculator_shown, False
         keep = self._keep if self._held is not None and not self._follow else None
-        if not self._follow and keep is None:
+        if not (to_end or self._follow or keep is not None):
             return
         try:
             page = self.history.page
         except RuntimeError:  # not on a page yet (Flet raises rather than give None)
             return
-        if keep is not None:
+        if to_end:
+            page.run_task(self._scroll_to_end)
+        elif keep is not None:
             self._scroll = keep
             page.run_task(self.history.scroll_to, offset=keep, duration=0)
         else:
             page.run_task(self.history.scroll_to, scroll_key=_scroll_key())
+
+    async def _scroll_to_end(self) -> None:
+        """To the end, and again a moment later: the first can run before the new last line is
+        laid out, and then stops short of it."""
+        await self.history.scroll_to(offset=-1, duration=0)
+        await asyncio.sleep(_SETTLE)
+        await self.history.scroll_to(offset=-1, duration=0)
 
     def _status_field(self, word: str, size: float, number: int) -> ft.Control:
         """One word of the status; angle, calculation mode and real/complex cycle when clicked."""
@@ -995,7 +1035,10 @@ class CalculatorView:
         else:
             body = math(line.latex, self.theme, self.state.math_size)
         shown: ft.Control = ft.Container(
-            body, bgcolor=self.theme.selection if line.selected and not line.part else None
+            body,
+            bgcolor=self.theme.selection if line.selected and not line.part else None,
+            # a tap on the maths itself says where: the cursor goes near it
+            on_tap_down=None if editor is not None else lambda event: self._tap_line(spec, event),
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))
@@ -1017,7 +1060,8 @@ class CalculatorView:
                 padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above
                 key=_scroll_key() if line.selected else None,
             ),
-            on_tap=lambda _: self._click_line(spec),
+            # a picked row drawn as an editor takes its own clicks: none brings it down (H3 a)
+            on_tap=None if editor is not None else lambda _: self._click_line(spec),
             on_secondary_tap_down=lambda _: self._context_line(spec, picked=line.selected),
             mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
         )
