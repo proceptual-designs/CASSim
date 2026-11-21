@@ -1,6 +1,7 @@
 """Focused state tests for the standalone pseudocode Code view."""
 
 import asyncio
+import sys
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
@@ -23,6 +24,14 @@ from cassim.devices.pseudocode.ui.app import (
     CodeApp,
 )
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
+
+
+def test_codemirror_is_only_mounted_with_a_page_document(monkeypatch) -> None:
+    """The web UI runs in a worker: `js` exists there but has no `document` (start raised)."""
+    monkeypatch.setitem(sys.modules, "js", SimpleNamespace())
+    assert not CodeApp._has_browser_dom()
+    monkeypatch.setitem(sys.modules, "js", SimpleNamespace(document=object()))
+    assert CodeApp._has_browser_dom()
 
 
 class DummyShell:

@@ -566,11 +566,13 @@ class CodeApp:
 
     @staticmethod
     def _has_browser_dom() -> bool:
+        """True only with a page document: the web build's UI runs in a worker, which has `js`
+        but no `document`, so CodeMirror cannot be mounted there."""
         try:
-            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415, F401
+            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
         except ImportError:
             return False
-        return True
+        return hasattr(js, "document")
 
     def on_bridge(self) -> None:
         self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")

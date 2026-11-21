@@ -141,14 +141,24 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
 
 
 def clear_editor(page: Page, editor: Locator) -> None:
-    """Select all and delete, retrying: a select-all can be lost while the editor rebuilds."""
-    for _ in range(10):
+    """Select all and delete until the app has seen it.
+
+    Right after the editor opens, keys can reach the browser's text box before Flutter's field
+    is attached to it: they never reach Python and Flutter later restores its own text. Python
+    draws the line-number gutter, so the example's "1 2 3 ..." disappearing proves the first
+    clear arrived; once attached, later edits always arrive."""
+    gutter = page.get_by_text(re.compile(r"^1(\s+\d+)+$"))
+    for _ in range(5):
         editor.focus()
         editor.press("Control+A")
         editor.press("Backspace")
+        try:
+            expect(gutter).to_have_count(0, timeout=3_000)
+        except AssertionError:
+            continue
         if editor.input_value() == "":
-            break
-        page.wait_for_timeout(200)
+            return
+    expect(gutter).to_have_count(0)
     expect(editor).to_have_value("")
 
 
