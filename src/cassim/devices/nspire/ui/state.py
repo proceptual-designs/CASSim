@@ -1109,6 +1109,28 @@ class AppState:
         if session is None:
             return None
         rows = sorted(session.variables(), key=lambda row: row.name.casefold())
+        if (
+            sheet is not None
+            and sheet.cursor[1] == NAME_ROW
+            and not sheet.columns[sheet.cursor[0]][1]
+        ):
+            # an empty name cell lists the variables; a list links the column (sheet5, R5-E7)
+            return MenuItem(
+                "Variables",
+                jump=True,
+                items=tuple(
+                    MenuItem(row.name, "sheet", f"link:{row.name}", hint=row.text)
+                    if row.text.startswith("{")
+                    else MenuItem(
+                        row.name,
+                        "insert",
+                        row.name,
+                        hint="function" if row.is_function else row.text,
+                    )
+                    for row in rows
+                )
+                or (MenuItem("(none)", "escape"),),
+            )
         if sheet is not None and sheet.cursor[1] == NAME_ROW:
             lists = tuple(
                 MenuItem(row.name, "sheet", f"link:{row.name}", hint=row.text)

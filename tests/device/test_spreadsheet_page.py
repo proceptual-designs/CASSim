@@ -645,11 +645,13 @@ def test_move_column_and_resize():
 
 
 def test_var_on_a_name_cell_links_to_a_list():
-    """Check 6, E7: var on a name cell: Store Var, Unlink, Link To ▶ the lists."""
+    """Check 6, E7: var on a linked name cell: Store Var, Unlink, Link To ▶ the lists."""
     state = sheet_app()
     sheet = sheet_of(state)
     sheet.session.eval("qq:={7,8,9}")
+    sheet.session.eval("pp:={1}")
     sheet.go((C, NAME_ROW))
+    state.run(Binding("sheet", "link:pp"))
     state.run(Binding("open_menu", "variables"))
     assert [row.label for row in state.menu.view().rows] == ["Store Var", "Unlink", "Link To:"]
     state.menu = None
@@ -1611,3 +1613,135 @@ def test_normal_cdf_without_shading_waits_in_the_entry_line():
     finish_wizard(state, upper="1")
     assert sheet.editing == "=normCdf(-∞,1,0,1)"
     assert sheet.panes == []
+
+
+# ----- sheet details (sheet5) ---------------------------------------------------------------------
+
+
+def test_the_data_menu_greys_items_by_what_is_selected():
+    """FR-SHEET-002 (sheet5, R5-Q1 and R5-S): a single cell, a block, a column, the name cell."""
+    state, sheet = lists_sheet()
+    sheet.go((C, 1))
+    grey = {label for label, enabled in data_menu(state).items() if not enabled}
+    assert grey == {"Clear Data", "Quick Graph"}
+
+    state.run(Binding("select_cells", "row:1"))
+    grey = {label for label, enabled in data_menu(state).items() if not enabled}
+    assert grey >= {
+        "Generate Sequence…",
+        "Clear Data",
+        "Random",
+        "List Math",
+        "List Operations",
+        "Quick Graph",
+        "Data Capture",
+    }
+    assert "Fill" not in grey
+    assert "Summary Plot" not in grey
+    state.run(Binding("open_menu", "menu"))
+    assert state.menu is not None
+    top = {row.label: row.enabled for row in state.menu.view().rows}
+    state.menu = None
+    assert (top["Insert"], top["Statistics"], top["Data"]) == (False, False, True)
+
+    sheet.go((A, NAME_ROW))
+    rows = data_menu(state)
+    assert (rows["Fill"], rows["Clear Data"], rows["Quick Graph"]) == (False, True, True)
+
+
+def test_the_random_list_math_and_list_operations_submenus():
+    """Sheet5, R5-S: the three submenus in the device's order."""
+    state, sheet = lists_sheet()
+    sheet.go((C, 1))
+    lists = []
+    for key in ("5", "6", "7"):
+        state.run(Binding("open_menu", "menu"))
+        for press in ("3", key):
+            state.run(Binding("insert", press))
+        assert state.menu is not None
+        lists.append([(row.label, row.enabled) for row in state.menu.view().rows][-10:])
+        state.menu = None
+    assert [label for label, _ in lists[0][-5:]] == [
+        "Number",
+        "Integer",
+        "Binomial",
+        "Normal",
+        "Sample",
+    ]
+    assert [label for label, _ in lists[1]] == [
+        "Minimum",
+        "Maximum",
+        "Mean",
+        "Median",
+        "Sum of Elements",
+        "Product of Elements",
+        "Sample Standard Deviation",
+        "Sample Variance",
+        "Population Standard Deviation",
+        "Population Variance",
+    ]
+    assert lists[2][-7:] == [
+        ("Cumulative Sum List", True),
+        ("Difference List", True),
+        ("Augment", True),
+        ("Convert Matrix to List", False),
+        ("Left", True),
+        ("Mid", True),
+        ("Right", True),
+    ]
+
+
+@pytest.mark.parametrize("name", ["1a", "sin"])
+def test_an_invalid_column_name_says_so_and_stays_in_the_name_cell(name):
+    """FR-SHEET-003 (sheet5, R5-E7): Syntax Error, Cannot accept change: Invalid input.; after OK
+    the name cell is still being edited with the name."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, name)
+    assert (sheet.dialogs[0].title, sheet.dialogs[0].message) == (
+        "Syntax Error",
+        "Cannot accept change: Invalid input.",
+    )
+    keys(state, "enter")
+    assert (sheet.cursor, sheet.editing) == ((A, NAME_ROW), name)
+
+
+def test_naming_a_column_after_a_list_links_it_without_a_conflict():
+    """Sheet5, R5-E7: ws holds {1,2,3}; typing ws in A's name cell shows 1, 2, 3."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("ws:={1,2,3}").error is None
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "ws")
+    assert sheet.dialogs == []
+    assert sheet.wizard is None
+    assert column(state, A, [1, 2, 3]) == ["1", "2", "3"]
+
+
+def test_the_var_key_in_an_empty_name_cell_lists_the_variables():
+    """Sheet5, R5-E7: functions and lists alike; choosing a list links the column."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("Define f1(x)=x^2").error is None
+    assert sheet.session.eval("ws:={1,2,3}").error is None
+    sheet.go((B, NAME_ROW))
+    state.run(Binding("open_menu", "variables"))
+    assert state.menu is not None
+    assert [row.label for row in state.menu.view().rows] == ["f1", "ws"]
+    state.menu = None
+    state.run(Binding("sheet", "link:ws"))
+    assert column(state, B, [1, 2, 3]) == ["1", "2", "3"]
+
+
+def test_return_on_a_filled_cell_edits_it_with_its_text_selected():
+    """Sheet5, R5-S19: typing replaces (8, not 78); Return on the cell edits 8, selected."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "7")
+    sheet.go((A, 1))
+    type_cell(state, "8")
+    assert shown(state, A, 1) == "8"
+    sheet.go((A, 1))
+    keys(state, "enter")
+    assert (sheet.editing, sheet.selected, sheet.cursor) == ("8", True, (A, 1))

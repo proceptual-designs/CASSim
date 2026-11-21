@@ -172,6 +172,26 @@ type Pane = Statistics | ShadePane | AreaPane
 MAX_PANES = 4  # the sheet and up to three more (decision 0034 item 2); Custom Split stays grey
 
 
+# The sheet Menu's items that depend on what is selected (sheet5, R5-Q1 and R5-S): what each is
+# enabled for. Keys are a `sheet` item's action or a submenu's label.
+_NOT_BLOCK = frozenset({"cell", "column", "name", "row"})
+_DATA = frozenset({"cell", "column", "name"})
+MENU_ENABLED_FOR: dict[str, frozenset[str]] = {
+    "Insert": _NOT_BLOCK,
+    "Statistics": _NOT_BLOCK,
+    "move_column": _NOT_BLOCK,
+    "Resize": _NOT_BLOCK,
+    "Select": _NOT_BLOCK,
+    "generate": _DATA,
+    "Data Capture": _DATA,
+    "Random": _DATA,
+    "List Math": _DATA,
+    "List Operations": _DATA,
+    "fill": frozenset({"cell", "block"}),
+    "clear": frozenset({"column", "name", "row"}),
+}
+
+
 def pane_boxes(count: int, width: float, height: float) -> list[tuple[float, float, float, float]]:
     """Where each of a page's panes goes, as (left, top, width, height): one fills the page; two
     are left and right halves; three put the first on the left and the others one above the other
@@ -511,14 +531,20 @@ class Spreadsheet:
         return found if all(found) else ()
 
     def adjust_menu(self, root: MenuItem) -> MenuItem:
-        """The sheet's Menu or a context menu with items greyed by what is selected."""
+        """The sheet's Menu or a context menu with items greyed by what is selected: Quick Graph
+        everywhere, and the Menu's items as sheet5 recorded them."""
         graph = bool(self.quick_graph_lists())
+        kind = self.selection_kind()
+        menu = root.label == "Menu"
 
         def visit(item: MenuItem) -> MenuItem:
             items = tuple(visit(child) for child in item.items)
             enabled = item.enabled
+            key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
             if item.action == "sheet" and item.arg == "quick_graph":
                 enabled = graph
+            elif menu and key in MENU_ENABLED_FOR and item is not root:
+                enabled = enabled and kind in MENU_ENABLED_FOR[key]
             if items == item.items and enabled == item.enabled:
                 return item
             return replace(item, items=items, enabled=enabled)
