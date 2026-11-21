@@ -192,12 +192,9 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
                     break
             expect(editor).to_have_value(value)
 
-        def source() -> str:
-            return str(editor.input_value())
-
         replace("x <")
         editor.press_sequentially("-", delay=HUMAN_TYPING)
-        assert source() == "x <-"
+        expect(editor).to_have_value("x <-")  # waits: a single read can come before the key
 
         typing_aids.click()
         expect(typing_aids).to_be_checked()
