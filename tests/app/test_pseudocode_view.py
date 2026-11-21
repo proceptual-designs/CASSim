@@ -46,6 +46,27 @@ class DummyShell:
         self.notices.append((title, message))
 
 
+def typed(app: CodeApp, text: str, selection_end: int | None) -> SimpleNamespace:
+    """Send the fallback editor a change, with the selection Python last heard about."""
+    selection = None if selection_end is None else SimpleNamespace(end=selection_end)
+    control = SimpleNamespace(value=text, selection=selection, update=lambda: None)
+    app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
+    return control
+
+
+def test_typing_aid_finds_the_edit_without_a_current_selection() -> None:
+    """FR-SYN-013: the selection reaches Python separately from the text, so it can be stale.
+    After select-all and delete it still points into the old text; `<-` must still convert."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.typing_aid, app.typing_aids = True, False
+    app.current_source = "x <"
+
+    assert typed(app, "x <-", selection_end=0).value == "x ←"
+
+    app.current_source = "a\nb"
+    assert typed(app, "a <-\nb", selection_end=9).value == "a ←\nb"  # an edit mid-text
+
+
 def test_bisection_example_starts_with_expression_function() -> None:
     assert BISECTION.startswith("define f(x)\n  return x*x - 2\nend\n")
     assert "precision ← 0.001" in BISECTION

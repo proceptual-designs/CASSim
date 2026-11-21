@@ -259,10 +259,20 @@ def test_typing_aid_rewrites_only_while_enabled(browser: Browser, site) -> None:
     with code_app(browser, site[1], 1100, 760) as page:
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         page.get_by_role("button", name="Settings…").click()
-        page.get_by_role("switch", name="Typing aid").click()
-        page.wait_for_timeout(300)
-        page.get_by_role("button", name="Save", exact=True).click()
+        typing_aid = page.get_by_role("switch", name="Typing aid")
+        for _ in range(3):  # a click can be dropped while the dialog is still opening
+            typing_aid.click()
+            try:
+                expect(typing_aid).to_be_checked(timeout=5_000)
+                break
+            except AssertionError:
+                continue
+        expect(typing_aid).to_be_checked()
+        save = page.get_by_role("button", name="Save", exact=True)
+        save.click()
+        expect(save).not_to_be_attached(timeout=10_000)  # the dialog has closed and redrawn
 
         editor = page.locator("textarea").first
-        editor.press_sequentially("x <-")
-        expect(editor).to_have_value(re.compile(r".*←$", re.DOTALL))
+        clear_editor(page, editor)  # waits until the app has seen the clear
+        editor.press_sequentially("x <-", delay=50)  # a fast human typist
+        expect(editor).to_have_value("x ←")

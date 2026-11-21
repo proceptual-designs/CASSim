@@ -102,6 +102,24 @@ def test_typing_aid_converts_single_keystrokes(previous: str, current: str, expe
 
 
 @pytest.mark.parametrize(
+    ("previous", "current", "expected"),
+    [
+        ("x ", "x <-", "x ←"),
+        ("x", "x <-", "x ←"),
+        ("print ", "print @pi", "print π"),
+        ("if a b", "if a <= b", "if a ≤ b"),
+        ('print "', 'print "<-', 'print "<-'),
+    ],
+)
+def test_typing_aid_converts_keystrokes_that_arrive_together(
+    previous: str, current: str, expected: str
+) -> None:
+    """FR-SYN-013: on a busy machine several keys reach Python as one change; a short burst is
+    converted as if typed one key at a time (a longer insertion is a paste, left alone)."""
+    assert convert_typing(previous, current) == expected
+
+
+@pytest.mark.parametrize(
     ("previous", "current"),
     [
         ('print "<', 'print "<-'),

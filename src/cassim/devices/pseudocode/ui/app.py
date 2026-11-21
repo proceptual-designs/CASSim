@@ -600,9 +600,8 @@ class CodeApp:
         text = str(event.control.value or "")
         previous = self.current_source
         if self.typing_aid and not self.typing_aids:
-            selection = event.control.selection
-            cursor = selection.end if selection is not None else len(text)
-            replacement = replacement_before_cursor(text, cursor)
+            # Not `event.control.selection`: it reaches Python separately and can be stale.
+            replacement = replacement_before_cursor(text, edit_end(previous, text))
             if replacement is not None:
                 event.control.value = (
                     text[: replacement.start] + replacement.replacement + text[replacement.end :]
@@ -1931,6 +1930,18 @@ window.CASSimTypingAids = function(editor, change) {
 
     def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.about()
+
+
+def edit_end(previous: str, text: str) -> int:
+    """Where an edit from `previous` to `text` ends in `text`: the caret after typing."""
+    shortest = min(len(previous), len(text))
+    prefix = 0
+    while prefix < shortest and previous[prefix] == text[prefix]:
+        prefix += 1
+    suffix = 0
+    while suffix < shortest - prefix and previous[-1 - suffix] == text[-1 - suffix]:
+        suffix += 1
+    return len(text) - suffix
 
 
 def mount(shell: Shell) -> CodeApp:
