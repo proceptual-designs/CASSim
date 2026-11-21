@@ -13,7 +13,7 @@ from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
 from cassim.device.engine import RemoteSession, graph_compile_op
 from cassim.device.keys import Binding
-from cassim.devices.nspire.pages import graph_tools
+from cassim.devices.nspire.pages import graph_analyze, graph_tools
 from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.doc.document import PageType
 from cassim.graph.sampling import (
@@ -120,6 +120,8 @@ class Graphs:
         self._viewport_width = 1.0
         self._viewport_height = 1.0
         self.tools = graph_tools.ToolState()
+        # Analyze Graph results kept on the page, worked out again at each draw (R5-D32)
+        self.objects: list[graph_analyze.AnalysisObject] = []
 
     @property
     def viewport_size(self) -> tuple[float, float]:
@@ -344,7 +346,14 @@ class Graphs:
                         )
                     ),
                 ),
-                Layer("tool", graph_tools.shapes(self, viewport, function_colour)),
+                Layer("analysis", graph_analyze.object_shapes(self, viewport)),
+                Layer(
+                    "tool",
+                    (
+                        *graph_tools.shapes(self, viewport, function_colour),
+                        *graph_analyze.tool_shapes(self, viewport),
+                    ),
+                ),
             ),
         )
         return scene
@@ -468,6 +477,7 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
         "show_axes": graphs.show_axes,
         "show_end_values": graphs.show_end_values,
         "grid_style": graphs.grid_style.value,
+        "objects": [item.dump() for item in graphs.objects],
         "active": graphs.active_index,
         "functions": [
             {
@@ -480,6 +490,13 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
             if item.expression or not item.editing.editor.is_empty
         ],
     }
+
+
+def _load_objects(graphs: Graphs, data: dict[str, Any]) -> None:
+    objects = data.get("objects")
+    if isinstance(objects, list):
+        loaded = (graph_analyze.AnalysisObject.load(item) for item in objects)
+        graphs.objects = [item for item in loaded if item is not None]
 
 
 def _load_active(graphs: Graphs, data: dict[str, Any]) -> None:
@@ -546,6 +563,7 @@ def load_graphs(
                 editor.root = load_nodes(nodes)
                 editor.pos = len(editor.root)
                 entry.editing.forget_undo()
+    _load_objects(graphs, data)
     _load_active(graphs, data)
     yield from ()
     return graphs

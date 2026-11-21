@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -51,6 +51,7 @@ class Tool(StrEnum):
     ZOOM_OUT = "out"
     TRACE = "trace"
     TRACE_ALL = "trace_all"
+    ANALYZE = "analyze"  # Analyze Graph; its keys and marks are in `graph_analyze`
 
 
 ZOOM_TOOLS = (Tool.ZOOM_BOX, Tool.ZOOM_IN, Tool.ZOOM_OUT)
@@ -76,6 +77,10 @@ class ToolState:
     trace_step: float | None = None  # None is Automatic
     typed: str = ""  # an x being typed during a trace
     user_window: Window | None = None  # Zoom - User returns here
+    analysis: str = ""  # the Analyze Graph item being used (`zero`, `integral`...)
+    picked: list[str] = field(default_factory=list)  # its graphs, by name
+    bounds: list[float] = field(default_factory=list)  # its bounds so far
+    message: str = ""  # why the last analysis found nothing
 
 
 def coordinate_text(value: float | None) -> str:
@@ -140,6 +145,7 @@ def start(graphs: Graphs, tool: Tool) -> None:
     state = graphs.tools
     state.typed = ""
     state.corner = None
+    state.message = ""
     if tool in TRACE_TOOLS:
         indices = plotted(graphs)
         if not indices:
@@ -169,6 +175,10 @@ def leave(graphs: Graphs) -> None:
     state.tool = None
     state.corner = None
     state.typed = ""
+    state.analysis = ""
+    state.picked = []
+    state.bounds = []
+    state.message = ""
 
 
 def trace_step(graphs: Graphs) -> float:
@@ -213,7 +223,7 @@ def _switch_graph(graphs: Graphs, step: int) -> None:
 def key(graphs: Graphs, binding: Binding) -> bool:
     """A key while a tool is on. False leaves it to the page (the entry line, menus)."""
     state = graphs.tools
-    if state.tool is None:
+    if state.tool is None or state.tool is Tool.ANALYZE:
         return False
     if state.tool in TRACE_TOOLS:
         return _trace_key(graphs, binding)
@@ -361,7 +371,7 @@ def shapes(graphs: Graphs, viewport: Viewport, colour: Callable[[str], str]) -> 
             )
         found.append(Label(min(x + 8, width - 70), min(y + 8, height - 16), prompt(graphs), 11))
         return tuple(found)
-    if state.trace_x is None:
+    if state.tool not in TRACE_TOOLS or state.trace_x is None:
         return ()
     x_screen = window.to_screen(state.trace_x, 0, width, height)[0]
     indices = plotted(graphs) if state.tool is Tool.TRACE_ALL else [state.trace_index]
