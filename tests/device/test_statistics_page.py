@@ -190,3 +190,51 @@ def test_numeric_dot_plot_points_are_selectable_and_draggable() -> None:
     assert statistics.drag_value_at(
         view._width, view._chart_height, point.screen_x, point.screen_y
     ) == (2.0, 0.0)
+
+
+def test_dragging_a_selected_dot_moves_every_selected_dot() -> None:
+    """FR-STAT-005 (R5-G1): with a 4 selected, dragging the 7 to 7.536 moves the 4 to 4.536."""
+    session = Session()
+    _eval(session, "d1:={2,4,4,4,5,5,7,9}")
+    statistics = Statistics(session)
+    statistics.select(3)
+    statistics.select(6)
+
+    expression = statistics.drag_expression(6, 7.536, 0)
+    assert expression == "d1[4]:=4.536:d1[7]:=7.536"
+    _eval(session, expression)
+    assert statistics.plot_data().x == (2.0, 4.0, 4.0, 4.536, 5.0, 5.0, 7.536, 9.0)
+
+
+def test_dragging_a_scatter_point_moves_both_coordinates_of_each_selected_point() -> None:
+    """R5-G1: a scatter drag changes both lists; selected points move by the same amounts."""
+    session = Session()
+    _eval(session, "xs:={1,2,3}")
+    _eval(session, "ys:={2,4,6}")
+    statistics = Statistics(session)
+    statistics.perform("x:xs")
+    statistics.perform("y:ys")
+    statistics.select(0)
+    statistics.select(2)
+    assert statistics.drag_expression(2, 3.5, 7) == "xs[1]:=1.5:ys[1]:=3:xs[3]:=3.5:ys[3]:=7"
+    assert statistics.drag_expression(1, 2.5, 5) == "xs[2]:=2.5:ys[2]:=5"  # not selected
+
+
+def test_the_selection_is_shared_by_row_across_the_plots_of_a_problem() -> None:
+    """R5-G1: after selecting in the dot plot, the scatter page shows rows 4 and 7 selected;
+    a click on nothing clears them; another Problem has its own selection."""
+    session = Session()
+    _eval(session, "d1:={2,4,4,4,5,5,7,9}")
+    _eval(session, "xs:={1,2,3,4,5,6,7,8}")
+    dots, scatter = Statistics(session), Statistics(session)
+    scatter.perform("x:xs")
+    scatter.perform("y:d1")
+    before = scatter.scene(320, 200)
+    dots.select(3)
+    assert scatter.plot_data().selected == frozenset({3})
+    assert scatter.scene(320, 200) is not before  # redrawn with the selection
+    assert Statistics(Session()).selected == set()
+    view = StatisticsView(DARK, lambda action, arg: None, lambda: 1)
+    view.refresh(dots, 320, 220)
+    view.click_at(300, 20)
+    assert scatter.selected == set()

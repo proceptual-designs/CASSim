@@ -202,6 +202,9 @@ class StatisticsView:
                 if self.statistics is not None:
                     self.statistics.message = "Selected data point"
                 self.on_action("statistics_point", "")
+            elif self.statistics is not None:  # a click on nothing clears the selection
+                self.statistics.select(None)
+                self._selected_point = None
         return True
 
     def _menu(self, name: str) -> None:
@@ -240,6 +243,7 @@ class StatisticsView:
     def _select_point(self, index: int, x: float, y: float) -> None:
         self._selected_point = index
         if self.statistics is not None:
+            self.statistics.select(index)
             self.statistics.message = (
                 f"{x:g}"
                 if not self.statistics.y_name and self.statistics.plot_type is PlotType.DOT

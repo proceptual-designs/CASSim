@@ -80,6 +80,7 @@ class PlotData:
     function_label: str = ""
     plot_value: float | None = None
     window: tuple[float, float, float, float] | None = None
+    selected: frozenset[int] = frozenset()  # list rows drawn selected (shared across plots)
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,13 +378,20 @@ def _distribution_data(data: PlotData) -> PlotData:
     return data
 
 
+def _selected_dots(points: tuple[PlottedPoint, ...], selected: frozenset[int]) -> tuple[Dots, ...]:
+    """Selected points drawn again, lighter and larger (R5-G1)."""
+    chosen = tuple((p.screen_x, p.screen_y) for p in points if p.index in selected)
+    return (Dots(chosen, "selection", size=9),) if chosen else ()
+
+
 def _dot_plot(data: PlotData, width: float, height: float) -> Scene:
     points, area = _dot_layout(data, width, height)
     if not points:
         return _empty(width, height, data.x_name, data.y_name)
     axis = _axes(area, data.x_name, "", y_ticks=False)
     shapes: list[Polyline | Dots] = [
-        Dots(tuple((point.screen_x, point.screen_y) for point in points), size=7)
+        Dots(tuple((point.screen_x, point.screen_y) for point in points), size=7),
+        *_selected_dots(points, data.selected),
     ]
     if data.plot_value is not None:
         x, _ = area.point(data.plot_value, 0)
@@ -699,6 +707,7 @@ def _scatter(data: PlotData, width: float, height: float) -> Scene:
     if data.connect_points or data.plot_type is PlotType.XY_LINE:
         shapes.append(Polyline(_map_points(pairs, area), Stroke("curve1", 2.5)))
     shapes.append(dots)
+    shapes.extend(_selected_dots(scatter_points(data, width, height), data.selected))
     if data.regression:
         shapes.append(Polyline(_map_points(data.regression, area), Stroke("curve2", 2)))
     if data.function:
