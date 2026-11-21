@@ -8,7 +8,7 @@ from io import BytesIO
 
 import pytest
 from PIL import Image
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, Locator, Page, expect
 
 from cassim.app.home import WELCOME
 
@@ -140,6 +140,18 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         page.close()
 
 
+def clear_editor(page: Page, editor: Locator) -> None:
+    """Select all and delete, retrying: a select-all can be lost while the editor rebuilds."""
+    for _ in range(10):
+        editor.focus()
+        editor.press("Control+A")
+        editor.press("Backspace")
+        if editor.input_value() == "":
+            break
+        page.wait_for_timeout(200)
+    expect(editor).to_have_value("")
+
+
 def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Browser, site) -> None:
     """FR-SYN-013: convenience symbols are opt-in and do not rewrite source contexts blindly."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
@@ -155,8 +167,7 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         expect(editor).to_be_attached()
 
         def replace(value: str) -> None:
-            editor.focus()
-            editor.press("Control+A")
+            clear_editor(page, editor)
             editor.press_sequentially(value)
             expect(editor).to_have_value(value)
 
@@ -168,7 +179,7 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         assert source() == "x <-"
 
         typing_aids.click()
-        page.wait_for_timeout(300)
+        expect(typing_aids).to_be_checked()
         editor = page.get_by_role("textbox", name="Code")
         expect(editor).to_be_attached()
         replace("x <")

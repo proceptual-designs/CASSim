@@ -281,8 +281,9 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
     app.wait(
         lambda: variables.evaluate("(element) => element.scrollTop") > 0, "variables to scroll"
     )
-    assert "tvm.pv = 10000" in variables.inner_text()
-    assert "tvm.pmt = -" in variables.inner_text()
+    # The solver's results reach the list asynchronously: wait for them rather than read once.
+    expect(variables).to_contain_text("tvm.pv = 10000", timeout=30_000)
+    expect(variables).to_contain_text("tvm.pmt = -", timeout=30_000)
     button(page, "Expand stat.results").click()
     app.wait(
         lambda: '1: ["Title","Two-Variable Statistics"]' in variables.inner_text(), "stat rows"
