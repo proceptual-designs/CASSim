@@ -28,7 +28,7 @@ def wait_for_log(page: Page, logs: list[str], line: str, seconds: float = 60) ->
     return line in logs
 
 
-def test_home_chooses_an_app_and_remembers_it(browser: Browser, site) -> None:
+def test_home_chooses_an_app_and_a_reload_returns_home(browser: Browser, site) -> None:
     """FR-PROF-010 to FR-PROF-016, NFR-PERF-007."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
@@ -52,10 +52,10 @@ def test_home_chooses_an_app_and_remembers_it(browser: Browser, site) -> None:
 
         nspire.click()
         assert wait_for_log(page, logs, "CASSIM: READY"), "Nspire did not open"
-        page.reload(wait_until="load")
         logs.clear()
-        assert wait_for_log(page, logs, "CASSIM: READY"), "remembered app did not open"
-        assert not any(line == "CASSIM: HOME" for line in logs)
+        page.goto(site[1], wait_until="load")
+        assert wait_for_log(page, logs, "CASSIM: HOME"), "a new launch did not open Home"
+        assert not any(line == "CASSIM: READY" for line in logs)
     finally:
         page.close()
 
@@ -98,7 +98,7 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
 
 
 def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
-    """FR-PROF-014/016: Pseudocode returns through Home and can open Nspire."""
+    """FR-PROF-016: Pseudocode returns through Home and can open Nspire."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
     page.on(
