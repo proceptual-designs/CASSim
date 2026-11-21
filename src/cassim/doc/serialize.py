@@ -21,9 +21,10 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
 
 # Schema 2 writes Calculator rows as runs of text. Schema 3 adds the optional split-app state to
-# spreadsheet pages. Schema 4 adds complete Graphs and Data & Statistics page state.
+# spreadsheet pages. Schema 4 adds complete Graphs and Data & Statistics page state. Schema 5 keeps
+# a sheet page's other apps as one list of up to three panes (decision 0034 item 2).
 # At the v1.0 release the format restarts at 1 (PLAN.md section 12, A8).
-SCHEMA = 4
+SCHEMA = 5
 FORMAT = "cassim-document"
 FIRST_DEVICE = "nspire"  # files written before files named their device
 SUFFIX = ".cassim.json"
@@ -80,7 +81,7 @@ def dumps(document: Document, *, compact: bool = False) -> str:
 def _migrate_page(page: dict[str, Any]) -> None:
     kind = page.get("kind")
     if kind == "spreadsheet":
-        page.setdefault("split_statistics", [])
+        _migrate_sheet_panes(page)
     elif kind == "graphs":
         page.setdefault("window", [-10.0, 10.0, -20 / 3, 20 / 3])
         page.setdefault("show_axes", True)
@@ -97,6 +98,25 @@ def _migrate_page(page: dict[str, Any]) -> None:
         page.setdefault("function", "")
         page.setdefault("plot_value", "")
         page.setdefault("window", None)
+
+
+def _migrate_sheet_panes(page: dict[str, Any]) -> None:
+    """Schema 3 and 4 kept a sheet's plots (`split_statistics`) and one Shade P Value pane
+    (`shade_alternative`, a 1-Prop z Test) apart; schema 5 has one list of panes."""
+    if "panes" in page:
+        return
+    panes: list[Any] = []
+    alternative = page.pop("shade_alternative", None)
+    if alternative in (0, 1, 2) and not isinstance(alternative, bool):
+        panes.append({"kind": "shade", "variable": "z", "alternative": alternative})
+    saved = page.pop("split_statistics", [])
+    if isinstance(saved, list):
+        panes[:0] = [
+            {"kind": "statistics", **statistics}
+            for statistics in saved
+            if isinstance(statistics, dict)
+        ]
+    page["panes"] = panes
 
 
 def migrate(data: dict[str, Any]) -> dict[str, Any]:

@@ -17,6 +17,7 @@ from cassim.core.compat import finance as fin
 from cassim.device.keys import Action, Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire import sheet_inference
 from cassim.devices.nspire.pages.spreadsheet import STAT_CALCULATIONS
 from cassim.devices.nspire.statistics import INTERVALS, TESTS, command_wizard
 from cassim.devices.nspire.syntax import COMMANDS, CONVERSIONS, FUNCTIONS
@@ -1224,17 +1225,33 @@ SHEET_MENU = MenuItem(
                 todo("Multiple Linear Regression…", "F"),
             ),
             # From a sheet these write their formula into the selected cell (run 4, S10)
-            replace(DISTRIBUTIONS, key="2"),
+            replace(
+                DISTRIBUTIONS,
+                key="2",
+                items=tuple(
+                    # Normal Cdf on a sheet has Draw: Shade area (split2 H14)
+                    replace(item, action="sheet", arg="distribution:normCdf")
+                    if item.arg == "normCdf"
+                    else item
+                    for item in DISTRIBUTIONS.items
+                ),
+            ),
             sub(
                 "Confidence Intervals",
                 "3",
-                *(act(f"{title}…", f"inference:{name}", key) for title, name, key, _ in INTERVALS),
+                *(
+                    act(f"{item.title}…", f"inference:{item.command}", item.key)
+                    for item in sheet_inference.INTERVALS
+                ),
                 todo("Multiple Reg Intervals…", "8"),
             ),
             sub(
                 "Stat Tests",
                 "4",
-                *(act(f"{title}…", f"inference:{name}", key) for title, name, key, _ in TESTS),
+                *(
+                    act(f"{item.title}…", f"inference:{item.command}", item.key)
+                    for item in sheet_inference.TESTS
+                ),
                 todo("Multiple Reg Tests…", "B"),
                 todo("ANOVA…", "C"),
                 todo("ANOVA 2-Way…", "D"),

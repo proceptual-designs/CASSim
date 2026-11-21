@@ -23,9 +23,9 @@ from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.pointer import Pointer
 from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire.pages.calculator import calculator_of
-from cassim.devices.nspire.pages.spreadsheet import Spreadsheet
+from cassim.devices.nspire.pages.spreadsheet import AreaPane, ShadePane, Spreadsheet, pane_boxes
 from cassim.devices.nspire.screen import Line, Screen, Tile
-from cassim.devices.nspire.statistics_plot import p_value_scene
+from cassim.devices.nspire.statistics_plot import area_scene, p_value_scene
 from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.graphs_view import GraphsView
 from cassim.devices.nspire.ui.layout import COMPUTER_COLUMN_PADDING, SCREEN_H
@@ -430,8 +430,10 @@ class CalculatorView:
             theme, on_action, lambda: state.scale, lambda: state.math_size, self._graph_extend
         )
         self.statistics_view = StatisticsView(theme, on_action, lambda: state.scale)
-        self.sheet_panes = ft.Row([], spacing=0, expand=True)
-        self.pvalue_pane = ft.Container(expand=True)
+        # A sheet page's panes (decision 0034 item 2): the sheet and up to three more, placed by
+        # `pane_boxes`; `pane_boxes_shown` keeps where each went, for pointer clicks.
+        self.sheet_panes = ft.Stack([], expand=True)
+        self.pane_boxes_shown: list[tuple[float, float, float, float]] = []
         self.split_statistics_views: list[StatisticsView] = []
         self.body_size: Callable[[], tuple[float, float]] = lambda: (320.0, 200.0)  # set by the App
         body = ft.Column([self.history], expand=True, spacing=0)
@@ -552,42 +554,60 @@ class CalculatorView:
 
     def _refresh_sheet(self, sheet: Spreadsheet) -> None:
         width, height = self.body_size()
-        if sheet.pvalue_plot is not None:
-            pane_width = max((width - 1) / 2, 1)
-            self.sheet_panes.controls = [self.sheet_view.control, self.pvalue_pane]
-            self.sheet_view.refresh(sheet, pane_width, height)
-            self.pvalue_pane.content = scene_canvas.canvas(
-                p_value_scene(sheet.pvalue_plot, pane_width, height),
-                {
-                    "ink": self.theme.screen_text,
-                    "axis": self.theme.sheet_axis,
-                    "curve1": self.theme.accent,
-                    "curve2": self.theme.selection,
-                },
+        boxes = pane_boxes(1 + len(sheet.panes), width, height)
+        self.pane_boxes_shown = boxes
+        _, _, pane_width, pane_height = boxes[0]
+        self.sheet_view.refresh(sheet, pane_width, pane_height)
+        # The sheet's own control is placed, not wrapped: a wrapping container stopped a touch
+        # long press reaching the grid (the e2e long-press test).
+        sheet_control = self.sheet_view.control
+        sheet_control.left, sheet_control.top, sheet_control.width, sheet_control.height = boxes[0]
+        controls: list[ft.Control] = [sheet_control]
+        statistics = sheet.split_statistics
+        self.split_statistics_views = self.split_statistics_views[: len(statistics)]
+        while len(self.split_statistics_views) < len(statistics):
+            self.split_statistics_views.append(
+                StatisticsView(self.theme, self._split_statistics_action, lambda: self.state.scale)
             )
-        elif sheet.split_statistics:
-            pane_width = max((width - 1) / 2, 1)
-            self.sheet_view.refresh(sheet, pane_width, height)
-            self.split_statistics_views = self.split_statistics_views[: len(sheet.split_statistics)]
-            while len(self.split_statistics_views) < len(sheet.split_statistics):
-                self.split_statistics_views.append(
-                    StatisticsView(
-                        self.theme, self._split_statistics_action, lambda: self.state.scale
-                    )
+        views = iter(self.split_statistics_views)
+        colours = {
+            "ink": self.theme.screen_text,
+            "axis": self.theme.sheet_axis,
+            "curve1": self.theme.accent,
+            "curve2": self.theme.selection,
+        }
+        for pane, box in zip(sheet.panes, boxes[1:], strict=True):
+            _, _, pane_width, pane_height = box
+            if isinstance(pane, ShadePane | AreaPane):
+                scene = (
+                    area_scene(pane.plot, pane_width, pane_height)
+                    if isinstance(pane, AreaPane)
+                    else p_value_scene(pane.plot, pane_width, pane_height)
+                    if pane.plot is not None
+                    else None
                 )
-            panes = ft.Column([], spacing=0, expand=True)
-            slot_height = height / len(sheet.split_statistics)
-            for view, statistics in zip(
-                self.split_statistics_views, sheet.split_statistics, strict=True
-            ):
-                view.refresh(statistics, pane_width, slot_height)
-                panes.controls.append(ft.Container(view.control, expand=True))
-            self.sheet_panes.controls = [self.sheet_view.control, panes]
-        else:
-            self.sheet_panes.controls = [self.sheet_view.control]
-            self.sheet_view.refresh(sheet, width, height)
+                content = scene_canvas.canvas(scene, colours) if scene is not None else None
+                controls.append(self._placed(ft.Container(content), box, divider=True))
+                continue
+            view = next(views)
+            view.refresh(pane, pane_width, pane_height)
+            controls.append(self._placed(view.control, box, divider=True))
+        self.sheet_panes.controls = controls
         self.body.controls = [self.sheet_panes]
         self._follow = False
+
+    def _placed(
+        self, control: ft.Control, box: tuple[float, float, float, float], *, divider: bool = False
+    ) -> ft.Control:
+        left, top, width, height = box
+        return ft.Container(
+            control,
+            left=left,
+            top=top,
+            width=width,
+            height=height,
+            border=ft.Border.all(0.5, self.theme.sheet_grid) if divider else None,
+        )
 
     def _split_statistics_action(self, action: Action, arg: str) -> None:
         if action == "context_menu":
@@ -719,27 +739,30 @@ class CalculatorView:
             if hit is not None:
                 self.on_action(*hit)
             return True
-        if self.state.sheet is not None and self.sheet_view.control in self.sheet_panes.controls:
-            width, _ = self.body_size()
-            split = self.state.sheet.pvalue_plot is not None or bool(
-                self.state.sheet.split_statistics
-            )
-            pane_width = width / 2 if split else width
-            if x <= pane_width:
-                return self.sheet_view.click_at(x, y)
-            if self.state.sheet.split_statistics:
-                count = len(self.state.sheet.split_statistics)
-                slot_height = self.body_size()[1] / count
-                index = min(int(y / slot_height), count - 1)
-                return self.split_statistics_views[index].click_at(
-                    x - pane_width, y - index * slot_height
-                )
-            return True
+        sheet = self.state.sheet
+        if sheet is not None and self.body.controls == [self.sheet_panes]:
+            return self._pane_click(sheet, x, y)
         if self.state.statistics is not None and self.body.controls == [
             self.statistics_view.control
         ]:
             return self.statistics_view.click_at(x, y)
         return self.history_click(x, y)
+
+    def _pane_click(self, sheet: Spreadsheet, x: float, y: float) -> bool:
+        """A pointer click on a sheet page: the pane under it takes it."""
+        boxes = self.pane_boxes_shown or [(0, 0, *self.body_size())]
+        views = iter(self.split_statistics_views)
+        for index, (left, top, width, height) in enumerate(boxes):
+            pane = sheet.panes[index - 1] if index else None
+            view = (
+                next(views, None) if index and not isinstance(pane, ShadePane | AreaPane) else None
+            )
+            if not (left <= x <= left + width and top <= y <= top + height):
+                continue
+            if index == 0:
+                return self.sheet_view.click_at(x - left, y - top)
+            return view.click_at(x - left, y - top) if view is not None else True
+        return True
 
     # ---- pointer clicks on the history: sizes reported by Flet while the pointer is in use --
 
