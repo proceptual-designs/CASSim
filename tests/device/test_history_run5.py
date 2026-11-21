@@ -76,3 +76,83 @@ def test_up_then_return_on_a_result_brings_down_the_stored_value() -> None:
     calc.perform(Binding("enter"))
     assert calc.editor.linear() == "3.4142135623731"
     assert len(calc.history) == 1
+
+
+# ---- E3: Clear History (H5 h) -----------------------------------------------------------------
+
+
+def test_clear_history_empties_it_at_once_and_ans_is_then_undefined() -> None:
+    """H5 h: no question asked; afterwards `ans` is an error, in CASSim's words, and the entry
+    stays on the entry line with no pair added. Variables stay."""
+    calc = make()
+    enter(calc, "a:=5")
+    enter(calc, "2+3")
+    calc.perform(Binding("clear", "history"))
+    assert not calc.history
+    assert calc.recall is None
+    enter(calc, "ans")
+    assert calc.error is not None
+    assert "Ans" in calc.error
+    assert not calc.history
+    calc.perform(Binding("escape"))
+    assert calc.editor.linear() == "ans"
+    calc.perform(Binding("clear"))
+    enter(calc, "a")
+    assert pairs(calc) == [("a", "5")]
+
+
+def test_an_operator_first_on_a_fresh_page_is_an_undefined_ans() -> None:
+    """Editor check T1 i: `-3/4` first on a fresh page asks for an Ans there is not."""
+    calc = make()
+    enter(calc, "-3")
+    assert calc.error is not None
+    assert not calc.history
+
+
+def test_undo_brings_back_a_cleared_history() -> None:
+    """The device greys Undo after Clear History (H5 h); CASSim keeps it."""
+    calc = make()
+    enter(calc, "2+3")
+    enter(calc, "4+1")
+    calc.perform(Binding("clear", "history"))
+    calc.perform(Binding("undo"))
+    assert pairs(calc) == [("2+3", "5"), ("4+1", "5")]
+    enter(calc, "ans+1")
+    assert pairs(calc)[-1] == ("5+1", "6")
+
+
+def test_clear_history_with_nothing_to_clear_does_nothing() -> None:
+    calc = make()
+    calc.perform(Binding("clear", "history"))
+    assert not calc.can_undo
+
+
+# ---- E7: an empty template is a syntax error that stays on the entry line (E4) -----------------
+
+
+def test_an_empty_derivative_template_is_a_syntax_error_and_stays() -> None:
+    calc = make()
+    calc.perform(Binding("template", "derivative"))
+    calc.perform(Binding("enter"))
+    assert calc.error is not None
+    assert calc.error.startswith("Syntax")
+    assert not calc.history
+    calc.perform(Binding("escape"))  # OK: the template is still there
+    assert calc.editor.linear() == "derivative(,)"
+
+
+def test_show_warning_info_shows_the_picked_lines_warning() -> None:
+    """H9 h, H3 j: the warning triangle's message, in a dialog titled Warning."""
+    calc = make()
+    calc.perform(Binding("insert_linear", "real(3+4*√(-1))"))
+    calc.perform(Binding("enter"))
+    assert calc.history[-1].result.warnings
+    calc.show_warning_info()  # nothing picked: nothing to show
+    assert calc.error is None
+    calc.perform(Binding("up"))
+    calc.show_warning_info()
+    assert calc.error == calc.history[-1].result.warnings[0]
+    assert calc.error_title == "Warning"
+    calc.perform(Binding("escape"))
+    assert calc.error is None
+    assert calc.error_title == "Error"

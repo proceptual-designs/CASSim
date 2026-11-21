@@ -21,6 +21,7 @@ from cassim.device.wizard import Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
+from cassim.devices.nspire.menus import entry_context, history_context
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
@@ -389,6 +390,12 @@ class AppState:
                 self.retain_sheets()
             return
         calculator = calculator_of(self.document.current)
+        if calculator is not None and binding.action == "context_menu":
+            if binding.arg == "warning":
+                calculator.show_warning_info()
+            elif calculator.error is None and calculator.pending is None:
+                self._open_menu("calculator_context")
+            return
         if (
             calculator is not None
             and binding.action not in SHEET_ACTIONS
@@ -644,10 +651,13 @@ class AppState:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
-        if name == "graphs_history":
-            return self._graphs_history_menu()
-        if name == "menu_graphs":
-            return self._graphs_menu()
+        built = {
+            "graphs_history": self._graphs_history_menu,
+            "menu_graphs": self._graphs_menu,
+            "calculator_context": self._calculator_context,
+        }.get(name)
+        if built is not None:
+            return built()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if self.sheet is not None and name in {
             "menu_sheet",
@@ -668,6 +678,18 @@ class AppState:
             if root is not None:
                 root = _set_quick_graph_enabled(root, has_list)
         return root
+
+    def _calculator_context(self) -> MenuItem | None:
+        """The Calculator's context menu: a history line's while one is picked, else the entry
+        line's, with the device's grey states (run 5, H3 j)."""
+        calculator = calculator_of(self.document.current)
+        if calculator is None:
+            return None
+        if calculator.recall is not None:
+            return history_context(warning=calculator.warning_info() is not None)
+        variables = self._variables_menu()
+        listed = variables.items if variables is not None else ()
+        return entry_context(selection=bool(calculator.editor.selection()), variables=listed)
 
     def _graphs_history_menu(self) -> MenuItem | None:
         graphs = self.graphs

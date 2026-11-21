@@ -398,7 +398,7 @@ MENU = MenuItem(
             todo("Recall Definition", "2"),
             cmd("Delete Variable", "DelVar", "3"),
             cmd("Clear a-z…", "ClearAZ", "4"),
-            todo("Clear History", "5"),
+            MenuItem("Clear History", "clear", "history", key="5"),
             todo("Insert Comment", "6"),
             todo_sub(
                 "Library",
@@ -902,6 +902,44 @@ DOC = MenuItem(
         todo("Press-to-Test", "9"),
     ),
 )
+
+
+# ---- the Calculator's context menus (right-click, ctrl+menu; run 5, H3 j and H5 h) -------------
+
+
+def history_context(*, warning: bool) -> MenuItem:
+    """On a history line: Show Warning Info is greyed unless the line has a warning triangle."""
+    return MenuItem(
+        "Calculator",
+        items=(
+            MenuItem("Show Warning Info…", "context_menu", "warning", key="1", enabled=warning),
+            MenuItem("Clear History", "clear", "history", key="2"),
+            MenuItem("Copy", "copy", key="3", hint="ctrl+C"),
+            MenuItem("Delete", "delete", key="4", hint="Delete"),
+        ),
+    )
+
+
+def entry_context(*, selection: bool, variables: tuple[MenuItem, ...]) -> MenuItem:
+    """On the entry line: Cut, Copy and Delete are greyed with nothing selected."""
+    return MenuItem(
+        "Calculator",
+        items=(
+            MenuItem("Clear History", "clear", "history", key="1"),
+            MenuItem("Cut", "cut", key="2", hint="ctrl+X", enabled=selection),
+            MenuItem("Copy", "copy", key="3", hint="ctrl+C", enabled=selection),
+            MenuItem("Paste", "paste", key="4", hint="ctrl+V"),
+            MenuItem("Delete", "delete", key="5", hint="Delete", enabled=selection),
+            MenuItem(
+                "Select Variable",
+                key="6",
+                jump=True,
+                items=variables or (MenuItem("(none)", "escape"),),
+            ),
+            MenuItem("Symbols…", "open_menu", "symbols", key="7"),
+            MenuItem("Math Templates…", "open_menu", "templates", key="8"),
+        ),
+    )
 
 
 def _cells(*pairs: tuple[str, str]) -> tuple[MenuItem, ...]:

@@ -747,6 +747,19 @@ class CalculatorView:
         self._keep = self._scroll
         self.on_action("recall_at", spec)
 
+    def _context_line(self, spec: str, *, picked: bool) -> None:
+        """A right-click on a history line: pick it where it is, then its context menu."""
+        if not picked:
+            self._click_line(spec)
+        self.on_action("context_menu", "")
+
+    def _context_entry(self) -> None:
+        """A right-click on the entry line: the entry line's context menu."""
+        calculator = calculator_of(self.state.document.current)
+        if calculator is not None and calculator.recall is not None:
+            self.on_action("escape", "")  # back to the entry line
+        self.on_action("context_menu", "")
+
     def _history_hit(self, index: int, x: float, y: float) -> bool:
         pairs = len(self._side_by_side)
         if 1 <= index <= pairs:
@@ -794,13 +807,18 @@ class CalculatorView:
         calculator = calculator_of(self.state.document.current)
         if calculator is None:
             return math(screen.entry, self.theme, self.state.math_size)
-        return EntryLine(
+        line = EntryLine(
             self.theme,
             self.state.math_size,
             self._click,
             calculator.session.is_defined,
             self._hold,
         ).build(calculator.editor)
+        return ft.GestureDetector(
+            line,
+            on_secondary_tap_down=lambda _: self._context_entry(),
+            mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
+        )
 
     def _click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
         """A click in the entry: place the cursor, or extend the selection with shift held (the
@@ -858,7 +876,7 @@ class CalculatorView:
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
 
-    def _line(self, line: Line, number: int) -> ft.Container:
+    def _line(self, line: Line, number: int) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
         place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
         right = line.kind == "result"
@@ -882,13 +900,19 @@ class CalculatorView:
                 tight=True,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
-        return ft.Container(
-            shown,
-            on_click=lambda _: self._click_line(spec),
-            on_size_change=self._line_sized(spec) if self.measuring else None,
-            alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
-            padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
-            key=_scroll_key() if line.selected else None,
+        # A right-click picks the line (if it is not picked already) and opens its context menu;
+        # the context-menu cursor tells the page to keep the browser's own menu away (H3 j)
+        return ft.GestureDetector(
+            ft.Container(
+                shown,
+                on_size_change=self._line_sized(spec) if self.measuring else None,
+                alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
+                padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above
+                key=_scroll_key() if line.selected else None,
+            ),
+            on_tap=lambda _: self._click_line(spec),
+            on_secondary_tap_down=lambda _: self._context_line(spec, picked=line.selected),
+            mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
         )
 
     def _menu(self, view: MenuView | None) -> None:
@@ -1155,7 +1179,10 @@ class CalculatorView:
             ft.Column(
                 [
                     ft.Text(
-                        "Error", size=self.state.px(14), weight=ft.FontWeight.BOLD, color="#ffffff"
+                        screen.error_title,
+                        size=self.state.px(14),
+                        weight=ft.FontWeight.BOLD,
+                        color="#ffffff",
                     ),
                     ft.Text(screen.error, size=self.state.px(14), color="#ffffff"),
                     ft.Text("click or press any key", size=self.state.px(11), color="#ffd0cc"),

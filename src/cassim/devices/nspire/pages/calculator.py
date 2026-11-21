@@ -7,6 +7,7 @@ Behaviour follows the emulator runs in `docs/testing/` (decision 0017).
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -17,6 +18,7 @@ from cassim.device.editor import (
     Editor,
     Kind,
     Node,
+    Template,
     linear_text,
     modernised,
     parse_target,
@@ -42,6 +44,9 @@ _RECALL_MOVES = frozenset(
         "select_to_end", "word_left", "word_right",
     }
 )  # fmt: skip
+
+# `ans` as a word of its own, as the entry line spells it (`Ans`, typed `ans`)
+_ANS_WORD = re.compile(r"(?<![\w.])ans(?![\w(])", re.IGNORECASE)
 
 _OPERAND_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_πⅇⅈ")
 
@@ -89,6 +94,7 @@ class Calculator:
         self.editor = Editor()
         self.history: list[Entry] = []
         self.error: str | None = None  # a dialog waiting for a key press
+        self.error_title = "Error"  # the dialog's title ("Warning" for Show Warning Info)
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
         self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
         self.recall_touched = False  # a key or click has moved inside the picked row
@@ -107,7 +113,7 @@ class Calculator:
         if self.pending is not None:
             return  # busy: the app's Runner owns the keyboard until the result arrives
         if self.error is not None:
-            self.error = None
+            self.error, self.error_title = None, "Error"
             return
         action = self._actions().get(binding.action)
         if action is None:
@@ -147,7 +153,11 @@ class Calculator:
                 "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
                 "backspace": lambda _: self._delete(self.editor.backspace, forward=False),
                 "delete": lambda _: self._delete(self.editor.delete, forward=True),
-                "clear": lambda _: self._edit("other", self.editor.clear),
+                "clear": lambda arg: (
+                    self.clear_history()
+                    if arg == "history"
+                    else self._edit("other", self.editor.clear)
+                ),
                 "copy": lambda _: self._copy(),
                 "cut": lambda _: self._cut(),
                 "paste": self._paste,
@@ -236,6 +246,32 @@ class Calculator:
             return
         self.recall_touched = True
         self._recalled.place(path, pos, extend=extend)
+
+    def clear_history(self) -> None:
+        """Clear History (the context menus, Actions 5): every pair goes at once, with no
+        question asked, and `Ans` with them; variables stay (run 5, H5 h). The device greys its
+        Undo afterwards; CASSim keeps undo, which brings the history back."""
+        if not self.history:
+            return
+        self._undo.append(self._snapshot())
+        self._redo.clear()
+        self.history.clear()
+        self._pick(None)
+        self._group = None
+        self._sync_ans()
+
+    def warning_info(self) -> str | None:
+        """The picked line's warnings as one message (Show Warning Info…), or None."""
+        if self.recall is None:
+            return None
+        warnings = self.history[self.recall[0]].result.warnings
+        return "\n".join(warnings) if warnings else None
+
+    def show_warning_info(self) -> None:
+        """Show Warning Info…: the picked line's warnings in a dialog."""
+        info = self.warning_info()
+        if info is not None:
+            self.error, self.error_title = info, "Warning"
 
     def _delete(self, remove_in_entry: Callable[[], None], *, forward: bool) -> None:
         """Del or Backspace: on a picked history row it deletes that entry and its result, and
@@ -442,10 +478,25 @@ class Calculator:
             text = self.editor.linear()
         if not text:
             return
+        refused = self._refused()
+        if refused is not None:  # a dialog, and the entry stays on the entry line to be mended
+            self.error = refused
+            return
         if getattr(self.session, "deferred", False):
             self.pending = Pending(text, approximate)
             return
         self.finish(self.session.eval(text, approximate=approximate), text, approximate)
+
+    def _refused(self) -> str | None:
+        """Why the entry line cannot be run at all, or None. These are caught before the engine
+        and leave no history pair: a template with every box empty (run 5, E4: an empty d/dx
+        gives a syntax error and stays), and `Ans` with no answer on the page (after Clear
+        History, or first on a fresh page: run 5, H5 h; editor check T1 i)."""
+        if _has_empty_template(self.editor.root):
+            return "Syntax error: fill in the empty boxes"
+        if self._ans_entry() is None and _ANS_WORD.search(self.editor.linear()):
+            return "No previous answer: Ans is undefined"
+        return None
 
     def finish(self, result: Result, text: str, approximate: bool) -> None:
         """Record an evaluated entry: history on success, an error dialog otherwise."""
@@ -480,6 +531,17 @@ class Calculator:
             self._synced = entry
         self.editor.clear()
         self._group = None
+
+
+def _has_empty_template(row: EditorRow) -> bool:
+    """Whether some template in `row` has nothing in any of its boxes."""
+    for node in row:
+        if isinstance(node, Template):
+            if node.slots and not any(node.slots):
+                return True
+            if any(_has_empty_template(slot) for slot in node.slots):
+                return True
+    return False
 
 
 def calculator_of(page: Page) -> Calculator | None:
