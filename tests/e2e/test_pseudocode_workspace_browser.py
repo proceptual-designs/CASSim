@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 import pytest
 from playwright.sync_api import Browser, Page, expect
+from tests.e2e.test_home_browser import clear_editor
 
 from cassim.app.home import WELCOME
 
@@ -240,7 +241,7 @@ def test_phone_opens_runs_and_traces_typed_pseudocode(browser: Browser, site) ->
         editor = page.locator("textarea").first
         expect(editor).to_be_attached(timeout=15_000)
         editor.tap()
-        editor.fill("")
+        clear_editor(page, editor)  # waits until the app has seen the clear
         page.keyboard.insert_text("total ← 0\nfor k from 1 to 4\n  total ← total + k\nend for\n")
         page.keyboard.insert_text("print total")
         page.get_by_role("button", name=re.compile("^Run")).tap()
