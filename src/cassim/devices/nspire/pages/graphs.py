@@ -55,6 +55,30 @@ def function_colour(name: str) -> str:
     return FUNCTION_COLOURS[(number - 1) % len(FUNCTION_COLOURS)]
 
 
+_RELATIONS = frozenset("<>≤≥≠")
+
+
+def graph_definition(expression: str) -> str:
+    """The definition a graph entry stores. A restriction typed with `|` and an inequality
+    (`x^2|x>0`, `x^2|-1<x<2`) is kept as a one-piece piecewise, as on the device (graphs4 D13),
+    so the graph and the function are undefined outside it; a `|` substitution is left alone."""
+    depth = 0
+    bar = -1
+    for index, character in enumerate(expression):
+        if character in "([{":
+            depth += 1
+        elif character in ")]}":
+            depth -= 1
+        elif character == "|" and depth == 0:
+            bar = index
+    if bar <= 0:
+        return expression
+    value, condition = expression[:bar].strip(), expression[bar + 1 :].strip()
+    if not value or not _RELATIONS & set(condition):
+        return expression
+    return f"when({condition},{value})"
+
+
 class GridStyle(StrEnum):
     NONE = "none"
     DOT = "dot"
@@ -168,7 +192,7 @@ class Graphs:
         entry.compiled = None
         entry.source = None
         if isinstance(self.session, RemoteSession):
-            self.session.outbox.append(graph_compile_op(entry.name, expression))
+            self.session.outbox.append(graph_compile_op(entry.name, graph_definition(expression)))
             entry.error = "Plotting…"
         else:
             self._compile_local(self.session, entry)
@@ -184,7 +208,7 @@ class Graphs:
     def _compile_local(self, session: Session, entry: FunctionEntry) -> None:
         from cassim.core.compat.sympy_adapter import compile_math  # noqa: PLC0415 (lazy SymPy import)
 
-        definition = session.eval(f"{entry.name}(x):={entry.expression}")
+        definition = session.eval(f"{entry.name}(x):={graph_definition(entry.expression)}")
         if definition.error is not None:
             entry.error = definition.error
             return
