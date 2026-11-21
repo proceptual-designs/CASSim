@@ -175,7 +175,9 @@ def report_sizes(app: Any, row_height: float = 30.0, entry_width: float = 40.0) 
         height = control.height if control.height is not None else row_height
         handler(SimpleNamespace(width=300.0, height=height))
         body = getattr(control, "content", None)
-        for line in getattr(body, "controls", []):
+        for detector in getattr(body, "controls", []):
+            # each line is a detector (clicks, right-clicks) round the container that reports
+            line = detector.content if isinstance(detector, ft.GestureDetector) else detector
             if line.on_size_change is not None:
                 line.on_size_change(SimpleNamespace(width=entry_width, height=row_height / 2))
 

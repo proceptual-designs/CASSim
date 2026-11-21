@@ -65,7 +65,8 @@ def test_saved_custom_theme_is_applied_after_reload(
     settings = json.loads(stored)
     assert settings["theme_name"] == "Light"
     assert settings["theme_overrides"]["Light"]["background"] == "#e7e8e9"
-    app.page.reload()
+    app.page.goto("about:blank")  # relaunch on the device route: a plain launch opens Home
+    app.page.goto(site[1] + "#/debug", wait_until="load")
     app.wait(lambda: app.logs.count("CASSIM: READY") >= 2, "READY after reload")
     app.page.wait_for_timeout(500)
     screenshot = Image.open(io.BytesIO(app.page.screenshot()))

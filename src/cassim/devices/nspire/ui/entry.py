@@ -43,8 +43,11 @@ _SHOWN = {"*": "·", "-": "−", "ⅇ": "ⅇ", "ᴇ": "ᴇ", "/": "/", " ": " "}
 # (italic by design), everything else in KaTeX_Main.
 _MATH_FONT = "packages/flutter_math_fork/KaTeX_Math"
 _MAIN_FONT = "packages/flutter_math_fork/KaTeX_Main"
+# A string's quote is straight, as on the device; KaTeX_Main draws it curly, KaTeX_Typewriter not
+_QUOTE_FONT = "packages/flutter_math_fork/KaTeX_Typewriter"
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
-_BINARY = frozenset("+-*=<>≤≥≠")  # set with a little space either side, as TeX does
+_BINARY = frozenset("+-*=<>≤≥≠")
+_DRAG_GROUP = "entry-selection"  # set with a little space either side, as TeX does
 
 
 class EntryLine:
@@ -64,17 +67,24 @@ class EntryLine:
         self.is_defined = is_defined
         # A long press is the touch screen's shift+click: it extends the selection (0019)
         self.hold = hold or click
+        # Selected text dragged onto a place moves there (run 5, H3 k); None: no dragging
+        self.drop: Click | None = None
 
     def _detector(
         self, content: ft.Control, path: Path, pos: int, *, expand: bool = False
     ) -> ft.Control:
-        """A tap places the cursor at `pos` in the row at `path`; a long press extends to it."""
-        return ft.GestureDetector(
+        """A tap places the cursor at `pos` in the row at `path`; a long press extends to it; a
+        dragged selection dropped here moves to `pos`."""
+        detector = ft.GestureDetector(
             content,
             expand=expand,
             on_tap=lambda _: self.click(path, pos),
             on_long_press_start=lambda _: self.hold(path, pos),
         )
+        drop = self.drop
+        if drop is None:
+            return detector
+        return ft.DragTarget(detector, group=_DRAG_GROUP, on_accept=lambda _: drop(path, pos))
 
     def build(self, editor: Editor, *, active: bool = True) -> ft.Control:
         """The whole line. A click past the end of it puts the cursor at the end of the entry."""
@@ -166,7 +176,10 @@ class EntryLine:
         return low if pos == low else high
 
     def _highlight(self, control: ft.Control) -> ft.Control:
-        return ft.Container(control, bgcolor=SELECTION)
+        shown = ft.Container(control, bgcolor=SELECTION)
+        if self.drop is None:
+            return shown
+        return ft.Draggable(shown, group=_DRAG_GROUP)
 
     def _cursor(self, *, selected: bool = False) -> ft.Control:
         return ft.Container(
@@ -195,7 +208,9 @@ class EntryLine:
             size=self.size,
             color=self.theme.screen_text,
             weight=ft.FontWeight.BOLD if style in (Style.BOLD, Style.BOLD_ITALIC) else None,
-            font_family=_MATH_FONT
+            font_family=_QUOTE_FONT
+            if char == '"'
+            else _MATH_FONT
             if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
             else _MAIN_FONT,
             no_wrap=True,
@@ -245,7 +260,7 @@ class EntryLine:
             body = self._power(slots[0])
         elif node.kind is Kind.ROOT:
             body = self._root(slots[0], chrome, row_height(node.slots[0]))
-        else:
+        else:  # Kind.MATRIX: `DRAWN_KINDS` lists every kind this draws
             body = self._matrix(slots, node.cols, chrome)
         # The zones also sit behind the contents, for the gaps the chrome leaves; a slot's own zones
         # are on top, so anything inside a slot is that slot's.
@@ -525,6 +540,9 @@ _DRAWN: dict[Kind, Callable[[_Parts], ft.Control]] = {
     Kind.LIMIT: _limit,
     Kind.LIST: _list,
 }
+# Every kind the entry line can draw: the older ones by `EntryLine` itself, the rest by `_DRAWN`.
+# A test checks this against `device.templates.Kind`, so a new kind cannot fall through unseen.
+DRAWN_KINDS = frozenset(_DRAWN) | {Kind.FRACTION, Kind.POWER, Kind.ROOT, Kind.MATRIX}
 
 
 # ---- how tall a row is, in lines of text (for stretching signs) ---------------------------------

@@ -522,3 +522,15 @@ def test_a_curve_keeps_its_colour_across_pages_of_a_problem() -> None:
     assert {
         shape.stroke.colour for shape in first_curves.shapes if isinstance(shape, Polyline)
     } == {"graph_blue"}
+
+
+def test_a_function_set_from_text_keeps_its_templates() -> None:
+    """FR-CALC-004: text from a saved file or a menu is parsed into templates (decision 0035), so
+    `(x-1)^2-1` keeps `2` as its exponent and a saved fraction comes back stacked."""
+    graphs = Graphs(Session())
+    graphs.submit(0, "(x-1)^2-1+((1)/(2))")
+    editor = graphs.functions[0].editing.editor
+    templates = [node for node in editor.root if isinstance(node, Template)]
+    assert [t.kind for t in templates] == [Kind.POWER, Kind.FRACTION]
+    assert templates[0].slots == [["2"]]
+    assert editor.pos == len(editor.root)

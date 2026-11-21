@@ -1,5 +1,7 @@
 """Verify browser contexts do not survive a test or a failing fixture."""
 
+from pathlib import Path
+
 import pytest
 from playwright.sync_api import Browser
 
@@ -9,7 +11,10 @@ pytest_plugins = ("pytester",)
 
 def test_contexts_are_cleaned_between_tests(pytester: pytest.Pytester, browser: Browser) -> None:
     assert browser.is_connected()
-    pytester.makeconftest('pytest_plugins = ("tests.e2e.conftest",)')
+    root = Path(__file__).resolve().parents[2]
+    pytester.makeconftest(
+        f'import sys\nsys.path.insert(0, {str(root)!r})\npytest_plugins = ("tests.e2e.conftest",)'
+    )
     pytester.makepyfile(
         """
         import pytest

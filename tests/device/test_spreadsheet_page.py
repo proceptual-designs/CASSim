@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 003, FR-SHEET-008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from cassim.device.editor import MARK
+from cassim.device.editor import MARK, Kind, Template
 from cassim.device.engine import LocalEngine
 from cassim.device.keys import Binding
 from cassim.devices.nspire.document import loads
@@ -18,19 +18,27 @@ from cassim.devices.nspire.pages.spreadsheet import (
     DEFAULT_WIDTH,
     FORMULA_ROW,
     NAME_ROW,
+    ROWS,
     WIDE,
+    AreaPane,
+    ShadePane,
     Spreadsheet,
+    _sheet_text,
+    _shift_entry_nodes,
     dump,
     load,
+    pane_boxes,
     spreadsheet_of,
 )
+from cassim.devices.nspire.pages.statistics import Statistics
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
+from cassim.devices.nspire.sheet_inference import RHO
 from cassim.devices.nspire.ui.state import AppState
-from cassim.doc.serialize import dumps
+from cassim.doc.serialize import DocumentFileError, dumps
 from cassim.sheet.fileio import FileCell
 
-A, B, C, D, E, F, G, H = range(8)
+A, B, C, D, E, F, G, H, _, J = range(10)
 
 
 class Recording(AppState):
@@ -166,6 +174,52 @@ def test_pointing_after_a_comparison_but_not_inside_a_string():
     assert sheet.caret == 3
 
 
+def test_quoted_formula_text_keeps_power_symbols_and_does_not_point_on_tap():
+    """FR-SHEET-008: quoted text is not a spreadsheet reference or a maths template."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", '="a^2"'))
+    assert sheet.editing == '="a^2"'
+    keys(state, "left")
+    state.run(Binding("sheet_tap", "0,1"))
+    assert sheet.reference is None
+    assert sheet.entry_text((B, 1)) == '="a^2"'
+    assert sheet.cursor == (A, 1)
+
+
+def test_pasting_formula_text_preserves_quoted_powers_and_spaces():
+    state = sheet_app()
+    state.run(Binding("insert", "="))
+    state.run(Binding("paste", '"a  ^2"'))
+    assert sheet_of(state).editing == '="a  ^2"'
+
+
+def test_point_mode_cannot_be_enabled_inside_a_quoted_formula():
+    """FR-SHEET-008: forcing point mode still leaves quoted text alone."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", '="a+"'))
+    keys(state, "left")
+    assert state.key_event("F2")
+    keys(state, "left")
+    assert sheet.editing == '="a+"'
+    assert sheet.reference is None
+
+
+def test_clicking_a_cell_where_a_reference_is_not_accepted_commits_the_formula():
+    """FR-SHEET-008: a click only points when the caret accepts a reference."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=12"))
+    state.run(Binding("sheet_tap", "0,1"))
+    assert sheet.entry_text((B, 1)) == "=12"
+    assert sheet.cursor == (A, 1)
+    assert sheet.reference is None
+
+
 def test_formula_point_mode_can_be_toggled_and_fixed_references_cycled():
     state = sheet_app()
     sheet = sheet_of(state)
@@ -252,6 +306,145 @@ def test_clicking_bar_edits_existing_formula_without_replacing_it():
     state.run(Binding("insert", "+1"))
     keys(state, "enter")
     assert sheet.entry_text((A, 1)) == "=2+3+1"
+
+
+def test_fraction_template_points_to_a_cell_inside_its_denominator():
+    """FR-SHEET-001: structured slots retain spreadsheet reference pointing."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "2")
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    keys(state, "left")
+    assert sheet.editing == "=((1)/(a1))"
+    assert sheet.screen().reference == (A, 1, A, 1)
+    state.run(Binding("sheet_ref_fixed"))
+    assert sheet.editing == "=((1)/($a$1))"
+    state.run(Binding("insert", "+1"))
+    keys(state, "right")
+    state.run(Binding("insert", "+1"))
+    keys(state, "enter")
+    assert shown(state, B, 1) == "4/3"
+
+
+def test_copying_a_spreadsheet_template_preserves_it_on_the_calculator():
+    """FR-SHEET-001: the shared clipboard keeps structured templates between pages."""
+    state = sheet_app()
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    state.run(Binding("select_all"))
+    state.run(Binding("copy"))
+    state.run_action("prev_page")
+    state.run(Binding("paste"))
+    calculator = calculator_on(state.document.current)
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in calculator.editor.root
+    )
+
+
+def test_sheet_template_is_preserved_when_reopened_and_after_save():
+    """FR-DOC-003: a saved formula reopens with its structured editor nodes."""
+    state = sheet_app()
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    state.run(Binding("enter"))
+    state.run(Binding("up"))
+    state.run(Binding("sheet_bar"))
+    sheet = sheet_of(state)
+    assert sheet.editor is not None
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in sheet.editor.root
+    )
+    state.run(Binding("escape"))
+
+    restored = Recording(loads(dumps(state.document)))
+    restored.run(Binding("sheet_bar"))
+    sheet = sheet_of(restored)
+    assert sheet.editor is not None
+    assert any(
+        isinstance(node, Template) and node.kind is Kind.FRACTION for node in sheet.editor.root
+    )
+
+
+def test_formula_column_template_survives_normalisation_and_reload():
+    """FR-DOC-003: an implicit leading equals does not discard the template."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((B, FORMULA_ROW))
+    state.run(Binding("insert", "1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    assert sheet.entry_text((B, FORMULA_ROW)) == "=((1)/(2))"
+    restored = Recording(loads(dumps(state.document)))
+    restored_sheet = sheet_of(restored)
+    restored_sheet.go((B, FORMULA_ROW))
+    restored.run(Binding("sheet_bar"))
+    assert restored_sheet.editor is not None
+    assert any(isinstance(node, Template) for node in restored_sheet.editor.root)
+
+
+def test_invalid_saved_template_metadata_is_rejected():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "=1")
+    saved = dump(sheet)
+    saved["entry_nodes"] = [[A, 1, [{"kind": "matrix", "slots": ["1"], "cols": 0}]]]
+    with pytest.raises(DocumentFileError, match="template shape"):
+        load(sheet, saved)
+
+
+def test_rejected_structured_formula_keeps_its_template():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, 5))
+    state.run(Binding("insert", "=a5+1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    assert sheet.screen().dialog is not None
+    assert sheet.editor is not None
+    assert any(isinstance(node, Template) for node in sheet.editor.root)
+
+
+def test_undo_restores_the_original_structured_entry():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter", "up")
+    type_cell(state, "=3")
+    keys(state, "undo")
+    sheet.go((A, 1))
+    state.run(Binding("sheet_bar"))
+    assert sheet.editor is not None
+    assert any(isinstance(node, Template) for node in sheet.editor.root)
+
+
+def test_power_followed_by_a_term_preserves_its_exponent_boundary():
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("insert", "=2"))
+    state.run(Binding("power", "2"))
+    keys(state, "right")
+    state.run(Binding("insert", "*3"))
+    keys(state, "enter")
+    assert shown(state, A, 1) == "12"
+    assert sheet.entry_text((A, 1)) == "=2^2*3"
+
+
+def test_caret_after_a_power_does_not_change_its_serialisation():
+    state = sheet_app()
+    state.run(Binding("insert", "=2"))
+    state.run(Binding("power", "2"))
+    keys(state, "right")
+    sheet = sheet_of(state)
+    assert sheet.editing == "=2^2"
+    assert sheet.screen().editing == f"=2^2{MARK}"
 
 
 def test_a_formula_column():
@@ -484,6 +677,47 @@ def test_copy_and_paste_move_formulas():
     assert sheet.entry_text((B, 3)) == "=a3*10"
 
 
+def test_copying_a_structured_formula_shifts_references_and_preserves_templates():
+    """FR-SHEET-001: copied formulae retain their editor structure and relative references."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "2")
+    type_cell(state, "4")
+    sheet.go((B, 1))
+    state.run(Binding("insert", "=a1"))
+    state.run(Binding("template", "fraction"))
+    state.run(Binding("insert", "2"))
+    keys(state, "enter")
+    sheet.go((B, 1))
+    keys(state, "copy")
+    sheet.go((B, 2))
+    keys(state, "paste")
+    assert shown(state, B, 2) == "2"
+    assert sheet.entry_text((B, 2)) == "=((a2)/(2))"
+    state.run(Binding("sheet_bar"))
+    assert sheet.editor is not None
+    assert isinstance(sheet.editor.root[1], Template)
+    assert sheet.editor.root[1].slots[0] == list("a2")
+
+
+def test_shifting_nested_structured_references_keeps_strings_and_fixed_parts():
+    nodes = [
+        *'="a1"+',
+        Template(
+            Kind.FRACTION,
+            [
+                list("$a1+b$2"),
+                [Template(Kind.NTH_ROOT, [list("2"), list("c3")])],
+            ],
+        ),
+    ]
+    shifted = _shift_entry_nodes(nodes, 1, 2)
+    assert shifted is not None
+    assert _sheet_text(shifted) == '="a1"+(($a3+c$2)/(root(d5,2)))'
+    assert _sheet_text(nodes) == '="a1"+(($a1+b$2)/(root(c3,2)))'
+    assert _shift_entry_nodes(nodes, -3, 0) is None
+
+
 def test_cut_and_undo():
     """Check 6, E11: cut empties the cells, ctrl+Z brings them back."""
     state = sheet_app()
@@ -641,11 +875,13 @@ def test_move_column_and_resize():
 
 
 def test_var_on_a_name_cell_links_to_a_list():
-    """Check 6, E7: var on a name cell: Store Var, Unlink, Link To ▶ the lists."""
+    """Check 6, E7: var on a linked name cell: Store Var, Unlink, Link To ▶ the lists."""
     state = sheet_app()
     sheet = sheet_of(state)
     sheet.session.eval("qq:={7,8,9}")
+    sheet.session.eval("pp:={1}")
     sheet.go((C, NAME_ROW))
+    state.run(Binding("sheet", "link:pp"))
     state.run(Binding("open_menu", "variables"))
     assert [row.label for row in state.menu.view().rows] == ["Store Var", "Unlink", "Link To:"]
     state.menu = None
@@ -655,7 +891,7 @@ def test_var_on_a_name_cell_links_to_a_list():
 
 def test_sheet_keys_do_nothing_on_a_calculator_page():
     state = AppState()
-    for action in ("goto", "recalculate", "page_up", "context_menu"):
+    for action in ("goto", "recalculate", "page_up"):  # context_menu: the Calculator's own
         state.run(Binding(action))
     assert state.menu is None
 
@@ -702,10 +938,21 @@ def test_save_and_open_keep_the_sheet_and_its_values_win():
 
 
 def test_the_sorter_shows_a_sheet():
+    """FR-DOC-001: previews use the sheet's displayed column names."""
     state = sheet_app()
     type_cell(state, "1")
     assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
         "Lists & Spreadsheet",
+        "1 cells",
+    )
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "time")
+    sheet.go((C, NAME_ROW))
+    type_cell(state, "distance")
+    assert thumbnail(state.document.current, names={"spreadsheet": "Lists & Spreadsheet"}) == (
+        "Lists & Spreadsheet",
+        "time, distance",
         "1 cells",
     )
 
@@ -784,11 +1031,83 @@ def test_whole_rows_and_columns():
     assert sheet.selection() == (0, 2, 25, 2)
     state.run(Binding("sheet", "select_column"))
     assert (sheet.address(), sheet.context_menu()) == ("A", "sheet_column")
-    assert sheet.selection() == (0, 1, 0, 2)
+    assert sheet.selection() == (0, 1, 0, ROWS)
     keys(state, "escape")
     assert sheet.selection() is None
     sheet.go((A, FORMULA_ROW))
     assert sheet.address() == "A="
+
+
+def test_sheet_navigation_replaces_selection_stays_in_bounds_and_follows_cursor():
+    """FR-SHEET-004: arrows move one cell without wrapping and keep the cursor visible."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.set_window(3, 2)
+    sheet.go((0, 1))
+    keys(state, "left")
+    assert sheet.cursor == (0, 1)
+    keys(state, "right")
+    assert sheet.cursor == (1, 1)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (1, 1, 2, 1)
+    keys(state, "right")
+    assert sheet.cursor == (3, 1)
+    assert sheet.selection() is None
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.cursor == (3, 2)
+    keys(state, "down")
+    assert sheet.cursor == (3, 3)
+    assert sheet.top == 1
+    keys(state, "down")
+    assert sheet.cursor == (3, 4)
+    assert sheet.top == 2
+    sheet.go((25, 2500))
+    keys(state, "right", "down")
+    assert sheet.cursor == (25, 2500)
+
+
+def test_shift_arrows_select_ranges_and_heading_edges_select_whole_axes():
+    """FR-SHEET-005, FR-SHEET-007: extend ranges and convert at row/column headings."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.selection() == (0, 2, 1, 2)
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.whole == "row"
+    assert sheet.selection() == (0, 2, 25, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (0, 2, 25, 3)
+    assert sheet.address() == "2:3"
+
+    sheet.go((2, 1))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.whole == "column"
+    assert sheet.selection() == (2, 1, 2, ROWS)
+    state.run(Binding("select_cells", "col:1"))
+    assert sheet.selection() == (2, 1, 3, ROWS)
+    assert sheet.address() == "C:D"
+    state.run(Binding("select_cells", "col:-1"))
+    assert sheet.address() == "C"
+
+    sheet.go((1, 2))
+    state.run(Binding("select_cells", "row:-1"))
+    assert sheet.selection() == (1, 1, 1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() is None
+    assert sheet.cursor == (1, 2)
+    state.run(Binding("select_cells", "row:1"))
+    assert sheet.selection() == (1, 2, 1, 3)
+
+
+def test_clicking_a_column_heading_selects_the_column_for_header_actions():
+    """FR-SHEET-007: the column heading selects its logical column."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    state.run(Binding("sheet_tap", "2,-1"))
+    assert sheet.cursor == (2, NAME_ROW)
+    assert sheet.whole == "column"
+    assert (sheet.address(), sheet.context_menu()) == ("C", "sheet_column")
 
 
 def test_select_all_and_end():
@@ -1206,6 +1525,7 @@ def test_inference_wizard_writes_a_live_result_column():
     sheet.go((F, 2))
     state.run(Binding("sheet", "inference:tInterval"))
     assert state.wizards[-1].title == "t Interval"
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="5", sd="2", n="8", level="0.95")
     assert sheet.columns[H][2] == "tInterval 5,2,8,0.95"
     assert column(state, G, [1, 2, 3]) == ["Title", "x̄", "CLower"]
@@ -1223,25 +1543,27 @@ def test_shade_p_value_splits_the_spreadsheet_view():
         alternative="0",
         shade="1",
     )
-    assert sheet.shade_alternative == 0
-    assert sheet.pvalue_plot is not None
-    assert sheet.pvalue_plot.statistic == pytest.approx(0.89442719)
-    assert sheet.pvalue_plot.p_value == pytest.approx(0.37109337)
+    (pane,) = sheet.panes
+    assert isinstance(pane, ShadePane)
+    assert pane.plot is not None
+    assert pane.plot.statistic == pytest.approx(0.89442719)
+    assert pane.plot.p_value == pytest.approx(0.37109337)
     restored = load(Spreadsheet(sheet.session, sheet.clipboard), dump(sheet))
-    assert restored.shade_alternative == 0
-    assert restored.pvalue_plot is None
-    restored.loaded()
-    assert restored.pvalue_plot is not None
+    (kept,) = restored.panes
+    assert isinstance(kept, ShadePane)
+    assert kept.plot == pane.plot
 
 
-def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
+def test_the_result_column_is_the_one_after_the_cursor_and_data_loss_asks():
+    """R5-I2: with the cursor in A, 1st Result Column is b[] even when B holds data; OK then
+    asks before writing over it."""
     state = sheet_app()
     sheet = sheet_of(state)
-    sheet.go((A, 1))
+    sheet.go((B, 1))
     type_cell(state, "1")
-    sheet.go((25, 2))
+    sheet.go((A, 1))
     state.run(Binding("sheet", "inference:zTest_1Prop"))
-    assert state.wizards[-1].fields[-2].default == "a[]"
+    assert state.wizards[-1].fields[-2].default == "b[]"
     finish_wizard(state, p0="0.5", successes="12", n="20")
     assert sheet.dialogs[-1].title == "Data Loss"
 
@@ -1249,11 +1571,13 @@ def test_one_prop_z_test_defaults_to_column_a_and_checks_data_loss():
 def test_inference_wizard_rejects_missing_fields_and_invalid_result_columns():
     state, sheet = stats_sheet()
     state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="", sd="2", n="8")
     assert sheet.dialogs[-1].title == "Input Error"
     keys(state, "enter")
 
     state.run(Binding("sheet", "inference:tInterval"))
+    finish_wizard(state, method="stats")
     finish_wizard(state, mean="5", sd="2", n="8", results="aa[]")
     assert sheet.dialogs[-1].title == "Syntax Error"
     assert sheet.dialogs[-1].message == "Cannot accept change: Invalid input."
@@ -1273,10 +1597,9 @@ def test_cancelling_inference_data_loss_discards_pending_shade():
         shade="1",
     )
     assert sheet.dialogs[-1].title == "Data Loss"
-    assert sheet.shade_alternative == 0
+    assert sheet.panes == []
     keys(state, "escape")
-    assert sheet.shade_alternative is None
-    assert sheet.pvalue_plot is None
+    assert sheet.panes == []
     assert shown(state, D, 1) == "17"
 
 
@@ -1298,3 +1621,477 @@ def test_the_statistics_menu():
         "Linear Regression (mx+b)…",
         False,
     )
+
+
+# ----- panes (decision 0034 item 2) ---------------------------------------------------------------
+
+
+def test_pane_layouts_go_from_halves_to_three_to_two_by_two():
+    """FR-DOC-009 (R5-I2): a second pane on the right, a third under it, a fourth making 2×2."""
+    assert pane_boxes(1, 320, 200) == [(0, 0, 320, 200)]
+    assert pane_boxes(2, 320, 200) == [(0, 0, 160, 200), (160, 0, 160, 200)]
+    assert pane_boxes(3, 320, 200) == [(0, 0, 160, 200), (160, 0, 160, 100), (160, 100, 160, 100)]
+    assert pane_boxes(4, 320, 200)[2:] == [(0, 100, 160, 100), (160, 100, 160, 100)]
+
+
+def test_a_fourth_pane_goes_bottom_left_and_a_fifth_replaces_the_newest():
+    """R5-I2: scatter top right and the t pane under it; the z pane then goes bottom left and
+    the t pane bottom right. Beyond four the newest pane is replaced (not seen on the device)."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    scatter, t, z, again = (ShadePane(name, 0) for name in ("x", "t", "z", "again"))
+    for pane in (scatter, t, z):
+        sheet.add_pane(pane, undoable=False)
+    assert sheet.panes == [scatter, z, t]
+    sheet.add_pane(again, undoable=False)
+    assert sheet.panes == [scatter, again, t]
+
+
+# ----- Quick Graph (sheet5, R5-Q1) ----------------------------------------------------------------
+
+
+def lists_sheet():
+    """A sheet whose columns A and B are linked to xs and ys."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("xs:={1,2,3}").error is None
+    assert sheet.session.eval("ys:={2,4,7}").error is None
+    for col, name in ((A, "xs"), (B, "ys")):
+        sheet.go((col, NAME_ROW))
+        sheet.menu_action(f"link:{name}")
+    return state, sheet
+
+
+def data_menu(state):
+    """Menu > 3 Data, as rows."""
+    state.run(Binding("open_menu", "menu"))
+    state.run(Binding("insert", "3"))
+    assert state.menu is not None
+    rows = {row.label: row.enabled for row in state.menu.view().rows}
+    state.menu = None
+    return rows
+
+
+def test_quick_graph_is_grey_for_a_block_and_a_single_cell():
+    """FR-SHEET-008 (R5-Q1, R5-S): grey, not a dialog, unless a column is selected."""
+    state, sheet = lists_sheet()
+    sheet.go((A, 1))
+    assert data_menu(state)["Quick Graph"] is False
+    state.run(Binding("select_cells", "row:1"))  # shift+Down: A1:A2
+    assert sheet.selection() is not None
+    assert data_menu(state)["Quick Graph"] is False
+    sheet.go((A, NAME_ROW))
+    assert data_menu(state)["Quick Graph"] is True
+
+
+def test_two_selected_columns_make_a_scatter_plot_and_one_undo_removes_it():
+    """FR-SHEET-008, FR-STAT-001 (R5-Q1): from the name cell of xs, shift+Right takes ys too;
+    Quick Graph makes a scatter plot with the first column on x; one ctrl+Z takes it away and
+    leaves the columns selected."""
+    state, sheet = lists_sheet()
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    assert sheet.whole_columns() == (A, B)
+    assert data_menu(state)["Quick Graph"] is True
+    state.run(Binding("sheet", "quick_graph"))
+    (plot,) = sheet.split_statistics
+    assert (plot.x_name, plot.y_name, plot.plot_type.value) == ("xs", "ys", "Scatter Plot")
+    keys(state, "undo")
+    assert sheet.panes == []
+    assert sheet.whole_columns() == (A, B)
+    keys(state, "redo")
+    assert len(sheet.panes) == 1
+
+
+def test_quick_graph_of_one_column_undoes_in_one_step():
+    """R5-Q1: a dot plot of d1; ctrl+Z gives the full-width sheet back."""
+    state, sheet = lists_sheet()
+    sheet.go((B, NAME_ROW))
+    keys(state, "up")  # stays on the name cell
+    state.run(Binding("sheet", "quick_graph"))
+    assert sheet.split_statistics[0].plot_type.value == "Dot Plot"
+    keys(state, "undo")
+    assert sheet.panes == []
+
+
+# ----- Summary Plot (sheet5, R5-Q2) ---------------------------------------------------------------
+
+
+def test_summary_plot_takes_a_numeric_x_list_from_the_selected_columns():
+    """FR-STAT-003, FR-SHEET-008 (R5-Q2): with xs and ys selected the dialog offers X List xs and
+    Summary List ys, Display On Split Page first; the plot is a histogram of ys against xs."""
+    state, sheet = lists_sheet()
+    state.wizards.clear()
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    state.run(Binding("sheet", "summary_plot"))
+    state.prepare()
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("X List", "xs"),
+        ("Summary List", "ys"),
+        ("Display On", "split"),
+    ]
+    assert wizard.fields[2].choices == (("split", "Split Page"), ("new", "New Page"))
+    assert ("xs", "xs") in wizard.fields[0].choices
+    finish_wizard(state)
+    (plot,) = sheet.split_statistics
+    data = plot.plot_data()
+    assert (data.plot_type.value, data.x, data.summary) == (
+        "Histogram",
+        (1.0, 2.0, 3.0),
+        (2.0, 4.0, 7.0),
+    )
+    keys(state, "undo")
+    assert sheet.panes == []
+
+
+def test_a_single_selected_column_offers_the_first_other_numeric_list_to_summarise():
+    """R5-Q2 (Computer view): name cell xs, Summary Plot: X List xs, Summary List the first
+    other numeric list."""
+    state, sheet = lists_sheet()
+    state.wizards.clear()
+    sheet.go((B, NAME_ROW))
+    state.run(Binding("sheet", "summary_plot"))
+    state.prepare()
+    assert [f.default for f in state.wizards[-1].fields][:2] == ["ys", "xs"]
+
+
+# ----- stat test and interval dialogs (stats4, R5-I2) ---------------------------------------------
+
+
+def test_t_test_asks_the_data_input_method_then_has_the_device_defaults():
+    """FR-STAT-004 (R5-I2): Data first; List is the cursor's column, Frequency 1, Ha μ ≠ μ0 with
+    > first, 1st Result Column the next column, Draw: Shade P Value unticked."""
+    state, sheet = stats_sheet()
+    sheet.go((A, 1))
+    state.run(Binding("sheet", "inference:tTest"))
+    method = state.wizards[-1]
+    assert (method.title, method.fields[0].label, method.fields[0].default) == (
+        "t Test",
+        "Data Input Method",
+        "data",
+    )
+    assert [label for _, label in method.fields[0].choices] == ["Data", "Stats"]
+    finish_wizard(state)
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("μ0", ""),
+        ("List", "a[]"),
+        ("Frequency List", "1"),
+        ("Alternate Hyp", "0"),
+        ("1st Result Column", "b[]"),
+        ("Draw: Shade P Value", "0"),
+    ]
+    assert [label for _, label in wizard.fields[3].choices] == [
+        "Ha: μ > μ0",
+        "Ha: μ ≠ μ0",
+        "Ha: μ < μ0",
+    ]
+
+
+def test_a_shaded_t_test_adds_a_t_pane_and_a_shaded_z_test_makes_a_third():
+    """FR-STAT-004, FR-DOC-009 (R5-I2): t Test of d1 against μ0 = 4, Ha μ > μ0, shaded: a t pane
+    with t = 1.4661 and PVal = 0.0930 (d1 as after the drag); then a 1-Prop z Test pane."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("d1:={2,4,4,4.536,5,5,7.536,9}").error is None
+    sheet.go((C, 1))
+    state.run(Binding("sheet", "inference:tTest:data"))
+    finish_wizard(state, null="4", x="d1", alternative="2", shade="1")
+    assert state.wizards[-1].title == "Conflict Detected"  # d1 is also a cell
+    finish_wizard(state, d1="variable")
+    (pane,) = sheet.panes
+    assert isinstance(pane, ShadePane)
+    assert pane.plot is not None
+    assert (pane.plot.variable, pane.plot.df) == ("t", 7)
+    assert pane.plot.statistic == pytest.approx(1.4661067, abs=1e-6)
+    assert pane.plot.p_value == pytest.approx(0.09302381, abs=1e-7)
+    sheet.go((F, 1))
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    finish_wizard(state, p0="0.5", successes="30", n="50", alternative="2", shade="1")
+    assert [p.plot.variable for p in sheet.panes if isinstance(p, ShadePane) and p.plot] == [
+        "t",
+        "z",
+    ]
+    z_pane = sheet.panes[1]
+    assert isinstance(z_pane, ShadePane)
+    assert z_pane.plot is not None
+    assert z_pane.plot.statistic == pytest.approx(1.4142, abs=1e-4)
+    assert sheet.panes[0] is pane  # the t pane kept its own numbers
+
+
+def test_two_sample_t_interval_and_linear_reg_t_test_fields():
+    """R5-I2: 2-Sample t Interval: List 1 (this column), List 2, Frequency 1 and 2, C Level 0.95,
+    Pooled No, then the result column; Linear Reg t Test saves RegEqn to f1 and has no Draw."""
+    state, sheet = stats_sheet()
+    sheet.go((E, 1))
+    state.run(Binding("sheet", "inference:tInterval_2Samp"))
+    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data"]
+    finish_wizard(state)
+    assert [(f.label, f.default) for f in state.wizards[-1].fields] == [
+        ("List 1", "e[]"),
+        ("List 2", ""),
+        ("Frequency 1", "1"),
+        ("Frequency 2", "1"),
+        ("C Level", "0.95"),
+        ("Pooled", "0"),
+        ("1st Result Column", "f[]"),
+    ]
+    sheet.go((H, 1))
+    state.run(Binding("sheet", "inference:LinRegtTest"))
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("X List", "h[]"),
+        ("Y List", ""),
+        ("Save RegEqn to", "f1"),
+        ("Frequency List", "1"),
+        ("Alternate Hyp", "0"),
+        ("1st Result Column", "i[]"),
+    ]
+    assert wizard.fields[4].choices[1][1] == f"Ha: β & {RHO} ≠ 0"
+    finish_wizard(state, x="c[]", y="c[]^2")
+    assert sheet.columns[J][2] == "LinRegtTest c[],c[]^2,1,0,0: CopyVar stat.RegEqn,f1"
+
+
+def test_the_stat_tests_and_intervals_lists():
+    """R5-I2: the Stat Tests and Confidence Intervals lists as recorded."""
+    state, _ = stats_sheet()
+    labels = []
+    for key in ("3", "4"):
+        state.run(Binding("open_menu", "menu"))
+        state.run(Binding("insert", "4"))
+        state.run(Binding("insert", key))
+        assert state.menu is not None
+        labels.append([row.label for row in state.menu.view().rows])
+        state.menu = None
+    assert labels[0] == [
+        "z Interval…",
+        "t Interval…",
+        "2-Sample z Interval…",
+        "2-Sample t Interval…",
+        "1-Prop z Interval…",
+        "2-Prop z Interval…",
+        "Linear Reg t Intervals…",
+        "Multiple Reg Intervals…",
+    ]
+    assert labels[1][:10] == [
+        "z Test…",
+        "t Test…",
+        "2-Sample z Test…",
+        "2-Sample t Test…",
+        "1-Prop z Test…",
+        "2-Prop z Test…",
+        "χ² GOF…",
+        "χ² 2-way Test…",
+        "2-Sample F Test…",
+        "Linear Reg t Test…",
+    ]
+
+
+def test_normal_cdf_with_shade_area_fills_the_cell_and_undo_keeps_the_plot():
+    """FR-STAT-004, FR-DOC-009 (split2 H14): A1 holds 1; Normal Cdf, Upper Bound 1, Shade area:
+    A1 gets =normCdf(-∞,1,0,1) (0.841…) and a shaded curve joins the page; ctrl+Z puts the 1
+    back and the plot stays."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "1")
+    sheet.go((A, 1))
+    state.run(Binding("open_menu", "menu"))
+    for key in ("4", "2", "2"):
+        state.run(Binding("insert", key))
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("Lower Bound", "-∞"),
+        ("Upper Bound", ""),
+        ("μ", "0"),
+        ("σ", "1"),
+        ("Draw: Shade area", "0"),
+    ]
+    finish_wizard(state, upper="1", shade="1")
+    assert shown(state, A, 1).startswith("0.841")
+    (pane,) = sheet.panes
+    assert isinstance(pane, AreaPane)
+    assert pane.plot.area == pytest.approx(0.84134475)
+    keys(state, "undo")
+    assert shown(state, A, 1) == "1"
+    assert sheet.panes == [pane]
+
+
+def test_normal_cdf_without_shading_waits_in_the_entry_line():
+    """Run 4, S10: unticked, the formula waits in the cell's entry line."""
+    state, sheet = stats_sheet()
+    sheet.go((F, 2))
+    state.run(Binding("sheet", "distribution:normCdf"))
+    finish_wizard(state, upper="1")
+    assert sheet.editing == "=normCdf(-∞,1,0,1)"
+    assert sheet.panes == []
+
+
+# ----- sheet details (sheet5) ---------------------------------------------------------------------
+
+
+def test_the_data_menu_greys_items_by_what_is_selected():
+    """FR-SHEET-002 (sheet5, R5-Q1 and R5-S): a single cell, a block, a column, the name cell."""
+    state, sheet = lists_sheet()
+    sheet.go((C, 1))
+    grey = {label for label, enabled in data_menu(state).items() if not enabled}
+    assert grey == {"Clear Data", "Quick Graph"}
+
+    state.run(Binding("select_cells", "row:1"))
+    grey = {label for label, enabled in data_menu(state).items() if not enabled}
+    assert grey >= {
+        "Generate Sequence…",
+        "Clear Data",
+        "Random",
+        "List Math",
+        "List Operations",
+        "Quick Graph",
+        "Data Capture",
+    }
+    assert "Fill" not in grey
+    assert "Summary Plot" not in grey
+    state.run(Binding("open_menu", "menu"))
+    assert state.menu is not None
+    top = {row.label: row.enabled for row in state.menu.view().rows}
+    state.menu = None
+    assert (top["Insert"], top["Statistics"], top["Data"]) == (False, False, True)
+
+    sheet.go((A, NAME_ROW))
+    rows = data_menu(state)
+    assert (rows["Fill"], rows["Clear Data"], rows["Quick Graph"]) == (False, True, True)
+
+
+def test_the_random_list_math_and_list_operations_submenus():
+    """Sheet5, R5-S: the three submenus in the device's order."""
+    state, sheet = lists_sheet()
+    sheet.go((C, 1))
+    lists = []
+    for key in ("5", "6", "7"):
+        state.run(Binding("open_menu", "menu"))
+        for press in ("3", key):
+            state.run(Binding("insert", press))
+        assert state.menu is not None
+        lists.append([(row.label, row.enabled) for row in state.menu.view().rows][-10:])
+        state.menu = None
+    assert [label for label, _ in lists[0][-5:]] == [
+        "Number",
+        "Integer",
+        "Binomial",
+        "Normal",
+        "Sample",
+    ]
+    assert [label for label, _ in lists[1]] == [
+        "Minimum",
+        "Maximum",
+        "Mean",
+        "Median",
+        "Sum of Elements",
+        "Product of Elements",
+        "Sample Standard Deviation",
+        "Sample Variance",
+        "Population Standard Deviation",
+        "Population Variance",
+    ]
+    assert lists[2][-7:] == [
+        ("Cumulative Sum List", True),
+        ("Difference List", True),
+        ("Augment", True),
+        ("Convert Matrix to List", False),
+        ("Left", True),
+        ("Mid", True),
+        ("Right", True),
+    ]
+
+
+@pytest.mark.parametrize("name", ["1a", "sin"])
+def test_an_invalid_column_name_says_so_and_stays_in_the_name_cell(name):
+    """FR-SHEET-003 (sheet5, R5-E7): Syntax Error, Cannot accept change: Invalid input.; after OK
+    the name cell is still being edited with the name."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, name)
+    assert (sheet.dialogs[0].title, sheet.dialogs[0].message) == (
+        "Syntax Error",
+        "Cannot accept change: Invalid input.",
+    )
+    keys(state, "enter")
+    assert (sheet.cursor, sheet.editing) == ((A, NAME_ROW), name)
+
+
+def test_naming_a_column_after_a_list_links_it_without_a_conflict():
+    """Sheet5, R5-E7: ws holds {1,2,3}; typing ws in A's name cell shows 1, 2, 3."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("ws:={1,2,3}").error is None
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "ws")
+    assert sheet.dialogs == []
+    assert sheet.wizard is None
+    assert column(state, A, [1, 2, 3]) == ["1", "2", "3"]
+
+
+def test_the_var_key_in_an_empty_name_cell_lists_the_variables():
+    """Sheet5, R5-E7: functions and lists alike; choosing a list links the column."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    assert sheet.session.eval("Define f1(x)=x^2").error is None
+    assert sheet.session.eval("ws:={1,2,3}").error is None
+    sheet.go((B, NAME_ROW))
+    state.run(Binding("open_menu", "variables"))
+    assert state.menu is not None
+    assert [row.label for row in state.menu.view().rows] == ["f1", "ws"]
+    state.menu = None
+    state.run(Binding("sheet", "link:ws"))
+    assert column(state, B, [1, 2, 3]) == ["1", "2", "3"]
+
+
+def test_return_on_a_filled_cell_edits_it_with_its_text_selected():
+    """Sheet5, R5-S19: typing replaces (8, not 78); Return on the cell edits 8, selected."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "7")
+    sheet.go((A, 1))
+    type_cell(state, "8")
+    assert shown(state, A, 1) == "8"
+    sheet.go((A, 1))
+    keys(state, "enter")
+    assert (sheet.editing, sheet.selected, sheet.cursor) == ("8", True, (A, 1))
+
+
+def test_save_and_reopen_keep_split_pages_plots_and_axes_but_not_the_selection():
+    """FR-DOC-003, FR-DOC-009 (sheet5, R5-Q3): a split page with a scatter of xs and ys, a
+    regression page and a summary plot come back; selected points and the sheet's cursor do not
+    (the cursor is at A1)."""
+    state = Recording()
+    type_cell(state, "xs:={1,2,3,4.435,5}")
+    type_cell(state, "ys:={2.1,3.9,6.2,9.776,10.1}")
+    state.run_action("add_page", "statistics")
+    regression = state.statistics
+    assert regression is not None
+    for action in ("x:xs", "y:ys", "regression:LinRegMx"):
+        regression.perform(action)
+    regression.select(3)
+    state.run_action("add_page", "spreadsheet")
+    sheet = sheet_of(state)
+    for col, name in ((A, "xs"), (B, "ys")):
+        sheet.go((col, NAME_ROW))
+        sheet.menu_action(f"link:{name}")
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    state.run(Binding("sheet", "quick_graph"))
+    sheet.go((C, 4))
+
+    reopened = loads(dumps(state.document))
+    problem = reopened.problems[0]
+    restored = spreadsheet_of(problem.pages[2])
+    assert restored is not None
+    (scatter,) = restored.split_statistics
+    assert (scatter.x_name, scatter.y_name, scatter.plot_type.value) == ("xs", "ys", "Scatter Plot")
+    assert (restored.cursor, restored.selection()) == ((A, 1), None)
+    page = problem.pages[1].model
+    assert isinstance(page, Statistics)
+    assert (page.x_name, page.y_name, page.regression) == ("xs", "ys", "LinRegMx")
+    assert page.selected == set()
+    assert scatter.plot_data().selected == frozenset()

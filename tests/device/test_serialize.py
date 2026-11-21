@@ -169,7 +169,7 @@ def test_a_schema_1_file_still_opens() -> None:
     assert calculator.editor.linear() == "2+"
 
 
-def test_schema_2_spreadsheets_start_with_no_split_statistics() -> None:
+def test_schema_2_spreadsheets_start_with_no_other_panes() -> None:
     old = {
         "format": "cassim-document",
         "schema": 2,
@@ -179,7 +179,36 @@ def test_schema_2_spreadsheets_start_with_no_split_statistics() -> None:
     migrated = migrate(old)
 
     assert migrated["schema"] == SCHEMA
-    assert migrated["problems"][0]["pages"][0]["split_statistics"] == []
+    assert migrated["problems"][0]["pages"][0]["panes"] == []
+
+
+def test_schema_4_sheet_plots_and_shading_become_one_list_of_panes() -> None:
+    """FR-DOC-004, FR-DOC-009 (decision 0034 item 2): the old plots come first, then the old
+    1-Prop z Test shading as a z pane."""
+    old = {
+        "format": "cassim-document",
+        "schema": 4,
+        "problems": [
+            {
+                "pages": [
+                    {
+                        "kind": "spreadsheet",
+                        "split_statistics": [{"x": "xs"}],
+                        "shade_alternative": 2,
+                    }
+                ]
+            }
+        ],
+    }
+
+    page = migrate(old)["problems"][0]["pages"][0]
+
+    assert page["panes"] == [
+        {"kind": "statistics", "x": "xs"},
+        {"kind": "shade", "variable": "z", "alternative": 2},
+    ]
+    assert "split_statistics" not in page
+    assert "shade_alternative" not in page
 
 
 def test_schema_3_graph_and_statistics_pages_get_save_defaults() -> None:

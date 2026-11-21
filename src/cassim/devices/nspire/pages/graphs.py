@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from cassim.core.compat.math_source import compile_math_source
 from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
+from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, graph_compile_op
 from cassim.device.keys import Binding
 from cassim.devices.nspire.pages import graph_analyze, graph_tools
@@ -182,8 +183,10 @@ class Graphs:
         expression = expression.strip()
         editor = entry.editing.editor
         if editor.linear() != expression:
+            # Parsed, so a saved fraction or power comes back as its template (decision 0035)
             editor.clear()
-            editor.insert_linear(expression)
+            editor.root = row_from_text(expression)
+            editor.pos = len(editor.root)
             entry.editing.forget_undo()
         if not expression:
             entry.error = "Enter an expression for the function."

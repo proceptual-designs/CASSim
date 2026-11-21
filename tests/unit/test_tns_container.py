@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 REFS = Path(__file__).resolve().parents[2] / "references"
-MAGIC = b"*TIMLP0601"
+MAGIC = b"*TIMLP"  # then a four-digit version: 0601 (libraries), 0500, 0703
 ENTRY_SIGNATURE = bytes.fromhex("0fced8d28106865b")  # first 8 bytes of every entry payload
 
 
@@ -25,6 +25,7 @@ BLOBS = _tns_blobs()
 @pytest.mark.parametrize(("name", "data"), BLOBS, ids=[n for n, _ in BLOBS])
 def test_container_header_is_stable(name: str, data: bytes) -> None:
     assert data.startswith(MAGIC)
+    assert data[len(MAGIC) : len(MAGIC) + 4].isdigit()
     assert not zipfile.is_zipfile(__import__("io").BytesIO(data))  # not a plain zip
     assert data[0x30:0x38] == ENTRY_SIGNATURE
     assert b"Document.xml" in data

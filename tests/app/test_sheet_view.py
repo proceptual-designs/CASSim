@@ -1,11 +1,12 @@
 # Requirements traced here:
-# FR-SHEET-001, FR-SHEET-003, FR-STAT-001, FR-STAT-004,
+# FR-SHEET-001, FR-SHEET-003 to 007, FR-STAT-001, FR-STAT-004,
 # FR-STAT-005, FR-DOC-009, NFR-PERF-006, FR-DEV-004
 """The Lists & Spreadsheet page in the Flet view (slice 3b): it draws in the screen's place of
 the history, keeps the canvases of layers that did not change, and turns taps, long presses,
 drags and the wheel into sheet actions (decision 0031 item 7)."""
 
 import asyncio
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -16,7 +17,7 @@ from cassim.app.shell import Shell
 from cassim.device.keys import Action, Binding
 from cassim.device.wizard import Field
 from cassim.devices.nspire import DEVICE
-from cassim.devices.nspire.pages.spreadsheet import NAME_ROW
+from cassim.devices.nspire.pages.spreadsheet import NAME_ROW, AreaPane, ShadePane
 from cassim.devices.nspire.sheet_scene import (
     FORMULA,
     HEAD,
@@ -25,7 +26,7 @@ from cassim.devices.nspire.sheet_scene import (
     cell_at,
     context_regions,
 )
-from cassim.devices.nspire.statistics_plot import PValuePlot
+from cassim.devices.nspire.statistics_plot import AreaPlot, PValuePlot
 from cassim.devices.nspire.ui.app import App
 from cassim.devices.nspire.ui.sheet_view import BAR, SheetView, sheet_colours
 from cassim.devices.nspire.ui.state import AppState, Mode
@@ -72,9 +73,16 @@ class Recorder:
         self.state.run_action(action, arg)
 
 
-def view_for(state: AppState) -> tuple[CalculatorView, Recorder]:
+def placed(view: CalculatorView) -> list[ft.Container]:
+    """A sheet page's panes, each a positioned container."""
+    return [cast(ft.Container, control) for control in view.sheet_panes.controls]
+
+
+def view_for(
+    state: AppState, *, shift: Callable[[], bool] = lambda: False
+) -> tuple[CalculatorView, Recorder]:
     recorder = Recorder(state)
-    view = CalculatorView(state, on_action=recorder)
+    view = CalculatorView(state, on_action=recorder, shift=shift)
     view.body_size = lambda: (320.0, 220.0)
     return view, recorder
 
@@ -94,16 +102,66 @@ def test_the_sheet_draws_in_place_of_the_history():
     assert view.body.controls == [view.history]
 
 
+def test_sheet_entry_bar_uses_the_clickable_structured_editor():
+    state = sheet_state()
+    view, recorder = view_for(state)
+    state.run(Binding("insert", "=1"))
+    state.run(Binding("template", "fraction"))
+    view.refresh()
+    assert view.sheet_view.entry_box.content is not view.sheet_view.entry
+    assert view.sheet_view.bar.height is not None
+    assert view.sheet_view.bar.height > BAR * state.scale
+    view.sheet_view.click([], 0)
+    assert recorder.done[-1] == ("place", ":0")
+    assert state.sheet is not None
+    assert state.sheet.editor is not None
+    assert state.sheet.editor.path == []
+    assert state.sheet.editor.pos == 0
+
+
+def test_sheet_entry_bar_grows_for_a_tall_template():
+    state = sheet_state()
+    view, _ = view_for(state)
+    state.run(Binding("template", "matrix:4,2"))
+    view.refresh()
+    assert view.sheet_view.bar.height is not None
+    assert view.sheet_view.bar.height > 52 * state.scale
+
+
 def test_shade_p_value_draws_a_second_pane():
     state = sheet_state()
     view, _ = view_for(state)
     sheet = state.sheet
     assert sheet is not None
-    sheet.pvalue_plot = PValuePlot(0.8944, 0.3711, 0)
+    sheet.add_pane(ShadePane("z", 0, PValuePlot(0.8944, 0.3711, 0)))
     view.refresh()
     assert view.body.controls == [view.sheet_panes]
-    assert view.sheet_panes.controls == [view.sheet_view.control, view.pvalue_pane]
-    assert view.pvalue_pane.content is not None
+    sheet_pane, shade_pane = placed(view)
+    assert sheet_pane is view.sheet_view.control
+    assert (shade_pane.left, shade_pane.width) == (160, 160)
+    assert cast(ft.Container, shade_pane.content).content is not None
+
+
+def test_four_panes_make_a_two_by_two_page_and_clicks_find_their_pane():
+    """FR-DOC-009, decision 0034 item 2 (R5-I2): the sheet top left, then the panes in reading
+    order; a pointer click on the sheet's quarter goes to the sheet."""
+    state = sheet_state()
+    view, _ = view_for(state)
+    sheet = state.sheet
+    assert sheet is not None
+    assert sheet.session.eval("xs:={1,2,3}").error is None
+    sheet.go((0, NAME_ROW))
+    sheet.menu_action("link:xs")
+    sheet.menu_action("quick_graph")
+    sheet.add_pane(ShadePane("t", 2, PValuePlot(1.4661, 0.0930, 2, "t", 7)), undoable=False)
+    sheet.add_pane(AreaPane(AreaPlot(float("-inf"), 1)), undoable=False)
+    view.refresh()
+    boxes = [(c.left, c.top, c.width, c.height) for c in placed(view)]
+    assert boxes == [(0, 0, 160, 110), (160, 0, 160, 110), (0, 110, 160, 110), (160, 110, 160, 110)]
+    assert isinstance(sheet.panes[1], AreaPane)
+    view.click_at(40, 60)
+    assert sheet.cursor[1] >= 1
+    assert view.click_at(200, 160)
 
 
 def test_sheet_plots_share_a_statistics_pane():
@@ -121,10 +179,10 @@ def test_sheet_plots_share_a_statistics_pane():
 
     view.refresh()
 
-    assert len(view.sheet_panes.controls) == 2
-    statistics_pane = view.sheet_panes.controls[1]
-    assert isinstance(statistics_pane, ft.Column)
-    assert len(statistics_pane.controls) == 2
+    sheet_pane, quick, summary = placed(view)
+    assert (sheet_pane.height, quick.left, quick.top, summary.top) == (220, 160, 0, 110)
+    assert quick.content is view.split_statistics_views[0].control
+    assert summary.content is view.split_statistics_views[1].control
 
 
 def test_csv_menu_actions_import_calculate_and_export_values(monkeypatch):
@@ -250,6 +308,42 @@ def test_taps_long_presses_and_drags():
     assert state.sheet.top == 2
     sheet_view._tap(at(-50, -50))  # outside the grid: nothing
     assert ("sheet_tap", "-1,-1") not in recorder.done
+
+
+def test_mouse_drag_selects_cells_and_shift_click_extends():
+    """FR-SHEET-006: drag and Shift+click select the inclusive cell rectangle."""
+    state = sheet_state()
+    sheet = state.sheet
+    assert sheet is not None
+    view, _ = view_for(state)
+    sheet_view = view.sheet_view
+    sheet_view.refresh(sheet, 320, 220)
+    a1 = at(ROW_LABELS + 20, HEAD + FORMULA + 8)
+    b2 = at(ROW_LABELS + 70, HEAD + FORMULA + ROW + 8)
+    sheet_view._pan_start(event(kind=ft.PointerDeviceType.MOUSE, local_position=b2.local_position))
+    sheet_view._pan(event(kind=ft.PointerDeviceType.MOUSE, local_position=a1.local_position))
+    assert sheet.selection() == (0, 1, 1, 2)
+
+    sheet_view._tap(a1)
+    shifted, _ = view_for(state, shift=lambda: True)
+    shifted.body_size = lambda: (320.0, 220.0)
+    shifted.refresh()
+    shifted.sheet_view._tap(b2)
+    assert sheet.selection() == (0, 1, 1, 2)
+
+
+def test_column_heading_tap_selects_a_column_and_double_tap_edits_its_name():
+    """FR-SHEET-007: headings select columns; double-tap opens the name cell."""
+    state = sheet_state()
+    sheet = state.sheet
+    assert sheet is not None
+    view, _ = view_for(state)
+    view.sheet_view.refresh(sheet, 320, 220)
+    view.sheet_view._tap(at(ROW_LABELS + 70, HEAD // 2))
+    assert sheet.whole == "column"
+    assert sheet.cursor == (1, NAME_ROW)
+    view.sheet_view._double_tap(at(ROW_LABELS + 70, HEAD // 2))
+    assert sheet.editing == ""
 
 
 def test_clicking_the_entry_bar_starts_editing():

@@ -15,7 +15,7 @@ from cassim.app.shell import Shell
 from cassim.doc.share import PREFIX, unpack
 
 ASSETS = Path(__file__).parent / "assets"
-LAST_DEVICE_KEY = "cassim.shell.last_device"
+APP_ROUTE_PARTS = 2
 
 
 @runtime_checkable
@@ -42,20 +42,32 @@ def shared_device(route: str) -> str | None:
 
 
 def startup_device(
-    route: str, saved: str | None, bundle_name: str, available: tuple[str, ...]
+    route: str,
+    bundle_name: str,
+    available: tuple[str, ...],
+    requested: str | None = None,
 ) -> str | None:
     """Choose the device to open, or None for the Home screen."""
     if not available:
         msg = "the build contains no devices"
         raise RuntimeError(msg)
-    requested = shared_device(route)
-    if requested in available:
-        return requested
+    direct = requested or direct_device(route)
+    if direct in available:
+        return direct
+    shared = shared_device(route)
+    if shared in available:
+        return shared
     if route.lstrip("/").startswith("debug"):
         return available[0]
-    if bundle_name != "all":
-        return available[0]
-    return saved if saved in available else None
+    return None if bundle_name == "all" else available[0]
+
+
+def direct_device(route: str) -> str | None:
+    """Read an app route such as `/app/pseudocode` or `/pseudocode`."""
+    parts = [part for part in route.lstrip("/").split("/") if part]
+    if not parts:
+        return None
+    return parts[1] if len(parts) == APP_ROUTE_PARTS and parts[0] == "app" else parts[0]
 
 
 class Application:
@@ -84,18 +96,23 @@ class Application:
         self.home: Home | None = None
 
     async def start(self) -> None:
-        saved = await self.shell.read_global(LAST_DEVICE_KEY)
         url = getattr(self.page, "url", "") or ""
         route = url.partition("#")[2] if "#" in url else self.shell.route
-        selected = startup_device(route, saved, self.bundle_name, self.available)
-        if selected is None and self.options:
+        requested = self.options.get("app")
+        selected = startup_device(
+            route,
+            self.bundle_name,
+            self.available,
+            requested if isinstance(requested, str) else None,
+        )
+        if selected is None and self.options.get("app") is None and self.options:
             selected = self.available[0]
         if selected is None:
             await self.show_home()
         else:
-            await self.open_device(selected, remember=self.bundle_name == "all")
+            await self.open_device(selected)
 
-    async def open_device(self, device_id: str, *, remember: bool = True) -> None:
+    async def open_device(self, device_id: str) -> None:
         if device_id not in self.available:
             return
         if self.active is not None:
@@ -112,8 +129,6 @@ class Application:
             raise TypeError(msg)
         self.active = mounted
         await mounted.start(**self.options)
-        if remember:
-            self.shell.write_global(LAST_DEVICE_KEY, device_id)
 
     async def show_home(self) -> None:
         if self.active is not None:
@@ -129,7 +144,7 @@ class Application:
 
 
 async def main(page: ft.Page, **options: object) -> None:
-    """Open Home or the selected/remembered device on `page`."""
+    """Open Home, or the device a link or option names, on `page`."""
     await Application(page, options=options).start()
 
 

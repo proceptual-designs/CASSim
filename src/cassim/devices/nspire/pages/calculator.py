@@ -7,6 +7,7 @@ Behaviour follows the emulator runs in `docs/testing/` (decision 0017).
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -17,13 +18,17 @@ from cassim.device.editor import (
     Editor,
     Kind,
     Node,
+    Template,
     linear_text,
     modernised,
     parse_target,
+    position_near,
     substitute_ans,
 )
 from cassim.device.editor import Row as EditorRow
+from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, local_session
+from cassim.device.recall import full_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,6 +47,9 @@ _RECALL_MOVES = frozenset(
         "select_to_end", "word_left", "word_right",
     }
 )  # fmt: skip
+
+# `ans` as a word of its own, as the entry line spells it (`Ans`, typed `ans`)
+_ANS_WORD = re.compile(r"(?<![\w.])ans(?![\w(])", re.IGNORECASE)
 
 _OPERAND_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_πⅇⅈ")
 
@@ -89,8 +97,11 @@ class Calculator:
         self.editor = Editor()
         self.history: list[Entry] = []
         self.error: str | None = None  # a dialog waiting for a key press
+        self.error_title = "Error"  # the dialog's title ("Warning" for Show Warning Info)
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
         self._recalled = Editor()  # the picked row as an editor: a cursor and a selection in it
+        # A picked result at full precision: what Enter and copy take (the row shows `text`)
+        self._recalled_full: EditorRow | None = None
         self.recall_touched = False  # a key or click has moved inside the picked row
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
@@ -107,7 +118,7 @@ class Calculator:
         if self.pending is not None:
             return  # busy: the app's Runner owns the keyboard until the result arrives
         if self.error is not None:
-            self.error = None
+            self.error, self.error_title = None, "Error"
             return
         action = self._actions().get(binding.action)
         if action is None:
@@ -145,9 +156,13 @@ class Calculator:
                 "template": self._template,
                 "power": self._power,
                 "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
-                "backspace": lambda _: self._delete(self.editor.backspace),
-                "delete": lambda _: self._delete(self.editor.delete),
-                "clear": lambda _: self._edit("other", self.editor.clear),
+                "backspace": lambda arg: self._delete(self._backspace(arg), forward=False),
+                "delete": lambda _: self._delete(self.editor.delete, forward=True),
+                "clear": lambda arg: (
+                    self.clear_history()
+                    if arg == "history"
+                    else self._edit("other", self.editor.clear)
+                ),
                 "copy": lambda _: self._copy(),
                 "cut": lambda _: self._cut(),
                 "paste": self._paste,
@@ -169,6 +184,9 @@ class Calculator:
                 "extend": lambda arg: self._place(arg, extend=True),
                 "recall_place": lambda arg: self._recall_place(arg, extend=False),
                 "recall_extend": lambda arg: self._recall_place(arg, extend=True),
+                "recall_token": self._recall_token,
+                "select_token": lambda arg: self._at_target(arg, self.editor.select_token),
+                "drop": self._drop,
             }
         )
         return actions
@@ -196,22 +214,33 @@ class Calculator:
         return self._recalled if self.recall is not None else None
 
     def _pick(self, picked: tuple[int, Row] | None) -> None:
-        """Pick a history row (or none). The row opens as an editor, cursor at its end, so the
-        keys and clicks can move inside it and select part of it."""
+        """Pick a history row (or none). The row opens as an editor with the cursor at its left
+        (Simon, 2026-11-20), so the keys and clicks can move inside it and select part of it."""
         self.recall = picked
         self.recall_touched = False
         if picked is None:
             return
         entry = self.history[picked[0]]
+        self._recalled = Editor()
+        self._recalled_full = None
         if picked[1] == "entry" and entry.nodes:
-            self._recalled = Editor()
             self._recalled.root = copy.deepcopy(list(entry.nodes))
-            self._recalled.pos = len(self._recalled.root)
+        elif picked[1] == "entry":
+            # Parsed, not typed key by key: a typed `^` or `√` would take in the rest of the line
+            self._recalled.root = row_from_text(entry.text)
         else:
-            recalled = (
-                entry.text if picked[1] == "entry" else entry.result.full or entry.result.text
-            )
-            self._recalled = Editor(recalled)
+            # The row moves through the digits it shows; Enter and copy take the full value
+            self._recalled.root = row_from_text(entry.result.text)
+            if entry.result.full and entry.result.full != entry.result.text:
+                self._recalled_full = row_from_text(entry.result.full)
+
+    def _recall_nodes(self) -> EditorRow:
+        """What the picked row gives Enter or copy: its selected part (all of it if nothing is
+        selected), at full precision for a result."""
+        picked = self._recalled
+        if self._recalled_full is not None:
+            return full_selection(picked, self._recalled_full)
+        return picked.selection() or copy.deepcopy(picked.root)
 
     def _recall_move(self, name: str) -> Callable[[str], None]:
         """A movement key: inside the picked row while one is picked, else in the entry line."""
@@ -226,6 +255,47 @@ class Calculator:
 
         return move
 
+    def _backspace(self, arg: str) -> Callable[[], None]:
+        """Backspace, or the keypad's del (`whole`), which takes a template just before the
+        cursor away in one press (run 5, F3) where Backspace highlights it first (0017)."""
+        editor = self.editor
+
+        def whole() -> None:
+            row = editor.row()
+            before = row[editor.pos - 1] if editor.pos and editor.anchor is None else None
+            if isinstance(before, Template) and not editor.selected:
+                editor.backspace()  # highlights it
+            editor.backspace()
+
+        return whole if arg == "whole" else editor.backspace
+
+    def _at_target(self, target: str, act: Callable[[list[tuple[int, int]], int], None]) -> None:
+        """Do `act` at a click's target in the entry line (a double-click selects a token)."""
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._mover(lambda: act(path, pos))("")
+
+    def _drop(self, target: str) -> None:
+        """Selected text dragged to `target` in the entry line moves there (H3 k); undoable."""
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._edit("other", lambda: self.editor.move_selection(path, pos))
+
+    def _recall_token(self, target: str) -> None:
+        """A double-click in the picked history row selects the token there (H3 b)."""
+        if self.recall is None:
+            return
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self.recall_touched = True
+        self._recalled.select_token(path, pos)
+
     def _recall_place(self, target: str, *, extend: bool) -> None:
         """A click in the picked row: put the cursor there, or extend the selection."""
         if self.recall is None:
@@ -237,10 +307,40 @@ class Calculator:
         self.recall_touched = True
         self._recalled.place(path, pos, extend=extend)
 
-    def _delete(self, remove_in_entry: Callable[[], None]) -> None:
+    def clear_history(self) -> None:
+        """Clear History (the context menus, Actions 5): every pair goes at once, with no
+        question asked, and `Ans` with them; variables stay (run 5, H5 h). The device greys its
+        Undo afterwards; CASSim keeps undo, which brings the history back."""
+        if not self.history:
+            return
+        self._undo.append(self._snapshot())
+        self._redo.clear()
+        self.history.clear()
+        self._pick(None)
+        self._group = None
+        self._sync_ans()
+
+    def warning_info(self) -> str | None:
+        """The picked line's warnings as one message (Show Warning Info…), or None."""
+        if self.recall is None:
+            return None
+        warnings = self.history[self.recall[0]].result.warnings
+        return "\n".join(warnings) if warnings else None
+
+    def show_warning_info(self) -> None:
+        """Show Warning Info…: the picked line's warnings in a dialog."""
+        info = self.warning_info()
+        if info is not None:
+            self.error, self.error_title = info, "Warning"
+
+    def _delete(self, remove_in_entry: Callable[[], None], *, forward: bool) -> None:
         """Del or Backspace: on a picked history row it deletes that entry and its result, and
         undo brings them back; on an empty entry line it does nothing (emulator check 3, H5 c);
-        otherwise it edits the entry line."""
+        otherwise it edits the entry line.
+
+        After a delete the input of the pair that takes its place is picked, as a text editor
+        moves: Delete picks the next pair, Backspace (and the keypad's del) the previous one, and
+        either takes the other side at an end of the history (run 5, H5 a, b, e, f, g, j)."""
         if self.recall is None:
             if not self.editor.is_empty:
                 self._edit("other", remove_in_entry)
@@ -251,14 +351,12 @@ class Calculator:
         del self.history[index]
         self._group = None
         self._sync_ans()
-        # The line above is picked next, so Del again deletes it too (the first line is followed
-        # by the one that moved up into its place)
         if not self.history:
             self._pick(None)
-        elif index:
-            self._pick((index - 1, "result"))
-        else:
-            self._pick((0, "entry"))
+            return
+        after = index < len(self.history)  # a pair moved up into the deleted one's place
+        before = index > 0
+        self._pick((index if after and (forward or not before) else index - 1, "entry"))
 
     # ---- editing, with undo groups ----------------------------------------------------------
 
@@ -297,12 +395,8 @@ class Calculator:
 
     def _copy(self) -> None:
         """Copy the selection in the entry line or, with a history row picked, the selected part
-        of that row (all of it if nothing in it is selected)."""
-        if self.recall is not None:
-            picked = self._recalled
-            nodes = picked.selection() or copy.deepcopy(picked.root)
-        else:
-            nodes = self.editor.selection()
+        of that row (all of it if nothing in it is selected), at full precision for a result."""
+        nodes = self._recall_nodes() if self.recall is not None else self.editor.selection()
         if nodes:
             self.clipboard.nodes = nodes
 
@@ -404,23 +498,34 @@ class Calculator:
         self._mover(lambda: self.editor.place(path, pos, extend=extend))("")
 
     def _recall_at(self, spec: str) -> None:
-        """A click on a history row (`INDEX:entry` or `INDEX:result`): the first click picks it,
-        a second click on the same row brings it into the entry line."""
+        """A click on a history row (`INDEX:entry` or `INDEX:result`, with `@EMS` when the click
+        was on the maths, that many ems from its left) puts a cursor in it, near the click, not
+        a highlight over the whole item (run 5, H3 a, c). The picked row is then drawn as an
+        editor, so a mouse click inside it only moves its cursor (`recall_place`), as on the
+        device; a second `recall_at` on it (the keypad's pointer, which cannot aim inside a
+        row) brings it down (Simon, 2026-11-20)."""
+        spec, _, ems = spec.partition("@")
         index, _, row = spec.partition(":")
         picked = (int(index), "result" if row == "result" else "entry")
         if not 0 <= picked[0] < len(self.history):
             return
         if self.recall == picked:
             self._enter(approximate=False)
-        else:
-            self._pick(picked)
+            return
+        self._pick(picked)
+        self.recall_touched = True
+        try:
+            near = float(ems) if ems else None
+        except ValueError:
+            near = None
+        if near is not None:  # the cursor shows where the click was
+            self._recalled.pos = position_near(self._recalled.root, near)
 
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:
             # What is selected in the picked row comes down to the entry line, else the whole row;
-            # fractions and powers stay templates
-            picked = self._recalled
-            nodes = picked.selection() or copy.deepcopy(picked.root)
+            # fractions and powers stay templates, and a result's numbers come at full precision
+            nodes = self._recall_nodes()
             self.recall = None
             self.editor.paste(nodes)
             return
@@ -440,10 +545,25 @@ class Calculator:
             text = self.editor.linear()
         if not text:
             return
+        refused = self._refused()
+        if refused is not None:  # a dialog, and the entry stays on the entry line to be mended
+            self.error = refused
+            return
         if getattr(self.session, "deferred", False):
             self.pending = Pending(text, approximate)
             return
         self.finish(self.session.eval(text, approximate=approximate), text, approximate)
+
+    def _refused(self) -> str | None:
+        """Why the entry line cannot be run at all, or None. These are caught before the engine
+        and leave no history pair: a template with every box empty (run 5, E4: an empty d/dx
+        gives a syntax error and stays), and `Ans` with no answer on the page (after Clear
+        History, or first on a fresh page: run 5, H5 h; editor check T1 i)."""
+        if _has_empty_template(self.editor.root):
+            return "Syntax error: fill in the empty boxes"
+        if self._ans_entry() is None and _ANS_WORD.search(self.editor.linear()):
+            return "No previous answer: Ans is undefined"
+        return None
 
     def finish(self, result: Result, text: str, approximate: bool) -> None:
         """Record an evaluated entry: history on success, an error dialog otherwise."""
@@ -478,6 +598,17 @@ class Calculator:
             self._synced = entry
         self.editor.clear()
         self._group = None
+
+
+def _has_empty_template(row: EditorRow) -> bool:
+    """Whether some template in `row` has nothing in any of its boxes."""
+    for node in row:
+        if isinstance(node, Template):
+            if node.slots and not any(node.slots):
+                return True
+            if any(_has_empty_template(slot) for slot in node.slots):
+                return True
+    return False
 
 
 def calculator_of(page: Page) -> Calculator | None:

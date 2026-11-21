@@ -196,6 +196,21 @@ def test_main_evaluates_one_entry(capsys):
     assert capsys.readouterr().out == "infinity\n"
 
 
+def test_main_forwards_a_direct_app_choice(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[dict[str, object]] = []
+    monkeypatch.setattr("cassim.app.main.run", lambda **options: opened.append(options))
+
+    assert main(["--web", "--app", "pseudocode"]) == 0
+
+    assert opened[0]["web"] is True
+    assert opened[0]["app"] == "pseudocode"
+
+
+def test_text_mode_rejects_direct_app_choice() -> None:
+    with pytest.raises(SystemExit):
+        main(["--text", "--app", "pseudocode"])
+
+
 def test_main_reports_an_error_status(capsys):
     assert main(["-c", "1/"]) == 1
     assert "Syntax error" in capsys.readouterr().out
@@ -342,11 +357,13 @@ def test_the_app_is_the_default_and_takes_view_and_settings(
     import cassim.app.main as app  # noqa: PLC0415
     from cassim.devices.nspire.ui.state import Mode  # noqa: PLC0415
 
-    started: list[tuple[bool, Mode | None, Settings | None]] = []
+    started: list[tuple[bool, Mode | None, str | None, Settings | None]] = []
     monkeypatch.setattr(
         app,
         "run",
-        lambda *, web=False, view=None, settings=None: started.append((web, view, settings)),
+        lambda *, web=False, view=None, app=None, settings=None: started.append(
+            (web, view, app, settings)
+        ),
     )
     monkeypatch.setattr(repl, "interactive", lambda session, ascii_output: 0)
     assert main([]) == 0
@@ -354,10 +371,10 @@ def test_the_app_is_the_default_and_takes_view_and_settings(
     assert main(["--view", "handheld", "--course", "methods"]) == 0
     assert main(["--set", "angle=degree"]) == 0
     assert started == [
-        (False, None, None),
-        (True, None, None),
-        (False, Mode.HANDHELD, PRESETS["methods"]),
-        (False, None, Settings(angle=Angle.DEGREE)),
+        (False, None, None, None),
+        (True, None, None, None),
+        (False, Mode.HANDHELD, None, PRESETS["methods"]),
+        (False, None, None, Settings(angle=Angle.DEGREE)),
     ]
     assert main(["--text"]) == 0
     assert main(["--text", "--course", "methods"]) == 0
