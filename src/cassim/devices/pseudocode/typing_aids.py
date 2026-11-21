@@ -35,11 +35,43 @@ def _insertion(previous: str, current: str) -> int | None:
     return index
 
 
+# Keys typed while the browser is busy can reach Python as one change: an insertion this short
+# with no line break is replayed one key at a time. Anything longer is a paste and left alone.
+TYPED_BURST = 4
+
+
+def _burst(previous: str, current: str) -> tuple[int, str] | None:
+    extra = len(current) - len(previous)
+    if not 1 < extra <= TYPED_BURST:
+        return None
+    start = 0
+    while start < len(previous) and previous[start] == current[start]:
+        start += 1
+    if current[start + extra :] != previous[start:]:
+        return None
+    inserted = current[start : start + extra]
+    return None if "\n" in inserted else (start, inserted)
+
+
 def convert_typing(previous: str, current: str) -> str:
-    """Convert one new input character, leaving paste and source text contexts untouched."""
+    """Convert newly typed characters, leaving paste and source text contexts untouched."""
     index = _insertion(previous, current)
-    if index is None:
+    if index is not None:
+        return _convert_key(current, index)
+    burst = _burst(previous, current)
+    if burst is None:
         return current
+    caret, inserted = burst
+    text = previous
+    for char in inserted:
+        typed = text[:caret] + char + text[caret:]
+        text = _convert_key(typed, caret)
+        caret += 1 + len(text) - len(typed)
+    return text
+
+
+def _convert_key(current: str, index: int) -> str:
+    """Apply the conversion that typing `current[index]` completes, if any."""
     if not _in_code(current, index):
         return current
     through = current[: index + 1]

@@ -52,6 +52,22 @@ class AppPage:
             self.page.wait_for_timeout(100)
         assert done(), f"timed out waiting for {what}: {self.logs}"
 
+    def until(self, act, done, what: str, *, tries: int = 3, seconds: float = 30) -> None:
+        """Do `act` until `done` shows the app received it, at most `tries` times.
+
+        On a loaded machine Flutter web can drop typed input: a key or a filled field never
+        reaches Python, and a user would simply type it again. `done` must check something
+        the app draws or logs, never the browser's own text box."""
+        for _ in range(tries - 1):
+            act()
+            end = time.monotonic() + seconds
+            while not done() and time.monotonic() < end:
+                self.page.wait_for_timeout(100)
+            if done():
+                return
+        act()
+        self.wait(done, what, seconds)
+
     def type_text(self, text: str) -> None:
         for piece in split_text(text):
             if piece == RIGHT:

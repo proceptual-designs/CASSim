@@ -8,7 +8,7 @@ from io import BytesIO
 
 import pytest
 from PIL import Image
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, Locator, Page, expect
 
 from cassim.app.home import WELCOME
 
@@ -140,6 +140,35 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
         page.close()
 
 
+# Playwright full speed: with a per-key delay Flutter web drops shifted keys such as "<"
+# (seen 6 times in 6 runs, 2026-11-22), which a real keyboard does not do.
+HUMAN_TYPING = 0
+REDRAW = 300  # ms for Python and Flutter to catch up, as a person pauses to look
+
+
+def clear_editor(page: Page, editor: Locator) -> None:
+    """Select all and delete until the app has seen it, then let it settle.
+
+    Right after the editor opens, keys can reach the browser's text box before Flutter's field
+    is attached: they never reach Python and Flutter later restores its own text. Python draws
+    the line-number gutter, so the example's "1 2 3 ..." disappearing proves the first clear
+    arrived (a single "1" is not exposed to the test, so later clears get a pause instead)."""
+    gutter = page.get_by_text(re.compile(r"^1(\s+\d+)+$"))
+    for _ in range(5):
+        editor.focus()
+        editor.press("Control+A")
+        editor.press("Backspace")
+        try:
+            expect(gutter).to_have_count(0, timeout=3_000)
+        except AssertionError:
+            continue
+        if editor.input_value() == "":
+            break
+    expect(gutter).to_have_count(0)
+    expect(editor).to_have_value("")
+    page.wait_for_timeout(REDRAW)
+
+
 def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Browser, site) -> None:
     """FR-SYN-013: convenience symbols are opt-in and do not rewrite source contexts blindly."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
@@ -155,41 +184,48 @@ def test_pseudocode_typing_aids_are_opt_in_token_aware_and_undoable(browser: Bro
         expect(editor).to_be_attached()
 
         def replace(value: str) -> None:
-            editor.focus()
-            editor.press("Control+A")
-            editor.press_sequentially(value)
+            for _ in range(3):  # after focus moves away and back, typed keys can be lost
+                clear_editor(page, editor)
+                editor.press_sequentially(value, delay=HUMAN_TYPING)
+                page.wait_for_timeout(REDRAW)  # Python has this text before the next key
+                if editor.input_value() == value:
+                    break
             expect(editor).to_have_value(value)
 
         def source() -> str:
             return str(editor.input_value())
 
         replace("x <")
-        editor.press_sequentially("-")
+        editor.press_sequentially("-", delay=HUMAN_TYPING)
         assert source() == "x <-"
 
         typing_aids.click()
-        page.wait_for_timeout(300)
+        expect(typing_aids).to_be_checked()
         editor = page.get_by_role("textbox", name="Code")
         expect(editor).to_be_attached()
-        replace("x <")
-        editor.press_sequentially("-")
-        expect(editor).to_have_value("x ←")
+        # A different line: Python only sees the field's latest value, so retyping the same
+        # text quickly can reach it as no change at all.
+        replace("y <")
+        editor.press_sequentially("-", delay=HUMAN_TYPING)
+        expect(editor).to_have_value("y ←")
+        page.wait_for_timeout(REDRAW)  # let Flutter settle before the undo
         page.keyboard.press("Control+z")
-        expect(editor).to_have_value("x <-")
+        expect(editor).to_have_value("y <-")
 
         page.goto(site[1] + "#/app/pseudocode", wait_until="load")
         enable_semantics(page)
         editor = page.get_by_role("textbox", name="Code")
         expect(editor).to_be_attached(timeout=60_000)
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(REDRAW)
         replace("print @")
-        editor.press_sequentially("pi", delay=30)
+        editor.press_sequentially("pi", delay=HUMAN_TYPING)
         expect(editor).to_have_value("print π")
+        page.wait_for_timeout(REDRAW)
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("print @pi")
 
         replace('print "<')
-        editor.press_sequentially("-")
+        editor.press_sequentially("-", delay=HUMAN_TYPING)
         expect(editor).to_have_value('print "<-')
     finally:
         page.close()

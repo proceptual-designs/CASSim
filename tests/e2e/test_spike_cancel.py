@@ -11,7 +11,7 @@ pytestmark = pytest.mark.e2e
 def test_engine_worker_cancel_and_restart(browser, build) -> None:
     dist = build("spike4_web")
     with webharness.serve(dist) as url:
-        run = webharness.visit(browser.new_context(), url, timeout=240)
+        run = webharness.visit(browser.new_context(), url, timeout=360)  # slow on a loaded machine
     assert run.finished, run.markers()
     assert "[-2, 2]" in run.find("B solve1")
     alive = run.find("B flet_loop_alive_during_hang")

@@ -268,12 +268,16 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
         app.type_text(expression)
         app.press("Enter")
         app.wait(lambda n=before: len(app.results) > n, expression)
-    solve_finance(app)
-    expect(button(page, "Collapse tvm variables")).to_be_attached()
-
     variables = page.get_by_role(
         "button", name=re.compile(r"^(Collapse|Expand) stat variables$")
     ).locator("..")
+    # A filled value can be dropped on a loaded machine; the list Python draws shows the solve.
+    app.until(
+        lambda: solve_finance(app),
+        lambda: "tvm.pv = 10000" in variables.inner_text(),
+        "tvm.pv = 10000 in the variables",
+    )
+    expect(button(page, "Collapse tvm variables")).to_be_attached()
     box = variables.bounding_box()
     assert box
     page.mouse.move(box["x"] + 20, box["y"] + box["height"] - 10)
@@ -281,8 +285,8 @@ def test_variables_stats_and_finance_render_fold_and_scroll(
     app.wait(
         lambda: variables.evaluate("(element) => element.scrollTop") > 0, "variables to scroll"
     )
-    assert "tvm.pv = 10000" in variables.inner_text()
-    assert "tvm.pmt = -" in variables.inner_text()
+    expect(variables).to_contain_text("tvm.pv = 10000")
+    expect(variables).to_contain_text("tvm.pmt = -")
     button(page, "Expand stat.results").click()
     app.wait(
         lambda: '1: ["Title","Two-Variable Statistics"]' in variables.inner_text(), "stat rows"
