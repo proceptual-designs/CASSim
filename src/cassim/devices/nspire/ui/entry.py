@@ -46,7 +46,8 @@ _MAIN_FONT = "packages/flutter_math_fork/KaTeX_Main"
 # A string's quote is straight, as on the device; KaTeX_Main draws it curly, KaTeX_Typewriter not
 _QUOTE_FONT = "packages/flutter_math_fork/KaTeX_Typewriter"
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
-_BINARY = frozenset("+-*=<>≤≥≠")  # set with a little space either side, as TeX does
+_BINARY = frozenset("+-*=<>≤≥≠")
+_DRAG_GROUP = "entry-selection"  # set with a little space either side, as TeX does
 
 
 class EntryLine:
@@ -66,17 +67,24 @@ class EntryLine:
         self.is_defined = is_defined
         # A long press is the touch screen's shift+click: it extends the selection (0019)
         self.hold = hold or click
+        # Selected text dragged onto a place moves there (run 5, H3 k); None: no dragging
+        self.drop: Click | None = None
 
     def _detector(
         self, content: ft.Control, path: Path, pos: int, *, expand: bool = False
     ) -> ft.Control:
-        """A tap places the cursor at `pos` in the row at `path`; a long press extends to it."""
-        return ft.GestureDetector(
+        """A tap places the cursor at `pos` in the row at `path`; a long press extends to it; a
+        dragged selection dropped here moves to `pos`."""
+        detector = ft.GestureDetector(
             content,
             expand=expand,
             on_tap=lambda _: self.click(path, pos),
             on_long_press_start=lambda _: self.hold(path, pos),
         )
+        drop = self.drop
+        if drop is None:
+            return detector
+        return ft.DragTarget(detector, group=_DRAG_GROUP, on_accept=lambda _: drop(path, pos))
 
     def build(self, editor: Editor, *, active: bool = True) -> ft.Control:
         """The whole line. A click past the end of it puts the cursor at the end of the entry."""
@@ -168,7 +176,10 @@ class EntryLine:
         return low if pos == low else high
 
     def _highlight(self, control: ft.Control) -> ft.Control:
-        return ft.Container(control, bgcolor=SELECTION)
+        shown = ft.Container(control, bgcolor=SELECTION)
+        if self.drop is None:
+            return shown
+        return ft.Draggable(shown, group=_DRAG_GROUP)
 
     def _cursor(self, *, selected: bool = False) -> ft.Control:
         return ft.Container(

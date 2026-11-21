@@ -120,15 +120,15 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-SCOPE-002 | Must | `tests/device/test_document.py` |
 | FR-CAT-001 | Must | `tests/unit/test_calculus.py`, `tests/unit/test_catalog.py`, `tests/unit/test_conversions.py` and 1 more |
 | FR-CAT-002 | Should | `tests/unit/test_conversions.py` |
-| FR-CAT-004 | Should | `tests/app/test_menus.py` |
+| FR-CAT-004 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
 | FR-CAT-005 | Must | `tests/unit/test_ref_matrix.py` |
 | FR-CAT-006 | Must | `tests/unit/test_conversions.py`, `tests/unit/test_scope.py` |
-| FR-CALC-001 | Must | `tests/device/test_calculator.py` |
+| FR-CALC-001 | Must | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 15 more |
-| FR-CALC-005 | Must | `tests/app/test_menus.py`, `tests/device/test_templates.py`, `tests/device/test_wizard.py` and 1 more |
-| FR-CALC-006 | Should | `tests/device/test_calculator.py` |
+| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 17 more |
+| FR-CALC-005 | Must | `tests/app/test_calculator_menus.py`, `tests/app/test_history_mouse.py`, `tests/app/test_menus.py` and 4 more |
+| FR-CALC-006 | Should | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py` |
 | FR-DOC-001 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_documents.py`, `tests/app/test_history_cache.py` and 9 more |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
@@ -166,7 +166,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-THEME-002 | Should | `tests/app/test_theme_settings.py`, `tests/e2e/test_theme_browser.py` |
 | FR-DEV-006 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_state.py` |
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
-| FR-DEV-008 | Should | `tests/app/test_menus.py` |
+| FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
 | FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` |
 | FR-PWA-002 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py`, `tests/unit/test_bundles.py` |

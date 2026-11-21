@@ -21,6 +21,7 @@ from cassim.device.wizard import Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
+from cassim.devices.nspire.menus import entry_context, history_context
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
@@ -183,6 +184,7 @@ class AppState:
         self.show_dialog: Callable[[str], None] | None = None  # set by the GUI: named dialogs
         self.show_wizard: Callable[[Wizard], None] | None = None  # set by the GUI: field dialogs
         self.menu: MenuState | None = None
+        self._catalog_at: list[int] = []  # the Catalog's tab and row, where it opens next time
         self._statistics_wizard: tuple[Statistics, str, Wizard] | None = None
         # The page sorter is open on the screen (ctrl+up). The page it highlights is the current
         # page, so moving the highlight goes to that page and Enter only closes the sorter.
@@ -389,6 +391,12 @@ class AppState:
                 self.retain_sheets()
             return
         calculator = calculator_of(self.document.current)
+        if calculator is not None and binding.action == "context_menu":
+            if binding.arg == "warning":
+                calculator.show_warning_info()
+            elif calculator.error is None and calculator.pending is None:
+                self._open_menu("calculator_context")
+            return
         if (
             calculator is not None
             and binding.action not in SHEET_ACTIONS
@@ -561,6 +569,7 @@ class AppState:
             if self.sorting and name not in {"doc", "cassim", "add_page", "add_problem"}:
                 return
             target = self._menu_root(name)
+            self._remember_catalog()
             if target is not None:
                 same = target is self.menu.root or (
                     (
@@ -577,7 +586,7 @@ class AppState:
                     )
                     and target.label == self.menu.root.label
                 )
-                self.menu = None if same else MenuState(target)
+                self.menu = None if same else self._menu_state(name, target)
             return
         self._menu_key(binding)
 
@@ -644,10 +653,13 @@ class AppState:
             return self.cassim_menu()
         if name == "menu_statistics" or name.startswith("statistics_"):
             return self._statistics_menu(name)
-        if name == "graphs_history":
-            return self._graphs_history_menu()
-        if name == "menu_graphs":
-            return self._graphs_menu()
+        built = {
+            "graphs_history": self._graphs_history_menu,
+            "menu_graphs": self._graphs_menu,
+            "calculator_context": self._calculator_context,
+        }.get(name)
+        if built is not None:
+            return built()
         root = self._variables_menu() if name == "variables" else self.profile.menus.get(name)
         if self.sheet is not None and name in {
             "menu_sheet",
@@ -668,6 +680,18 @@ class AppState:
             if root is not None:
                 root = _set_quick_graph_enabled(root, has_list)
         return root
+
+    def _calculator_context(self) -> MenuItem | None:
+        """The Calculator's context menu: a history line's while one is picked, else the entry
+        line's, with the device's grey states (run 5, H3 j)."""
+        calculator = calculator_of(self.document.current)
+        if calculator is None:
+            return None
+        if calculator.recall is not None:
+            return history_context(warning=calculator.warning_info() is not None)
+        variables = self._variables_menu()
+        listed = variables.items if variables is not None else ()
+        return entry_context(selection=bool(calculator.editor.selection()), variables=listed)
 
     def _graphs_history_menu(self) -> MenuItem | None:
         graphs = self.graphs
@@ -1105,7 +1129,19 @@ class AppState:
     def _open_menu(self, name: str) -> None:
         root = self._menu_root(name)
         if root is not None:
-            self.menu = MenuState(root)
+            self.menu = self._menu_state(name, root)
+
+    def _menu_state(self, name: str, root: MenuItem) -> MenuState:
+        """A menu opening; the Catalog where it was left."""
+        menu = MenuState(root)
+        if name == "catalog" and self._catalog_at:
+            menu.reopen(self._catalog_at)
+        return menu
+
+    def _remember_catalog(self) -> None:
+        """Keep the open Catalog's tab and row for the next time it opens (run 5, E5)."""
+        if self.menu is not None and self.menu.root is self.profile.menus.get("catalog"):
+            self._catalog_at = self.menu.positions()
 
     def _variables_menu(self) -> MenuItem | None:
         """The var key: the current Problem's variables, each typed by choosing it. On a sheet's
@@ -1188,6 +1224,7 @@ class AppState:
         """While a menu is open it takes every key; a chosen leaf runs once the menu has closed."""
         assert self.menu is not None
         chosen = self.menu.press(binding.action, binding.arg)
+        self._remember_catalog()
         if not self.menu.open:
             self.menu = None
         if chosen is not None:

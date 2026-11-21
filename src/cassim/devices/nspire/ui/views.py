@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -40,6 +41,44 @@ from cassim.devices.nspire.ui.template_icons import WIDTH as ICON_W
 SYMBOL_FONT = "Symbols"
 SYMBOL_FONT_FILE = "fonts/NotoSansSymbols2-Regular.ttf"
 SYMBOLS = frozenset("◀▶▲▼␣●⏎▸□▮▦")
+
+
+MULTI_CLICK = 0.45  # seconds between the clicks of a double or triple click
+_ANY_PLACE = "*"  # a click that the next one counts with wherever it lands
+
+
+def text_width(text: str) -> int:
+    """A line's width in characters, about: fractions, powers, roots and matrices weigh double."""
+    return len(text) + sum(text.count(char) for char in "/^√[")
+
+
+def history_band(theme: Theme) -> str:
+    """The light band behind every other history pair: a faint wash of the theme's screen text
+    colour, so it follows every theme (Dark is the default)."""
+    return "#14" + theme.screen_text[1:]
+
+
+def cut_off(
+    content: ft.Control, theme: Theme, size: float, *, left: bool, right: bool
+) -> ft.Control:
+    """`content` on one line, cut at the screen's edges and scrolled to its end when
+    `right` is False; ◂ and ▸ mark the sides that have more."""
+
+    def mark(sign: str) -> ft.Control:
+        return ft.Text(sign, size=size * 0.6, color=theme.screen_text, no_wrap=True)
+
+    strip = ft.Row(
+        [content],
+        scroll=ft.ScrollMode.HIDDEN,
+        auto_scroll=not right,
+        tight=True,
+        expand=True,
+    )
+    return ft.Row(
+        [*([mark("◂")] if left else []), strip, *([mark("▸")] if right else [])],
+        spacing=2,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
 
 
 def label_text(text: str, **style: object) -> ft.Text:
@@ -337,6 +376,8 @@ class CalculatorView:
         ] = {}
         self._scroll: float | None = None  # the history's scroll offset, once reported
         self._shown = 1  # lines the deepest open panel shows
+        # the last click, for double and triple clicks
+        self._tap_time, self._tap_count, self._tap_target = -1.0, 0, ""
         menu_layer = ft.GestureDetector(
             self.menu,
             on_vertical_drag_start=lambda _: self._drag.reset(),
@@ -757,17 +798,33 @@ class CalculatorView:
         return True
 
     def _click_line(self, spec: str) -> None:
-        """A tap on a history line picks it where it is, without scrolling."""
+        """A tap on a history line picks it where it is, without scrolling. It is the first
+        click of a double click that the line, now drawn as an editor, goes on with."""
         if self._tapped == spec:  # the maths inside took this tap already (`_tap_line`)
             self._tapped = None
             return
+        self._tap_time, self._tap_count, self._tap_target = time.monotonic(), 1, _ANY_PLACE
         self._clicked = True
         self._keep = self._scroll
         self.on_action("recall_at", spec)
 
+    def _context_line(self, spec: str, *, picked: bool) -> None:
+        """A right-click on a history line: pick it where it is, then its context menu."""
+        if not picked:
+            self._click_line(spec)
+        self.on_action("context_menu", "")
+
+    def _context_entry(self) -> None:
+        """A right-click on the entry line: the entry line's context menu."""
+        calculator = calculator_of(self.state.document.current)
+        if calculator is not None and calculator.recall is not None:
+            self.on_action("escape", "")  # back to the entry line
+        self.on_action("context_menu", "")
+
     def _tap_line(self, spec: str, event: ft.TapEvent) -> None:
         """A tap on a history line's maths: picked as `_click_line` does, with the cursor near
         the tap (the distance from the maths' left edge, in ems)."""
+        self._tap_time, self._tap_count, self._tap_target = time.monotonic(), 1, _ANY_PLACE
         position = event.local_position
         if position is None:
             self._click_line(spec)
@@ -833,21 +890,73 @@ class CalculatorView:
         calculator = calculator_of(self.state.document.current)
         if calculator is None:
             return math(screen.entry, self.theme, self.state.math_size)
-        return EntryLine(
+        line = EntryLine(
             self.theme,
             self.state.math_size,
             self._click,
             calculator.session.is_defined,
             self._hold,
-        ).build(calculator.editor)
+        )
+        line.drop = self._drop
+        built = line.build(calculator.editor)
+        editor = calculator.editor
+        if text_width(editor.linear()) > self._room:
+            # a long entry does not wrap: it scrolls sideways, ◂ and ▸ saying there is more
+            # (run 5, H3 f); the view keeps to the end while the cursor is there
+            at_end = not editor.path and editor.pos == len(editor.root)
+            built = cut_off(built, self.theme, self.state.math_size, left=True, right=not at_end)
+        return ft.GestureDetector(
+            built,
+            on_secondary_tap_down=lambda _: self._context_entry(),
+            mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
+        )
+
+    def _taps(self, target: str) -> int:
+        """How many clicks in a row this one is (1, 2, 3...): each at the same place and within
+        `MULTI_CLICK` seconds of the one before."""
+        now = time.monotonic()
+        same = self._tap_target in {target, _ANY_PLACE}
+        again = now - self._tap_time <= MULTI_CLICK and same
+        self._tap_count = self._tap_count + 1 if again else 1
+        self._tap_time, self._tap_target = now, target
+        return self._tap_count
 
     def _click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
         """A click in the entry: place the cursor, or extend the selection with shift held (the
-        keyboard's Shift, or the keypad's shift key waiting for its next key)."""
+        keyboard's Shift, or the keypad's shift key waiting for its next key). A double-click
+        selects a token and a triple-click the whole line (run 5, H3 b)."""
+        self._pointer_click(path, pos, ("place", "extend", "select_token", "select_all"))
+
+    def _recall_click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """The same clicks inside a picked history line."""
+        self._clicked = True
+        self._keep = self._scroll
+        self._pointer_click(
+            path, pos, ("recall_place", "recall_extend", "recall_token", "select_all")
+        )
+
+    def _pointer_click(
+        self,
+        path: Sequence[tuple[int, int]],
+        pos: int,
+        actions: tuple[Action, Action, Action, Action],
+    ) -> None:
+        place, extend_action, token, whole = actions
         extend = self.shift() or self.state.pending == "shift"
         if extend:
             self.state.clear_pending()
-        self.on_action("extend" if extend else "place", format_target(path, pos))
+        target = format_target(path, pos)
+        if extend:
+            self._tap_target = ""  # a shift+click starts no double click
+            self.on_action(extend_action, target)
+            return
+        taps = self._taps(target)
+        action = (place, token, whole)[min(taps, 3) - 1]  # one, two, three clicks
+        self.on_action(action, "" if action == whole else target)
+
+    def _drop(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """Selected text dropped at a place in the entry line moves there (H3 k)."""
+        self.on_action("drop", format_target(path, pos))
 
     def _graph_extend(self) -> bool:
         extend = self.shift() or self.state.pending == "shift"
@@ -859,30 +968,35 @@ class CalculatorView:
         """A long press: the touch screen's shift+click."""
         self.on_action("extend", format_target(path, pos))
 
+    @property
+    def _room(self) -> float:
+        """About how many characters fit across the screen. LaTeX cannot be measured here."""
+        return self.state.px(300) / (0.62 * self.state.math_size)
+
     def _fits(self, entry: Line, result: Line) -> bool:
-        """Whether an entry and its result are short enough to share a line. LaTeX cannot be
-        measured here, so this counts characters (fractions, powers and roots weigh double)
-        against the screen width, with room to spare."""
-
-        def width(text: str) -> int:
-            return len(text) + sum(text.count(char) for char in "/^√[")
-
-        room = self.state.px(300) / (0.62 * self.state.math_size)
-        return width(entry.text) + width(result.text) + 3 <= room
+        """Whether an entry and its result are short enough to share a line: this counts
+        characters (fractions, powers and roots weigh double) against the screen width, with
+        room to spare."""
+        return text_width(entry.text) + text_width(result.text) + 3 <= self._room
 
     def _pair(self, entry: Line, result: Line, number: int) -> ft.Control:
-        """An entry and its result with a thin rule under them: one line if both are short."""
+        """An entry and its result: one line if both are short, else the result on a line of its
+        own from the left edge (run 5, H9 b, d). Pairs alternate a light band and the plain
+        screen, with no rule between them (H9 e)."""
+        fits = self._fits(entry, result)
         first = self._line(entry, number)
-        second = self._line(result, number + 1)
-        self._side_by_side[number // 2] = self._fits(entry, result)
-        if self._fits(entry, result):
+        second = self._line(result, number + 1, own_line=not fits)
+        self._side_by_side[number // 2] = fits
+        if fits:
             second.expand = True  # takes the rest of the line, result at the right edge
             body: ft.Control = ft.Row([first, second], spacing=0)
         else:
             body = ft.Column([first, second], spacing=0)
-        rule = ft.BorderSide(1, "#40" + self.theme.screen_text[1:])
+        banded = number // 2 % 2 == 0  # the first pair is banded, as on the device
         return ft.Container(
-            body, border=ft.Border(bottom=rule), padding=ft.Padding.only(bottom=self.state.px(2))
+            body,
+            bgcolor=history_band(self.theme) if banded else None,
+            padding=ft.Padding.only(bottom=self.state.px(2)),
         )
 
     def _history_pair(self, entry: Line, result: Line, number: int) -> ft.Control:
@@ -897,23 +1011,34 @@ class CalculatorView:
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
 
-    def _line(self, line: Line, number: int) -> ft.Container:
+    def _line(self, line: Line, number: int, *, own_line: bool = False) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
-        place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
-        right = line.kind == "result"
+        place as before; once moved into, its own LaTeX draws the cursor and the selected part.
+        A row too long for the screen is not wrapped: it is cut at the right edge with ▸ (H9 b)."""
+        right = line.kind == "result" and not own_line
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
-        shown: ft.Control = ft.Container(
-            ft.Text(
+        calculator = calculator_of(self.state.document.current)
+        editor = calculator.recall_editor if calculator is not None and line.part else None
+        if editor is not None and calculator is not None:
+            # a line clicked or moved into is drawn as an editor, so a click places its cursor
+            # and a double- or triple-click selects (run 5, H3 a, b)
+            body: ft.Control = EntryLine(
+                self.theme, self.state.math_size, self._recall_click, calculator.session.is_defined
+            ).build(editor)
+        elif line.error:
+            body = ft.Text(
                 line.text,
                 size=self.state.math_size,
                 color=self.theme.screen_text,
                 font_family="serif",
             )
-            if line.error and not line.part
-            else math(line.latex, self.theme, self.state.math_size),
+        else:
+            body = math(line.latex, self.theme, self.state.math_size)
+        shown: ft.Control = ft.Container(
+            body,
             bgcolor=self.theme.selection if line.selected and not line.part else None,
             # a tap on the maths itself says where: the cursor goes near it
-            on_tap_down=lambda event: self._tap_line(spec, event),
+            on_tap_down=None if editor is not None else lambda event: self._tap_line(spec, event),
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))
@@ -923,13 +1048,22 @@ class CalculatorView:
                 tight=True,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
-        return ft.Container(
-            shown,
-            on_click=lambda _: self._click_line(spec),
-            on_size_change=self._line_sized(spec) if self.measuring else None,
-            alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
-            padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above each line
-            key=_scroll_key() if line.selected else None,
+        if text_width(line.text) > self._room:
+            shown = cut_off(shown, self.theme, self.state.math_size, left=False, right=True)
+        # A right-click picks the line (if it is not picked already) and opens its context menu;
+        # the context-menu cursor tells the page to keep the browser's own menu away (H3 j)
+        return ft.GestureDetector(
+            ft.Container(
+                shown,
+                on_size_change=self._line_sized(spec) if self.measuring else None,
+                alignment=ft.Alignment.CENTER_RIGHT if right else ft.Alignment.CENTER_LEFT,
+                padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above
+                key=_scroll_key() if line.selected else None,
+            ),
+            # a picked row drawn as an editor takes its own clicks: none brings it down (H3 a)
+            on_tap=None if editor is not None else lambda _: self._click_line(spec),
+            on_secondary_tap_down=lambda _: self._context_line(spec, picked=line.selected),
+            mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
         )
 
     def _menu(self, view: MenuView | None) -> None:
@@ -1098,9 +1232,12 @@ class CalculatorView:
     def _header(self, view: MenuView, depth: int, panel: Panel) -> ft.Control:
         """The panel's title; on a submenu it is a back button (it closes this level)."""
         back = f"{depth - 1}:{selected_index(view.panels[depth - 1])}" if depth else ""
+        # a jump list's typed search shows after its title (decision 0034)
+        deepest = depth == len(view.panels) - 1
+        search = f"  {view.search}▏" if deepest and view.search else ""
         return ft.Container(
             label_text(
-                ("◀ " if depth else "") + panel.title,
+                ("◀ " if depth else "") + panel.title + search,
                 size=self.state.px(12),
                 weight=ft.FontWeight.BOLD,
                 color=self.theme.key_label,
@@ -1196,7 +1333,10 @@ class CalculatorView:
             ft.Column(
                 [
                     ft.Text(
-                        "Error", size=self.state.px(14), weight=ft.FontWeight.BOLD, color="#ffffff"
+                        screen.error_title,
+                        size=self.state.px(14),
+                        weight=ft.FontWeight.BOLD,
+                        color="#ffffff",
                     ),
                     ft.Text(screen.error, size=self.state.px(14), color="#ffffff"),
                     ft.Text("click or press any key", size=self.state.px(11), color="#ffd0cc"),

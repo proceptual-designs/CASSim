@@ -92,9 +92,14 @@ _SYSTEM_FIELDS = (
 )
 
 
+# The inverse binomial dialogs end with a Matrix Form box (run 5, E2). What it does when ticked
+# was not recorded, so CASSim shows it, unticked, and pastes the same command either way.
+_MATRIX_FORM = Field("matrix", "Matrix Form", "0", toggle=True)
+
+
 def _dist(title: str, name: str, *fields: Field) -> Wizard:
     """A distribution dialog: pastes `name(fields…)` and runs it on OK, as the handheld does."""
-    names = [field.name for field in fields]
+    names = [field.name for field in fields if field is not _MATRIX_FORM]
     return Wizard(title, fields, run=True, build=lambda v: call(name, *(v[n] for n in names)))
 
 
@@ -260,12 +265,12 @@ _DISTRIBUTIONS = (
     ("Inverse χ²", "invχ²", "9", (_AREA, _DF)),
     ("Binomial Pdf", "binomPdf", "A", (_N, _P, Field("x", "X Value (optional)"))),
     ("Binomial Cdf", "binomCdf", "B", (_N, _P, *_BOUNDS_FROM_0)),
-    ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P)),
+    ("Inverse Binomial", "invBinom", "C", (Field("c", "Cumulative Prob"), _N, _P, _MATRIX_FORM)),
     (
         "Inverse Binomial N",
         "invBinomN",
         "D",
-        (Field("c", "Cumulative Prob"), _P, Field("x", "Successes, x")),
+        (Field("c", "Cumulative Prob"), _P, Field("x", "Successes, x"), _MATRIX_FORM),
     ),
     ("F Pdf", "FPdf", "E", (_X, _DFN, _DFD)),
     ("F Cdf", "FCdf", "F", (*_BOUNDS_FROM_0, _DFN, _DFD)),
@@ -398,7 +403,7 @@ MENU = MenuItem(
             todo("Recall Definition", "2"),
             cmd("Delete Variable", "DelVar", "3"),
             cmd("Clear a-z…", "ClearAZ", "4"),
-            todo("Clear History", "5"),
+            MenuItem("Clear History", "clear", "history", key="5"),
             todo("Insert Comment", "6"),
             todo_sub(
                 "Library",
@@ -473,7 +478,7 @@ MENU = MenuItem(
                     "Solve System of Linear Equations",
                     "solve_linear_system",
                     "2",
-                    "solve({Eq1, Eq2}, {Var1, Var2})",
+                    "linSolve({Eq1, Eq2}, {Var1, Var2})",
                 ),
             ),
             sub(
@@ -902,6 +907,44 @@ DOC = MenuItem(
         todo("Press-to-Test", "9"),
     ),
 )
+
+
+# ---- the Calculator's context menus (right-click, ctrl+menu; run 5, H3 j and H5 h) -------------
+
+
+def history_context(*, warning: bool) -> MenuItem:
+    """On a history line: Show Warning Info is greyed unless the line has a warning triangle."""
+    return MenuItem(
+        "Calculator",
+        items=(
+            MenuItem("Show Warning Info…", "context_menu", "warning", key="1", enabled=warning),
+            MenuItem("Clear History", "clear", "history", key="2"),
+            MenuItem("Copy", "copy", key="3", hint="ctrl+C"),
+            MenuItem("Delete", "delete", key="4", hint="Delete"),
+        ),
+    )
+
+
+def entry_context(*, selection: bool, variables: tuple[MenuItem, ...]) -> MenuItem:
+    """On the entry line: Cut, Copy and Delete are greyed with nothing selected."""
+    return MenuItem(
+        "Calculator",
+        items=(
+            MenuItem("Clear History", "clear", "history", key="1"),
+            MenuItem("Cut", "cut", key="2", hint="ctrl+X", enabled=selection),
+            MenuItem("Copy", "copy", key="3", hint="ctrl+C", enabled=selection),
+            MenuItem("Paste", "paste", key="4", hint="ctrl+V"),
+            MenuItem("Delete", "delete", key="5", hint="Delete", enabled=selection),
+            MenuItem(
+                "Select Variable",
+                key="6",
+                jump=True,
+                items=variables or (MenuItem("(none)", "escape"),),
+            ),
+            MenuItem("Symbols…", "open_menu", "symbols", key="7"),
+            MenuItem("Math Templates…", "open_menu", "templates", key="8"),
+        ),
+    )
 
 
 def _cells(*pairs: tuple[str, str]) -> tuple[MenuItem, ...]:

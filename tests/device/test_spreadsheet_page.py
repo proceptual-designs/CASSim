@@ -884,7 +884,7 @@ def test_var_on_a_name_cell_links_to_a_list():
 
 def test_sheet_keys_do_nothing_on_a_calculator_page():
     state = AppState()
-    for action in ("goto", "recalculate", "page_up", "context_menu"):
+    for action in ("goto", "recalculate", "page_up"):  # context_menu: the Calculator's own
         state.run(Binding(action))
     assert state.menu is None
 
