@@ -27,6 +27,7 @@ from cassim.devices.nspire.pages.spreadsheet import (
     pane_boxes,
     spreadsheet_of,
 )
+from cassim.devices.nspire.pages.statistics import Statistics
 from cassim.devices.nspire.runner import Runner
 from cassim.devices.nspire.screen import thumbnail
 from cassim.devices.nspire.sheet_inference import RHO
@@ -1745,3 +1746,40 @@ def test_return_on_a_filled_cell_edits_it_with_its_text_selected():
     sheet.go((A, 1))
     keys(state, "enter")
     assert (sheet.editing, sheet.selected, sheet.cursor) == ("8", True, (A, 1))
+
+
+def test_save_and_reopen_keep_split_pages_plots_and_axes_but_not_the_selection():
+    """FR-DOC-003, FR-DOC-009 (sheet5, R5-Q3): a split page with a scatter of xs and ys, a
+    regression page and a summary plot come back; selected points and the sheet's cursor do not
+    (the cursor is at A1)."""
+    state = Recording()
+    type_cell(state, "xs:={1,2,3,4.435,5}")
+    type_cell(state, "ys:={2.1,3.9,6.2,9.776,10.1}")
+    state.run_action("add_page", "statistics")
+    regression = state.statistics
+    assert regression is not None
+    for action in ("x:xs", "y:ys", "regression:LinRegMx"):
+        regression.perform(action)
+    regression.select(3)
+    state.run_action("add_page", "spreadsheet")
+    sheet = sheet_of(state)
+    for col, name in ((A, "xs"), (B, "ys")):
+        sheet.go((col, NAME_ROW))
+        sheet.menu_action(f"link:{name}")
+    sheet.go((A, NAME_ROW))
+    keys(state, "select_right")
+    state.run(Binding("sheet", "quick_graph"))
+    sheet.go((C, 4))
+
+    reopened = loads(dumps(state.document))
+    problem = reopened.problems[0]
+    restored = spreadsheet_of(problem.pages[2])
+    assert restored is not None
+    (scatter,) = restored.split_statistics
+    assert (scatter.x_name, scatter.y_name, scatter.plot_type.value) == ("xs", "ys", "Scatter Plot")
+    assert (restored.cursor, restored.selection()) == ((A, 1), None)
+    page = problem.pages[1].model
+    assert isinstance(page, Statistics)
+    assert (page.x_name, page.y_name, page.regression) == ("xs", "ys", "LinRegMx")
+    assert page.selected == set()
+    assert scatter.plot_data().selected == frozenset()
