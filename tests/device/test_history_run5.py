@@ -156,3 +156,77 @@ def test_show_warning_info_shows_the_picked_lines_warning() -> None:
     calc.perform(Binding("escape"))
     assert calc.error is None
     assert calc.error_title == "Error"
+
+
+# ---- E6: the mouse (H3) and the keypad's del on a template (F3) -------------------------------
+
+
+def test_a_double_click_selects_a_token_in_the_entry_line() -> None:
+    """H3 b: `:=` as one token; a name or a number as one."""
+    calc = make()
+    calc.perform(Binding("insert_linear", "a:=2+abc"))
+    calc.perform(Binding("select_token", ":2"))  # between : and =
+    assert calc.editor.selection() == [":", "="]
+    calc.perform(Binding("select_token", ":6"))  # inside abc
+    assert calc.editor.selection() == ["a", "b", "c"]
+    calc.perform(Binding("select_token", ":8"))  # at the end: the token before it
+    assert calc.editor.selection() == ["a", "b", "c"]
+    calc.perform(Binding("select_token", "bad"))  # a malformed target is ignored
+
+
+def test_a_double_click_in_a_picked_history_row_selects_a_token() -> None:
+    calc = make()
+    enter(calc, "a+1")
+    calc.perform(Binding("recall_token", ":1"))  # nothing picked: nothing happens
+    calc.perform(Binding("recall_at", "0:entry"))
+    calc.perform(Binding("recall_token", ":1"))
+    calc.perform(Binding("enter"))  # the selected part comes down
+    assert calc.editor.linear() == "+"
+
+
+def test_a_triple_click_in_a_history_row_selects_the_whole_input() -> None:
+    calc = make()
+    enter(calc, "a+1")
+    calc.perform(Binding("recall_at", "0:entry"))
+    calc.perform(Binding("select_all"))
+    calc.perform(Binding("enter"))
+    assert calc.editor.linear() == "a+1"
+
+
+def test_dragging_a_selection_moves_it_within_the_entry_line() -> None:
+    """H3 k: `123456789` with 4567 selected, dropped at the end: `123894567`, still selected."""
+    calc = make()
+    calc.perform(Binding("insert_linear", "123456789"))
+    calc.perform(Binding("place", ":3"))
+    calc.perform(Binding("extend", ":7"))
+    calc.perform(Binding("drop", ":5"))  # inside the selection: nothing
+    calc.perform(Binding("drop", ":9"))
+    assert calc.editor.linear() == "123894567"
+    assert calc.editor.selection() == list("4567")
+    calc.perform(Binding("drop", ":0"))
+    assert calc.editor.linear() == "456712389"
+    calc.perform(Binding("undo"))
+    assert calc.editor.linear() == "123894567"
+    calc.perform(Binding("drop", "bad"))
+
+
+def test_the_keypad_del_takes_a_fraction_template_in_one_press() -> None:
+    """F3: 7 over 8, Right, del: the line is empty. A computer's Backspace highlights first."""
+    for key, left in (("del", ""), ("Backspace", "((7)/(8))")):
+        calc = make()
+        keyboard = (
+            Keyboard(nspire.HANDHELD, nspire.MODIFIERS)
+            if key == "del"
+            else Keyboard(nspire.COMPUTER)
+        )
+        calc.perform(Binding("template", "fraction"))
+        calc.perform(Binding("insert", "7"))
+        calc.perform(Binding("down"))
+        calc.perform(Binding("insert", "8"))
+        calc.perform(Binding("right"))
+        keys(calc, keyboard, key)
+        assert calc.editor.linear() == left
+    calc = make()
+    calc.perform(Binding("insert", "7"))
+    keys(calc, Keyboard(nspire.HANDHELD, nspire.MODIFIERS), "del")
+    assert calc.editor.is_empty

@@ -43,7 +43,7 @@ HANDHELD: Keymap = {
     "var": Binding("open_menu", "variables"),
     "ctrl+var": Binding("insert", "→"),
     "ctrl+shift": Binding("caps"),  # the shift key's ctrl layer, CAPS
-    "del": Binding("backspace"),
+    "del": Binding("backspace", "whole"),  # a template goes in one press (run 5, F3)
     "ctrl+del": Binding("clear"),
     "=": Binding("insert", "="),
     "ctrl+=": Binding("open_menu", "relations"),

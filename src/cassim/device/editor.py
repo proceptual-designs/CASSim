@@ -711,6 +711,43 @@ class Editor:
 
     # ---- placing the cursor by target (a click) ---------------------------------------------
 
+    def select_token(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A double-click: select the token at `pos` (the node after it, else the one before) in
+        the row at `path`: a run of letters and digits, a run of operator signs (`:=`), or one
+        template or other sign (run 5, H3 b)."""
+        self.place(path, pos)
+        row = self.row()
+        if not row:
+            return
+        at = min(self.pos, len(row) - 1)
+        if self.pos == len(row) or (
+            at > 0 and _token_class(row[at]) == "space" and _token_class(row[at - 1]) != "space"
+        ):
+            at = max(self.pos - 1, 0)
+        kind = _token_class(row[at])
+        low = high = at
+        if kind in ("word", "sign"):
+            while low > 0 and _token_class(row[low - 1]) == kind:
+                low -= 1
+            while high + 1 < len(row) and _token_class(row[high + 1]) == kind:
+                high += 1
+        self.anchor, self.pos = low, high + 1
+
+    def move_selection(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """Drag and drop: the selected nodes move to `pos` in the row at `path` and stay
+        selected (run 5, H3 k). A drop inside the selection, or in another row, changes nothing."""
+        if self.anchor is None or list(path) != self.path:
+            return
+        low, high = self.span
+        if low <= pos <= high:
+            return
+        row = self.row()
+        moved = row[low:high]
+        del row[low:high]
+        at = pos - len(moved) if pos > high else pos
+        row[at:at] = moved
+        self.anchor, self.pos = at, at + len(moved)
+
     def place(self, path: Sequence[tuple[int, int]], pos: int, *, extend: bool = False) -> None:
         """Put the cursor at `pos` in the row reached by `path`, as a click does.
 
@@ -905,6 +942,21 @@ def substitute_ans(row: Row, value: str) -> Row:
             out.append(node)
             index += 1
     return out
+
+
+_SIGNS = frozenset(":=<>≤≥≠+-*/^|→!")
+
+
+def _token_class(node: Node) -> str:
+    """What a double-click groups a node with: `word` (names and numbers), `sign` (operators),
+    `space`, or `one` (a template or bracket, on its own)."""
+    if isinstance(node, Template):
+        return "one"
+    if node.isalnum() or node in "._πⅇⅈ":
+        return "word"
+    if node in _SIGNS:
+        return "sign"
+    return "space" if node.isspace() else "one"
 
 
 def linear_text(nodes: Row) -> str:

@@ -151,7 +151,7 @@ class Calculator:
                 "template": self._template,
                 "power": self._power,
                 "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
-                "backspace": lambda _: self._delete(self.editor.backspace, forward=False),
+                "backspace": lambda arg: self._delete(self._backspace(arg), forward=False),
                 "delete": lambda _: self._delete(self.editor.delete, forward=True),
                 "clear": lambda arg: (
                     self.clear_history()
@@ -179,6 +179,9 @@ class Calculator:
                 "extend": lambda arg: self._place(arg, extend=True),
                 "recall_place": lambda arg: self._recall_place(arg, extend=False),
                 "recall_extend": lambda arg: self._recall_place(arg, extend=True),
+                "recall_token": self._recall_token,
+                "select_token": lambda arg: self._at_target(arg, self.editor.select_token),
+                "drop": self._drop,
             }
         )
         return actions
@@ -235,6 +238,47 @@ class Calculator:
                 getattr(self._recalled, name)()
 
         return move
+
+    def _backspace(self, arg: str) -> Callable[[], None]:
+        """Backspace, or the keypad's del (`whole`), which takes a template just before the
+        cursor away in one press (run 5, F3) where Backspace highlights it first (0017)."""
+        editor = self.editor
+
+        def whole() -> None:
+            row = editor.row()
+            before = row[editor.pos - 1] if editor.pos and editor.anchor is None else None
+            if isinstance(before, Template) and not editor.selected:
+                editor.backspace()  # highlights it
+            editor.backspace()
+
+        return whole if arg == "whole" else editor.backspace
+
+    def _at_target(self, target: str, act: Callable[[list[tuple[int, int]], int], None]) -> None:
+        """Do `act` at a click's target in the entry line (a double-click selects a token)."""
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._mover(lambda: act(path, pos))("")
+
+    def _drop(self, target: str) -> None:
+        """Selected text dragged to `target` in the entry line moves there (H3 k); undoable."""
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self._edit("other", lambda: self.editor.move_selection(path, pos))
+
+    def _recall_token(self, target: str) -> None:
+        """A double-click in the picked history row selects the token there (H3 b)."""
+        if self.recall is None:
+            return
+        try:
+            path, pos = parse_target(target)
+        except ValueError:
+            return
+        self.recall_touched = True
+        self._recalled.select_token(path, pos)
 
     def _recall_place(self, target: str, *, extend: bool) -> None:
         """A click in the picked row: put the cursor there, or extend the selection."""
@@ -442,16 +486,15 @@ class Calculator:
         self._mover(lambda: self.editor.place(path, pos, extend=extend))("")
 
     def _recall_at(self, spec: str) -> None:
-        """A click on a history row (`INDEX:entry` or `INDEX:result`): the first click picks it,
-        a second click on the same row brings it into the entry line."""
+        """A click on a history row (`INDEX:entry` or `INDEX:result`) puts a cursor in it, not a
+        highlight over the whole item, and a second click brings nothing down: Return does
+        that (run 5, H3 a, c). Clicks inside the row then place the cursor (`recall_place`)."""
         index, _, row = spec.partition(":")
         picked = (int(index), "result" if row == "result" else "entry")
-        if not 0 <= picked[0] < len(self.history):
+        if not 0 <= picked[0] < len(self.history) or self.recall == picked:
             return
-        if self.recall == picked:
-            self._enter(approximate=False)
-        else:
-            self._pick(picked)
+        self._pick(picked)
+        self.recall_touched = True
 
     def _enter(self, *, approximate: bool) -> None:
         if self.recall is not None:

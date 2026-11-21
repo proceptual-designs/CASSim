@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -39,6 +40,10 @@ from cassim.devices.nspire.ui.template_icons import WIDTH as ICON_W
 SYMBOL_FONT = "Symbols"
 SYMBOL_FONT_FILE = "fonts/NotoSansSymbols2-Regular.ttf"
 SYMBOLS = frozenset("◀▶▲▼␣●⏎▸□▮▦")
+
+
+MULTI_CLICK = 0.45  # seconds between the clicks of a double or triple click
+_ANY_PLACE = "*"  # a click that the next one counts with wherever it lands
 
 
 def label_text(text: str, **style: object) -> ft.Text:
@@ -331,6 +336,8 @@ class CalculatorView:
         ] = {}
         self._scroll: float | None = None  # the history's scroll offset, once reported
         self._shown = 1  # lines the deepest open panel shows
+        # the last click, for double and triple clicks
+        self._tap_time, self._tap_count, self._tap_target = -1.0, 0, ""
         menu_layer = ft.GestureDetector(
             self.menu,
             on_vertical_drag_start=lambda _: self._drag.reset(),
@@ -742,7 +749,9 @@ class CalculatorView:
         return True
 
     def _click_line(self, spec: str) -> None:
-        """A tap on a history line picks it where it is, without scrolling."""
+        """A tap on a history line picks it where it is, without scrolling. It is the first
+        click of a double click that the line, now drawn as an editor, goes on with."""
+        self._tap_time, self._tap_count, self._tap_target = time.monotonic(), 1, _ANY_PLACE
         self._clicked = True
         self._keep = self._scroll
         self.on_action("recall_at", spec)
@@ -813,20 +822,61 @@ class CalculatorView:
             self._click,
             calculator.session.is_defined,
             self._hold,
-        ).build(calculator.editor)
+        )
+        line.drop = self._drop
+        built = line.build(calculator.editor)
         return ft.GestureDetector(
-            line,
+            built,
             on_secondary_tap_down=lambda _: self._context_entry(),
             mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
         )
 
+    def _taps(self, target: str) -> int:
+        """How many clicks in a row this one is (1, 2, 3...): each at the same place and within
+        `MULTI_CLICK` seconds of the one before."""
+        now = time.monotonic()
+        same = self._tap_target in {target, _ANY_PLACE}
+        again = now - self._tap_time <= MULTI_CLICK and same
+        self._tap_count = self._tap_count + 1 if again else 1
+        self._tap_time, self._tap_target = now, target
+        return self._tap_count
+
     def _click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
         """A click in the entry: place the cursor, or extend the selection with shift held (the
-        keyboard's Shift, or the keypad's shift key waiting for its next key)."""
+        keyboard's Shift, or the keypad's shift key waiting for its next key). A double-click
+        selects a token and a triple-click the whole line (run 5, H3 b)."""
+        self._pointer_click(path, pos, ("place", "extend", "select_token", "select_all"))
+
+    def _recall_click(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """The same clicks inside a picked history line."""
+        self._clicked = True
+        self._keep = self._scroll
+        self._pointer_click(
+            path, pos, ("recall_place", "recall_extend", "recall_token", "select_all")
+        )
+
+    def _pointer_click(
+        self,
+        path: Sequence[tuple[int, int]],
+        pos: int,
+        actions: tuple[Action, Action, Action, Action],
+    ) -> None:
+        place, extend_action, token, whole = actions
         extend = self.shift() or self.state.pending == "shift"
         if extend:
             self.state.clear_pending()
-        self.on_action("extend" if extend else "place", format_target(path, pos))
+        target = format_target(path, pos)
+        if extend:
+            self._tap_target = ""  # a shift+click starts no double click
+            self.on_action(extend_action, target)
+            return
+        taps = self._taps(target)
+        action = (place, token, whole)[min(taps, 3) - 1]  # one, two, three clicks
+        self.on_action(action, "" if action == whole else target)
+
+    def _drop(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """Selected text dropped at a place in the entry line moves there (H3 k)."""
+        self.on_action("drop", format_target(path, pos))
 
     def _graph_extend(self) -> bool:
         extend = self.shift() or self.state.pending == "shift"
@@ -881,16 +931,25 @@ class CalculatorView:
         place as before; once moved into, its own LaTeX draws the cursor and the selected part."""
         right = line.kind == "result"
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
-        shown: ft.Control = ft.Container(
-            ft.Text(
+        calculator = calculator_of(self.state.document.current)
+        editor = calculator.recall_editor if calculator is not None and line.part else None
+        if editor is not None and calculator is not None:
+            # a line clicked or moved into is drawn as an editor, so a click places its cursor
+            # and a double- or triple-click selects (run 5, H3 a, b)
+            body: ft.Control = EntryLine(
+                self.theme, self.state.math_size, self._recall_click, calculator.session.is_defined
+            ).build(editor)
+        elif line.error:
+            body = ft.Text(
                 line.text,
                 size=self.state.math_size,
                 color=self.theme.screen_text,
                 font_family="serif",
             )
-            if line.error and not line.part
-            else math(line.latex, self.theme, self.state.math_size),
-            bgcolor=self.theme.selection if line.selected and not line.part else None,
+        else:
+            body = math(line.latex, self.theme, self.state.math_size)
+        shown: ft.Control = ft.Container(
+            body, bgcolor=self.theme.selection if line.selected and not line.part else None
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))

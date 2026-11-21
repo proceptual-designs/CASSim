@@ -291,15 +291,20 @@ def test_recalling_an_entry_keeps_its_templates() -> None:
     assert not isinstance(calc.editor.root[0], str)  # a template, not characters
 
 
-def test_clicking_a_history_row_picks_it_and_a_second_click_recalls_it() -> None:
+def test_clicking_a_history_row_puts_a_cursor_in_it_and_return_recalls_it() -> None:
+    """Run 5, H3 a, c: a click places a cursor (no highlight); a second click brings nothing
+    down; Return does."""
     calc = Calculator()
     for char in "1+2":
         calc.perform(Binding("insert", char))
     calc.perform(Binding("enter"))
     calc.perform(Binding("recall_at", "0:entry"))
     assert calc.recall == (0, "entry")
+    assert calc.recall_touched  # drawn with its own cursor, not highlighted whole
     assert calc.editor.linear() == ""
     calc.perform(Binding("recall_at", "0:entry"))
+    assert calc.editor.linear() == ""
+    calc.perform(Binding("enter"))
     assert calc.editor.linear() == "1+2"
     calc.perform(Binding("recall_at", "9:entry"))  # no such row: ignored
 
