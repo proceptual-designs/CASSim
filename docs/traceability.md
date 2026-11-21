@@ -222,7 +222,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-SYN-008 | Could | `tests/runtime/test_pseudocode_syntax.py` |
 | FR-SYN-009 | Should | `tests/runtime/test_pseudocode_syntax.py` |
 | FR-SYN-011 | Should | `tests/runtime/test_pseudocode.py` |
-| FR-SYN-013 | Could | `tests/e2e/test_home_browser.py`, `tests/runtime/test_pseudocode_typing_aid.py` |
+| FR-SYN-013 | Could | `tests/app/test_pseudocode_view.py`, `tests/e2e/test_home_browser.py`, `tests/runtime/test_pseudocode.py` and 1 more |
 | NFR-PERF-006 | Should | `tests/app/test_sheet_view.py`, `tests/device/test_sheet_scene.py` |
 | NFR-PERF-007 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | NFR-PERF-004 | Must | `tests/e2e/test_pwa.py` |
