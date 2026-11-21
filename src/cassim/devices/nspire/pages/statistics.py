@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import statistics as py_statistics
+import weakref
 from collections.abc import Callable
 from fractions import Fraction
 from typing import TYPE_CHECKING, Any
@@ -48,6 +49,15 @@ REGRESSIONS = (
     ("Logistic", "Logistic (d=0)"),
     ("LogisticD", "Logistic (d≠0)"),
 )
+
+
+# The selected points of a Problem, by list row: one set for every plot of the Problem, so a point
+# selected in one plot is selected in the others (R5-G1). Not saved (R5-Q3).
+_SELECTIONS: weakref.WeakKeyDictionary[object, set[int]] = weakref.WeakKeyDictionary()
+
+
+def selected_rows(session: object) -> set[int]:
+    return _SELECTIONS.setdefault(session, set())
 
 
 def _float_values(values: tuple[DataValue, ...]) -> tuple[float | None, ...]:
@@ -108,7 +118,7 @@ class Statistics:
         self._rows: dict[str, VariableInfo] = {}
         self._values: dict[str, tuple[DataValue, ...]] = {}
         self._revisions: dict[str, int] = {}
-        self._scene_size: tuple[float, float, bool] | None = None
+        self._scene_size: tuple[float, float, bool, frozenset[int]] | None = None
         self._scene: Scene | None = None
         self.update()
         if self.lists:
@@ -181,8 +191,14 @@ class Statistics:
     def available_plot_types(self) -> tuple[PlotType, ...]:
         if not self.x_name:
             return ()
-        if self.summary_name:
-            return (PlotType.BAR,) if self.split_name else (PlotType.BAR, PlotType.PIE)
+        if self.summary_name:  # a numeric X List summarised is a histogram (R5-Q2)
+            return (
+                (PlotType.HISTOGRAM,)
+                if not self.categorical_x
+                else (PlotType.BAR,)
+                if self.split_name
+                else (PlotType.BAR, PlotType.PIE)
+            )
         if self.y_name and self.categorical_x:
             return (
                 PlotType.DOT,
@@ -240,7 +256,7 @@ class Statistics:
             case "summary":
                 self.summary_name = value
                 self.split_name = ""
-                self.plot_type = PlotType.BAR
+                self.plot_type = PlotType.BAR if self.categorical_x else PlotType.HISTOGRAM
             case "split":
                 self.split_name = value
         self._scene = None
@@ -465,6 +481,7 @@ class Statistics:
             y_name=self.y_name,
             y=y,
             summary=summary_values,
+            summary_name=self.summary_name,
             split_name=self.split_name,
             split=split,
             force_categorical_x=self.force_categorical_x,
@@ -484,13 +501,16 @@ class Statistics:
             function_label=self.function_text,
             plot_value=plot_value,
             window=self.window,
+            selected=frozenset(self.selected),
         )
 
     def scene(self, width: float, height: float, *, axis_labels: bool = True) -> Scene:
         self.update()
-        if self._scene is None or self._scene_size != (width, height, axis_labels):
+        # the selection is the Problem's, so another plot may have changed it
+        size = (width, height, axis_labels, frozenset(self.selected))
+        if self._scene is None or self._scene_size != size:
             self._scene = plot_scene(self.plot_data(), width, height, axis_labels=axis_labels)
-            self._scene_size = (width, height, axis_labels)
+            self._scene_size = size
         return self._scene
 
     def plotted_points(self, width: float, height: float) -> tuple[PlottedPoint, ...]:
@@ -512,7 +532,45 @@ class Statistics:
             return (x, 0.0) if x is not None else None
         return None
 
+    @property
+    def selected(self) -> set[int]:
+        """The Problem's selected list rows (0 is the first)."""
+        return selected_rows(self.session)
+
+    def select(self, index: int | None) -> None:
+        """A click on a point adds its row to the selection; a click on nothing clears it."""
+        if index is None:
+            self.selected.clear()
+        else:
+            self.selected.add(index)
+        self._scene = None
+
     def drag_expression(self, index: int, x: float, y: float) -> str | None:
+        """Where a dragged point goes, as assignments to its lists. A selected point takes every
+        selected point with it, by the same amount in each coordinate (R5-G1)."""
+        rows = sorted(self.selected) if index in self.selected else [index]
+        own = self._drag_one(index, x, y)
+        if own is None or len(rows) == 1:
+            return own
+        x_values = self._values.get(self.x_name, ())
+        y_values = self._values.get(self.y_name, ()) if self.y_name else ()
+        start_x = x_values[index]
+        start_y = y_values[index] if index < len(y_values) else 0.0
+        if not isinstance(start_x, float) or not isinstance(start_y, float):
+            return own
+        dx, dy = x - start_x, y - start_y
+        moved = []
+        for row in rows:
+            row_x = x_values[row] if row < len(x_values) else None
+            row_y = y_values[row] if row < len(y_values) else 0.0
+            if not isinstance(row_x, float) or not isinstance(row_y, float):
+                continue
+            expression = self._drag_one(row, row_x + dx, row_y + dy)
+            if expression is not None:
+                moved.append(expression)
+        return ":".join(moved) or own
+
+    def _drag_one(self, index: int, x: float, y: float) -> str | None:
         if (
             not self.x_name
             or index < 0

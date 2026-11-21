@@ -13,7 +13,7 @@ from cassim.app.scene_canvas import COLOURS, layer_shapes
 from cassim.app.theme import Theme
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.statistics import Statistics
-from cassim.graph.scene import Dots, Layer
+from cassim.graph.scene import Box, Dots, Fill, Label, Layer, Polyline
 from cassim.stats.plots import PlottedPoint, PlotType
 
 AXIS_LABEL_HEIGHT = 20
@@ -202,6 +202,9 @@ class StatisticsView:
                 if self.statistics is not None:
                     self.statistics.message = "Selected data point"
                 self.on_action("statistics_point", "")
+            elif self.statistics is not None:  # a click on nothing clears the selection
+                self.statistics.select(None)
+                self._selected_point = None
         return True
 
     def _menu(self, name: str) -> None:
@@ -240,6 +243,7 @@ class StatisticsView:
     def _select_point(self, index: int, x: float, y: float) -> None:
         self._selected_point = index
         if self.statistics is not None:
+            self.statistics.select(index)
             self.statistics.message = (
                 f"{x:g}"
                 if not self.statistics.y_name and self.statistics.plot_type is PlotType.DOT
@@ -268,7 +272,48 @@ class StatisticsView:
         target = self._axis_target(position.x, position.y) if position is not None else ""
         if not target and position is not None and self._visual_point_at(position.x, position.y):
             target = "point"
+        if not target and position is not None:
+            target = self._mark_at(position.x, position.y)
         self.on_action("context_menu", f"statistics_context_{target or 'plot'}")
+
+    def _mark_at(self, x: float, y: float) -> str:
+        """The mark under a right-click: a regression line or its label, a box plot or a
+        histogram bar (stats4, R5-G2); "" for none."""
+        statistics = self.statistics
+        if statistics is None:
+            return ""
+        scene = statistics.scene(self._width, self._chart_height, axis_labels=False)
+        reach = POINT_HIT_RADIUS * self.scale()
+        shapes = [shape for layer in scene.layers for shape in layer.shapes]
+        if statistics.regression:
+            for shape in shapes:
+                if (
+                    isinstance(shape, Polyline)
+                    and shape.stroke.colour == "curve2"
+                    and any(math.hypot(px - x, py - y) <= reach for px, py in shape.points)
+                ):
+                    return "regression"
+                if (
+                    isinstance(shape, Label)
+                    and shape.colour == "curve2"
+                    and shape.x <= x <= shape.x + len(shape.text) * shape.size * 0.6
+                    and shape.y <= y <= shape.y + shape.size * 1.4
+                ):
+                    return "regression"
+        data = scene.layer("data")
+        marks = (
+            [shape for shape in data.shapes if isinstance(shape, Fill | Box | Polyline)]
+            if data
+            else []
+        )
+        corners = [point for shape in marks for point in _corners(shape)]
+        if statistics.plot_type is PlotType.HISTOGRAM:
+            for shape in marks:
+                if isinstance(shape, Fill) and _inside(x, y, _corners(shape), 0):
+                    return "histogram"
+        elif statistics.plot_type is PlotType.BOX and corners and _inside(x, y, corners, reach):
+            return "box"
+        return ""
 
     def _pan_start(self, event: ft.DragStartEvent) -> None:
         point = self._point_at(event.local_position.x, event.local_position.y)
@@ -306,3 +351,18 @@ class StatisticsView:
         self._drag_index = None
         self._drag_value = None
         self._drag_marker.visible = self._selected_point is not None
+
+
+def _corners(shape: Fill | Box | Polyline) -> list[tuple[float, float]]:
+    if isinstance(shape, Box):
+        return [(shape.x, shape.y), (shape.x + shape.width, shape.y + shape.height)]
+    return list(shape.points)
+
+
+def _inside(x: float, y: float, points: list[tuple[float, float]], margin: float) -> bool:
+    xs, ys = [px for px, _ in points], [py for _, py in points]
+    return (
+        bool(points)
+        and min(xs) - margin <= x <= max(xs) + margin
+        and min(ys) - margin <= y <= max(ys) + margin
+    )

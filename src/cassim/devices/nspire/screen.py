@@ -55,6 +55,7 @@ class Screen:
     sorter: tuple[tuple[Tile, ...], ...] | None = None
     sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
     graphs: bool = False  # a Graphs page with its own view
+    error_title: str = "Error"  # the dialog's title ("Warning" for Show Warning Info)
 
 
 def _result_latex(result: Result) -> str:
@@ -173,4 +174,5 @@ def render(
         page.editor.latex(is_defined=page.session.is_defined),
         page.error,
         menu,
+        error_title=page.error_title,
     )

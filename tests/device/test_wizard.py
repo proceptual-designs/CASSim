@@ -298,3 +298,29 @@ def test_finance_solver_stores_the_tvm_variables() -> None:
     assert session.eval("tvm.pmtat").text == "0"
     assert session.eval("tvm.pv").text == "10000"
     assert abs(float(session.eval("tvm.pmt").text) + 860.664297) < 1e-5
+
+
+def test_inverse_binomial_dialogs_have_a_matrix_form_box_and_run() -> None:
+    """Run 5, E2: "Num Successes" and "Num Trials", each ending with an unticked Matrix Form."""
+    for name, title, values, text, result in (
+        (
+            "invBinom",
+            "Num Successes",
+            {"c": "0.5", "n": "10", "p": "0.3"},
+            "invBinom(0.5,10,0.3)",
+            "3",
+        ),
+        (
+            "invBinomN",
+            "Num Trials",
+            {"c": "0.9", "p": "0.3", "x": "3"},
+            "invBinomN(0.9,0.3,3)",
+            "7",
+        ),
+    ):
+        wizard = WIZARDS[name]
+        assert wizard.title == title
+        last = wizard.fields[-1]
+        assert (last.label, last.toggle, last.default) == ("Matrix Form", True, "0")
+        entry = _calculator(_finish(name, **values)).history[-1]
+        assert (entry.text, entry.result.text) == (text, result)
