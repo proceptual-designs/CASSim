@@ -1329,6 +1329,10 @@ class Spreadsheet:
         elif name == "store_var":  # var > Store Var: types `var` in the name cell, selected
             self.go((column, NAME_ROW))
             self.begin_edit("var")
+        elif name == "distribution":
+            self.wizard = self._normal_cdf_wizard()
+        elif name == "shade_area":
+            self._shade_area(cast("dict[str, str]", json.loads(rest)))
         elif name in ("onevar", "stat", "inference", "edit", "dialog"):
             self._statistics_action(name, rest)
         elif name == "paste_ok":
@@ -1558,6 +1562,43 @@ class Spreadsheet:
         else:  # "dialog": a dialog from a dialog's own check
             title, _, message = rest.partition(":")
             self.dialogs.append(Dialog(title, message))
+
+    def _normal_cdf_wizard(self) -> Wizard:
+        """Normal Cdf from a sheet (split2 H14): the Calculator's fields and Draw: Shade area.
+        Unticked, the formula waits in the cell's entry line (run 4, S10); ticked, it goes into
+        the selected cell and a shaded normal curve joins the page."""
+        fields = (
+            Field("lower", "Lower Bound", "-∞"),
+            Field("upper", "Upper Bound"),
+            Field("mu", "μ", "0"),
+            Field("sigma", "σ", "1"),
+            Field("shade", "Draw: Shade area", "0", toggle=True),
+        )
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            parts = [values[name].strip() for name in ("lower", "upper", "mu", "sigma")]
+            if not parts[1]:
+                return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
+            if values.get("shade") == "1":
+                return [Binding("sheet", "shade_area:" + json.dumps(dict(values)))]
+            return [Binding("sheet", "edit:=normCdf(" + ",".join(parts) + ")")]
+
+        return Wizard("Normal Cdf", fields, steps=steps)
+
+    def _shade_area(self, values: Mapping[str, str]) -> None:
+        """Put `=normCdf(…)` in the selected cell and add the shaded curve. The pane is not part
+        of the cell's undo step: ctrl+Z restores the cell and the plot stays (R5-H14)."""
+        parts = [values[name].strip() for name in ("lower", "upper", "mu", "sigma")]
+        numbers = [_bound(part) for part in parts]
+        if all(number is not None for number in numbers):
+            lower, upper, mu, sigma = cast("list[float]", numbers)
+            if math.isfinite(mu) and math.isfinite(sigma) and sigma > 0:
+                self.add_pane(AreaPane(AreaPlot(lower, upper, mu, sigma)), undoable=False)
+        column, row = self.cursor[0], max(self.cursor[1], 1)
+        self.go((column, row))
+        text = "=normCdf(" + ",".join(parts) + ")"
+        self.waiting[(column, row)] = text
+        self._send("cell", column=column, row=row, text=text, choose={}, confirm=False)
 
     def free_column(self) -> int:
         """The first column after the cursor's that holds nothing: where results go unless the
@@ -1836,6 +1877,17 @@ def _conflict_wizard(error: SheetErrorPayload, last: SheetOp, columns: set[str])
         tuple(field(name) for name in error["names"]),
         steps=steps,
     )
+
+
+def _bound(text: str) -> float | None:
+    """A typed bound or parameter: `-∞` and `∞` as well as numbers."""
+    plain = text.replace("−", "-").replace("ᴇ", "e").replace(" ", "")
+    if plain in ("∞", "+∞", "-∞"):
+        return -math.inf if plain.startswith("-") else math.inf
+    try:
+        return float(plain)
+    except ValueError:
+        return None
 
 
 def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) -> bool:

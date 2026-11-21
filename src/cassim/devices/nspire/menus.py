@@ -1182,7 +1182,17 @@ SHEET_MENU = MenuItem(
                 todo("Multiple Linear Regression…", "F"),
             ),
             # From a sheet these write their formula into the selected cell (run 4, S10)
-            replace(DISTRIBUTIONS, key="2"),
+            replace(
+                DISTRIBUTIONS,
+                key="2",
+                items=tuple(
+                    # Normal Cdf on a sheet has Draw: Shade area (split2 H14)
+                    replace(item, action="sheet", arg="distribution:normCdf")
+                    if item.arg == "normCdf"
+                    else item
+                    for item in DISTRIBUTIONS.items
+                ),
+            ),
             sub(
                 "Confidence Intervals",
                 "3",

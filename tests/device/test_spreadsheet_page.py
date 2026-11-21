@@ -19,6 +19,7 @@ from cassim.devices.nspire.pages.spreadsheet import (
     FORMULA_ROW,
     NAME_ROW,
     WIDE,
+    AreaPane,
     ShadePane,
     Spreadsheet,
     dump,
@@ -1571,3 +1572,42 @@ def test_the_stat_tests_and_intervals_lists():
         "2-Sample F Test…",
         "Linear Reg t Test…",
     ]
+
+
+def test_normal_cdf_with_shade_area_fills_the_cell_and_undo_keeps_the_plot():
+    """FR-STAT-004, FR-DOC-009 (split2 H14): A1 holds 1; Normal Cdf, Upper Bound 1, Shade area:
+    A1 gets =normCdf(-∞,1,0,1) (0.841…) and a shaded curve joins the page; ctrl+Z puts the 1
+    back and the plot stays."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    type_cell(state, "1")
+    sheet.go((A, 1))
+    state.run(Binding("open_menu", "menu"))
+    for key in ("4", "2", "2"):
+        state.run(Binding("insert", key))
+    wizard = state.wizards[-1]
+    assert [(f.label, f.default) for f in wizard.fields] == [
+        ("Lower Bound", "-∞"),
+        ("Upper Bound", ""),
+        ("μ", "0"),
+        ("σ", "1"),
+        ("Draw: Shade area", "0"),
+    ]
+    finish_wizard(state, upper="1", shade="1")
+    assert shown(state, A, 1).startswith("0.841")
+    (pane,) = sheet.panes
+    assert isinstance(pane, AreaPane)
+    assert pane.plot.area == pytest.approx(0.84134475)
+    keys(state, "undo")
+    assert shown(state, A, 1) == "1"
+    assert sheet.panes == [pane]
+
+
+def test_normal_cdf_without_shading_waits_in_the_entry_line():
+    """Run 4, S10: unticked, the formula waits in the cell's entry line."""
+    state, sheet = stats_sheet()
+    sheet.go((F, 2))
+    state.run(Binding("sheet", "distribution:normCdf"))
+    finish_wizard(state, upper="1")
+    assert sheet.editing == "=normCdf(-∞,1,0,1)"
+    assert sheet.panes == []
