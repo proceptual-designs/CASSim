@@ -12,6 +12,7 @@ from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, parse, run, 
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
 from cassim.runtime.pseudocode.lexer import tokenize
+from cassim.runtime.pseudocode.typing_aid import GREEK_LOWER, GREEK_UPPER, LATEX_WORDS
 
 BISECTION = """\
 define bisection(f(x), x, a, b, t)
@@ -601,3 +602,42 @@ def test_a_call_dialog_names_its_starting_values() -> None:
     assert trace.call_parameters(result, 0, Settings()) == "n = 1"
     assert trace.call_parameters(result, 3, Settings()) == "n = 2"
     assert trace.call_parameters(result, 12, Settings()) == ""
+
+
+def test_every_typing_aid_latex_word_converts_to_a_symbol_the_language_accepts() -> None:
+    """FR-SYN-013: Greek letters (names) and the operator symbols the lexer reads; a word
+    converts once a space follows it, and never into a character the lexer would reject."""
+    for word, symbol in LATEX_WORDS.items():
+        assert convert_typing(f"x {word}", f"x {word} ") == f"x {symbol} ", word
+        tokenize(f"a {symbol} b")  # raises PseudocodeSyntaxError for an unknown character
+    for symbol in [*GREEK_LOWER.values(), *GREEK_UPPER.values()]:
+        if symbol == "π":  # the constant, not a name: it cannot be assigned
+            assert run(f"print {symbol} > 3", Settings()).output == ["TRUE"]
+            continue
+        assert run(f"{symbol} ← 2\nprint {symbol}", Settings()).output == ["2"], symbol
+
+
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        (r"\leq ", "≤ "),  # not \le followed by q
+        (r"\le ", "≤ "),
+        (r"\theta ", "θ "),  # not \eta inside it
+        (r"\eta ", "η "),
+        (r"\varphi ", "φ "),
+        (r"\ne ", "≠ "),
+        (r"\nu ", "\u03bd "),  # Greek nu
+        (r"\neg ", "¬ "),
+        (r"\Sigma ", "Σ "),
+        (r"\sigma ", "σ "),
+        (r"\alphabet ", r"\alphabet "),  # not a word in the table
+        (r'print "\alpha ', r'print "\alpha '),  # inside a string
+    ],
+)
+def test_typing_aid_latex_words_do_not_capture_each_other(typed: str, expected: str) -> None:
+    assert convert_typing(typed[:-1], typed) == expected
+
+
+def test_typing_aid_latex_words_wait_for_a_space() -> None:
+    assert convert_typing(r"\alph", r"\alpha") == r"\alpha"
+    assert convert_typing(r"\alpha", "\\alpha\n") == "α\n"
