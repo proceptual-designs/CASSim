@@ -119,8 +119,10 @@ def test_integral_with_a_piecewise_function():
     assert text("f(x):=when(x<1,x,2-x)", "integral(f(x),x,0,2)") == "1"
 
 
-def test_integral_with_no_closed_form_is_echoed():
-    assert text("integral(exp(sin(x)),x,0,1)").startswith("integral(")
+def test_integral_with_no_closed_form_is_a_decimal_or_echoed_with_its_bounds():
+    # Between numbers it is a decimal (emulator check 6, D18 and K7); otherwise kept as typed.
+    assert text("integral(exp(sin(x)),x,0,1)") == "1.6318696"
+    assert text("integral(exp(sin(x)),x,0,k)") == "integral(ⅇ^sin(x),x,0,k)"
 
 
 def test_integral_argument_counts():

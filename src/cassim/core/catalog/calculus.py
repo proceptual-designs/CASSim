@@ -78,6 +78,10 @@ def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     bounds = [raw_of(host.expr(arg)) for arg in args[2:]]
     lower, upper = bounds if bounds else (None, None)
     result = cas.integrate(expression, cas.symbol(name), lower, upper)
+    if result is None and bounds:
+        # Echoed with its bounds: `∫` without them would be a different calculation.
+        call = (expression, cas.symbol(name), *bounds)
+        return Expr(cas.undefined_function("integral", call))
     return _result(result, "integral", expression, name)
 
 

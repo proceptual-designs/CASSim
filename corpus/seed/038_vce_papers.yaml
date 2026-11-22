@@ -1548,8 +1548,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p1.1-1.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: CASSim gives a long exact form of the same value (plan B3, todo D18)
+  status: pass
 - id: papers.sm2025e2b.p1-1.solve-asymptotes-surds
   course: specialist
   tier: 1
@@ -1861,8 +1860,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p4.1-02.png
-  status: xfail
-  xfail_reason: the definite integral is echoed without its bounds (plan B3)
+  status: pass
 - id: papers.sm2025e2b.p6-1.rerun-arc-length-nint
   course: specialist
   tier: 1

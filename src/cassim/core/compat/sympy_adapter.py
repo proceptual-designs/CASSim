@@ -1318,14 +1318,53 @@ def _generic_case(result: Raw, variable: Raw) -> Raw:
     return result.replace(parametric, lambda node: node.args[0][0])
 
 
+# Functions an exact definite integral may show; anything else (Si, erf, ...) gives a decimal.
+_ELEMENTARY = (
+    sp.exp,
+    sp.log,
+    sp.sin,
+    sp.cos,
+    sp.tan,
+    sp.asin,
+    sp.acos,
+    sp.atan,
+    sp.sinh,
+    sp.cosh,
+    sp.tanh,
+    sp.asinh,
+    sp.Abs,
+)
+# An exact value with more operations than this is shown as a decimal (emulator check 6, K7:
+# TI gives `∫₀² π·f1(x)²dx` as 2.2880103, not a sum of logarithms and inverse tangents).
+_LONGEST_EXACT_INTEGRAL = 20
+
+
+def _wants_decimal(result: Raw, expression: Raw, variable: Raw, bounds: tuple[Raw, Raw]) -> bool:
+    """Whether a definite integral between numbers is better given as a decimal."""
+    if expression.free_symbols - {variable} or not all(bound.is_number for bound in bounds):
+        return False
+    if result.has(sp.Integral):
+        return True
+    functions = {type(node) for node in result.atoms(sp.Function)}
+    if any(not issubclass(kind, _ELEMENTARY) for kind in functions):
+        return True
+    return sp.count_ops(result) > _LONGEST_EXACT_INTEGRAL
+
+
 def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | None) -> Raw | None:
-    """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it."""
+    """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it.
+
+    A definite integral between numbers with no usable closed form is a decimal, as TI gives
+    `∫₀^π 5·√(5-4·cos(3·t/2))dt` as 36.607844 and `∫₁² sin(x)/x dx` as 0.65932991.
+    """
     if lower is None or upper is None:
         result = sp.integrate(expression, variable)
     else:
         result = sp.integrate(expression, (variable, lower, upper))
         if result.has(sp.Integral) and expression.has(sp.Abs):
             result = _without_abs(expression, variable, lower, upper) or result
+        if _wants_decimal(result, expression, variable, (lower, upper)):
+            return numerical_integral(expression, variable, lower, upper)
     if result.has(sp.Integral):
         return None
     if not expression.has(sp.Piecewise, sp.Abs, sp.sign, sp.Heaviside, sp.floor, sp.ceiling):

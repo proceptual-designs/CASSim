@@ -64,3 +64,26 @@ def test_fmin_of_a_periodic_function_with_decimals():
 
 def test_fmin_in_a_domain_still_solves_exactly():
     assert text("fMin(sin(x),x)|0<=x<=2*pi") == "x=3*π/2"
+
+
+# B3: definite integrals keep their bounds, or give a decimal
+
+
+def test_a_definite_integral_with_no_closed_form_is_a_decimal():
+    assert text("integral(5*sqrt(5-4*cos(3*t/2)),t,0,pi)") == "36.607844"
+
+
+def test_a_definite_integral_of_a_special_function_is_a_decimal():
+    assert text("integral(sin(x)/x,x,1,2)") == "0.65932991"
+
+
+def test_a_long_exact_definite_integral_is_a_decimal():
+    assert text("integral(pi*(3*x/(x^3+x+2))^2,x,0,2)") == "2.2880103"
+
+
+def test_a_short_exact_definite_integral_stays_exact():
+    assert text("integral(sqrt(1+4*x^2),x,0,1)") == "ln(2+√(5))/4+√(5)/2"
+
+
+def test_an_unsolved_definite_integral_keeps_its_bounds():
+    assert text("integral(5*sqrt(5-4*cos(k*t)),t,0,pi)").endswith(",t,0,π)")
