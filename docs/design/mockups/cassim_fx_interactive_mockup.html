@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CASSim fx — Scientific Calculator Interactive Mockup & Tutorial Engine</title>
+<style>
+  :root {
+    --bg-color: #0f1115;
+    --panel-bg: #181b21;
+    --panel-border: #2c3240;
+    --text-primary: #f2f4f7;
+    --text-secondary: #9aa2b1;
+    --accent: #2462a1;
+    --accent-glow: rgba(36, 98, 161, 0.4);
+    
+    /* Calculator Theme: Default CASSim fx Interpolated Dark */
+    --calc-case: #1e2229;
+    --calc-bezel: #17191e;
+    --calc-border: #323846;
+    --lcd-bg: #dce5d3;
+    --lcd-pixel: #121810;
+    --lcd-annun-off: rgba(18, 24, 16, 0.12);
+    --key-fn: #282c35;
+    --key-fn-text: #f0f2f5;
+    --key-fn-border: #181a20;
+    --key-num: #363c48;
+    --key-num-text: #ffffff;
+    --key-num-border: #22262e;
+    --key-del: #3d8b40;
+    --key-del-text: #ffffff;
+    --key-ac: #2e7d32;
+    --key-ac-text: #ffffff;
+    --label-shift: #e5a93c;
+    --label-alpha: #e05d5d;
+    --label-extra: #00bcd4;
+    --dpad-base: #22262e;
+    --dpad-dish: #191c22;
+    --dpad-border: #3e4656;
+    --ring-accent: #3a4250;
+  }
+
+  /* Heritage Skin (Casio fx Classic) */
+  body.skin-heritage {
+    --calc-case: #242629;
+    --calc-bezel: #1b1c1e;
+    --calc-border: #383a3f;
+    --lcd-bg: #d4dec9;
+    --lcd-pixel: #0d120a;
+    --key-fn: #1f2022;
+    --key-fn-text: #ffffff;
+    --key-num: #5c6068;
+    --key-num-text: #ffffff;
+    --key-del: #70b838;
+    --key-del-text: #ffffff;
+    --key-ac: #70b838;
+    --key-ac-text: #ffffff;
+    --label-shift: #ffcc00;
+    --label-alpha: #ff5252;
+    --label-extra: #00e5ff;
+    --dpad-base: #1c1d1f;
+    --dpad-dish: #141517;
+    --dpad-border: #2c2d30;
+    --ring-accent: #2c2d30;
+  }
+
+  /* Abacus Matrix Carbon Skin */
+  body.skin-carbon {
+    --calc-case: #141619;
+    --calc-bezel: #0d0f12;
+    --calc-border: #2e333d;
+    --lcd-bg: #eef2ea;
+    --lcd-pixel: #0a0d08;
+    --key-fn: #20232a;
+    --key-fn-text: #ffffff;
+    --key-num: #282d37;
+    --key-num-text: #ffffff;
+    --key-del: #455a64;
+    --key-del-text: #ffffff;
+    --key-ac: #d32f2f;
+    --key-ac-text: #ffffff;
+    --label-shift: #ffd54f;
+    --label-alpha: #40c4ff;
+    --label-extra: #ffd54f;
+    --dpad-base: #0f1c2e;
+    --dpad-dish: #08111c;
+    --dpad-border: #90a4ae;
+    --ring-accent: #cfd8dc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { background: var(--bg-color); color: var(--text-primary); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+  /* App Header */
+  header {
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo-chip {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+  .brand-title { font-size: 18px; font-weight: 700; color: #fff; }
+  .brand-sub { font-size: 13px; color: var(--text-secondary); }
+
+  .theme-controls { display: flex; align-items: center; gap: 10px; }
+  .skin-btn {
+    background: #252a35;
+    border: 1px solid #373e4f;
+    color: #cad1de;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .skin-btn:hover { background: #323847; color: #fff; }
+  .skin-btn.active {
+    background: var(--accent);
+    border-color: #438cd9;
+    color: #fff;
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  /* Main Workspace Layout */
+  .workspace {
+    display: grid;
+    grid-template-columns: 460px 1fr;
+    gap: 24px;
+    padding: 24px;
+    max-width: 1480px;
+    margin: 0 auto;
+    flex: 1;
+    width: 100%;
+  }
+
+  /* Calculator Hardware Wrapper */
+  .calc-column { display: flex; flex-direction: column; align-items: center; }
+  .calc-chassis {
+    width: 390px;
+    background: var(--calc-case);
+    border: 3px solid var(--calc-border);
+    border-radius: 28px 28px 42px 42px;
+    padding: 22px 18px 28px 18px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.08);
+    position: relative;
+    user-select: none;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  body.skin-carbon .calc-chassis {
+    background: repeating-linear-gradient(45deg, #14171a, #14171a 3px, #1a1e23 3px, #1a1e23 6px);
+  }
+
+  .calc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 6px;
+  }
+  .calc-badge {
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: #d1d5db;
+    text-transform: uppercase;
+  }
+  .calc-subbadge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: #8b929e;
+  }
+
+  /* Screen Area */
+  .screen-bezel {
+    background: var(--calc-bezel);
+    border: 2px solid #232730;
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 16px;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,0.8);
+  }
+  .lcd-display {
+    background: var(--lcd-bg);
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
+    height: 94px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+
+  /* Annunciators */
+  .lcd-annunciators {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 800;
+    font-family: "Courier New", Courier, monospace;
+    line-height: 1;
+    padding-bottom: 2px;
+    border-bottom: 1px dashed rgba(0,0,0,0.15);
+  }
+  .annun-item { color: var(--lcd-annun-off); }
+  .annun-item.active { color: var(--lcd-pixel); text-shadow: 0 0 1px rgba(0,0,0,0.5); }
+
+  /* Expression & Result */
+  .lcd-expr {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--lcd-pixel);
+    letter-spacing: 0.5px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .lcd-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 16px;
+    background: var(--lcd-pixel);
+    margin-left: 2px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+  .lcd-result {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--lcd-pixel);
+    text-align: right;
+    letter-spacing: 1px;
+    min-height: 26px;
+  }
+
+  /* Fraction rendering inside LCD */
+  .lcd-frac {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 2px;
+    font-size: 12px;
+  }
+  .lcd-frac-num { border-bottom: 1.5px solid var(--lcd-pixel); padding: 0 2px; }
+  .lcd-frac-den { padding: 0 2px; }
+
+  /* Keypad Matrix */
+  .keypad-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  /* Row 1: Modifiers + D-Pad + On */
+  .row-top {
+    display: grid;
+    grid-template-columns: 50px 50px 110px 50px 50px;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  /* Oval Modifier Buttons */
+  .btn-oval {
+    width: 48px;
+    height: 32px;
+    border-radius: 16px;
+    background: var(--key-fn);
+    border: 1px solid var(--key-fn-border);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #121418, 0 4px 6px rgba(0,0,0,0.4);
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .btn-oval:active { transform: translateY(2px); box-shadow: 0 1px 0 #121418; }
+  .btn-shift { color: var(--label-shift); }
+  .btn-alpha { color: var(--label-alpha); }
+
+  /* Directional D-Pad */
+  .dpad-container {
+    width: 104px;
+    height: 74px;
+    background: var(--dpad-base);
+    border: 3px solid var(--ring-accent);
+    border-radius: 37px;
+    display: grid;
+    grid-template-areas: 
+      ". up ."
+      "left center right"
+      ". down .";
+    grid-template-columns: 28px 40px 28px;
+    grid-template-rows: 22px 24px 22px;
+    align-items: center;
+    justify-items: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.06);
+    position: relative;
+    margin: 0 auto;
+  }
+  .dpad-btn {
+    background: transparent;
+    border: none;
+    color: #9aa2b1;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dpad-btn:hover { color: #fff; }
+  .dpad-btn:active { transform: scale(0.9); }
+  .dpad-up { grid-area: up; }
+  .dpad-down { grid-area: down; }
+  .dpad-left { grid-area: left; }
+  .dpad-right { grid-area: right; }
+  .dpad-center {
+    grid-area: center;
+    width: 32px;
+    height: 24px;
+    border-radius: 12px;
+    background: var(--dpad-dish);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Function Grid & Number Grid */
+  .btn-row {
+    display: grid;
+    gap: 7px;
+    justify-content: center;
+  }
+  .row-4col { grid-template-columns: repeat(4, 1fr); }
+  .row-6col { grid-template-columns: repeat(6, 1fr); }
+  .row-5col { grid-template-columns: repeat(5, 1fr); }
+
+  /* Key Cell wrapper (Key + Shift/Alpha Labels) */
+  .key-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .key-legends {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 2px;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1.1;
+    height: 12px;
+  }
+  .legend-shift { color: var(--label-shift); }
+  .legend-alpha { color: var(--label-alpha); }
+  .legend-extra { color: var(--label-extra); }
+
+  /* Key Button Base */
+  .calc-key {
+    width: 100%;
+    height: 31px;
+    border-radius: 6px;
+    border: 1px solid var(--key-fn-border);
+    background: var(--key-fn);
+    color: var(--key-fn-text);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #14161a, 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.06s, box-shadow 0.06s, background 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .calc-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #14161a; }
+
+  /* Numeric Block Key */
+  .key-number {
+    background: var(--key-num);
+    color: var(--key-num-text);
+    border-color: var(--key-num-border);
+    height: 34px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .key-del {
+    background: var(--key-del);
+    color: var(--key-del-text);
+    border-color: rgba(0,0,0,0.2);
+    font-size: 13px;
+  }
+  .key-ac {
+    background: var(--key-ac);
+    color: var(--key-ac-text);
+    border-color: rgba(0,0,0,0.2);
+    font-size: 13px;
+  }
+
+  /* Educational Glowing Spotlight for Interactive Tutorial */
+  .calc-key.tutorial-spotlight {
+    outline: 3px solid #ffeb3b;
+    border-color: #ffffff !important;
+    background: linear-gradient(135deg, #fbc02d, #f57f17) !important;
+    color: #000000 !important;
+    box-shadow: 0 0 16px #ffeb3b, 0 4px 0 #b26a00 !important;
+    animation: pulse-glow 1s infinite alternate;
+    z-index: 20;
+  }
+  .btn-oval.tutorial-spotlight {
+    outline: 3px solid #ffeb3b;
+    box-shadow: 0 0 16px #ffeb3b, 0 3px 0 #b26a00 !important;
+    animation: pulse-glow 1s infinite alternate;
+  }
+  .dpad-btn.tutorial-spotlight {
+    color: #ffeb3b !important;
+    font-weight: 900;
+    filter: drop-shadow(0 0 6px #ffeb3b);
+  }
+  @keyframes pulse-glow {
+    0% { transform: scale(1); filter: brightness(1); }
+    100% { transform: scale(1.08); filter: brightness(1.25); }
+  }
+
+  /* Right Side: Interactive Tutorial Panel */
+  .tutorial-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .tut-header {
+    background: #20242d;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tut-title { font-size: 17px; font-weight: 700; color: #fff; }
+  .tut-badge {
+    background: #2d3444;
+    color: #79a8e0;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+
+  .tut-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    flex: 1;
+  }
+
+  /* Lesson Chooser Dropdown */
+  .chooser-group { display: flex; flex-direction: column; gap: 6px; }
+  .chooser-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .lesson-select {
+    background: #252a35;
+    border: 1px solid #3c4458;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+  }
+  .lesson-select:focus { border-color: var(--accent); }
+
+  /* Current Step Interactive Card */
+  .step-card {
+    background: #1f232c;
+    border: 2px solid #2d3342;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    border-left: 5px solid #2462a1;
+  }
+  .step-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .step-count { font-size: 13px; font-weight: 800; color: #79a8e0; text-transform: uppercase; }
+  .user-driven-badge {
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    color: #81c784;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .step-instruction {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.4;
+  }
+  .key-target-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #282f3e;
+    border: 1px solid #3e4860;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffeb3b;
+  }
+
+  .step-explanation {
+    font-size: 13px;
+    color: #b0b8c6;
+    line-height: 1.5;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 3px solid #ffb300;
+  }
+
+  /* Feedback Alert (Wrong Key / Gentle Guidance) */
+  .hint-banner {
+    background: rgba(229, 57, 53, 0.15);
+    border: 1px solid rgba(229, 57, 53, 0.4);
+    color: #ef9a9a;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .hint-banner.show { display: flex; }
+
+  /* Breadcrumbs of user actions */
+  .history-tray {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .history-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+  .history-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 28px;
+    align-items: center;
+  }
+  .history-chip {
+    background: #252a35;
+    border: 1px solid #373e4f;
+    color: #cfd6e4;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* Tutorial Controls Bar */
+  .tut-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--panel-border);
+  }
+  .ctrl-btn {
+    flex: 1;
+    background: #282f3d;
+    border: 1px solid #3c465b;
+    color: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .ctrl-btn:hover { background: #353f52; }
+  .ctrl-btn.primary { background: var(--accent); border-color: #3f8ad6; }
+  .ctrl-btn.primary:hover { background: #1b538e; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo-chip">CASSIM</div>
+    <div>
+      <div class="brand-title">CASSim fx — Scientific Calculator</div>
+      <div class="brand-sub">Australian Curriculum Standard: Casio fx-82AU / fx-100AU / Abacus SX-II Matrix</div>
+    </div>
+  </div>
+  <div class="theme-controls">
+    <span style="font-size: 13px; color: var(--text-secondary); margin-right: 4px;">Hardware Skin:</span>
+    <button class="skin-btn active" onclick="setSkin('default')">CASSim fx Dark</button>
+    <button class="skin-btn" onclick="setSkin('heritage')">Casio Heritage</button>
+    <button class="skin-btn" onclick="setSkin('carbon')">Abacus Matrix</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left: Calculator Hardware Simulator -->
+  <div class="calc-column">
+    <div class="calc-chassis">
+      
+      <!-- Top Branding -->
+      <div class="calc-header">
+        <span class="calc-badge" id="skinBadge">CASSIM fx-82</span>
+        <span class="calc-subbadge">NATURAL-V.P.A.M.</span>
+      </div>
+
+      <!-- LCD Dot Matrix Screen -->
+      <div class="screen-bezel">
+        <div class="lcd-display">
+          <div class="lcd-annunciators">
+            <span class="annun-item" id="annunS">S</span>
+            <span class="annun-item" id="annunA">A</span>
+            <span class="annun-item" id="annunM">M</span>
+            <span class="annun-item" id="annunSTO">STO</span>
+            <span class="annun-item" id="annunSTAT">STAT</span>
+            <span class="annun-item active" id="annunD">D</span>
+            <span class="annun-item" id="annunR">R</span>
+            <span class="annun-item" id="annunFIX">FIX</span>
+            <span class="annun-item active" id="annunMath">Math</span>
+            <span class="annun-item" id="annunReplay">▲▼</span>
+          </div>
+          <div class="lcd-expr" id="lcdExpr">
+            <span id="lcdExprText"></span><span class="lcd-cursor"></span>
+          </div>
+          <div class="lcd-result" id="lcdResult">0</div>
+        </div>
+      </div>
+
+      <!-- Keypad -->
+      <div class="keypad-grid">
+
+        <!-- Row 1: Oval Modifiers + D-Pad + On -->
+        <div class="row-top">
+          <button class="btn-oval btn-shift" id="k_shift" onclick="pressKey('SHIFT')">SHIFT</button>
+          <button class="btn-oval btn-alpha" id="k_alpha" onclick="pressKey('ALPHA')">ALPHA</button>
+          
+          <!-- Directional Cross -->
+          <div class="dpad-container">
+            <button class="dpad-btn dpad-up" id="k_up" onclick="pressKey('UP')">▲</button>
+            <button class="dpad-btn dpad-left" id="k_left" onclick="pressKey('LEFT')">◄</button>
+            <div class="dpad-center"></div>
+            <button class="dpad-btn dpad-right" id="k_right" onclick="pressKey('RIGHT')">►</button>
+            <button class="dpad-btn dpad-down" id="k_down" onclick="pressKey('DOWN')">▼</button>
+          </div>
+
+          <button class="btn-oval" id="k_mode" onclick="pressKey('MODE')">MODE</button>
+          <button class="btn-oval" id="k_on" onclick="pressKey('ON')">ON</button>
+        </div>
+
+        <!-- Row 2: Secondary Functions -->
+        <div class="btn-row row-4col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span><span></span></div>
+            <button class="calc-key" id="k_abs" onclick="pressKey('Abs')">Abs</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">:</span></div>
+            <button class="calc-key" id="k_x3" onclick="pressKey('x³')"><i>x</i>³</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_inv" onclick="pressKey('x⁻¹')"><i>x</i>⁻¹</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_fact" onclick="pressKey('x!')"><i>x</i>!</button>
+          </div>
+        </div>
+
+        <!-- Row 3: Math Templates -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">■믐</span></div>
+            <button class="calc-key" id="k_frac" onclick="pressKey('FRAC')">믐</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">³√</span></div>
+            <button class="calc-key" id="k_sqrt" onclick="pressKey('SQRT')">√■</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_x2" onclick="pressKey('x²')"><i>x</i>²</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">■√</span></div>
+            <button class="calc-key" id="k_pow" onclick="pressKey('xⁿ')"><i>x</i><sup>■</sup></button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">10<sup>■</sup></span></div>
+            <button class="calc-key" id="k_log" onclick="pressKey('log')">log</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift"><i>e</i><sup>■</sup></span></div>
+            <button class="calc-key" id="k_ln" onclick="pressKey('ln')">ln</button>
+          </div>
+        </div>
+
+        <!-- Row 4: Scientific & Trig Row -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">A</span></div>
+            <button class="calc-key" id="k_neg" onclick="pressKey('(-)')">(-)</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">FACT</span><span class="legend-alpha">B</span></div>
+            <button class="calc-key" id="k_dms" onclick="pressKey('DMS')">° ' "</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">C</span></div>
+            <button class="calc-key" id="k_hyp" onclick="pressKey('hyp')">hyp</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">sin⁻¹</span><span class="legend-alpha">D</span></div>
+            <button class="calc-key" id="k_sin" onclick="pressKey('sin')">sin</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">cos⁻¹</span><span class="legend-alpha">E</span></div>
+            <button class="calc-key" id="k_cos" onclick="pressKey('cos')">cos</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">tan⁻¹</span><span class="legend-alpha">F</span></div>
+            <button class="calc-key" id="k_tan" onclick="pressKey('tan')">tan</button>
+          </div>
+        </div>
+
+        <!-- Row 5: Memory & Formatting -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">STO</span></div>
+            <button class="calc-key" id="k_rcl" onclick="pressKey('RCL')">RCL</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">←</span></div>
+            <button class="calc-key" id="k_eng" onclick="pressKey('ENG')">ENG</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">%</span></div>
+            <button class="calc-key" id="k_lpar" onclick="pressKey('(')">(</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">X</span></div>
+            <button class="calc-key" id="k_rpar" onclick="pressKey(')')">)</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">a b/c</span><span class="legend-alpha">Y</span></div>
+            <button class="calc-key" id="k_sd" onclick="pressKey('SD')">S⇔D</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">M-</span><span class="legend-alpha">M</span></div>
+            <button class="calc-key" id="k_mplus" onclick="pressKey('M+')">M+</button>
+          </div>
+        </div>
+
+        <!-- Row 6: Numeric 7-9, DEL, AC -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_7" onclick="pressKey('7')">7</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_8" onclick="pressKey('8')">8</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">CLR</span></div>
+            <button class="calc-key key-number" id="k_9" onclick="pressKey('9')">9</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">INS</span></div>
+            <button class="calc-key key-del" id="k_del" onclick="pressKey('DEL')">DEL</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">OFF</span></div>
+            <button class="calc-key key-ac" id="k_ac" onclick="pressKey('AC')">AC</button>
+          </div>
+        </div>
+
+        <!-- Row 7: Numeric 4-6, Multiplication, Division -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_4" onclick="pressKey('4')">4</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_5" onclick="pressKey('5')">5</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">VERIFY</span></div>
+            <button class="calc-key key-number" id="k_6" onclick="pressKey('6')">6</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">nPr</span><span class="legend-alpha">GCD</span></div>
+            <button class="calc-key key-number" id="k_mul" onclick="pressKey('×')">×</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">nCr</span><span class="legend-alpha">LCM</span></div>
+            <button class="calc-key key-number" id="k_div" onclick="pressKey('÷')">÷</button>
+          </div>
+        </div>
+
+        <!-- Row 8: Numeric 1-3, Addition, Subtraction -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">STAT</span></div>
+            <button class="calc-key key-number" id="k_1" onclick="pressKey('1')">1</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_2" onclick="pressKey('2')">2</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_3" onclick="pressKey('3')">3</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Pol</span></div>
+            <button class="calc-key key-number" id="k_add" onclick="pressKey('+')">+</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Rec</span></div>
+            <button class="calc-key key-number" id="k_sub" onclick="pressKey('-')">−</button>
+          </div>
+        </div>
+
+        <!-- Row 9: 0, Dot, 10^x, Ans, Equals -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Rnd</span></div>
+            <button class="calc-key key-number" id="k_0" onclick="pressKey('0')">0</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Ran#</span><span class="legend-alpha">RanInt</span></div>
+            <button class="calc-key key-number" id="k_dot" onclick="pressKey('.')">·</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">π</span><span class="legend-alpha"><i>e</i></span></div>
+            <button class="calc-key key-number" id="k_exp" onclick="pressKey('EXP')">×10<sup><i>x</i></sup></button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">DRG►</span></div>
+            <button class="calc-key key-number" id="k_ans" onclick="pressKey('Ans')">Ans</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_eq" onclick="pressKey('=')">=</button>
+          </div>
+        </div>
+
+      </div><!-- /keypad-grid -->
+
+    </div><!-- /calc-chassis -->
+  </div><!-- /calc-column -->
+
+  <!-- Right: User-Driven Interactive Tutorial Panel -->
+  <div class="tutorial-panel">
+    <div class="tut-header">
+      <div class="tut-title">Interactive Tutorial Engine</div>
+      <div class="tut-badge" id="modeBadge">USER-DRIVEN GUIDE</div>
+    </div>
+
+    <div class="tut-body">
+      
+      <!-- Lesson Chooser -->
+      <div class="chooser-group">
+        <label class="chooser-label">Select Built-In Syllabus Lesson:</label>
+        <select class="lesson-select" id="lessonSelect" onchange="changeLesson()">
+          <optgroup label="Priority YouTube Series (How To Maths)">
+            <option value="reset">1. Reset & Initialise Calculator (Shift+9 CLR)</option>
+            <option value="freq">2. Turn On Frequency Table in Setup</option>
+            <option value="stddev" selected>3. Find Mean and Standard Deviation (sx vs σx)</option>
+            <option value="five_num">4. Generate Five-Number Summary (Boxplots)</option>
+            <option value="linear_reg">5. Pearson Correlation (r) & Linear Regression</option>
+          </optgroup>
+          <optgroup label="Curriculum Essentials">
+            <option value="fractions">6. Fractions & Mixed Numbers (S⇔D toggle)</option>
+            <option value="prime_factor">7. Prime Factorisation (FACT)</option>
+            <option value="table_mode">8. Table of Values Mode (f(x))</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Current Step Interactive Card -->
+      <div class="step-card">
+        <div class="step-meta">
+          <span class="step-count" id="stepCounter">STEP 1 OF 6</span>
+          <span class="user-driven-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            YOU CONTROL THE KEYS
+          </span>
+        </div>
+
+        <div class="step-instruction" id="stepInstruction">
+          Press <span class="key-target-hint" id="stepTargetKey">[MODE]</span> to open the mode selection screen.
+        </div>
+
+        <div class="step-explanation" id="stepExplanation">
+          Mode 2 activates statistical calculations. On Australian school calculators, you must switch to STAT mode before entering data points.
+        </div>
+
+        <!-- Wrong-key gentle hint alert -->
+        <div class="hint-banner" id="hintBanner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <span id="hintText">Tip: Look for the glowing button on the keypad!</span>
+        </div>
+      </div>
+
+      <!-- Action History -->
+      <div class="history-tray">
+        <div class="history-label">Keypress Breadcrumbs:</div>
+        <div class="history-chips" id="historyChips">
+          <span class="history-chip">[ON]</span>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="tut-controls">
+        <button class="ctrl-btn" onclick="restartLesson()">⏮ Restart</button>
+        <button class="ctrl-btn" onclick="prevStep()">◀ Back</button>
+        <button class="ctrl-btn primary" id="autoPlayBtn" onclick="toggleAutoPlay()">▶ Show Me (Autoplay)</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Tutorial Lessons Database
+  const LESSONS = {
+    stddev: {
+      title: "Find Mean and Standard Deviation (sx vs σx)",
+      steps: [
+        {
+          key: "MODE",
+          keyId: "k_mode",
+          label: "[MODE]",
+          instruction: "Press [MODE] to open the mode selection screen.",
+          explanation: "Mode selection allows switching between general arithmetic (COMP), statistics (STAT), and function tables (TABLE).",
+          screenExpr: "1:COMP  2:STAT",
+          screenResult: "3:TABLE"
+        },
+        {
+          key: "2",
+          keyId: "k_2",
+          label: "[ 2 ]",
+          instruction: "Press [2] to select STAT mode.",
+          explanation: "STAT mode presents statistical options: 1-variable (univariate) or 2-variable regression lines.",
+          screenExpr: "1:1-VAR  2:A+BX",
+          screenResult: ""
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ]",
+          instruction: "Press [1] to choose 1-VAR.",
+          explanation: "Opens the univariate data table. Now enter the data points: 12, 15, 18, 22, 25.",
+          screenExpr: "STAT: 1-VAR",
+          screenResult: "X: [   ]"
+        },
+        {
+          key: "AC",
+          keyId: "k_ac",
+          label: "[AC]",
+          instruction: "Assume data is entered. Press [AC] to return to the calculation screen.",
+          explanation: "Pressing AC exits the data table without clearing the entered data. The STAT annunciator stays active at the top.",
+          screenExpr: "",
+          screenResult: "0",
+          statActive: true
+        },
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT] to access the secondary functions.",
+          explanation: "Notice the [S] indicator lights up on the top LCD annunciator bar.",
+          shiftActive: true
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ] (STAT)",
+          instruction: "Press [1] (STAT) to open the statistical calculation variables menu.",
+          explanation: "Shows items: 1:Type, 2:Data, 3:Sum, 4:Var, 5:MinMax.",
+          screenExpr: "1:Type 2:Data 3:Sum",
+          screenResult: "4:Var  5:MinMax"
+        },
+        {
+          key: "4",
+          keyId: "k_4",
+          label: "[ 4 ] (Var)",
+          instruction: "Press [4] to open the Var (Variables) menu.",
+          explanation: "Menu options: 1:n (sample size), 2:x̄ (mean), 3:σx (population standard deviation), 4:sx (sample standard deviation).",
+          screenExpr: "1:n    2:x̄",
+          screenResult: "3:σx   4:sx"
+        },
+        {
+          key: "4",
+          keyId: "k_4",
+          label: "[ 4 ] (sx)",
+          instruction: "Press [4] to select sample standard deviation (sx).",
+          explanation: "Australian VCE and HSC examinations require sample standard deviation sx (n-1 divisor), not population standard deviation σx.",
+          screenExpr: "sx",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to calculate the standard deviation.",
+          explanation: "Calculation complete! sx = 5.17687... Notice that this precisely matches the school curriculum specification.",
+          screenExpr: "sx",
+          screenResult: "5.176871642"
+        }
+      ]
+    },
+
+    reset: {
+      title: "Reset & Initialise Calculator (Shift+9 CLR)",
+      steps: [
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT] to activate the secondary layer.",
+          explanation: "The [S] annunciator illuminates.",
+          shiftActive: true
+        },
+        {
+          key: "9",
+          keyId: "k_9",
+          label: "[ 9 ] (CLR)",
+          instruction: "Press [9] (CLR) to open the Clear/Reset menu.",
+          explanation: "Options: 1:Setup, 2:Memory, 3:All.",
+          screenExpr: "Clear? 1:Setup",
+          screenResult: "2:Memory  3:All"
+        },
+        {
+          key: "3",
+          keyId: "k_3",
+          label: "[ 3 ] (All)",
+          instruction: "Press [3] to select 'All'.",
+          explanation: "Prompts confirmation: Reset All? [=] : Yes, [AC] : Cancel.",
+          screenExpr: "Reset All?",
+          screenResult: "[=]:Yes  [AC]:Cancel"
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to confirm the reset.",
+          explanation: "Screen confirms: Reset All, Press [AC] key.",
+          screenExpr: "Reset All",
+          screenResult: "Press [AC] key"
+        },
+        {
+          key: "AC",
+          keyId: "k_ac",
+          label: "[AC]",
+          instruction: "Press [AC] to finish and return to the blank calculation screen.",
+          explanation: "All memories are cleared and standard degree & MathIO settings are restored.",
+          screenExpr: "",
+          screenResult: "0"
+        }
+      ]
+    },
+
+    freq: {
+      title: "Turn On Frequency Table in Setup",
+      steps: [
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT] to activate the setup layer.",
+          explanation: "Prepares to enter the Setup menu.",
+          shiftActive: true
+        },
+        {
+          key: "MODE",
+          keyId: "k_mode",
+          label: "[MODE] (SETUP)",
+          instruction: "Press [MODE] (SETUP) to open the Setup menu.",
+          explanation: "Shows Page 1: 1:MthIO, 2:LineIO, 3:Deg, 4:Rad, 5:Gra, 6:Fix, 7:Sci, 8:Norm.",
+          screenExpr: "1:MthIO  2:LineIO",
+          screenResult: "3:Deg    4:Rad"
+        },
+        {
+          key: "DOWN",
+          keyId: "k_down",
+          label: "[ ▼ ]",
+          instruction: "Press the Down arrow [▼] on the D-Pad to view Setup page 2.",
+          explanation: "Scrolls to page 2: 1:STAT, 2:TABLE, 3:Disp, 4:CONT.",
+          screenExpr: "1:STAT   2:TABLE",
+          screenResult: "3:Disp   4:CONT"
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ] (STAT)",
+          instruction: "Press [1] to configure Statistics settings.",
+          explanation: "Prompts: Frequency? 1:ON, 2:OFF.",
+          screenExpr: "Frequency?",
+          screenResult: "1:ON    2:OFF"
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ] (ON)",
+          instruction: "Press [1] to turn the Frequency column ON.",
+          explanation: "Frequency table is now active! Entering STAT mode will now display both score (X) and frequency (FREQ) columns.",
+          screenExpr: "",
+          screenResult: "0"
+        }
+      ]
+    },
+
+    five_num: {
+      title: "Generate Five-Number Summary (Boxplots)",
+      steps: [
+        {
+          key: "MODE",
+          keyId: "k_mode",
+          label: "[MODE]",
+          instruction: "Press [MODE] to choose STAT mode.",
+          explanation: "Opens the calculation mode selector.",
+          screenExpr: "1:COMP  2:STAT",
+          screenResult: "3:TABLE"
+        },
+        {
+          key: "2",
+          keyId: "k_2",
+          label: "[ 2 ]",
+          instruction: "Press [2] for STAT mode.",
+          explanation: "Selects statistical calculations.",
+          screenExpr: "1:1-VAR  2:A+BX",
+          screenResult: ""
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ]",
+          instruction: "Press [1] for 1-VAR data.",
+          explanation: "Opens data grid. Scores: 4, 7, 9, 12, 14, 18, 21, 25.",
+          screenExpr: "STAT: 1-VAR",
+          screenResult: "n = 8"
+        },
+        {
+          key: "AC",
+          keyId: "k_ac",
+          label: "[AC]",
+          instruction: "Press [AC] to exit table.",
+          explanation: "Returns to calculation line with STAT annunciator active.",
+          screenExpr: "",
+          screenResult: "0"
+        },
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT].",
+          explanation: "Activates STAT menu layer.",
+          shiftActive: true
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ] (STAT)",
+          instruction: "Press [1] for STAT menu.",
+          explanation: "Opens STAT variables.",
+          screenExpr: "1:Type 2:Data 3:Sum",
+          screenResult: "4:Var  5:MinMax"
+        },
+        {
+          key: "5",
+          keyId: "k_5",
+          label: "[ 5 ] (MinMax)",
+          instruction: "Press [5] to open the Five-Number Summary (MinMax) menu.",
+          explanation: "Options: 1:minX, 2:maxX, 3:Q1, 4:med, 5:Q3.",
+          screenExpr: "1:minX  2:maxX  3:Q1",
+          screenResult: "4:med   5:Q3"
+        },
+        {
+          key: "3",
+          keyId: "k_3",
+          label: "[ 3 ] (Q1)",
+          instruction: "Press [3] for Q1 (Lower Quartile).",
+          explanation: "Places Q1 on the expression line.",
+          screenExpr: "Q1",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to evaluate Q1.",
+          explanation: "Result: Q1 = 8. (Lower half {4, 7, 9, 12}, median = (7+9)/2 = 8). Australian school standard verified!",
+          screenExpr: "Q1",
+          screenResult: "8"
+        }
+      ]
+    },
+
+    linear_reg: {
+      title: "Pearson Correlation (r) & Linear Regression",
+      steps: [
+        {
+          key: "MODE",
+          keyId: "k_mode",
+          label: "[MODE]",
+          instruction: "Press [MODE] to choose calculation mode.",
+          explanation: "Opens mode selector.",
+          screenExpr: "1:COMP  2:STAT",
+          screenResult: "3:TABLE"
+        },
+        {
+          key: "2",
+          keyId: "k_2",
+          label: "[ 2 ]",
+          instruction: "Press [2] for STAT mode.",
+          explanation: "Selects statistical calculations.",
+          screenExpr: "1:1-VAR  2:A+BX",
+          screenResult: ""
+        },
+        {
+          key: "2",
+          keyId: "k_2",
+          label: "[ 2 ] (A+BX)",
+          instruction: "Press [2] for Linear Regression (A+BX).",
+          explanation: "Opens bivariate table with X and Y columns.",
+          screenExpr: "STAT: A+BX",
+          screenResult: "X & Y Grid"
+        },
+        {
+          key: "AC",
+          keyId: "k_ac",
+          label: "[AC]",
+          instruction: "Assume data is entered. Press [AC].",
+          explanation: "Returns to calculation line.",
+          screenExpr: "",
+          screenResult: "0"
+        },
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT].",
+          explanation: "Activates STAT menu layer.",
+          shiftActive: true
+        },
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ] (STAT)",
+          instruction: "Press [1] to open the STAT menu.",
+          explanation: "Notice option 6: Reg is now available for bivariate data!",
+          screenExpr: "1:Type 2:Data 3:Sum",
+          screenResult: "4:Var  5:MinMax 6:Reg"
+        },
+        {
+          key: "6",
+          keyId: "k_6",
+          label: "[ 6 ] (Reg)",
+          instruction: "Press [6] to open the Regression menu.",
+          explanation: "Options: 1:A (y-intercept), 2:B (slope), 3:r (Pearson's correlation coefficient).",
+          screenExpr: "1:A    2:B    3:r",
+          screenResult: "4:x̂    5:ŷ"
+        },
+        {
+          key: "3",
+          keyId: "k_3",
+          label: "[ 3 ] (r)",
+          instruction: "Press [3] to select Pearson's r.",
+          explanation: "Places r on the line.",
+          screenExpr: "r",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to compute the correlation coefficient.",
+          explanation: "Result: r = 0.9972... Indicating a very strong positive linear relationship.",
+          screenExpr: "r",
+          screenResult: "0.9972418"
+        }
+      ]
+    },
+
+    fractions: {
+      title: "Fractions & Mixed Numbers (S⇔D toggle)",
+      steps: [
+        {
+          key: "FRAC",
+          keyId: "k_frac",
+          label: "[믐]",
+          instruction: "Press the fraction template key [믐].",
+          explanation: "Creates a natural 2-level fraction box on the dot matrix screen.",
+          screenExpr: "믐",
+          screenResult: ""
+        },
+        {
+          key: "3",
+          keyId: "k_3",
+          label: "[ 3 ]",
+          instruction: "Press [3] to enter 3 into the numerator.",
+          explanation: "Fills the top slot.",
+          screenExpr: "3/■",
+          screenResult: ""
+        },
+        {
+          key: "DOWN",
+          keyId: "k_down",
+          label: "[ ▼ ]",
+          instruction: "Press [▼] on the D-Pad to move cursor to denominator.",
+          explanation: "Cursor moves down into the denominator box.",
+          screenExpr: "3/■",
+          screenResult: ""
+        },
+        {
+          key: "4",
+          keyId: "k_4",
+          label: "[ 4 ]",
+          instruction: "Press [4] to enter 4 into the denominator.",
+          explanation: "Fraction is now 3/4.",
+          screenExpr: "3/4",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to evaluate.",
+          explanation: "In MathIO mode, the result stays in exact fraction form: 3/4.",
+          screenExpr: "3/4",
+          screenResult: "3/4"
+        },
+        {
+          key: "SD",
+          keyId: "k_sd",
+          label: "[ S⇔D ]",
+          instruction: "Press [ S⇔D ] to toggle to decimal form.",
+          explanation: "Instantly converts 3/4 into 0.75. Pressing again toggles back!",
+          screenExpr: "3/4",
+          screenResult: "0.75"
+        }
+      ]
+    },
+
+    prime_factor: {
+      title: "Prime Factorisation (FACT)",
+      steps: [
+        {
+          key: "1",
+          keyId: "k_1",
+          label: "[ 1 ]",
+          instruction: "Enter the number 1050: Press [1].",
+          explanation: "Starting input.",
+          screenExpr: "1",
+          screenResult: ""
+        },
+        {
+          key: "0",
+          keyId: "k_0",
+          label: "[ 0 ]",
+          instruction: "Press [0].",
+          explanation: "Building digits.",
+          screenExpr: "10",
+          screenResult: ""
+        },
+        {
+          key: "5",
+          keyId: "k_5",
+          label: "[ 5 ]",
+          instruction: "Press [5].",
+          explanation: "Building digits.",
+          screenExpr: "105",
+          screenResult: ""
+        },
+        {
+          key: "0",
+          keyId: "k_0",
+          label: "[ 0 ]",
+          instruction: "Press [0].",
+          explanation: "Full number 1050.",
+          screenExpr: "1050",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to place 1050 into answer memory.",
+          explanation: "Prime factorisation requires the integer to be calculated into the result line first.",
+          screenExpr: "1050",
+          screenResult: "1050"
+        },
+        {
+          key: "SHIFT",
+          keyId: "k_shift",
+          label: "[SHIFT]",
+          instruction: "Press [SHIFT].",
+          explanation: "Activates secondary functions.",
+          shiftActive: true
+        },
+        {
+          key: "DMS",
+          keyId: "k_dms",
+          label: "[ ° ' \" ] (FACT)",
+          instruction: "Press [ ° ' \" ] (FACT) to factorise.",
+          explanation: "Factorises 1050 into prime factors: 2 × 3 × 5² × 7.",
+          screenExpr: "1050",
+          screenResult: "2×3×5²×7"
+        }
+      ]
+    },
+
+    table_mode: {
+      title: "Table of Values Mode (f(x))",
+      steps: [
+        {
+          key: "MODE",
+          keyId: "k_mode",
+          label: "[MODE]",
+          instruction: "Press [MODE] to open the mode selector.",
+          explanation: "Allows switching to Table mode.",
+          screenExpr: "1:COMP  2:STAT",
+          screenResult: "3:TABLE"
+        },
+        {
+          key: "3",
+          keyId: "k_3",
+          label: "[ 3 ] (TABLE)",
+          instruction: "Press [3] to select TABLE mode.",
+          explanation: "Prompts for function input: f(X) = .",
+          screenExpr: "f(X)=",
+          screenResult: ""
+        },
+        {
+          key: "ALPHA",
+          keyId: "k_alpha",
+          label: "[ALPHA]",
+          instruction: "Press [ALPHA] to access variable X.",
+          explanation: "Prepares to insert algebraic variable X.",
+          alphaActive: true
+        },
+        {
+          key: ")",
+          keyId: "k_rpar",
+          label: "[ ) ] (X)",
+          instruction: "Press [ ) ] (X) to insert variable X.",
+          explanation: "Inserts X.",
+          screenExpr: "f(X)=X",
+          screenResult: ""
+        },
+        {
+          key: "x²",
+          keyId: "k_x2",
+          label: "[ x² ]",
+          instruction: "Press [ x² ] to create X².",
+          explanation: "Function is now quadratic: f(X) = X².",
+          screenExpr: "f(X)=X²",
+          screenResult: ""
+        },
+        {
+          key: "=",
+          keyId: "k_eq",
+          label: "[ = ]",
+          instruction: "Press [ = ] to confirm function and set bounds.",
+          explanation: "Prompts for Start value (default 1). Press = for End (5), Step (1) to generate table.",
+          screenExpr: "Start? 1",
+          screenResult: "Table generated"
+        }
+      ]
+    }
+  };
+
+  // State
+  let currentLessonId = "stddev";
+  let currentStepIndex = 0;
+  let isAutoPlay = false;
+  let autoPlayTimer = null;
+  let actionHistory = ["[ON]"];
+
+  // Initialize
+  window.onload = function() {
+    renderStep();
+  };
+
+  function setSkin(skin) {
+    document.body.className = '';
+    document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
+    
+    if (skin === 'heritage') {
+      document.body.classList.add('skin-heritage');
+      document.getElementById('skinBadge').innerText = "fx-82AU PLUS II";
+      event.target.classList.add('active');
+    } else if (skin === 'carbon') {
+      document.body.classList.add('skin-carbon');
+      document.getElementById('skinBadge').innerText = "ABACUS SX-II";
+      event.target.classList.add('active');
+    } else {
+      document.getElementById('skinBadge').innerText = "CASSIM fx-82";
+      event.target.classList.add('active');
+    }
+  }
+
+  function changeLesson() {
+    currentLessonId = document.getElementById('lessonSelect').value;
+    currentStepIndex = 0;
+    stopAutoPlay();
+    clearSpotlights();
+    renderStep();
+  }
+
+  function restartLesson() {
+    currentStepIndex = 0;
+    stopAutoPlay();
+    renderStep();
+  }
+
+  function prevStep() {
+    if (currentStepIndex > 0) {
+      currentStepIndex--;
+      stopAutoPlay();
+      renderStep();
+    }
+  }
+
+  function renderStep() {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+    const total = lesson.steps.length;
+
+    // Update Step Card
+    document.getElementById('stepCounter').innerText = `STEP ${currentStepIndex + 1} OF ${total}`;
+    document.getElementById('stepInstruction').innerHTML = `Press <span class="key-target-hint">${step.label}</span> to proceed.`;
+    document.getElementById('stepExplanation').innerText = step.explanation;
+    document.getElementById('hintBanner').classList.remove('show');
+
+    // Update LCD Screen
+    if (step.screenExpr !== undefined) {
+      document.getElementById('lcdExprText').innerText = step.screenExpr;
+    }
+    if (step.screenResult !== undefined) {
+      document.getElementById('lcdResult').innerText = step.screenResult;
+    }
+
+    // Annunciators
+    document.getElementById('annunS').className = 'annun-item' + (step.shiftActive ? ' active' : '');
+    document.getElementById('annunA').className = 'annun-item' + (step.alphaActive ? ' active' : '');
+    document.getElementById('annunSTAT').className = 'annun-item' + (step.statActive ? ' active' : '');
+
+    // Spotlight the target button!
+    clearSpotlights();
+    if (step.keyId) {
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) {
+        targetBtn.classList.add('tutorial-spotlight');
+      }
+    }
+  }
+
+  function clearSpotlights() {
+    document.querySelectorAll('.tutorial-spotlight').forEach(el => el.classList.remove('tutorial-spotlight'));
+  }
+
+  // Keypress Handler (User-Driven Execution!)
+  function pressKey(keyName) {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+
+    // Add to breadcrumb
+    addHistory(`[${keyName}]`);
+
+    // Check if key matches the active tutorial step target
+    if (keyName === step.key) {
+      // Correct key pressed!
+      document.getElementById('hintBanner').classList.remove('show');
+
+      // Animate LCD reaction
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) {
+        targetBtn.style.transform = "scale(0.92)";
+        setTimeout(() => targetBtn.style.transform = "", 120);
+      }
+
+      // Advance step
+      if (currentStepIndex < lesson.steps.length - 1) {
+        currentStepIndex++;
+        renderStep();
+      } else {
+        // Finished lesson!
+        clearSpotlights();
+        document.getElementById('stepInstruction').innerHTML = `🎉 <b>Tutorial Complete!</b> Excellent work.`;
+        document.getElementById('stepExplanation').innerText = `You have completed all steps for: ${lesson.title}. Try another tutorial from the dropdown or experiment freely.`;
+        document.getElementById('stepCounter').innerText = `COMPLETED (${lesson.steps.length} STEPS)`;
+      }
+    } else {
+      // Incorrect key pressed: Gentle non-punitive guidance!
+      const banner = document.getElementById('hintBanner');
+      document.getElementById('hintText').innerHTML = `You pressed <b>[${keyName}]</b>. Look for the glowing target <b>${step.label}</b>!`;
+      banner.classList.add('show');
+    }
+  }
+
+  function addHistory(chipText) {
+    actionHistory.push(chipText);
+    if (actionHistory.length > 8) actionHistory.shift();
+    const container = document.getElementById('historyChips');
+    container.innerHTML = actionHistory.map(c => `<span class="history-chip">${c}</span>`).join('');
+  }
+
+  // Show Me (Autoplay Fallback)
+  function toggleAutoPlay() {
+    if (isAutoPlay) {
+      stopAutoPlay();
+    } else {
+      startAutoPlay();
+    }
+  }
+
+  function startAutoPlay() {
+    isAutoPlay = true;
+    document.getElementById('autoPlayBtn').innerText = "⏸ Pause Show Me";
+    document.getElementById('modeBadge').innerText = "DEMONSTRATION MODE";
+    document.getElementById('modeBadge').style.background = "#d32f2f";
+    document.getElementById('modeBadge').style.color = "#fff";
+
+    function stepLoop() {
+      if (!isAutoPlay) return;
+      const lesson = LESSONS[currentLessonId];
+      if (currentStepIndex < lesson.steps.length) {
+        const step = lesson.steps[currentStepIndex];
+        pressKey(step.key);
+        autoPlayTimer = setTimeout(stepLoop, 1500);
+      } else {
+        stopAutoPlay();
+      }
+    }
+    autoPlayTimer = setTimeout(stepLoop, 1000);
+  }
+
+  function stopAutoPlay() {
+    isAutoPlay = false;
+    clearTimeout(autoPlayTimer);
+    document.getElementById('autoPlayBtn').innerText = "▶ Show Me (Autoplay)";
+    document.getElementById('modeBadge').innerText = "USER-DRIVEN GUIDE";
+    document.getElementById('modeBadge').style.background = "#2d3444";
+    document.getElementById('modeBadge').style.color = "#79a8e0";
+  }
+</script>
+
+</body>
+</html>
