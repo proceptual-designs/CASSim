@@ -200,3 +200,17 @@ def test_ordinary_quotients_print_as_before():
     assert text("3*x/4") == "3*x/4"
     assert text("2/(3*x)") == "2/(3*x)"
     assert text("x^(-1/2)") == "1/√(x)"
+
+
+def test_terms_go_highest_degree_first():
+    assert text("k+t^2") == "t^2+k"
+    assert text("a*x+x^3+2") == "x^3+a*x+2"
+
+
+def test_a_negative_leading_term_is_taken_out():
+    assert text("1-3*c") == "-(3*c-1)"
+
+
+def test_a_surd_follows_the_variables():
+    assert text("sqrt(3)*h^3/9") == "h^3*√(3)/9"
+    assert text("2*sqrt(2)*@i") == "2*√(2)*ⅈ"

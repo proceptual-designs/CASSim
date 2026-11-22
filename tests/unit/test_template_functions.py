@@ -63,7 +63,7 @@ def test_an_even_root_of_a_negative_is_non_real_in_real_mode() -> None:
     [
         ("linSolve({x+y=3,x-y=1},{x,y})", "{2,1}"),  # the device's own example
         ("linSolve(x+y=3 and x-y=1,{x,y})", "{2,1}"),
-        ("linSolve({x+y=3},{x,y})", "{3-y,y}"),
+        ("linSolve({x+y=3},{x,y})", "{-(y-3),y}"),  # TI takes a leading minus out
         ("linSolve({x+y=3,x+y=4},{x,y})", "No solution found"),
     ],
 )

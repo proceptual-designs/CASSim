@@ -605,6 +605,18 @@ def _split_quotient(raw: Raw) -> tuple[Raw, Raw]:
     return _unevaluated_product(top), _unevaluated_product(bottom)
 
 
+def _surds_after_variables(factors: list[Raw]) -> list[Raw]:
+    """A product's factors with any surd (√3) moved after the last factor with a variable:
+    TI writes `h^3*√(3)` (emulator check 6, K4). Products with no variable keep their order."""
+    surds = [f for f in factors if f.is_Pow and f.base.is_Rational and not f.free_symbols]
+    variables = [i for i, f in enumerate(factors) if f.free_symbols]
+    if not surds or not variables:
+        return factors
+    rest = [f for f in factors if not any(f is s for s in surds)]
+    last = max(i for i, f in enumerate(rest) if f.free_symbols)
+    return [*rest[: last + 1], *surds, *rest[last + 1 :]]
+
+
 class _Printer:
     """Build the AST of a result, so the parser's printer decides the parentheses."""
 
@@ -650,7 +662,11 @@ class _Printer:
         return _negate(ast.Name("∞")) if raw == -sp.oo else ast.Name(names[raw])
 
     def _sum(self, raw: Raw) -> ast.Expr:
-        first, *rest = raw.as_ordered_terms()
+        # Highest degree first, as TI orders terms: `t^2+k`, `x^3+a*x+2`. A negative leading
+        # term is taken out: `-(3*c1-1)`, `-(√3+2)` (emulator check 6, K4 and K7).
+        first, *rest = raw.as_ordered_terms(order="grlex")
+        if first.could_extract_minus_sign() and not first.is_number:
+            return ast.Unary("-", self.node(-raw))
         total = self.node(first)
         for term in rest:
             if term.could_extract_minus_sign():
@@ -666,7 +682,8 @@ class _Printer:
         numerator, denominator = _split_quotient(raw)
         if denominator != 1:
             return ast.Binary("/", self.node(numerator), self.node(denominator))
-        first, *rest = raw.as_ordered_factors()
+        # A surd after the variables: TI writes `h^3*√(3)` (emulator check 6, K4).
+        first, *rest = _surds_after_variables(raw.as_ordered_factors())
         product = self.node(first)
         for factor in rest:
             product = ast.Binary("*", product, self.node(factor))
