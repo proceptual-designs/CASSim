@@ -34,6 +34,7 @@ class Outcome:
     passed: bool
     reason: str = ""
     crashed: bool = False
+    texts: tuple[str, ...] = ()  # the text of every result reached, for the SymPy-text check
 
 
 def load_cases() -> Iterator[Case]:
@@ -81,13 +82,15 @@ def _value_failure(step: Step, result: Result, settings: Settings, compare: str)
     return f"{step['in']}: got {result.text}, expected {expected}"
 
 
-def _run_step(session: Session, step: Step) -> str | None:
+def _run_step(session: Session, step: Step, texts: list[str]) -> str | None:
     if step.get("new_problem"):
         session.new_problem()
     elif "set" in step:
         session.set(**step["set"])
     elif "in" in step:
         result = session.eval(step["in"])
+        if result.error is None:
+            texts.append(result.text)
         if step.get("error"):
             return _error_failure(step, result)
         return _result_failure(step, result, session.settings)
@@ -96,13 +99,15 @@ def _run_step(session: Session, step: Step) -> str | None:
 
 def run_case(case: Case) -> Outcome:
     session = Session(case_settings(case))
+    texts: list[str] = []
     try:
         for step in case["steps"]:
-            if failure := _run_step(session, step):
-                return Outcome(case["id"], passed=False, reason=failure)
+            if failure := _run_step(session, step, texts):
+                return Outcome(case["id"], passed=False, reason=failure, texts=tuple(texts))
     except Exception as error:  # a crash is a finding, reported with the rest
-        return Outcome(case["id"], False, f"{type(error).__name__}: {error}", crashed=True)
-    return Outcome(case["id"], passed=True)
+        reason = f"{type(error).__name__}: {error}"
+        return Outcome(case["id"], False, reason, crashed=True, texts=tuple(texts))
+    return Outcome(case["id"], passed=True, texts=tuple(texts))
 
 
 def main() -> None:

@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from cassim.core.compat import distributions
 
 _ALTERNATIVE_TWO_SIDED = 0
-_ALTERNATIVE_LESS = 1
-_ALTERNATIVE_GREATER = 2
 _MIN_TWO_SAMPLE = 2
 _MIN_REGRESSION = 3
 
@@ -35,14 +33,14 @@ def _sample_size(value: int) -> None:
 
 
 def _alternative_p(statistic: float, cdf: Callable[[float], float], alternative: int) -> float:
+    """The p-value for TI's `Hypoth` argument: 0 is ≠, a negative number is <, a positive one
+    is > (the Reference Guide's convention, not 0/1/2)."""
     below = cdf(statistic)
     if alternative == _ALTERNATIVE_TWO_SIDED:
         return min(1.0, 2 * min(below, 1 - below))
-    if alternative == _ALTERNATIVE_LESS:
+    if alternative < _ALTERNATIVE_TWO_SIDED:
         return below
-    if alternative == _ALTERNATIVE_GREATER:
-        return 1 - below
-    raise ValueError(alternative)
+    return 1 - below
 
 
 def mean_interval(

@@ -7,7 +7,7 @@ unticked. Linear Reg t Test has Save RegEqn to and no Draw. The Ha choices name 
 (`Ha: μ > μ0`, `Ha: prop ≠ p0`, the regression's slope), > first and ≠ the default.
 
 The dialog's fields are in the device's order; `args` puts their values in the engine command's
-order. Alternatives use the engine's numbering (0 ≠, 1 <, 2 >). The Calculator's own dialogs stay
+order. Alternatives use TI's numbering (0 ≠, -1 <, 1 >). The Calculator's own dialogs stay
 in `statistics.py`.
 """
 
@@ -28,9 +28,9 @@ def hypotheses(left: str, right: str) -> Field:
         "Alternate Hyp",
         "0",
         choices=(
-            ("2", f"Ha: {left} > {right}"),
+            ("1", f"Ha: {left} > {right}"),
             ("0", f"Ha: {left} ≠ {right}"),
-            ("1", f"Ha: {left} < {right}"),
+            ("-1", f"Ha: {left} < {right}"),
         ),
     )
 

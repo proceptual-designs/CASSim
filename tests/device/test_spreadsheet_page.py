@@ -1798,7 +1798,7 @@ def test_a_shaded_t_test_adds_a_t_pane_and_a_shaded_z_test_makes_a_third():
     assert sheet.session.eval("d1:={2,4,4,4.536,5,5,7.536,9}").error is None
     sheet.go((C, 1))
     state.run(Binding("sheet", "inference:tTest:data"))
-    finish_wizard(state, null="4", x="d1", alternative="2", shade="1")
+    finish_wizard(state, null="4", x="d1", alternative="1", shade="1")
     assert state.wizards[-1].title == "Conflict Detected"  # d1 is also a cell
     finish_wizard(state, d1="variable")
     (pane,) = sheet.panes
@@ -1809,7 +1809,7 @@ def test_a_shaded_t_test_adds_a_t_pane_and_a_shaded_z_test_makes_a_third():
     assert pane.plot.p_value == pytest.approx(0.09302381, abs=1e-7)
     sheet.go((F, 1))
     state.run(Binding("sheet", "inference:zTest_1Prop"))
-    finish_wizard(state, p0="0.5", successes="30", n="50", alternative="2", shade="1")
+    finish_wizard(state, p0="0.5", successes="30", n="50", alternative="1", shade="1")
     assert [p.plot.variable for p in sheet.panes if isinstance(p, ShadePane) and p.plot] == [
         "t",
         "z",

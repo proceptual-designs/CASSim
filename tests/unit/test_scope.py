@@ -96,7 +96,7 @@ def test_ans_ignores_statements_that_print_done():
         (("f(x):=x^2", "F(3)"), "9"),
         (("f(x):=x^2", "f(x)"), "x^2"),
         (("g(x,y):=x*y+1", "g(2,3)"), "7"),
-        (("g(x,y):=x-y", "g(y,x)"), "-x+y"),  # parameters do not capture the caller's names
+        (("g(x,y):=x-y", "g(y,x)"), "-(x-y)"),  # parameters do not capture the caller's names
         (("f(x):=x^2", "f({1,2,3})"), "{1,4,9}"),
         (("f(x):=x^2", "f(x):=x^3", "f(3)"), "27"),  # redefining replaces
         (("a:=2", "f(x):=a*x", "f(5)"), "10"),  # globals are read at the call

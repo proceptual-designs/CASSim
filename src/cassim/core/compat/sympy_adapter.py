@@ -580,6 +580,43 @@ def _negate(node: ast.Expr) -> ast.Expr:
     return ast.Unary("-", node)
 
 
+def _unevaluated_product(factors: list[Raw]) -> Raw:
+    if not factors:
+        return sp.Integer(1)
+    return factors[0] if len(factors) == 1 else sp.Mul(*factors, evaluate=False)
+
+
+def _split_quotient(raw: Raw) -> tuple[Raw, Raw]:
+    """A product's numerator and denominator as TI shows them. Unlike SymPy's `as_numer_denom`,
+    `ⅇ^(-a)` stays on top (`2·ⅇ^(-a)`, not `2/ⅇ^a`) and a number is not multiplied into a
+    bracket (`-6·(x³-1)`, not `-6·x³+6`)."""
+    top: list[Raw] = []
+    bottom: list[Raw] = []
+    factors: list[Raw] = list(sp.Mul.make_args(raw))
+    for factor in factors:
+        if factor.is_Rational and not factor.is_Integer:
+            if factor.p != 1:
+                top.append(sp.Integer(factor.p))
+            bottom.append(sp.Integer(factor.q))
+        elif factor.is_Pow and factor.exp.is_number and factor.exp.is_negative:
+            bottom.append(sp.Pow(factor.base, -factor.exp))
+        else:
+            top.append(factor)
+    return _unevaluated_product(top), _unevaluated_product(bottom)
+
+
+def _surds_after_variables(factors: list[Raw]) -> list[Raw]:
+    """A product's factors with any surd (√3) moved after the last factor with a variable:
+    TI writes `h^3*√(3)` (emulator check 6, K4). Products with no variable keep their order."""
+    surds = [f for f in factors if f.is_Pow and f.base.is_Rational and not f.free_symbols]
+    variables = [i for i, f in enumerate(factors) if f.free_symbols]
+    if not surds or not variables:
+        return factors
+    rest = [f for f in factors if not any(f is s for s in surds)]
+    last = max(i for i, f in enumerate(rest) if f.free_symbols)
+    return [*rest[: last + 1], *surds, *rest[last + 1 :]]
+
+
 class _Printer:
     """Build the AST of a result, so the parser's printer decides the parentheses."""
 
@@ -587,6 +624,8 @@ class _Printer:
         self._decimal_text = decimal_text
 
     def node(self, raw: Raw) -> ast.Expr:
+        if raw is sp.true or raw is sp.false:
+            return ast.Name("true" if raw is sp.true else "false")
         if raw.is_Number or raw.is_NumberSymbol or raw is sp.I:
             return self._number(raw)
         for kind, build in self._builders():
@@ -623,7 +662,11 @@ class _Printer:
         return _negate(ast.Name("∞")) if raw == -sp.oo else ast.Name(names[raw])
 
     def _sum(self, raw: Raw) -> ast.Expr:
-        first, *rest = raw.as_ordered_terms()
+        # Highest degree first, as TI orders terms: `t^2+k`, `x^3+a*x+2`. A negative leading
+        # term is taken out: `-(3*c1-1)`, `-(√3+2)` (emulator check 6, K4 and K7).
+        first, *rest = raw.as_ordered_terms(order="grlex")
+        if first.could_extract_minus_sign() and not first.is_number:
+            return ast.Unary("-", self.node(-raw))
         total = self.node(first)
         for term in rest:
             if term.could_extract_minus_sign():
@@ -636,10 +679,11 @@ class _Printer:
         coefficient, _ = raw.as_coeff_Mul()
         if coefficient.is_negative:
             return _negate(self.node(-raw))
-        numerator, denominator = raw.as_numer_denom()
+        numerator, denominator = _split_quotient(raw)
         if denominator != 1:
             return ast.Binary("/", self.node(numerator), self.node(denominator))
-        first, *rest = raw.as_ordered_factors()
+        # A surd after the variables: TI writes `h^3*√(3)` (emulator check 6, K4).
+        first, *rest = _surds_after_variables(raw.as_ordered_factors())
         product = self.node(first)
         for factor in rest:
             product = ast.Binary("*", product, self.node(factor))
@@ -1097,16 +1141,49 @@ def _needs_nonnegative(root: Raw) -> list[Raw]:
     return conditions
 
 
-def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
-    """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
+def _numeric_root_objects(raw: Raw) -> Raw:
+    """A root SymPy can only name (`CRootOf(x**7+...)`) as its decimal value, as TI gives it."""
+    return raw.replace(lambda e: isinstance(e, sp.CRootOf), lambda e: e.evalf(15))
+
+
+def _finite_part(found: Raw) -> Raw:
+    """{-b/a} intersected with the reals: the answer is the finite part."""
     if isinstance(found, sp.Intersection):
-        # {-b/a} intersected with the reals: the answer is the finite part.
         finite = [part for part in found.args if isinstance(part, sp.FiniteSet)]
-        found = finite[0] if finite else found
+        return finite[0] if finite else found
+    return found
+
+
+def _without_excluded(found: Raw) -> Raw:
+    """Roots less the points where the equation is undefined (a zero denominator): SymPy gives
+    them as a set difference, which TI does not show."""
+    if not isinstance(found, sp.Complement):
+        return found
+    kept, excluded = (_finite_part(part) for part in found.args)
+    if not isinstance(kept, sp.FiniteSet) or not isinstance(excluded, sp.FiniteSet):
+        return found
+    return sp.FiniteSet(*[root for root in kept.args if root not in excluded.args])
+
+
+def _plausibly_real(root: Raw, *, complex_roots: bool) -> bool:
+    """A root in a parameter written with ⅈ (the other two roots of a cubic) is not real."""
+    return complex_roots or not (root.free_symbols and root.has(sp.I))
+
+
+def _as_condition(
+    found: Raw, variable: Raw, equation: Raw, *, complex_roots: bool = False
+) -> Raw | None:
+    """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
+    found = _finite_part(_without_excluded(_finite_part(found)))
     if found == sp.S.EmptySet:
         return sp.false
     if isinstance(found, sp.FiniteSet):
-        roots = [r for r in _sorted_roots(found) if _holds(equation, variable, r)]
+        candidates = [
+            _numeric_root_objects(r)
+            for r in found.args
+            if _plausibly_real(r, complex_roots=complex_roots)
+        ]
+        roots = [r for r in _sorted_roots(candidates) if _holds(equation, variable, r)]
         clauses = [
             sp.And(sp.Eq(variable, r, evaluate=False), *_needs_nonnegative(r)) for r in roots
         ]
@@ -1118,9 +1195,11 @@ def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
         return family
     if found.has(sp.ImageSet, sp.ConditionSet) or isinstance(found, sp.Intersection):
         return None
-    return found.as_relational(variable).replace(
+    condition = found.as_relational(variable).replace(
         lambda e: isinstance(e, sp.core.relational.Relational), lambda e: e.canonical
     )
+    # Only relations joined by and/or can be shown; never SymPy's `~(Eq(...))`.
+    return None if condition.has(sp.Not) else condition
 
 
 def _unconditioned(found: Raw, variable: Raw) -> Raw:
@@ -1151,7 +1230,33 @@ def solve_equation(
                     found = found.intersect(_constraint_set(constraint, variable))
     except NotImplementedError, ValueError, TypeError:
         return None
-    return _as_condition(found, variable, equation)
+    condition = _as_condition(found, variable, equation, complex_roots=complex_roots)
+    bounds = [c for c in constraints if variable in c.free_symbols and c.free_symbols - {variable}]
+    if condition is None or not bounds or complex_roots:
+        return condition
+    return _within_parametric_bounds(condition, variable, bounds)
+
+
+def _within_parametric_bounds(condition: Raw, variable: Raw, bounds: list[Raw]) -> Raw:
+    """Keep the roots that meet bounds with a parameter, `|0<x<h/2`, taking the parameters as
+    positive, as TI does: a root kept that way gets `and h>0` (emulator check 6, K4)."""
+    clauses = condition.args if isinstance(condition, sp.Or) else (condition,)
+    kept: list[Raw] = []
+    for clause in clauses:
+        parts = conjuncts(clause)
+        root = next((p.rhs for p in parts if isinstance(p, sp.Eq) and p.lhs == variable), None)
+        if root is None:
+            kept.append(clause)
+            continue
+        parameters = sorted(root.free_symbols, key=str)
+        positive = {p: sp.Dummy(str(p), positive=True) for p in parameters}
+        held = [sp.simplify(b.subs(variable, root).subs(positive)) for b in bounds]
+        if any(h == sp.false for h in held):
+            continue
+        if all(h == sp.true for h in held) and parameters:
+            parts += [sp.Gt(p, 0) for p in parameters]
+        kept.append(sp.And(*parts))
+    return sp.Or(*kept) if kept else sp.false
 
 
 def conjuncts(raw: Raw) -> list[Raw]:
@@ -1172,17 +1277,43 @@ def linear_solve(equations: list[Raw], variables: list[Raw]) -> list[Raw] | None
 
 
 def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
+    """Solve a system. One with more equations than unknowns that holds only for a value of
+    another variable solves for that too, as TI does: `[2+l;r-l;-3+4·l]=[4;3;t]` in l and t
+    gives `l=2 and r=5 and t=5` (emulator check 6, K6)."""
+    system = [as_equation(e) for e in equations]
     try:
-        solutions = sp.solve([as_equation(e) for e in equations], variables, dict=True)
+        solutions = sp.solve(system, variables, dict=True)
+        if not solutions and len(system) > len(variables):
+            others = set().union(*(e.free_symbols for e in system)) - set(variables)
+            variables = sorted([*variables, *others], key=str)
+            solutions = sp.solve(system, variables, dict=True)
     except NotImplementedError:
         return None
     if not solutions:
         return sp.false
     cases = [
-        sp.And(*[sp.Eq(v, solution[v], evaluate=False) for v in variables if v in solution])
-        for solution in solutions
+        sp.And(
+            *[
+                sp.Eq(v, _numeric_root_objects(solution[v]), evaluate=False)
+                for v in variables
+                if v in solution
+            ]
+        )
+        for solution in (_with_free_parameters(s, variables) for s in solutions)
     ]
     return sp.Or(*cases)
+
+
+def _with_free_parameters(solution: dict[Raw, Raw], variables: list[Raw]) -> dict[Raw, Raw]:
+    """An unknown the system leaves free is named `c1`, `c2`, ... and the others are given in
+    terms of it, as TI does: `x=-(3·c1-1) and y=2·(c1+1)/3 and z=c1` (decision 0034, item 4).
+    The numbering starts at c1 in each answer, as deSolve's does."""
+    free = [v for v in variables if v not in solution]
+    if not free:
+        return solution
+    names = {v: sp.Symbol(f"c{k}", real=True) for k, v in enumerate(free, start=1)}
+    named = {v: sp.expand(value.xreplace(names)) for v, value in solution.items()}
+    return named | names
 
 
 def roots_of(
@@ -1225,7 +1356,50 @@ def substitute(raw: Raw, variable: Raw, value: Raw) -> Raw:
 
 
 def differentiate(expression: Raw, variable: Raw, order: int) -> Raw:
-    return sp.diff(expression, variable, order)
+    """A derivative in TI's simplified form: a polynomial expanded (`12·x²-300·x+1250`), and a
+    sum of quotients over one denominator with common factors cancelled (`1/(x+1)`,
+    `k/(t²+k)^(3/2)`, `-6·(x³-1)/(x³+a·x+2)²`; emulator check 6, K4, K5 and K7)."""
+    derived = sp.diff(expression, variable, order)
+    if derived.has(sp.Derivative, AppliedUndef, sp.Piecewise) or isinstance(derived, Boolean):
+        return derived
+    return _tidy_derivative(derived)
+
+
+def _tidy_derivative(derived: Raw) -> Raw:
+    symbols = derived.free_symbols
+    if symbols and derived.is_polynomial(*symbols):
+        # Multiplied out when that is no longer: the product rule's sum of products is, but
+        # `6·x·(x²+1)²` stays.
+        expanded = sp.expand(derived)
+        return expanded if sp.count_ops(expanded) <= sp.count_ops(derived) else derived
+    numerator, denominator = sp.fraction(sp.together(derived))
+    if denominator == 1 or denominator.has(sp.exp) or not denominator.free_symbols:
+        return derived
+    if denominator.is_polynomial(*symbols) and numerator.is_polynomial(*symbols):
+        quotient = sp.factor(numerator) / sp.factor(denominator)
+        numerator, denominator = sp.fraction(quotient)
+    numerator = sp.expand(numerator)
+    # A negative leading coefficient comes out: `-6·(x³-1)`, not `6·(1-x³)`.
+    sign = -1 if _leading_term(numerator).could_extract_minus_sign() else 1
+    tidy = sign * sp.factor_terms(sign * numerator) / denominator
+    return tidy if sp.count_ops(tidy) <= sp.count_ops(derived) else derived
+
+
+def _leading_term(raw: Raw) -> Raw:
+    """The term of highest total degree (of a polynomial), else the first term."""
+    terms = sp.Add.make_args(raw)
+    if raw.free_symbols and raw.is_polynomial(*raw.free_symbols):
+        return max(terms, key=lambda term: sp.Poly(term, *raw.free_symbols).total_degree())
+    return terms[0]
+
+
+def tidy_substitution(raw: Raw) -> Raw:
+    """A result with values put in, multiplied out when that is shorter: `v(x)|x=...` gives
+    `h³·√3/9`, not a product of brackets (emulator check 6, K4). `(x+1)^2` stays as it is."""
+    if isinstance(raw, Boolean) or not raw.free_symbols or raw.has(AppliedUndef):
+        return raw
+    expanded = sp.expand(raw)
+    return expanded if sp.count_ops(expanded) < sp.count_ops(raw) else raw
 
 
 def _inverse_hyperbolics_as_logs(raw: Raw) -> Raw:
@@ -1261,16 +1435,71 @@ def _without_abs(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw 
     return total
 
 
+def _generic_case(result: Raw, variable: Raw) -> Raw:
+    """TI integrates with the parameters taken as generic: `∫sin(a·x)dx` is `-cos(a·x)/a`, where
+    SymPy adds the special case a=0. A piecewise part whose conditions are only on parameters
+    becomes its first piece; one that depends on the variable (from the integrand) stays."""
+
+    def parametric(node: Raw) -> bool:
+        return isinstance(node, sp.Piecewise) and all(
+            condition is sp.true or variable not in condition.free_symbols
+            for _, condition in node.args
+        )
+
+    return result.replace(parametric, lambda node: node.args[0][0])
+
+
+# Functions an exact definite integral may show; anything else (Si, erf, ...) gives a decimal.
+_ELEMENTARY = (
+    sp.exp,
+    sp.log,
+    sp.sin,
+    sp.cos,
+    sp.tan,
+    sp.asin,
+    sp.acos,
+    sp.atan,
+    sp.sinh,
+    sp.cosh,
+    sp.tanh,
+    sp.asinh,
+    sp.Abs,
+)
+# An exact value with more operations than this is shown as a decimal (emulator check 6, K7:
+# TI gives `∫₀² π·f1(x)²dx` as 2.2880103, not a sum of logarithms and inverse tangents).
+_LONGEST_EXACT_INTEGRAL = 20
+
+
+def _wants_decimal(result: Raw, expression: Raw, variable: Raw, bounds: tuple[Raw, Raw]) -> bool:
+    """Whether a definite integral between numbers is better given as a decimal."""
+    if expression.free_symbols - {variable} or not all(bound.is_number for bound in bounds):
+        return False
+    if result.has(sp.Integral):
+        return True
+    functions = {type(node) for node in result.atoms(sp.Function)}
+    if any(not issubclass(kind, _ELEMENTARY) for kind in functions):
+        return True
+    return sp.count_ops(result) > _LONGEST_EXACT_INTEGRAL
+
+
 def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | None) -> Raw | None:
-    """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it."""
+    """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it.
+
+    A definite integral between numbers with no usable closed form is a decimal, as TI gives
+    `∫₀^π 5·√(5-4·cos(3·t/2))dt` as 36.607844 and `∫₁² sin(x)/x dx` as 0.65932991.
+    """
     if lower is None or upper is None:
         result = sp.integrate(expression, variable)
     else:
         result = sp.integrate(expression, (variable, lower, upper))
         if result.has(sp.Integral) and expression.has(sp.Abs):
             result = _without_abs(expression, variable, lower, upper) or result
+        if _wants_decimal(result, expression, variable, (lower, upper)):
+            return numerical_integral(expression, variable, lower, upper)
     if result.has(sp.Integral):
         return None
+    if not expression.has(sp.Piecewise, sp.Abs, sp.sign, sp.Heaviside, sp.floor, sp.ceiling):
+        result = _generic_case(result, variable)
     result = _inverse_hyperbolics_as_logs(result)
     return result if lower is not None else _logs_of_absolute_values(result)
 
@@ -1316,8 +1545,125 @@ def implicit_derivative(equation: Raw, variable: Raw, dependent: Raw) -> Raw:
     return sp.idiff(expression, dependent, variable)
 
 
+def _interval_condition(piece: Raw, variable: Raw) -> Raw:
+    """`a<x<b` for an interval, with ∞ written as TI writes it: `-∞<x<∞`, `-∞<x<-1`."""
+    low = (sp.Le if not piece.left_open else sp.Lt)(piece.start, variable, evaluate=False)
+    high = (sp.Le if not piece.right_open else sp.Lt)(variable, piece.end, evaluate=False)
+    return sp.And(low, high)
+
+
+def _punctured(pieces: list[Raw]) -> list[Raw] | None:
+    """The points left out if open intervals cover the real line but for them (`1/x`)."""
+    ordered = sorted(pieces, key=lambda piece: float(piece.start.evalf()))
+    if ordered[0].start != -sp.oo or ordered[-1].end != sp.oo:
+        return None
+    if not all(isinstance(piece, sp.Interval) for piece in ordered):
+        return None
+    points = []
+    for left, right in pairwise(ordered):
+        if left.end != right.start or not (left.right_open and right.left_open):
+            return None
+        points.append(left.end)
+    return points
+
+
+def domain_of(expression: Raw, variable: Raw) -> Raw | None:
+    """`domain(expr, x)`: where the real expression is defined, as a condition on `x`;
+    None if SymPy cannot tell."""
+    try:
+        found = sp.calculus.util.continuous_domain(expression, variable, sp.S.Reals)
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    if found == sp.S.EmptySet:
+        return sp.false
+    pieces = list(found.args) if isinstance(found, sp.Union) else [found]
+    if not all(isinstance(piece, sp.Interval) for piece in pieces):
+        return None
+    points = _punctured(pieces) if len(pieces) > 1 else None
+    if points:
+        return sp.And(*[sp.Ne(variable, point, evaluate=False) for point in points])
+    conditions = [_interval_condition(piece, variable) for piece in pieces]
+    return conditions[0] if len(conditions) == 1 else sp.Or(*conditions)
+
+
+def euler_table(
+    slope: Callable[[Raw, Raw], Raw],
+    span: tuple[Raw, Raw],
+    initial: Raw,
+    step: Raw,
+    substeps: int,
+) -> list[list[Raw]]:
+    """Euler's method for y'=slope(t,y) over t in `span`: the rows of t and y values."""
+    start, end = span
+    times, values = [sp.Float(start, 15)], [sp.Float(initial, 15)]
+    count = int(sp.floor((end - start) / step + sp.Rational(1, 10**9)))
+    small = sp.Float(step, 15) / substeps
+    t, y = times[0], values[0]
+    for _ in range(count):
+        for _ in range(substeps):
+            y = sp.Float(y + small * slope(t, y), 15)
+            t = sp.Float(t + small, 15)
+        times.append(t)
+        values.append(y)
+    return [times, values]
+
+
 def numerical_integral(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw:
     return sp.Integral(expression, (variable, lower, upper)).evalf()
+
+
+# The search for real roots when there is no exact answer: samples over [-_SEARCH_SPAN, ...].
+_SEARCH_SPAN = 100.0
+_SEARCH_SAMPLES = 20000
+_BISECTIONS = 100
+# A refined point is a root if the expression is this small there (relative to its size).
+_ROOT_RESIDUAL = 1e-9
+
+
+def _bisected(function: Callable[[float], float], low: float, high: float) -> float:
+    below = function(low) < 0
+    for _ in range(_BISECTIONS):
+        middle = (low + high) / 2
+        if (function(middle) < 0) == below:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def numeric_solutions(equation: Raw, variable: Raw) -> Raw | None:
+    """Real roots found by a bounded numeric search, for an equation in one unknown that has no
+    exact answer: `x=-0.750403` for `ⅇ^(-2x)-2ⅇ^(-x)+1=x+2`. None if there is none to find."""
+    if not isinstance(equation, sp.Eq):
+        return None
+    difference = equation.lhs - equation.rhs
+    if difference.free_symbols != {variable} or difference.atoms(AppliedUndef):
+        return None
+    function = sp.lambdify(variable, difference, "math")
+
+    def sample(point: float) -> float | None:
+        try:
+            value = float(function(point))
+        except ValueError, ZeroDivisionError, OverflowError, TypeError:
+            return None
+        return value if math.isfinite(value) else None
+
+    step = 2 * _SEARCH_SPAN / _SEARCH_SAMPLES
+    points = [-_SEARCH_SPAN + k * step for k in range(_SEARCH_SAMPLES + 1)]
+    roots: list[float] = []
+    for left, right in pairwise(points):
+        low, high = sample(left), sample(right)
+        if low is None or high is None or (low < 0) == (high < 0):
+            continue
+        root = _bisected(lambda p: sample(p) or 0.0, left, right)
+        residual = sample(root)
+        scale = max(abs(low), abs(high), 1.0)
+        if residual is not None and abs(residual) <= _ROOT_RESIDUAL * scale:
+            roots.append(root)
+    if not roots:
+        return None
+    clauses = [sp.Eq(variable, sp.Float(root, 15), evaluate=False) for root in roots]
+    return sp.Or(*clauses)
 
 
 _GUESSES = (1, 0, -1, 2, -2, 10, -10)
@@ -1333,6 +1679,82 @@ def numerical_root(equation: Raw, variable: Raw, guess: Raw | None) -> Raw | Non
     return None
 
 
+_TRIG = (sp.sin, sp.cos, sp.tan, sp.sec, sp.csc, sp.cot)
+# Samples per period for the numeric search of a periodic function's extremum.
+_PERIOD_SAMPLES = 2000
+# Extrema whose values agree this closely are the same extremum, repeated.
+_SAME_EXTREMUM = 1e-9
+
+
+def _period(expression: Raw, variable: Raw) -> Raw | None:
+    """The period of a trigonometric expression in `variable`, or None if it is not periodic."""
+    if not expression.has(*_TRIG):
+        return None
+    try:
+        # Decimals as fractions, so that `cos(0.5·x)` has a period too.
+        period = sp.periodicity(sp.nsimplify(expression, rational=True), variable)
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    return period if period is not None and period.is_positive else None
+
+
+def _refined(slope: Callable[[float], float], low: float, high: float) -> float:
+    """A zero of `slope` between two points where it changes sign, by bisection."""
+    for _ in range(80):
+        middle = (low + high) / 2
+        if (slope(low) <= 0) == (slope(middle) <= 0):
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def _periodic_extremum(expression: Raw, variable: Raw, period: Raw, *, maximum: bool) -> Raw | None:
+    """The extremum of a periodic function by a bounded numeric search over one period each
+    side of 0: the best value, at the point nearest 0 where it is reached (TI gives
+    `fMin(sin(x/2)+cos(2·x),x)` as `x=-1.65576`). It always returns, unlike solving f'=0."""
+    sign = -1.0 if maximum else 1.0
+    value = sp.lambdify(variable, sign * expression, "math")
+    slope = sp.lambdify(variable, sign * sp.diff(expression, variable), "math")
+    span = float(period)
+    count = 2 * _PERIOD_SAMPLES
+    points = [-span + 2 * span * k / count for k in range(count + 1)]
+    found: list[tuple[float, float]] = []
+    for left, right in pairwise(points):
+        try:
+            if slope(left) < 0 <= slope(right):
+                where = _refined(slope, left, right)
+                found.append((value(where), where))
+        except ValueError, ZeroDivisionError, OverflowError:
+            continue
+    if not found:
+        return None
+    best = min(height for height, _ in found)
+    nearest = min((where for height, where in found if height - best <= _SAME_EXTREMUM), key=abs)
+    return sp.Eq(variable, sp.Float(nearest, 15), evaluate=False)
+
+
+def _domain_ends(
+    expression: Raw, variable: Raw, domain: Raw
+) -> tuple[list[Raw], list[float]] | None:
+    """The closed ends of the domain, and what the expression approaches at its unbounded ends;
+    None if the domain is not intervals or the expression oscillates at an end."""
+    closed: list[Raw] = []
+    reaches: list[float] = []
+    for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
+        if not isinstance(piece, sp.Interval):
+            return None
+        for end, is_open in ((piece.start, piece.left_open), (piece.end, piece.right_open)):
+            if end.is_finite and not is_open:
+                closed.append(end)
+            elif not end.is_finite:
+                reach = sp.limit(expression, variable, end)
+                if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
+                    return None
+                reaches.append(float(reach.evalf()))
+    return closed, reaches
+
+
 def extremum(
     expression: Raw, variable: Raw, constraints: Iterable[Raw], *, maximum: bool
 ) -> Raw | None:
@@ -1341,22 +1763,18 @@ def extremum(
     for constraint in constraints:
         if constraint.free_symbols <= {variable}:
             domain = domain.intersect(_constraint_set(constraint, variable))
+    if domain == sp.S.Reals and expression.free_symbols == {variable}:
+        period = _period(expression, variable)
+        if period is not None:
+            return _periodic_extremum(expression, variable, period, maximum=maximum)
     critical = sp.solveset(sp.diff(expression, variable), variable, domain)
     if critical != sp.S.EmptySet and not isinstance(critical, sp.FiniteSet):
         return None
-    candidates = list(critical)
-    reaches: list[float] = []  # what the expression approaches at an unbounded end
-    for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
-        if not isinstance(piece, sp.Interval):
-            return None
-        for end, is_open in ((piece.start, piece.left_open), (piece.end, piece.right_open)):
-            if end.is_finite and not is_open:
-                candidates.append(end)
-            elif not end.is_finite:
-                reach = sp.limit(expression, variable, end)
-                if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
-                    return None
-                reaches.append(float(reach.evalf()))
+    ends = _domain_ends(expression, variable, domain)
+    if ends is None:
+        return None
+    closed, reaches = ends
+    candidates = [*critical, *closed]
     if not candidates:
         return None
     values = {c: float(expression.subs(variable, c).evalf()) for c in candidates}
