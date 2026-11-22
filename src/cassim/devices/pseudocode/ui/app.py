@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, cast
 import flet as ft
 
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
-from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
+from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing, in_code
 from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
@@ -200,8 +200,7 @@ class CodeApp:
         self.current_source = EXAMPLE
         self.trace_source = EXAMPLE
         self.line_numbers_visible = True
-        self.typing_aid = False
-        self.typing_aids = False
+        self.typing_aid = True  # Settings, on by default
         self.typing_undo: tuple[str, str] | None = None
         self.code_style = "monospace"
         self.symbol_style = "unicode"
@@ -312,11 +311,6 @@ class CodeApp:
             on_click=self.cycle_trace_layout,
             style=_control_style(),
         )
-        self.typing_aids_switch = ft.Switch(
-            label="Typing aids",
-            value=False,
-            on_change=self.toggle_typing_aids,
-        )
         self.trace_items = ft.Column(
             [ft.Text("Run to discover constants, variables, functions, and conditions", size=12)],
             scroll=ft.ScrollMode.AUTO,
@@ -385,7 +379,6 @@ class CodeApp:
                 self.number_button,
                 self.angle_button,
                 self.trace_layout,
-                self.typing_aids_switch,
             ],
             scroll=ft.ScrollMode.AUTO,
             spacing=8,
@@ -516,15 +509,14 @@ class CodeApp:
             return
         code_style = data.get("code_style")
         symbol_style = data.get("symbol_style")
-        typing_aids = data.get("typing_aids")
+        # A new key: the old "typing_aids" mostly holds the old default (off).
+        typing_aid = data.get("typing_aid")
         if code_style in ("monospace", "formatted"):
             self.code_style = str(code_style)
         if symbol_style in ("unicode", "ascii"):
             self.symbol_style = str(symbol_style)
-        if isinstance(typing_aids, bool):
-            self.typing_aids = typing_aids
-            self.typing_aid = typing_aids
-        self.typing_aids_switch.value = self.typing_aids
+        if isinstance(typing_aid, bool):
+            self.typing_aid = typing_aid
         self.update_typing_aids()
         self.apply_code_style()
         if self.symbol_style == "ascii":
@@ -537,7 +529,7 @@ class CodeApp:
                 {
                     "code_style": self.code_style,
                     "symbol_style": self.symbol_style,
-                    "typing_aids": self.typing_aids,
+                    "typing_aid": self.typing_aid,
                 }
             ),
         )
@@ -599,21 +591,18 @@ class CodeApp:
     def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
         text = str(event.control.value or "")
         previous = self.current_source
-        if self.typing_aid and not self.typing_aids:
-            # Not `event.control.selection`: it reaches Python separately and can be stale.
-            replacement = replacement_before_cursor(text, edit_end(previous, text))
-            if replacement is not None:
-                event.control.value = (
-                    text[: replacement.start] + replacement.replacement + text[replacement.end :]
-                )
-                event.control.update()
-                self.typing_undo = (str(event.control.value or ""), text)
-                self.current_source = str(event.control.value or "")
-                self.refresh_line_numbers()
-                self.mark_dirty()
-                return
-        if self.typing_aids and self.symbol_style == "unicode":
+        if self.typing_aid_available():
             converted = convert_typing(previous, text)
+            if converted == text:
+                # LaTeX words (`\theta `). Not `event.control.selection` for the caret: it
+                # reaches Python separately and can be stale.
+                replacement = replacement_before_cursor(text, edit_end(previous, text))
+                if replacement is not None and in_code(text, replacement.start):
+                    converted = (
+                        text[: replacement.start]
+                        + replacement.replacement
+                        + text[replacement.end :]
+                    )
             if converted != text:
                 self.typing_undo = (converted, text)
                 event.control.value = converted
@@ -965,9 +954,7 @@ if (!window.CASSimPseudocodeModeDefined) {
                     "indentUnit": 2,
                     "tabSize": 2,
                     "autofocus": False,
-                    "cassimTypingAids": self.typing_aids
-                    and self.language == "pseudocode"
-                    and self.symbol_style == "unicode",
+                    "cassimTypingAids": self.typing_aid_available(),
                 },
                 dict_converter=js.Object.fromEntries,
             ),
@@ -980,28 +967,8 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.update_typing_aids()
         self.install_typing_aids()
 
-        def changed(_instance: object, change: object) -> None:
-            if (
-                self.typing_aid
-                and not self.typing_aids
-                and str(getattr(change, "origin", "")) == "+input"
-            ):
-                cursor = cm.getCursor()
-                source = str(cm.getValue())
-                line = int(cursor.line)
-                offset = sum(len(part) + 1 for part in source.splitlines()[:line])
-                index = offset + int(cursor.ch)
-                replacement = replacement_before_cursor(source, index)
-                if replacement is not None:
-                    from_cursor = to_js(
-                        {
-                            "line": line,
-                            "ch": int(cursor.ch) - (replacement.end - replacement.start),
-                        },
-                        dict_converter=js.Object.fromEntries,
-                    )
-                    cm.replaceRange(replacement.replacement, from_cursor, cursor, "+typingAid")
-                    return
+        def changed(_instance: object, _change: object) -> None:
+            # CodeMirror's own `CASSimTypingAids` handler converts while typing.
             self.current_source = str(cm.getValue())
             self.mark_dirty()
 
@@ -1176,23 +1143,15 @@ window.CASSimTypingAids = function(editor, change) {
         self.angle_button.content = self.angle_mode.title()
         _safe_update(self.angle_button)
 
-    def toggle_typing_aids(self, event: ft.Event[ft.Switch]) -> None:
-        enabled = bool(event.control.value)
-        self.typing_aids = enabled
-        self.typing_aid = enabled
-        self.update_typing_aids()
-        self.save_editor_settings()
+    def typing_aid_available(self) -> bool:
+        """The typing aid (Settings) converts only Pseudocode written in Unicode symbols."""
+        return self.typing_aid and self.language == "pseudocode" and self.symbol_style == "unicode"
 
     def update_typing_aids(self) -> None:
-        available = self.language == "pseudocode" and self.symbol_style == "unicode"
-        self.typing_aids_switch.disabled = not available
-        self.typing_aids_switch.value = self.typing_aids
-        if not available:
+        if not self.typing_aid_available():
             self.typing_undo = None
-        if hasattr(self.page, "update"):
-            self.typing_aids_switch.update()
         if self.cm is not None:
-            self.cm.setOption("cassimTypingAids", self.typing_aids and available)
+            self.cm.setOption("cassimTypingAids", self.typing_aid_available())
 
     async def run_code(self, _: ft.Event[ft.Button]) -> None:
         source = self.source()
@@ -1597,10 +1556,109 @@ window.CASSimTypingAids = function(editor, change) {
             alignment=ft.Alignment.CENTER_LEFT,
         )
 
+    def _call_cell(self, value: str, call: int, width: float) -> ft.Container:
+        """A Calcs / Output cell for a call to a function defined in the code: the call and a
+        button that opens the call's own trace (FR-TRC-013)."""
+        return ft.Container(
+            ft.Row(
+                [
+                    ft.Text(value, size=12, selectable=True, expand=True),
+                    ft.IconButton(
+                        icon=ft.Icons.OPEN_IN_NEW,
+                        icon_size=14,
+                        width=28,
+                        height=28,
+                        padding=0,
+                        tooltip=f"Expand {value}",
+                        on_click=lambda _: self.show_call(call),
+                    ),
+                ],
+                spacing=2,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            width=width,
+            height=38,
+            padding=ft.Padding.only(left=6, right=2),
+            border=ft.Border.all(1),
+            alignment=ft.Alignment.CENTER_LEFT,
+        )
+
+    def call_rows(self, table: trace.VerticalTable) -> dict[int, int]:
+        """Row number -> step for the rows that call a function defined in the code."""
+        if self.result is None:
+            return {}
+        steps = self.result.steps
+        return {
+            number: row.step
+            for number, row in enumerate(table.rows)
+            if row.step < len(steps) and steps[row.step].kind == "call"
+        }
+
+    def show_call(self, call: int) -> None:
+        """Open the trace of one function call in a dialog; calls inside it open the same way."""
+        if self.result is None:
+            return
+        settings = self.settings()
+        table = trace.call_table(self.result, settings, call, cursor=self.cursor)
+        step = self.result.steps[call]
+        starting = trace.call_parameters(self.result, call, settings)
+        title = f"{step.calc}: {starting}" if starting else step.calc
+        widths = [
+            LINE_COLUMN_WIDTH,
+            *(VARIABLE_COLUMN_WIDTH for _ in table.variables),
+            OUTPUT_COLUMN_WIDTH,
+        ]
+        titles = ["Line", *table.variables, "Calcs / Output"]
+
+        def cell(value: str, width: float, *, bold: bool = False) -> ft.Container:
+            return ft.Container(
+                ft.Text(value, size=12, weight=ft.FontWeight.BOLD if bold else None),
+                width=width,
+                height=38,
+                padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+                border=ft.Border.all(1),
+                alignment=ft.Alignment.CENTER_LEFT,
+            )
+
+        calls = self.call_rows(table)
+        lines: list[ft.Control] = [
+            ft.Row(
+                [cell(name, width, bold=True) for name, width in zip(titles, widths, strict=True)],
+                spacing=0,
+                tight=True,
+            )
+        ]
+        for number, row in enumerate(table.rows):
+            values = [str(row.line), *(row.cells.get(name, "") for name in table.variables)]
+            cells: list[ft.Control] = [
+                cell(value, width) for value, width in zip(values, widths, strict=False)
+            ]
+            cells.append(
+                self._call_cell(row.calc, calls[number], widths[-1])
+                if number in calls
+                else cell(row.calc, widths[-1])
+            )
+            lines.append(ft.Row(cells, spacing=0, tight=True, height=38))
+        if not table.rows:
+            lines.append(ft.Text("No lines of this call have run yet.", size=12))
+        grid = ft.Column(lines, spacing=0, scroll=ft.ScrollMode.AUTO)
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text(title),
+                content=ft.Container(
+                    ft.Row([grid], scroll=ft.ScrollMode.AUTO),
+                    width=min(sum(widths) + 24, 900),
+                    height=min(38 * (len(lines) + 1), 460),
+                ),
+                actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
+            )
+        )
+
     def draw_trace_table(
         self,
         columns: list[tuple[str, str, float]],
         rows: list[list[str]],
+        calls: dict[int, int] | None = None,
     ) -> None:
         for key, _, default in columns:
             self.trace_widths.setdefault(key, default)
@@ -1618,9 +1676,12 @@ window.CASSimTypingAids = function(editor, change) {
             tight=True,
         )
         body_rows: list[ft.Control] = []
-        for row in rows:
+        calls = calls or {}
+        for number, row in enumerate(rows):
             row_containers = [
-                self._trace_cell(key, value)
+                self._call_cell(value, calls[number], self.trace_widths[key])
+                if key == "__output__" and number in calls
+                else self._trace_cell(key, value)
                 for (key, _, _), value in zip(columns, row, strict=True)
             ]
             for (key, _, _), control in zip(columns, row_containers, strict=True):
@@ -1753,10 +1814,10 @@ window.CASSimTypingAids = function(editor, change) {
                 self.trace_layout.content = "Trace: Vertical"
                 _safe_update(self.trace_layout)
                 vertical, columns, rows = self.update_vertical_trace()
-                self.draw_trace_table(columns, rows)
+                self.draw_trace_table(columns, rows, self.call_rows(vertical))
         else:
             vertical, columns, rows = self.update_vertical_trace()
-            self.draw_trace_table(columns, rows)
+            self.draw_trace_table(columns, rows, self.call_rows(vertical))
         shown = (
             len([step for step in self.result.steps if step.kind != "halt"])
             if self.result is not None
@@ -1838,7 +1899,6 @@ window.CASSimTypingAids = function(editor, change) {
             self.angle_mode = cast(AngleMode, angle.selected[0])
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
-            self.typing_aids = self.typing_aid
             self.code_style = str(code_style.value or "monospace")
             new_symbol_style = str(symbol_style.value or "unicode")
             if new_symbol_style != self.symbol_style:

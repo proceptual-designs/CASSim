@@ -315,6 +315,7 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | FR-TRC-010 | Export a trace as CSV, Markdown or an image. | C | D |
 | FR-TRC-011 | A third, per-iteration view (one row per loop pass, variables as columns), after the vertical and horizontal views are done (Q33, decided 2026-11-04). | C | D |
 | FR-TRC-012 | Line-by-line variable trace for Python outside the supported subset. | C | D |
+| FR-TRC-013 | In the vertical layout a call to a function defined in the code is one row, which expands (in a dialog) to that call's own lines: its variables as columns, its starting values in the title, rows up to the cursor. A call made inside it expands the same way (added 2026-11-22). | S | T |
 
 **Settings bar (M5)**
 | ID | Requirement | Pri | Ver |

@@ -4,7 +4,7 @@ Both layouts are views of the same `Step` list: building one never re-runs the p
 takes a `cursor` (number of steps shown) so the table fills in as the student steps forwards.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from cassim.runtime.pseudocode import arith
 from cassim.runtime.pseudocode.settings import Settings
@@ -87,7 +87,48 @@ def vertical(
     `max_depth` 0 shows top-level lines only (a function call is one row); a larger value also
     shows the lines run inside functions.
     """
-    steps = [s for s in _shown(result, cursor) if s.depth <= max_depth]
+    return _vertical_table([s for s in _shown(result, cursor) if s.depth <= max_depth], settings)
+
+
+def call_steps(result: RunResult, call: int, *, cursor: int | None = None) -> list[Step]:
+    """The lines run directly inside the call recorded as step `call`, up to `cursor`.
+
+    Lines of calls made from inside it are left out; each of those has its own `call` step."""
+    shown = _shown(result, cursor)
+    if not 0 <= call < len(shown) or shown[call].kind != "call":
+        return []
+    depth = shown[call].depth
+    inside: list[Step] = []
+    for s in shown[call + 1 :]:
+        if s.depth <= depth:
+            break
+        if s.depth == depth + 1:
+            inside.append(s)
+    return inside
+
+
+def call_table(
+    result: RunResult, settings: Settings, call: int, *, cursor: int | None = None
+) -> VerticalTable:
+    """The vertical trace of one function call, as `vertical` draws the top level.
+
+    A call made from inside it is one row whose parameters are left out: they belong to that
+    call's own table, not to this call's variables."""
+    steps = [
+        replace(s, changes=()) if s.kind == "call" else s
+        for s in call_steps(result, call, cursor=cursor)
+    ]
+    return _vertical_table(steps, settings)
+
+
+def call_parameters(result: RunResult, call: int, settings: Settings) -> str:
+    """`n = 1, k = 2`: the values the call recorded as step `call` started with."""
+    if not 0 <= call < len(result.steps) or result.steps[call].kind != "call":
+        return ""
+    return ", ".join(f"{c.name} = {_show(c.new, settings)}" for c in result.steps[call].changes)
+
+
+def _vertical_table(steps: list[Step], settings: Settings) -> VerticalTable:
     table = VerticalTable([])
     for s in steps:
         for c in s.changes:

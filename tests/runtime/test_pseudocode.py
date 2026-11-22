@@ -554,3 +554,50 @@ def test_vertical_trace_column_selection() -> None:
     assert table.conditions == list(choices.conditions[:1])
     assert all(set(row.cells) <= {"a", "c"} for row in table.rows)
     assert all(set(row.conditions) <= set(choices.conditions[:1]) for row in table.rows)
+
+
+DOUBLING = """\
+define f(n)
+  m ← n*2
+  if m > 4 then
+    return m
+  end if
+  return f(m)
+end
+y ← f(1)
+print y"""
+
+
+def test_a_call_row_expands_to_its_own_lines() -> None:
+    """FR-TRC-013: a call to a function defined in the code is one top-level row; expanding it
+    shows only that call's lines, and a call inside it expands the same way."""
+    result = run(DOUBLING, Settings())
+    top = trace.vertical(result, Settings())
+    assert [(row.step, row.calc) for row in top.rows][:1] == [(0, "f(1)")]
+    assert result.steps[0].kind == "call"
+
+    first = trace.call_table(result, Settings(), 0)
+    assert [row.line for row in first.rows] == [2, 3, 6, 6]
+    assert first.variables == ["m"]
+    assert first.rows[0].cells == {"m": "2"}
+    nested = first.rows[2]
+    assert (nested.calc, result.steps[nested.step].kind) == ("f(2)", "call")
+
+    second = trace.call_table(result, Settings(), nested.step)
+    assert [row.line for row in second.rows] == [2, 3, 6, 6]
+    assert second.rows[0].cells == {"m": "4"}
+
+
+def test_a_call_row_shows_only_the_lines_reached_by_the_cursor() -> None:
+    result = run(DOUBLING, Settings())
+
+    assert [row.line for row in trace.call_table(result, Settings(), 0, cursor=3).rows] == [2, 3]
+    assert trace.call_table(result, Settings(), 12).rows == []  # not a call row
+
+
+def test_a_call_dialog_names_its_starting_values() -> None:
+    result = run(DOUBLING, Settings())
+
+    assert trace.call_parameters(result, 0, Settings()) == "n = 1"
+    assert trace.call_parameters(result, 3, Settings()) == "n = 2"
+    assert trace.call_parameters(result, 12, Settings()) == ""

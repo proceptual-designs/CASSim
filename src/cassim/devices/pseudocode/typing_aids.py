@@ -1,7 +1,8 @@
 """Token-aware, single-keystroke convenience conversions for pseudocode source."""
 
 
-def _in_code(source: str, end: int) -> bool:
+def in_code(source: str, end: int) -> bool:
+    """Whether `source[end]` is in code, not in a string or a comment."""
     quote = ""
     comment = False
     i = 0
@@ -72,7 +73,7 @@ def convert_typing(previous: str, current: str) -> str:
 
 def _convert_key(current: str, index: int) -> str:
     """Apply the conversion that typing `current[index]` completes, if any."""
-    if not _in_code(current, index):
+    if not in_code(current, index):
         return current
     through = current[: index + 1]
     operators = {"<-": "←", "<=": "≤", ">=": "≥", "!=": "≠"}
@@ -114,7 +115,7 @@ def convert_symbols(source: str, style: str) -> str:
     out: list[str] = []
     i = 0
     while i < len(source):
-        if _in_code(source, i):
+        if in_code(source, i):
             for old, new in replacements:
                 end = i + len(old)
                 macro_boundary = (

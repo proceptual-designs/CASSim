@@ -58,13 +58,43 @@ def test_typing_aid_finds_the_edit_without_a_current_selection() -> None:
     """FR-SYN-013: the selection reaches Python separately from the text, so it can be stale.
     After select-all and delete it still points into the old text; `<-` must still convert."""
     app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
-    app.typing_aid, app.typing_aids = True, False
     app.current_source = "x <"
 
     assert typed(app, "x <-", selection_end=0).value == "x ←"
 
     app.current_source = "a\nb"
     assert typed(app, "a <-\nb", selection_end=9).value == "a ←\nb"  # an edit mid-text
+
+
+def test_typing_aid_is_a_setting_that_starts_on() -> None:
+    """FR-SYN-013: no switch in the toolbar; Settings holds it, on by default."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+
+    assert app.typing_aid
+    switches = [control for control in app.toolbar.controls if isinstance(control, ft.Switch)]
+    assert switches == []
+
+
+def test_typing_aid_converts_latex_words_but_not_in_strings_or_python() -> None:
+    """FR-SYN-013: `\\theta ` became θ only in a mode the UI could not reach; now it works."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.current_source = "x ← \\theta"
+    assert typed(app, "x ← \\theta ", selection_end=None).value == "x ← θ "
+
+    app.current_source = 'print "\\theta'
+    assert typed(app, 'print "\\theta ', selection_end=None).value == 'print "\\theta '
+
+    app.language = "python"
+    app.current_source = "x <"
+    assert typed(app, "x <-", selection_end=None).value == "x <-"
+
+
+def test_typing_aid_off_in_settings_leaves_typing_alone() -> None:
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.typing_aid = False
+    app.current_source = "x <"
+
+    assert typed(app, "x <-", selection_end=None).value == "x <-"
 
 
 def test_bisection_example_starts_with_expression_function() -> None:
@@ -350,3 +380,64 @@ def test_pseudocode_console_accepts_print_and_bare_expressions() -> None:
 
     assert app.pseudocode_console_source("x ← 4", 'print 50*"hi"') == ('x ← 4\nprint 50*"hi"')
     assert app.pseudocode_console_source("x ← 4", "x + 1") == "x ← 4\nprint x + 1"
+
+
+DOUBLING = """\
+define f(n)
+  m ← n*2
+  if m > 4 then
+    return m
+  end if
+  return f(m)
+end
+y ← f(1)
+print y"""
+
+
+def texts(control: object) -> list[str]:
+    """Every Text value inside a control tree, in order."""
+    found: list[str] = []
+    if isinstance(control, ft.Text) and isinstance(control.value, str):
+        found.append(control.value)
+    for name in ("content", "controls", "title"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child]:
+            if isinstance(item, ft.Control):
+                found.extend(texts(item))
+    return found
+
+
+def test_a_call_row_opens_its_own_trace_in_a_dialog() -> None:
+    """FR-TRC-013: the call's Calcs cell has an expand button; the dialog shows that call's
+    lines, and a call inside it has its own button."""
+    shell = DummyShell()
+    dialogs: list[ft.AlertDialog] = []
+    shell.page = SimpleNamespace(show_dialog=dialogs.append, pop_dialog=lambda: None)
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.result = run(DOUBLING, Settings())
+    app.cursor = len(app.result.steps)
+
+    table, _, _ = app.update_vertical_trace()
+    calls = app.call_rows(table)
+    assert calls == {0: 0}  # the top-level row `f(1)`
+
+    app.show_call(calls[0])
+    dialog = dialogs[-1]
+    assert texts(dialog.title) == ["f(1): n = 1"]
+    shown = texts(dialog.content)
+    assert shown[:3] == ["Line", "m", "Calcs / Output"]
+    assert "f(2)" in shown
+    buttons = [tooltip for tooltip in _tooltips(dialog.content) if tooltip.startswith("Expand ")]
+    assert buttons == ["Expand f(2)"]
+
+
+def _tooltips(control: object) -> list[str]:
+    found: list[str] = []
+    if isinstance(control, ft.IconButton) and isinstance(control.tooltip, str):
+        found.append(control.tooltip)
+    for name in ("content", "controls"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child]:
+            if isinstance(item, ft.Control):
+                found.extend(_tooltips(item))
+    return found
