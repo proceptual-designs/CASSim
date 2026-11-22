@@ -1,6 +1,7 @@
 """Focused state tests for the standalone pseudocode Code view."""
 
 import asyncio
+import sys
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
@@ -25,6 +26,14 @@ from cassim.devices.pseudocode.ui.app import (
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
 
 
+def test_codemirror_is_only_mounted_with_a_page_document(monkeypatch) -> None:
+    """The web UI runs in a worker: `js` exists there but has no `document` (start raised)."""
+    monkeypatch.setitem(sys.modules, "js", SimpleNamespace())
+    assert not CodeApp._has_browser_dom()
+    monkeypatch.setitem(sys.modules, "js", SimpleNamespace(document=object()))
+    assert CodeApp._has_browser_dom()
+
+
 class DummyShell:
     def __init__(self) -> None:
         self.page = SimpleNamespace()
@@ -35,6 +44,27 @@ class DummyShell:
 
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
+
+
+def typed(app: CodeApp, text: str, selection_end: int | None) -> SimpleNamespace:
+    """Send the fallback editor a change, with the selection Python last heard about."""
+    selection = None if selection_end is None else SimpleNamespace(end=selection_end)
+    control = SimpleNamespace(value=text, selection=selection, update=lambda: None)
+    app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
+    return control
+
+
+def test_typing_aid_finds_the_edit_without_a_current_selection() -> None:
+    """FR-SYN-013: the selection reaches Python separately from the text, so it can be stale.
+    After select-all and delete it still points into the old text; `<-` must still convert."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.typing_aid, app.typing_aids = True, False
+    app.current_source = "x <"
+
+    assert typed(app, "x <-", selection_end=0).value == "x ←"
+
+    app.current_source = "a\nb"
+    assert typed(app, "a <-\nb", selection_end=9).value == "a ←\nb"  # an edit mid-text
 
 
 def test_bisection_example_starts_with_expression_function() -> None:
