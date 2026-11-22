@@ -344,6 +344,9 @@ class Evaluator:
     def _finish(self, value: Value) -> Value:
         if not isinstance(value, Expr):
             return value
+        decided = cas.truth(value.raw)
+        if decided is not None:
+            return Bool(decided)  # `eqn|x=4 and y=-2` that holds is `true`, never SymPy's True
         if self._settings.cas_mode != CasMode.ON and cas.is_symbolic(value.raw):
             raise TIError(errors.CAS_RESTRICTED)
         finished = Expr(cas.finish(value.raw, self._settings))

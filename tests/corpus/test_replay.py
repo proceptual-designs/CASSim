@@ -38,7 +38,6 @@ def test_no_case_crashes_the_engine():
 
 
 @pytest.mark.corpus
-@pytest.mark.xfail(strict=True, reason="SymPy text still leaks (emulator check 6 run 5, plan B1)")
 def test_no_sympy_text_in_any_result():
     """Results are TI text: no `CRootOf`, `Eq(`, `**`, `True` or `Piecewise` (plan A)."""
     leaks = [

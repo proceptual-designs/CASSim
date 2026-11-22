@@ -587,6 +587,8 @@ class _Printer:
         self._decimal_text = decimal_text
 
     def node(self, raw: Raw) -> ast.Expr:
+        if raw is sp.true or raw is sp.false:
+            return ast.Name("true" if raw is sp.true else "false")
         if raw.is_Number or raw.is_NumberSymbol or raw is sp.I:
             return self._number(raw)
         for kind, build in self._builders():
@@ -1097,16 +1099,49 @@ def _needs_nonnegative(root: Raw) -> list[Raw]:
     return conditions
 
 
-def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
-    """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
+def _numeric_root_objects(raw: Raw) -> Raw:
+    """A root SymPy can only name (`CRootOf(x**7+...)`) as its decimal value, as TI gives it."""
+    return raw.replace(lambda e: isinstance(e, sp.CRootOf), lambda e: e.evalf(15))
+
+
+def _finite_part(found: Raw) -> Raw:
+    """{-b/a} intersected with the reals: the answer is the finite part."""
     if isinstance(found, sp.Intersection):
-        # {-b/a} intersected with the reals: the answer is the finite part.
         finite = [part for part in found.args if isinstance(part, sp.FiniteSet)]
-        found = finite[0] if finite else found
+        return finite[0] if finite else found
+    return found
+
+
+def _without_excluded(found: Raw) -> Raw:
+    """Roots less the points where the equation is undefined (a zero denominator): SymPy gives
+    them as a set difference, which TI does not show."""
+    if not isinstance(found, sp.Complement):
+        return found
+    kept, excluded = (_finite_part(part) for part in found.args)
+    if not isinstance(kept, sp.FiniteSet) or not isinstance(excluded, sp.FiniteSet):
+        return found
+    return sp.FiniteSet(*[root for root in kept.args if root not in excluded.args])
+
+
+def _plausibly_real(root: Raw, *, complex_roots: bool) -> bool:
+    """A root in a parameter written with ⅈ (the other two roots of a cubic) is not real."""
+    return complex_roots or not (root.free_symbols and root.has(sp.I))
+
+
+def _as_condition(
+    found: Raw, variable: Raw, equation: Raw, *, complex_roots: bool = False
+) -> Raw | None:
+    """Turn a solution set into the condition TI shows, or None if it is not a finite answer."""
+    found = _finite_part(_without_excluded(_finite_part(found)))
     if found == sp.S.EmptySet:
         return sp.false
     if isinstance(found, sp.FiniteSet):
-        roots = [r for r in _sorted_roots(found) if _holds(equation, variable, r)]
+        candidates = [
+            _numeric_root_objects(r)
+            for r in found.args
+            if _plausibly_real(r, complex_roots=complex_roots)
+        ]
+        roots = [r for r in _sorted_roots(candidates) if _holds(equation, variable, r)]
         clauses = [
             sp.And(sp.Eq(variable, r, evaluate=False), *_needs_nonnegative(r)) for r in roots
         ]
@@ -1118,9 +1153,11 @@ def _as_condition(found: Raw, variable: Raw, equation: Raw) -> Raw | None:
         return family
     if found.has(sp.ImageSet, sp.ConditionSet) or isinstance(found, sp.Intersection):
         return None
-    return found.as_relational(variable).replace(
+    condition = found.as_relational(variable).replace(
         lambda e: isinstance(e, sp.core.relational.Relational), lambda e: e.canonical
     )
+    # Only relations joined by and/or can be shown; never SymPy's `~(Eq(...))`.
+    return None if condition.has(sp.Not) else condition
 
 
 def _unconditioned(found: Raw, variable: Raw) -> Raw:
@@ -1151,7 +1188,7 @@ def solve_equation(
                     found = found.intersect(_constraint_set(constraint, variable))
     except NotImplementedError, ValueError, TypeError:
         return None
-    return _as_condition(found, variable, equation)
+    return _as_condition(found, variable, equation, complex_roots=complex_roots)
 
 
 def conjuncts(raw: Raw) -> list[Raw]:
@@ -1179,7 +1216,13 @@ def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
     if not solutions:
         return sp.false
     cases = [
-        sp.And(*[sp.Eq(v, solution[v], evaluate=False) for v in variables if v in solution])
+        sp.And(
+            *[
+                sp.Eq(v, _numeric_root_objects(solution[v]), evaluate=False)
+                for v in variables
+                if v in solution
+            ]
+        )
         for solution in solutions
     ]
     return sp.Or(*cases)
@@ -1261,6 +1304,20 @@ def _without_abs(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw 
     return total
 
 
+def _generic_case(result: Raw, variable: Raw) -> Raw:
+    """TI integrates with the parameters taken as generic: `∫sin(a·x)dx` is `-cos(a·x)/a`, where
+    SymPy adds the special case a=0. A piecewise part whose conditions are only on parameters
+    becomes its first piece; one that depends on the variable (from the integrand) stays."""
+
+    def parametric(node: Raw) -> bool:
+        return isinstance(node, sp.Piecewise) and all(
+            condition is sp.true or variable not in condition.free_symbols
+            for _, condition in node.args
+        )
+
+    return result.replace(parametric, lambda node: node.args[0][0])
+
+
 def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | None) -> Raw | None:
     """An antiderivative (no constant) or a definite integral; None if SymPy cannot do it."""
     if lower is None or upper is None:
@@ -1271,6 +1328,8 @@ def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | No
             result = _without_abs(expression, variable, lower, upper) or result
     if result.has(sp.Integral):
         return None
+    if not expression.has(sp.Piecewise, sp.Abs, sp.sign, sp.Heaviside, sp.floor, sp.ceiling):
+        result = _generic_case(result, variable)
     result = _inverse_hyperbolics_as_logs(result)
     return result if lower is not None else _logs_of_absolute_values(result)
 

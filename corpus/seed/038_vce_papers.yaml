@@ -385,9 +385,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): the root of a degree-7 polynomial prints as
-    CRootOf'
+  status: pass
 - id: papers.mm2021e2.p3-1.domain-logs
   course: specialist
   settings:
@@ -836,8 +834,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): the antiderivative is split into when(a≠0,...)'
+  status: pass
 - id: papers.mm2021e2.p6-1.definite-integral-with-parameter
   course: specialist
   settings:
@@ -861,8 +858,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): the integral is split into when(a≠0,...)'
+  status: pass
 - id: papers.mm2021e2.p6-1.fmin-family
   course: specialist
   settings:
@@ -969,8 +965,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K5-p1.1-1.png
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): Python''s True is printed'
+  status: pass
 - id: papers.sm2025e1.p1-1.impdif-at-point
   course: specialist
   tier: 1
@@ -1506,8 +1501,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p1.1-02.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): the root of a quintic prints as CRootOf'
+  status: pass
 - id: papers.sm2025e2b.p1-1.substitute-decimal
   course: specialist
   tier: 1
@@ -1600,8 +1594,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p1.1-03.png
-  status: xfail
-  xfail_reason: 'SymPy text reaches the result (plan B1): SymPy''s Eq and ~ reach the text'
+  status: pass
 - id: papers.sm2025e2b.p1-1.evaluate-with-parameter
   course: specialist
   tier: 1
