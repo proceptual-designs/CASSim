@@ -108,6 +108,7 @@ def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) ->
         expect(page.locator("flt-semantics-placeholder")).to_be_attached(timeout=60_000)
         page.wait_for_timeout(5_000)  # no accessibility layer to wait on: let the UI draw
         page.mouse.click(300, 300)  # below the example in the Code pane: caret at the end
+        page.wait_for_timeout(1_000)  # let the field connect, or the first keys are lost (A13)
         page.keyboard.press("Enter")
         page.keyboard.type("print 7")
         page.mouse.click(583, 65)  # Run
