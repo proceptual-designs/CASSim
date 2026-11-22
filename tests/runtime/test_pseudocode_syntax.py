@@ -19,6 +19,8 @@ from cassim.runtime.pseudocode import (
     parse,
     run,
 )
+from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
+from cassim.runtime.pseudocode.lexer import tokenize
 from cassim.runtime.pseudocode.syntax import (
     DEFAULT_DATA,
     MAX_FILE_CHARS,
@@ -408,3 +410,20 @@ def test_tolerant_presets_give_the_default_result(case: dict[str, Any], preset: 
     got = run(case["pseudocode"], settings_for(case), inputs, syntax=PRESETS[preset])
     assert (got.halt, got.output) == (expected.halt, expected.output)
     assert [w.message for w in got.warnings] == [w.message for w in expected.warnings]
+
+
+def test_the_palette_offers_only_what_the_language_reads() -> None:
+    """FR-EDT-006: every enabled palette symbol is read by the lexer; the disabled ones are
+    exactly those it does not read yet (enable them when it does)."""
+    palette = DEFAULT_DATA["palette"]
+    disabled = palette["disabled"]
+    for group in palette["groups"].values():
+        for symbol in group:
+            if symbol in disabled:
+                continue
+            tokenize(f"a {symbol} b")  # raises PseudocodeSyntaxError for an unread character
+    for symbol in ("±", "≈"):
+        with pytest.raises(PseudocodeSyntaxError):
+            tokenize(f"a {symbol} b")
+    assert run("n ← 2\nprint 2ⁿ", Settings()).error == "ⁿ is not defined"  # a name, not a power
+    assert set(disabled) == {"±", "≈", "ⁿ"}
