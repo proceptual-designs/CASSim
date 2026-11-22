@@ -88,8 +88,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p1.1-1.png
-  status: xfail
-  xfail_reason: result not in TI's simplified form (plan B7)
+  status: pass
 - id: papers.mm2021e2.p1-1.solve-stationary-bounded
   course: specialist
   settings:
@@ -190,7 +189,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p1.1-3.png
   status: xfail
-  xfail_reason: 'result not in TI''s simplified form (plan B7): the substituted product is not simplified'
+  xfail_reason: 'simplified (plan B7), but printed √(3)*h^3/9: TI puts the variable before the surd (printer, plan B8)'
 - id: papers.mm2021e2.p1-1.solve-bound-excludes-endpoint
   course: specialist
   settings:
@@ -433,8 +432,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p3.1-1.png
-  status: xfail
-  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not cancelled'
+  status: pass
 - id: papers.mm2021e2.p3-1.tangent-line
   course: specialist
   settings:
@@ -1146,7 +1144,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K5-p3.1-1.png
   status: xfail
-  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not cancelled'
+  xfail_reason: 'cancelled (plan B7), but printed k+t^2: TI orders terms by degree, t^2+k (printer, plan B8)'
 - id: papers.sm2025e1.p3-1.substitute-into-equation
   course: specialist
   tier: 1
@@ -1624,7 +1622,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p1.1-04.png
   status: xfail
-  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not combined'
+  xfail_reason: 'combined (plan B7), but the printer distributes the -6 and orders a*x+x^3+2 (printer, plan B8)'
 - id: papers.sm2025e2b.p1-1.solve-for-parameter-at-point
   course: specialist
   tier: 1

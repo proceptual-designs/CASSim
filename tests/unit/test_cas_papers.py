@@ -157,3 +157,28 @@ def test_a_vector_equation_is_solved_by_component():
 
 def test_a_vector_equation_with_too_many_components_solves_for_the_other_variable():
     assert text("solve([2+l;r-l;-3+4*l]=[4;3;t],l,t)") == "l=2 and r=5 and t=5"
+
+
+# B7: derivatives and substitutions in TI's simplified form
+
+
+def test_the_derivative_of_a_product_of_polynomials_is_expanded():
+    assert text("derivative(2*x*(25-2*x)*(25-x),x)") == "12*x^2-300*x+1250"
+
+
+def test_the_derivative_of_a_power_stays_factored():
+    assert text("derivative((x^2+1)^3,x)") == "6*x*(x^2+1)^2"
+
+
+def test_a_derivative_with_logarithms_is_cancelled():
+    assert text("derivative(ln(x^2-1)-ln(1-x),x)") == "1/(x+1)"
+
+
+def test_a_derivative_with_a_root_is_over_one_denominator():
+    assert "/" in text("derivative(t/sqrt(t^2+k),t)")
+    assert "+" not in text("derivative(t/sqrt(t^2+k),t)").split("/")[0]
+
+
+def test_a_substituted_product_is_multiplied_out_when_shorter():
+    assert text("v(x):=2*x*(h-2*x)*(h-x)", "v(x)|x=h/2") == "0"
+    assert text("(x+1)^2|a=2") == "(x+1)^2"

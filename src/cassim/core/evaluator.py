@@ -660,7 +660,9 @@ def _apply_bindings(bindings: dict[str, Value], value: Value) -> Value:
         raw = item.raw
         for name, new in replacements.items():
             raw = cas.substitute(raw, cas.symbol(name), new)
-        return _from_truth(raw) if cas.is_boolean(raw) else Expr(raw)
+        if cas.is_boolean(raw):
+            return _from_truth(raw)
+        return Expr(cas.tidy_substitution(raw))
 
     return map_value(put, value)
 

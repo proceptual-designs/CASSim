@@ -1302,7 +1302,50 @@ def substitute(raw: Raw, variable: Raw, value: Raw) -> Raw:
 
 
 def differentiate(expression: Raw, variable: Raw, order: int) -> Raw:
-    return sp.diff(expression, variable, order)
+    """A derivative in TI's simplified form: a polynomial expanded (`12·x²-300·x+1250`), and a
+    sum of quotients over one denominator with common factors cancelled (`1/(x+1)`,
+    `k/(t²+k)^(3/2)`, `-6·(x³-1)/(x³+a·x+2)²`; emulator check 6, K4, K5 and K7)."""
+    derived = sp.diff(expression, variable, order)
+    if derived.has(sp.Derivative, AppliedUndef, sp.Piecewise) or isinstance(derived, Boolean):
+        return derived
+    return _tidy_derivative(derived)
+
+
+def _tidy_derivative(derived: Raw) -> Raw:
+    symbols = derived.free_symbols
+    if symbols and derived.is_polynomial(*symbols):
+        # Multiplied out when that is no longer: the product rule's sum of products is, but
+        # `6·x·(x²+1)²` stays.
+        expanded = sp.expand(derived)
+        return expanded if sp.count_ops(expanded) <= sp.count_ops(derived) else derived
+    numerator, denominator = sp.fraction(sp.together(derived))
+    if denominator == 1 or denominator.has(sp.exp) or not denominator.free_symbols:
+        return derived
+    if denominator.is_polynomial(*symbols) and numerator.is_polynomial(*symbols):
+        quotient = sp.factor(numerator) / sp.factor(denominator)
+        numerator, denominator = sp.fraction(quotient)
+    numerator = sp.expand(numerator)
+    # A negative leading coefficient comes out: `-6·(x³-1)`, not `6·(1-x³)`.
+    sign = -1 if _leading_term(numerator).could_extract_minus_sign() else 1
+    tidy = sign * sp.factor_terms(sign * numerator) / denominator
+    return tidy if sp.count_ops(tidy) <= sp.count_ops(derived) else derived
+
+
+def _leading_term(raw: Raw) -> Raw:
+    """The term of highest total degree (of a polynomial), else the first term."""
+    terms = sp.Add.make_args(raw)
+    if raw.free_symbols and raw.is_polynomial(*raw.free_symbols):
+        return max(terms, key=lambda term: sp.Poly(term, *raw.free_symbols).total_degree())
+    return terms[0]
+
+
+def tidy_substitution(raw: Raw) -> Raw:
+    """A result with values put in, multiplied out when that is shorter: `v(x)|x=...` gives
+    `h³·√3/9`, not a product of brackets (emulator check 6, K4). `(x+1)^2` stays as it is."""
+    if isinstance(raw, Boolean) or not raw.free_symbols or raw.has(AppliedUndef):
+        return raw
+    expanded = sp.expand(raw)
+    return expanded if sp.count_ops(expanded) < sp.count_ops(raw) else raw
 
 
 def _inverse_hyperbolics_as_logs(raw: Raw) -> Raw:
