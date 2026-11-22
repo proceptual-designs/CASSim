@@ -941,8 +941,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
     note: Read from zoomed views.
-  status: xfail
-  xfail_reason: 'fMin of a periodic function is echoed: no bounded numeric search (plan B2)'
+  status: pass
 - id: papers.sm2025e1.p1-1.equation-true-at-point
   course: specialist
   tier: 1
@@ -1959,3 +1958,59 @@ cases:
     evidence: ../docs/testing/pages-shots-6/K7-p5.1-01.png
   status: xfail
   xfail_reason: free parameters are not named c1 (plan B9, decision 0034 item 4)
+- id: papers.mm2021e2.p6-1.fmin-periodic
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 2; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: f(x):=sin(x/2)+cos(2*x)
+    out: Done
+  - in: fMin(f(x),x)
+    out: x=-1.65576
+    compare: numeric
+    tol: 1.0e-05
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+  status: pass
+- id: papers.mm2021e2.p6-1.fmin-periodic-scaled
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 11; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: fMin(g(x,2),x)
+    out: x=-1.65576
+    compare: numeric
+    tol: 1.0e-05
+  - in: g(x,2)|x=-1.6557594787701
+    out: '-1.7221'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+    note: Read from zoomed views.
+  status: pass

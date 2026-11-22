@@ -1392,6 +1392,82 @@ def numerical_root(equation: Raw, variable: Raw, guess: Raw | None) -> Raw | Non
     return None
 
 
+_TRIG = (sp.sin, sp.cos, sp.tan, sp.sec, sp.csc, sp.cot)
+# Samples per period for the numeric search of a periodic function's extremum.
+_PERIOD_SAMPLES = 2000
+# Extrema whose values agree this closely are the same extremum, repeated.
+_SAME_EXTREMUM = 1e-9
+
+
+def _period(expression: Raw, variable: Raw) -> Raw | None:
+    """The period of a trigonometric expression in `variable`, or None if it is not periodic."""
+    if not expression.has(*_TRIG):
+        return None
+    try:
+        # Decimals as fractions, so that `cos(0.5·x)` has a period too.
+        period = sp.periodicity(sp.nsimplify(expression, rational=True), variable)
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    return period if period is not None and period.is_positive else None
+
+
+def _refined(slope: Callable[[float], float], low: float, high: float) -> float:
+    """A zero of `slope` between two points where it changes sign, by bisection."""
+    for _ in range(80):
+        middle = (low + high) / 2
+        if (slope(low) <= 0) == (slope(middle) <= 0):
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def _periodic_extremum(expression: Raw, variable: Raw, period: Raw, *, maximum: bool) -> Raw | None:
+    """The extremum of a periodic function by a bounded numeric search over one period each
+    side of 0: the best value, at the point nearest 0 where it is reached (TI gives
+    `fMin(sin(x/2)+cos(2·x),x)` as `x=-1.65576`). It always returns, unlike solving f'=0."""
+    sign = -1.0 if maximum else 1.0
+    value = sp.lambdify(variable, sign * expression, "math")
+    slope = sp.lambdify(variable, sign * sp.diff(expression, variable), "math")
+    span = float(period)
+    count = 2 * _PERIOD_SAMPLES
+    points = [-span + 2 * span * k / count for k in range(count + 1)]
+    found: list[tuple[float, float]] = []
+    for left, right in pairwise(points):
+        try:
+            if slope(left) < 0 <= slope(right):
+                where = _refined(slope, left, right)
+                found.append((value(where), where))
+        except ValueError, ZeroDivisionError, OverflowError:
+            continue
+    if not found:
+        return None
+    best = min(height for height, _ in found)
+    nearest = min((where for height, where in found if height - best <= _SAME_EXTREMUM), key=abs)
+    return sp.Eq(variable, sp.Float(nearest, 15), evaluate=False)
+
+
+def _domain_ends(
+    expression: Raw, variable: Raw, domain: Raw
+) -> tuple[list[Raw], list[float]] | None:
+    """The closed ends of the domain, and what the expression approaches at its unbounded ends;
+    None if the domain is not intervals or the expression oscillates at an end."""
+    closed: list[Raw] = []
+    reaches: list[float] = []
+    for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
+        if not isinstance(piece, sp.Interval):
+            return None
+        for end, is_open in ((piece.start, piece.left_open), (piece.end, piece.right_open)):
+            if end.is_finite and not is_open:
+                closed.append(end)
+            elif not end.is_finite:
+                reach = sp.limit(expression, variable, end)
+                if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
+                    return None
+                reaches.append(float(reach.evalf()))
+    return closed, reaches
+
+
 def extremum(
     expression: Raw, variable: Raw, constraints: Iterable[Raw], *, maximum: bool
 ) -> Raw | None:
@@ -1400,22 +1476,18 @@ def extremum(
     for constraint in constraints:
         if constraint.free_symbols <= {variable}:
             domain = domain.intersect(_constraint_set(constraint, variable))
+    if domain == sp.S.Reals and expression.free_symbols == {variable}:
+        period = _period(expression, variable)
+        if period is not None:
+            return _periodic_extremum(expression, variable, period, maximum=maximum)
     critical = sp.solveset(sp.diff(expression, variable), variable, domain)
     if critical != sp.S.EmptySet and not isinstance(critical, sp.FiniteSet):
         return None
-    candidates = list(critical)
-    reaches: list[float] = []  # what the expression approaches at an unbounded end
-    for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
-        if not isinstance(piece, sp.Interval):
-            return None
-        for end, is_open in ((piece.start, piece.left_open), (piece.end, piece.right_open)):
-            if end.is_finite and not is_open:
-                candidates.append(end)
-            elif not end.is_finite:
-                reach = sp.limit(expression, variable, end)
-                if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
-                    return None
-                reaches.append(float(reach.evalf()))
+    ends = _domain_ends(expression, variable, domain)
+    if ends is None:
+        return None
+    closed, reaches = ends
+    candidates = [*critical, *closed]
     if not candidates:
         return None
     values = {c: float(expression.subs(variable, c).evalf()) for c in candidates}

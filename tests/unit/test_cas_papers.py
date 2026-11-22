@@ -45,3 +45,22 @@ def test_an_antiderivative_with_a_parameter_takes_the_generic_case():
 
 def test_a_piecewise_integrand_keeps_its_pieces():
     assert "when" in text("integral(when(x<1,x,1),x,0,t)")
+
+
+# B2: fMin and fMax of a periodic function return
+
+
+def test_fmin_of_a_periodic_function_is_the_nearest_lowest_point():
+    assert text("fMin(sin(x/2)+cos(2*x),x)") == "x=-1.6557595"
+
+
+def test_fmax_of_a_periodic_function_returns():
+    assert text("fMax(sin(x/2)+cos(2*x),x)") == "x=3.1415927"
+
+
+def test_fmin_of_a_periodic_function_with_decimals():
+    assert text("fMin(sin(2.*x)+cos(0.5*x),x)") == "x=5.5430583"
+
+
+def test_fmin_in_a_domain_still_solves_exactly():
+    assert text("fMin(sin(x),x)|0<=x<=2*pi") == "x=3*π/2"
