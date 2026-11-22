@@ -533,8 +533,9 @@ class Parser:
 
     def parse_for(self, line: Line) -> Stmt:
         self.i = 1
-        if self.skip_word("each"):
-            var = self.take().text
+        each = self.skip_word("each")
+        var = self.take().text
+        if each or self.at_word("in"):  # `for each c in list`, or Python's `for c in list`
             self.expect_word("in")
             iterable = self.parse_or()
             self.take_option("do", self.syn.for_do)
@@ -543,7 +544,6 @@ class Parser:
             body = self.parse_block("for", line)
             self.close_block("for", line)
             return ForEach(var, iterable, body, line.no)
-        var = self.take().text
         self.expect_word("from")
         start = self.parse_or()
         self.expect_word("to")

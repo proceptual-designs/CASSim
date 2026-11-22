@@ -55,6 +55,10 @@ class BoxedPane:
             ),
             mouse_cursor=ft.MouseCursor.RESIZE_UP_DOWN,
             on_vertical_drag_update=self._resize,
+            # Pinned to the corner: a pane-sized overlay took every click meant for the
+            # content, so the editor and the checkboxes could not be used.
+            right=0,
+            bottom=0,
         )
         self.toggle = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT if self.collapsed else ft.Icons.EXPAND_MORE,
@@ -83,12 +87,7 @@ class BoxedPane:
             spacing=4,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        grip_overlay = ft.Container(
-            self.grip,
-            alignment=ft.Alignment.BOTTOM_RIGHT,
-            expand=True,
-        )
-        self.body = ft.Stack([self.content_host, grip_overlay], expand=True)
+        self.body = ft.Stack([self.content_host, self.grip], expand=True)
         self.container = ft.Container(
             ft.Column(
                 [
@@ -101,6 +100,8 @@ class BoxedPane:
                 ],
                 spacing=0,
                 expand=True,
+                # Full width, so the grip sits in the pane's corner, not at the content's edge.
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             ),
             border=ft.Border.all(1),
             border_radius=4,

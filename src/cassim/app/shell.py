@@ -283,8 +283,9 @@ class Shell:
         base = (self.page.url or "").partition("#")[0].replace("ws", "http", 1)
         return f"{base.rstrip('/')}/#/{fragment}"
 
-    def help(self) -> None:
-        self.page.run_task(self.launcher.launch_url, about.WIKI_URL)
+    def help(self, page: str = "") -> None:
+        """Open the help site at `page` (an app's own page, or the help home)."""
+        self.page.run_task(self.launcher.launch_url, about.WIKI_URL + page)
 
     # ---- dialogs ------------------------------------------------------------------------------
 

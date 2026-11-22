@@ -3,6 +3,7 @@
 import ast
 import re
 
+from cassim.runtime.pseudocode import comments
 from cassim.runtime.pseudocode.printer import print_program
 from cassim.runtime.pseudocode.syntax import DEFAULT, Syntax
 from cassim.runtime.pseudocode.translation_error import TranslationError
@@ -17,6 +18,7 @@ from cassim.runtime.pseudocode.tree import (
     Expr,
     ExprStmt,
     For,
+    ForEach,
     If,
     Index,
     Input,
@@ -44,6 +46,12 @@ _RENAME = re.compile(
 class _Translator:
     def __init__(self, renames: dict[str, str]) -> None:
         self.renames = renames
+        # Comments to write before a statement: its line -> placeholder numbers.
+        self.comments_before: dict[int, list[int]] = {}
+        # Loop variables read 1-based: the Python `i` is the pseudocode's `i - 1`.
+        self.unshifted: set[str] = set()
+        # The module's or the current function's body, to see where else a name is used.
+        self.scopes: list[list[ast.stmt]] = []
 
     def fail(self, node: ast.AST | None, construct: str, detail: str = "") -> TranslationError:
         line = getattr(node, "lineno", 0) or 1
@@ -69,13 +77,16 @@ class _Translator:
         if isinstance(node, ast.Constant):
             return self.literal(node.value, node)
         if isinstance(node, ast.Name):
+            if node.id in self.unshifted:
+                return Binary("-", Name(self.name(node.id), node.lineno), Num("1"), node.lineno)
             return Name(self.name(node.id), node.lineno)
         if isinstance(node, ast.BinOp):
             supported = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow)
             if isinstance(node.op, supported):
                 left = self.expression(node.left)
                 right = self.expression(node.right)
-                return Binary(_binary_op(node.op, self, node), left, right, node.lineno)
+                made = Binary(_binary_op(node.op, self, node), left, right, node.lineno)
+                return _fold(made) if self.unshifted else made
             raise self.fail(node, type(node.op).__name__)
         if isinstance(node, ast.BoolOp):
             if isinstance(node.op, ast.And | ast.Or):
@@ -133,7 +144,7 @@ class _Translator:
             and node.right.value == 1
         ):
             return self.expression(node.left)
-        return Binary("+", self.expression(node), Num("1", node.lineno), node.lineno)
+        return _fold(Binary("+", self.expression(node), Num("1", node.lineno), node.lineno))
 
     def call(self, node: ast.Call) -> Expr:
         if node.keywords:
@@ -177,7 +188,14 @@ class _Translator:
         raise self.fail(node, f"assignment to {type(node).__name__}")
 
     def statements(self, body: list[ast.stmt]) -> list[Stmt]:
-        return [stmt for node in body for stmt in self.statement(node)]
+        out: list[Stmt] = []
+        for node in body:
+            out.extend(
+                ExprStmt(Name(comments.PLACEHOLDER.format(number), node.lineno), node.lineno)
+                for number in self.comments_before.pop(node.lineno, [])
+            )
+            out.extend(self.statement(node))
+        return out
 
     def statement(self, node: ast.stmt) -> list[Stmt]:  # noqa: PLR0911, PLR0912
         if isinstance(node, ast.Assign):
@@ -289,18 +307,66 @@ class _Translator:
             last.lineno,
         )
 
-    def for_statement(self, node: ast.For) -> For | RepeatTimes:  # noqa: PLR0912
+    def scoped(self, body: list[ast.stmt]) -> list[Stmt]:
+        self.scopes.append(body)
+        try:
+            return self.statements(body)
+        finally:
+            self.scopes.pop()
+
+    def can_unshift(self, node: ast.For, var: str) -> bool:
+        """A plain `range` loop whose variable indexes a list, is not set inside the loop and is
+        not used anywhere else in its function: it reads as a 1-based pseudocode loop."""
+        call = node.iter
+        assert isinstance(call, ast.Call)
+        outside = _python_names(self.scopes[-1] if self.scopes else [], skip=node)
+        return (
+            len(call.args) in {1, 2}
+            and var not in self.unshifted
+            and _python_indexes_with(node.body, var)
+            and not _python_sets(node.body, var)
+            and var not in outside
+        )
+
+    def unshifted_for(self, node: ast.For, var: str) -> For:
+        """`for i in range(n)` indexing lists as `L[i]` becomes `for i from 1 to n` with `L[i]`;
+        the pseudocode `i` is one more, so other uses read `i - 1`, folded where they can be."""
+        call = node.iter
+        assert isinstance(call, ast.Call)
+        args = call.args
+        start: Expr = (
+            Num("1", node.lineno)
+            if len(args) == 1
+            else _fold(Binary("+", self.expression(args[0]), Num("1"), node.lineno))
+        )
+        stop = self.expression(args[-1])
+        self.unshifted.add(var)
+        try:
+            body = self.statements(node.body)
+        finally:
+            self.unshifted.discard(var)
+        return For(self.name(var), start, stop, None, body, node.lineno)
+
+    def for_statement(self, node: ast.For) -> For | ForEach | RepeatTimes:  # noqa: PLR0912
         if node.orelse:
             raise self.fail(node, "for/else")
         if not isinstance(node.target, ast.Name):
             raise self.fail(node.target, "for target")
-        if (
-            not isinstance(node.iter, ast.Call)
-            or not isinstance(node.iter.func, ast.Name)
-            or node.iter.func.id not in {"range", "_inclusive_range"}
-            or node.iter.keywords
-        ):
-            raise self.fail(node.iter, "for iterable", "only for ... in range(...) is supported")
+        if not (
+            isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Name)
+            and node.iter.func.id in {"range", "_inclusive_range"}
+        ):  # `for coeff in coeffs`: a loop over the items
+            return ForEach(
+                self.name(node.target.id),
+                self.expression(node.iter),
+                self.statements(node.body),
+                node.lineno,
+            )
+        if node.iter.keywords:
+            raise self.fail(node.iter, "for iterable", "range() takes no keywords here")
+        if node.iter.func.id == "range" and self.can_unshift(node, node.target.id):
+            return self.unshifted_for(node, node.target.id)
         args = node.iter.args
         inclusive = node.iter.func.id == "_inclusive_range"
         if inclusive:
@@ -364,7 +430,8 @@ class _Translator:
         return self.minus_one(node, sign)
 
     def minus_one(self, node: ast.expr, sign: int) -> Expr:
-        return Binary("-", self.expression(node), Num(str(sign), node.lineno), node.lineno)
+        # Folded: `range(1, 9)` ends at 8, not `9 - 1`.
+        return _fold(Binary("-", self.expression(node), Num(str(sign), node.lineno), node.lineno))
 
     def function(self, node: ast.FunctionDef) -> Define:
         if node.decorator_list:
@@ -385,7 +452,81 @@ class _Translator:
                 else None
             )
             params.append(Param(self.name(arg.arg), default=default))
-        return Define(self.name(node.name), tuple(params), self.statements(node.body), node.lineno)
+        return Define(self.name(node.name), tuple(params), self.scoped(node.body), node.lineno)
+
+
+def _python_names(body: list[ast.stmt], *, skip: ast.AST) -> set[str]:
+    """Every name used in `body`, leaving out the subtree `skip`."""
+    found: set[str] = set()
+    stack: list[ast.AST] = list(body)
+    while stack:
+        node = stack.pop()
+        if node is skip:
+            continue
+        if isinstance(node, ast.Name):
+            found.add(node.id)
+        stack.extend(ast.iter_child_nodes(node))
+    return found
+
+
+def _python_indexes_with(body: list[ast.stmt], var: str) -> bool:
+    """Whether `L[var]` (the bare loop variable as an index) appears in `body`."""
+    return any(
+        isinstance(node, ast.Subscript)
+        and isinstance(node.slice, ast.Name)
+        and node.slice.id == var
+        for stmt in body
+        for node in ast.walk(stmt)
+    )
+
+
+def _python_sets(body: list[ast.stmt], var: str) -> bool:
+    """Whether `body` assigns to `var` (so the loop cannot be renumbered)."""
+    return any(
+        isinstance(node, ast.Name) and node.id == var and isinstance(node.ctx, ast.Store)
+        for stmt in body
+        for node in ast.walk(stmt)
+    )
+
+
+def _whole(expr: Expr) -> int | None:
+    """A whole-number literal's value, including one written with a sign (`-1` for a step)."""
+    if isinstance(expr, Num) and expr.text.removeprefix("-").isdigit():
+        return int(expr.text)
+    if isinstance(expr, Unary) and expr.op == "-" and (value := _whole(expr.operand)) is not None:
+        return -value
+    return None
+
+
+def _fold(expr: Expr) -> Expr:
+    """Fold the whole-number constants of a pseudocode sum: `(i - 1) + 1` is `i` and
+    `n - (i - 1)` is `n - i + 1`. Other terms keep their order."""
+    if not (isinstance(expr, Binary) and expr.op in {"+", "-"}):
+        return expr
+    terms: list[tuple[int, Expr]] = []
+    constant = 0
+
+    def walk(part: Expr, sign: int) -> None:
+        nonlocal constant
+        if isinstance(part, Binary) and part.op in {"+", "-"} and not part.implicit:
+            walk(part.left, sign)
+            walk(part.right, sign if part.op == "+" else -sign)
+        elif (number := _whole(part)) is not None:
+            constant += sign * number
+        else:
+            terms.append((sign, part))
+
+    walk(expr, 1)
+    line = expr.line
+    if not terms:
+        return Num(str(constant), line) if constant >= 0 else Unary("-", Num(str(-constant)), line)
+    first_sign, first = terms[0]
+    result: Expr = first if first_sign > 0 else Unary("-", first, line)
+    for sign, term in terms[1:]:
+        result = Binary("+" if sign > 0 else "-", result, term, line)
+    if constant:
+        result = Binary("+" if constant > 0 else "-", result, Num(str(abs(constant))), line)
+    return result
 
 
 def _constant_sign(node: ast.expr) -> int | None:
@@ -463,6 +604,14 @@ def _is_input(node: ast.expr) -> bool:
 
 def python_to_program(source: str) -> Program:
     """Parse supported Python and build the shared pseudocode tree."""
+    return _python_program(source)[0]
+
+
+def _python_program(
+    source: str, *, keep_comments: bool = False
+) -> tuple[Program, list[str | None], list[int]]:
+    """The tree, and with `keep_comments` the comment placeholders written into it (see
+    `comments`): never when the tree is run, only when it is printed as text."""
     lines = source.splitlines()
     renames: dict[str, str] = {}
     original_lines = lines
@@ -482,13 +631,22 @@ def python_to_program(source: str) -> Program:
         line = error.lineno or 1
         raise TranslationError(line, "syntax", error.msg) from error
     translator = _Translator(renames)
-    body = translator.statements(module.body)
-    return Program(body, source.splitlines())
+    texts: list[str | None] = []
+    trailing: list[int] = []
+    if keep_comments:
+        lines = [node.lineno for node in ast.walk(module) if isinstance(node, ast.stmt)]
+        translator.comments_before, texts, trailing = comments.anchor(
+            comments.python_comments(source), lines
+        )
+    body = translator.scoped(module.body)
+    return Program(body, source.splitlines()), texts, trailing
 
 
 def python_to_pseudocode(source: str, syntax: Syntax = DEFAULT) -> str:
     """Translate Python to pseudocode using the selected syntax's emit style."""
-    return print_program(python_to_program(source), syntax)
+    program, texts, trailing = _python_program(source, keep_comments=True)
+    marker = "#" if syntax.comments.get("#", "no") != "no" else "//"
+    return comments.restore(print_program(program, syntax), texts, trailing, marker)
 
 
 translate_to_pseudocode = python_to_pseudocode

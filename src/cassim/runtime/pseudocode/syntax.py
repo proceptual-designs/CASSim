@@ -109,6 +109,9 @@ DEFAULT_DATA: dict[str, Any] = {
             "brackets": ["|x|", "( )", "[ ]"],
             "greek": ["θ", "α", "β", "δ", "λ", "μ", "σ"],
         },
+        # Shown but not insertable: the lexer does not read them yet (unexpected characters).
+        # Enable when the language takes them.
+        "disabled": ["±", "≈"],
         "templates": ["if", "for", "while", "repeat", "define"],
     },
     "constructs": {

@@ -82,6 +82,7 @@ You need [uv](https://docs.astral.sh/uv/). Python 3.14 is installed by uv.
 uv sync --group web
 uv run cassim                         # the app in a window (for development)
 uv run cassim --web                   # the app in your browser (for development)
+uv run cassim --app pseudocode        # skip Home and open one app (nspire or pseudocode)
 uv run cassim --view handheld         # choose the view (handheld or computer)
 uv run cassim --course methods        # the app with the Methods settings
 uv run cassim --text                  # text interface, like the Calculator page
@@ -91,6 +92,20 @@ uv run python -m tools.publish        # build the installable offline site (--bu
 
 The text interface is described in [docs/user/repl.md](docs/user/repl.md).
 The development `--web` server does not include the published site's browser context-menu routing.
+
+**Deep links.** The all-in-one app opens to Home on every launch. A link can open one app directly
+instead; this works on the published sites and on a local build of `tools.publish`:
+
+| Link | Opens |
+|---|---|
+| `https://cassim-app.pages.dev/#/app/nspire` | the Nspire calculator |
+| `https://cassim-app.pages.dev/#/app/pseudocode` | Pseudocode & Python |
+| `https://cassim-app.pages.dev/` | Home |
+
+The short forms `#/nspire` and `#/pseudocode` work too, and `cassim-calc` (testing) takes the same
+links. A share link (`#/doc=...`) opens the app its document belongs to. A link naming an app that
+is not in the bundle shows Home; a single-app site (`cassim-tin`, `cassim-pseudo`) ignores the link
+and opens its one app. Developer `#/debug` routes open the first app for the browser tests.
 
 ## Builds
 

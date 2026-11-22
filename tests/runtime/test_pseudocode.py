@@ -7,11 +7,20 @@ from typing import Any
 
 import pytest
 
-from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
+from cassim.devices.pseudocode.typing_aids import convert_region, convert_symbols, convert_typing
 from cassim.runtime.pseudocode import PRESETS, RunResult, Settings, parse, run, trace
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.interp import Interpreter
-from cassim.runtime.pseudocode.lexer import tokenize
+from cassim.runtime.pseudocode.lexer import SUPERSCRIPT_RUN, tokenize
+from cassim.runtime.pseudocode.typing_aid import GREEK_LOWER, GREEK_UPPER, LATEX_WORDS
+
+_TO_SUPERSCRIPT = {plain: sup for sup, plain in SUPERSCRIPT_RUN.items()}
+
+
+def sup(plain: str) -> str:
+    """`x+1` written in superscripts (built from the lexer's table, not typed look-alikes)."""
+    return "".join(_TO_SUPERSCRIPT[ch] for ch in plain)
+
 
 BISECTION = """\
 define bisection(f(x), x, a, b, t)
@@ -464,7 +473,7 @@ def test_vertical_table_matches_the_authors_bisection_example() -> None:
     settings = Settings(number="auto")
     result = Interpreter(parse(BISECTION), settings).run()
     table = trace.vertical(result, settings, max_depth=1)
-    assert [row.line for row in table.rows] == [18, 2, 3, 6, 7, 10, 12, 6, 7, 8, 12, 6, 14]
+    assert [row.line for row in table.rows] == [1, 18, 2, 3, 6, 7, 10, 12, 6, 7, 8, 12, 6, 14]
     changes = [(row.line, row.cells) for row in table.rows if row.cells]
     assert changes == [
         (18, {"a": "−2", "b": "−1", "t": "0.2"}),
@@ -474,7 +483,7 @@ def test_vertical_table_matches_the_authors_bisection_example() -> None:
         (8, {"b": "−5/4"}),
         (12, {"c": "−11/8"}),
     ]
-    assert table.rows[3].calc == "(−1 − −2)/2 > 0.2 is true"
+    assert table.rows[4].calc == "(−1 − −2)/2 > 0.2 is true"
     assert table.rows[-1].calc == "-11/8"
 
 
@@ -554,3 +563,245 @@ def test_vertical_trace_column_selection() -> None:
     assert table.conditions == list(choices.conditions[:1])
     assert all(set(row.cells) <= {"a", "c"} for row in table.rows)
     assert all(set(row.conditions) <= set(choices.conditions[:1]) for row in table.rows)
+
+
+DOUBLING = """\
+define f(n)
+  m ← n*2
+  if m > 4 then
+    return m
+  end if
+  return f(m)
+end
+y ← f(1)
+print y"""
+
+
+def test_a_call_row_expands_to_its_own_lines() -> None:
+    """FR-TRC-013: a call to a function defined in the code is one top-level row; expanding it
+    shows only that call's lines, and a call inside it expands the same way."""
+    result = run(DOUBLING, Settings())
+    top = trace.vertical(result, Settings())
+    assert [(row.step, row.calc) for row in top.rows][:2] == [(0, "define f(n)"), (1, "f(1)")]
+    assert result.steps[1].kind == "call"
+
+    first = trace.call_table(result, Settings(), 1)
+    assert [row.line for row in first.rows] == [2, 3, 6, 6]
+    assert first.variables == ["m"]
+    assert first.rows[0].cells == {"m": "2"}
+    nested = first.rows[2]
+    assert (nested.calc, result.steps[nested.step].kind) == ("f(2)", "call")
+
+    second = trace.call_table(result, Settings(), nested.step)
+    assert [row.line for row in second.rows] == [2, 3, 6, 6]
+    assert second.rows[0].cells == {"m": "4"}
+
+
+def test_a_call_row_shows_only_the_lines_reached_by_the_cursor() -> None:
+    result = run(DOUBLING, Settings())
+
+    assert [row.line for row in trace.call_table(result, Settings(), 1, cursor=4).rows] == [2, 3]
+    assert trace.call_table(result, Settings(), 13).rows == []  # not a call row
+
+
+def test_a_call_dialog_names_its_starting_values() -> None:
+    result = run(DOUBLING, Settings())
+
+    assert trace.call_parameters(result, 1, Settings()) == "n = 1"
+    assert trace.call_parameters(result, 4, Settings()) == "n = 2"
+    assert trace.call_parameters(result, 13, Settings()) == ""
+
+
+def test_every_typing_aid_latex_word_converts_to_a_symbol_the_language_accepts() -> None:
+    """FR-SYN-013: Greek letters (names) and the operator symbols the lexer reads; a word
+    converts once a space follows it, and never into a character the lexer would reject."""
+    for word, symbol in LATEX_WORDS.items():
+        assert convert_typing(f"x {word}", f"x {word} ") == f"x {symbol} ", word
+        tokenize(f"a {symbol} b")  # raises PseudocodeSyntaxError for an unknown character
+    for symbol in [*GREEK_LOWER.values(), *GREEK_UPPER.values()]:
+        if symbol == "π":  # the constant, not a name: it cannot be assigned
+            assert run(f"print {symbol} > 3", Settings()).output == ["TRUE"]
+            continue
+        assert run(f"{symbol} ← 2\nprint {symbol}", Settings()).output == ["2"], symbol
+
+
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        (r"\leq ", "≤ "),  # not \le followed by q
+        (r"\le ", "≤ "),
+        (r"\theta ", "θ "),  # not \eta inside it
+        (r"\eta ", "η "),
+        (r"\varphi ", "φ "),
+        (r"\ne ", "≠ "),
+        (r"\nu ", "\u03bd "),  # Greek nu
+        (r"\neg ", "¬ "),
+        (r"\Sigma ", "Σ "),
+        (r"\sigma ", "σ "),
+        (r"\alphabet ", r"\alphabet "),  # not a word in the table
+        (r'print "\alpha ', r'print "\alpha '),  # inside a string
+    ],
+)
+def test_typing_aid_latex_words_do_not_capture_each_other(typed: str, expected: str) -> None:
+    assert convert_typing(typed[:-1], typed) == expected
+
+
+def test_typing_aid_latex_words_wait_for_a_space() -> None:
+    assert convert_typing(r"\alph", r"\alpha") == r"\alpha"
+    assert convert_typing(r"\alpha", "\\alpha\n") == "α\n"
+
+
+@pytest.mark.parametrize(
+    ("previous", "current", "expected"),
+    [
+        ("x^2", "x^2 ", "x² "),  # finished by a space
+        ("y ← x^2", "y ← x^2\n", "y ← x²\n"),  # or a line break
+        ("(x+1)^2", "(x+1)^2)", "(x+1)²)"),  # or a bracket
+        ("x^10", "x^10+", "x¹⁰+"),
+        ("x^-1", "x^-1 ", "x⁻¹ "),
+        ("x^1", "x^10", "x^10"),  # the number may go on
+        ("x^2", "x^2.", "x^2."),  # x^2.5
+        ("x^2", "x^2e", "x^2e"),  # x^2e3
+        ("x^", "x^n", "x^n"),  # only digits have superscripts here
+        ("x^", "x^(", "x^("),
+        ('print "x^2', 'print "x^2 ', 'print "x^2 '),  # inside a string
+    ],
+)
+def test_typing_aid_writes_finished_powers_as_superscripts(
+    previous: str, current: str, expected: str
+) -> None:
+    """FR-SYN-013: `^` and digits (and `^-` and digits) become superscripts once a character
+    that cannot continue the number is typed; the language reads them as powers."""
+    assert convert_typing(previous, current) == expected
+
+
+def test_superscripts_leave_the_next_character_for_its_own_conversion() -> None:
+    assert convert_region("x^2<=4", 0, 6) == "x²≤4"
+
+
+def test_superscripts_from_the_typing_aid_run_as_powers() -> None:
+    typed = "x ← 3\nprint x^2 + x^-1 - (x+1)^2\n"
+    source = convert_region(typed, 0, len(typed))
+    assert source == "x ← 3\nprint x² + x⁻¹ - (x+1)²\n"
+    assert run(source, Settings()).output == ["-6.66667"]  # 9 + 1/3 - 16, in Approx mode
+
+
+@pytest.mark.parametrize(
+    ("exponent", "value"),
+    [
+        ("x+1", "16"),  # 2^(x+1) with x = 3
+        ("(x+1)", "16"),  # superscript brackets too
+        ("n", "4"),
+        ("-x", "0.125"),
+        ("2x", "64"),  # a product, as in 2^(2x)
+        ("x-n", "2"),
+    ],
+)
+def test_a_superscript_run_is_the_exponent(exponent: str, value: str) -> None:
+    """FR-PSE-*: superscript letters, signs and brackets: `2ˣ⁺¹` reads as `2^(x+1)`."""
+    assert run(f"x ← 3\nn ← 2\nprint 2{sup(exponent)}", Settings()).output == [value]
+    assert run(f"x ← 3\nn ← 2\nprint 2^({exponent})", Settings()).output == [value]
+
+
+def test_superscript_digits_still_bind_to_what_comes_before() -> None:
+    assert run("x ← 3\nprint 2x²", Settings()).output == ["18"]
+    assert run("print 2⁻¹ + 10³", Settings()).output == ["1000.5"]
+
+
+def test_superscript_letters_are_not_part_of_a_name() -> None:
+    kinds = [(t.kind, t.text) for t in tokenize(f"ab{sup('n')}")][:-2]
+    assert kinds == [("NAME", "ab"), ("OP", "^"), ("OP", "("), ("NAME", "n"), ("OP", ")")]
+
+
+@pytest.mark.parametrize(
+    ("previous", "current", "expected"),
+    [
+        ("2^(x+1", "2^(x+1)", "2" + sup("x+1")),  # finished by its )
+        ("2^(x + 1", "2^(x + 1)", "2" + sup("x+1")),  # spaces beside signs dropped
+        ("2^((x+1)", "2^((x+1))", "2" + sup("(x+1)")),  # inner brackets kept
+        ("2^(-n", "2^(-n)", "2" + sup("-n")),
+        ("x^n", "x^n ", "x" + sup("n") + " "),  # a name, finished by a space
+        ("x^-n", "x^-n)", "x" + sup("-n") + ")"),
+        ("x^ab", "x^ab+", "x" + sup("ab") + "+"),
+        ("2^(x+1", "2^(x+1", "2^(x+1"),  # not finished
+        ("2^(2*x", "2^(2*x)", "2^(2*x)"),  # no superscript *
+        ("2^(x/2", "2^(x/2)", "2^(x/2)"),
+        ("2^(a b", "2^(a b)", "2^(a b)"),  # a space between names would join them
+        ("x^q", "x^q ", "x^q "),  # Unicode has no superscript q
+        ("x^N", "x^N ", "x^N "),  # nor a full set of capitals
+        ("x^f", "x^f(", "x^f("),  # a function call
+        ('print "2^(x+1', 'print "2^(x+1)', 'print "2^(x+1)'),  # inside a string
+    ],
+)
+def test_typing_aid_writes_letters_signs_and_brackets_as_superscripts(
+    previous: str, current: str, expected: str
+) -> None:
+    """FR-SYN-013: `2^(x+1)` becomes `2ˣ⁺¹`, which the language reads back as `2^(x+1)`."""
+    assert convert_typing(previous, current) == expected
+
+
+def test_a_superscripted_power_from_the_typing_aid_has_the_same_value() -> None:
+    typed = "x ← 3\nn ← 2\nprint 2^(x+1) + x^n + 2^(x - n)\n"
+    source = convert_region(typed, 0, len(typed))
+    assert source == f"x ← 3\nn ← 2\nprint 2{sup('x+1')} + x{sup('n')} + 2{sup('x-n')}\n"
+    assert run(source, Settings()).output == run(typed, Settings()).output == ["27"]
+
+
+def test_a_call_window_shows_the_function_as_written() -> None:
+    """FR-TRC-013: the function's own lines, from `define` to its `end`."""
+    lines = trace.function_source(parse(DOUBLING), "f")
+    assert [number for number, _ in lines] == [1, 2, 3, 4, 5, 6, 7]
+    assert lines[0][1] == "define f(n)"
+    assert lines[-1][1] == "end"
+    assert trace.function_source(parse(DOUBLING), "g") == []
+
+
+def test_a_list_row_shows_the_list_as_it_was_then() -> None:
+    """FR-TRC-002: `d ← []` shows [] even though later appends change the list, and each
+    append to a named list shows its new value (it was a reference, so the first row showed
+    the final list)."""
+    result = run("d ← []\nfor i from 1 to 3\n  append i*i to d\nend for\nprint d", Settings())
+    table = trace.vertical(result, Settings())
+    shown = [row.cells["d"] for row in table.rows if "d" in row.cells]
+    assert shown == ["[]", "[1]", "[1, 4]", "[1, 4, 9]"]
+    assert result.output == ["[1, 4, 9]"]
+
+
+def test_a_call_row_keeps_its_parameters_out_of_the_program_columns() -> None:
+    """FR-TRC-013: `f(1)` binds its own `n`; that belongs to the call (its window), so the
+    program's table has no `n` column (and a parameter named like a program variable does not
+    look like a change to it)."""
+    result = run(DOUBLING, Settings())
+    table = trace.vertical(result, Settings())
+    assert table.variables == ["y"]
+    assert table.rows[1].cells == {}
+    assert trace.call_parameters(result, 1, Settings()) == "n = 1"  # still in the title
+
+
+def test_a_define_line_is_a_row_of_the_trace() -> None:
+    """A function definition is recorded where it is run, once, with its header."""
+    result = run(
+        "define g(f(x), x, h=10^-6)\n  return f(x + h)\nend\nprint g(x^2, x)\nf(t) ← t + 1",
+        Settings(),
+    )
+    rows = trace.vertical(result, Settings()).rows
+    assert [(row.line, row.calc) for row in rows][:1] == [(1, "define g(f(x), x, h = 10^−6)")]
+    assert [s.kind for s in result.steps].count("define") == 1
+
+
+def test_step_over_stops_after_each_top_level_line_with_its_calls_run() -> None:
+    """Step in the main table runs a call's lines as one step (they show in its window)."""
+    result = run(DOUBLING, Settings())
+    stops = trace.step_over_stops(result)
+    top = [s.index for s in result.steps if s.depth == 0 and s.kind != "halt"]
+    assert len(stops) == len(top)
+    assert stops[0] == 1  # the define row
+    assert stops[1] == top[2]  # f(1) and everything inside it
+    assert stops[-1] == len([s for s in result.steps if s.kind != "halt"])
+    assert [row.line for row in trace.vertical(result, Settings(), cursor=stops[1]).rows] == [1, 8]
+    assert [r.line for r in trace.call_table(result, Settings(), 1, cursor=stops[1]).rows] == [
+        2,
+        3,
+        6,
+        6,
+    ]

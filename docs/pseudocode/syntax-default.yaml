@@ -60,6 +60,7 @@ palette:                                 # shown by the symbol palette (FR-EDT-0
     logic: ["∧", "∨", "¬"]
     brackets: ["|x|", "( )", "[ ]"]
     greek: ["θ", "α", "β", "δ", "λ", "μ", "σ"]
+  disabled: ["±", "≈"]   # shown greyed: the lexer does not read them yet
   templates: [if, for, while, repeat, define]   # insert a block in the user's own syntax style
 
 constructs:
