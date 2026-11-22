@@ -15,6 +15,7 @@ _LATEX = {
     r"\ge": "≥",
     r"\theta": "θ",
 }
+LATEX_WORDS = _LATEX  # converted once a space or line break follows the word
 _TEXT_TERMINATORS = {" ", "\n"}
 
 

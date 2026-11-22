@@ -14,7 +14,12 @@ from typing import TYPE_CHECKING, cast
 import flet as ft
 
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
-from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing, in_code
+from cassim.devices.pseudocode.typing_aids import (
+    TYPED_BURST,
+    convert_region,
+    convert_symbols,
+    typed_span,
+)
 from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
 from cassim.devices.pseudocode.ui.trace_grid import (
     CONDITION_COLUMN_WIDTH,
@@ -37,7 +42,6 @@ from cassim.runtime.pseudocode import (
     trace,
 )
 from cassim.runtime.pseudocode.settings import AngleMode, NumberMode
-from cassim.runtime.pseudocode.typing_aid import replacement_before_cursor
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
@@ -180,6 +184,9 @@ POLYNOMIAL_NEWTON = (
     "print x"
 )
 MOBILE_BREAKPOINT = 900
+# The typing aid converts once typing has paused this long (seconds). Converting on every
+# key sent the whole text back from Python, overwriting keys typed in the meantime.
+TYPING_AID_PAUSE = 0.5
 EDITOR_FONT_SIZE = 14
 # Width the editor keeps from its text: content padding (8 each side) and Flutter's text
 # cursor (2), measured 2026-11-22: a 461.2 px line wrapped in a 478 px editor.
@@ -284,6 +291,10 @@ class CodeApp:
         self.cm_change_proxy = None
         self.editor_width = 0.0  # drawn width, reported by the box around the editor
         self.code_char_width = 0.0  # measured from the hidden samples once drawn
+        # Typed since the typing aid last converted: (start, end) in the current text.
+        self.typed_region: tuple[int, int] | None = None
+        self.typed_paste = False
+        self.edit_generation = 0  # counts edits, so only the last one before a pause acts
         self.symbol_char_width = 0.0
         self._init_workspace_state()
 
@@ -689,26 +700,62 @@ class CodeApp:
     def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
         text = str(event.control.value or "")
         previous = self.current_source
-        if self.typing_aid_available():
-            converted = convert_typing(previous, text)
-            if converted == text:
-                # LaTeX words (`\theta `). Not `event.control.selection` for the caret: it
-                # reaches Python separately and can be stale.
-                replacement = replacement_before_cursor(text, edit_end(previous, text))
-                if replacement is not None and in_code(text, replacement.start):
-                    converted = (
-                        text[: replacement.start]
-                        + replacement.replacement
-                        + text[replacement.end :]
-                    )
-            if converted != text:
-                self.typing_undo = (converted, text)
-                event.control.value = converted
-                event.control.update()
-                text = converted
         self.current_source = text
+        if self.typing_aid_available():
+            self.note_typed(previous, text)
+            self.edit_generation += 1
+            run_task = getattr(self.page, "run_task", None)
+            if run_task is None:  # no event loop (unit tests): convert at once
+                self.apply_typing_aid()
+            else:
+                run_task(self.typing_aid_after_pause, self.edit_generation)
         self.refresh_line_numbers()
         self.mark_dirty()
+
+    def note_typed(self, previous: str, text: str) -> None:
+        """Widen the region typed since the last conversion to cover this edit."""
+        shortest = min(len(previous), len(text))
+        start = 0
+        while start < shortest and previous[start] == text[start]:
+            start += 1
+        tail = 0
+        while tail < shortest - start and previous[-1 - tail] == text[-1 - tail]:
+            tail += 1
+        end = len(text) - tail
+        span = typed_span(previous, text)
+        if span is None and end - start > TYPED_BURST:
+            self.typed_paste = True  # a paste is left as it is
+        if self.typed_region is None:
+            self.typed_region = (start, end)
+            return
+        low, high = self.typed_region
+        moved = len(text) - len(previous)
+        if low >= len(previous) - tail:
+            low += moved
+        if high > start:
+            high = max(start, high + moved)
+        self.typed_region = (max(0, min(low, start)), min(len(text), max(high, end)))
+
+    async def typing_aid_after_pause(self, generation: int) -> None:
+        await asyncio.sleep(TYPING_AID_PAUSE)
+        if generation == self.edit_generation:  # nothing typed since: the pause is real
+            self.apply_typing_aid()
+
+    def apply_typing_aid(self) -> None:
+        """Convert what was typed since the last conversion, then send the text back once."""
+        region, paste = self.typed_region, self.typed_paste
+        self.typed_region, self.typed_paste = None, False
+        if region is None or paste or not self.typing_aid_available():
+            return
+        text = self.current_source
+        converted = convert_region(text, *region)
+        if converted == text:
+            return
+        self.typing_undo = (converted, text)
+        self.fallback_editor.value = converted
+        self.current_source = converted
+        self.refresh_line_numbers()
+        _safe_update(self.fallback_editor)
 
     def toggle_language(self, event: ft.Event[ft.SegmentedButton]) -> None:
         selected = event.control.selected
@@ -876,6 +923,7 @@ class CodeApp:
         return source
 
     def set_source(self, text: str, *, generated_python: bool = False) -> None:
+        self.typed_region, self.typed_paste = None, False  # nothing typed in the new text
         if self.symbol_style == "ascii":
             text = convert_symbols(text, "ascii")
         self.generated_python = generated_python
@@ -1978,18 +2026,6 @@ window.CASSimTypingAids = function(editor, change) {
 
     def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.about()
-
-
-def edit_end(previous: str, text: str) -> int:
-    """Where an edit from `previous` to `text` ends in `text`: the caret after typing."""
-    shortest = min(len(previous), len(text))
-    prefix = 0
-    while prefix < shortest and previous[prefix] == text[prefix]:
-        prefix += 1
-    suffix = 0
-    while suffix < shortest - prefix and previous[-1 - suffix] == text[-1 - suffix]:
-        suffix += 1
-    return len(text) - suffix
 
 
 def mount(shell: Shell) -> CodeApp:

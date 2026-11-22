@@ -4,7 +4,7 @@ import asyncio
 import sys
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import flet as ft
 import pytest
@@ -51,11 +51,12 @@ class DummyShell:
 
 
 def typed(app: CodeApp, text: str, selection_end: int | None) -> SimpleNamespace:
-    """Send the fallback editor a change, with the selection Python last heard about."""
+    """Send the fallback editor a change, with the selection Python last heard about, and
+    return what the editor then holds (with no event loop the typing aid acts at once)."""
     selection = None if selection_end is None else SimpleNamespace(end=selection_end)
     control = SimpleNamespace(value=text, selection=selection, update=lambda: None)
     app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
-    return control
+    return SimpleNamespace(value=app.current_source)
 
 
 def test_typing_aid_finds_the_edit_without_a_current_selection() -> None:
@@ -559,3 +560,77 @@ def test_prime_sieve_example_lists_the_primes_up_to_100() -> None:
     primes = [int(p) for p in result.output[0].strip("[]").split(", ")]
     assert primes == [p for p in range(2, 101) if all(p % d for d in range(2, p))]
     assert len(primes) == 25
+
+
+class PausePage(SimpleNamespace):
+    """A page whose scheduled tasks are kept, to run when the test says the typing paused."""
+
+    def __init__(self) -> None:
+        super().__init__(waiting=[])
+
+    def run_task(self, handler: Callable[..., object], *args: object) -> None:
+        self.waiting.append((handler, args))
+
+
+def paused_app(monkeypatch: pytest.MonkeyPatch) -> tuple[CodeApp, PausePage]:
+    async def no_wait(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("cassim.devices.pseudocode.ui.app.asyncio.sleep", no_wait)
+    shell = DummyShell()
+    page = PausePage()
+    shell.page = page
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.fallback_editor.update = lambda: None  # ty: ignore[invalid-assignment]
+    app.current_source = ""
+    return app, page
+
+
+def type_keys(app: CodeApp, text: str) -> None:
+    for end in range(len(app.current_source) + 1, len(text) + 1):
+        control = SimpleNamespace(value=text[:end], selection=None, update=lambda: None)
+        app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
+
+
+def pause(page: PausePage) -> None:
+    """Typing stopped: every scheduled check runs, oldest first, as their sleeps end."""
+    waiting, page.waiting = page.waiting, []
+    for handler, args in waiting:
+        asyncio.run(cast("Callable[..., Any]", handler)(*args))
+
+
+def test_typing_aid_waits_for_a_pause_then_converts_what_was_typed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-SYN-013: converting sent the whole text back from Python, overwriting keys typed in
+    the meantime; now nothing is sent until typing pauses, then everything typed converts."""
+    app, page = paused_app(monkeypatch)
+
+    type_keys(app, "y <- @pi")
+    assert app.current_source == "y <- @pi"  # nothing sent back while typing
+    assert len(page.waiting) == len("y <- @pi")
+    pause(page)  # only the last check acts; the others see that typing went on
+
+    assert app.current_source == "y ← π"
+    assert app.fallback_editor.value == "y ← π"
+    assert app.typing_undo == ("y ← π", "y <- @pi")  # Ctrl+Z restores the typed text
+
+
+def test_typing_aid_leaves_a_paste_and_strings_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    app, page = paused_app(monkeypatch)
+    pasted = "x <- 1\nprint x"
+    control = SimpleNamespace(value=pasted, selection=None, update=lambda: None)
+    app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
+    pause(page)
+    assert app.current_source == pasted
+
+    type_keys(app, pasted + '\nprint "<-"')
+    pause(page)
+    assert app.current_source.endswith('print "<-"')
+
+
+def test_a_typed_name_starting_with_e_is_not_an_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    app, page = paused_app(monkeypatch)
+    type_keys(app, "print @exp + @e")
+    pause(page)
+    assert app.current_source == "print @exp + ⅇ"
