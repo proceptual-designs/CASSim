@@ -58,6 +58,13 @@ def test_the_results_follow_the_data():
     assert sheet.column(F).formula == "LinRegMx a[],b[],1: CopyVar stat.RegEqn,f1"
 
 
+def test_a_linear_regression_t_test_saves_its_equation():
+    """Plan B11: the dialog's `CopyVar stat.RegEqn,f1` now has an equation to copy."""
+    session, sheet = sheet_with(a=XS, b=YS)
+    actions.stat_calc(sheet, "LinRegtTest", ["a[]", "b[]"], column=E, save="f1")
+    assert session.eval("f1(t)").text.startswith("1.997619")
+
+
 def test_a_list_name_that_is_also_a_cell_asks_first():
     """S1, S7: `d1` names a list and the cell D1: Conflict Detected, before Data Loss."""
     session, sheet = sheet_with(c=D1)
