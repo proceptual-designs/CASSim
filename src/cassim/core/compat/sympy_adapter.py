@@ -1299,9 +1299,21 @@ def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
                 if v in solution
             ]
         )
-        for solution in solutions
+        for solution in (_with_free_parameters(s, variables) for s in solutions)
     ]
     return sp.Or(*cases)
+
+
+def _with_free_parameters(solution: dict[Raw, Raw], variables: list[Raw]) -> dict[Raw, Raw]:
+    """An unknown the system leaves free is named `c1`, `c2`, ... and the others are given in
+    terms of it, as TI does: `x=-(3·c1-1) and y=2·(c1+1)/3 and z=c1` (decision 0034, item 4).
+    The numbering starts at c1 in each answer, as deSolve's does."""
+    free = [v for v in variables if v not in solution]
+    if not free:
+        return solution
+    names = {v: sp.Symbol(f"c{k}", real=True) for k, v in enumerate(free, start=1)}
+    named = {v: sp.expand(value.xreplace(names)) for v, value in solution.items()}
+    return named | names
 
 
 def roots_of(
@@ -1531,6 +1543,69 @@ def implicit_derivative(equation: Raw, variable: Raw, dependent: Raw) -> Raw:
     """dy/dx of an equation in x and y."""
     expression = equation.lhs - equation.rhs if isinstance(equation, sp.Eq) else equation
     return sp.idiff(expression, dependent, variable)
+
+
+def _interval_condition(piece: Raw, variable: Raw) -> Raw:
+    """`a<x<b` for an interval, with ∞ written as TI writes it: `-∞<x<∞`, `-∞<x<-1`."""
+    low = (sp.Le if not piece.left_open else sp.Lt)(piece.start, variable, evaluate=False)
+    high = (sp.Le if not piece.right_open else sp.Lt)(variable, piece.end, evaluate=False)
+    return sp.And(low, high)
+
+
+def _punctured(pieces: list[Raw]) -> list[Raw] | None:
+    """The points left out if open intervals cover the real line but for them (`1/x`)."""
+    ordered = sorted(pieces, key=lambda piece: float(piece.start.evalf()))
+    if ordered[0].start != -sp.oo or ordered[-1].end != sp.oo:
+        return None
+    if not all(isinstance(piece, sp.Interval) for piece in ordered):
+        return None
+    points = []
+    for left, right in pairwise(ordered):
+        if left.end != right.start or not (left.right_open and right.left_open):
+            return None
+        points.append(left.end)
+    return points
+
+
+def domain_of(expression: Raw, variable: Raw) -> Raw | None:
+    """`domain(expr, x)`: where the real expression is defined, as a condition on `x`;
+    None if SymPy cannot tell."""
+    try:
+        found = sp.calculus.util.continuous_domain(expression, variable, sp.S.Reals)
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    if found == sp.S.EmptySet:
+        return sp.false
+    pieces = list(found.args) if isinstance(found, sp.Union) else [found]
+    if not all(isinstance(piece, sp.Interval) for piece in pieces):
+        return None
+    points = _punctured(pieces) if len(pieces) > 1 else None
+    if points:
+        return sp.And(*[sp.Ne(variable, point, evaluate=False) for point in points])
+    conditions = [_interval_condition(piece, variable) for piece in pieces]
+    return conditions[0] if len(conditions) == 1 else sp.Or(*conditions)
+
+
+def euler_table(
+    slope: Callable[[Raw, Raw], Raw],
+    span: tuple[Raw, Raw],
+    initial: Raw,
+    step: Raw,
+    substeps: int,
+) -> list[list[Raw]]:
+    """Euler's method for y'=slope(t,y) over t in `span`: the rows of t and y values."""
+    start, end = span
+    times, values = [sp.Float(start, 15)], [sp.Float(initial, 15)]
+    count = int(sp.floor((end - start) / step + sp.Rational(1, 10**9)))
+    small = sp.Float(step, 15) / substeps
+    t, y = times[0], values[0]
+    for _ in range(count):
+        for _ in range(substeps):
+            y = sp.Float(y + small * slope(t, y), 15)
+            t = sp.Float(t + small, 15)
+        times.append(t)
+        values.append(y)
+    return [times, values]
 
 
 def numerical_integral(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -> Raw:

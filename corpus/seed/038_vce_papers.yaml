@@ -37,8 +37,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p1.1-1.png
-  status: xfail
-  xfail_reason: domain( is not built (plan B9)
+  status: pass
 - id: papers.mm2021e2.p1-1.solve-inequality-positive
   course: specialist
   settings:
@@ -404,8 +403,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p3.1-1.png
-  status: xfail
-  xfail_reason: domain( is not built (plan B9)
+  status: pass
 - id: papers.mm2021e2.p3-1.derivative-logs-cancelled
   course: specialist
   settings:
@@ -479,8 +477,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p5.1-rerun-1.png
     note: Re-run in a new Problem.
-  status: xfail
-  xfail_reason: domain( is not built (plan B9)
+  status: pass
 - id: papers.mm2021e2.p4-1.solve-numeric-fallback
   course: specialist
   settings:
@@ -1663,8 +1660,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p3.1-01.png
-  status: xfail
-  xfail_reason: euler( is not built (plan B9)
+  status: pass
 - id: papers.sm2025e2b.p3-1.desolve-negative-exponent
   course: specialist
   tier: 1
@@ -1931,8 +1927,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p5.1-01.png
-  status: xfail
-  xfail_reason: free parameters are not named c1 (plan B9, decision 0034 item 4)
+  status: pass
 - id: papers.mm2021e2.p6-1.fmin-periodic
   course: specialist
   settings:

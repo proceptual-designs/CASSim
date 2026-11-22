@@ -214,3 +214,36 @@ def test_a_negative_leading_term_is_taken_out():
 def test_a_surd_follows_the_variables():
     assert text("sqrt(3)*h^3/9") == "h^3*√(3)/9"
     assert text("2*sqrt(2)*@i") == "2*√(2)*ⅈ"
+
+
+# B9: domain(, euler( and free parameters
+
+
+def test_domain_of_a_polynomial_is_every_real():
+    assert text("domain(x^3-x,x)") == "-∞<x<∞"
+
+
+def test_domain_of_logarithms_is_an_interval():
+    assert text("domain(ln(x^2-1)-ln(1-x),x)") == "-∞<x<-1"
+    assert text("domain(sqrt(x-2),x)") == "2≤x<∞"
+
+
+def test_domain_with_points_left_out():
+    assert text("domain(1/(x^2-1),x)") == "x≠-1 and x≠1"
+
+
+def test_euler_gives_the_times_over_the_values():
+    assert text("euler((300-q)/150,t,q,{0,30},5,15)") == "[0.,15.,30.;5.,34.5,61.05]"
+
+
+def test_euler_with_substeps():
+    assert text("euler(t+y,t,y,{0,1},1,0.5,2)") == "[0.,0.5,1.;1.,1.625,2.8828125]"
+
+
+def test_euler_needs_a_nonzero_step():
+    session = Session(PRESETS["specialist"])
+    assert session.eval("euler(y,t,y,{0,1},1,0)").error == "Domain error"
+
+
+def test_a_free_unknown_is_named_c1():
+    assert text("solve(3*x+6*y+5*z=7 and x+9*y-3*z=7,x,y,z)").endswith("and z=c1")
