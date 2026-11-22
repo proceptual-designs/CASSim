@@ -206,3 +206,11 @@ def test_two_proportion_interval_and_test():
 )
 def test_invalid_inference_inputs_report_domain_errors(command):
     assert Session().eval(command).error == "Domain error"
+
+
+def test_linear_regression_t_test_stores_the_regression_equation():
+    """The sheet's Linear Reg t Test appends `CopyVar stat.RegEqn,f1` (plan B11)."""
+    session = _session("LinRegtTest {1,2,3,4},{3,5,7,9.5}")
+    assert session.eval("stat.RegEqn(x)").text == "2.15*x+0.75"
+    session.eval("CopyVar stat.RegEqn,f1")
+    assert session.eval("f1(2)").text == "5.05"

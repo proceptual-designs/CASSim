@@ -784,7 +784,10 @@ def linear_regression_t_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
             ),
         )
     )
-    return _inference_result(host, "Linear Regression t Test", rows)
+    result = _inference_result(host, "Linear Regression t Test", rows)
+    # The fitted line, so the sheet's `CopyVar stat.RegEqn,f1` can graph it (plan B11).
+    _store(host, "regeqn", _equation("a+b*x", {"a": intercept, "b": slope}))
+    return result
 
 
 @command("LinRegtIntervals")
