@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import io
 import json
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
@@ -123,30 +124,71 @@ LEFT_RIEMANN = (
     "print total"
 )
 POLYNOMIAL_NEWTON = (
-    "define polynomial(coefficients, x)\n"
+    "define polynomial(coeffs, x)\n"
     "  value ← 0\n"
-    "  for each coefficient in coefficients\n"
-    "    value ← value*x + coefficient\n"
+    "  for each coeff in coeffs\n"
+    "    value ← value*x + coeff\n"
     "  end for\n"
     "  return value\n"
     "end\n"
-    "define derivative(coefficients, x)\n"
+    "define derivative(coeffs, x)\n"
     "  value ← 0\n"
-    "  power ← len(coefficients) - 1\n"
-    "  for i from 1 to len(coefficients)-1\n"
-    "    value ← value*x + coefficients[i]*power\n"
+    "  power ← len(coeffs) - 1\n"
+    "  for i from 1 to len(coeffs)-1\n"
+    "    value ← value*x + coeffs[i]*power\n"
     "    power ← power - 1\n"
     "  end for\n"
     "  return value\n"
     "end\n"
-    "coefficients ← [1, 0, -2, -5]\n"
+    "coeffs ← [1, 0, -2, -5]\n"
     "x ← 2\n"
     "for iteration from 1 to 8\n"
-    "  x ← x - polynomial(coefficients, x)/derivative(coefficients, x)\n"
+    "  x ← x - polynomial(coeffs, x)/derivative(coeffs, x)\n"
     "end for\n"
     "print x"
 )
 MOBILE_BREAKPOINT = 900
+EDITOR_FONT_SIZE = 14
+# Width the editor keeps from its text: content padding (8 each side) and Flutter's text
+# cursor (2), measured 2026-11-22: a 461.2 px line wrapped in a 478 px editor.
+EDITOR_SIDE_PADDING = 18
+PROBE_LENGTH = 40  # characters in each hidden sample the editor font is measured with
+# Before the samples are measured: character width as a fraction of the font size.
+CHAR_EM = {"monospace": 0.6, "formatted": 0.5}
+
+
+def _one(_char: str) -> float:
+    return 1.0
+
+
+def wrapped_rows(line: str, width: float, char_width: Callable[[str], float] = _one) -> int:
+    """How many rows the editor draws `line` on in `width`, wrapping at spaces as Flutter
+    does: a word that does not fit moves to the next row, and a word longer than a row is
+    split. `char_width` gives each character's width (by default 1, so `width` counts
+    characters); `width` 0 means not known yet, so no wrapping."""
+
+    def measure(text: str) -> float:
+        return sum(char_width(char) for char in text)
+
+    if width <= 0 or measure(line) <= width:
+        return 1
+    rows, used = 1, 0.0
+    # A row can end at a space or just after a "/" (Flutter breaks `x)/derivative` there).
+    for piece in re.findall(r"\s*[^\s/]*/|\s*[^\s/]+", line):
+        text = piece
+        if used and used + measure(text) > width:
+            rows, used = rows + 1, 0.0
+            text = piece.lstrip()  # the spaces before a wrapped word end the last row
+        while measure(text) > width:
+            fits, total = 0, 0.0
+            while fits < len(text) and total + char_width(text[fits]) <= width:
+                total += char_width(text[fits])
+                fits += 1
+            rows, text = rows + 1, text[max(fits, 1) :]
+        used += measure(text)
+    return rows
+
+
 LINE_COLUMN_WIDTH = 40
 VARIABLE_COLUMN_WIDTH = 76
 CONDITION_COLUMN_WIDTH = 130
@@ -212,6 +254,9 @@ class CodeApp:
         self.theme_name = "Dark"
         self.cm = None
         self.cm_change_proxy = None
+        self.editor_width = 0.0  # drawn width, reported by the box around the editor
+        self.code_char_width = 0.0  # measured from the hidden samples once drawn
+        self.symbol_char_width = 0.0
         self._init_workspace_state()
 
         self.fallback_editor = ft.TextField(
@@ -228,6 +273,7 @@ class CodeApp:
             label_style=ft.TextStyle(size=1, color="transparent"),
             tooltip="Code editor",
             on_change=self.on_fallback_source,
+            expand=True,  # fill the pane: lines wrap only when the pane is too narrow
         )
         self.line_number_gutter = ft.Text(
             self._line_numbers_for(EXAMPLE),
@@ -244,14 +290,36 @@ class CodeApp:
                     padding=ft.Padding.only(top=8),
                     alignment=ft.Alignment.TOP_RIGHT,
                 ),
-                self.fallback_editor,
+                ft.Container(
+                    self.fallback_editor,
+                    expand=True,
+                    # The text field does not report its size; this box is exactly its width.
+                    on_size_change=self.on_editor_size,
+                    size_change_interval=100,
+                ),
             ],
             expand=True,
             spacing=6,
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
+        # Hidden samples in the editor's font: their drawn widths give the width of a code
+        # character and of a symbol, so the gutter knows where long lines wrap.
+        self.code_sample = ft.Text("0" * PROBE_LENGTH, style=self.editor_text_style())
+        self.symbol_sample = ft.Text("←" * PROBE_LENGTH, style=self.editor_text_style())
+        samples = ft.Container(
+            ft.Column(
+                [
+                    ft.Container(self.code_sample, on_size_change=self.measured_sample("code")),
+                    ft.Container(self.symbol_sample, on_size_change=self.measured_sample("symbol")),
+                ],
+                spacing=0,
+                tight=True,
+            ),
+            height=0,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        )
         editor_content = ft.Column(
-            [editor_row],
+            [samples, editor_row],
             scroll=ft.ScrollMode.AUTO,
             expand=True,
             spacing=0,
@@ -406,13 +474,7 @@ class CodeApp:
                     "Intro",
                     (("Linear", LINEAR), ("Loop", EXAMPLE), ("Bisection", BISECTION)),
                 ),
-                group(
-                    "Number theory",
-                    (
-                        ("GCD and LCM", GCD_LCM),
-                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
-                    ),
-                ),
+                group("Number theory", (("GCD and LCM", GCD_LCM),)),
                 group(
                     "Probability",
                     (
@@ -420,7 +482,13 @@ class CodeApp:
                         ("Two D4 sample space", D4_SAMPLE_SPACE),
                     ),
                 ),
-                group("Numerical methods", (("Left Riemann sum", LEFT_RIEMANN),)),
+                group(
+                    "Numerical methods",
+                    (
+                        ("Left Riemann sum", LEFT_RIEMANN),
+                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
+                    ),
+                ),
             ],
         )
 
@@ -536,6 +604,10 @@ class CodeApp:
 
     def apply_code_style(self) -> None:
         self.fallback_editor.text_style = self.editor_text_style()
+        for sample in (self.code_sample, self.symbol_sample):
+            sample.style = self.editor_text_style()  # re-measured in the new font
+            _safe_update(sample)
+        self.refresh_line_numbers()  # the character width sets where lines wrap
         if self.cm is not None:
             family = (
                 f'"{CODE_FONT}", "{MATH_FONT}", monospace'
@@ -649,12 +721,49 @@ class CodeApp:
             self.cm.refresh()
 
     @staticmethod
-    def _line_numbers_for(source: str) -> str:
-        return "\n".join(str(number) for number in range(1, len(source.splitlines()) + 1))
+    def _line_numbers_for(
+        source: str, width: float = 0, char_width: Callable[[str], float] = _one
+    ) -> str:
+        """One number per source line; a line the editor wraps onto more rows gets blank rows
+        after its number, so the numbers stay beside their lines. `width` 0: no wrapping."""
+        rows: list[str] = []
+        for number, line in enumerate(source.splitlines(), start=1):
+            rows.append(str(number))
+            rows.extend([""] * (wrapped_rows(line, width, char_width) - 1))
+        return "\n".join(rows)
+
+    def text_width(self) -> float:
+        """Room for text on one editor row, in pixels (0 before the editor is drawn)."""
+        return max(0.0, self.editor_width - EDITOR_SIDE_PADDING) if self.editor_width else 0.0
+
+    def char_width(self, char: str) -> float:
+        """A character's drawn width in the editor: measured from the hidden samples, ASCII
+        in the code font and other characters (arrows, π, ≤) in the fallback symbol fonts."""
+        measured = self.code_char_width if char.isascii() else self.symbol_char_width
+        return measured or CHAR_EM[self.code_style] * EDITOR_FONT_SIZE
+
+    def on_editor_size(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
+        if abs(event.width - self.editor_width) >= 1:
+            self.editor_width = event.width
+            self.refresh_line_numbers()
+
+    def measured_sample(self, kind: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def measured(event: ft.LayoutSizeChangeEvent) -> None:
+            width = event.width / PROBE_LENGTH
+            if kind == "code" and width != self.code_char_width:
+                self.code_char_width = width
+                self.refresh_line_numbers()
+            elif kind == "symbol" and width != self.symbol_char_width:
+                self.symbol_char_width = width
+                self.refresh_line_numbers()
+
+        return measured
 
     def refresh_line_numbers(self) -> None:
         source = str(self.fallback_editor.value or "")
-        self.line_number_gutter.value = self._line_numbers_for(source)
+        self.line_number_gutter.value = self._line_numbers_for(
+            source, self.text_width(), self.char_width
+        )
         self.fallback_editor.min_lines = max(12, len(source.splitlines()) + 1)
         self.line_number_gutter.visible = self.line_numbers_visible
         _safe_update(self.line_number_gutter)

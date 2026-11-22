@@ -7,12 +7,14 @@ from types import SimpleNamespace
 from typing import cast
 
 import flet as ft
+import pytest
 
 from cassim.devices.pseudocode.ui.app import (
     BISECTION,
     CONDITION_COLUMN_WIDTH,
     D4_SAMPLE_SPACE,
     DICE_MAX_STATS,
+    EDITOR_SIDE_PADDING,
     EXAMPLE,
     GCD_LCM,
     LEFT_RIEMANN,
@@ -22,6 +24,7 @@ from cassim.devices.pseudocode.ui.app import (
     POLYNOMIAL_NEWTON,
     VARIABLE_COLUMN_WIDTH,
     CodeApp,
+    wrapped_rows,
 )
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
 
@@ -441,3 +444,67 @@ def _tooltips(control: object) -> list[str]:
             if isinstance(item, ft.Control):
                 found.extend(_tooltips(item))
     return found
+
+
+def test_newton_example_uses_short_names_and_sits_with_numerical_methods() -> None:
+    assert "coefficient" not in POLYNOMIAL_NEWTON
+    assert "for each coeff in coeffs" in POLYNOMIAL_NEWTON
+    assert run(POLYNOMIAL_NEWTON, Settings()).output == ["2.09455"]
+
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    groups = {
+        str(group.content): [
+            str(item.content) for item in group.controls if isinstance(item, ft.MenuItemButton)
+        ]
+        for group in app.build_examples_menu().controls
+        if isinstance(group, ft.SubmenuButton)
+    }
+    assert groups["Numerical methods"] == ["Left Riemann sum", "Polynomial + Newton"]
+    assert groups["Number theory"] == ["GCD and LCM"]
+
+
+@pytest.mark.parametrize(
+    ("line", "columns", "rows"),
+    [
+        ("print x", 20, 1),
+        ("print x", 0, 1),  # width not known yet: no wrapping
+        ("aaaa bbbb cccc", 9, 2),  # "aaaa bbbb" fits; "cccc" wraps
+        ("aaaa bbbb cccc", 4, 3),
+        ("  x ← x - polynomial(coeffs, x)/derivative(coeffs, x)", 30, 2),
+        ("abcdefghijkl", 5, 3),  # a word longer than a row is split
+    ],
+)
+def test_wrapped_rows_follows_word_wrapping(line: str, columns: int, rows: int) -> None:
+    assert wrapped_rows(line, columns) == rows
+
+
+def test_wrapped_lines_get_no_number_of_their_own() -> None:
+    """The gutter numbers source lines; rows a long line wraps onto stay blank."""
+    source = "x ← 1\naaaa bbbb cccc\nprint x"
+
+    assert CodeApp._line_numbers_for(source, 9) == "1\n2\n\n3"
+    assert CodeApp._line_numbers_for(source) == "1\n2\n3"
+
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.code_char_width, app.symbol_char_width = 8.65, 11.37  # as measured in Edge
+    app.editor_width = EDITOR_SIDE_PADDING + 9 * 8.65 + 1  # room for 9 code characters
+    app.set_source(source)
+    assert app.line_number_gutter.value == "1\n2\n\n3"
+
+
+def test_symbols_are_measured_wider_than_code_characters() -> None:
+    """A line with arrows wraps sooner than its length in characters suggests."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    app.code_char_width, app.symbol_char_width = 8.65, 11.37
+    app.editor_width = EDITOR_SIDE_PADDING + 460  # the 1100 px layout in Edge
+    line = "  x ← x - polynomial(coeffs, x)/derivative(coeffs, x)"  # 461.2 px
+
+    assert wrapped_rows(line, app.text_width(), app.char_width) == 2
+    assert wrapped_rows(line.replace("←", "="), app.text_width(), app.char_width) == 1
+
+
+def test_a_row_can_also_end_after_a_slash() -> None:
+    # "x ← f(x)/" ends the first row; "derivative(c)" fits whole on the second (3 rows if
+    # the line could only break at spaces).
+    assert wrapped_rows("x ← f(x)/derivative(c)", 14) == 2
+    assert wrapped_rows("aaaa/bbbb", 6) == 2  # breaks after the slash, not inside a word
