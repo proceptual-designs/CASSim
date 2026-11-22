@@ -73,8 +73,9 @@ def test_trace_menu_is_numbered_as_on_the_device() -> None:
     ]
 
 
-def test_graph_trace_starts_at_zero_and_steps_by_0_3() -> None:
-    """D27: `f1: (0, 0)`, then Right gives `f1: (0.3, 0.09)` on the Standard window."""
+def test_graph_trace_starts_at_zero_and_steps_by_one_percent() -> None:
+    """The automatic step is 1% of the window width, 0.2 on the Standard window (decision 0034,
+    item 7; the device stepped about 0.26 to 0.3, D27 and R5-D11)."""
     state, graphs, _ = traced("x^2", "sin(x)")
     pick(state, "5", "1")
     assert graphs.tools.tool is Tool.TRACE
@@ -83,12 +84,12 @@ def test_graph_trace_starts_at_zero_and_steps_by_0_3() -> None:
     assert label.colour == "graph_blue"
     for _ in range(3):
         state.key_event("ArrowRight")
-    assert readout(graphs).text == "f1: (0.9, 0.81)"
+    assert readout(graphs).text == "f1: (0.6, 0.36)"
     layer = graphs.scene(318, 212).layer("tool")
     assert layer is not None
     assert [shape.colour for shape in layer.shapes if isinstance(shape, Dots)] == ["graph_blue"]
     state.key_event("ArrowLeft")
-    assert readout(graphs).text == "f1: (0.6, 0.36)"
+    assert readout(graphs).text == "f1: (0.4, 0.16)"
 
 
 def test_up_and_down_move_between_graphs_and_wrap() -> None:
@@ -155,7 +156,7 @@ def test_a_new_trace_starts_where_the_last_left() -> None:
     state.key_event("ArrowRight")
     state.key_event("Escape")
     pick(state, "5", "1")
-    assert readout(graphs).text == "f1: (0.3, 0.09)"
+    assert readout(graphs).text == "f1: (0.2, 0.04)"
 
 
 def test_trace_all_marks_every_graph_on_one_vertical() -> None:
@@ -198,7 +199,7 @@ def test_trace_step_dialog_has_automatic_and_enter_value() -> None:
     assert shown[-1].defaults() == {"mode": "value", "value": "0.78539816339745"}
     assert state.finish_wizard(shown[-1], {"mode": "auto", "value": ""}) == []
     assert graphs.tools.trace_step is None
-    assert graph_tools.trace_step(graphs) == pytest.approx(0.3)
+    assert graph_tools.trace_step(graphs) == pytest.approx(0.2)
     with pytest.raises(ValueError, match="positive"):
         graph_tools.set_trace_step(graphs, "-1")
 
