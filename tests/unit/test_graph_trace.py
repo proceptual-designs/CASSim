@@ -225,3 +225,22 @@ def test_undefined_points_read_undef_and_draw_no_mark() -> None:
     layer = graphs.scene(318, 212).layer("tool")
     assert layer is not None
     assert not any(isinstance(shape, Dots) for shape in layer.shapes)
+
+
+def test_graph_page_modules_do_not_load_sympy() -> None:
+    """Decision 0027: the UI worker has no SymPy, so the Graphs page and its tools must import
+    without it (a SymPy import stopped the app starting in the browser)."""
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    code = (
+        "import sys\n"
+        "import cassim.devices.nspire.pages.graphs\n"
+        "import cassim.devices.nspire.pages.graph_analyze\n"
+        "import cassim.graph.zoom\n"
+        "print('sympy' in sys.modules)\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    ).stdout
+    assert out.strip() == "False"

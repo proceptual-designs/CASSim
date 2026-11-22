@@ -17,11 +17,10 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from cassim.core.format import decimal_text
 from cassim.device.keys import Binding
 from cassim.device.menu import MenuItem
 from cassim.device.wizard import Field, Wizard
@@ -62,6 +61,7 @@ _POINTER_STEPS = 80  # an arrow moves the zoom pointer 1/80 of the plot (CASSim'
 _TRACE_STEP = 0.015  # automatic trace step: 0.3 on the Standard window (D27)
 _TRACE_MARGIN = 0.1  # a traced point off the top or bottom is brought 10% inside (R5-D11)
 _TYPED = frozenset("0123456789.-−")
+_FLOAT_DIGITS = 3  # the Graphs settings' Display Digits, Float 3 (graphs2 D1)
 _WINDOW_NAMES = ("xmin", "xmax", "ymin", "ymax")
 
 
@@ -90,8 +90,28 @@ def coordinate_text(value: float | None) -> str:
         return "undef"
     if value == 0:
         return "0"
-    text = decimal_text(Decimal(repr(abs(value))), "float3").removesuffix(".")
+    text = _float_3(Decimal(repr(abs(value))))
     return f"-{text}" if value < 0 else text
+
+
+def _float_3(value: Decimal) -> str:
+    """Float 3 as the Calculator shows it (`core.format`), without the trailing point. Written
+    here because `core.format` loads SymPy, which the UI worker must not (decision 0027)."""
+
+    def trimmed(number: Decimal) -> str:
+        text = format(number, "f")
+        return text.rstrip("0").rstrip(".") if "." in text else text
+
+    smallest = Decimal(1).scaleb(-_FLOAT_DIGITS)
+    if smallest <= value < 1:
+        return trimmed(value.quantize(smallest, ROUND_HALF_UP))
+    step = Decimal(1).scaleb(value.adjusted() - _FLOAT_DIGITS + 1)
+    rounded = value.quantize(step, ROUND_HALF_UP)
+    exponent = rounded.adjusted()
+    if 0 <= exponent < _FLOAT_DIGITS:
+        return trimmed(rounded)
+    mantissa = trimmed(rounded.scaleb(-exponent))
+    return f"{mantissa if '.' in mantissa else mantissa + '.'}ᴇ{exponent}"
 
 
 def _value(entry: FunctionEntry, x: float) -> float | None:
