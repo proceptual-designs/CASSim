@@ -71,9 +71,26 @@ def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
         )
     else:
         condition = cas.solve_system(equations, symbols)
+    if condition is None and not complex_roots:
+        condition = _numeric_fallback(host, equations, symbols)
     if condition is None:
         return _unevaluated("cSolve" if complex_roots else "solve", equations, symbols)
     return _answer(condition)
+
+
+def _numeric_fallback(host: Host, equations: list[Raw], symbols: list[Raw]) -> Raw | None:
+    """Decimal roots of one equation in one unknown that has no exact answer, with a warning,
+    as TI gives `solve(ⅇ^(-2x)-2ⅇ^(-x)+1=x+2,x)` as `x=-0.750403` (FR-CALC-007)."""
+    if len(equations) != 1 or len(symbols) != 1:
+        return None
+    if any(symbols[0] in constraint.free_symbols for constraint in host.constraints):
+        return None  # a domain to respect: left to the exact solver
+    unit = host.settings.angle
+    equation = cas.with_trig_in_radians(equations[0], lambda raw: angles.to_radians(raw, unit))
+    found = cas.numeric_solutions(equation, symbols[0])
+    if found is not None:
+        host.warn(errors.NUMERIC_SOLUTION)
+    return found
 
 
 @lazy("solve", 2, None, cas=True)

@@ -514,8 +514,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
-  status: xfail
-  xfail_reason: 'no numeric fallback yet (plan B4): the call is echoed'
+  status: pass
 - id: papers.mm2021e2.p4-1.integral-decimal-bound
   course: specialist
   settings:

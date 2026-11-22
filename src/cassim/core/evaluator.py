@@ -258,6 +258,10 @@ class Evaluator:
     def note_non_real(self) -> None:
         self._non_real = True
 
+    def warn(self, message: str) -> None:
+        if message not in self.warnings:
+            self.warnings.append(message)
+
     def evaluated(self, node: ast.Expr) -> Value:
         """One expression, finished as an entry's result is (a spreadsheet formula)."""
         try:

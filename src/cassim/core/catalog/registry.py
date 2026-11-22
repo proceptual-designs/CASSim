@@ -38,6 +38,10 @@ class Host(Protocol):
         is complex. In Real mode that is an error unless the final value turns out real."""
         ...
 
+    def warn(self, message: str) -> None:
+        """Give the entry a warning triangle with this message (FR-CALC-007)."""
+        ...
+
     def lookup(self, name: str) -> Value | None:
         """The value a variable has now (a binding, then the Problem), if it has one."""
         ...

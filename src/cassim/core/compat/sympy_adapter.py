@@ -1418,6 +1418,60 @@ def numerical_integral(expression: Raw, variable: Raw, lower: Raw, upper: Raw) -
     return sp.Integral(expression, (variable, lower, upper)).evalf()
 
 
+# The search for real roots when there is no exact answer: samples over [-_SEARCH_SPAN, ...].
+_SEARCH_SPAN = 100.0
+_SEARCH_SAMPLES = 20000
+_BISECTIONS = 100
+# A refined point is a root if the expression is this small there (relative to its size).
+_ROOT_RESIDUAL = 1e-9
+
+
+def _bisected(function: Callable[[float], float], low: float, high: float) -> float:
+    below = function(low) < 0
+    for _ in range(_BISECTIONS):
+        middle = (low + high) / 2
+        if (function(middle) < 0) == below:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def numeric_solutions(equation: Raw, variable: Raw) -> Raw | None:
+    """Real roots found by a bounded numeric search, for an equation in one unknown that has no
+    exact answer: `x=-0.750403` for `ⅇ^(-2x)-2ⅇ^(-x)+1=x+2`. None if there is none to find."""
+    if not isinstance(equation, sp.Eq):
+        return None
+    difference = equation.lhs - equation.rhs
+    if difference.free_symbols != {variable} or difference.atoms(AppliedUndef):
+        return None
+    function = sp.lambdify(variable, difference, "math")
+
+    def sample(point: float) -> float | None:
+        try:
+            value = float(function(point))
+        except ValueError, ZeroDivisionError, OverflowError, TypeError:
+            return None
+        return value if math.isfinite(value) else None
+
+    step = 2 * _SEARCH_SPAN / _SEARCH_SAMPLES
+    points = [-_SEARCH_SPAN + k * step for k in range(_SEARCH_SAMPLES + 1)]
+    roots: list[float] = []
+    for left, right in pairwise(points):
+        low, high = sample(left), sample(right)
+        if low is None or high is None or (low < 0) == (high < 0):
+            continue
+        root = _bisected(lambda p: sample(p) or 0.0, left, right)
+        residual = sample(root)
+        scale = max(abs(low), abs(high), 1.0)
+        if residual is not None and abs(residual) <= _ROOT_RESIDUAL * scale:
+            roots.append(root)
+    if not roots:
+        return None
+    clauses = [sp.Eq(variable, sp.Float(root, 15), evaluate=False) for root in roots]
+    return sp.Or(*clauses)
+
+
 _GUESSES = (1, 0, -1, 2, -2, 10, -10)
 
 

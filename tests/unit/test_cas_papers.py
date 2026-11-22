@@ -87,3 +87,35 @@ def test_a_short_exact_definite_integral_stays_exact():
 
 def test_an_unsolved_definite_integral_keeps_its_bounds():
     assert text("integral(5*sqrt(5-4*cos(k*t)),t,0,pi)").endswith(",t,0,π)")
+
+
+# B4: solve falls back to decimal roots, with a warning (FR-CALC-007)
+
+
+def warnings(*lines: str) -> tuple[str, ...]:
+    session = Session(PRESETS["specialist"])
+    result = None
+    for line in lines:
+        result = session.eval(line)
+    assert result is not None
+    return result.warnings
+
+
+def test_solve_with_no_exact_answer_gives_decimal_roots():
+    assert text("solve(@e^(-2*x)-2*@e^(-x)+1=x+2,x)") == "x=-0.75040316"
+
+
+def test_a_numeric_solution_has_a_warning():
+    assert warnings("solve(cos(x)=x,x)") == ("Solved numerically: there may be other solutions",)
+
+
+def test_an_exact_solution_has_no_warning():
+    assert warnings("solve(x^2=4,x)") == ()
+
+
+def test_a_numeric_search_finds_every_crossing():
+    assert text("solve(cos(x)=x/5,x)").count(" or ") == 2
+
+
+def test_an_equation_with_a_parameter_is_still_echoed():
+    assert text("solve(cos(x)=a*x,x)").startswith("solve(")
