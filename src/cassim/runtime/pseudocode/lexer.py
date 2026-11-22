@@ -5,7 +5,7 @@ called `end` is still possible in expression position.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from cassim.runtime.pseudocode.errors import PseudocodeSyntaxError
 from cassim.runtime.pseudocode.syntax import DEFAULT, Mode, Syntax
@@ -17,6 +17,21 @@ SUPERSCRIPT = {
     "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
 }  # fmt: skip
 SUPERSCRIPT_MINUS = "⁻"
+# Superscript signs, brackets and letters: a run such as `ˣ⁺¹` is the exponent `(x+1)`.
+# Unicode has a superscript for every lowercase Latin letter but q (code points, not
+# literals: several look like ordinary letters).
+SUPERSCRIPT_SIGNS = {chr(0x207A): "+", chr(0x207B): "-", chr(0x207D): "(", chr(0x207E): ")"}
+SUPERSCRIPT_LETTERS = {
+    chr(code): letter
+    for letter, code in (
+        ("a", 0x1D43), ("b", 0x1D47), ("c", 0x1D9C), ("d", 0x1D48), ("e", 0x1D49),
+        ("f", 0x1DA0), ("g", 0x1D4D), ("h", 0x02B0), ("i", 0x2071), ("j", 0x02B2),
+        ("k", 0x1D4F), ("l", 0x02E1), ("m", 0x1D50), ("n", 0x207F), ("o", 0x1D52),
+        ("p", 0x1D56), ("r", 0x02B3), ("s", 0x02E2), ("t", 0x1D57), ("u", 0x1D58),
+        ("v", 0x1D5B), ("w", 0x02B7), ("x", 0x02E3), ("y", 0x02B8), ("z", 0x1DBB),
+    )
+}  # fmt: skip
+SUPERSCRIPT_RUN = SUPERSCRIPT | SUPERSCRIPT_SIGNS | SUPERSCRIPT_LETTERS  # character -> plain
 
 # Longest spelling first.
 _OPERATORS = (
@@ -45,11 +60,15 @@ class Token:
 
 
 def _is_name_start(c: str) -> bool:
-    return c.isalpha() or c == "_" or c in "ⅇⅈ∞"
+    return (c.isalpha() and c not in SUPERSCRIPT_LETTERS) or c == "_" or c in "ⅇⅈ∞"
 
 
 def _is_name_part(c: str) -> bool:
-    return (c.isalnum() and c not in SUPERSCRIPT) or c == "_" or c in "ⅇⅈ'"
+    return (
+        (c.isalnum() and c not in SUPERSCRIPT and c not in SUPERSCRIPT_LETTERS)
+        or c == "_"
+        or c in "ⅇⅈ'"
+    )
 
 
 def _spelling(
@@ -125,11 +144,11 @@ def _tokenize_line(  # noqa: PLR0912
             _spelling(syntax.quotes.get(kind), f"{kind} quotes", syntax, (lineno, i), warn)
             out.append(Token("STRING", text[i + 1 : j], lineno, i, j + 1))
             i = j + 1
-        elif c in SUPERSCRIPT or c == SUPERSCRIPT_MINUS:
+        elif c in SUPERSCRIPT_RUN:
             _spelling(syntax.superscripts, "superscript exponents", syntax, (lineno, i), warn)
-            tok = _scan_superscript(text, i, lineno)
-            out.append(tok)
-            i = tok.end
+            run = _superscript_tokens(text, (lineno, i), syntax, warn)
+            out.extend(run)
+            i = run[-1].end
         elif c == "@":
             i = _scan_constant_alias(text, i, lineno, out)
         elif _is_name_start(c):
@@ -149,6 +168,27 @@ def _tokenize_line(  # noqa: PLR0912
                     break
             else:
                 raise PseudocodeSyntaxError(f"unexpected character {c!r}", lineno, i)
+
+
+def _superscript_tokens(text: str, at: tuple[int, int], syntax: Syntax, warn: Warn) -> list[Token]:
+    """A run of superscripts at `at` (line, column) is an exponent: `²` and `⁻¹` stay one SUP
+    token (a number); with letters, signs or brackets, `2ˣ⁺¹` reads as `2^(x+1)`."""
+    lineno, i = at
+    end = i
+    while end < len(text) and text[end] in SUPERSCRIPT_RUN:
+        end += 1
+    plain = "".join(SUPERSCRIPT_RUN[ch] for ch in text[i:end])
+    digits = plain.removeprefix("-")
+    if digits.isascii() and digits.isdigit():
+        return [_scan_superscript(text, i, lineno)]
+    inner: list[Token] = []
+    _tokenize_line(plain, lineno, inner, syntax, warn)
+    return [
+        Token("OP", "^", lineno, i, i, "^"),
+        Token("OP", "(", lineno, i, i, "("),
+        *(replace(tok, col=tok.col + i, end=tok.end + i) for tok in inner),
+        Token("OP", ")", lineno, end, end, ")"),
+    ]
 
 
 def _scan_superscript(text: str, i: int, lineno: int) -> Token:

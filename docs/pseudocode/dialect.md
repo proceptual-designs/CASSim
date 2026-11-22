@@ -41,7 +41,7 @@ Every spelling in this section and in section 4 is the default of the user's syn
 - **Identifiers are case-sensitive** (`A` and `a` differ in the trapezium example; Python agrees). Short algebra-like names are the convention. The sources contain slips such as `Count` for `count`, so an undefined name gets a "did you mean ...?" diagnostic, never a silent guess.
 - **Comments**: `//` and `#` to end of line; either, consistently, is fine.
 - **Assignment**: `x ← 5`. Also accepted: `<-` and `:=`. A bare `x = 5` at statement level is accepted **with a warning** (the VCAA page itself has `sum = sum + x + y`), because `=` is equality inside expressions.
-- **Arithmetic**: `+ - × * ÷ /`, `DIV` and `MOD` (floor semantics, as Python `//` and `%`), powers as `^`, `**` or superscript digits (`i²`, `i³`). Minus may be `-`, `−` (U+2212, used in exam text) or `–` (U+2013).
+- **Arithmetic**: `+ - × * ÷ /`, `DIV` and `MOD` (floor semantics, as Python `//` and `%`), powers as `^`, `**` or superscripts: digits (`i²`, `i³`, `x⁻¹`), and a run with letters, `⁺ ⁻` and `⁽ ⁾` is the whole exponent, so `2ˣ⁺¹` reads as `2^(x+1)` (Unicode has no superscript q, `*` or `/`, so `2^(2*x)` is written with `^`). Minus may be `-`, `−` (U+2212, used in exam text) or `–` (U+2013).
 - **Implicit multiplication**: `2a`, `2t`, `2e^x`, `(a+b)(c+d)`. A name followed by `(` is a call if it is a defined function or a function parameter, otherwise it is a product.
 - **Comparison**: `=` (equality in an expression; `==` also accepted), `≠ <> !=`, `< >`, `≤ <= ⩽`, `≥ >= ⩾`. **Chained comparisons** are allowed with Python meaning: `-0.01 < cos(x) - x < 0.01`.
 - **Logic**: `and or not`, and `∧ ∨ ¬` (Specialist).
@@ -202,7 +202,7 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 
 - **`and` and `or` short-circuit**, as in Python: `while i ≥ 1 and a[i] > key` must not evaluate `a[i]` when `i` is 0. The tracer shows only the operands actually evaluated.
 - **Operator precedence copies Python's.** `DIV` and `MOD` have the same level as `×` and `÷`, evaluated left to right (`a × b DIV g` is `(a×b) DIV g`); `^` binds tighter than unary minus on its left (`-x^2` is `-(x^2)`).
-- **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a`, `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
+- **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a` (or Python's `for x in a`), `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
 - **π is the built-in constant** (`π` or `pi`) wherever a program needs it; a program may instead define its own decimal approximation (a name it assigns shadows the constant). The book's `sine` therefore uses `π`, not 355 ÷ 113 (its printed error table is what true π gives).
 - **Extended Euclid** (Bezout coefficients) is in the corpus as a Specialist example.
 

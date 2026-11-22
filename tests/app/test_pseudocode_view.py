@@ -15,6 +15,7 @@ from cassim.devices.pseudocode.ui.app import (
     D4_SAMPLE_SPACE,
     DICE_MAX_STATS,
     EDITOR_SIDE_PADDING,
+    EDITOR_TOP,
     EXAMPLE,
     GCD_LCM,
     LEFT_RIEMANN,
@@ -23,10 +24,12 @@ from cassim.devices.pseudocode.ui.app import (
     OUTPUT_COLUMN_WIDTH,
     POLYNOMIAL_NEWTON,
     PRIME_SIEVE,
+    ROW_HEIGHT,
     VARIABLE_COLUMN_WIDTH,
     CodeApp,
     wrapped_rows,
 )
+from cassim.devices.pseudocode.ui.call_window import CallWindow
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
 
 
@@ -412,56 +415,126 @@ def texts(control: object) -> list[str]:
     return found
 
 
-def test_a_call_row_opens_its_own_trace_in_a_dialog() -> None:
-    """FR-TRC-013: the call's Calcs cell has an expand button; the dialog shows that call's
-    lines, and a call inside it has its own button."""
+def call_window_app(width: float = 1100) -> CodeApp:
     shell = DummyShell()
-    dialogs: list[ft.AlertDialog] = []
-    shell.page = SimpleNamespace(show_dialog=dialogs.append, pop_dialog=lambda: None)
+    shell.page = SimpleNamespace(overlay=[], update=lambda: None, width=width, height=760)
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.trace_source = DOUBLING  # the program the run came from, as Run sets it
     app.result = run(DOUBLING, Settings())
     app.cursor = len(app.result.steps)
+    return app
 
+
+def highlighted(window: CallWindow) -> list[str]:
+    """The code lines the window highlights (the line of the last trace row shown)."""
+    found: list[str] = []
+
+    def walk(control: object) -> None:
+        if isinstance(control, ft.Container) and control.bgcolor == ft.Colors.SECONDARY_CONTAINER:
+            found.extend(texts(control))
+        for name in ("content", "controls"):
+            child = getattr(control, name, None)
+            for item in child if isinstance(child, list) else [child]:
+                if isinstance(item, ft.Control):
+                    walk(item)
+
+    walk(window.frame)
+    return found
+
+
+def test_a_call_row_opens_its_code_and_trace_in_a_window() -> None:
+    """FR-TRC-013: the call's Calcs cell has an expand button; it opens a window with the
+    function's code beside that call's trace, and a call inside it has its own button."""
+    app = call_window_app()
     table, _, _ = app.update_vertical_trace()
     calls = app.call_rows(table)
-    assert calls == {0: 0}  # the top-level row `f(1)`
+    assert calls == {1: 1}  # the top-level row `f(1)`, after the `define` row
 
-    app.show_call(calls[0])
-    dialog = dialogs[-1]
-    assert texts(dialog.title) == ["f(1): n = 1"]
-    shown = texts(dialog.content)
-    assert shown[:4] == ["4 / 4 steps", "Line", "m", "Calcs / Output"]
-    assert "f(2)" in shown
-    tooltips = _tooltips(dialog.content)
+    app.show_call(calls[1])
+    window = app.call_windows[-1]
+    assert app.page.overlay == [window.host]
+    shown = texts(window.frame)
+    assert shown[0] == "f(1): n = 1"  # the title bar
+    assert {"define f(n)", "  return f(m)", "end"} <= set(shown)  # the function's code
+    assert {"4 / 4 steps", "Calcs / Output", "f(2)"} <= set(shown)  # its trace
+    tooltips = _tooltips(window.frame)
     assert [tip for tip in tooltips if tip.startswith("Expand ")] == ["Expand f(2)"]
-    assert "Resize m column" in tooltips  # the trace pane's resizable columns
+    assert {"Resize m column", "Move window", "Resize window", "Close"} <= set(tooltips)
+    body = window.frame.content.controls[0].controls[1].content  # ty: ignore[unresolved-attribute]
+    assert isinstance(body, ft.Row)  # code beside trace on a desktop
+
+    window.close()
+    assert app.page.overlay == []
+    assert app.call_windows == []
 
 
-def test_a_call_dialog_steps_through_the_call() -> None:
-    """FR-TRC-013: Step, First and Last move through the call's own rows, as in the pane."""
-    shell = DummyShell()
-    dialogs: list[ft.AlertDialog] = []
-    shell.page = SimpleNamespace(show_dialog=dialogs.append, pop_dialog=lambda: None)
-    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
-    app.result = run(DOUBLING, Settings())
-    app.cursor = len(app.result.steps)
-    app.show_call(0)
-    content = dialogs[-1].content
+def test_a_call_window_stacks_code_over_trace_on_a_phone() -> None:
+    app = call_window_app(width=390)
+    app.show_call(1)
+    window = app.call_windows[-1]
+    body = window.frame.content.controls[0].controls[1].content  # ty: ignore[unresolved-attribute]
+    assert isinstance(body, ft.Column)
+    assert (window.left, window.width) == (8.0, 390 - 16)
+
+
+def test_a_call_window_steps_through_the_call_and_follows_it_in_the_code() -> None:
+    """FR-TRC-013: Step, First and Last move through the call's own rows, as in the pane, and
+    the code highlights the line of the last row shown."""
+    app = call_window_app()
+    app.show_call(1)
+    window = app.call_windows[-1]
 
     def press(label: str) -> list[str]:
-        button = next(b for b in _buttons(content) if b.content == label)
+        button = next(b for b in _buttons(window.frame) if b.content == label)
         assert button.on_click is not None
-        cast("Callable[[object], object]", button.on_click)(None)  # the dialog's lambdas
-        return texts(content)
+        cast("Callable[[object], object]", button.on_click)(None)  # the window's lambdas
+        return texts(window.frame)
 
+    assert highlighted(window) == ["6", "  return f(m)"]  # the call's last row
     assert "0 / 4 steps" in press("First")
-    assert "m = 1×2 = 2" not in texts(content)
+    assert "m = 1×2 = 2" not in texts(window.frame)
+    assert highlighted(window) == ["1", "define f(n)"]
     after_step = press("Step")
     assert "1 / 4 steps" in after_step
     assert "m = 1×2 = 2" in after_step
     assert "f(2)" not in after_step
+    assert highlighted(window) == ["2", "  m ← n*2"]
     assert "4 / 4 steps" in press("Last")
-    assert "f(2)" in texts(content)
+    assert "f(2)" in texts(window.frame)
+
+
+def test_a_call_window_moves_and_resizes_within_the_page() -> None:
+    app = call_window_app()
+    app.show_call(1)
+    window = app.call_windows[-1]
+    left, top, width, height = window.left, window.top, window.width, window.height
+
+    def drag(handler: Callable[[ft.DragUpdateEvent], None], x: float, y: float) -> None:
+        """A drag from (500, 300) by (x, y) in three updates, as the browser reports it: each
+        update carries the pointer's position, not the step."""
+        start = SimpleNamespace(global_position=SimpleNamespace(x=500, y=300))
+        window.start_drag(start)  # ty: ignore[invalid-argument-type]
+        for part in (1, 2, 3):
+            at = SimpleNamespace(x=500 + x * part / 3, y=300 + y * part / 3)
+            handler(SimpleNamespace(global_position=at))  # ty: ignore[invalid-argument-type]
+
+    drag(window.move, -30, 21)
+    assert (window.frame.left, window.frame.top) == (left - 30, top + 21)
+    drag(window.resize, 51, 42)
+    assert (window.frame.width, window.frame.height) == (width + 51, height + 42)
+    drag(window.resize, -5000, -5000)
+    assert (window.width, window.height) == (320, 240)  # no smaller than this
+    drag(window.move, -5000, -5000)
+    assert (window.left, window.top) == (0, 0)  # still on the page
+
+
+def test_a_call_window_opened_from_another_is_offset() -> None:
+    app = call_window_app()
+    app.show_call(1)
+    app.show_call(3)  # f(2), called inside f(1)
+    first, second = app.call_windows
+    assert (second.left, second.top) == (first.left + 24, first.top + 24)
+    assert app.page.overlay == [first.host, second.host]
 
 
 def _buttons(control: object) -> list[ft.Button]:
@@ -492,7 +565,9 @@ def _tooltips(control: object) -> list[str]:
 def test_newton_example_uses_short_names_and_sits_with_numerical_methods() -> None:
     assert "coefficient" not in POLYNOMIAL_NEWTON
     assert "for each coeff in coeffs" in POLYNOMIAL_NEWTON
-    assert run(POLYNOMIAL_NEWTON, Settings()).output == ["2.09455"]
+    output = run(POLYNOMIAL_NEWTON, Settings()).output
+    assert len(output) == 8  # one x for each step of Newton's method
+    assert output[-1] == "2.09455"  # the root after 8 steps of Newton's method
 
     app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
     groups = {
@@ -634,3 +709,120 @@ def test_a_typed_name_starting_with_e_is_not_an_alias(monkeypatch: pytest.Monkey
     type_keys(app, "print @exp + @e")
     pause(page)
     assert app.current_source == "print @exp + ⅇ"
+
+
+def test_typing_aid_puts_the_caret_back_after_what_was_typed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-SYN-013: after the conversion the caret is where the typing left it, not at the end
+    of the text (setting the text would put it there)."""
+    app, page = paused_app(monkeypatch)
+    app.current_source = "a\nprint b"
+    for text in ("a \nprint b", "a <\nprint b", "a <-\nprint b"):  # typed after the `a`
+        control = SimpleNamespace(value=text, selection=None, update=lambda: None)
+        app.on_fallback_source(SimpleNamespace(control=control))  # ty: ignore[invalid-argument-type]
+    pause(page)
+
+    assert app.current_source == "a ←\nprint b"
+    selection = app.fallback_editor.selection
+    assert selection is not None
+    assert (selection.base_offset, selection.extent_offset) == (3, 3)  # just after the ←
+
+
+def test_a_call_window_is_modal_and_rearranges_as_it_is_resized() -> None:
+    """FR-TRC-013: a dimmed layer over the page takes its clicks while the window is open, and
+    the code and trace sit side by side or stack as the window's width allows."""
+    app = call_window_app()
+    app.show_call(1)
+    window = app.call_windows[-1]
+    barrier, frame = window.host.controls
+    assert frame is window.frame
+    assert isinstance(barrier, ft.Container)
+    assert (barrier.left, barrier.top, barrier.right, barrier.bottom) == (0, 0, 0, 0)
+    assert barrier.bgcolor is not None
+    assert isinstance(window.body.content, ft.Row)  # 960 px wide: side by side
+
+    def resize_to(width: float) -> None:
+        start = SimpleNamespace(global_position=SimpleNamespace(x=0, y=0))
+        window.start_drag(start)  # ty: ignore[invalid-argument-type]
+        to = SimpleNamespace(x=width - window.width, y=0)
+        window.resize(SimpleNamespace(global_position=to))  # ty: ignore[invalid-argument-type]
+
+    resize_to(500)
+    assert isinstance(window.body.content, ft.Column)  # narrow: code above trace
+    resize_to(800)
+    assert isinstance(window.body.content, ft.Row)
+
+
+def test_a_call_window_divider_resizes_its_columns() -> None:
+    """FR-TRC-013: the line between code and trace is a resize grip, as in the main view."""
+    app = call_window_app()
+    app.show_call(1)
+    window = app.call_windows[-1]
+    assert "Resize columns" in [
+        control.tooltip
+        for control in window.body.content.controls  # ty: ignore[unresolved-attribute]
+        if isinstance(control, ft.GestureDetector)
+        for control in [control.content]
+    ]
+    width = window.width - 16 - 12  # less the body's padding and the divider
+    start = window.first.width
+    assert start is not None
+    assert start == pytest.approx(0.42 * width)
+
+    def drag(dx: float) -> None:
+        window.resize_columns(SimpleNamespace(global_delta=SimpleNamespace(x=dx, y=0)))  # ty: ignore[invalid-argument-type]
+
+    drag(100)
+    assert window.first.width == pytest.approx(start + 100)
+    drag(10_000)
+    assert window.split == 0.8  # no further than this
+    resize = SimpleNamespace(global_position=SimpleNamespace(x=0, y=0))
+    window.start_drag(resize)  # ty: ignore[invalid-argument-type]
+    window.resize(SimpleNamespace(global_position=SimpleNamespace(x=-100, y=0)))  # ty: ignore[invalid-argument-type]
+    assert window.first.width == pytest.approx(0.8 * (window.width - 28))  # keeps its share
+
+
+def test_help_opens_the_pseudocode_page_of_the_wiki() -> None:
+    shell = DummyShell()
+    asked: list[str] = []
+    shell.help = asked.append  # ty: ignore[unresolved-attribute]
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+
+    app.open_help(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+
+    assert asked == ["Pseudocode.html"]
+
+
+def test_step_in_the_main_table_steps_over_a_call_and_highlights_the_line() -> None:
+    """Step runs a call's own lines in one step (they are seen in its window), and the band
+    behind the editor follows the line of the last row, as the call window does."""
+    app = call_window_app()
+    app.fallback_editor.value = DOUBLING
+    app.to_start(None)
+    assert app.status.value == "0 / 4 steps"  # define, the call f(1), y ← its value, print y
+    assert app.line_band.visible is False
+
+    app.step_forward(None)
+    assert (app.status.value, app.highlighted_line) == ("1 / 4 steps", 1)  # define f(n)
+    assert app.line_band.top == EDITOR_TOP
+
+    app.step_forward(None)  # over f(1): its lines have all run
+    assert (app.status.value, app.highlighted_line) == ("2 / 4 steps", 8)
+    assert app.line_band.top == EDITOR_TOP + 7 * ROW_HEIGHT
+    assert [
+        row.line for row in trace.call_table(app.result, Settings(), 1, cursor=app.cursor).rows
+    ] == [2, 3, 6, 6]
+
+    app.step_back(None)
+    assert (app.status.value, app.highlighted_line) == ("1 / 4 steps", 1)
+    app.to_end(None)
+    assert app.status.value == "4 / 4 steps"
+
+
+def test_a_condition_inside_a_function_is_not_a_main_table_column() -> None:
+    """`m > 4` runs inside f: like f's variables, it belongs to the call's window."""
+    app = call_window_app()
+    assert app.condition_labels() == ()
+    _, columns, _ = app.update_vertical_trace()
+    assert not [key for key, _, _ in columns if key.startswith("condition:")]

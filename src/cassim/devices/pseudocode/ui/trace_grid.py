@@ -145,7 +145,7 @@ class TraceGrid:
         return ft.Container(
             ft.Row(
                 [
-                    ft.Text(value, size=12, selectable=True, expand=True),
+                    # First, so it shows even when a phone cuts the column off on the right.
                     ft.IconButton(
                         icon=ft.Icons.OPEN_IN_NEW,
                         icon_size=14,
@@ -155,13 +155,14 @@ class TraceGrid:
                         tooltip=f"Expand {value}",
                         on_click=lambda _: self.open_call(call),
                     ),
+                    ft.Text(value, size=12, selectable=True, expand=True),
                 ],
                 spacing=2,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
             width=self.widths.get(key, OUTPUT_COLUMN_WIDTH),
             height=ROW_HEIGHT,
-            padding=ft.Padding.only(left=6, right=2),
+            padding=ft.Padding.only(left=2, right=6),
             border=ft.Border.all(1),
             alignment=ft.Alignment.CENTER_LEFT,
         )

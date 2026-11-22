@@ -144,6 +144,7 @@ def test_pseudocode_code_view_has_a_home_menu(browser: Browser, site) -> None:
 # (seen 6 times in 6 runs, 2026-11-22), which a real keyboard does not do.
 HUMAN_TYPING = 0
 REDRAW = 300  # ms for Python and Flutter to catch up, as a person pauses to look
+AID_WAIT = 1500  # ms: well past the typing aid's 0.5 s pause, before typing on (PLAN.md A12)
 
 
 def clear_editor(page: Page, editor: Locator) -> None:

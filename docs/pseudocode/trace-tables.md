@@ -11,7 +11,8 @@ A run produces an ordered list of **events**, one per executed step. Stepping fo
 | line executed | source line number, kind (assign, condition, call, return, print, input, loop head) |
 | assignment | variable, old value, new value, the expression with values substituted (`(−1+−2)/2 = −1.5`) |
 | condition | the expression with values substituted, its true/false result, which branch or loop path follows |
-| call / return | function name, argument values, returned value, nesting depth |
+| define | the function's header (`define f(x)`), recorded where the `define` line runs, once (functions are made before the run so they can be called earlier, but the row is at their own line; decided 2026-11-22) |
+| call / return | function name, argument values, returned value, nesting depth. In the main table **Step steps over a call** (decided 2026-11-22): one step runs every line inside it, and those lines are examined in the call's window, which has its own Step |
 | output | the text printed |
 | input | the prompt and the value supplied |
 | halt | finished, error (with message and line), or step limit |

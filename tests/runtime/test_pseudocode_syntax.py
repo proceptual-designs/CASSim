@@ -425,5 +425,5 @@ def test_the_palette_offers_only_what_the_language_reads() -> None:
     for symbol in ("±", "≈"):
         with pytest.raises(PseudocodeSyntaxError):
             tokenize(f"a {symbol} b")
-    assert run("n ← 2\nprint 2ⁿ", Settings()).error == "ⁿ is not defined"  # a name, not a power
-    assert set(disabled) == {"±", "≈", "ⁿ"}
+    assert run("n ← 3\nprint 2ⁿ", Settings()).output == ["8"]  # ⁿ is a power, so enabled
+    assert set(disabled) == {"±", "≈"}

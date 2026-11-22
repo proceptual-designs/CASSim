@@ -2,6 +2,15 @@
 
 - [[Home]]
 - [[Getting started]]
+
+**Apps**
+
+- [[Nspire calculator|Nspire]]
+- [[Pseudocode & Python|Pseudocode]]
+- [[Pseudocode syntax]]
+
+**Nspire**
+
 - [[The two views]]
 - [[Keys and shortcuts]]
 - [[Menus]]

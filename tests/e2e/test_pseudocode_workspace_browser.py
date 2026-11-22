@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 import pytest
 from playwright.sync_api import Browser, Page, expect
-from tests.e2e.test_home_browser import REDRAW, clear_editor
+from tests.e2e.test_home_browser import AID_WAIT, REDRAW, clear_editor
 
 from cassim.app.home import WELCOME
 
@@ -288,8 +288,16 @@ def test_typing_aid_converts_latex_words(browser: Browser, site) -> None:
         editor = page.locator("textarea").first
         clear_editor(page, editor)  # waits until the app has seen the clear
         editor.press_sequentially("t <-")
-        page.wait_for_timeout(REDRAW)
+        # The aid converts once typing pauses (0.5 s), and a key typed while that conversion is
+        # on its way back can be overwritten on a busy machine (PLAN.md A12). So wait well past
+        # the pause before typing on. (The browser's text box can lag what the editor shows,
+        # so the check reads it only after more typing has synced it.)
+        page.wait_for_timeout(AID_WAIT)
         editor.press_sequentially(" \\theta")
         page.wait_for_timeout(REDRAW)
         editor.press_sequentially(" ")
-        expect(editor).to_have_value("t ← θ ")
+        page.wait_for_timeout(AID_WAIT)
+        editor.press_sequentially("+x^2")
+        page.wait_for_timeout(REDRAW)
+        editor.press_sequentially(" ")
+        expect(editor).to_have_value("t ← θ +x² ")  # `^2 ` became a superscript
