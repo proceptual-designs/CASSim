@@ -17,9 +17,10 @@ import flet as ft
 import pytest
 from tests.app.test_splitter_drag import handheld_app
 
-from cassim.app.home import home_choices
-from cassim.app.main import LAST_DEVICE_KEY, Application, shared_device, startup_device
+from cassim.app.home import WELCOME, Home, HomeChoice, home_choices
+from cassim.app.main import Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
+from cassim.app.theme import DARK, LIGHT
 from cassim.devices.nspire.ui.app import cassim_items
 
 
@@ -40,26 +41,60 @@ def test_home_lists_all_choices_and_only_enables_bundled_apps() -> None:
     assert [choice.available for choice in choices] == [True, False, False, True, False]
 
 
-def test_startup_resumes_a_valid_device_and_repairs_missing_or_invalid_preferences() -> None:
-    devices = ("nspire", "pseudocode")
-    assert startup_device("/", "pseudocode", "all", devices) == "pseudocode"
-    assert startup_device("/", None, "all", devices) is None
-    assert startup_device("/", "removed", "all", devices) is None
+def test_home_uses_the_published_app_icon() -> None:
+    """FR-PWA-001: Home and the installed app use the same bundle-specific icon artwork."""
+    mark = Home._mark()
+    assert isinstance(mark, ft.Image)
+    assert mark.src == "icons/icon-192.png"
+
+
+def test_light_home_cards_are_not_coloured_like_dark_keypad_keys() -> None:
+    """FR-PROF-011/017: the Home cards follow the shell theme instead of the keypad."""
+    shell = FakeShell()
+    home = Home(cast(Any, shell), lambda _item: None)
+    home.card_width = 560
+    choice = HomeChoice("nspire", "Nspire", "Handheld graphing and CAS", True)
+
+    home.theme = DARK
+    dark = cast(ft.Button, home._card(choice))
+    home.theme = LIGHT
+    light = cast(ft.Button, home._card(choice))
+
+    assert dark.style is not None
+    assert light.style is not None
+    assert dark.style.bgcolor == DARK.home_card
+    assert light.style.bgcolor == LIGHT.home_card
+    assert light.style.bgcolor != DARK.key
+    assert WELCOME == "Hi! Choose a CAS Calculator or other tool to start"
+
+
+def test_a_normal_launch_of_the_all_bundle_always_opens_home() -> None:
+    assert startup_device("/", "all", ("nspire", "pseudocode")) is None
+    assert startup_device("/removed", "all", ("nspire", "pseudocode")) is None
 
 
 def test_single_device_bundles_bypass_home() -> None:
-    assert startup_device("/", None, "tin", ("nspire",)) == "nspire"
-    assert startup_device("/", "classpad", "tin", ("nspire",)) == "nspire"
+    assert startup_device("/", "tin", ("nspire",)) == "nspire"
+    assert startup_device("/classpad", "tin", ("nspire",)) == "nspire"
 
 
-def test_share_link_selects_its_device_before_the_remembered_preference() -> None:
+@pytest.mark.parametrize("route", ["/pseudocode", "/app/pseudocode"])
+def test_direct_app_route_opens_that_device(route: str) -> None:
+    assert startup_device(route, "all", ("nspire", "pseudocode")) == "pseudocode"
+
+
+def test_direct_app_option_opens_that_device() -> None:
+    assert startup_device("/", "all", ("nspire", "pseudocode"), "pseudocode") == "pseudocode"
+
+
+def test_share_link_opens_its_device() -> None:
     route = fragment("pseudocode")
     assert shared_device(route) == "pseudocode"
-    assert startup_device(route, "nspire", "all", ("nspire", "pseudocode")) == "pseudocode"
+    assert startup_device(route, "all", ("nspire", "pseudocode")) == "pseudocode"
 
 
 def test_debug_route_still_opens_the_first_device_for_existing_e2e_flows() -> None:
-    assert startup_device("/debug", None, "all", ("nspire",)) == "nspire"
+    assert startup_device("/debug", "all", ("nspire",)) == "nspire"
 
 
 class FakePage(SimpleNamespace):
@@ -71,8 +106,7 @@ class FakePage(SimpleNamespace):
 
 
 class FakeShell:
-    def __init__(self, saved: str | None = None) -> None:
-        self.saved = saved
+    def __init__(self) -> None:
         self.writes: list[tuple[str, str]] = []
         self.route = "/"
         self.page: ft.Page = cast("ft.Page", FakePage())
@@ -81,8 +115,7 @@ class FakeShell:
         self.device: object | None = None
 
     async def read_global(self, key: str) -> str | None:
-        assert key == LAST_DEVICE_KEY
-        return self.saved
+        pytest.fail(f"startup read {key}")
 
     def write_global(self, key: str, value: str) -> None:
         self.writes.append((key, value))
@@ -128,10 +161,10 @@ def test_first_visit_draws_home_without_loading_a_device(monkeypatch: pytest.Mon
     assert app.active is None
 
 
-def test_selecting_an_app_loads_only_its_ui_and_remembers_it(
+def test_selecting_an_app_loads_only_its_ui_and_records_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    shell = FakeShell("nspire")
+    shell = FakeShell()
     mounted = FakeMounted()
     device = SimpleNamespace(id="nspire", ui="cassim.devices.nspire.ui")
     monkeypatch.setattr("cassim.app.main.devices.load", lambda item: device)
@@ -145,10 +178,10 @@ def test_selecting_an_app_loads_only_its_ui_and_remembers_it(
 
     assert shell.device is device
     assert mounted.options == {"view": "computer"}
-    assert shell.writes == [(LAST_DEVICE_KEY, "nspire")]
+    assert shell.writes == []
 
 
-def test_a_direct_debug_launch_is_also_remembered(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_direct_debug_launch_is_not_remembered(monkeypatch: pytest.MonkeyPatch) -> None:
     shell = FakeShell()
     shell.route = "/debug"
     mounted = FakeMounted()
@@ -162,7 +195,8 @@ def test_a_direct_debug_launch_is_also_remembered(monkeypatch: pytest.MonkeyPatc
 
     asyncio.run(app.start())
 
-    assert shell.writes == [(LAST_DEVICE_KEY, "nspire")]
+    assert app.active is mounted
+    assert shell.writes == []
 
 
 def test_home_menu_action_is_only_added_for_the_all_in_one_app() -> None:

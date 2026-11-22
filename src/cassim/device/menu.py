@@ -6,7 +6,9 @@ picks a row of any open level (`pick`), so the menus work by touch and mouse too
 
 Two other shapes, as on the handheld: a *grid* (`columns`: the trig, templates and symbol keys),
 where the arrows move in two dimensions and items have no keys; and a *jump list* (`jump`: the
-Catalog, the variables), where typing a letter moves to the first item starting with it.
+Catalog, the variables), where typed letters build a search and the highlight moves to the first
+item starting with it. The device jumps on the last letter alone; CASSim narrows on all of them
+(`getN` finds `getNum(`), Esc clears the search and a second Esc closes the menu (decision 0034).
 """
 
 from __future__ import annotations
@@ -70,12 +72,14 @@ class MenuView:
     rows: tuple[Row, ...]  # the deepest level, which takes the keys
     panels: tuple[Panel, ...] = ()  # every open level, outermost first
     hint: str = ""  # the syntax of the highlighted row
+    search: str = ""  # the letters typed in the deepest level, a jump list
 
 
 @dataclass
 class _Level:
     item: MenuItem
     index: int = 0
+    search: str = ""  # a jump list's typed letters
 
 
 def item_keys(item: MenuItem) -> list[str]:
@@ -133,14 +137,14 @@ class MenuState:
         title = " > ".join(entry.item.label for entry in self.levels)
         level = self.level
         hint = level.item.items[level.index].hint if level.item.items else ""
-        return MenuView(title, panels[-1].rows, panels, hint)
+        return MenuView(title, panels[-1].rows, panels, hint, level.search)
 
     def press(self, action: Action, arg: str = "") -> Binding | None:
         """Handle a navigation action (`up`, `down`, `left`, `right`, `enter`, `escape`) or an
         `insert` of an item key. Returns the binding to run when a leaf is chosen."""
         level = self.level
         count = len(level.item.items)
-        if self._move(action):
+        if self._move(action) or self._edit_search(action):
             return None
         match action:
             case "insert" if arg.isdigit() and len(self.levels) > 1 and self._keyless:
@@ -169,6 +173,14 @@ class MenuState:
                 level.index = max(0, min(count - 1, level.index + int(arg)))
         return None
 
+    def _edit_search(self, action: str) -> bool:
+        """Backspace takes a letter off a jump list's search and Esc clears it."""
+        level = self.level
+        if not level.search or action not in ("backspace", "escape"):
+            return False
+        level.search = level.search[:-1] if action == "backspace" else ""
+        return True
+
     @property
     def _keyless(self) -> bool:
         return bool(self.level.item.columns or self.level.item.jump)
@@ -187,12 +199,36 @@ class MenuState:
         return True
 
     def _jump(self, letter: str) -> None:
-        """A jump list: move to the first item whose label starts with `letter`."""
-        items = self.level.item.items
-        found = (
-            n for n, item in enumerate(items) if item.label[:1].casefold() == letter.casefold()
+        """A jump list: add `letter` to the search and move to the first item whose label starts
+        with it. A letter that no item continues with is not added."""
+        level = self.level
+        search = (level.search + letter).casefold()
+        found = next(
+            (
+                n
+                for n, item in enumerate(level.item.items)
+                if item.label.casefold().startswith(search)
+            ),
+            None,
         )
-        self.level.index = next(found, self.level.index)
+        if found is not None:
+            level.index, level.search = found, level.search + letter
+
+    def positions(self) -> list[int]:
+        """The highlighted row of each open level, to open the menu there again (`reopen`)."""
+        return [level.index for level in self.levels]
+
+    def reopen(self, positions: list[int]) -> None:
+        """Open the levels at `positions` again, as far as they still exist (the Catalog opens
+        on the tab and the row it was left at, as the device does: run 5, E5)."""
+        self.levels = [_Level(self.root)]
+        for depth, index in enumerate(positions):
+            items = self.level.item.items
+            if not 0 <= index < len(items):
+                return
+            self.level.index = index
+            if depth + 1 < len(positions) and items[index].items:
+                self.levels.append(_Level(items[index]))
 
     def pick(self, depth: int, index: int) -> Binding | None:
         """A click on row `index` of open level `depth`: deeper levels close, then the row is

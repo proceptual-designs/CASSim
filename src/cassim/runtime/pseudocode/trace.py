@@ -4,7 +4,7 @@ Both layouts are views of the same `Step` list: building one never re-runs the p
 takes a `cursor` (number of steps shown) so the table fills in as the student steps forwards.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 
 from cassim.runtime.pseudocode import arith
 from cassim.runtime.pseudocode.settings import Settings
@@ -85,9 +85,109 @@ def vertical(
     """One row per executed line; a variable cell is filled only on the row where it changes.
 
     `max_depth` 0 shows top-level lines only (a function call is one row); a larger value also
-    shows the lines run inside functions.
+    shows the lines run inside functions. A call row shows no variables: the values it starts
+    its parameters with belong to the call (its window), not to the program here.
     """
-    steps = [s for s in _shown(result, cursor) if s.depth <= max_depth]
+    steps = [
+        replace(s, changes=()) if s.kind == "call" and s.depth == max_depth else s
+        for s in _shown(result, cursor)
+        if s.depth <= max_depth
+    ]
+    return _vertical_table(steps, settings)
+
+
+def step_over_stops(result: RunResult) -> list[int]:
+    """The cursors the main table's Step stops at: one per top-level row, each taking in the
+    lines run inside a call on that row (they are examined in the call's window)."""
+    shown = [s for s in result.steps if s.kind != "halt"]
+    top = [s.index for s in shown if s.depth == 0]
+    return [*top[1:], len(shown)] if top else []
+
+
+def call_steps(result: RunResult, call: int, *, cursor: int | None = None) -> list[Step]:
+    """The lines run directly inside the call recorded as step `call`, up to `cursor`.
+
+    Lines of calls made from inside it are left out; each of those has its own `call` step."""
+    shown = _shown(result, cursor)
+    if not 0 <= call < len(shown) or shown[call].kind != "call":
+        return []
+    depth = shown[call].depth
+    inside: list[Step] = []
+    for s in shown[call + 1 :]:
+        if s.depth <= depth:
+            break
+        if s.depth == depth + 1:
+            inside.append(s)
+    return inside
+
+
+def call_table(
+    result: RunResult,
+    settings: Settings,
+    call: int,
+    *,
+    cursor: int | None = None,
+    rows: int | None = None,
+) -> VerticalTable:
+    """The vertical trace of one function call, as `vertical` draws the top level; `rows`
+    keeps only the call's first rows, as its dialog steps through them.
+
+    A call made from inside it is one row whose parameters are left out: they belong to that
+    call's own table, not to this call's variables."""
+    inside = call_steps(result, call, cursor=cursor)
+    steps = [
+        replace(s, changes=()) if s.kind == "call" else s
+        for s in (inside if rows is None else inside[: max(rows, 0)])
+    ]
+    return _vertical_table(steps, settings)
+
+
+def call_parameters(result: RunResult, call: int, settings: Settings) -> str:
+    """`n = 1, k = 2`: the values the call recorded as step `call` started with."""
+    if not 0 <= call < len(result.steps) or result.steps[call].kind != "call":
+        return ""
+    return ", ".join(f"{c.name} = {_show(c.new, settings)}" for c in result.steps[call].changes)
+
+
+def _find_define(body: list[Stmt], name: str) -> Define | None:
+    for stmt in body:
+        if isinstance(stmt, Define) and stmt.name == name:
+            return stmt
+        inside = fields(stmt) if is_dataclass(stmt) else ()
+        for value in (getattr(stmt, f.name) for f in inside):
+            if isinstance(value, list):
+                found = _find_define(value, name)
+                if found is not None:
+                    return found
+    return None
+
+
+def function_source(program: Program, name: str) -> list[tuple[int, str]]:
+    """The lines of the function `name` as written: (line number, text), from `define` to its
+    `end` (the first line indented no deeper than `define`)."""
+    define = _find_define(program.body, name)
+    if define is None or not 1 <= define.line <= len(program.lines):
+        return []
+    lines = program.lines
+
+    def indent(text: str) -> int:
+        return len(text) - len(text.lstrip())
+
+    start = define.line
+    found = [(start, lines[start - 1])]
+    for number in range(start + 1, len(lines) + 1):
+        text = lines[number - 1]
+        if text.strip() and indent(text) <= indent(lines[start - 1]):
+            if text.strip().lower().startswith("end"):
+                found.append((number, text))
+            break
+        found.append((number, text))
+    while len(found) > 1 and not found[-1][1].strip():
+        found.pop()
+    return found
+
+
+def _vertical_table(steps: list[Step], settings: Settings) -> VerticalTable:
     table = VerticalTable([])
     for s in steps:
         for c in s.changes:
@@ -185,7 +285,7 @@ def horizontal(
     if not result.horizontal_eligible:
         return None
     steps = _shown(result, cursor)
-    looped = [s for s in steps if s.loop is not None]
+    looped = [s for s in result.steps if s.kind != "halt" and s.loop is not None]
     if not looped:
         return None
     assert looped[0].loop is not None

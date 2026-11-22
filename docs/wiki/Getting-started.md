@@ -4,6 +4,13 @@
 
 Open <https://cassim-app.pages.dev/> in a recent version of Chrome, Safari, Edge or Firefox. (The other CASSim sites are listed on the [[Home]] page.) The first visit downloads the whole app (about 90 MB) and can take a minute or more on a slow connection; a loading screen appears while the app starts. Later visits are much quicker.
 
+CASSim opens to its Home screen, where you choose a calculator or other tool. To go straight to one, use or bookmark its link:
+
+- Nspire calculator: <https://cassim-app.pages.dev/#/app/nspire>
+- Pseudocode & Python: <https://cassim-app.pages.dev/#/app/pseudocode>
+
+**Home** in the CASSim menu takes you back to the choice of apps.
+
 ## Install it (optional)
 
 CASSim can be installed so it opens like an app and works with no internet.

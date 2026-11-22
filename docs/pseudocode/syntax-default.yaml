@@ -45,7 +45,8 @@ symbols:                                 # ASCII <-> Unicode equivalents (SRS FR
   greater_equal: {ascii: [">="], unicode: ["≥", "⩾"]}
   not_equal:     {ascii: ["!=", "<>"], unicode: ["≠"]}
   sqrt:          {ascii: ["sqrt("], unicode: ["√(", "√"]}
-  pi:            {ascii: ["pi"], unicode: ["π"]}          # a user variable called pi is never converted
+  euler:         {ascii: ["@e"], unicode: ["ⅇ"]}
+  pi:            {ascii: ["pi", "@pi"], unicode: ["π"]}     # @pi is unambiguous; plain pi may be a name
   infinity:      {ascii: ["inf"], unicode: ["∞"]}
   abs:           {ascii: ["abs("], unicode: ["|x|"]}
   power:         {ascii: ["^", "**"], unicode: ["superscript integers"]}   # integer exponents only; x^(n+1) has no superscript form
@@ -55,10 +56,11 @@ symbols:                                 # ASCII <-> Unicode equivalents (SRS FR
 palette:                                 # shown by the symbol palette (FR-EDT-006); only symbols accepted above are listed
   groups:
     arithmetic: ["×", "÷", "±", "≤", "≥", "≠", "←", "≈"]
-    powers_roots: ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "e", "∞"]
+    powers_roots: ["²", "³", "ⁿ", "⁻¹", "√", "^", "π", "ⅇ", "∞"]
     logic: ["∧", "∨", "¬"]
     brackets: ["|x|", "( )", "[ ]"]
     greek: ["θ", "α", "β", "δ", "λ", "μ", "σ"]
+  disabled: ["±", "≈"]   # shown greyed: the lexer does not read them yet
   templates: [if, for, while, repeat, define]   # insert a block in the user's own syntax style
 
 constructs:

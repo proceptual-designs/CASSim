@@ -25,7 +25,7 @@ REPEATED_RESULTS = _repeated_results(ENTRY)
 
 def _hold(app: AppPage, key: str) -> None:
     app.page.keyboard.down(key)
-    app.page.wait_for_timeout(1400)
+    app.page.wait_for_timeout(2500)
     app.page.keyboard.up(key)
     app.page.wait_for_timeout(500)
 
@@ -34,6 +34,18 @@ def test_arrow_repeat_moves_calculator_caret_and_sheet_cursor(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
     app = AppPage(browser.new_page(viewport={"width": 1100, "height": 700}), site[1])
+    app.page.evaluate("""() => {
+      window.cassimKeyEvents = [];
+      for (const type of ["keydown", "keyup"]) {
+        document.addEventListener(type, event => {
+          if (event.code.startsWith("Arrow")) {
+            window.cassimKeyEvents.push({
+              type, code: event.code, repeat: event.repeat, target: event.target.tagName
+            });
+          }
+        }, true);
+      }
+    }""")
     app.wait(lambda: "CASSIM: ENGINE READY" in app.logs, "ENGINE READY")
     app.type_text(ENTRY)
     app.page.wait_for_timeout(1000)
@@ -46,20 +58,26 @@ def test_arrow_repeat_moves_calculator_caret_and_sheet_cursor(
     for key in ("F4", "4", "6"):
         app.press(key)
     app.wait(lambda: "CASSIM: SHEET A1" in app.logs, "sheet A1")
-    _hold(app, "ArrowDown")
-    app.wait(
-        lambda: any(
-            (match := re.fullmatch(r"CASSIM: SHEET A(\d+)", line)) and int(match.group(1)) >= 3
+
+    def sheet_row() -> int:
+        rows = [
+            int(match.group(1))
             for line in app.logs
-        ),
-        "at least two sheet movements",
-    )
-    sheet_rows = [
-        int(match.group(1))
-        for line in app.logs
-        if (match := re.fullmatch(r"CASSIM: SHEET A(\d+)", line))
-    ]
-    row = sheet_rows[-1]
+            if (match := re.fullmatch(r"CASSIM: SHEET A(\d+)", line))
+        ]
+        return rows[-1] if rows else 0
+
+    # The sheet can report A1 before it takes keys: wait until one tap moves it, then hold.
+    for _ in range(20):
+        app.press("Down")
+        app.page.wait_for_timeout(250)
+        if sheet_row() >= 2:
+            break
+    start = sheet_row()
+    assert start >= 2, app.logs
+    _hold(app, "ArrowDown")
+    app.wait(lambda: sheet_row() >= start + 2, "at least two repeated sheet movements")
+    row = sheet_row()
     app.type_text("=" + ENTRY)
     app.page.wait_for_timeout(1000)
     _hold(app, "ArrowLeft")
@@ -68,7 +86,7 @@ def test_arrow_repeat_moves_calculator_caret_and_sheet_cursor(
     app.press("Up")
     app.wait(
         lambda: any(f"CASSIM: SHEET A{row} {result}" in app.logs for result in REPEATED_RESULTS),
-        "sheet formula result",
+        "sheet formula result " + str(app.page.evaluate("window.cassimKeyEvents")),
     )
     app.page.close()
 

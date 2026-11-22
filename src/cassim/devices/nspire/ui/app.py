@@ -117,6 +117,7 @@ COMPUTER_PANEL_NAMES = {
 
 # The keys of the two texts kept in browser storage, after the device's prefix (`cassim.`).
 AUTOSAVE_KEY = "autosave"
+HELP_PAGE = "Nspire.html"  # the Nspire's page on the help site
 SYSTEM_KEY = "system"
 # The document is saved this long after the last change, not on every key (decision 0031): saving
 # writes the whole document, and with sheet data that is too slow to do per key.
@@ -212,6 +213,7 @@ class App:
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         self.sheet_line = ""  # the debug SHEET line last printed
+        self.sheet_selection_line = ""
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
         self.shape: tuple[Mode, bool, bool, bool, bool] | None = (
             None  # what the layout is built from
@@ -500,6 +502,10 @@ class App:
         if line != self.sheet_line:
             self.sheet_line = line
             print(f"CASSIM: SHEET {line}", flush=True)
+        selection = screen.address if screen.selection is not None else ""
+        if selection != self.sheet_selection_line:
+            self.sheet_selection_line = selection
+            print(f"CASSIM: SHEET SELECTION {selection or 'NONE'}", flush=True)
 
     # ---- the engine -------------------------------------------------------------------------
 
@@ -599,14 +605,8 @@ class App:
             return
         ctrl = self.state.pending == "ctrl"
         self.state.clear_pending()
-        if ctrl:
-            if self.installable:
-                self.install()
-            else:
-                self.shell.notice(
-                    f"Install {about.product_name()}",
-                    "Install is not available in this browser.",
-                )
+        if ctrl and self.installable:
+            self.install()
         else:
             self.state.run_action("open_menu", "cassim")
         self.refresh()
@@ -707,7 +707,11 @@ class App:
     async def on_key(self, e: ft.KeyboardEvent) -> None:
         key = key_name(e.key)
         if key in ARROW_KEYS:
+            if self.arrow_event is not None and key_name(self.arrow_event.key) == key:
+                return  # native key-repeat must not restart our slower, accelerated repeat timer
             self.arrow_event = e
+        elif self.arrow_event is not None:
+            self.arrow_event = None
         await self._handle_key(e)
         if self.arrow_event is e:
             self.page.run_task(self.repeat_arrow, e)
@@ -1133,7 +1137,7 @@ class App:
             "system_settings": lambda: system_settings_dialog(
                 self.page, self.state, self.on_system_change, self.theme, self.open_appearance
             ),
-            "help": self.shell.help,
+            "help": lambda: self.shell.help(HELP_PAGE),
             "about": self.shell.about,
             "home": lambda: self.shell.home() if self.shell.home is not None else None,
         }

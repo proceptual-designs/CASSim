@@ -1,11 +1,13 @@
 # CASSim — plan and architecture (draft for review)
 
-A browser-based simulation of the TI-Nspire CX CAS: a static, installable (PWA) site where Python
-(SymPy, via Pyodide) runs client-side and the UI is built with Flet. Draft v0.5, 2026-11-18.
+A static, installable (PWA) family of browser apps for calculators and programming:
+Nspire and Pseudocode & Python are the current devices, with ClassPad, Prime and later devices able
+to join the same shell as plug-ins. Device engines run client-side via Pyodide where needed and the
+UI is built with Flet. Draft v0.5, 2026-11-19.
 
 **Requirements live in `docs/SRS.md` (draft 0.9; every question is answered except Q17, Q18, Q19 and Q22, which concern ClassPad and HP Prime, and Q21, which is partly answered).** This plan is the architecture and milestone view; where the two disagree, the SRS wins for *what*, this file for *how and when*. CASSim is a **simulator, not a hardware emulation**, released under the **Unlicense**.
 
-**Roadmap after the core simulator (updated 2026-11-18).** M0–M4 build the Calculator, data pages and Graphs/Table/Notes. Next comes the isolated Python and pseudocode environment, standalone and as page types (M5, Should), before TI-Basic and library extensions (M6, Could) and final polish (M7). A device switcher with a Casio ClassPad profile follows in M8 (Could), and possibly an HP Prime profile in M9 (Would). See section 3.2 and milestones M5–M9.
+**Roadmap after the Nspire core (updated 2026-11-19).** M0–M4 build the Nspire Calculator, data pages and Graphs/Table/Notes. M2x and M5 established the multi-app shell: the all-in-one app always opens to the Home chooser, Nspire and Pseudocode & Python are current choices, and each device can also be built on its own. M5 continues the Python and pseudocode work; TI-Basic and library extensions follow in M6, with final polish in M7. M8 adds the Casio ClassPad device to the existing shell (Could), and M9 may add HP Prime (Would). See section 3.2 and milestones M5–M9.
 
 ## 1. What I checked while exploring (and what I didn't)
 
@@ -58,7 +60,7 @@ cassim/
                             regression fitting is shared with core/compat/statistics.py (pure Python, no SciPy)
     graph/                  scene.py: the backend-neutral scene (FR-GRAPH-006, slice 3.0); sampling.py: checked math-source compilation,
                             windows, ticks and adaptive function sampling; analysis.py: headless Trace and Analyze Graph numerics;
-                            later: other entry types and their scenes
+                            zoom.py: the Window / Zoom windows and window values; later: other entry types and their scenes
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
@@ -91,7 +93,7 @@ cassim/
 - **Long-running work.** Evaluation must be cancellable (TI's On/Esc). Plan: CAS runs in a worker; cancel = terminate and restart worker with state restored from the document model. Verified in M0 spike 1.
 - **Heavy dependencies.** SymPy loads at start. SciPy and NumPy are not shipped: the statistics and numerics are pure Python and mpmath, with SciPy used only by the tests as an independent check (decision 0031). Service worker caches everything for offline use.
 - **Shared data.** Within a Problem every page is a view of the same variables, which live in the engine worker. The document stores definitions and view state; values are recomputed. Variables carry revision numbers so a page redraws only what changed, and each page's model and scene are kept so switching does not wait for the engine (decision 0031; FR-DOC-008, NFR-PERF-006).
-- **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input is a 2D template editor (decision 0015): the tree model in `device/editor.py` draws itself as LaTeX with a cursor glyph and writes the linear TI text for the parser, so the engine is unchanged.
+- **2D maths display.** `format.py` returns a layout tree; the renderer draws it (Flet canvas). Input is a 2D template editor (decision 0015): the tree model in `device/editor.py` draws itself as LaTeX with a cursor glyph and writes the linear TI text for the parser, so the engine is unchanged. Engine text comes back into the tree through the parser (`device/editor_ast.py`); decision 0035 plans one template registry and shared renderers.
 - **Storage.** *As built (M3 slice 3.0): the autosave and System Settings are in IndexedDB in the browser (`TextStore` in `app/web.py`, reached through the shell), and the autosave waits half a second after the last change; an older localStorage copy is read until it is next written. The desktop app keeps Flet `SharedPreferences`.* Documents live in browser storage (IndexedDB via Pyodide `js` interop; localStorage is too small and Flet client_storage may be limited: spike 5). Upload/download of the native `.cassim.json` (versioned schema, schema-validated and size-limited on import). Open and Save read and write only `.cassim.json`. `.tns` is deferred (Won't for now) and nothing depends on it; if it is built it goes under File > Import… and Export…, never Open or Save (FR-DOC-006).
 - **Sharing.** A document can be shared as a URL: compressed and encoded in the URL **fragment**, so nothing reaches a server. Opening a link asks for confirmation first. Keep links under about 2,000 characters; larger documents fall back to file export.
 - **Themes.** Dark is the default. Themes (at least Dark, Light, Outline) are defined in a user-editable config file (keypad, screen and accent colours), persisted in browser storage and exportable; an invalid config falls back to Dark with a message.
@@ -101,7 +103,9 @@ cassim/
 
 ### 3.2 Code runtime and later device profiles (M5, M8–M9)
 
-The Python/pseudocode runtime is M5 and starts after M4, before the M6 programming extensions. Profiles and ClassPad remain M8. The device interface, the Nspire move and the bundle-aware build came early in M2x (section 15), so the later Code and profile work does not require restructuring.
+The Python/pseudocode runtime is M5 and starts after M4, before the M6 programming extensions. The
+device interface, Nspire move, all-in-one Home chooser and bundle-aware build came in M2x/M5
+(section 15); Nspire and Pseudocode are peers in that shell. ClassPad remains M8, and HP Prime M9.
 
 **Device profile.** Everything that makes one calculator behave like itself is bundled as a profile; the engine pieces that are genuinely common stay shared.
 
@@ -129,11 +133,17 @@ Layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../pseudocode/`, `.../p
 
 **Configurable syntax.** The pseudocode grammar is driven by a **syntax file** (`docs/pseudocode/syntax-default.yaml`) kept in browser storage, editable in the app and exportable. It lets one construct be written several ways, each spelling accepted, warned about or rejected, with optional tokens (`then`, `do`, the colon, parentheses) and several block terminators (`end for`, `endfor`, `next`). The same file's emit section sets what the printer writes. The parser is therefore table-driven rather than hard-coded; the code pane always shows the user's own text. Because a free grammar can become ambiguous, files are validated, data-only, size-limited and fall back to the default if invalid; property tests restyle and re-parse every golden program under every preset.
 
-**Switching.** A profile switcher in the shell of the all-in-one app (`cassim-app`, `cassim-calc`). Each profile has its own documents, settings and theme namespace in storage, and its assets load lazily on first use and are then cached offline, so someone who only uses the Nspire never downloads the rest. Display modes (section 4) apply to every profile. Each profile can also be published on its own, smaller site (section 15).
+**Switching (implemented).** The all-in-one app (`cassim-app`, `cassim-calc`) always opens to a Home
+chooser; it does not remember the last-used device. The current enabled devices are Nspire and Pseudocode & Python;
+unbuilt choices stay visible and disabled. Device documents, settings and worker lifetimes remain
+separate. Per-device lazy archives and download-on-first-open are the remaining cache work described
+in section 15.3; the shell does not need to be redesigned when another profile is added. Display
+modes (section 4) apply where a device supports them. Each built device can also be published as a
+smaller single-device site (section 15).
 
 **Oracle per device.** The Nspire uses the TI teacher software. For ClassPad and Prime the natural oracles are the manufacturers' own PC emulators (as I understand it, ClassPad Manager and the HP Prime Virtual Calculator); I have not checked availability or licence terms. The capture effort that dominated M0/M1 will recur, so each new profile ships Tier 1 first. Python semantics need no oracle (it is CPython); device-specific Python modules (e.g. TI's `ti_system`, `ti_plotlib`) are a later extra if wanted.
 
-## 4. GUI modes (one device model, three skins)
+## 4. GUI modes (shell plus device-specific layouts)
 
 | Mode | Layout | Use |
 |---|---|---|
@@ -143,7 +153,11 @@ Layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../pseudocode/`, `.../p
 
 The device model drives all three; modes differ only in layout components and which panels are visible. Primary test targets: Chromebooks, Chrome, Safari (macOS, iOS, iPadOS); secondary, smoke-tested: Edge, Firefox. Handheld mode must be usable at 360 px wide in both orientations. Hosting is any free or cheap static host with correct MIME types (Cloudflare Pages, section 14).
 
-**Profiles and modes (M8).** Switching device is orthogonal to these modes: a profile supplies its own handheld skin, keymap and page set, while the Computer and Tablet layouts are shared components that the profile configures. The Code view has no skin. The ClassPad is stylus/touch-driven, so its Handheld mode may need a touch-first interaction model rather than a key-sequence one (SRS Q19).
+**Profiles and modes.** Switching device is orthogonal to these modes: a profile supplies its own
+handheld skin, keymap and page set, while the Computer and Tablet layouts are shared components
+where the profile supports them. The Code view has no calculator skin. The ClassPad is
+stylus/touch-driven, so its Handheld mode may need a touch-first interaction model rather than a
+key-sequence one (SRS Q19).
 
 ## 5. Features by area
 
@@ -152,7 +166,11 @@ The device model drives all three; modes differ only in layout components and wh
 3. **Documents.** Multiple documents, problems, page sorter, settings dialogs, undo/redo, autosave.
 4. **Extending beyond the real calculator.** (a) TI-Basic programs/functions, including `Define LibPub` libraries, in M6. (b) A Python page, built in M5 with the pseudocode pages. It is self-contained in M5. A `py("script","fn",args)` call from the CAS and a `cassim` API for Problem variables are a Could-have for a later stage, since the real Nspire does not allow that bridge. Python in an uploaded document **never auto-runs**: explicit "Run" with a trust prompt, since documents and share links are untrusted. The sandbox and prompt are mandatory.
 5. **Libraries (mm_/sm_/gm_).** The `.tns` libraries cannot be loaded directly. Plan: reimplement each UDF as native Python (fast, typed, testable), verified against the simulator with the libraries installed. LazyMath is also Unlicense, so porting and redistribution are permitted; still record that check in `docs/decisions/` before the first port.
-6. **Beyond the core page set (M5–M9).** Python and pseudocode as a standalone Code view and as page types (M5, Should); TI-Basic and library extensions (M6, Could); polish and extras (M7); device switcher and Casio ClassPad profile (M8, Could); HP Prime profile (M9, Would, behind a go/no-go). Details in section 3.2 and section 8.
+6. **Other apps and extensions (M5–M9).** The Pseudocode & Python app is the standalone Code view
+   (M5, Should), alongside Nspire in the all-in-one shell; Nspire Python/Pseudocode page types,
+   TI-Basic and library extensions follow as scoped (M5/M6). Polish and extras are M7. The existing
+   multi-app shell gains a Casio ClassPad profile in M8 (Could) and possibly HP Prime in M9 (Would,
+   behind a go/no-go). Details in section 3.2 and section 8.
 
 ## 6. Testing strategy ("every stage properly tested")
 
@@ -269,12 +287,12 @@ Still open, each waiting on something:
 
 **M3 — Data pages: Lists & Spreadsheet, Data & Statistics, Finance (L)**
 
-**Status (2026-11-18): Mostly met.** Slices 3a to 3b are done; 3c, 3d, and 3e are merged in PRs #149, #152, and #154, with the Statistics UI follow-up in #156. The combined Python suite previously passed 6,470 tests, configured coverage floors and required browser checks. General Maths spreadsheet and data-page workflows are in `corpus/flows/data-pages.yaml`; page-switch and recalculation measurements are recorded in decision 0031. The structured spreadsheet editor remains open below. The 3d/3e defaults and save/reload behavior are not TI-simulator verified; they are listed for the next Cowork capture. Automatic and Manual Data Capture remain deferred. The touch-first rule and shared-data design (decision 0031) still apply.
+**Status (2026-11-18): Mostly met.** Slices 3a to 3b are done; 3c, 3d, and 3e are merged in PRs #149, #152, and #154, with the Statistics UI follow-up in #156. The combined Python suite previously passed 6,470 tests, configured coverage floors and required browser checks. General Maths spreadsheet and data-page workflows are in `corpus/flows/data-pages.yaml`; page-switch and recalculation measurements are recorded in decision 0031. FR-SHEET-004 to 007 now have focused navigation, range-selection and heading-selection tests; browser checks cover mouse drag, Shift+click and row/column headings. The shared spreadsheet editor is implemented in this work. The 3d/3e defaults and save/reload behavior are not TI-simulator verified; they are listed for the next Cowork capture. Automatic and Manual Data Capture remain deferred. The touch-first rule and shared-data design (decision 0031) still apply.
 
 **Editor follow-up:** physical and on-screen arrow holds now step once, repeat slowly, then
-accelerate in Calculator and spreadsheet editing and cell navigation. Use the Calculator's
-structured maths editor and renderer for spreadsheet formulas as well as Graphs, retaining
-spreadsheet reference pointing and cell navigation; verify repeat in Graphs when it is integrated.
+accelerate in Calculator and spreadsheet editing and cell navigation. The spreadsheet formula bar
+uses the Calculator's structured maths editor and renderer, retaining reference pointing and cell
+navigation. Apply the same editor to Graphs and verify repeat when Graphs is integrated.
 
 - Spikes A and B (done 2026-11-13, decision 0031): a switch rebuilds controls from kept data (about 19 ms on a desktop; keeping controls alive is slower); the grid is one canvas text per column; replies must be deltas and sheet stores must not format the whole list. Not yet timed on a phone.
 - 3.0 Foundations, shared with M4: SDD-07; section 12 rows A1 (typed ops) and A5 (A4, documents and the page-model boundary in `doc/`, was done in M2x step 2); variable revisions, the delta reply and the UI-side store (FR-DOC-008); the per-page scene cache and `tools/switchtime.py` (NFR-PERF-006); the shared scene type (FR-GRAPH-006); two-pane split pages (FR-DOC-009); the warning triangle (FR-CALC-007); debounced autosave in IndexedDB; schema bump with a migration. **Done 2026-11-13 (PRs 89 to 93 and the SDD-07 PR):** typed ops and replies, revisions, delta replies and the store; the scene type and its canvas; the IndexedDB autosave; `tools/switchtime.py` (about 125 ms a switch on the laptop, decision 0031); the warning triangle; SDD-07. **Done in 3e:** split pages and schema-3 migration. The per-page scene cache comes with the sheet page in 3b, the first page with a scene.
@@ -285,28 +303,38 @@ spreadsheet reference pointing and cell navigation; verify repeat in Graphs when
 - 3d Data & Statistics page (done; PR #152 merged): live Problem lists, numeric dot/box/histogram/normal-probability/scatter/XY plots, General Maths categorical dot/bar/pie charts, summary and split categories, regression/residual overlays, Plot Function/Value, histogram settings, windows and Zoom–Data. The UI follow-up removes placeholder labeling and the top toolbar, places clickable X/Y selectors on the axes (including none), moves plot selection into Menu, enlarges marks, supports point selection/context menus plus drag-editing numeric scatter and dot data, and keeps the page sorter accessible from Statistics. Uses backend-neutral scenes and persists only view settings. Emulator checks for drag behavior and some visualization context-menu targets remain in `docs/testing/simulator-todo.md` (G1–G2).
 - 3e Quick Graph for a named list; Summary Plot with Split Page or New Page; CSV and basic XLSX import/export, with formulas preserved in XLSX and displayed values in CSV (done; PR #154 merged). openpyxl and et-xmlfile are included in the web app archive. Python CI checks pass (6,470 passed, 84 skipped, 59 deselected, 27 xfailed), coverage floors pass, and the required browser checks are green. Quick Graph/Summary Plot defaults and save/reload behavior remain for Cowork simulator investigation; implementation choices are documented in SDD-07.
 - Finance: the Finance Solver was built in 2f; beginning/end payment and `amortTbl` examples were captured in `corpus/seed/037_check6_run4.yaml` (D19; transcription awaits human review).
-- Greyed, not built: the movable line, Data Capture, Multiple Regression, ANOVA 2-Way, Custom Split and layouts of more than two panes.
+- Greyed, not built: the movable line, Data Capture, Multiple Regression, ANOVA 2-Way and Custom Split. A page holds up to four panes (decision 0034 item 2): Quick Graph, Summary Plot, Shade P Value and Shade area add one, going from halves to three panes to 2×2.
 - Exit: General Maths spreadsheet and live-data workflows run headlessly and in the browser; timings are reported in decision 0031. These flows are hand-worked examples, not simulator captures or a claim that every cas-solver workflow has been reproduced.
 
 **M4 — Graphs and Tables (L)**
 
 **Status (2026-11-18):** in progress. The headless function sampler and Trace/Analyze numerical algorithms are implemented independently of M3. The initial integrated Graphs page supports shared Problem functions, worker-side compilation, structured function entry, plotting, visibility, a standard window, zoom buttons, save/load, pointer panning, pinch zoom and wheel zoom anchored at the pointer. Gesture-rate tuning and performance checks, graph attributes and context menus, split Table, sliders and Notes remain. The M3 page-model and split-page foundations are available. Remaining Cowork captures are listed in `docs/testing/emulator-check6-run4-remaining.md`. Spikes C and D are done (decision 0031): curves are sampled in the UI worker at one point a pixel column and redrawn inside each pan, pinch or wheel event (6 to 7 ms a frame on a desktop); fills use fewer points; relations use marching squares in pure Python (6 to 8 ms at 4 px cells). This is the next user-facing implementation milestone.
 
-- 4a Sampler and scene, headless (`graph/`): **initial function path implemented:** checked math-source compilation, window transforms, automatic tick values, adaptive function sampling, and curve layers in the shared scene. Restricted domains and full scene snapshots remain.
-- 4b Graphs page: **initial function path implemented:** `f1` to `f99` function entry uses the Calculator's structured editor and renderer; View controls axes, end values and dot/lined grid, with per-page persistence (simulator scope pending). The Graphs appearance pass (2026-11-19) shows one active expression row at a time with a visibility checkbox, the shared editor, Up/Down slot navigation and a CASSim-styled function-history menu; plotted functions carry curve-coloured labels. Function definitions use the shared Problem variables and are compiled in the engine worker for browser execution. Pointer pan, pinch zoom and wheel zoom remain implemented. Remaining: gesture-rate tuning and device performance checks, graph attributes and context-menu hit regions with `app/context_menu.py`, including in split panes, so physical Ctrl+right-click keeps the browser menu.
-- 4c Trace and Analyze Graph: **headless numerical algorithms implemented** for zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, and bounded area. Page prompts and corpus replay remain.
+- 4a Sampler and scene, headless (`graph/`): **initial function path implemented:** checked math-source compilation, window transforms, automatic tick values, adaptive function sampling, and curve layers in the shared scene. **Done 2026-11-21:** scene tests for the D12/D13 breaks and ends (no joins across `1/x`, `tan`, `1/(x-1)^2`, `abs(x)/x`, `floor`; no end markers for `ln`, `sqrt`, `sqrt(4-x^2)`, restrictions), and a restriction typed with `|` is kept as a one-piece piecewise; `graph/zoom.py` holds the Window / Zoom windows. Full scene snapshots remain.
+- 4b Graphs page: **initial function path implemented:** `f1` to `f99` function entry uses the Calculator's structured editor and renderer; View controls axes, end values and dot/lined grid, with per-page persistence (simulator scope pending). The Graphs appearance pass (2026-11-19) shows one active expression row at a time with a visibility checkbox, the shared editor, Up/Down slot navigation and a CASSim-styled function-history menu; plotted functions carry curve-coloured labels. Function definitions use the shared Problem variables and are compiled in the engine worker for browser execution. Pointer pan, pinch zoom and wheel zoom remain implemented (kept as an extension, decision 0034). **Done 2026-11-21 (C1, C2):** function colours in the device's order as theme tokens, keyed by fN so a colour holds across a Problem's pages, with the `fN` part of a label bold; Menu > 4 Window / Zoom with Window Settings (full digits, `2·π`, checked) and every zoom at the recorded windows; Box, In and Out as tools with their prompts (tap or Enter at an arrow-moved pointer). Zoom – Fit with a scatter plot waits for run 6 (R6-D3), and Zoom – Data has no data plots to use until 4d. Remaining: gesture-rate tuning and device performance checks, graph attributes and context-menu hit regions with `app/context_menu.py`, including in split panes, so physical Ctrl+right-click keeps the browser menu.
+- 4c Trace and Analyze Graph: **headless numerical algorithms implemented** for zero, minimum, maximum, intersection, inflection, dy/dx, integral with typed bounds, and bounded area. **Done 2026-11-21:** Menu > 5 Trace (Graph Trace, Trace All, the Trace Step dialog; readout `f2: (4.71, -2)` in Float 3 and the graph's colour; edge panning; Up/Down between graphs; typed x; taps) and Menu > 6 Analyze Graph (graph?, lower bound?, upper bound?, position?; results kept on the page as graphs and bounds, recomputed when a function changes, saved with the page). Not built: Path Plot, Geometry Trace, Enter dropping a point during a trace, the coordinate label of a point, Analyze Conics, and the corpus replay. The automatic trace step (1.5% of the window width) and Up going to the previous graph are choices from incomplete evidence.
 - 4d Other entry types, in this order: scatter plot, parametric, relations and conics (marching squares, spike D; drop false lines at jumps), polar, sequence, differential equations.
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
 - 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
+- **Simon's notes (2026-11-22), to do; not built yet.** Check each against `feature/m4-graphs-menus` (paused) before starting, since it changes the Graphs page.
+  1. No `Ans` in the graph entry line: an operator typed first must not get `ans` put in front, and `ans` is not offered there (the Calculator's `ans` prefix must not leak into the shared editor).
+  2. On a Graphs page, Tab moves the focus to the graph entry line and opens it on the first empty `fN(x)` slot (as ctrl+G does). Capture Tab so the browser does not move focus out of the app.
+  3. Restrict each function's plotted domain to where it is real: `sqrt(x)` currently crashes the app ("The application encountered an error: must be real number, not complex"). Non-real or failed samples must be dropped as gaps, never raise; add `sqrt(x)`, `ln(x)`, `sqrt(4-x^2)` and `x^(1/3)` as page-level tests, not only sampler tests.
+  4. Pinch zoom, and mouse-wheel or two-finger-scroll zoom about the pointer, on Graphs **and** Data & Statistics pages (decision 0034, item 1: standard affordances that do not clash). Check trackpad two-finger scroll on Chromebook and Mac, which arrives as wheel events.
+  (Simon's fifth note, the second click in the Calculator history, is decision 0034 item 6.)
 - Greyed, not built: Plane Geometry, 3D Graphing and the Geometry menu.
 - Exit: scene snapshot tests green; pan and zoom timed on a mid-range phone and a Chromebook and reported (FR-GRAPH-007).
 
 **M5 — Python and pseudocode: Code view, translation and trace tables (L), Should.** Starts after M4 and before M6. The Code view ships as the `pseudocode` device (section 15).
 - 5a `runtime/`: `Interpreter` interface; Python runtime in its own worker with cancel (within 1 s), streamed output, `input()` and the trust prompt. Spike first on keeping user code off the network and the host page.
-- 5b Pseudocode language: syntax-file-driven tokenizer, parser and tree interpreter for the dialect (`docs/pseudocode/dialect.md`, `syntax-default.yaml`); numeric tower (integer, rational, real, complex) and strings; Approx / Auto / Exact number modes and Radian / Degree; 6-digit display; `input` type inference; lists (1-based by default) and seeded random numbers (Should); function-valued parameters; pseudocode-level diagnostics; step limit. Replay `corpus/pseudocode/seed.yaml` (58 cases) from the start. *5b was built ahead of the rest of the plan (it needs no GUI); 5c to 5f still wait for M4. The batch 3 replay fixes (mod/div operand binding, TRUE/FALSE and list printing) were merged in PR 44; the historical `m7-batch3` branch is gone.* **Built 2026-11-07 (PR #25; decisions 0020, 0021):** tokenizer, parser, interpreter, vertical and horizontal trace tables, the table-driven syntax file with presets and validation (FR-SYN-001 to 004, 008, 009), and the printer (FR-SYN-005, 007); 58 golden programs replay green. Remaining: 5c to 5f.
+- 5b Pseudocode language: syntax-file-driven tokenizer, parser and tree interpreter for the dialect (`docs/pseudocode/dialect.md`, `syntax-default.yaml`); numeric tower (integer, rational, real, complex) and strings; Approx / Auto / Exact number modes and Radian / Degree; 6-digit display; `input` type inference; lists (1-based by default) and seeded random numbers (Should); function-valued parameters; pseudocode-level diagnostics; step limit. Replay `corpus/pseudocode/seed.yaml` (58 cases) from the start. **Built 2026-11-07 (PR #25; decisions 0020, 0021):** tokenizer, parser, interpreter, vertical and horizontal trace tables, the table-driven syntax file with presets and validation (FR-SYN-001 to 004, 008, 009), and the printer (FR-SYN-005, 007); 58 golden programs replay green. **Updated 2026-11-19:** the supported Python/Pseudocode program-tree converters, responsive standalone Code workspace, settings, typing aid, Run/Step/Start/End trace controls and trace-item selection are built. Direct CPython worker execution, named Code storage, the syntax/file editing features and Nspire page types remain.
 - 5c Translation: the shared program tree; pseudocode to Python and Python (subset) to pseudocode; differential and round-trip tests.
 - 5d Trace engine and tables: event recording, forwards/backwards cursor, vertical and horizontal views, Auto layout, step-limit handling. The reference bisection example must reproduce the author's two tables.
-- 5e Shared editor and console, the settings bar with its … menu, the Syntax editor (validation, live check, reset, export/import), the Regularise button (FR-SYN-010), symbol equivalents with the Convert symbols button (FR-SYN-011, FR-SYN-012) and the symbol palette (FR-EDT-006), unlimited undo/redo (FR-EDT-001), named files in browser storage with download and upload (FR-EDT-002 to 004), and the standalone Code view as the `pseudocode` device, in the switcher and on its own site (360 px layout; SRS Q23, Q35).
+- 5e **Standalone slice integrated (2026-11-19):** the `pseudocode` device is mounted from the
+  all-in-one Home chooser and has an editor, pseudocode run/step/trace controls, Python/Pseudocode
+  source selection and file import/export. The Syntax editor, Regularise/Convert controls, full
+  named-file IndexedDB UI, Python execution, translation and Nspire page integration remain in
+  scope (FR-RUN, FR-EDT and FR-SYN).
 - 5f Page types: Python and Pseudocode pages in the Nspire profile (the bar starts from the document settings; pages are self-contained, and the variable bridge is deferred past M5), document schema bump with a migration (FR-DOC-004).
 - Exit: every golden program passes in both languages and the two agree; trace tables match the reference tables; cancel and trust-prompt E2E pass; the installed PWA works offline.
 
@@ -319,7 +347,7 @@ spreadsheet reference pointing and cell navigation; verify repeat in Graphs when
 
 **M8 — Device profiles and Casio ClassPad (L), Could.**
 - 8a (brought forward to M2x, before M3; section 15.4) ADR on the profile boundary, then move the Nspire onto the profile interface. Gate: every Nspire corpus case replays unchanged, coverage targets (NFR-MAINT-004) still met, render snapshots unchanged. No other 8x item starts until this is green.
-- 8b Generalise the minimal Nspire/Pseudocode selector added in M5 into the profile switcher in the all-in-one app (section 15), including remembered selection, per-profile storage namespaces (SRS Q20), lazy asset loading and offline caching per profile.
+- 8b **Shell switcher complete for built devices.** Home and the Nspire/Pseudocode device boundary are live. Complete and verify per-profile storage namespaces (SRS Q20), then the lazy per-device asset/offline plan in section 15.3.
 - 8c Decide the model and oracle (SRS Q17), record the emulator's licence terms in `docs/decisions/`, and capture the first ~60 corpus cases in `corpus/classpad/` before writing code, as M0 did for the Nspire. Nothing is assumed to behave like the Nspire.
 - 8d Dialect, settings presets and display conventions from the corpus; Tier 1 catalogue (VCE core) first, tiers as in M1d.
 - 8e Apps/pages as the oracle shows them (calculation, graph and table, statistics, spreadsheet), reusing the M3/M4 engines through the profile. Geometry excluded.
@@ -341,7 +369,7 @@ Decisions (from the SRS review, 2026-11-02; do not re-litigate):
 3. **Licensing:** CASSim and LazyMath are both Unlicense. TI marks, artwork and ROM are never shipped; reference screenshots stay in `docs/design/reference/`, not the build. IP boundary and clean-room rule per decision 0028: layout, menus, names and syntax may match the device; artwork, prose and code may not, and behaviour is learned by observation only.
 4. **Appropriate use:** teaching, practice and demonstration. Not an approved exam calculator, and the UI says so.
 5. **Python 3.14, no Geometry page, no `.tns` for now.** If `.tns` is ever built, it is File > Import/Export only (FR-DOC-006).
-6. **Sequencing and priorities (updated 2026-11-18):** finish the core Nspire page set through M4, then Code (Python and pseudocode, standalone and as page types) as Should (M5), TI-Basic and library extensions as Could (M6), and polish as M7. The device-profile refactor and Casio ClassPad follow as Could (M8); HP Prime is Would, behind a go/no-go review (M9). The M2 guard, M2x profile boundary and M5 sandbox spike are accepted.
+6. **Sequencing and priorities (updated 2026-11-19):** CASSim is now an all-in-one shell with the Nspire and Pseudocode & Python app choices. Finish the Nspire page set through M4 and the Code runtime/UI as Should work (M5), then TI-Basic and library extensions as Could (M6), and polish as M7. The multi-app boundary and chooser are accepted and built; Casio ClassPad follows as a device in that shell (M8), and HP Prime is Would behind a go/no-go review (M9). The M2 guard, M2x profile boundary and M5 sandbox spike remain accepted.
 7. **Pseudocode choices (2026-11-02):** the TI "Auto" rule is a third number mode; printed reals default to 6 significant digits (Mathematica style); `input` infers number versus string; the settings bar is Number mode and Angle plus a "…" menu; the syntax is user-configurable through a stored syntax file; VCAA cases stay in the repo with attribution (decision 0012, revised 2026-11-12).
 
 Open risks:
@@ -382,6 +410,7 @@ These came out of a review of PLAN.md, the SRS, CLAUDE.md and `docs/` against th
 9. **Public release gate.** The third-party notices (NFR-LEG-003) have no owner or milestone. Add them to the M7 exit. (NFR-LEG-007, the VCAA cases, was settled on 2026-11-12: they stay, attributed; decision 0012.)
 10. **Release gate: original text (NFR-LEG-009, NFR-LEG-006).** Before public release, audit the in-app help, catalog and error strings against both Reference Guides for verbatim copying (decision 0028 records the method and a first clean run on 2026-11-12; repeat it once help and catalog text exist). Add it to the M7 exit with item 9. TI screenshots may stay in the repository but never go in the build (decision 0029).
 11. **TODO, early 2027: VCAA approved technology.** The VCAA site was down when the help page "Other calculators and CAS software" (`docs/wiki/`) was written (2026-11-13), so its exam section is from search results. Check the 2027 approved calculator and software lists and the new restrictions (user-defined functions restricted from 2027), then update that page, the wiki's exam wording and any SRS text that names approved devices.
+12. **Pseudocode loop-boundary annotations.** On the next pseudocode app edit, add a clear, matching indication of each loop's start/end region in both the code pane and trace table, including repeated/nested loops, without changing the program text or trace semantics.
 
 **Warning triangle (FR-CALC-007): built in slice 3.0, 2026-11-13.** `Result.warnings` is raised in `Evaluator._finish` (Real mode, a non-real step with a real answer), carried by the worker reply and drawn left of the entry by the shared `cassim.app.warning.warning_mark`. Still to capture on the simulator: where else the device shows it (Graphs, Lists & Spreadsheet, Data & Statistics); those pages use the same mark.
 
@@ -396,6 +425,9 @@ Done in branch `arch-cleanup`: the replay interface is public (`serialize.replay
 | A7 | Lazy-load catalog areas in the engine: register each function's name and arity up front, and import its module (calculus, matrices, distributions, finance and so on) on first use. | The phone timing (A6) shows the engine, not the UI, is what the user waits for, or a new area (SciPy statistics, M4) makes engine start-up slower. | Deferred in 0027: the engine boots in the background in about 2 s, and lazy loading moves that wait to the first use of a feature, perhaps mid-question. `core/builtin_names.py` already holds every name, so the registry change is small. Measure with `tools/loadtime.py` and a first-use timing per area; SciPy must stay lazy whatever is decided (PLAN section 3, `stats/`). |
 | A8 | Reset the document format for the release: `SCHEMA = 1` in `doc/serialize.py`, drop every pre-release migration and reader (schema 1 one-character rows, entries as objects, the localStorage autosave fallback in `Shell.read`), and refuse pre-release files with a clear message. Old autosaves and saved documents in the browser are then dropped rather than opened. | CASSim v1.0 release (Simon, 2026-11-14). | Backwards compatibility with pre-release saves is deliberately broken at v1 (decision 0033). Until then, keep pre-release files opening. From v1 on, every format change adds a migration (FR-DOC-004). |
 | A10 | A touchpad mode for the pointer beside the joystick: the pointer moves only while the finger moves and stays until something else happens, as on the device (`device/pointer.py`). | A user asks, or Tablet mode work. | The joystick is CASSim's own design by choice (emulator check 6, part P). |
+| A12 | Two remaining Pseudocode typing-aid risks on a slow machine: (a) the conversion runs in Python, which sends the whole editor text back, so a key typed while it is on its way back is overwritten; (b) Flutter's text field has its own Ctrl+Z, which can cross the app's typing-aid undo (`on_keyboard`). If either is seen, convert and undo in the browser instead. | A report of lost or garbled typing or a failed undo in Pseudocode, a slow-Chromebook test, work on typing aids, or a Flet release whose text field can edit or format text in the browser. **Review again later** (Simon, 2026-11-22: the 0.5 s pause and the tests' 1.5 s wait are accepted for now; users can adapt if a key is lost). | (a) seen on 2026-11-22 once the aid was on by default (`\th` lost after `<-` on a loaded machine). Mitigated the same day, as Simon chose: the aid now converts only after typing pauses for 0.5 s (`TYPING_AID_PAUSE`), covering everything typed since (`convert_region`), so only a key pressed in the instant after a pause can be lost. Earlier the same day: under load several keys reach Python as one change, so conversion handles a short burst, not just one key. The e2e tests pause 300 ms between typed pieces, and 1.5 s (`AID_WAIT`) after typing something the aid converts before typing on; a per-key Playwright delay instead makes Flutter web drop shifted keys such as `<`, which a real keyboard does not. |
+| A13 | Make `test_sorter_shows_sheet_column_names` (`tests/e2e/test_sheet_browser.py`) reliable and remove its `xfail(strict=False)`. Its shared steps (`check_shared_column`) lose typed keys under load: a Down pressed just after switching back to the sheet never registers, and `=a[]^2` on the formula row sometimes bounces the cursor between the formula and name rows instead of computing. Wait for the page after a switch, add a "move to cell" helper that presses until the `CASSIM: SHEET` log shows the target, and instrument the formula entry if it still fails. Check whether a user pressing a key the instant a page appears can lose it too. | Review in the next session (Simon, 2026-11-22): do not leave it marked. | Marked flaky on 2026-11-22 so `local_ci` can pass. The other test using `check_shared_column` (line 156) has not failed yet; review it at the same time. Same failure class as A12 and the Finance Solver fill now retried with `AppPage.until`. |
+| A11 | Draw the variable sidebar's values and the Graphs function labels from the editor tree (`editor_ast.result_latex`), as Calculator results are (decision 0035 stage 3), instead of SymPy's LaTeX. | Work on the sidebar or Graphs labels, or a report that they look different from the history (products without `·`, bold `or`, `@n1`). | Accepted as is for now (Simon, 2026-11-20): revisit, do not forget. |
 
 **Keeping the map in sync.** `tests/test_architecture.py` fails if a package under `src/cassim/` is missing from the map in section 3, or still tagged `[placeholder]` after it has code. AGENTS.md instructs agents to update the map in the same commit as any package move. Review the table above when a trigger is met and delete the row when done.
 
@@ -430,15 +462,22 @@ Notes:
 
 ## 15. Pluggable devices and separate bundles (decided 2026-11-13)
 
-Simon's direction. `cassim-app` (stable) and `cassim-calc` (testing) become **all-in-one** apps: a shell with a Home chooser and remembered last-used app, able to switch between the TI-Nspire, the Casio ClassPad, the pseudocode interpreter and tracer, the HP Prime and any later device, when each is built. Home renders before a device UI loads, and unavailable apps remain visible and greyed. Each device can also be published as its own **bundle** on its own site, so someone who needs one device downloads only that one. The cold start today is about 90 MB and a minute or more on a first visit, nearly all of it the engine (SymPy, SciPy, Pyodide) and the Flet app. Requirements: FR-PROF-001 to FR-PROF-018 and FR-RUN-009 in the SRS.
+Simon's direction, now implemented for the first two devices: `cassim-app` (stable) and
+`cassim-calc` (testing) are **all-in-one** apps that always open to a Home chooser.
+Nspire and Pseudocode & Python are enabled; ClassPad, Prime, Scientific and later devices remain
+visible in Home when not built. Home renders before a device UI loads. Each built device can also be
+published as its own **bundle** on its own site, so someone who needs one device downloads only that
+one. The Nspire bundle's cold start is still dominated by Pyodide, SymPy and the Flet app; the
+pseudocode bundle does not need SymPy. Requirements: FR-PROF-001 to FR-PROF-018 and FR-RUN-009 in
+the SRS.
 
 ### 15.1 Devices, bundles and sites
 
 | Device id (package `devices/<id>/`) | Bundle | Product name | Site (Cloudflare Pages project) | When |
 |---|---|---|---|---|
-| every built device, with the switcher | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live now, Nspire only |
+| every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire and Pseudocode & Python |
 | `nspire` | `tin` | CASSim-TIN | `cassim-tin` | M2x |
-| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5 |
+| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; single-device build exists, site release wiring remains |
 | `classpad` | `cp` | CASSim-CP | `cassim-cp` | M8 |
 | `prime` | `prime` | CASSim-Prime | `cassim-prime` | M9, if go |
 
@@ -471,9 +510,9 @@ Steps 1 to 3 are milestone M2x and come **before M3** (decided 2026-11-13), whil
 1. ADR on the device interface and bundle format: `docs/decisions/0032` (written 2026-11-13). It replaces the ADR planned for 8a, and splits step 2 into three PRs: `doc/` and registered page types; `devices/nspire/` with the profile data and the Calculator page model; the shell and `devices/nspire/ui/`. Its item 7 leaves the split of `core/` to M8a (agreed 2026-11-13).
 2. Move the Nspire into `devices/nspire/` behind the interface, together with decision 0031's A4 (the document model moves to `doc/`, page types are registered). Gate: every corpus case replays unchanged, the e2e suite passes, and coverage targets hold.
 3. Bundle-aware `tools.publish`, the `tin` bundle and its site, and download-size reporting. **Steps 1 to 3 done 2026-11-13** (decision 0032). `cassim-tin` gets its first content at the next release. The `tin` and `all` bundles are the same size today (90 MB, of which Flutter 57, Pyodide 16, the engine archive 11 and the app archive 2); the sizes differ once a second device is built.
-4. The all-in-one Home chooser and remembered-app shell (FR-PROF-010 to -018), with the stable choice order shown now and future unbuilt choices greyed.
-5. (M5) The `pseudocode` device, from the built `runtime/` plus the M5 editor and trace views, as the second device, the first small bundle and the second enabled Home choice.
-6. (M8) Generalise the chooser into the full profile switcher (8b), then add ClassPad, and Prime (M9) as plug-ins.
+4. **Done.** The all-in-one Home chooser shell (FR-PROF-010 to -018), with the stable choice order shown and future unbuilt choices greyed.
+5. **Done as the standalone M5 slice.** The `pseudocode` device is the second enabled Home choice and has a single-device bundle. Full Python execution, translation and some editor/file features remain M5 work.
+6. (M8/M9) Add ClassPad and Prime as plug-ins; complete the per-device lazy asset and offline cache plan when those downloads make it material.
 
 ### 15.5 Decisions (Simon, 2026-11-13)
 

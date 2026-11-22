@@ -19,19 +19,22 @@ right-click is also a Menu item or a context-menu item, so touch can reach it (d
 
 from __future__ import annotations
 
+import copy
 import json
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from cassim.device.accents import next_accent
-from cassim.device.editor import MARK
+from cassim.device.editor import MARK, Editor, Kind, Row, Template, linear_text, parse_target
 from cassim.device.engine import RemoteSession
 from cassim.device.keys import Action, Binding
+from cassim.device.menu import MenuItem
 from cassim.device.sheet_link import SheetLink, link_for
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire import sheet_inference
+from cassim.devices.nspire.editor_storage import dump_nodes, load_nodes
 from cassim.devices.nspire.pages.statistics import Statistics, dump_statistics, load_statistics
-from cassim.devices.nspire.statistics import INTERVALS, TESTS, build_command
-from cassim.devices.nspire.statistics_plot import PValuePlot
+from cassim.devices.nspire.statistics_plot import AreaPlot, PValuePlot
 from cassim.sheet import refs
 from cassim.sheet.fileio import FileCell
 from cassim.sheet.refs import COLUMNS, ROWS
@@ -138,6 +141,7 @@ class Copied:
     cells: tuple[tuple[int, int, str, str], ...]
     rows: bool = False  # whole rows: a paste over data asks first (Data Loss)
     name: bool = False
+    entries: tuple[tuple[int, int, Row], ...] = ()
 
 
 @dataclass
@@ -148,10 +152,76 @@ class ReferenceSelection:
     end: int
 
 
+@dataclass
+class ShadePane:
+    """Draw: Shade P Value (stats4 I2): the test's statistic and p-value, read from the engine's
+    `stat.` results once the test has run and then kept, so a later test leaves this pane as it
+    was (the 2×2 page in R5-I2 shows a z and a t pane side by side)."""
+
+    variable: str  # "z" or "t"
+    alternative: int  # 0 ≠, 1 <, 2 >
+    plot: PValuePlot | None = None
+
+
+@dataclass(frozen=True)
+class AreaPane:
+    """Draw: Shade area in the Normal Cdf dialog (split2 H14)."""
+
+    plot: AreaPlot
+
+
+type Pane = Statistics | ShadePane | AreaPane
+MAX_PANES = 4  # the sheet and up to three more (decision 0034 item 2); Custom Split stays grey
+
+
+# The sheet Menu's items that depend on what is selected (sheet5, R5-Q1 and R5-S): what each is
+# enabled for. Keys are a `sheet` item's action or a submenu's label.
+_NOT_BLOCK = frozenset({"cell", "column", "name", "row"})
+_DATA = frozenset({"cell", "column", "name"})
+MENU_ENABLED_FOR: dict[str, frozenset[str]] = {
+    "Insert": _NOT_BLOCK,
+    "Statistics": _NOT_BLOCK,
+    "move_column": _NOT_BLOCK,
+    "Resize": _NOT_BLOCK,
+    "Select": _NOT_BLOCK,
+    "generate": _DATA,
+    "Data Capture": _DATA,
+    "Random": _DATA,
+    "List Math": _DATA,
+    "List Operations": _DATA,
+    "fill": frozenset({"cell", "block"}),
+    "clear": frozenset({"column", "name", "row"}),
+}
+
+
+def pane_boxes(count: int, width: float, height: float) -> list[tuple[float, float, float, float]]:
+    """Where each of a page's panes goes, as (left, top, width, height): one fills the page; two
+    are left and right halves; three put the first on the left and the others one above the other
+    on the right (R5-I2, t Test); four are 2×2 in reading order (R5-I2, 1-Prop z Test)."""
+    half_w, half_h = width / 2, height / 2
+    if count <= 1:
+        return [(0, 0, width, height)]
+    if count == 2:  # noqa: PLR2004 (the layouts are by count)
+        return [(0, 0, half_w, height), (half_w, 0, half_w, height)]
+    if count == 3:  # noqa: PLR2004
+        return [
+            (0, 0, half_w, height),
+            (half_w, 0, half_w, half_h),
+            (half_w, half_h, half_w, half_h),
+        ]
+    return [
+        (0, 0, half_w, half_h),
+        (half_w, 0, half_w, half_h),
+        (0, half_h, half_w, half_h),
+        (half_w, half_h, half_w, half_h),
+    ]
+
+
 @dataclass(frozen=True)
 class Snapshot:
     cells: dict[Key, tuple[str, str]]
     columns: tuple[ColumnPayload, ...]
+    panes: tuple[Pane, ...] | None = None  # set for a step that changed the page's panes
 
 
 @dataclass(frozen=True)
@@ -185,6 +255,88 @@ def _definition_text(kind: str, text: str) -> str:
     return f"={text}" if kind == "formula" and text else text
 
 
+def _sheet_text(row: Row, *, clone: bool = True) -> str:
+    """Keep the spreadsheet's existing spelling for simple digit powers."""
+    if not any(isinstance(node, Template) for node in row):
+        return linear_text(row)
+    nodes = copy.deepcopy(row) if clone else row
+
+    def compact(items: Row) -> None:
+        index = 0
+        while index < len(items):
+            node = items[index]
+            if isinstance(node, Template):
+                for slot in node.slots:
+                    compact(slot)
+                if node.kind is Kind.POWER:
+                    slot = node.slots[0]
+                    digits = [item for item in slot if item != MARK]
+                    following = next((item for item in items[index + 1 :] if item != MARK), None)
+                    delimited = following is None or (
+                        isinstance(following, str) and following in "+-*/=<>),:;]}"
+                    )
+                    if (
+                        delimited
+                        and len(digits) == 1
+                        and isinstance(digits[0], str)
+                        and digits[0].isdigit()
+                    ):
+                        items[index : index + 1] = ["^", *slot]
+                        index += len(slot)
+            index += 1
+
+    compact(nodes)
+    return linear_text(nodes)
+
+
+def _shift_entry_nodes(nodes: Row, columns: int, rows: int) -> Row | None:
+    """Shift references in a copied entry without losing its structured templates."""
+    original = _sheet_text(nodes)
+    shifted = refs.shifted(original, columns, rows)
+    if shifted is None:
+        return None
+    result = copy.deepcopy(nodes)
+    runs: list[tuple[int, int, Row, int]] = []
+
+    def collect(row: Row, path: list[tuple[int, int]]) -> None:
+        index = 0
+        while index < len(row):
+            node = row[index]
+            if isinstance(node, Template):
+                for slot, children in enumerate(node.slots):
+                    collect(children, [*path, (index, slot)])
+                index += 1
+                continue
+            start = index
+            while index < len(row) and isinstance(row[index], str):
+                index += 1
+            marked = copy.deepcopy(result)
+            target = marked
+            for parent, slot in path:
+                template = target[parent]
+                assert isinstance(template, Template)
+                target = template.slots[slot]
+            target.insert(start, MARK)
+            offset = _sheet_text(marked, clone=False).index(MARK)
+            runs.append((offset, index - start, row, start))
+
+    collect(result, [])
+    for found in reversed(refs.scan(original)):
+        run = next(
+            (item for item in runs if item[0] <= found.start and found.end <= item[0] + item[1]),
+            None,
+        )
+        if run is None:
+            raise ValueError("spreadsheet reference crosses structured entry nodes")
+        offset, _, row, start = run
+        replacement = refs.shifted(original[found.start : found.end], columns, rows)
+        assert replacement is not None
+        row[start + found.start - offset : start + found.end - offset] = list(replacement)
+    if _sheet_text(result) != shifted:
+        raise ValueError("shifted spreadsheet entry does not match its formula")
+    return result
+
+
 class Spreadsheet:
     def __init__(self, session: Session | RemoteSession, clipboard: Clipboard) -> None:
         self.session = session
@@ -197,9 +349,9 @@ class Spreadsheet:
         self.widths: dict[int, int] = {}
         # The cells on show, from the engine's last view.
         self.view: dict[Key, CellView] = {}
-        self.split_statistics: list[Statistics] = []
-        self.shade_alternative: int | None = None
-        self.pvalue_plot: PValuePlot | None = None
+        # The page's other panes, after the sheet (decision 0034 item 2).
+        self.panes: list[Pane] = []
+        self._pending_shade: ShadePane | None = None  # waits for its test's results
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -210,10 +362,9 @@ class Spreadsheet:
         self.whole: Literal["row", "column"] | None = None
         self.top, self.left = 1, 0  # the first data row and column on show
         self.rows_shown, self.columns_shown = 5, 4  # set by the view from its size
-        self.editing: str | None = None
-        self.caret = 0
+        self.editor: Editor | None = None
+        self.entry_nodes: dict[tuple[Key, str], Row] = {}
         self.selected = False  # the whole of `editing` is selected: a key typed replaces it
-        self.edit_anchor: int | None = None
         self.reference: ReferenceSelection | None = None
         self.reference_mode: bool | None = None  # None chooses from the formula at the caret
         self.mode: Literal["fill", "move", "resize"] | None = None
@@ -226,6 +377,22 @@ class Spreadsheet:
         self._pending_import: list[list[object]] | None = None
         self._undo: list[Snapshot] = []
         self._redo: list[Snapshot] = []
+
+    @property
+    def editing(self) -> str | None:
+        return _sheet_text(self.editor.root) if self.editor is not None else None
+
+    def _marked(self, pos: int | None = None) -> str:
+        assert self.editor is not None
+        editor = copy.deepcopy(self.editor)
+        if pos is not None:
+            editor.pos = pos
+        editor.row().insert(editor.pos, MARK)
+        return _sheet_text(editor.root, clone=False)
+
+    @property
+    def caret(self) -> int:
+        return self._marked().index(MARK) if self.editor is not None else 0
 
     # ---- the engine ---------------------------------------------------------------------------
 
@@ -252,8 +419,27 @@ class Spreadsheet:
         columns = [list(info) for info in snapshot.columns]
         return self.op("restore", cells=cells, columns=columns)
 
-    def _snapshot(self) -> Snapshot:
-        return Snapshot(dict(self.cells), tuple(self.columns))
+    def _snapshot(self, *, panes: bool = False) -> Snapshot:
+        return Snapshot(dict(self.cells), tuple(self.columns), tuple(self.panes) if panes else None)
+
+    @property
+    def split_statistics(self) -> list[Statistics]:
+        """The Data & Statistics panes, in page order."""
+        return [pane for pane in self.panes if isinstance(pane, Statistics)]
+
+    def add_pane(self, pane: Pane, *, undoable: bool = True) -> None:
+        """Put another app on the page: a second pane on the right, a third under it, a fourth
+        making a 2×2 page whose new pane is bottom left (R5-I2). A full page replaces its newest
+        pane. `undoable`: one ctrl+Z removes it again (R5-Q1: Quick Graph); a shaded pane stays
+        when its cell is undone (R5-H14), so it is not."""
+        if undoable:
+            self._undo.append(self._snapshot(panes=True))
+            del self._undo[:-UNDO_DEPTH]
+            self._redo.clear()
+        if len(self.panes) >= MAX_PANES - 1:
+            self.panes[1] = pane
+        else:
+            self.panes.insert(min(len(self.panes), 1), pane)
 
     def loaded(self) -> None:
         """After a document's pages are loaded: rebuild the sheet in the engine. This runs after
@@ -284,9 +470,9 @@ class Spreadsheet:
                 self._accept(reply)
 
     def _accept(self, reply: SheetReply) -> None:
-        if reply["error"] is not None and reply["error"]["title"] != DATA_LOSS:
-            self.shade_alternative = None
-            self.pvalue_plot = None
+        error = reply["error"]
+        if error is not None and error["title"] != DATA_LOSS and not error["names"]:
+            self._pending_shade = None  # refused; a Data Loss or a Conflict asks first
         for column, row, kind, text in reply["edits"]:
             if kind:
                 self.cells[(column, row)] = (kind, text)
@@ -312,20 +498,33 @@ class Spreadsheet:
         if reply["error"] is not None:
             self._failed(reply["error"])
         if reply["error"] is None:
-            self._refresh_pvalue_plot()
+            self._refresh_shading()
 
-    def _refresh_pvalue_plot(self) -> None:
-        if self.shade_alternative is None:
+    def _refresh_shading(self) -> None:
+        """A shaded pane whose test has run takes its statistic and p-value; a new one joins the
+        page then."""
+        waiting = [pane for pane in self.panes if isinstance(pane, ShadePane) and not pane.plot]
+        pending = self._pending_shade
+        if pending is None and not waiting:
             return
         values = {row.name.casefold(): row.text for row in self.session.variables()}
-        statistic = values.get("stat.z")
-        p_value = values.get("stat.pval")
-        if statistic is not None and p_value is not None:
-            self.pvalue_plot = PValuePlot(
-                float(statistic.replace("ᴇ", "e")),
-                float(p_value.replace("ᴇ", "e")),
-                self.shade_alternative,
-            )
+
+        def number(name: str) -> float | None:
+            text = values.get(name)
+            try:
+                return float(text.replace("ᴇ", "e")) if text is not None else None
+            except ValueError:
+                return None
+
+        for pane in [*waiting, *([pending] if pending is not None else [])]:
+            statistic, p_value = number(f"stat.{pane.variable}"), number("stat.pval")
+            if statistic is None or p_value is None:
+                continue
+            df = number("stat.df") if pane.variable == "t" else None
+            pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
+            if pane is pending:
+                self._pending_shade = None
+                self.add_pane(pane, undoable=False)
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -351,8 +550,7 @@ class Spreadsheet:
             args = last["args"]
             rows = {"cell": args.get("row"), "formula": FORMULA_ROW, "name": NAME_ROW}
             self.cursor = (cast("int", args["column"]), cast("int", rows[last["action"]]))
-            self.editing = str(args["text"])
-            self.caret = len(self.editing)
+            self.begin_edit(str(args["text"]))
         if self._undo:  # a refused change changed nothing
             self._undo.pop()
 
@@ -380,18 +578,83 @@ class Spreadsheet:
         """The selected block as (left, top, right, bottom), or None for a single cell."""
         column, row = self.cursor
         if self.whole == "column":
-            return column, 1, column, max(self.last_row(column), 1)
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            return left, 1, right, ROWS
         if self.whole == "row":
-            return 0, row, COLUMNS - 1, row
+            first, last = sorted((self.anchor[1], row)) if self.anchor else (row, row)
+            return 0, first, COLUMNS - 1, last
         if self.anchor is None or self.anchor == self.cursor:
             return None
         left, right = sorted((self.anchor[0], column))
         top, bottom = sorted((max(self.anchor[1], 1), max(row, 1)))
         return left, top, right, bottom
 
+    def whole_columns(self) -> tuple[int, int] | None:
+        """The first and last of the whole columns selected: one, or more taken with shift+Left
+        or shift+Right from a column or its name cell (R5-Q1)."""
+        if self.whole != "column":
+            return None
+        column = self.cursor[0]
+        other = self.anchor[0] if self.anchor is not None else column
+        return min(column, other), max(column, other)
+
+    def selection_kind(self) -> Literal["cell", "block", "column", "name", "row"]:
+        """What is selected, which greys Menu items (sheet5, R5-S: a cell, a block, a column, or
+        the name cell)."""
+        if self.whole == "column":
+            return "column"
+        if self.cursor[1] == NAME_ROW:
+            return "name"
+        if self.whole == "row":
+            return "row"
+        return "block" if self.selection() is not None else "cell"
+
+    def quick_graph_lists(self) -> tuple[str, ...]:
+        """The lists Quick Graph plots: one or two selected columns, each linked to a list
+        (R5-Q1). Empty when Quick Graph is grey."""
+        if self.selection_kind() not in ("column", "name"):
+            return ()
+        left, right = self.whole_columns() or (self.cursor[0], self.cursor[0])
+        if right - left > 1:
+            return ()
+        lists = {
+            row.name.casefold(): row.name
+            for row in self.session.variables()
+            if row.items is not None and row.text.startswith("{")
+        }
+        found = tuple(
+            lists.get((self.columns[c][0] or "").casefold(), "") for c in range(left, right + 1)
+        )
+        return found if all(found) else ()
+
+    def adjust_menu(self, root: MenuItem) -> MenuItem:
+        """The sheet's Menu or a context menu with items greyed by what is selected: Quick Graph
+        everywhere, and the Menu's items as sheet5 recorded them."""
+        graph = bool(self.quick_graph_lists())
+        kind = self.selection_kind()
+        menu = root.label == "Menu"
+
+        def visit(item: MenuItem) -> MenuItem:
+            items = tuple(visit(child) for child in item.items)
+            enabled = item.enabled
+            key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
+            if item.action == "sheet" and item.arg == "quick_graph":
+                enabled = graph
+            elif menu and key in MENU_ENABLED_FOR and item is not root:
+                enabled = enabled and kind in MENU_ENABLED_FOR[key]
+            if items == item.items and enabled == item.enabled:
+                return item
+            return replace(item, items=items, enabled=enabled)
+
+        return visit(root)
+
     def _span(self) -> tuple[int, int, int, int]:
         """The selection, or the cursor's cell."""
         column, row = self.cursor
+        if self.whole == "column":
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            bottom = max((self.last_row(c) for c in range(left, right + 1)), default=0)
+            return left, 1, right, max(bottom, 1)
         return self.selection() or (column, max(row, 1), column, max(row, 1))
 
     def last_row(self, column: int) -> int:
@@ -435,7 +698,7 @@ class Spreadsheet:
             cells[key] = (text, False)
         editing = None
         if self.editing is not None:
-            editing = self.editing[: self.caret] + MARK + self.editing[self.caret :]
+            editing = self._marked()
         return SheetScreen(
             columns,
             rows,
@@ -465,10 +728,15 @@ class Spreadsheet:
     def address(self) -> str:
         """The bar's cell name: `A1`, a block `A1:C4`, a column `A` or a row `1`."""
         column, row = self.cursor
-        if self.whole == "column" or row == NAME_ROW:
+        if self.whole == "column":
+            left, right = sorted((self.anchor[0], column)) if self.anchor else (column, column)
+            first = letter(left).upper()
+            return first if left == right else f"{first}:{letter(right).upper()}"
+        if row == NAME_ROW:
             return letter(column).upper()
         if self.whole == "row":
-            return str(row)
+            first, last = sorted((self.anchor[1], row)) if self.anchor else (row, row)
+            return str(first) if first == last else f"{first}:{last}"
         block = self.selection()
         if block is not None:
             a, b, c, d = block
@@ -527,9 +795,8 @@ class Spreadsheet:
         elif action in ("escape", "sheet_cancel") or not dialog.cancel:
             if self._pending_import is not None:
                 self._pending_import = None
-            if dialog.title == DATA_LOSS and self.shade_alternative is not None:
-                self.shade_alternative = None
-                self.pvalue_plot = None
+            if dialog.title == DATA_LOSS:
+                self._pending_shade = None
             self.dialogs.pop(0)
 
     def _keys(self) -> dict[Action, Callable[[str], None]]:
@@ -555,8 +822,8 @@ class Spreadsheet:
             "select": lambda _: self.begin_edit(self.entry_text(self.cursor), selected=True),
             "insert": self.type_text,
             "insert_linear": self.type_text,
-            "template": lambda _: None,
-            "power": lambda arg: self.type_text(f"^{arg}"),
+            "template": self._start_template,
+            "power": self._start_power,
             "backspace": lambda _: self.clear(),
             "delete": lambda _: self.clear(),
             "clear": lambda _: self.clear(),
@@ -580,14 +847,15 @@ class Spreadsheet:
     def _edit_keys(self) -> dict[Action, Callable[[str], None]]:
         return {
             "insert": self._insert,
-            "insert_linear": self._insert,
-            "power": lambda arg: self._insert(f"^{arg}"),
+            "insert_linear": lambda text: self._insert(text, linear=True),
+            "template": self._template,
+            "power": self._power,
             "accent": lambda _: self._accent(),
             "left": lambda _: self._edit_arrow(-1, 0),
             "right": lambda _: self._edit_arrow(1, 0),
-            "home": lambda _: self._caret(0),
-            "home_key": lambda _: self._caret(0),
-            "end": lambda _: self._caret(len(self.editing or "")),
+            "home": lambda _: self._move_editor("home"),
+            "home_key": lambda _: self._move_editor("home"),
+            "end": lambda _: self._move_editor("end"),
             "backspace": lambda _: self._erase(before=True),
             "delete": lambda _: self._erase(before=False),
             "clear": lambda _: self._set_text(""),
@@ -599,14 +867,20 @@ class Spreadsheet:
             "select_left": lambda _: self._edit_arrow(-1, 0, extend=True),
             "select_right": lambda _: self._edit_arrow(1, 0, extend=True),
             "select_cells": self._edit_select_cells,
-            "select_to_start": lambda _: self._select_caret(0),
-            "select_to_end": lambda _: self._select_caret(len(self.editing or "")),
-            "tab": lambda _: self.commit(then=(1, 0)),
-            "shift_tab": lambda _: self.commit(then=(-1, 0)),
+            "select_to_start": lambda _: self._move_editor("select_to_start"),
+            "select_to_end": lambda _: self._move_editor("select_to_end"),
+            "word_left": lambda _: self._move_editor("word_left"),
+            "word_right": lambda _: self._move_editor("word_right"),
+            "select_word_left": lambda _: self._move_editor("select_word_left"),
+            "select_word_right": lambda _: self._move_editor("select_word_right"),
+            "tab": lambda _: self._tab(back=False),
+            "shift_tab": lambda _: self._tab(back=True),
             "select_all": lambda _: self._select_editing(),
             "copy": lambda _: self._copy_editing(),
             "cut": lambda _: self._copy_editing(cut=True),
-            "paste": lambda text: self._insert(text or self.clipboard.text),
+            "paste": self._paste_editing,
+            "place": lambda target: self._place(target, extend=False),
+            "extend": lambda target: self._place(target, extend=True),
             "sheet_ref_mode": lambda _: self.toggle_reference_mode(),
             "sheet_ref_fixed": lambda _: self.toggle_reference_fixed(),
             "sheet_bar": lambda _: self.edit_bar(),
@@ -616,12 +890,34 @@ class Spreadsheet:
 
     def move(self, columns: int, rows: int, *, extend: bool = False) -> None:
         column, row = self.cursor
+        if extend and not rows and row == NAME_ROW and self.whole != "column":
+            self.select_whole("column")  # shift+Left or Right from a name cell (R5-Q1)
+        if extend and self.whole == "row":
+            if rows:
+                self.cursor = (column, min(max(row + rows, 1), ROWS))
+            self._follow()
+            return
+        if extend and self.whole == "column":
+            if columns:
+                self.cursor = (min(max(column + columns, 0), COLUMNS - 1), row)
+                self._follow()
+            return
         if extend:
             if self.anchor is None:
                 self.anchor = self.cursor
         else:
             self.anchor = None
             self.whole = None
+        if extend and row >= 1 and columns < 0 and column == 0:
+            self.anchor = (0, row)
+            self.whole = "row"
+            self._follow()
+            return
+        if extend and row == 1 and rows < 0:
+            self.anchor = (column, NAME_ROW)
+            self.whole = "column"
+            self._follow()
+            return
         lowest = 1 if extend else NAME_ROW
         self.cursor = (
             min(max(column + columns, 0), COLUMNS - 1),
@@ -678,7 +974,7 @@ class Spreadsheet:
         parts = arg.split(",")
         key = (int(parts[0]), int(parts[1]))
         extend = bool(parts[2:])
-        if self._formula_editing() and key[1] >= 1:
+        if key[1] >= 1 and self._can_point():
             self._point(key, extend=extend)
             return
         if self.editing is not None:
@@ -695,6 +991,8 @@ class Spreadsheet:
             self._follow()
             return
         self.go(key)
+        if key[1] == NAME_ROW:
+            self.select_whole("column")
 
     def drag(self, arg: str) -> None:
         """A drag across the grid scrolls it by `columns,rows` (touch: a one-finger drag)."""
@@ -706,42 +1004,31 @@ class Spreadsheet:
         return self.editing is not None and self.editing.startswith("=") and not self.selected
 
     def _select_editing(self) -> None:
+        assert self.editor is not None
         self.reference = None
         self.reference_mode = False
-        self.selected = bool(self.editing)
-        self.edit_anchor = None
+        self.editor.select_all()
+        self.selected = bool(self.editor.root)
 
     def _text_selection(self) -> tuple[int, int] | None:
-        if self.editing is None:
+        if self.editor is None or self.editor.anchor is None:
             return None
-        if self.selected and self.editing:
-            return 0, len(self.editing)
-        if self.edit_anchor is not None and self.edit_anchor != self.caret:
-            return min(self.edit_anchor, self.caret), max(self.edit_anchor, self.caret)
-        return None
-
-    def _select_caret(self, place: int) -> None:
-        if self.selected:
-            self.edit_anchor = 0
-        elif self.edit_anchor is None:
-            self.edit_anchor = self.caret
-        self.selected = False
-        self.reference = None
-        self.reference_mode = False
-        self.caret = min(max(place, 0), len(self.editing or ""))
+        start, end = self.editor.span
+        return self._marked(start).index(MARK), self._marked(end).index(MARK)
 
     def _can_point(self) -> bool:
-        if not self._formula_editing():
+        if not self._formula_editing() or self.editor is None or self.editor.selection():
             return False
-        if self._text_selection() is not None:
+        if self.editor.in_string:
             return False
         if self.reference is not None:
             return True
         if self.reference_mode is not None:
             return self.reference_mode
-        assert self.editing is not None
-        prefix = self.editing[: self.caret]
-        return prefix.count('"') % 2 == 0 and prefix.rstrip().endswith(
+        prefix = linear_text(self.editor.row()[: self.editor.pos]).rstrip()
+        if not prefix and self.editor.path:
+            return True
+        return prefix.endswith(
             ("=", "+", "-", "*", "/", "^", "(", ",", ":", "<", ">", "≤", "≥", "≠", "|")
         )
 
@@ -752,16 +1039,17 @@ class Spreadsheet:
         return min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])
 
     def _point(self, key: Key, *, extend: bool = False) -> None:
-        assert self.editing is not None
+        assert self.editor is not None
+        editor = self.editor
         selected = self.reference
         previous: refs.Ref | refs.Span | None = None
         if selected is None:
             self._delete_selection()
             anchor = (self.cursor[0], max(self.cursor[1], 1)) if extend else key
-            selected = ReferenceSelection(anchor, key, self.caret, self.caret)
+            selected = ReferenceSelection(anchor, key, editor.pos, editor.pos)
             self.reference = selected
         else:
-            found = refs.scan(self.editing[selected.start : selected.end])
+            found = refs.scan(linear_text(editor.row()[selected.start : selected.end]))
             if found and isinstance(found[0].reference, refs.Ref | refs.Span):
                 previous = found[0].reference
             if not extend:
@@ -780,13 +1068,17 @@ class Spreadsheet:
             fixed_row=old_end.fixed_row if old_end else False,
         )
         text = str(start) if start == end else str(refs.Span(start, end))
-        self.editing = self.editing[: selected.start] + text + self.editing[selected.end :]
+        editor.row()[selected.start : selected.end] = list(text)
         selected.end = selected.start + len(text)
-        self.caret = selected.end
+        editor.pos = selected.end
         self.reference_mode = True
         self._follow(key)
 
     def _edit_arrow(self, columns: int, rows: int, *, extend: bool = False) -> None:
+        assert self.editor is not None
+        if rows and self.editor.path and self.reference is None and self.reference_mode is not True:
+            self._move_editor("up" if rows < 0 else "down")
+            return
         if self._can_point():
             current = self.reference.focus if self.reference is not None else self.cursor
             key = (
@@ -796,11 +1088,9 @@ class Spreadsheet:
             self._point(key, extend=extend)
         elif extend:
             if columns:
-                self._select_caret(self.caret + columns)
+                self._move_editor("select_left" if columns < 0 else "select_right")
         elif columns:
-            selection = self._text_selection()
-            place = selection[0 if columns < 0 else 1] if selection else self.caret + columns
-            self._caret(place)
+            self._move_editor("left" if columns < 0 else "right")
         elif self._formula_editing() and self.reference_mode is False:
             return
         else:
@@ -809,42 +1099,44 @@ class Spreadsheet:
     def _edit_select_cells(self, arg: str) -> None:
         axis, _, step = arg.partition(":")
         amount = int(step or 1)
+        if self.editor is not None and self.editor.in_grid:
+            self.reference = None
+            self.reference_mode = False
+            self.selected = False
+            self.editor.select_cells(axis, amount)
+            return
         self._edit_arrow(
             amount if axis == "col" else 0, amount if axis == "row" else 0, extend=True
         )
 
     def toggle_reference_mode(self) -> None:
         self.selected = False
-        self.edit_anchor = None
-        if not self._formula_editing():
+        assert self.editor is not None
+        self.editor.anchor = None
+        if not self._formula_editing() or self.editor.in_string:
             return
         if self._can_point():
             self.reference = None
             self.reference_mode = False
             return
         self.reference_mode = True
-        assert self.editing is not None
-        for found in refs.scan(self.editing):
-            if found.start <= self.caret <= found.end and isinstance(
-                found.reference, refs.Ref | refs.Span
-            ):
-                ref = found.reference
+        for start_pos, end_pos, ref in self._row_references():
+            if start_pos <= self.editor.pos <= end_pos and isinstance(ref, refs.Ref | refs.Span):
                 start = ref.start if isinstance(ref, refs.Span) else ref
                 end = ref.end if isinstance(ref, refs.Span) else ref
-                self.reference = ReferenceSelection(start.key(), end.key(), found.start, found.end)
+                self.reference = ReferenceSelection(start.key(), end.key(), start_pos, end_pos)
                 self._follow(end.key())
                 break
 
     def toggle_reference_fixed(self) -> None:
         self.selected = False
-        self.edit_anchor = None
+        assert self.editor is not None
+        self.editor.anchor = None
         if not self._formula_editing():
             return
-        assert self.editing is not None
-        for found in refs.scan(self.editing):
-            if not (found.start <= self.caret <= found.end):
+        for start, end, ref in self._row_references():
+            if not (start <= self.editor.pos <= end):
                 continue
-            ref = found.reference
             if not isinstance(ref, refs.Ref | refs.Span):
                 return
 
@@ -860,33 +1152,51 @@ class Spreadsheet:
                 else cycle(ref)
             )
             text = str(changed)
-            self.editing = self.editing[: found.start] + text + self.editing[found.end :]
-            self.caret = found.start + len(text)
+            self.editor.row()[start:end] = list(text)
+            self.editor.pos = start + len(text)
             if self.reference is not None:
-                self.reference.end = self.caret
+                self.reference.end = self.editor.pos
             return
+
+    def _row_references(self) -> list[tuple[int, int, refs.Reference]]:
+        assert self.editor is not None
+        row = self.editor.row()
+        offsets = {len(linear_text(row[:i])): i for i in range(len(row) + 1)}
+        return [
+            (offsets[found.start], offsets[found.end], found.reference)
+            for found in refs.scan(linear_text(row))
+            if found.start in offsets and found.end in offsets
+        ]
 
     def edit_bar(self) -> None:
         if self.editing is None:
             self.begin_edit(self.entry_text(self.cursor))
         else:
-            self._caret(len(self.editing))
+            self._move_editor("end")
 
     def select_whole(self, what: Literal["row", "column"]) -> None:
-        self.anchor = None
         self.whole = what
         if what == "row":
             self.cursor = (self.cursor[0], max(self.cursor[1], 1))
+            self.anchor = (0, self.cursor[1])
+        else:
+            self.anchor = (self.cursor[0], NAME_ROW)
 
     # ---- typing -------------------------------------------------------------------------------
 
     def begin_edit(self, text: str, *, selected: bool = False) -> None:
         """Edit the cursor's cell. `selected`: its content starts selected, so the first key
         typed replaces it (run 4, S16: Return on a filled cell)."""
-        self.editing = text
-        self.caret = len(text)
+        self.editor = Editor()
+        saved = self.entry_nodes.get((self.cursor, text))
+        if saved is not None:
+            self.editor.root = copy.deepcopy(saved)
+            self.editor.pos = len(self.editor.root)
+        else:
+            self.editor.insert_linear(text)
+        if selected:
+            self.editor.select_all()
         self.selected = selected and bool(text)
-        self.edit_anchor = None
         self.reference = None
         self.reference_mode = None
         self.anchor = None
@@ -897,83 +1207,143 @@ class Spreadsheet:
         self.begin_edit("")
         self._insert(text)
 
-    def _insert(self, text: str) -> None:
-        assert self.editing is not None
+    def _insert(self, text: str, *, linear: bool = False) -> None:
+        assert self.editor is not None
         self.reference = None
         self.reference_mode = None
-        self._delete_selection()
-        self.edit_anchor = None
-        place = text.find(MARK)
-        plain = text.replace(MARK, "")
-        self.editing = self.editing[: self.caret] + plain + self.editing[self.caret :]
-        self.caret += place if place >= 0 else len(plain)
+        self.selected = False
+        if linear or MARK in text:
+            self.editor.insert_linear(text, MARK)
+        elif self.editor.is_empty and text.startswith("^"):
+            self.editor.insert_template(Kind.POWER)
+            self._insert(text[1:])
+        elif self.editor.is_empty and text and text[0] in "+-*/":
+            self.editor.insert_linear(text[:1])
+            self._insert(text[1:])
+        else:
+            self.editor.insert_text(text)
+
+    def _start_template(self, spec: str) -> None:
+        self.begin_edit("")
+        self._template(spec)
+
+    def _start_power(self, exponent: str) -> None:
+        self.begin_edit("")
+        self._power(exponent)
+
+    def _template(self, spec: str) -> None:
+        assert self.editor is not None
+        kind, _, shape = spec.partition(":")
+        rows, _, cols = shape.partition(",")
+        size = (int(rows), int(cols or 1)) if shape else (2, 2)
+        if kind == Kind.LIST:
+            size = (1, int(rows) if shape else 3)
+        self.reference = None
+        self.reference_mode = None
+        self.selected = False
+        self.editor.insert_template(Kind(kind), size)
+
+    def _power(self, exponent: str) -> None:
+        self._insert("^")
+        self._insert(exponent)
 
     def _accent(self) -> None:
         """The accent key on the letter before the caret (see `device.accents`)."""
-        text = self.editing or ""
-        changed = next_accent(text[self.caret - 1]) if self.caret else None
-        if changed is not None:
-            self.editing = text[: self.caret - 1] + changed + text[self.caret :]
+        assert self.editor is not None
+        self.editor.cycle_accent()
 
     def _set_text(self, text: str) -> None:
-        self.editing, self.caret = text, len(text)
+        self.editor = Editor()
+        self.editor.insert_linear(text)
         self.selected = False
-        self.edit_anchor = None
         self.reference = None
         self.reference_mode = None
 
-    def _caret(self, place: int) -> None:
+    def _move_editor(self, action: str) -> None:
+        assert self.editor is not None
         self.selected = False
-        self.edit_anchor = None
         self.reference = None
         self.reference_mode = False
-        self.caret = min(max(place, 0), len(self.editing or ""))
+        moves = {
+            "left": self.editor.left,
+            "right": self.editor.right,
+            "up": self.editor.up,
+            "down": self.editor.down,
+            "home": self.editor.home,
+            "end": self.editor.end,
+            "select_left": self.editor.select_left,
+            "select_right": self.editor.select_right,
+            "select_to_start": self.editor.select_to_start,
+            "select_to_end": self.editor.select_to_end,
+            "word_left": self.editor.word_left,
+            "word_right": self.editor.word_right,
+            "select_word_left": self.editor.select_word_left,
+            "select_word_right": self.editor.select_word_right,
+        }
+        moves[action]()
+
+    def _place(self, target: str, *, extend: bool) -> None:
+        assert self.editor is not None
+        path, pos = parse_target(target)
+        self.selected = False
+        self.reference = None
+        self.reference_mode = False
+        self.editor.place(path, pos, extend=extend)
+
+    def _tab(self, *, back: bool) -> None:
+        assert self.editor is not None
+        if self.editor.path:
+            self.reference = None
+            self.reference_mode = False
+            (self.editor.shift_tab if back else self.editor.tab)()
+        else:
+            self.commit(then=(-1 if back else 1, 0))
 
     def _erase(self, *, before: bool) -> None:
+        assert self.editor is not None
         if self.reference is not None:
-            self.edit_anchor = self.reference.start
-            self.caret = self.reference.end
+            self.editor.anchor = self.reference.start
+            self.editor.pos = self.reference.end
         self.reference = None
         self.reference_mode = None
-        if self._delete_selection():
-            return
-        self.edit_anchor = None
-        text = self.editing or ""
-        if before and self.caret > 0:
-            self.editing = text[: self.caret - 1] + text[self.caret :]
-            self.caret -= 1
-        elif not before and self.caret < len(text):
-            self.editing = text[: self.caret] + text[self.caret + 1 :]
+        self.selected = False
+        (self.editor.backspace if before else self.editor.delete)()
 
     def _delete_selection(self) -> bool:
-        selection = self._text_selection()
-        if selection is None:
+        assert self.editor is not None
+        if not self.editor.selection():
             return False
-        assert self.editing is not None
-        start, end = selection
-        self.editing = self.editing[:start] + self.editing[end:]
-        self.caret = start
+        self.editor.cut()
         self.selected = False
-        self.edit_anchor = None
         return True
 
     def _copy_editing(self, *, cut: bool = False) -> None:
+        assert self.editor is not None
         if self.reference is not None:
-            self.edit_anchor = self.reference.start
-            self.caret = self.reference.end
+            self.editor.anchor = self.reference.start
+            self.editor.pos = self.reference.end
             self.reference = None
             self.reference_mode = False
-        selection = self._text_selection()
-        if selection is None or self.editing is None:
+        nodes = self.editor.cut() if cut else self.editor.selection()
+        if not nodes:
             return
-        start, end = selection
-        self.clipboard.nodes = list(self.editing[start:end])
-        if cut:
-            self._delete_selection()
+        self.clipboard.nodes = nodes
+        self.selected = False
+
+    def _paste_editing(self, text: str) -> None:
+        assert self.editor is not None
+        self.reference = None
+        self.reference_mode = None
+        self.selected = False
+        if text and (text != self.clipboard.text or not self.clipboard.nodes):
+            self.editor.insert_linear(text)
+        elif self.clipboard.nodes:
+            self.editor.paste(self.clipboard.nodes)
+        elif self.clipboard.text:
+            self.editor.insert_linear(self.clipboard.text)
 
     def cancel_edit(self) -> None:
-        self.editing = None
-        self.edit_anchor = None
+        self.editor = None
         self.selected = False
         self.reference = None
         self.reference_mode = None
@@ -982,8 +1352,19 @@ class Spreadsheet:
         """Enter what was typed, then move (Enter moves down: run 2, E4). An unchanged cell is
         not sent again."""
         text = (self.editing or "").strip()
-        self.editing = None
-        self.edit_anchor = None
+        if self.editor is not None and any(isinstance(node, Template) for node in self.editor.root):
+            nodes = copy.deepcopy(self.editor.root)
+            while nodes and isinstance(nodes[0], str) and nodes[0].isspace():
+                nodes.pop(0)
+            while nodes and isinstance(nodes[-1], str) and nodes[-1].isspace():
+                nodes.pop()
+            text = _sheet_text(nodes)
+            if self.cursor[1] == FORMULA_ROW and text and not text.startswith("="):
+                nodes.insert(0, "=")
+                self.entry_nodes[(self.cursor, f"={text}")] = nodes
+            else:
+                self.entry_nodes[(self.cursor, text)] = nodes
+        self.editor = None
         self.selected = False
         self.reference = None
         self.reference_mode = None
@@ -1037,7 +1418,22 @@ class Spreadsheet:
             "\t".join(self._shown_text((c, r)) for c in range(left, right + 1))
             for r in range(top, bottom + 1)
         )
-        copied = Copied((left, top), right - left + 1, bottom - top + 1, cells, self.whole == "row")
+        entries = tuple(
+            (c - left, r - top, copy.deepcopy(nodes))
+            for ((c, r), entry), nodes in self.entry_nodes.items()
+            if left <= c <= right
+            and top <= r <= bottom
+            and (c, r) in self.cells
+            and self.entry_text((c, r)) == entry
+        )
+        copied = Copied(
+            (left, top),
+            right - left + 1,
+            bottom - top + 1,
+            cells,
+            rows=self.whole == "row",
+            entries=entries,
+        )
         self.clipboard.copy_cells(copied, text)
 
     def _shown_text(self, key: Key) -> str:
@@ -1078,15 +1474,23 @@ class Spreadsheet:
         cells: dict[Key, list[object]] = {
             key: [*key, "entry", ""] for key in targets if key in self.cells
         }
+        entries = {(dc, dr): nodes for dc, dr, nodes in copied.entries}
         for dc, dr, kind, text_ in copied.cells:
             target = (left + dc, top + dr)
+            nodes = entries.get((dc, dr)) if target[0] < COLUMNS and target[1] <= ROWS else None
             if kind == "formula":
-                moved = refs.shifted(
-                    text_, target[0] - copied.origin[0] - dc, target[1] - copied.origin[1] - dr
-                )
+                shift_columns = target[0] - copied.origin[0] - dc
+                shift_rows = target[1] - copied.origin[1] - dr
+                moved = refs.shifted(text_, shift_columns, shift_rows)
                 cells[target] = [*target, "formula", moved or ""]
+                if nodes is not None and moved is not None:
+                    shifted_nodes = _shift_entry_nodes(nodes, shift_columns, shift_rows)
+                    if shifted_nodes is not None:
+                        self.entry_nodes[(target, f"={moved}")] = shifted_nodes
             else:
                 cells[target] = [*target, kind, text_]
+                if nodes is not None:
+                    self.entry_nodes[(target, text_)] = copy.deepcopy(nodes)
         valid = [cell for key, cell in cells.items() if 0 <= key[0] < COLUMNS and key[1] <= ROWS]
         if valid:
             self._send("put", cells=valid, confirm=False)
@@ -1113,16 +1517,22 @@ class Spreadsheet:
     def undo(self) -> None:
         if not self._undo:
             return
-        self._redo.append(self._snapshot())
-        self._sendback(self._undo.pop())
+        snapshot = self._undo.pop()
+        self._redo.append(self._snapshot(panes=snapshot.panes is not None))
+        self._sendback(snapshot)
 
     def redo(self) -> None:
         if not self._redo:
             return
-        self._undo.append(self._snapshot())
-        self._sendback(self._redo.pop())
+        snapshot = self._redo.pop()
+        self._undo.append(self._snapshot(panes=snapshot.panes is not None))
+        self._sendback(snapshot)
 
     def _sendback(self, snapshot: Snapshot) -> None:
+        if snapshot.panes is not None:
+            self.panes = list(snapshot.panes)
+            if snapshot.cells == self.cells and snapshot.columns == tuple(self.columns):
+                return
         op = self._restore_of(snapshot)
         self.last = op
         self.link.send(op)
@@ -1180,6 +1590,10 @@ class Spreadsheet:
         elif name == "store_var":  # var > Store Var: types `var` in the name cell, selected
             self.go((column, NAME_ROW))
             self.begin_edit("var")
+        elif name == "distribution":
+            self.wizard = self._normal_cdf_wizard()
+        elif name == "shade_area":
+            self._shade_area(cast("dict[str, str]", json.loads(rest)))
         elif name in ("onevar", "stat", "inference", "edit", "dialog"):
             self._statistics_action(name, rest)
         elif name == "paste_ok":
@@ -1224,56 +1638,48 @@ class Spreadsheet:
         return True
 
     def _quick_graph(self) -> None:
-        if self.whole != "column" and self.cursor[1] != NAME_ROW:
-            self.dialogs.append(Dialog("Quick Graph", "Select a column first."))
+        """A dot plot of one selected list, or a scatter plot of two (the first column on x),
+        beside the sheet; one undo step (R5-Q1). Grey unless columns of lists are selected."""
+        lists = self.quick_graph_lists()
+        if not lists:
             return
-        name = self.columns[self.cursor[0]][0]
         statistics = Statistics(self.session)
-        selected = next(
-            (item for item in statistics.lists if item.casefold() == (name or "").casefold()),
-            "",
-        )
-        if not selected:
-            self.dialogs.append(Dialog("Quick Graph", "Select a column containing a list."))
-            return
-        statistics.perform(f"x:{selected}")
-        self.split_statistics.append(statistics)
-        self.shade_alternative = None
-        self.pvalue_plot = None
+        statistics.perform(f"x:{lists[0]}")
+        if len(lists) > 1:
+            statistics.perform(f"y:{lists[1]}")
+        self.add_pane(statistics)
 
     def _summary_plot_wizard(self) -> Wizard | None:
+        """Summary Plot (R5-Q2): X List is a category or a numeric list, Summary List a numeric
+        list, each taken from the selected columns first; Display On is Split Page first."""
         statistics = Statistics(self.session)
-        categories, summaries = statistics.category_lists, statistics.numeric_lists
-        if not categories or not summaries:
-            self.dialogs.append(
-                Dialog("Summary Plot", "Select a category list and a numeric list.")
-            )
+        lists, summaries = statistics.lists, statistics.numeric_lists
+        if not lists or not summaries:
+            self.dialogs.append(Dialog("Summary Plot", "Enter a list and a numeric list first."))
             return None
-        selected = self.selection()
-        x_default = ""
-        summary_default = ""
-        if selected is not None:
-            left, _, right, _ = selected
-            names = [self.columns[column][0] for column in range(left, right + 1)]
-            category_names = {item.casefold() for item in categories}
-            summary_names = {item.casefold() for item in summaries}
-            x_default = next(
-                (name for name in names if name and name.casefold() in category_names), ""
-            )
-            summary_default = next(
-                (name for name in names if name and name.casefold() in summary_names), ""
-            )
+        left, _, right, _ = self._span()
+        known = {name.casefold(): name for name in lists}
+        names = [
+            known.get((self.columns[c][0] or "").casefold(), "") for c in range(left, right + 1)
+        ]
+        names = [name for name in names if name]
+        x_default = names[0] if names else lists[0]
+        summary_default = next(
+            (name for name in names[1:] if name in summaries),
+            next((name for name in summaries if name != x_default), summaries[0]),
+        )
+        categories = lists
         fields = (
             Field(
                 "x",
                 "X List",
-                x_default or categories[0],
+                x_default,
                 choices=tuple((name, name) for name in categories),
             ),
             Field(
                 "summary",
                 "Summary List",
-                summary_default or summaries[0],
+                summary_default,
                 choices=tuple((name, name) for name in summaries),
             ),
             Field(
@@ -1304,9 +1710,7 @@ class Spreadsheet:
         statistics = Statistics(self.session)
         statistics.perform(f"x:{values['x']}")
         statistics.perform(f"summary:{values['summary']}")
-        self.split_statistics.append(statistics)
-        self.shade_alternative = None
-        self.pvalue_plot = None
+        self.add_pane(statistics)
 
     def import_rows(self, rows: list[list[FileCell]]) -> None:
         if not rows:
@@ -1420,6 +1824,43 @@ class Spreadsheet:
             title, _, message = rest.partition(":")
             self.dialogs.append(Dialog(title, message))
 
+    def _normal_cdf_wizard(self) -> Wizard:
+        """Normal Cdf from a sheet (split2 H14): the Calculator's fields and Draw: Shade area.
+        Unticked, the formula waits in the cell's entry line (run 4, S10); ticked, it goes into
+        the selected cell and a shaded normal curve joins the page."""
+        fields = (
+            Field("lower", "Lower Bound", "-∞"),
+            Field("upper", "Upper Bound"),
+            Field("mu", "μ", "0"),
+            Field("sigma", "σ", "1"),
+            Field("shade", "Draw: Shade area", "0", toggle=True),
+        )
+
+        def steps(values: Mapping[str, str]) -> list[Binding]:
+            parts = [values[name].strip() for name in ("lower", "upper", "mu", "sigma")]
+            if not parts[1]:
+                return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
+            if values.get("shade") == "1":
+                return [Binding("sheet", "shade_area:" + json.dumps(dict(values)))]
+            return [Binding("sheet", "edit:=normCdf(" + ",".join(parts) + ")")]
+
+        return Wizard("Normal Cdf", fields, steps=steps)
+
+    def _shade_area(self, values: Mapping[str, str]) -> None:
+        """Put `=normCdf(…)` in the selected cell and add the shaded curve. The pane is not part
+        of the cell's undo step: ctrl+Z restores the cell and the plot stays (R5-H14)."""
+        parts = [values[name].strip() for name in ("lower", "upper", "mu", "sigma")]
+        numbers = [_bound(part) for part in parts]
+        if all(number is not None for number in numbers):
+            lower, upper, mu, sigma = cast("list[float]", numbers)
+            if math.isfinite(mu) and math.isfinite(sigma) and sigma > 0:
+                self.add_pane(AreaPane(AreaPlot(lower, upper, mu, sigma)), undoable=False)
+        column, row = self.cursor[0], max(self.cursor[1], 1)
+        self.go((column, row))
+        text = "=normCdf(" + ",".join(parts) + ")"
+        self.waiting[(column, row)] = text
+        self._send("cell", column=column, row=row, text=text, choose={}, confirm=False)
+
     def free_column(self) -> int:
         """The first column after the cursor's that holds nothing: where results go unless the
         dialog says otherwise (run 4, S1, S4)."""
@@ -1483,49 +1924,52 @@ class Spreadsheet:
         fields = (*lists, *saving, *extra, Field("results", "1st Result Column", results))
         return Wizard(title, fields, steps=steps)
 
-    def _inference_wizard(self, command: str) -> Wizard:
-        """A Confidence Interval or Stat Test dialog writing a live result column."""
-        definition = next(
-            (item for item in (*INTERVALS, *TESTS) if item[1] == command),
-            None,
-        )
-        if definition is None:
+    def _inference_wizard(self, arg: str) -> Wizard:
+        """A Confidence Interval or Stat Test dialog writing a live result column (stats4, R5-I2):
+        first the Data Input Method where the device asks it, then the form."""
+        command, _, method = arg.partition(":")
+        found = sheet_inference.inference(command)
+        if found is None:
             raise ValueError(f"Unknown statistical command: {command}")
-        title, name, _, command_fields = definition
-        result_default = "a[]" if command == "zTest_1Prop" else f"{letter(self.free_column())}[]"
-        fields: tuple[Field, ...] = (
-            *command_fields,
-            Field("results", "1st Result Column", result_default),
-            *(
-                (Field("shade", "Draw: Shade P Value", "0", toggle=True),)
-                if command == "zTest_1Prop"
-                else ()
-            ),
-        )
+        if found.method and not method:
+            methods = (("data", "Data"), *((("stats", "Stats"),) if found.stats else ()))
+            return Wizard(
+                found.title,
+                (Field("method", "Data Input Method", "data", choices=methods),),
+                steps=lambda values: [Binding("sheet", f"inference:{command}:{values['method']}")],
+            )
+        form = found.stats if method == "stats" and found.stats is not None else found.data
+        here = f"{letter(self.cursor[0])}[]"
+        fields: list[Field] = [
+            replace(field, default=here) if field.default == sheet_inference.LIST else field
+            for field in form.fields
+        ]
+        if found.save:
+            fields.insert(2, Field("save", "Save RegEqn to", self.free_function()))
+        following = f"{letter(min(self.cursor[0] + 1, COLUMNS - 1))}[]"
+        fields.append(Field("results", "1st Result Column", following))
+        if found.shade:
+            fields.append(Field("shade", "Draw: Shade P Value", "0", toggle=True))
 
         def steps(values: Mapping[str, str]) -> list[Binding]:
-            if any(not values.get(field.name, "").strip() for field in command_fields):
+            if any(not values.get(field.name, "").strip() for field in form.fields):
                 return [Binding("sheet", "dialog:Input Error:Required field is empty!")]
             column_name = values["results"].strip().removesuffix("[]")
             target = refs.address(f"{column_name}1")
             if target is None or len(column_name) != 1:
                 return [Binding("sheet", "dialog:Syntax Error:" + INVALID_INPUT)]
-            formula = build_command(name, command_fields, values)
-            self.shade_alternative = (
-                int(values["alternative"])
-                if command == "zTest_1Prop" and values.get("shade") == "1"
+            formula = form.command(found.command, values)
+            if found.save and values.get("save", "").strip():
+                formula += f": CopyVar stat.RegEqn,{values['save'].strip()}"
+            self._pending_shade = (
+                ShadePane(found.shade, int(values.get("alternative", "0")))
+                if found.shade and values.get("shade") == "1"
                 else None
             )
-            self.pvalue_plot = None
-            args = {
-                "formula": formula,
-                "column": target.column,
-                "choose": {},
-                "confirm": False,
-            }
+            args = {"formula": formula, "column": target.column, "choose": {}, "confirm": False}
             return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
 
-        return Wizard(title, fields, steps=steps)
+        return Wizard(found.title, tuple(fields), steps=steps)
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(
@@ -1550,9 +1994,9 @@ class Spreadsheet:
 
     def _sort_dialog(self) -> None:
         """Sort (check 6, E18): only with a block selected, as the menu item is grey otherwise."""
-        block = self.selection()
-        if block is None:
+        if self.selection() is None:
             return
+        block = self._span()
         left, top, right, bottom = block
         letters = tuple((letter(c), letter(c)) for c in range(left, right + 1))
         span = [left, top, right, bottom]
@@ -1696,6 +2140,17 @@ def _conflict_wizard(error: SheetErrorPayload, last: SheetOp, columns: set[str])
     )
 
 
+def _bound(text: str) -> float | None:
+    """A typed bound or parameter: `-∞` and `∞` as well as numbers."""
+    plain = text.replace("−", "-").replace("ᴇ", "e").replace(" ", "")
+    if plain in ("∞", "+∞", "-∞"):
+        return -math.inf if plain.startswith("-") else math.inf
+    try:
+        return float(plain)
+    except ValueError:
+        return None
+
+
 def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) -> bool:
     return (
         outer[0] <= inner[0]
@@ -1709,22 +2164,86 @@ def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) 
 
 
 def dump(sheet: Spreadsheet) -> dict[str, Any]:
-    """A sheet page in a document file: its definitions and view state, not its values."""
+    """A sheet page in a document file: its definitions and view state, not its values. The
+    cursor and selection are not kept: a reopened sheet starts at A1 (R5-Q3)."""
     columns = {letter(c): list(info) for c, info in enumerate(sheet.columns) if any(info)}
     data: dict[str, Any] = {
         "cells": [[c, r, kind, text] for (c, r), (kind, text) in sorted(sheet.cells.items())],
         "columns": columns,
         "widths": {letter(c): w for c, w in sorted(sheet.widths.items())},
-        "cursor": list(sheet.cursor),
-        "top": sheet.top,
-        "left": sheet.left,
-        "shade_alternative": sheet.shade_alternative,
     }
-    if sheet.split_statistics:
-        data["split_statistics"] = [
-            dump_statistics(statistics) for statistics in sheet.split_statistics
-        ]
+    if sheet.panes:
+        data["panes"] = [_dump_pane(pane) for pane in sheet.panes]
+    entries = [
+        [column, row, dump_nodes(nodes)]
+        for ((column, row), text), nodes in sheet.entry_nodes.items()
+        if (row <= FORMULA_ROW or (column, row) in sheet.cells)
+        and sheet.entry_text((column, row)) == text
+    ]
+    if entries:
+        data["entry_nodes"] = entries
     return data
+
+
+def _dump_pane(pane: Pane) -> dict[str, Any]:
+    if isinstance(pane, Statistics):
+        return {"kind": "statistics", **dump_statistics(pane)}
+    if isinstance(pane, ShadePane):
+        plot = pane.plot
+        return {
+            "kind": "shade",
+            "variable": pane.variable,
+            "alternative": pane.alternative,
+            "statistic": plot.statistic if plot is not None else None,
+            "p_value": plot.p_value if plot is not None else None,
+            "df": plot.df if plot is not None else None,
+        }
+    area = pane.plot
+    return {
+        "kind": "area",
+        "lower": area.lower if math.isfinite(area.lower) else None,
+        "upper": area.upper if math.isfinite(area.upper) else None,
+        "mu": area.mu,
+        "sigma": area.sigma,
+    }
+
+
+def _saved_number(value: object) -> float | None:
+    if isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value):
+        return float(value)
+    return None
+
+
+def _load_pane(sheet: Spreadsheet, saved: dict[str, Any]) -> Pane:
+    kind = saved.get("kind")
+    if kind == "statistics":
+        return load_statistics(Statistics(sheet.session), saved)
+    if kind == "shade":
+        variable = saved.get("variable") if saved.get("variable") in ("z", "t") else "z"
+        alternative = saved.get("alternative")
+        if alternative not in (0, 1, 2) or isinstance(alternative, bool):
+            alternative = 0
+        pane = ShadePane(str(variable), int(alternative))
+        statistic, p_value = (
+            _saved_number(saved.get("statistic")),
+            _saved_number(saved.get("p_value")),
+        )
+        if statistic is not None and p_value is not None:
+            df = _saved_number(saved.get("df"))
+            pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
+        return pane
+    if kind == "area":
+        lower, upper = _saved_number(saved.get("lower")), _saved_number(saved.get("upper"))
+        mu, sigma = _saved_number(saved.get("mu")), _saved_number(saved.get("sigma"))
+        return AreaPane(
+            AreaPlot(
+                -math.inf if lower is None else lower,
+                math.inf if upper is None else upper,
+                0.0 if mu is None else mu,
+                sigma if sigma is not None and sigma > 0 else 1.0,
+            )
+        )
+    raise ValueError(f"unknown pane {kind!r}")
 
 
 def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
@@ -1736,29 +2255,23 @@ def load(sheet: Spreadsheet, data: dict[str, Any]) -> Spreadsheet:
     for name, info in data.get("columns", {}).items():
         columns[refs.column_index(name)] = (info[0], info[1], info[2])
     sheet.columns = columns
+    for column, row, nodes in data.get("entry_nodes", []):
+        key = (int(column), int(row))
+        if not (0 <= key[0] < COLUMNS and NAME_ROW <= key[1] <= ROWS):
+            raise ValueError("invalid spreadsheet entry location")
+        restored = load_nodes(nodes)
+        text = _sheet_text(restored)
+        if sheet.entry_text(key) != text:
+            raise ValueError("spreadsheet entry nodes do not match the definition")
+        sheet.entry_nodes[(key, text)] = restored
     sheet.widths = {
         refs.column_index(name): min(max(int(w), MIN_WIDTH), MAX_WIDTH)
         for name, w in data.get("widths", {}).items()
     }
-    alternative = data.get("shade_alternative")
-    if (
-        isinstance(alternative, int)
-        and not isinstance(alternative, bool)
-        and alternative in (0, 1, 2)
-    ):
-        sheet.shade_alternative = alternative
-    split_statistics = data.get("split_statistics", [])
-    if not isinstance(split_statistics, list) or not all(
-        isinstance(saved, dict) for saved in split_statistics
-    ):
-        raise ValueError("invalid split statistics")
-    sheet.split_statistics = [
-        load_statistics(Statistics(sheet.session), saved) for saved in split_statistics
-    ]
-    column, row = data.get("cursor", [0, 1])
-    sheet.go((int(column), int(row)))
-    sheet.top = min(max(int(data.get("top", 1)), 1), ROWS)
-    sheet.left = min(max(int(data.get("left", 0)), 0), COLUMNS - 1)
+    panes = data.get("panes", [])
+    if not isinstance(panes, list) or not all(isinstance(saved, dict) for saved in panes):
+        raise ValueError("invalid panes")
+    sheet.panes = [_load_pane(sheet, saved) for saved in panes[: MAX_PANES - 1]]
     return sheet
 
 

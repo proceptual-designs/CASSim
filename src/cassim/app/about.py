@@ -46,6 +46,7 @@ NOTICES = (
     Notice("SciPy", "BSD-3-Clause", "numerical methods"),
     Notice("NumPy", "BSD-3-Clause", "numerical arrays"),
     Notice("Noto Sans, Math, Symbols 2 and SC", "SIL OFL 1.1", "glyphs the browser lacks"),
+    Notice("Roboto Mono", "Apache-2.0", "the code editor"),
 )
 
 UNKNOWN = "not available"

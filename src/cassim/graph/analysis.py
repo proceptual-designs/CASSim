@@ -86,7 +86,7 @@ def find_zero(
         raise ArithmeticError(msg)
     midpoint = (lower + upper) / 2
     f_midpoint = abs(_evaluate(function, midpoint))
-    if f_midpoint > min(abs(f_lower), abs(f_upper)):
+    if f_midpoint > max(abs(f_lower), abs(f_upper)):  # a pole grows; a root does not
         msg = "zero search did not converge to a root"
         raise ArithmeticError(msg)
     return midpoint

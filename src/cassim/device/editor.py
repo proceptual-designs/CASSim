@@ -20,6 +20,9 @@ from enum import StrEnum
 from cassim.core.builtin_names import is_builtin, spelling
 from cassim.core.parser import COMMANDS
 from cassim.device.accents import next_accent
+from cassim.device.templates import GRIDS, SPECS, WALKED, Kind
+
+__all__ = ["GRIDS", "MARK", "WALKED", "Editor", "Kind", "Node", "Row", "Template"]
 
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
 
@@ -27,65 +30,6 @@ type Row = list[Node]
 type Node = str | Template
 
 
-class Kind(StrEnum):
-    """Template kinds; the comment lists the slots in Tab order (the device's, decision 0023)."""
-
-    FRACTION = "fraction"  # numerator, denominator
-    POWER = "power"  # exponent, attached to the term before it
-    ROOT = "root"  # radicand
-    MATRIX = "matrix"  # rows x columns of cells, row by row
-    NTH_ROOT = "nth_root"  # index, radicand
-    LOG = "log"  # base, argument
-    ABS = "abs"  # argument
-    PIECEWISE = "piecewise"  # rows of (value, condition)
-    SYSTEM = "system"  # rows of one equation
-    DERIVATIVE = "derivative"  # variable, expression
-    DERIVATIVE2 = "derivative2"  # variable, expression
-    DERIVATIVE_N = "derivative_n"  # order, variable, expression
-    DMS = "dms"  # degrees, minutes, seconds
-    INTEGRAL = "integral"  # lower, upper, integrand, variable
-    ANTIDERIVATIVE = "antiderivative"  # integrand, variable
-    SUM = "sum"  # variable, lower, upper, expression
-    PRODUCT = "product"  # variable, lower, upper, expression
-    LIMIT = "limit"  # variable, point, direction (+ or -, may be empty), expression
-    LIST = "list"  # the elements of {a, b, c}; typing a comma starts the next one
-
-
-_SLOTS = {
-    Kind.FRACTION: 2,
-    Kind.POWER: 1,
-    Kind.ROOT: 1,
-    Kind.NTH_ROOT: 2,
-    Kind.LOG: 2,
-    Kind.ABS: 1,
-    Kind.DERIVATIVE: 2,
-    Kind.DERIVATIVE2: 2,
-    Kind.DERIVATIVE_N: 3,
-    Kind.DMS: 3,
-    Kind.INTEGRAL: 4,
-    Kind.ANTIDERIVATIVE: 2,
-    Kind.SUM: 4,
-    Kind.PRODUCT: 4,
-    Kind.LIMIT: 4,
-}
-# Templates whose slots form a grid: Up and Down move between rows, Backspace steps back a cell.
-# The second number is the fixed width (0: chosen when the template is made).
-GRIDS = {Kind.MATRIX: 0, Kind.PIECEWISE: 2, Kind.SYSTEM: 1, Kind.LIST: 0}
-# Templates whose slots Left and Right walk through in Tab order before leaving (an integral:
-# lower, upper, integrand, variable; a sum: variable, lower, upper, expression). Right leaves any
-# other slot (a fraction's, a power's) at once.
-WALKED = frozenset(
-    {
-        Kind.INTEGRAL,
-        Kind.ANTIDERIVATIVE,
-        Kind.SUM,
-        Kind.PRODUCT,
-        Kind.LIMIT,
-        Kind.DERIVATIVE,
-        Kind.DERIVATIVE2,
-        Kind.DERIVATIVE_N,
-    }
-)
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
@@ -107,7 +51,7 @@ class Template:
             rows, cols = shape
             cols = GRIDS[kind] or cols
             return cls(kind, [[] for _ in range(rows * cols)], cols)
-        return cls(kind, [[] for _ in range(_SLOTS[kind])])
+        return cls(kind, [[] for _ in range(SPECS[kind].slots)])
 
 
 class Editor:
@@ -145,6 +89,22 @@ class Editor:
             row = _template(row[index]).slots[slot]
         return row
 
+    @property
+    def in_grid(self) -> bool:
+        """Whether the cursor is in a matrix-like template."""
+        return bool(self.path and self._parent().kind in GRIDS)
+
+    @property
+    def in_string(self) -> bool:
+        """Whether the cursor is inside quoted text."""
+        row = self.root
+        prefix = ""
+        for index, slot in self.path:
+            prefix += linear_text(row[:index])
+            row = _template(row[index]).slots[slot]
+        prefix += linear_text(row[: self.pos])
+        return prefix.count('"') % 2 == 1
+
     def _parent(self) -> Template:
         row = self.root
         for index, slot in self.path[:-1]:
@@ -174,12 +134,13 @@ class Editor:
     def _paste_linear(self, text: str, mark: str) -> tuple[list[tuple[int, int]], int] | None:
         spot: tuple[list[tuple[int, int]], int] | None = None
         index = 0
+        quoted = self.in_string
         while index < len(text):
             char = text[index]
             if mark and char == mark:
                 spot = (list(self.path), self.pos)
                 index += 1
-            elif char in "^√":
+            elif char in "^√" and not quoted:
                 operand, index = _operand(text, index + 1, root=char == "√")
                 self.insert_template(Kind.POWER if char == "^" else Kind.ROOT)
                 spot = self._paste_linear(operand, mark) or spot
@@ -188,6 +149,8 @@ class Editor:
                 self.row().insert(self.pos, char)
                 self.pos += 1
                 index += 1
+                if char == '"':
+                    quoted = not quoted
         return spot
 
     def insert(self, char: str) -> None:
@@ -196,15 +159,16 @@ class Editor:
         The fraction is stacked only after Return or from the palette (`insert_template`).
         """
         self._unselect(replace=True)
-        if char == "," and self.path and self._parent().kind is Kind.LIST:
+        quoted = self.in_string
+        if char == "," and not quoted and self.path and self._parent().kind is Kind.LIST:
             self._split_list_cell()
             return
         if char in _ANS_OPERATORS and not self.root:
             self.root.extend("Ans")
             self.pos = 3
-        if char == "^":
+        if char == "^" and not quoted:
             self.insert_template(Kind.POWER)
-        elif char == "√":
+        elif char == "√" and not quoted:
             self.insert_template(Kind.ROOT)
         else:
             self.row().insert(self.pos, char)
@@ -711,6 +675,43 @@ class Editor:
 
     # ---- placing the cursor by target (a click) ---------------------------------------------
 
+    def select_token(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """A double-click: select the token at `pos` (the node after it, else the one before) in
+        the row at `path`: a run of letters and digits, a run of operator signs (`:=`), or one
+        template or other sign (run 5, H3 b)."""
+        self.place(path, pos)
+        row = self.row()
+        if not row:
+            return
+        at = min(self.pos, len(row) - 1)
+        if self.pos == len(row) or (
+            at > 0 and _token_class(row[at]) == "space" and _token_class(row[at - 1]) != "space"
+        ):
+            at = max(self.pos - 1, 0)
+        kind = _token_class(row[at])
+        low = high = at
+        if kind in ("word", "sign"):
+            while low > 0 and _token_class(row[low - 1]) == kind:
+                low -= 1
+            while high + 1 < len(row) and _token_class(row[high + 1]) == kind:
+                high += 1
+        self.anchor, self.pos = low, high + 1
+
+    def move_selection(self, path: Sequence[tuple[int, int]], pos: int) -> None:
+        """Drag and drop: the selected nodes move to `pos` in the row at `path` and stay
+        selected (run 5, H3 k). A drop inside the selection, or in another row, changes nothing."""
+        if self.anchor is None or list(path) != self.path:
+            return
+        low, high = self.span
+        if low <= pos <= high:
+            return
+        row = self.row()
+        moved = row[low:high]
+        del row[low:high]
+        at = pos - len(moved) if pos > high else pos
+        row[at:at] = moved
+        self.anchor, self.pos = at, at + len(moved)
+
     def place(self, path: Sequence[tuple[int, int]], pos: int, *, extend: bool = False) -> None:
         """Put the cursor at `pos` in the row reached by `path`, as a click does.
 
@@ -907,6 +908,61 @@ def substitute_ans(row: Row, value: str) -> Row:
     return out
 
 
+_SIGNS = frozenset(":=<>≤≥≠+-*/^|→!")
+
+
+def _token_class(node: Node) -> str:
+    """What a double-click groups a node with: `word` (names and numbers), `sign` (operators),
+    `space`, or `one` (a template or bracket, on its own)."""
+    if isinstance(node, Template):
+        return "one"
+    if node.isalnum() or node in "._πⅇⅈ":
+        return "word"
+    if node in _SIGNS:
+        return "sign"
+    return "space" if node.isspace() else "one"
+
+
+def position_near(row: Row, em: float) -> int:
+    """The gap in `row` nearest a click `em` ems from the left of its drawing. The history is
+    drawn on the Flutter canvas, which gives Python no layout, so the widths are estimates
+    (`estimated_width`): the cursor lands near the click, at the top level of the row."""
+    left = 0.0
+    for index, node in enumerate(row):
+        width = _node_width(node)
+        if em < left + width / 2:
+            return index
+        left += width
+    return len(row)
+
+
+def estimated_width(row: Row) -> float:
+    """A row's width in ems as KaTeX sets it inline (`$...$`): fraction parts and exponents are
+    at 70 per cent, binary operators and relations carry their spacing."""
+    return sum(_node_width(node) for node in row)
+
+
+_WIDE = {**dict.fromkeys("+-−", 1.22), **dict.fromkeys("=<>≤≥≠", 1.33), "*": 0.72, " ": 0.25}
+_NARROW = {**dict.fromkeys(".,:;'!|", 0.28), **dict.fromkeys("()[]{}", 0.39)}
+_SCRIPT = 0.7  # a fraction's parts and an exponent, set at script size
+
+
+def _node_width(node: Node) -> float:
+    if isinstance(node, str):
+        return _WIDE.get(node) or _NARROW.get(node) or (0.72 if node.isupper() else 0.5)
+    slots = [estimated_width(slot) or 0.6 for slot in node.slots]  # an empty slot is a box
+    if node.kind is Kind.FRACTION:
+        return _SCRIPT * max(slots) + 0.24
+    if node.kind is Kind.POWER:
+        return _SCRIPT * slots[0]
+    if node.kind is Kind.ROOT:
+        return 0.83 + slots[0]
+    if node.kind is Kind.MATRIX and node.cols:
+        columns = [max(slots[c :: node.cols]) for c in range(node.cols)]
+        return sum(columns) + node.cols + 0.5
+    return sum(slots) + 1.0
+
+
 def linear_text(nodes: Row) -> str:
     """The TI text of some nodes, as for the system clipboard."""
     return _linear(nodes)
@@ -979,41 +1035,6 @@ def _matching_open(row: Row, close: int) -> int:
     return 0
 
 
-def _integral(s: list[str]) -> str:
-    """The definite-integral template; with both limits left empty it is the indefinite one."""
-    if not s[0].strip() and not s[1].strip():
-        return f"∫({s[2]},{s[3]})"
-    return f"∫({s[2]},{s[3]},{s[0]},{s[1]})"
-
-
-# The text the parser reads for the function-like templates, from their slots in Tab order.
-_CALLS: dict[Kind, Callable[[list[str]], str]] = {
-    Kind.NTH_ROOT: lambda s: f"root({s[1]},{s[0]})",
-    Kind.LOG: lambda s: f"log({s[1]},{s[0]})",
-    Kind.ABS: lambda s: f"abs({s[0]})",
-    Kind.PIECEWISE: lambda s: "piecewise(" + ",".join(s) + ")",
-    Kind.SYSTEM: lambda s: "{" + ",".join(s) + "}",
-    Kind.DERIVATIVE: lambda s: f"derivative({s[1]},{s[0]})",
-    Kind.DERIVATIVE2: lambda s: f"derivative({s[1]},{s[0]},2)",
-    Kind.DERIVATIVE_N: lambda s: f"derivative({s[2]},{s[1]},{s[0]})",
-    Kind.DMS: lambda s: f"({s[0]}°{s[1]}'{s[2]}\")",
-    Kind.INTEGRAL: _integral,
-    Kind.ANTIDERIVATIVE: lambda s: f"∫({s[0]},{s[1]})",
-    Kind.SUM: lambda s: f"Σ({s[3]},{s[0]},{s[1]},{s[2]})",
-    Kind.PRODUCT: lambda s: f"Π({s[3]},{s[0]},{s[1]},{s[2]})",
-    Kind.LIMIT: lambda s: f"limit({s[3]},{s[0]},{s[1]}{_direction(s[2])})",
-    Kind.LIST: lambda s: "{" + ",".join(s) + "}",
-}
-
-
-def _direction(slot: str) -> str:
-    """The limit template's direction slot as `limit`'s fourth argument: + is from the right."""
-    text = slot.strip().replace("−", "-")
-    if not text:
-        return ""
-    return "," + {"+": "1", "-": "-1"}.get(text, text)
-
-
 # After one of these a function-like template needs an explicit `*`: `x` then |□| would
 # otherwise read as `xabs(`, and `2` then a system as `2{`.
 _JOINS = _TERM_CHARS | {")", "]", "}"}
@@ -1024,19 +1045,10 @@ def _linear(row: Row) -> str:
     for node in row:
         if isinstance(node, str):
             out.append(node)
-        elif node.kind in _CALLS:
-            text = _CALLS[node.kind]([_linear(slot) for slot in node.slots])
-            out.append(("*" if out and out[-1][-1:] in _JOINS else "") + text)
-        elif node.kind is Kind.FRACTION:
-            out.append(f"(({_linear(node.slots[0])})/({_linear(node.slots[1])}))")
-        elif node.kind is Kind.POWER:
-            out.append(f"^({_linear(node.slots[0])})")
-        elif node.kind is Kind.MATRIX:
-            cells = [_linear(slot) for slot in node.slots]
-            rows = [",".join(cells[i : i + node.cols]) for i in range(0, len(cells), node.cols)]
-            out.append("[" + ";".join(rows) + "]")
-        else:
-            out.append(f"√({_linear(node.slots[0])})")
+            continue
+        spec = SPECS[node.kind]
+        text = spec.linear([_linear(slot) for slot in node.slots], node.cols)
+        out.append(("*" if spec.joins and out and out[-1][-1:] in _JOINS else "") + text)
     return "".join(out)
 
 
@@ -1063,6 +1075,7 @@ _SYMBOLS = {
     "ⅈ": r"\boldsymbol{i}",  # bold italic, as the device draws it
     " ": r"\ ",  # TeX drops a plain space, which would run `and` into its equations
     "%": r"\%",
+    '"': r'\mathtt{"}',  # straight, as the device draws it: KaTeX_Main's quote is curly
     "_": r"\_",
     "#": r"\#",
     "&": r"\&",
@@ -1075,32 +1088,6 @@ _SYMBOLS = {
 }
 
 
-def _rows(slots: list[str], cols: int, joint: str) -> str:
-    return r" \\ ".join(joint.join(slots[i : i + cols]) for i in range(0, len(slots), cols))
-
-
-# LaTeX for the function-like templates, from their slots' LaTeX in Tab order.
-_LATEX: dict[Kind, Callable[[list[str], int], str]] = {
-    Kind.NTH_ROOT: lambda s, _: rf"\sqrt[{s[0]}]{{{s[1]}}}",
-    Kind.LOG: lambda s, _: rf"\log_{{{s[0]}}}\left({s[1]}\right)",
-    Kind.ABS: lambda s, _: rf"\left|{s[0]}\right|",
-    Kind.PIECEWISE: lambda s, c: rf"\begin{{cases}}{_rows(s, c, ', & ')}\end{{cases}}",
-    Kind.SYSTEM: lambda s, c: rf"\begin{{cases}}{_rows(s, c, '')}\end{{cases}}",
-    Kind.DERIVATIVE: lambda s, _: rf"\frac{{d}}{{d{s[0]}}}\left({s[1]}\right)",
-    Kind.DERIVATIVE2: lambda s, _: rf"\frac{{d^{{2}}}}{{d{s[0]}^{{2}}}}\left({s[1]}\right)",
-    Kind.DERIVATIVE_N: lambda s, _: (
-        rf"\frac{{d^{{{s[0]}}}}}{{d{s[1]}^{{{s[0]}}}}}\left({s[2]}\right)"
-    ),
-    Kind.DMS: lambda s, _: rf"{s[0]}^\circ {s[1]}' {s[2]}''",
-    Kind.INTEGRAL: lambda s, _: rf"\int_{{{s[0]}}}^{{{s[1]}}}{s[2]}\,d{s[3]}",
-    Kind.ANTIDERIVATIVE: lambda s, _: rf"\int {s[0]}\,d{s[1]}",
-    Kind.SUM: lambda s, _: rf"\sum_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
-    Kind.PRODUCT: lambda s, _: rf"\prod_{{{s[0]}={s[1]}}}^{{{s[2]}}}{s[3]}",
-    Kind.LIMIT: lambda s, _: rf"\lim_{{{s[0]}\to {s[1]}^{{{s[2]}}}}}{s[3]}",
-    Kind.LIST: lambda s, _: r"\left\{" + r",\,".join(s) + r"\right\}",
-}
-
-
 class Style(StrEnum):
     """How a name's letters are drawn. A name with neither style stays italic, as a variable."""
 
@@ -1109,8 +1096,9 @@ class Style(StrEnum):
     BOLD_ITALIC = "bold italic"  # the imaginary unit ⅈ
 
 
-# Names that are never a plain variable: `ans`, and the words that join conditions.
-_WORDS = frozenset({"ans", "and", "or", "xor", "not"})
+# Names that are never a plain variable: `ans`, the words that join conditions, and the values
+# `true`, `false` and `undef` (upright on the device, emulator calc2 results)
+_WORDS = frozenset({"ans", "and", "or", "xor", "not", "true", "false", "undef"})
 # The calculator's own result variables (`tvm.pmt`, `stat.sx`) are one name each, bold once set.
 _SYSTEM_PREFIXES = ("tvm.", "stat.")
 
@@ -1126,10 +1114,18 @@ def name_styles(row: Row, is_defined: Callable[[str], bool]) -> dict[int, Style]
     names (`Define`, `solve`, `sin`, `ans`, `and`) upright, and names the Problem defines (any
     value or function, and `tvm.pmt` style system variables once something has set them) bold.
     Any other name is italic. The device draws bold only on the entry line: a history row is
-    drawn with `is_defined` false for every name (emulator check 4, A4)."""
+    drawn with `is_defined` false for every name (emulator check 4, A4). Letters inside a string
+    (between quotes) are text, so they are upright too."""
     styles: dict[int, Style] = {}
     run: list[int] = []
+    in_text = False
     for index, node in enumerate([*row, ""]):
+        if node == '"':
+            in_text = not in_text
+        elif in_text:
+            if isinstance(node, str) and node.isalpha():
+                styles[index] = Style.ROMAN
+            continue
         if isinstance(node, str) and node.isascii() and (node.isalpha() or node == "_"):
             run.append(index)
             continue
@@ -1154,18 +1150,25 @@ def _dotted(row: Row, run: list[int], index: int) -> bool:
 
 
 def at_constants(row: Row) -> dict[int, str]:
-    """TI's typed constants `@e` and `@i`: the index of the `@` (shown as nothing) and of the
-    letter (shown as bold ⅇ or ⅈ), so they read as the constants the palette's ⅇ and ⅈ give."""
+    """TI's `@` names: the index of the `@` (shown as nothing) and of each character after it, as
+    shown. `@e` and `@i` are the constants the palette's ⅇ and ⅈ give; `@n1` and `@c1` are the
+    arbitrary integers and constants `solve` names (shown `n1`, `c1`; emulator calc4 results)."""
     shown: dict[int, str] = {}
     for index in range(len(row) - 1):
-        letter = row[index + 1]
-        after = row[index + 2] if index + 2 < len(row) else ""
-        if (
-            row[index] == "@"
-            and letter in ("e", "i")
-            and not (isinstance(after, str) and after.isalnum())
-        ):
-            shown[index], shown[index + 1] = "", str(letter)
+        if row[index] != "@" or not isinstance(letter := row[index + 1], str):
+            continue
+        end = index + 2
+        if letter in ("n", "c"):
+            while end < len(row) and isinstance(row[end], str) and str(row[end]).isdigit():
+                end += 1
+            if end == index + 2:
+                continue  # `@n` alone is not one of them
+        elif letter not in ("e", "i"):
+            continue
+        after = row[end] if end < len(row) else ""
+        if not (isinstance(after, str) and after.isalnum()):
+            shown[index] = ""
+            shown.update({i: str(row[i]) for i in range(index + 1, end)})
     return shown
 
 
@@ -1173,11 +1176,36 @@ _FONTS = {Style.ROMAN: "mathrm", Style.BOLD: "mathbf", Style.BOLD_ITALIC: "bolds
 
 
 def constant_style(letter: str) -> Style:
-    """ⅇ is drawn bold upright and ⅈ bold italic (emulator check 4, A13)."""
-    return Style.BOLD_ITALIC if letter == "i" else Style.BOLD
+    """ⅇ is drawn bold upright, ⅈ and the `solve` constants (`n1`) bold italic (emulator check 4,
+    A13; calc4 results)."""
+    return Style.BOLD if letter == "e" else Style.BOLD_ITALIC
 
 
 type Place = tuple[list[tuple[int, int]], int, tuple[int, int]]
+
+
+def _stretch_brackets(row: Row, pieces: list[str], span: tuple[int, int]) -> None:
+    """Round brackets around something taller than a line (a fraction, a root, a matrix) grow
+    with it, as `\\left( \\right)`. A pair split by the selection's edge stays plain, since the
+    highlight box cannot hold one half of a `\\left \\right` pair."""
+    low, high = span
+    opened: list[int] = []
+    in_text = False
+    for index, node in enumerate(row):
+        if node == '"':
+            in_text = not in_text
+        elif in_text:
+            continue
+        elif node == "(":
+            opened.append(index)
+        elif node == ")" and opened:
+            start = opened.pop()
+            tall = any(
+                isinstance(n, Template) and n.kind is not Kind.POWER for n in row[start + 1 : index]
+            )
+            whole = (low <= start and index < high) or index < low or start >= high
+            if tall and whole:
+                pieces[start], pieces[index] = r"\left(", r"\right)"
 
 
 def _latex(
@@ -1204,18 +1232,8 @@ def _latex(
         slots = [
             _latex(slot, place, [*here, (i, s)], is_defined) for s, slot in enumerate(node.slots)
         ]
-        if node.kind in _LATEX:
-            pieces.append(_LATEX[node.kind](slots, node.cols))
-        elif node.kind is Kind.FRACTION:
-            pieces.append(rf"\frac{{{slots[0]}}}{{{slots[1]}}}")
-        elif node.kind is Kind.MATRIX:
-            rows = [slots[i : i + node.cols] for i in range(0, len(slots), node.cols)]
-            body = r" \\ ".join(" & ".join(row) for row in rows)
-            pieces.append(rf"\left[\begin{{matrix}}{body}\end{{matrix}}\right]")
-        elif node.kind is Kind.POWER:
-            pieces.append(rf"{{}}^{{{slots[0]}}}")  # `{}` keeps a power at the start of a row valid
-        else:
-            pieces.append(rf"\sqrt{{{slots[0]}}}")
+        pieces.append(SPECS[node.kind].latex(slots, node.cols))
+    _stretch_brackets(row, pieces, (low, high))
     cursor = _CURSOR if here_cursor else ""
     if high > low:
         chosen = "".join(pieces[low:high])

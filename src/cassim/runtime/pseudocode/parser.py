@@ -18,6 +18,7 @@ from cassim.runtime.pseudocode.tree import (
     Break,
     Call,
     Compare,
+    Constant,
     Define,
     Diagnostic,
     Expr,
@@ -45,6 +46,7 @@ from cassim.runtime.pseudocode.tree import (
 )
 
 CONSTANT_NAMES = {"π", "pi", "ⅇ", "ⅈ"}
+_EXPLICIT_CONSTANTS = {"ⅇ", "π"}
 # Words that end an expression and so can never start an implicitly multiplied factor.
 _STOP_WORDS = {"then", "do", "to", "step", "times", "is", "and", "or", "not", "mod", "div", "from",
                "in", "until", "else"}  # fmt: skip
@@ -531,8 +533,9 @@ class Parser:
 
     def parse_for(self, line: Line) -> Stmt:
         self.i = 1
-        if self.skip_word("each"):
-            var = self.take().text
+        each = self.skip_word("each")
+        var = self.take().text
+        if each or self.at_word("in"):  # `for each c in list`, or Python's `for c in list`
             self.expect_word("in")
             iterable = self.parse_or()
             self.take_option("do", self.syn.for_do)
@@ -541,7 +544,6 @@ class Parser:
             body = self.parse_block("for", line)
             self.close_block("for", line)
             return ForEach(var, iterable, body, line.no)
-        var = self.take().text
         self.expect_word("from")
         start = self.parse_or()
         self.expect_word("to")
@@ -741,6 +743,8 @@ class Parser:
         if tok.kind == "STRING":
             return Str(tok.text, tok.line)
         if tok.kind == "NAME":
+            if tok.text in _EXPLICIT_CONSTANTS:
+                return Constant(tok.text, tok.line)
             if self.at_op("(") and tok.text not in CONSTANT_NAMES:
                 return Call(tok.text, self.parse_args(), tok.line)
             return Name(tok.text, tok.line)

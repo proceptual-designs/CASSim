@@ -17,7 +17,8 @@ class Change:
 class Step:
     """One executed line.
 
-    `kind` is assign, condition, print, input, call, return, loop (a loop pass starting) or halt.
+    `kind` is assign, condition, print, input, define, call, return, loop (a loop pass starting)
+    or halt.
     `cond` holds the condition with values substituted and its result. `loop` is the innermost
     enclosing loop as (line of the loop, pass number from 1), which feeds the horizontal layout.
     """
@@ -46,6 +47,8 @@ class RunResult:
     loop_entries: int = 0  # how many times a loop was started, over the whole run
     max_loop_depth: int = 0
     loop_body_runs: int = 0  # passes through a loop body, over all loops
+    constants: tuple[str, ...] = ()
+    functions: dict[str, str] = field(default_factory=dict)
 
     @property
     def horizontal_eligible(self) -> bool:

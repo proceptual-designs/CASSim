@@ -41,7 +41,7 @@ Every spelling in this section and in section 4 is the default of the user's syn
 - **Identifiers are case-sensitive** (`A` and `a` differ in the trapezium example; Python agrees). Short algebra-like names are the convention. The sources contain slips such as `Count` for `count`, so an undefined name gets a "did you mean ...?" diagnostic, never a silent guess.
 - **Comments**: `//` and `#` to end of line; either, consistently, is fine.
 - **Assignment**: `x ← 5`. Also accepted: `<-` and `:=`. A bare `x = 5` at statement level is accepted **with a warning** (the VCAA page itself has `sum = sum + x + y`), because `=` is equality inside expressions.
-- **Arithmetic**: `+ - × * ÷ /`, `DIV` and `MOD` (floor semantics, as Python `//` and `%`), powers as `^`, `**` or superscript digits (`i²`, `i³`). Minus may be `-`, `−` (U+2212, used in exam text) or `–` (U+2013).
+- **Arithmetic**: `+ - × * ÷ /`, `DIV` and `MOD` (floor semantics, as Python `//` and `%`), powers as `^`, `**` or superscripts: digits (`i²`, `i³`, `x⁻¹`), and a run with letters, `⁺ ⁻` and `⁽ ⁾` is the whole exponent, so `2ˣ⁺¹` reads as `2^(x+1)` (Unicode has no superscript q, `*` or `/`, so `2^(2*x)` is written with `^`). Minus may be `-`, `−` (U+2212, used in exam text) or `–` (U+2013).
 - **Implicit multiplication**: `2a`, `2t`, `2e^x`, `(a+b)(c+d)`. A name followed by `(` is a call if it is a defined function or a function parameter, otherwise it is a product.
 - **Comparison**: `=` (equality in an expression; `==` also accepted), `≠ <> !=`, `< >`, `≤ <= ⩽`, `≥ >= ⩾`. **Chained comparisons** are allowed with Python meaning: `-0.01 < cos(x) - x < 0.01`.
 - **Logic**: `and or not`, and `∧ ∨ ¬` (Specialist).
@@ -60,6 +60,7 @@ Every spelling in this section and in section 4 is the default of the user's syn
 | greater or equal | `>=` | `≥`, `⩾` |
 | not equal | `!=`, `<>` | `≠` |
 | square root | `sqrt(x)` | `√(x)`, `√x` |
+| Euler's number | `@e` | `ⅇ` |
 | pi | `pi` | `π` |
 | infinity | `inf` | `∞` |
 | absolute value | `abs(x)` | `\|x\|` |
@@ -117,7 +118,7 @@ bisection(2x-3, 0, 2, 0.1)
 
 ## 7 Built-ins and constants
 
-Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`pi` always; `e` is Euler's number only when the Euler toggle (FR-SET-008) is on, default off; a name the program assigns shadows either (Q29, decided 2026-11-04). Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
+Numeric: `abs`, `sqrt`, `√`, `exp`, `loge` (natural log; `ln` also accepted), `log10`, `sin cos tan`, `asin acos atan` (angle setting applies), `floor`, `ceil`, `round`, `min`, `max`. Constants: `π`/`@pi`/`pi` for pi and `ⅇ`/`@e` for Euler's number. An assigned ordinary `pi` or `e` name shadows the plain spelling only; the explicit `@` and Unicode spellings remain constants. The bare `e` spelling is Euler's number only while the Euler toggle (FR-SET-008) is on, default on. Random numbers, needed by the simulation examples: `rand()` uniform on [0,1), `randint(a, b)` (also `randominteger`, the VCAA spelling) inclusive, `rand_norm()` (Could). Random calls use the seed setting so that a trace can be replayed (SRS FR-SET-003). Strings: `+`, `=`, `≠`, and `length(s)` if wanted (Q31).
 
 ## 8 Numbers and settings
 
@@ -130,7 +131,7 @@ The settings bar (SRS FR-SET-001) has two controls, **Number mode** (Approx | Au
 | Display precision (… menu) | default **6 significant digits** (Mathematica style); also Fix n and Full | Reals print to the chosen precision, trailing zeros dropped (`1.2000000000000002` shows as `1.2`, `1/3` as `0.333333`). Integers and rationals always print exactly. The stored value never changes. Applies to output and to trace cells. | none: Python prints its own repr |
 | Domain (… menu, Could) | Real / Complex | Real: `sqrt(-4)` is an error; Complex: gives `2ⅈ` | complex-aware functions (`cmath`) |
 | Gradian, random seed (… menu, Could) | | A seed makes a run and its trace repeatable | `random.seed(n)` |
-| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default off) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
+| Euler's number `e` (… menu, Should; FR-SET-008) | on / off (default on) | On: an unassigned `e` is 2.71828…; a program's own `e ← …` always shadows it | `math.e` when on |
 | Run limits (… menu, Should; FR-SET-009) | max loop iterations (default 10,000), max recursion depth (default 100); adjustable | Reaching one stops the run with a message naming the limit and line; output and trace so far are kept | none |
 
 Defaults: **Approx, Radian, 6 digits** in the standalone Code view (integer ÷ integer is a real, as in Python); on a Nspire page, the document's settings (SRS FR-SET-004). A real with a whole value prints with a trailing point (`5.`), as Mathematica does (decided 2026-11-02), so it differs from the integer `5`; rationals and integers never get one.
@@ -201,7 +202,7 @@ Source: the author's Unit 1 & 2 Methods book (Apr 2024), his Python notebook, an
 
 - **`and` and `or` short-circuit**, as in Python: `while i ≥ 1 and a[i] > key` must not evaluate `a[i]` when `i` is 0. The tracer shows only the operands actually evaluated.
 - **Operator precedence copies Python's.** `DIV` and `MOD` have the same level as `×` and `÷`, evaluated left to right (`a × b DIV g` is `(a×b) DIV g`); `^` binds tighter than unary minus on its left (`-x^2` is `-(x^2)`).
-- **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a`, `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
+- **Notation stays flexible.** The list spellings `Append x to a` / `append x to a`, `for each x in a` (or Python's `for x in a`), `len(a)` and indexing `a[i]` are accepted as written in the author's sources; the syntax file can add or warn on others.
 - **π is the built-in constant** (`π` or `pi`) wherever a program needs it; a program may instead define its own decimal approximation (a name it assigns shadows the constant). The book's `sine` therefore uses `π`, not 355 ÷ 113 (its printed error table is what true π gives).
 - **Extended Euclid** (Bezout coefficients) is in the corpus as a Specialist example.
 

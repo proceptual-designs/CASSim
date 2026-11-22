@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import tomllib
+from types import SimpleNamespace
 
 import pytest
 import sympy
-from tools import publish
+from tools import publish, wiki_site
 
 from cassim.app import about
-from cassim.app.shell import BrowserOffers
+from cassim.app.shell import BrowserOffers, Shell
 from cassim.device.menu import MenuItem
+from cassim.devices.nspire.ui import app as nspire
 from cassim.devices.nspire.ui.app import cassim_items
 from cassim.devices.nspire.ui.state import AppState
+from cassim.devices.pseudocode.ui import app as pseudocode
 
 
 def test_disclaimer_says_what_nfr_leg_002_requires() -> None:
@@ -113,3 +116,21 @@ def test_help_menu_item_opens_the_wiki() -> None:
     assert state.menu is not None
     state.key_event(state.menu.keys()[-2])
     assert asked == ["help"]
+
+
+def test_help_opens_the_current_apps_page_on_the_wiki() -> None:
+    """Help in each app opens that app's own help page; Home opens the help home."""
+    opened: list[str] = []
+    shell = SimpleNamespace(
+        page=SimpleNamespace(run_task=lambda _launch, url: opened.append(url)),
+        launcher=SimpleNamespace(launch_url=None),
+    )
+    for page in ("", nspire.HELP_PAGE, pseudocode.HELP_PAGE):
+        Shell.help(shell, page)  # ty: ignore[invalid-argument-type]
+    assert opened == [
+        about.WIKI_URL,
+        about.WIKI_URL + "Nspire.html",
+        about.WIKI_URL + "Pseudocode.html",
+    ]
+    for page in (nspire.HELP_PAGE, pseudocode.HELP_PAGE):
+        assert (wiki_site.SOURCE / page.replace(".html", ".md")).exists()

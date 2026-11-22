@@ -8,13 +8,14 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 - Document Settings, Problems and Pages, undo and redo
 - Handheld and Computer views, with touch, mouse and keyboard
 - Save and open files, share links, autosave, install and offline use
+- The **Pseudocode & Python** app: run pseudocode, step through a trace table (including inside function calls), and translate between pseudocode and Python (see [[Pseudocode]])
 
 ## Not built yet
 
 - Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages (see below)
 - TI-Basic programs and the library functions (`mm_`, `sm_`, `gm_`)
 - Importing and exporting `.tns` files (not planned for now)
-- Python and pseudocode (planned)
+- Python and pseudocode pages inside an Nspire document (the separate Pseudocode & Python app works now)
 - Other calculators, the Casio ClassPad and the HP Prime (planned, later). Each will also get its own smaller site
 
 ## Being built next

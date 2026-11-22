@@ -1,6 +1,11 @@
 # SDD-05. User interface (Flet)
 
-Status: describes `src/cassim/app/` at 2026-11-18. Requirements: FR-DEV-001, FR-DEV-002, FR-DEV-004, FR-DEV-006, FR-DEV-010, FR-CALC-003 to FR-CALC-005, FR-THEME-001, FR-PROF-010 to FR-PROF-018, NFR-PERF-007, NFR-PORT-002, NFR-PORT-003. Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 0032.
+Status: describes `src/cassim/app/` and the pseudocode teaching workspace at 2026-11-19.
+Requirements: FR-DEV-001, FR-DEV-002, FR-DEV-004, FR-DEV-006, FR-DEV-010,
+FR-CALC-003 to FR-CALC-005, FR-RUN-008, FR-RUN-012, FR-XLT-001 to FR-XLT-006,
+FR-TRC-001 to FR-TRC-008, FR-SET-001, FR-SYN-013, FR-THEME-001,
+FR-PROF-010 to FR-PROF-018, NFR-PERF-007, NFR-PORT-002, NFR-PORT-003.
+Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 0032.
 
 ## Rule
 
@@ -16,7 +21,7 @@ Status: describes `src/cassim/app/` at 2026-11-18. Requirements: FR-DEV-001, FR-
 | `theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
 | `entry.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
 | `ui.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, About, Page Sorter, wizards. `math()` draws LaTeX. |
-| `main.py` | `Application`: chooses Home, a share-link device or the remembered app; imports and mounts a device UI only when selected. |
+| `main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
 | `home.py` | The all-in-one Home screen, fixed choice order, unavailable state and shared appearance setting. It imports no device UI. |
 | `shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
 | `web.py` | Browser-only: the engine worker and the page bridge (SDD-02). |
@@ -59,15 +64,43 @@ verification (`docs/testing/simulator-todo.md`, I1). Colours follow the selected
 
 `App.refresh` autosaves, redraws the view, keypad and sidebar, rebuilds the toolbar and calls `kick`, which starts a queued entry or a settings sync when the engine is idle. Autosave writes the document JSON to Flet `SharedPreferences` (browser localStorage, not IndexedDB) when it changed; System Settings are saved under their own key. `recover` reads both on start, then `--course` and `--set` (from `cassim`) replace the document's settings. A damaged autosave is ignored and overwritten.
 
+## Pseudocode teaching workspace
+
+The standalone pseudocode device uses `devices/pseudocode/ui/` rather than the Nspire screen
+renderer. Wide layouts hold a Code/Console column beside Run controls, Symbols and
+the Trace Table; layouts below 900 px stack those columns in that order. A draggable divider
+resizes the two wide columns. Every content pane owns its visible title, collapse state and a
+clamped vertical height. The bottom-right drag grip changes only the pane height; the CodeMirror
+overlay, when available, is repositioned from the same pane state. The Flet editor and line-number
+gutter are the fallback path.
+
+Run records one `RunResult`, fills the trace headings and Symbols panel, then leaves the cursor
+at zero. Step, Start and End only move the cursor through that result, so random values and input
+are not regenerated. Constants show their recorded values and are excluded from the trace by
+default. Constants, variables, functions and conditions are wrapped symbol rows with a vertical
+scroller; their checkboxes change the trace view without a second execution. Console begins
+folded, opens automatically for output or an error, scrolls vertically, and is moved to its end
+after each update. Console expressions remove the source program's existing output before
+appending the expression result.
+
+The trace heading is a separate fixed row above a vertically scrolling body. A horizontal
+scroller contains the table when its columns exceed the pane. Header grip controls resize each
+column live; row cells follow the same width map. Number, angle and trace-cycle buttons share the
+top toolbar with CASSim and Doc.
+
+Line numbers and the optional typing aid live in Settings. The aid replaces only unambiguous
+operator suffixes and terminated LaTeX-style spellings; plain names remain unchanged. The
+Pseudocode/Python selector calls the runtime's program-tree converters before changing the source
+or language. A `TranslationError` leaves both unchanged and is shown to the user.
+
 ## Dialogs and services
 
 Dialogs are plain `ft.AlertDialog`s opened with `page.show_dialog`. The device model asks for one by name through `AppState.show_dialog` (`document_settings`, `system_settings`, `page_sorter`, `save_file`, `open_file`, `share_link`, `about`, `help`); `App.show_dialog` dispatches. Wizard dialogs are drawn from `Wizard` data. A dialog with text boxes sets `typing_dialog` so the page's key listener does not steal the keys. A shared-link open always asks before replacing the document. Help opens the project wiki through `ft.UrlLauncher`.
 
 ## Startup
 
-The `all` bundle renders Home on its first normal launch. A saved `cassim.shell.last_device`
-opens that device directly on later visits, unless the route names another bundled device in a
-share link. A `tin`, `pseudo`, `cp` or `prime` single-device bundle always mounts its one device.
+The `all` bundle renders Home on every normal launch; it does not remember the last device. A
+direct route (`#/app/pseudocode`) or a share link opens the bundled device it names. A `tin`, `pseudo`, `cp` or `prime` single-device bundle always mounts its one device.
 Developer `#/debug` routes also open the first device so existing browser flows can drive it.
 
 `cassim` with no arguments calls `app.main.run`, which starts Flet (a window, or the browser with `--web`). The static site runs the same `main` from a staged entry point (SDD-10). In the browser `make_runner` creates the worker engine and `make_bridge` the page bridge; elsewhere the engine is in-process.
@@ -75,7 +108,7 @@ Developer `#/debug` routes also open the first device so existing browser flows 
 Home is part of the shell worker only. `Application.open_device` calls `devices.load` and imports
 the module named by `Device.ui`; only then does the Nspire (or another profile) create its engine
 worker. The CASSim menu can call `Application.show_home`, which first saves the current document
-and releases the device-owned page controls. Returning Home does not clear the remembered app.
+and releases the device-owned page controls.
 The fixed Home order is Nspire, Classpad, Prime, Pseudocode & Python and Scientific; enablement is derived
 from `cassim.bundle.DEVICES`, so unbuilt choices stay visible without becoming profile imports.
 

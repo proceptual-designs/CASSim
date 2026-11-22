@@ -291,15 +291,20 @@ def test_recalling_an_entry_keeps_its_templates() -> None:
     assert not isinstance(calc.editor.root[0], str)  # a template, not characters
 
 
-def test_clicking_a_history_row_picks_it_and_a_second_click_recalls_it() -> None:
+def test_clicking_a_history_row_puts_a_cursor_in_it_and_return_recalls_it() -> None:
+    """Run 5, H3 a, c: a click places a cursor (no highlight); a click inside the picked row
+    moves that cursor and brings nothing down; Return does."""
     calc = Calculator()
     for char in "1+2":
         calc.perform(Binding("insert", char))
     calc.perform(Binding("enter"))
     calc.perform(Binding("recall_at", "0:entry"))
     assert calc.recall == (0, "entry")
+    assert calc.recall_touched  # drawn with its own cursor, not highlighted whole
     assert calc.editor.linear() == ""
-    calc.perform(Binding("recall_at", "0:entry"))
+    calc.perform(Binding("recall_place", ":1"))
+    assert calc.editor.linear() == ""
+    calc.perform(Binding("enter"))
     assert calc.editor.linear() == "1+2"
     calc.perform(Binding("recall_at", "9:entry"))  # no such row: ignored
 
@@ -318,6 +323,7 @@ def test_a_picked_row_has_a_cursor_that_selects_parts() -> None:
     calc.perform(Binding("up"))
     calc.perform(Binding("up"))  # the entry row `12+34`
     assert calc.recall_editor is not None
+    calc.perform(Binding("end"))  # the cursor starts at the left of a picked row
     calc.perform(Binding("select_left"))
     calc.perform(Binding("select_left"))  # "34"
     calc.perform(Binding("enter"))
@@ -374,8 +380,10 @@ def test_enter_on_an_empty_line_repeats_the_last_entry_with_or_without_ans() -> 
 
 
 def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
-    """Del or Backspace with a history row picked deletes the entry and its result."""
-    for key in ("delete", "backspace"):
+    """Del or Backspace with a history row picked deletes the entry and its result. The input of
+    the pair that takes its place is picked: Delete the next pair's, Backspace the previous pair's
+    (run 5, H5 a, b, f, j)."""
+    for key, picked in (("delete", (1, "entry")), ("backspace", (0, "entry"))):
         calc = Calculator()
         for line in ("1+1", "2+2", "3+3"):
             _type(calc, line)
@@ -386,12 +394,12 @@ def test_delete_on_a_picked_row_removes_that_entry_from_the_display() -> None:
         calc.perform(Binding("up"))  # the entry `2+2`
         calc.perform(Binding(key))
         assert [entry.text for entry in calc.history] == ["1+1", "3+3"]
-        assert calc.recall == (0, "result")  # the line above is picked next
+        assert calc.recall == picked
 
 
 def test_del_again_deletes_the_lines_above_in_turn() -> None:
-    """After a delete the line above is picked, so pressing Del again clears upwards; from the
-    first line the one that moves up is picked, until the history is empty."""
+    """Deleting the last pair picks the input of the one before it (H5 a, e, g), so pressing Del
+    again clears upwards until the history is empty."""
     calc = Calculator()
     for line in ("1+1", "2+2", "3+3"):
         _type(calc, line)
@@ -399,7 +407,7 @@ def test_del_again_deletes_the_lines_above_in_turn() -> None:
     calc.perform(Binding("up"))  # the result of `3+3`
     calc.perform(Binding("delete"))
     assert [entry.text for entry in calc.history] == ["1+1", "2+2"]
-    assert calc.recall == (1, "result")
+    assert calc.recall == (1, "entry")
     calc.perform(Binding("delete"))
     calc.perform(Binding("delete"))
     assert not calc.history
@@ -409,14 +417,15 @@ def test_del_again_deletes_the_lines_above_in_turn() -> None:
 
 
 def test_deleting_the_first_line_picks_the_next() -> None:
-    calc = Calculator()
-    for line in ("1+1", "2+2"):
-        _type(calc, line)
-        calc.perform(Binding("enter"))
-    calc.perform(Binding("first_line"))
-    calc.perform(Binding("delete"))
-    assert [entry.text for entry in calc.history] == ["2+2"]
-    assert calc.recall == (0, "entry")
+    for key in ("delete", "backspace"):
+        calc = Calculator()
+        for line in ("1+1", "2+2"):
+            _type(calc, line)
+            calc.perform(Binding("enter"))
+        calc.perform(Binding("first_line"))
+        calc.perform(Binding(key))
+        assert [entry.text for entry in calc.history] == ["2+2"]
+        assert calc.recall == (0, "entry")
 
 
 def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
@@ -430,7 +439,7 @@ def test_a_picked_row_draws_its_own_selection_once_moved_into() -> None:
     plain = render(document).lines[0]
     assert plain.selected
     assert not plain.part  # the whole item is highlighted, in its usual LaTeX
-    calc.perform(Binding("select_left"))
+    calc.perform(Binding("select_right"))  # from the left of the row, where the cursor starts
     moved = render(document).lines[0]
     assert moved.part
     assert r"\fcolorbox" in moved.latex  # the selected part is highlighted inside the line
@@ -496,6 +505,7 @@ def test_copy_from_a_picked_history_row_pastes_into_the_entry_line() -> None:
     calc.perform(Binding("enter"))
     calc.perform(Binding("up"))
     calc.perform(Binding("up"))
+    calc.perform(Binding("end"))  # the cursor starts at the left of a picked row
     calc.perform(Binding("select_left"))
     calc.perform(Binding("select_left"))  # "34"
     calc.perform(Binding("copy"))
@@ -527,3 +537,41 @@ def test_the_keypad_has_ctrl_c_x_v() -> None:
     state.press_keypad("ctrl")
     state.press_keypad("v")
     assert pasted == ["asked"]
+
+
+def test_up_and_down_enter_a_row_at_its_left() -> None:
+    """Simon, 2026-11-20: picking a row by Up or Down puts its cursor at the row's left."""
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("up"))
+    picked = calc.recall_editor
+    assert picked is not None
+    assert picked.pos == 0
+    calc.perform(Binding("up"))
+    calc.perform(Binding("down"))
+    assert calc.recall_editor is not None
+    assert calc.recall_editor.pos == 0
+
+
+def test_clicking_a_row_puts_the_cursor_near_the_click() -> None:
+    """Simon, 2026-11-20: a click on a row's maths picks it with the cursor near the click."""
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("recall_at", "0:entry@2.0"))  # past `12` (2 x 0.5 em) and `+` (1.22 em)
+    picked = calc.recall_editor
+    assert picked is not None
+    assert calc.recall_touched  # the cursor shows at once
+    assert picked.pos == 3
+    calc.perform(Binding("recall_at", "0:entry@0.1"))  # a second click brings the row down
+    assert calc.editor.linear() == "12+34"
+
+
+def test_a_click_beyond_a_row_puts_the_cursor_at_its_end() -> None:
+    calc = Calculator()
+    _type(calc, "12+34")
+    calc.perform(Binding("enter"))
+    calc.perform(Binding("recall_at", "0:entry@40"))
+    assert calc.recall_editor is not None
+    assert calc.recall_editor.pos == 5
