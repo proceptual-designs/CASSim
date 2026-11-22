@@ -117,14 +117,21 @@ def test_two_sample_mean_tests_and_two_way_chi_square():
     assert _number(session, "PVal") == pytest.approx(0.00982327, abs=1e-7)
 
 
-def test_invalid_confidence_levels_and_alternatives_are_domain_errors():
+def test_invalid_confidence_levels_are_domain_errors():
     session = Session()
     assert session.eval("zInterval_1Prop 12,20,1").error == "Domain error"
-    assert session.eval("zTest_1Prop .5,12,20,3").error == "Domain error"
 
 
-@pytest.mark.parametrize("alternative", [0, 1, 2])
-def test_summary_mean_tests_use_the_selected_tail(alternative):
+def test_any_positive_or_negative_hypothesis_picks_the_tail():
+    """TI's Hypoth: 0 is ≠, below 0 is <, above 0 is > (plan B10)."""
+    greater, also_greater = _session("zTest_1Prop .5,12,20,1"), _session("zTest_1Prop .5,12,20,3")
+    assert _number(greater, "PVal") == pytest.approx(_number(also_greater, "PVal"))
+    less, also_less = _session("zTest_1Prop .5,12,20,-1"), _session("zTest_1Prop .5,12,20,-5")
+    assert _number(less, "PVal") == pytest.approx(_number(also_less, "PVal"))
+
+
+@pytest.mark.parametrize(("alternative", "tail"), [(0, 0), (-1, 1), (1, 2)])
+def test_summary_mean_tests_use_the_selected_tail(alternative, tail):
     session = _session(f"tTest 0,2,2,16,{alternative}")
     expected_tails = (
         2 * stats.t.sf(4, 15),
@@ -133,12 +140,12 @@ def test_summary_mean_tests_use_the_selected_tail(alternative):
     )
     assert _number(session, "t") == pytest.approx(4)
     assert _number(session, "df") == 15
-    assert _number(session, "PVal") == pytest.approx(expected_tails[alternative], abs=1e-8)
+    assert _number(session, "PVal") == pytest.approx(expected_tails[tail], abs=1e-8)
 
     session = _session(f"zTest 0,2,2,16,{alternative}")
     expected_tails = (2 * stats.norm.sf(4), stats.norm.cdf(4), stats.norm.sf(4))
     assert _number(session, "z") == pytest.approx(4)
-    assert _number(session, "PVal") == pytest.approx(expected_tails[alternative], abs=1e-8)
+    assert _number(session, "PVal") == pytest.approx(expected_tails[tail], abs=1e-8)
 
 
 def test_two_sample_z_interval_from_summary_and_frequency_lists():
