@@ -428,16 +428,57 @@ def test_a_call_row_opens_its_own_trace_in_a_dialog() -> None:
     dialog = dialogs[-1]
     assert texts(dialog.title) == ["f(1): n = 1"]
     shown = texts(dialog.content)
-    assert shown[:3] == ["Line", "m", "Calcs / Output"]
+    assert shown[:4] == ["4 / 4 steps", "Line", "m", "Calcs / Output"]
     assert "f(2)" in shown
-    buttons = [tooltip for tooltip in _tooltips(dialog.content) if tooltip.startswith("Expand ")]
-    assert buttons == ["Expand f(2)"]
+    tooltips = _tooltips(dialog.content)
+    assert [tip for tip in tooltips if tip.startswith("Expand ")] == ["Expand f(2)"]
+    assert "Resize m column" in tooltips  # the trace pane's resizable columns
+
+
+def test_a_call_dialog_steps_through_the_call() -> None:
+    """FR-TRC-013: Step, First and Last move through the call's own rows, as in the pane."""
+    shell = DummyShell()
+    dialogs: list[ft.AlertDialog] = []
+    shell.page = SimpleNamespace(show_dialog=dialogs.append, pop_dialog=lambda: None)
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.result = run(DOUBLING, Settings())
+    app.cursor = len(app.result.steps)
+    app.show_call(0)
+    content = dialogs[-1].content
+
+    def press(label: str) -> list[str]:
+        button = next(b for b in _buttons(content) if b.content == label)
+        assert button.on_click is not None
+        cast("Callable[[object], object]", button.on_click)(None)  # the dialog's lambdas
+        return texts(content)
+
+    assert "0 / 4 steps" in press("First")
+    assert "m = 1×2 = 2" not in texts(content)
+    after_step = press("Step")
+    assert "1 / 4 steps" in after_step
+    assert "m = 1×2 = 2" in after_step
+    assert "f(2)" not in after_step
+    assert "4 / 4 steps" in press("Last")
+    assert "f(2)" in texts(content)
+
+
+def _buttons(control: object) -> list[ft.Button]:
+    found: list[ft.Button] = []
+    if isinstance(control, ft.Button):
+        found.append(control)
+    for name in ("content", "controls"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child]:
+            if isinstance(item, ft.Control):
+                found.extend(_buttons(item))
+    return found
 
 
 def _tooltips(control: object) -> list[str]:
     found: list[str] = []
-    if isinstance(control, ft.IconButton) and isinstance(control.tooltip, str):
-        found.append(control.tooltip)
+    tooltip = getattr(control, "tooltip", None)
+    if isinstance(control, (ft.IconButton, ft.GestureDetector)) and isinstance(tooltip, str):
+        found.append(tooltip)
     for name in ("content", "controls"):
         child = getattr(control, name, None)
         for item in child if isinstance(child, list) else [child]:

@@ -16,6 +16,14 @@ import flet as ft
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
 from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing, in_code
 from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
+from cassim.devices.pseudocode.ui.trace_grid import (
+    CONDITION_COLUMN_WIDTH,
+    LINE_COLUMN_WIDTH,
+    OUTPUT_COLUMN_WIDTH,
+    VARIABLE_COLUMN_WIDTH,
+    Column,
+    TraceGrid,
+)
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
     PseudocodeError,
@@ -189,10 +197,6 @@ def wrapped_rows(line: str, width: float, char_width: Callable[[str], float] = _
     return rows
 
 
-LINE_COLUMN_WIDTH = 40
-VARIABLE_COLUMN_WIDTH = 76
-CONDITION_COLUMN_WIDTH = 130
-OUTPUT_COLUMN_WIDTH = 140
 SYMBOL_COLUMN_COUNT = 3
 EDITOR_SETTINGS_KEY = "editor"
 CODE_FONT = "CASSim Code"
@@ -498,13 +502,8 @@ class CodeApp:
         self.column_split = 0.5
         self.left_host: ft.Container | None = None
         self.trace_mode = "vertical"
-        self.trace_widths: dict[str, float] = {
-            "__line__": LINE_COLUMN_WIDTH,
-            "__output__": OUTPUT_COLUMN_WIDTH,
-        }
-        self.trace_active_columns: list[str] = []
-        self.trace_resize_controls: dict[str, list[ft.Container]] = {}
-        self.trace_table_container: ft.Container | None = None
+        self.trace_grid = TraceGrid(self.show_call)
+        self.trace_widths = self.trace_grid.widths  # kept when the table is redrawn
         self.symbol_widths = [150.0, 150.0, 150.0]
         self.symbol_columns: list[ft.Container] = []
 
@@ -1590,107 +1589,8 @@ window.CASSimTypingAids = function(editor, change) {
                     )
         return tuple(values)
 
-    def _trace_header(
-        self,
-        key: str,
-        title: str,
-        width: float,
-    ) -> ft.Container:
-        if key == "__line__":
-            return ft.Container(
-                ft.Text(
-                    title,
-                    weight=ft.FontWeight.BOLD,
-                    size=12,
-                    no_wrap=True,
-                    text_align=ft.TextAlign.CENTER,
-                ),
-                width=LINE_COLUMN_WIDTH,
-                height=38,
-                padding=0,
-                border=ft.Border.all(1),
-                alignment=ft.Alignment.CENTER,
-            )
-
-        def resize(event: ft.DragUpdateEvent) -> None:
-            self.resize_trace_column(key, event)
-
-        grip = ft.GestureDetector(
-            ft.Icon(ft.Icons.DRAG_INDICATOR, size=12),
-            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
-            on_horizontal_drag_update=resize,
-            drag_interval=25,
-            tooltip=f"Resize {title} column",
-        )
-        return ft.Container(
-            ft.Row(
-                [ft.Text(title, weight=ft.FontWeight.BOLD, size=12, expand=True), grip],
-                tight=True,
-                spacing=2,
-            ),
-            width=width,
-            height=38,
-            padding=ft.Padding.symmetric(horizontal=6),
-            border=ft.Border.all(1),
-            alignment=ft.Alignment.CENTER_LEFT,
-        )
-
     def resize_trace_column(self, key: str, event: ft.DragUpdateEvent) -> None:
-        if key == "__line__" or event.global_delta is None:
-            return
-        current = self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH)
-        self.trace_widths[key] = min(420, max(48, current + event.global_delta.x))
-        for control in self.trace_resize_controls.get(key, []):
-            control.width = self.trace_widths[key]
-            _safe_update(control)
-        if self.trace_table_container is not None:
-            self.trace_table_container.width = sum(
-                self.trace_widths[column] for column in self.trace_active_columns
-            )
-            _safe_update(self.trace_table_container)
-
-    def _trace_cell(self, key: str, value: str, *, header: bool = False) -> ft.Container:
-        return ft.Container(
-            ft.Text(
-                value,
-                size=12,
-                weight=ft.FontWeight.BOLD if header else None,
-                selectable=not header,
-                no_wrap=key == "__line__",
-            ),
-            width=self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH),
-            height=38,
-            padding=ft.Padding.symmetric(horizontal=6, vertical=4),
-            border=ft.Border.all(1),
-            alignment=ft.Alignment.CENTER_LEFT,
-        )
-
-    def _call_cell(self, value: str, call: int, width: float) -> ft.Container:
-        """A Calcs / Output cell for a call to a function defined in the code: the call and a
-        button that opens the call's own trace (FR-TRC-013)."""
-        return ft.Container(
-            ft.Row(
-                [
-                    ft.Text(value, size=12, selectable=True, expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.OPEN_IN_NEW,
-                        icon_size=14,
-                        width=28,
-                        height=28,
-                        padding=0,
-                        tooltip=f"Expand {value}",
-                        on_click=lambda _: self.show_call(call),
-                    ),
-                ],
-                spacing=2,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
-            width=width,
-            height=38,
-            padding=ft.Padding.only(left=6, right=2),
-            border=ft.Border.all(1),
-            alignment=ft.Alignment.CENTER_LEFT,
-        )
+        self.trace_grid.resize(key, event)
 
     def call_rows(self, table: trace.VerticalTable) -> dict[int, int]:
         """Row number -> step for the rows that call a function defined in the code."""
@@ -1704,60 +1604,60 @@ window.CASSimTypingAids = function(editor, change) {
         }
 
     def show_call(self, call: int) -> None:
-        """Open the trace of one function call in a dialog; calls inside it open the same way."""
+        """Open one function call's trace in a dialog laid out like the trace pane: resizable
+        columns and Step / First / Last over the call's own rows. Calls inside it open the
+        same way (FR-TRC-013)."""
         if self.result is None:
             return
-        settings = self.settings()
-        table = trace.call_table(self.result, settings, call, cursor=self.cursor)
-        step = self.result.steps[call]
-        starting = trace.call_parameters(self.result, call, settings)
-        title = f"{step.calc}: {starting}" if starting else step.calc
-        widths = [
-            LINE_COLUMN_WIDTH,
-            *(VARIABLE_COLUMN_WIDTH for _ in table.variables),
-            OUTPUT_COLUMN_WIDTH,
+        result, settings, cursor = self.result, self.settings(), self.cursor
+        reached = trace.call_table(result, settings, call, cursor=cursor)
+        total = len(reached.rows)
+        grid = TraceGrid(self.show_call)
+        host = ft.Container(expand=True)
+        counter = ft.Text(size=12)
+        shown = [total]  # rows of the call shown: all it has reached when it opens
+        columns: list[Column] = [
+            ("__line__", "Line", LINE_COLUMN_WIDTH),
+            *((f"variable:{name}", name, VARIABLE_COLUMN_WIDTH) for name in reached.variables),
+            ("__output__", "Calcs / Output", OUTPUT_COLUMN_WIDTH),
         ]
-        titles = ["Line", *table.variables, "Calcs / Output"]
 
-        def cell(value: str, width: float, *, bold: bool = False) -> ft.Container:
-            return ft.Container(
-                ft.Text(value, size=12, weight=ft.FontWeight.BOLD if bold else None),
-                width=width,
-                height=38,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=4),
-                border=ft.Border.all(1),
-                alignment=ft.Alignment.CENTER_LEFT,
-            )
-
-        calls = self.call_rows(table)
-        lines: list[ft.Control] = [
-            ft.Row(
-                [cell(name, width, bold=True) for name, width in zip(titles, widths, strict=True)],
-                spacing=0,
-                tight=True,
-            )
-        ]
-        for number, row in enumerate(table.rows):
-            values = [str(row.line), *(row.cells.get(name, "") for name in table.variables)]
-            cells: list[ft.Control] = [
-                cell(value, width) for value, width in zip(values, widths, strict=False)
+        def draw() -> None:
+            table = trace.call_table(result, settings, call, cursor=cursor, rows=shown[0])
+            rows = [
+                [str(row.line), *(row.cells.get(name, "") for name in reached.variables), row.calc]
+                for row in table.rows
             ]
-            cells.append(
-                self._call_cell(row.calc, calls[number], widths[-1])
-                if number in calls
-                else cell(row.calc, widths[-1])
-            )
-            lines.append(ft.Row(cells, spacing=0, tight=True, height=38))
-        if not table.rows:
-            lines.append(ft.Text("No lines of this call have run yet.", size=12))
-        grid = ft.Column(lines, spacing=0, scroll=ft.ScrollMode.AUTO)
+            host.content = grid.build(columns, rows, self.call_rows(table))
+            counter.value = f"{shown[0]} / {total} steps"
+            _safe_update(host)
+            _safe_update(counter)
+
+        def go(rows: int) -> None:
+            shown[0] = max(0, min(total, rows))
+            draw()
+
+        controls = ft.Row(
+            [
+                ft.Button("Step", on_click=lambda _: go(shown[0] + 1), style=_control_style()),
+                ft.Button("First", on_click=lambda _: go(0), style=_control_style()),
+                ft.Button("Last", on_click=lambda _: go(total), style=_control_style()),
+                counter,
+            ],
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        draw()
+        starting = trace.call_parameters(result, call, settings)
+        name = result.steps[call].calc
+        width = sum(grid.widths[key] for key, _, _ in columns)
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text(title),
+                title=ft.Text(f"{name}: {starting}" if starting else name),
                 content=ft.Container(
-                    ft.Row([grid], scroll=ft.ScrollMode.AUTO),
-                    width=min(sum(widths) + 24, 900),
-                    height=min(38 * (len(lines) + 1), 460),
+                    ft.Column([controls, host], spacing=8, expand=True),
+                    width=min(max(width + 32, 420), 900),
+                    height=460,
                 ),
                 actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
             )
@@ -1769,55 +1669,7 @@ window.CASSimTypingAids = function(editor, change) {
         rows: list[list[str]],
         calls: dict[int, int] | None = None,
     ) -> None:
-        for key, _, default in columns:
-            self.trace_widths.setdefault(key, default)
-        self.trace_active_columns = [key for key, _, _ in columns]
-        self.trace_resize_controls = {key: [] for key in self.trace_active_columns}
-        header_containers = [
-            self._trace_header(key, title, self.trace_widths[key]) for key, title, _ in columns
-        ]
-        for (key, _, _), control in zip(columns, header_containers, strict=True):
-            self.trace_resize_controls[key].append(control)
-        header_controls: list[ft.Control] = list(header_containers)
-        header = ft.Row(
-            header_controls,
-            spacing=0,
-            tight=True,
-        )
-        body_rows: list[ft.Control] = []
-        calls = calls or {}
-        for number, row in enumerate(rows):
-            row_containers = [
-                self._call_cell(value, calls[number], self.trace_widths[key])
-                if key == "__output__" and number in calls
-                else self._trace_cell(key, value)
-                for (key, _, _), value in zip(columns, row, strict=True)
-            ]
-            for (key, _, _), control in zip(columns, row_containers, strict=True):
-                self.trace_resize_controls[key].append(control)
-            row_controls: list[ft.Control] = list(row_containers)
-            body_rows.append(
-                ft.Row(
-                    row_controls,
-                    spacing=0,
-                    tight=True,
-                    height=38,
-                )
-            )
-        body = ft.Column(
-            body_rows,
-            scroll=ft.ScrollMode.AUTO,
-            expand=True,
-            spacing=0,
-        )
-        total_width = sum(self.trace_widths[key] for key, _, _ in columns)
-        table = ft.Container(
-            ft.Column([header, body], spacing=0, expand=True),
-            width=total_width,
-            expand=True,
-        )
-        self.trace_table_container = table
-        self.trace.controls = [ft.Row([table], scroll=ft.ScrollMode.AUTO, expand=True, spacing=0)]
+        self.trace.controls = [self.trace_grid.build(columns, rows, calls)]
         _safe_update(self.trace)
 
     def condition_name(self, line: int) -> str:

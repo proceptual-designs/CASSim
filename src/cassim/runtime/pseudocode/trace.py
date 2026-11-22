@@ -108,15 +108,22 @@ def call_steps(result: RunResult, call: int, *, cursor: int | None = None) -> li
 
 
 def call_table(
-    result: RunResult, settings: Settings, call: int, *, cursor: int | None = None
+    result: RunResult,
+    settings: Settings,
+    call: int,
+    *,
+    cursor: int | None = None,
+    rows: int | None = None,
 ) -> VerticalTable:
-    """The vertical trace of one function call, as `vertical` draws the top level.
+    """The vertical trace of one function call, as `vertical` draws the top level; `rows`
+    keeps only the call's first rows, as its dialog steps through them.
 
     A call made from inside it is one row whose parameters are left out: they belong to that
     call's own table, not to this call's variables."""
+    inside = call_steps(result, call, cursor=cursor)
     steps = [
         replace(s, changes=()) if s.kind == "call" else s
-        for s in call_steps(result, call, cursor=cursor)
+        for s in (inside if rows is None else inside[: max(rows, 0)])
     ]
     return _vertical_table(steps, settings)
 
