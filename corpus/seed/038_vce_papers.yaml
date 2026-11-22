@@ -1,0 +1,1968 @@
+# VCE exam papers through the CAS engine: the Calculator entries of four exam documents (K4 to K7)
+# observed on the simulator in emulator check 6, run 5 (2026-11-20, observation only), from
+# docs/testing/emulator-papers-results.md. Screenshots: docs/testing/pages-shots-6/K*.
+#
+# The entries are VCAA exam working (decision 0012): no question text, only the calculator inputs
+# and the simulator's results. Each case is `third_party: true` and names its paper.
+# (c) Victorian Curriculum and Assessment Authority.
+#
+# Settings are each document's own: K4 is Radian/Auto/Rectangular with Float 6; K5 to K7 are
+# Radian/Auto/Rectangular with Float 8 (the specialist preset). SAC documents (K1 to K3) stay out.
+# Left out: K4 4.1 #6 (input not recorded), #11 (result truncated), #16 and #17 (results not
+# readable as recorded); K4 6.1 #10 (n-family substitution); K6 #12 (input truncated);
+# K7 5.1 #8 to #10 (LazyMath library calls, not loadable).
+schema_version: 1
+cases:
+- id: papers.mm2021e2.p1-1.domain-polynomial
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 2; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(25-2*x)*(25-x)
+    out: Done
+  - in: domain(v(x),x)
+    out: -∞<x<∞
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-1.png
+  status: xfail
+  xfail_reason: domain( is not built (plan B9)
+- id: papers.mm2021e2.p1-1.solve-inequality-positive
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(25-2*x)*(25-x)
+    out: Done
+  - in: solve(v(x)>0,x)|x>0
+    out: 0<x<25/2 or x>25
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-1.png
+  status: pass
+- id: papers.mm2021e2.p1-1.derivative-expanded
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 4; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(25-2*x)*(25-x)
+    out: Done
+  - in: derivative(v(x),x)
+    out: 12*x^2-300*x+1250
+    compare: text
+    note: Typed with the derivative template; TI expands the polynomial.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-1.png
+  status: xfail
+  xfail_reason: result not in TI's simplified form (plan B7)
+- id: papers.mm2021e2.p1-1.solve-stationary-bounded
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 5; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(25-2*x)*(25-x)
+    out: Done
+  - in: solve(derivative(v(x),x)=0,x)|0<x<25/2
+    out: x=-25*(√(3)-3)/6
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence:
+    - ../docs/testing/pages-shots-6/K4-p1.1-1.png
+    - ../docs/testing/pages-shots-6/K4-p1.1-2.png
+  status: pass
+- id: papers.mm2021e2.p1-1.substitute-root
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 6; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(25-2*x)*(25-x)
+    out: Done
+  - in: v(x)|x=-25*(sqrt(3)-3)/6
+    out: 15625*√(3)/9
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-2.png
+  status: pass
+- id: papers.mm2021e2.p1-1.solve-bound-with-parameter
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 8; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(h-2*x)*(h-x)
+    out: Done
+  - in: solve(derivative(v(x),x)=0,x)|0<x<h/2
+    out: x=-h*(√(3)-3)/6 and h>0
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-3.png
+  status: xfail
+  xfail_reason: '`|` constraint handling (plan B5): the root at h/2... outside the bound is kept and `and
+    h>0` is not added'
+- id: papers.mm2021e2.p1-1.substitute-parameter-root
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 9; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=2*x*(h-2*x)*(h-x)
+    out: Done
+  - in: v(x)|x=-h*(sqrt(3)-3)/6 and h>0
+    out: h^3*√(3)/9
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-3.png
+  status: xfail
+  xfail_reason: 'result not in TI''s simplified form (plan B7): the substituted product is not simplified'
+- id: papers.mm2021e2.p1-1.solve-bound-excludes-endpoint
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 11; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=x*(h-2*x)^2
+    out: Done
+  - in: solve(derivative(v(x),x)=0,x)|0<x<h/2
+    out: x=h/6 and h>0
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-4.png
+  status: xfail
+  xfail_reason: '`|` constraint handling (plan B5): x=h/2 is not removed by the bound and `and h>0` is
+    not added'
+- id: papers.mm2021e2.p1-1.substitute-sixth
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 1.1,
+    entry 12; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: v(x):=x*(h-2*x)^2
+    out: Done
+  - in: v(x)|x=h/6 and h>0
+    out: 2*h^3/27
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p1.1-4.png
+  status: pass
+- id: papers.mm2021e2.p2-1.substitute-list
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 1; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: x^2|x={1/4,2/4,3/4,1}
+    out: '{1/16,1/4,9/16,1}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+  status: pass
+- id: papers.mm2021e2.p2-1.list-times-fraction
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 2; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: '{1/16,1/4,9/16,1}*1/4'
+    out: '{1/64,1/16,9/64,1/4}'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+  status: pass
+- id: papers.mm2021e2.p2-1.sum-list
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: sum({1/64,1/16,9/64,1/4})
+    out: 15/32
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+  status: pass
+- id: papers.mm2021e2.p2-1.decimal-float6
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 4; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: 15/32.
+    out: '0.46875'
+    compare: text
+  - in: 1/3.
+    out: '0.333333'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+    note: Entries 4 and 5 read from zoomed views.
+  status: pass
+- id: papers.mm2021e2.p2-1.definite-integral
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 6; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: integral(x^(1/2)-x^2,x,0,1)
+    out: 1/3
+  - in: integral(x^(1/2)-a*x^2,x,0,a)
+    out: 2*a^(3/2)/3-a^4/3
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+    note: Entries 6 and 7 read from zoomed views.
+  status: pass
+- id: papers.mm2021e2.p2-1.solve-numeric-root
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 2.1,
+    entry 8; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: solve(2*a^(3/2)/3-a^4/3=1/3,a)
+    out: a=0.770231 or a=1
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p2.1-1.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): the root of a degree-7 polynomial prints as
+    CRootOf'
+- id: papers.mm2021e2.p3-1.domain-logs
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 3.1,
+    entry 2; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: q(x):=ln(x^2-1)-ln(1-x)
+    out: Done
+  - in: domain(q(x),x)
+    out: -∞<x<-1
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p3.1-1.png
+  status: xfail
+  xfail_reason: domain( is not built (plan B9)
+- id: papers.mm2021e2.p3-1.derivative-logs-cancelled
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 3.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: q(x):=ln(x^2-1)-ln(1-x)
+    out: Done
+  - in: derivative(q(x),x)
+    out: 1/(x+1)
+    compare: text
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p3.1-1.png
+  status: xfail
+  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not cancelled'
+- id: papers.mm2021e2.p3-1.tangent-line
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 3.1,
+    entry 4; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: q(x):=ln(x^2-1)-ln(1-x)
+    out: Done
+  - in: tangentLine(q(x),x,-2)
+    out: -x-2
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p3.1-1.png
+  status: pass
+- id: papers.mm2021e2.p5-1.rerun-domain-logs
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 5.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: domain(ln(x^2-1)-ln(1-x),x)
+    out: -∞<x<-1
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p5.1-rerun-1.png
+    note: Re-run in a new Problem.
+  status: xfail
+  xfail_reason: domain( is not built (plan B9)
+- id: papers.mm2021e2.p4-1.solve-numeric-fallback
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 2; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: p(x):=@e^(-2*x)-2*@e^(-x)+1
+    out: Done
+  - in: solve(p(x)=x+2,x)
+    out: x=-0.750403
+    compare: numeric
+    tol: 1.0e-05
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
+  status: xfail
+  xfail_reason: 'no numeric fallback yet (plan B4): the call is echoed'
+- id: papers.mm2021e2.p4-1.integral-decimal-bound
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 4; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: p(x):=@e^(-2*x)-2*@e^(-x)+1
+    out: Done
+  - in: xs:=-0.75040315889581
+    out: '-0.750403'
+    compare: text
+  - in: integral(p(x),x,xs,0)
+    out: '0.257348'
+    compare: text
+  - in: integral(x+2,x,-2,xs)
+    out: '0.780746'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
+  status: pass
+- id: papers.mm2021e2.p4-1.exact-tangents
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 7; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: tan(pi/12)
+    out: -(√(3)-2)
+  - in: tan(5*pi/12)
+    out: √(3)+2
+  - in: tan(pi-pi/12)
+    out: √(3)-2
+  - in: tan(pi/2+pi/12)
+    out: -(√(3)+2)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
+    note: Entries 7, 8, 12 and 13; read from zoomed views.
+  status: pass
+- id: papers.mm2021e2.p4-1.derivative-negative-exponents
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 9; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: p(x):=@e^(-2*x)-2*@e^(-x)+1
+    out: Done
+  - in: derivative(p(a),a)
+    out: 2*ⅇ^(-a)-2*ⅇ^(-2*a)
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: printer writes 2/ⅇ^a, not 2*ⅇ^(-a) (plan B8)
+- id: papers.mm2021e2.p4-1.solve-no-solution
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 10; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: solve(2*@e^(-a)-2*@e^(-2*a)=sqrt(3)+2,a)
+    out: 'false'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-1.png
+    note: Read from a zoomed view.
+  status: pass
+- id: papers.mm2021e2.p4-1.solve-exponential-exact
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 14; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: solve(2*@e^(-a)-2*@e^(-2*a)=-sqrt(3)-2,a)
+    out: a=ln(-(√(3)-2)*(√(2*√(3)+5)-1))
+  - in: solve(2*@e^(-a)-2*@e^(-2*a)=sqrt(3)-2,a)
+    out: a=ln((√(3)+2)*(√(5-2*√(3))-1))
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-1.png
+    note: Entries 14 and 15; read from zoomed views.
+  status: pass
+- id: papers.mm2021e2.p4-1.solve-quotient-of-exponentials
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 4.1,
+    entry 18; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: solve(sqrt(3)=(1-(2*@e^(-a)-2*@e^(-2*a)))/(1+2*@e^(-a)-2*@e^(-2*a)),a)
+    out: a=-0.113022
+    compare: numeric
+    tol: 1.0e-05
+  - in: solve(sqrt(3)=-(1-(2*@e^(-a)-2*@e^(-2*a)))/(1+2*@e^(-a)-2*@e^(-2*a)),a)
+    out: a=-0.670214
+    compare: numeric
+    tol: 1.0e-05
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p4.1-1.png
+    note: TI gives decimals; CASSim gives the exact roots, of the same value.
+  status: pass
+- id: papers.mm2021e2.p5-1.normal-distribution
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 5.1,
+    entry 1; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: normCdf(11,infinity,10,0.8)
+    out: '0.10565'
+    compare: text
+  - in: invNorm(0.8,10,0.8)
+    out: '10.6733'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p5.1-2.png
+  status: pass
+- id: papers.mm2021e2.p5-1.sample-proportion-sd
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 5.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: p:=0.08
+    out: '0.08'
+    compare: text
+  - in: sqrt(p*(1-p)/25)
+    out: '0.054259'
+    compare: text
+  - in: p:=2/25
+    out: 2/25
+  - in: sqrt(p*(1-p)/25)
+    out: √(46)/125
+  - in: normCdf(0.1,infinity,p,sqrt(p*(1-p)/25))
+    out: '0.356211'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p5.1-2.png
+  status: pass
+- id: papers.mm2021e2.p5-1.piecewise-pdf
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 5.1,
+    entry 9; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: f(x):=piecewise(x/500,0<=x and x<20,(50-x)/750,20<=x and x<=50,0,true)
+    out: Done
+  - in: solve(integral(f(x),x,0,m)=1/2,m)
+    out: m=22.6139
+    compare: numeric
+    tol: 1.0e-05
+    note: TI gives a decimal with the warning triangle; CASSim gives 50-5*√(30), the same value.
+  - in: integral(x*f(x),x,0,50)
+    out: '23.3333'
+    compare: numeric
+    tol: 1.0e-05
+  - in: integral((x-23.3333333333)^2*f(x),x,0,50)
+    out: '105.556'
+    compare: text
+  - in: sqrt(105.55555555556)
+    out: '10.274'
+    compare: text
+  - in: 22.613872124742/30
+    out: '0.753796'
+    compare: text
+  - in: 1/0.7537957374914
+    out: '1.32662'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence:
+    - ../docs/testing/pages-shots-6/K4-p5.1-1.png
+    - ../docs/testing/pages-shots-6/K4-p5.1-2.png
+  status: pass
+- id: papers.mm2021e2.p6-1.substitute-minimum
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 3; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: f(x):=sin(x/2)+cos(2*x)
+    out: Done
+  - in: f(x)|x=-1.6557594787701
+    out: '-1.7221'
+    compare: text
+  - in: f(2*pi-x)-f(x)
+    out: '0'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+  status: pass
+- id: papers.mm2021e2.p6-1.antiderivative-with-parameter
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 6; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: integral(g(x,a),x)
+    out: sin(a*x)/a-a*cos(x/a)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): the antiderivative is split into when(a≠0,...)'
+- id: papers.mm2021e2.p6-1.definite-integral-with-parameter
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 7; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: integral(g(x,a),x,0,2*a*pi)
+    out: sin(2*a^2*π)/a
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): the integral is split into when(a≠0,...)'
+- id: papers.mm2021e2.p6-1.fmin-family
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 9; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: fMin(g(x,1),x)
+    out: x=(4*n3-3)*π/4 and (-1)^n3>0
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: 'fMin answers with an integer family (n3) are not built (decision 0034 item 4: n later)'
+- id: papers.mm2021e2.p6-1.fmin-with-parameter-unevaluated
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 8; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: fMin(g(x,a),x)
+    out: fMin(sin(x/a)+cos(a*x),x)
+    compare: text
+    note: TI shows the warning triangle and returns the call unevaluated.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+    note: Read from a zoomed view.
+  status: pass
+- id: papers.mm2021e2.p6-1.fmin-periodic-half
+  course: specialist
+  settings:
+    digits: float6
+  tier: 1
+  tags:
+  - vce-paper
+  - k4
+  third_party: true
+  source: VCAA 2021 VCE Mathematical Methods Examination 2 (the owner's CAS working document), page 6.1,
+    entry 13; © Victorian Curriculum and Assessment Authority
+  steps:
+  - in: g(x,a):=sin(x/a)+cos(a*x)
+    out: Done
+  - in: fMin(g(x,0.5),x)
+    out: x=5.54306
+    compare: numeric
+    tol: 1.0e-05
+  - in: g(x,0.5)|x=5.5430583998095
+    out: '-1.92821'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
+    note: Read from zoomed views.
+  status: xfail
+  xfail_reason: 'fMin of a periodic function is echoed: no bounded numeric search (plan B2)'
+- id: papers.sm2025e1.p1-1.equation-true-at-point
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 1.1, entry 2; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: eqn:=x*@e^(-2*y)+y^2*@e^(x)=8*@e^(4)
+    out: ⅇ^x*y^2+x*ⅇ^(-2*y)=8*ⅇ^4
+  - in: eqn|x=4 and y=-2
+    out: 'true'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p1.1-1.png
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): Python''s True is printed'
+- id: papers.sm2025e1.p1-1.impdif-at-point
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 1.1, entry 3; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: eqn:=x*@e^(-2*y)+y^2*@e^(x)=8*@e^(4)
+    out: ⅇ^x*y^2+x*ⅇ^(-2*y)=8*ⅇ^4
+  - in: impDif(eqn,x,y)|x=4 and y=-2
+    out: 5/12
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence:
+    - ../docs/testing/pages-shots-6/K5-p1.1-1.png
+    - ../docs/testing/pages-shots-6/K5-p1.1-2.png
+  status: xfail
+  xfail_reason: '`|` constraint handling (plan B5): the condition is applied before impDif, which then
+    sees true'
+- id: papers.sm2025e1.p1-1.solve-implicit-unsolvable
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 1.1, entry 4; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: eqn:=x*@e^(-2*y)+y^2*@e^(x)=8*@e^(4)
+    out: ⅇ^x*y^2+x*ⅇ^(-2*y)=8*ⅇ^4
+  - in: solve(eqn,y)
+    out: (y^2*ⅇ^x-8*ⅇ^4)*ⅇ^(2*y)=-x
+    note: TI shows the warning triangle and gives the equation rearranged.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p1.1-2.png
+  status: xfail
+  xfail_reason: TI rearranges an equation it cannot solve; CASSim echoes the call (not planned)
+- id: papers.sm2025e1.p4-1.rerun-impdif
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 4.1, entry 1; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: impDif(x*exp(-2*y)+y*y*exp(x)=8*@e^4,x,y)|x=4 and y=-2
+    out: 5/12
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p4.1-rerun-1.png
+    note: Re-run in a new Problem.
+  status: xfail
+  xfail_reason: '`|` constraint handling (plan B5): the condition is applied before impDif'
+- id: papers.sm2025e1.p2-1.solve-vector-lines
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 2.1, entry 3; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: l1(t):=[2,3,1]+t*[1,2,-1]
+    out: Done
+  - in: l2(s):=[1,3,2]+s*[-1,-1,1]
+    out: Done
+  - in: solve(l1(t)=l2(s),s,t)
+    out: s=-2 and t=1
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p2.1-1.png
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+- id: papers.sm2025e1.p2-1.substitute-vector
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 2.1, entry 4; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: l1(t):=[2,3,1]+t*[1,2,-1]
+    out: Done
+  - in: l2(s):=[1,3,2]+s*[-1,-1,1]
+    out: Done
+  - in: l1(t)|s=-2 and t=1
+    out: '[3,5,0]'
+  - in: l2(s)|s=-2 and t=1
+    out: '[3,5,0]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p2.1-1.png
+  status: pass
+- id: papers.sm2025e1.p4-1.rerun-solve-vector-lines
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 4.1, entry 2; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: solve([2,3,1]+t*[1,2,-1]=[1,3,2]+s*[-1,-1,1],s,t)
+    out: s=-2 and t=1
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p4.1-rerun-1.png
+    note: Re-run in a new Problem.
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+- id: papers.sm2025e1.p3-1.integral-to-variable
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 3.1, entry 2; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: v(t):=t/sqrt(t^2+k)
+    out: Done
+  - in: integral(v(t),t,0,t)
+    out: √(t^2+k)-√(k)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p3.1-1.png
+  status: pass
+- id: papers.sm2025e1.p3-1.derivative-cancelled
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 3.1, entry 3; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: v(t):=t/sqrt(t^2+k)
+    out: Done
+  - in: derivative(v(t),t)
+    out: k/(t^2+k)^(3/2)
+    compare: text
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p3.1-1.png
+  status: xfail
+  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not cancelled'
+- id: papers.sm2025e1.p3-1.substitute-into-equation
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k5
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 1, page 3.1, entry 4; © Victorian Curriculum
+    and Assessment Authority
+  steps:
+  - in: sqrt(t^2+k)-sqrt(k)=t|t=3
+    out: √(k+9)-√(k)=3
+  - in: t-(sqrt(t^2+k)-sqrt(k))=1|t=3
+    out: -√(k+9)+√(k)+3=1
+  - in: solve(-sqrt(k+9)+sqrt(k)+3=1,k)
+    out: k=25/16
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K5-p3.1-1.png
+  status: pass
+- id: papers.sm2025e2a.p1-1.expand-rational
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 1; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: expand((x^2+a)/(b*x+c))
+    out: a/(b*x+c)+c^2/(b^2*(b*x+c))+x/b-c/b^2
+    compare: text
+    note: TI shows the warning triangle and divides out the polynomial part.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-01.png
+  status: xfail
+  xfail_reason: expand does not divide out the polynomial part of a quotient (not in plan B)
+- id: papers.sm2025e2a.p1-1.solve-complex-conjugate-roots
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 3; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: eq(z):=z^3+a*z^2+b*z-52=0
+    out: Done
+  - in: solve(eq(2-3*@i) and eq(2+3*@i),a,b)
+    out: a=-8. and b=29.
+    note: TI shows the warning triangle and decimals in Auto mode.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-01.png
+  status: pass
+- id: papers.sm2025e2a.p1-1.substitute-into-function-call
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 4; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: eq(z):=z^3+a*z^2+b*z-52=0
+    out: Done
+  - in: eq(z)|a=-8 and b=29
+    out: z^3-8*z^2+29*z-52=0
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-01.png
+  status: xfail
+  xfail_reason: '`|` constraint handling (plan B5): the bindings do not reach a user function''s result'
+- id: papers.sm2025e2a.p1-1.factor-and-cfactor
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 5; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: factor(z^3-8*z^2+29*z-52=0)
+    out: (z-4)*(z^2-4*z+13)=0
+    compare: text
+  - in: cFactor((z-4)*(z^2-4*z+13)=0)
+    out: (z-4)*(z-(2-3*ⅈ))*(z-(2+3*ⅈ))=0
+    note: CASSim writes the factors as z-2+3*ⅈ; same value.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-02.png
+  status: pass
+- id: papers.sm2025e2a.p1-1.expand-volume-integral
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 7; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: expand(pi*integral((cos(y/3))^2,y,0,a))
+    out: 3*sin(2*a/3)*π/4+a*π/2
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-02.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: expand does not collect sin·cos into the double angle (not in plan B)
+- id: papers.sm2025e2a.p1-1.substitute-pi
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 8; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: 3*sin(2*a/3)*pi/4+a*pi/2|a=pi
+    out: π^2/2+3*π*√(3)/8
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-1.png
+    note: Read from a zoomed view.
+  status: pass
+- id: papers.sm2025e2a.p1-1.solve-quadratic-decimal
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 9; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: solve(-49=20*t-1/2*9.81*t^2,t)
+    out: t=-1.7224142 or t=5.7998862
+    compare: numeric
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p2.1-rerun-1.png
+  status: pass
+- id: papers.sm2025e2a.p1-1.solve-column-vectors
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 10; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: solve([1+m;0+m;s-m]=[4;3;t],m,t)
+    out: m=3 and t=s-3
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-03.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+- id: papers.sm2025e2a.p1-1.solve-column-vectors-extra-unknown
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 11; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: solve([2+l;r-l;-3+4*l]=[4;3;t],l,t)
+    out: l=2 and r=5 and t=5
+    note: TI also solves for r, which is not named.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-03.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+- id: papers.sm2025e2a.p1-1.dot-product-of-derivatives
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 14; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: r16(t):=[n*@e^(-2*t),-t^2]
+    out: Done
+  - in: dotP(derivative(r16(t),t),derivative(r16(t),t,2))=0|t=1/2
+    out: 2-8*n^2*ⅇ^(-2)=0
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-04.png
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+- id: papers.sm2025e2a.p1-1.solve-positive-parameter
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k6
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section A, page 1.1, entry 15; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: solve(2-8*n^2*@e^(-2)=0,n)|n>0
+    out: n=ⅇ/2
+  - in: derivative(t^2,t)
+    out: 2*t
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K6-p1.1-04.png
+  status: pass
+- id: papers.sm2025e2b.p1-1.factor-rational
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 2; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f1(x):=3*x/(x^3+x+2)
+    out: Done
+  - in: factor(f1(x))
+    out: 3*x/((x+1)*(x^2-x+2))
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-01.png
+  status: pass
+- id: papers.sm2025e2b.p1-1.solve-asymptote-and-stationary
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 3; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f1(x):=3*x/(x^3+x+2)
+    out: Done
+  - in: solve(1/f1(x)=0,x)
+    out: x=-1
+    note: TI shows the warning triangle.
+  - in: solve(derivative(f1(x),x)=0,x)
+    out: x=1
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-01.png
+  status: pass
+- id: papers.sm2025e2b.p1-1.solve-inflection-numeric
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 5; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f1(x):=3*x/(x^3+x+2)
+    out: Done
+  - in: solve(derivative(f1(x),x,2)=0,x)
+    out: x=1.6864614
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-02.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): the root of a quintic prints as CRootOf'
+- id: papers.sm2025e2b.p1-1.substitute-decimal
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 6; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f1(x):=3*x/(x^3+x+2)
+    out: Done
+  - in: f1(x)|x=1.6864614283651
+    out: '0.5964135'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-1.png
+    note: Read from a zoomed view.
+  status: pass
+- id: papers.sm2025e2b.p1-1.volume-integral-decimal
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 7; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f1(x):=3*x/(x^3+x+2)
+    out: Done
+  - in: integral(pi*(f1(x))^2,x,0,2)
+    out: '2.2880103'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-1.png
+    note: Read from a zoomed view.
+  status: xfail
+  xfail_reason: CASSim gives a long exact form of the same value (plan B3, todo D18)
+- id: papers.sm2025e2b.p1-1.solve-asymptotes-surds
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 9; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f2(x):=3*x/(x^3-5*x+2)
+    out: Done
+  - in: solve(1/f2(x)=0,x)
+    out: x=-(√(2)+1) or x=√(2)-1 or x=2
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-03.png
+  status: pass
+- id: papers.sm2025e2b.p1-1.solve-stationary-with-parameter
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 11; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f3(x,a):=3*x/(x^3+a*x+2)
+    out: Done
+  - in: solve(derivative(f3(x,a),x)=0,x)
+    out: x=1
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-03.png
+  status: xfail
+  xfail_reason: 'SymPy text reaches the result (plan B1): SymPy''s Eq and ~ reach the text'
+- id: papers.sm2025e2b.p1-1.evaluate-with-parameter
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 12; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f3(x,a):=3*x/(x^3+a*x+2)
+    out: Done
+  - in: f3(1,a)
+    out: 3/(a+3)
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-04.png
+  status: pass
+- id: papers.sm2025e2b.p1-1.derivative-with-parameter-cancelled
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 13; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f3(x,a):=3*x/(x^3+a*x+2)
+    out: Done
+  - in: derivative(f3(x,a),x)
+    out: -6*(x^3-1)/(x^3+a*x+2)^2
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-04.png
+  status: xfail
+  xfail_reason: 'result not in TI''s simplified form (plan B7): a sum of quotients, not combined'
+- id: papers.sm2025e2b.p1-1.solve-for-parameter-at-point
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 1.1, entry 14; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: f3(x,a):=3*x/(x^3+a*x+2)
+    out: Done
+  - in: solve(x^3+a*x+2=0,a)|x=1
+    out: a=-3
+  - in: solve(derivative(f3(x,a),x,2)=0,a)|x=2
+    out: a=24/5
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p1.1-05.png
+  status: pass
+- id: papers.sm2025e2b.p3-1.euler-method
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 3.1, entry 1; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: euler((300-q)/150,t,q,{0,30},5,15)
+    out: '[0.,15.,30.;5.,34.5,61.05]'
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p3.1-01.png
+  status: xfail
+  xfail_reason: euler( is not built (plan B9)
+- id: papers.sm2025e2b.p3-1.desolve-negative-exponent
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 3.1, entry 2; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: deSolve(q'=(300-q)/150 and q(0)=5,t,q)
+    out: q=300-295*ⅇ^(-t/150)
+    compare: text
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p3.1-01.png
+  status: xfail
+  xfail_reason: printer writes 295/ⅇ^(t/150) (plan B8)
+- id: papers.sm2025e2b.p3-1.solve-exponential-and-rational
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 3.1, entry 3; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: solve(100=300-295*@e^(-t/150),t)
+    out: t=150*ln(59/40)
+    note: CASSim writes -150*ln(40/59); same value.
+  - in: solve(1/20=(100+2*t)/(3000+20*t),t)
+    out: t=50
+    note: TI shows the warning triangle.
+  - in: t=150*ln(59/40)
+    out: t=58.298698
+    compare: numeric
+    note: TI shows a decimal; whether it was ctrl+Enter is run 6, R6-C6.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence:
+    - ../docs/testing/pages-shots-6/K7-p3.1-01.png
+    - ../docs/testing/pages-shots-6/K7-p3.1-02.png
+  status: pass
+- id: papers.sm2025e2b.p4-1.vector-function-values
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 4.1, entry 2; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: r(t):=[5*cos(t)-4*cos(5*t/2),5*sin(t)-4*sin(5*t/2)]
+    out: Done
+  - in: r(0)
+    out: '[1,0]'
+  - in: r(2*pi)
+    out: '[9,0]'
+  - in: r(2*pi+0.01)
+    out: '[8.9985001,0.14998875]'
+    compare: text
+  - in: r(pi)
+    out: '[-5,-4]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p4.1-01.png
+  status: pass
+- id: papers.sm2025e2b.p4-1.vector-derivative-values
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 4.1, entry 6; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: r(t):=[5*cos(t)-4*cos(5*t/2),5*sin(t)-4*sin(5*t/2)]
+    out: Done
+  - in: dr(t):=derivative(r(t),t)
+    out: Done
+  - in: dr(0)
+    out: '[0,-5]'
+  - in: dr(2*pi)
+    out: '[0,15]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p4.1-01.png
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+- id: papers.sm2025e2b.p4-1.speed-squared
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 4.1, entry 10; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: r(t):=[5*cos(t)-4*cos(5*t/2),5*sin(t)-4*sin(5*t/2)]
+    out: Done
+  - in: dr(t):=derivative(r(t),t)
+    out: Done
+  - in: tCollect(dotP(dr(t),dr(t)))
+    out: 125-100*cos(3*t/2)
+    note: TI shows the warning triangle.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p4.1-02.png
+  status: xfail
+  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+- id: papers.sm2025e2b.p4-1.surd-of-trig
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 4.1, entry 11; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: sqrt(125-100*cos(3*t/2))
+    out: 5*√(5-4*cos(3*t/2))
+    note: TI takes the factor 5 out; CASSim leaves it in. Same value.
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p4.1-02.png
+  status: pass
+- id: papers.sm2025e2b.p4-1.arc-length-integral
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 4.1, entry 12; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: integral(5*sqrt(5-4*cos(3*t/2)),t,0,pi)
+    out: '36.607844'
+    compare: numeric
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p4.1-02.png
+  status: xfail
+  xfail_reason: the definite integral is echoed without its bounds (plan B3)
+- id: papers.sm2025e2b.p6-1.rerun-arc-length-nint
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 6.1, entry 3; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: nInt(5*sqrt(5-4*cos(3*t/2)),t,0,pi)
+    out: '36.607844'
+    compare: numeric
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p6.1-rerun-1.png
+    note: Re-run in a new Problem.
+  status: pass
+- id: papers.sm2025e2b.p5-1.matrix-inverse-solve
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 5.1, entry 1; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: '[2,0,9;3,6,5;1,9,-3]^-1*[8;7;7]'
+    out: '[-5;2;2]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p5.1-01.png
+  status: pass
+- id: papers.sm2025e2b.p5-1.three-planes
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 5.1, entry 5; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: pi1:=2*x+9*z=8
+    out: 2*x+9*z=8
+  - in: pi2:=3*x+6*y+5*z=7
+    out: 3*x+6*y+5*z=7
+  - in: pi3:=x+9*y-3*z=7
+    out: x+9*y-3*z=7
+  - in: solve(pi1 and pi2 and pi3,x,y,z)
+    out: x=-5 and y=2 and z=2
+  - in: crossP([3,6,5],[1,9,-3])
+    out: '[-63,14,21]'
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p5.1-01.png
+  status: pass
+- id: papers.sm2025e2b.p5-1.two-planes-free-parameter
+  course: specialist
+  tier: 1
+  tags:
+  - vce-paper
+  - k7
+  third_party: true
+  source: VCAA 2025 VCE Specialist Mathematics Examination 2, Section B, page 5.1, entry 7; © Victorian
+    Curriculum and Assessment Authority
+  steps:
+  - in: pi2:=3*x+6*y+5*z=7
+    out: 3*x+6*y+5*z=7
+  - in: pi3:=x+9*y-3*z=7
+    out: x+9*y-3*z=7
+  - in: solve(pi2 and pi3,x,y,z)
+    out: x=-(3*c1-1) and y=2*(c1+1)/3 and z=c1
+  provenance:
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
+      run 5)
+    captured: '2026-11-20'
+    reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-6/K7-p5.1-01.png
+  status: xfail
+  xfail_reason: free parameters are not named c1 (plan B9, decision 0034 item 4)
