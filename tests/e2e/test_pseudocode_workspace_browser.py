@@ -97,6 +97,32 @@ def test_code_workspace_is_responsive_in_both_themes(
             assert trace["x"] > code["x"]
 
 
+def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) -> None:
+    """FR-RUN-008: a person's clicks go to Flutter's canvas, not to the accessibility layer the
+    other tests use, so this test clicks screen positions and only turns that layer on at the
+    end to read the result. A pane-sized resize layer once swallowed these clicks."""
+    context = browser.new_context(viewport={"width": 1100, "height": 760})
+    page = context.new_page()
+    try:
+        page.goto(site[1] + "#/app/pseudocode", wait_until="load")
+        expect(page.locator("flt-semantics-placeholder")).to_be_attached(timeout=60_000)
+        page.wait_for_timeout(5_000)  # no accessibility layer to wait on: let the UI draw
+        page.mouse.click(300, 300)  # below the example in the Code pane: caret at the end
+        page.keyboard.press("Enter")
+        page.keyboard.type("print 7")
+        page.mouse.click(583, 65)  # Run
+        page.wait_for_timeout(3_000)
+        page.mouse.click(580, 179)  # the first variable's checkbox (a)
+        page.wait_for_timeout(1_000)
+
+        page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+        # The browser's text box is empty unless focused; Python's gutter shows the new line.
+        expect(page.get_by_text(re.compile(r"^1(\s+\d+)*\s+10$"))).to_be_attached()
+        expect(page.get_by_role("checkbox", name="a", exact=True)).not_to_be_checked()
+    finally:
+        context.close()
+
+
 def test_trace_controls_discover_and_toggle_constants(browser: Browser, site) -> None:
     with code_app(browser, site[1], 1100, 760) as page:
         page.get_by_role("button", name="Run", exact=True).click()
