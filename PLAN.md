@@ -316,6 +316,12 @@ navigation. Apply the same editor to Graphs and verify repeat when Graphs is int
 - 4d Other entry types, in this order: scatter plot, parametric, relations and conics (marching squares, spike D; drop false lines at jumps), polar, sequence, differential equations.
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
 - 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
+- **Simon's notes (2026-11-22), to do; not built yet.** Check each against `feature/m4-graphs-menus` (paused) before starting, since it changes the Graphs page.
+  1. No `Ans` in the graph entry line: an operator typed first must not get `ans` put in front, and `ans` is not offered there (the Calculator's `ans` prefix must not leak into the shared editor).
+  2. On a Graphs page, Tab moves the focus to the graph entry line and opens it on the first empty `fN(x)` slot (as ctrl+G does). Capture Tab so the browser does not move focus out of the app.
+  3. Restrict each function's plotted domain to where it is real: `sqrt(x)` currently crashes the app ("The application encountered an error: must be real number, not complex"). Non-real or failed samples must be dropped as gaps, never raise; add `sqrt(x)`, `ln(x)`, `sqrt(4-x^2)` and `x^(1/3)` as page-level tests, not only sampler tests.
+  4. Pinch zoom, and mouse-wheel or two-finger-scroll zoom about the pointer, on Graphs **and** Data & Statistics pages (decision 0034, item 1: standard affordances that do not clash). Check trackpad two-finger scroll on Chromebook and Mac, which arrives as wheel events.
+  (Simon's fifth note, the second click in the Calculator history, is decision 0034 item 6.)
 - Greyed, not built: Plane Geometry, 3D Graphing and the Geometry menu.
 - Exit: scene snapshot tests green; pan and zoom timed on a mid-range phone and a Chromebook and reported (FR-GRAPH-007).
 
