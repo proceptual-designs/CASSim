@@ -24,7 +24,8 @@ type Action = Literal[
     "sheet_bar", "sheet_cancel", "sheet_choose", "sheet_drag", "sheet_goto", "sheet_ok", "sheet_op",
     "sheet_ref_fixed", "sheet_ref_mode", "sheet_tap", "shift_tab", "sorter_go",
     "statistics", "graphs_select", "graphs_submit", "graphs_toggle", "graphs_zoom",
-    "graphs_gesture", "graphs_standard", "graphs_view", "statistics_eval", "statistics_point",
+    "graphs", "graphs_gesture", "graphs_standard", "graphs_view", "statistics_eval",
+    "statistics_point",
     "tab", "template", "undo", "undo_pages", "up",
     "wizard", "word_left", "word_right",
 ]  # fmt: skip

@@ -13,7 +13,7 @@ from cassim.app.theme import Theme
 from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
 from cassim.device.keys import Action
-from cassim.devices.nspire.pages.graphs import Graphs
+from cassim.devices.nspire.pages.graphs import FUNCTION_COLOURS, Graphs, function_colour
 from cassim.devices.nspire.ui.entry import EntryLine, row_height
 from cassim.graph.sampling import Window
 
@@ -23,7 +23,18 @@ _CONTROL_SPACING = 2
 _WHEEL_ZOOM_STEP = 600
 _LABEL_MARGIN = 6
 _LABEL_SIZE = 14
-_CURVE_COLOURS = ("curve1", "curve2", "curve3", "curve4", "curve5", "curve6")
+
+
+def graph_colours(theme: Theme) -> dict[str, str]:
+    """The scene's colour names for a Graphs page: TI's black is the screen text."""
+    colours = {
+        **COLOURS,
+        "ink": theme.screen_text,
+        "axis": theme.sheet_axis,
+        "grid": theme.sheet_grid,
+    }
+    colours.update((name, getattr(theme, name)) for name in FUNCTION_COLOURS if name != "ink")
+    return colours
 
 
 class GraphsView:
@@ -44,6 +55,7 @@ class GraphsView:
         self._height = 200.0
         self._plot_height = 100.0
         self._gesture_scale = 1.0
+        self._tool_active = False
         self.functions = ft.Column(spacing=0)
         self.plot = ft.Container(expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
         self._context_region = context_menu_region()
@@ -52,6 +64,7 @@ class GraphsView:
             on_scale_start=self._scale_start,
             on_scale_update=self._scale_update,
             on_scroll=self._scroll,
+            on_tap_up=self._tap,
             on_secondary_tap_down=self._context,
             on_long_press_start=self._context,
             drag_interval=16,
@@ -65,6 +78,7 @@ class GraphsView:
 
     def refresh(self, graphs: Graphs, width: float, height: float) -> None:
         self._width, self._height = max(width, 120), max(height, 100)
+        self._tool_active = graphs.tools.tool is not None
         scale = self.scale()
         controls: list[ft.Control] = []
         controls_height = 0.0
@@ -156,14 +170,9 @@ class GraphsView:
         self.functions.spacing = _CONTROL_SPACING * scale
         self._plot_height = max(self._height - controls_height, 100)
         scene = graphs.scene(self._width, self._plot_height)
-        colours = {
-            **COLOURS,
-            "ink": self.theme.screen_text,
-            "axis": self.theme.sheet_axis,
-            "grid": self.theme.sheet_grid,
-        }
+        colours = graph_colours(self.theme)
         drawing = canvas(scene, colours)
-        labels = self._curve_labels(graphs)
+        labels = self._curve_labels(graphs, colours)
         self._context_region.visible = True
         self._context_region.left = 0
         self._context_region.top = 0
@@ -175,18 +184,17 @@ class GraphsView:
             height=self._plot_height,
         )
 
-    def _curve_labels(self, graphs: Graphs) -> list[ft.Control]:
+    def _curve_labels(self, graphs: Graphs, colours: dict[str, str]) -> list[ft.Control]:
         labels: list[ft.Control] = []
-        for index, entry in enumerate(graphs.functions):
+        for entry in graphs.functions:
             if not entry.visible or entry.compiled is None or not entry.latex:
                 continue
             point = self._label_point(entry.compiled, graphs.window)
             if point is None:
                 continue
             x, y = point
-            colour_name = _CURVE_COLOURS[index % len(_CURVE_COLOURS)]
-            colour = COLOURS.get(colour_name, self.theme.screen_text)
-            latex = rf"\mathrm{{{entry.name}}}(x)={entry.latex}"
+            colour = colours[function_colour(entry.name)]
+            latex = rf"\mathbf{{{entry.name}}}(x)={entry.latex}"
             labels.append(
                 ft.Container(
                     ft.Markdown(
@@ -246,6 +254,12 @@ class GraphsView:
             return
         factor = math.exp(delta / _WHEEL_ZOOM_STEP)
         self._gesture(0, 0, factor, event.local_position.x, event.local_position.y)
+
+    def _tap(self, event: ft.TapEvent) -> None:
+        """A tap on the plot is a zoom tool's point or a trace's x (touch first, FR-GRAPH-002)."""
+        position = event.local_position
+        if self._tool_active and position is not None:
+            self._act("graphs", f"tap:{position.x:.17g},{position.y:.17g}")
 
     def _context(self, _: ft.TapEvent | ft.LongPressStartEvent) -> None:
         self._act("context_menu", "")
