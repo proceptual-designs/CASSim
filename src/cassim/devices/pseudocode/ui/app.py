@@ -87,6 +87,30 @@ GCD_LCM = (
     "print g\n"
     "print (a*b) div g"
 )
+PRIME_SIEVE = (
+    "n ← 100\n"
+    "is_prime ← []\n"
+    "for i from 1 to n\n"
+    "  append true to is_prime\n"
+    "end for\n"
+    "is_prime[1] ← false\n"
+    "for p from 2 to n\n"
+    "  if is_prime[p] then\n"
+    "    multiple ← p*p\n"
+    "    while multiple ≤ n do\n"
+    "      is_prime[multiple] ← false\n"
+    "      multiple ← multiple + p\n"
+    "    end while\n"
+    "  end if\n"
+    "end for\n"
+    "primes ← []\n"
+    "for i from 2 to n\n"
+    "  if is_prime[i] then\n"
+    "    append i to primes\n"
+    "  end if\n"
+    "end for\n"
+    "print primes"
+)
 DICE_MAX_STATS = (
     "seed(42)\n"
     "trials ← 200\n"
@@ -478,7 +502,10 @@ class CodeApp:
                     "Intro",
                     (("Linear", LINEAR), ("Loop", EXAMPLE), ("Bisection", BISECTION)),
                 ),
-                group("Number theory", (("GCD and LCM", GCD_LCM),)),
+                group(
+                    "Number theory",
+                    (("GCD and LCM", GCD_LCM), ("Prime sieve (1 to 100)", PRIME_SIEVE)),
+                ),
                 group(
                     "Probability",
                     (

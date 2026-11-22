@@ -22,6 +22,7 @@ from cassim.devices.pseudocode.ui.app import (
     LINEAR,
     OUTPUT_COLUMN_WIDTH,
     POLYNOMIAL_NEWTON,
+    PRIME_SIEVE,
     VARIABLE_COLUMN_WIDTH,
     CodeApp,
     wrapped_rows,
@@ -501,7 +502,7 @@ def test_newton_example_uses_short_names_and_sits_with_numerical_methods() -> No
         if isinstance(group, ft.SubmenuButton)
     }
     assert groups["Numerical methods"] == ["Left Riemann sum", "Polynomial + Newton"]
-    assert groups["Number theory"] == ["GCD and LCM"]
+    assert groups["Number theory"] == ["GCD and LCM", "Prime sieve (1 to 100)"]
 
 
 @pytest.mark.parametrize(
@@ -549,3 +550,12 @@ def test_a_row_can_also_end_after_a_slash() -> None:
     # the line could only break at spaces).
     assert wrapped_rows("x ← f(x)/derivative(c)", 14) == 2
     assert wrapped_rows("aaaa/bbbb", 6) == 2  # breaks after the slash, not inside a word
+
+
+def test_prime_sieve_example_lists_the_primes_up_to_100() -> None:
+    result = run(PRIME_SIEVE, Settings())
+
+    assert result.error is None
+    primes = [int(p) for p in result.output[0].strip("[]").split(", ")]
+    assert primes == [p for p in range(2, 101) if all(p % d for d in range(2, p))]
+    assert len(primes) == 25
