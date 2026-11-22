@@ -113,8 +113,18 @@ Verification: **T** (Unit/Corpus Test), **E** (Playwright E2E), **I** (Inspectio
 | **FR-FX-TUT-003** | **Validation & Error Correction**: If the student presses an incorrect key, the system provides an immediate non-punitive gentle hint (e.g., "Press [8] to enter the score, or [AC] to clear") without breaking state. | M | E, D |
 | **FR-FX-TUT-004** | **Step-by-Step Explanation**: Each step displays the physical key icon, the mathematical reasoning behind the action, and the expected LCD screen appearance. | M | E, I |
 | **FR-FX-TUT-005** | **Three Instructional Modes**: <br>1. *Guide Me (Interactive)*: Step-by-step user-driven execution with key highlights.<br>2. *Show Me (Demonstration)*: Automated playback fallback if a student is stuck.<br>3. *Test Me (Challenge)*: Practical problem prompt with key highlights disabled; verifies the student's final screen and result. | M | E, D |
-| **FR-FX-TUT-006** | **Curriculum Catalog**: Built-in structured catalog covering Australian curricula (Year 7–10, VCE GM, VCE MM, HSC Standard/Advanced) organized by strands. | M | I |
-| **FR-FX-TUT-007** | **Offline & Private**: Tutorials and student bookmarks run 100% locally in browser storage without network calls or telemetry. | M | T |
+| **FR-FX-TUT-006** | **Offline & Private**: Tutorials and student bookmarks run 100% locally in browser storage without network calls or telemetry. | M | T |
+
+### 3.7 Browser Persistence & URL State Sharing
+
+| ID | Description | MoSCoW | Verif |
+|---|---|---|---|
+| **FR-FX-SHR-001** | **Automatic Browser Persistence**: Calculator state is automatically saved to browser storage (IndexedDB / localStorage under device prefix `fx:`) upon any calculation or mode change. On page reload or browser restart, the exact state (mode, settings, variables, active statistical data, calculation history) is restored seamlessly. | M | T, E |
+| **FR-FX-SHR-002** | **URL Fragment State Sharing**: Full calculator state is serialisable to a compressed JSON string, encoded with zlib and URL-safe Base64 into the URL fragment (`#doc=` or `#fx=`). Loading a share URL completely recreates the calculator state. | M | T, E |
+| **FR-FX-SHR-003** | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. | M | I, T |
+| **FR-FX-SHR-004** | **Compact Link Budget**: Because scientific calculator state (mode, registers $A$–$F, M, X, Y$, history, table data) is lightweight, the compressed URL fragment is typically 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`) for reliable transmission across e-mail, LMS (Canvas, Google Classroom), and school messaging platforms. | M | T |
+| **FR-FX-SHR-005** | **Teacher Pre-Populated Problem Sets**: Teachers can generate a single share link that pre-loads complex data sets (e.g. a 25-row bivariate data table for linear regression, or a specific function $f(x) = 2x^2 - 3x + 1$ in Table mode), allowing students to open the link and begin solving immediately without error-prone manual data entry. | S | D, E |
+| **FR-FX-SHR-006** | **Named State Snapshots**: Users can export and import named state files (`.cassim.json`) to save multiple distinct problem workflows to their local disk or Google Drive. | S | T, E |
 
 ---
 

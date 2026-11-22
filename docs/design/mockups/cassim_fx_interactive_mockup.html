@@ -14,7 +14,7 @@
     --accent: #2462a1;
     --accent-glow: rgba(36, 98, 161, 0.4);
     
-    /* Calculator Theme: Default CASSim fx Interpolated Dark */
+    /* Calculator Theme: Default CASSim Slate (Dark) */
     --calc-case: #1e2229;
     --calc-bezel: #17191e;
     --calc-border: #323846;
@@ -40,52 +40,58 @@
     --ring-accent: #3a4250;
   }
 
-  /* Heritage Skin (Casio fx Classic) */
-  body.skin-heritage {
-    --calc-case: #242629;
-    --calc-bezel: #1b1c1e;
-    --calc-border: #383a3f;
-    --lcd-bg: #d4dec9;
-    --lcd-pixel: #0d120a;
-    --key-fn: #1f2022;
-    --key-fn-text: #ffffff;
-    --key-num: #5c6068;
-    --key-num-text: #ffffff;
-    --key-del: #70b838;
+  /* Classroom High-Contrast Theme (Accessibility & Projector Mode) */
+  body.theme-contrast {
+    --calc-case: #121316;
+    --calc-bezel: #0a0b0d;
+    --calc-border: #444a56;
+    --lcd-bg: #f2f5f8;
+    --lcd-pixel: #000000;
+    --lcd-annun-off: rgba(0, 0, 0, 0.12);
+    --key-fn: #ffffff;
+    --key-fn-text: #000000;
+    --key-fn-border: #263238;
+    --key-num: #ffffff;
+    --key-num-text: #000000;
+    --key-num-border: #263238;
+    --key-del: #37474f;
     --key-del-text: #ffffff;
-    --key-ac: #70b838;
+    --key-ac: #c62828;
     --key-ac-text: #ffffff;
-    --label-shift: #ffcc00;
-    --label-alpha: #ff5252;
-    --label-extra: #00e5ff;
-    --dpad-base: #1c1d1f;
-    --dpad-dish: #141517;
-    --dpad-border: #2c2d30;
-    --ring-accent: #2c2d30;
+    --label-shift: #c77700;
+    --label-alpha: #0050b3;
+    --label-extra: #00838f;
+    --dpad-base: #263238;
+    --dpad-dish: #192024;
+    --dpad-border: #78909c;
+    --ring-accent: #b0bec5;
   }
 
-  /* Abacus Matrix Carbon Skin */
-  body.skin-carbon {
-    --calc-case: #141619;
-    --calc-bezel: #0d0f12;
-    --calc-border: #2e333d;
-    --lcd-bg: #eef2ea;
-    --lcd-pixel: #0a0d08;
-    --key-fn: #20232a;
+  /* Studio Light Theme (Clean Minimalist Workspace) */
+  body.theme-light {
+    --calc-case: #e9ecef;
+    --calc-bezel: #dee2e6;
+    --calc-border: #adb5bd;
+    --lcd-bg: #e2e8f0;
+    --lcd-pixel: #0f172a;
+    --lcd-annun-off: rgba(15, 23, 42, 0.12);
+    --key-fn: #475569;
     --key-fn-text: #ffffff;
-    --key-num: #282d37;
-    --key-num-text: #ffffff;
-    --key-del: #455a64;
+    --key-fn-border: #334155;
+    --key-num: #f8fafc;
+    --key-num-text: #0f172a;
+    --key-num-border: #cbd5e1;
+    --key-del: #2563eb;
     --key-del-text: #ffffff;
-    --key-ac: #d32f2f;
+    --key-ac: #dc2626;
     --key-ac-text: #ffffff;
-    --label-shift: #ffd54f;
-    --label-alpha: #40c4ff;
-    --label-extra: #ffd54f;
-    --dpad-base: #0f1c2e;
-    --dpad-dish: #08111c;
-    --dpad-border: #90a4ae;
-    --ring-accent: #cfd8dc;
+    --label-shift: #d97706;
+    --label-alpha: #e11d48;
+    --label-extra: #0891b2;
+    --dpad-base: #334155;
+    --dpad-dish: #1e293b;
+    --dpad-border: #64748b;
+    --ring-accent: #94a3b8;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -158,9 +164,6 @@
     position: relative;
     user-select: none;
     transition: background 0.3s, border-color 0.3s;
-  }
-  body.skin-carbon .calc-chassis {
-    background: repeating-linear-gradient(45deg, #14171a, #14171a 3px, #1a1e23 3px, #1a1e23 6px);
   }
 
   .calc-header {
@@ -626,6 +629,45 @@
   .ctrl-btn:hover { background: #353f52; }
   .ctrl-btn.primary { background: var(--accent); border-color: #3f8ad6; }
   .ctrl-btn.primary:hover { background: #1b538e; }
+  .action-btn {
+    background: #252a35;
+    border: 1px solid #3c4458;
+    color: #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .action-btn:hover { background: #323847; color: #fff; }
+  .action-btn.share-btn {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    border-color: #3b82f6;
+    color: #fff;
+  }
+  .action-btn.share-btn:hover {
+    background: linear-gradient(135deg, #254b8c, #3566bb);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e293b;
+    border: 1px solid #3b82f6;
+    color: #f8fafc;
+    padding: 12px 18px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    font-size: 13px;
+    font-weight: 500;
+    display: none;
+    z-index: 1000;
+  }
 </style>
 </head>
 <body>
@@ -635,14 +677,25 @@
     <div class="logo-chip">CASSIM</div>
     <div>
       <div class="brand-title">CASSim fx — Scientific Calculator</div>
-      <div class="brand-sub">Australian Curriculum Standard: Casio fx-82AU / fx-100AU / Abacus SX-II Matrix</div>
+      <div class="brand-sub">Australian Secondary Mathematics (Years 7–10, VCE, HSC)</div>
     </div>
   </div>
-  <div class="theme-controls">
-    <span style="font-size: 13px; color: var(--text-secondary); margin-right: 4px;">Hardware Skin:</span>
-    <button class="skin-btn active" onclick="setSkin('default')">CASSim fx Dark</button>
-    <button class="skin-btn" onclick="setSkin('heritage')">Casio Heritage</button>
-    <button class="skin-btn" onclick="setSkin('carbon')">Abacus Matrix</button>
+  
+  <div style="display: flex; align-items: center; gap: 14px;">
+    <!-- Save & Share State Controls -->
+    <div style="display: flex; gap: 8px;">
+      <button class="action-btn" onclick="saveToBrowser()" title="Save current session to local browser storage">💾 Save State</button>
+      <button class="action-btn" onclick="loadFromBrowser()" title="Restore saved session from browser storage">📂 Load</button>
+      <button class="action-btn share-btn" onclick="shareStateURL()" title="Share state via compressed URL fragment (zero server tracking)">🔗 Share URL</button>
+    </div>
+
+    <!-- Software Theme Controls -->
+    <div class="theme-controls">
+      <span style="font-size: 13px; color: var(--text-secondary); margin-right: 4px;">Theme:</span>
+      <button class="skin-btn active" onclick="setTheme('slate')">Slate</button>
+      <button class="skin-btn" onclick="setTheme('contrast')">High-Contrast</button>
+      <button class="skin-btn" onclick="setTheme('light')">Light</button>
+    </div>
   </div>
 </header>
 
@@ -654,8 +707,8 @@
       
       <!-- Top Branding -->
       <div class="calc-header">
-        <span class="calc-badge" id="skinBadge">CASSIM fx-82</span>
-        <span class="calc-subbadge">NATURAL-V.P.A.M.</span>
+        <span class="calc-badge" id="skinBadge">CASSIM fx</span>
+        <span class="calc-subbadge">NATURAL DISPLAY</span>
       </div>
 
       <!-- LCD Dot Matrix Screen -->
@@ -1538,25 +1591,145 @@
 
   // Initialize
   window.onload = function() {
-    renderStep();
+    if (!checkUrlHash()) {
+      renderStep();
+    }
   };
 
-  function setSkin(skin) {
+  function setTheme(theme) {
     document.body.className = '';
     document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
     
-    if (skin === 'heritage') {
-      document.body.classList.add('skin-heritage');
-      document.getElementById('skinBadge').innerText = "fx-82AU PLUS II";
+    if (theme === 'contrast') {
+      document.body.classList.add('theme-contrast');
       event.target.classList.add('active');
-    } else if (skin === 'carbon') {
-      document.body.classList.add('skin-carbon');
-      document.getElementById('skinBadge').innerText = "ABACUS SX-II";
+    } else if (theme === 'light') {
+      document.body.classList.add('theme-light');
       event.target.classList.add('active');
     } else {
-      document.getElementById('skinBadge').innerText = "CASSIM fx-82";
       event.target.classList.add('active');
     }
+    document.getElementById('skinBadge').innerText = "CASSIM fx";
+  }
+
+  // --- BROWSER STORAGE & URL SHARING ---
+  function saveToBrowser() {
+    const state = {
+      lesson: currentLessonId,
+      step: currentStepIndex,
+      expr: document.getElementById('lcdExprText').innerText,
+      result: document.getElementById('lcdResult').innerText,
+      history: actionHistory,
+      theme: document.body.className || 'slate',
+      time: Date.now()
+    };
+    try {
+      localStorage.setItem('cassim_fx_state', JSON.stringify(state));
+      showToast('💾 State saved locally in browser storage.');
+    } catch (e) {
+      showToast('⚠️ Storage error: ' + e.message);
+    }
+  }
+
+  function loadFromBrowser() {
+    try {
+      const saved = localStorage.getItem('cassim_fx_state');
+      if (!saved) {
+        showToast('ℹ️ No saved state found in browser storage.');
+        return;
+      }
+      const state = JSON.parse(saved);
+      restoreState(state);
+      showToast('📂 Restored calculator state from browser storage.');
+    } catch (e) {
+      showToast('⚠️ Load error: ' + e.message);
+    }
+  }
+
+  function shareStateURL() {
+    const state = {
+      l: currentLessonId,
+      s: currentStepIndex,
+      e: document.getElementById('lcdExprText').innerText,
+      r: document.getElementById('lcdResult').innerText,
+      h: actionHistory.slice(-6)
+    };
+    const jsonStr = JSON.stringify(state);
+    const b64 = btoa(encodeURIComponent(jsonStr));
+    const fragment = 'fx=' + b64;
+    window.location.hash = fragment;
+    
+    // Copy URL to clipboard
+    const fullUrl = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        showToast(`🔗 Share Link copied to clipboard! (${fragment.length} chars in URL hash, zero server tracking)`);
+      }).catch(() => {
+        showToast(`🔗 Share Link generated in browser URL bar! (${fragment.length} chars)`);
+      });
+    } else {
+      showToast(`🔗 Share Link updated in URL address bar! (${fragment.length} chars)`);
+    }
+  }
+
+  function checkUrlHash() {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash.startsWith('fx=')) {
+      try {
+        const b64 = hash.slice(3);
+        const jsonStr = decodeURIComponent(atob(b64));
+        const state = JSON.parse(jsonStr);
+        if (state.l && LESSONS[state.l]) currentLessonId = state.l;
+        if (state.s !== undefined) currentStepIndex = state.s;
+        document.getElementById('lessonSelect').value = currentLessonId;
+        renderStep();
+        if (state.e !== undefined) document.getElementById('lcdExprText').innerText = state.e;
+        if (state.r !== undefined) document.getElementById('lcdResult').innerText = state.r;
+        if (state.h) {
+          actionHistory = state.h;
+          updateHistoryDisplay();
+        }
+        showToast('⚡ Restored calculator state from shared URL fragment!');
+        return true;
+      } catch (e) {
+        console.error('Failed to parse URL hash:', e);
+      }
+    }
+    return false;
+  }
+
+  function restoreState(state) {
+    if (state.lesson && LESSONS[state.lesson]) currentLessonId = state.lesson;
+    if (state.step !== undefined) currentStepIndex = state.step;
+    document.getElementById('lessonSelect').value = currentLessonId;
+    renderStep();
+    if (state.expr !== undefined) document.getElementById('lcdExprText').innerText = state.expr;
+    if (state.result !== undefined) document.getElementById('lcdResult').innerText = state.result;
+    if (state.history) {
+      actionHistory = state.history;
+      updateHistoryDisplay();
+    }
+    if (state.theme) {
+      document.body.className = state.theme === 'slate' ? '' : state.theme;
+    }
+  }
+
+  function updateHistoryDisplay() {
+    const container = document.getElementById('historyChips');
+    container.innerHTML = actionHistory.map(c => `<span class="history-chip">${c}</span>`).join('');
+  }
+
+  function showToast(msg) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.innerText = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 4000);
   }
 
   function changeLesson() {
