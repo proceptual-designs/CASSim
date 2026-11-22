@@ -119,3 +119,22 @@ def test_a_numeric_search_finds_every_crossing():
 
 def test_an_equation_with_a_parameter_is_still_echoed():
     assert text("solve(cos(x)=a*x,x)").startswith("solve(")
+
+
+# B5: `|` constraints
+
+
+def test_a_binding_is_applied_after_implicit_differentiation():
+    assert text("eqn:=x*y^2+y=x^3", "impDif(eqn,x,y)|x=1 and y=1") == "2/3"
+
+
+def test_a_binding_reaches_a_user_functions_result():
+    assert text("eq(z):=z^2+a*z+b=0", "eq(z)|a=-3 and b=2") == "z^2-3*z+2=0"
+
+
+def test_a_bound_with_a_parameter_filters_roots_and_names_the_parameter():
+    assert text("solve(x*(x-h)*(2*x-h)=0,x)|0<x<3*h/4") == "x=h/2 and h>0"
+
+
+def test_a_derivative_at_a_point_still_works():
+    assert text("derivative(x^3,x)|x=2") == "12"

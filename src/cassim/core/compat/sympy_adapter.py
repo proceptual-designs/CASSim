@@ -1188,7 +1188,33 @@ def solve_equation(
                     found = found.intersect(_constraint_set(constraint, variable))
     except NotImplementedError, ValueError, TypeError:
         return None
-    return _as_condition(found, variable, equation, complex_roots=complex_roots)
+    condition = _as_condition(found, variable, equation, complex_roots=complex_roots)
+    bounds = [c for c in constraints if variable in c.free_symbols and c.free_symbols - {variable}]
+    if condition is None or not bounds or complex_roots:
+        return condition
+    return _within_parametric_bounds(condition, variable, bounds)
+
+
+def _within_parametric_bounds(condition: Raw, variable: Raw, bounds: list[Raw]) -> Raw:
+    """Keep the roots that meet bounds with a parameter, `|0<x<h/2`, taking the parameters as
+    positive, as TI does: a root kept that way gets `and h>0` (emulator check 6, K4)."""
+    clauses = condition.args if isinstance(condition, sp.Or) else (condition,)
+    kept: list[Raw] = []
+    for clause in clauses:
+        parts = conjuncts(clause)
+        root = next((p.rhs for p in parts if isinstance(p, sp.Eq) and p.lhs == variable), None)
+        if root is None:
+            kept.append(clause)
+            continue
+        parameters = sorted(root.free_symbols, key=str)
+        positive = {p: sp.Dummy(str(p), positive=True) for p in parameters}
+        held = [sp.simplify(b.subs(variable, root).subs(positive)) for b in bounds]
+        if any(h == sp.false for h in held):
+            continue
+        if all(h == sp.true for h in held) and parameters:
+            parts += [sp.Gt(p, 0) for p in parameters]
+        kept.append(sp.And(*parts))
+    return sp.Or(*kept) if kept else sp.false
 
 
 def conjuncts(raw: Raw) -> list[Raw]:
