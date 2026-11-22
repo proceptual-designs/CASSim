@@ -25,13 +25,14 @@ In Australian secondary mathematics (Year 7–10, VCE General Mathematics, VCE M
 
 ---
 
-## 2. Clean-Room Boundary & IP Governance
+## 2. Clean-Room Boundary, Trade Dress & Trademark Governance
 
 Per CASSim decisions 0028, NFR-LEG-008, and NFR-LEG-009:
-1. **No ROM, Firmware, or Proprietary Code**: No binary dumps or decompiled code from Casio or Abacus. The simulator is a behavioral reconstruction built from user manuals, teacher guides, syllabus requirements, and physical keyboard analysis.
-2. **No Proprietary Brand Artwork or Logos**: The product is strictly **CASSim fx**. Casio, Natural V.P.A.M., and Abacus logos/trademarks are not used. Generic functional terminology is employed (e.g. "Natural Display", "MathIO / LineIO", "S⇔D Toggle").
-3. **Visual Cleanliness**: The physical bezel and key shapes are original vector designs that interpolate between CASSim's Nspire-like handheld dark palette and the physical button geometries of the reference calculators.
-4. **Documentation & Help**: All instructional text and tutorial explanations are original pedagogical prose written for Australian students and teachers.
+1. **No ROM, Firmware, or Proprietary Code**: No binary dumps or decompiled code from Casio, Abacus, or any other manufacturer. The simulator is a purely behavioral, mathematical reconstruction built from curriculum specifications, user manuals, and syllabus requirements.
+2. **No Proprietary Brand Trademarks**: The product is strictly **CASSim fx**. Manufacturer trademarks such as "Casio", "fx-82AU", "fx-100AU", "Natural V.P.A.M.", "ClassWiz", and "Abacus" are never used as product names, screen badges, or UI assets. Generic, descriptive terminology is employed: "CASSim fx", "Natural Display", "MathIO / LineIO", "S⇔D Toggle", "Scientific Calculator".
+3. **No Trade Dress Mimicry**: Skins and visual themes must **not** be faithful reproductions or traces of proprietary physical calculator casings. We replicate the abstract functional arrangement of keys (the standard 50-key matrix) so that students build transferable muscle memory for examinations, but the physical presentation—curvatures, bevels, badge placements, unique color combinations, textures, and keycap profiles—is CASSim's own original digital design.
+4. **Original CASSim Design Language**: Rather than attempting to mimic physical plastics or branded hardware replicas, CASSim fx adopts CASSim's unified software design language: clean flat-design aesthetics, elegant dark/light/high-contrast accessibility palettes, modern typography, and vector-rendered components.
+5. **Documentation & Help Prose**: All instructional texts, step-by-step guides, and tutorial explanations are original pedagogical prose written from scratch for Australian classrooms.
 
 ---
 
@@ -172,27 +173,66 @@ The physical keypad layout follows the Australian standard 50-key matrix:
 
 ---
 
-## 5. Visual Styling & Skin Interpolation
+## 5. Visual Styling & Original CASSim Themes (Non-Infringing Design)
 
-To satisfy the user's requirement to interpolate between the current CASSim Nspire handheld and the reference hardware (Casio fx-82AU PLUS II, fx-100AU PLUS, and Abacus SX-II MATRIXn), CASSim fx defines three cohesive, switchable visual skins:
+To avoid trade dress mimicry or trademark infringement, CASSim fx does **not** attempt to reproduce physical hardware shells, branded badges, or proprietary manufacturing finishes. 
 
-1. **CASSim fx Modern (Default)**:
-   - Interpolates the dark obsidian chassis of CASSim (`#14161a` background, `#1e2229` body) with subtle matte curvature.
-   - Keycaps: Deep slate function keys (`#282c35`), lighter graphite numeric keys (`#363c48`).
-   - Modifiers: Warm golden-amber `SHIFT` (`#e5a93c`), vibrant rose-coral `ALPHA` (`#e05d5d`).
-   - Action Keys: Elegant emerald/jade `DEL` (`#43a047`) and `AC` (`#2e7d32`).
-   - Screen: High-contrast authentic LCD grey-green (`#dce5d3` background, `#10180e` active pixels) with dot-matrix text and subtle pixel shadow.
-   - D-Pad: Contoured directional cross with central concave dish and metallic rim.
+Instead, the UI maintains the functional 50-key matrix layout (necessary for educational transfer and student muscle memory) while applying an **original, modern digital software design system** integrated with CASSim's existing themes:
 
-2. **Casio fx Heritage**:
-   - Faithful recreation of the Australian classroom classic: Dark charcoal body (`#242628`).
-   - High-visibility neon lime `DEL` and `AC` (`#76c043`).
-   - Distinctive oval top keys (`SHIFT`, `ALPHA`, `MODE`, `ON`).
+1. **CASSim Slate (Default / Dark)**:
+   - Modern obsidian/slate dark chassis (`#1e2229`), consistent with CASSim's core theme (`#14161a`).
+   - Deep slate function keycaps (`#282c35`) with crisp off-white labels (`#f0f2f5`).
+   - Graphite numeric block (`#363c48`) providing clear visual tiering without copying any physical plastic hue.
+   - Warm amber modifier indicator (`#e5a93c`) for `SHIFT` and soft coral (`#e05d5d`) for `ALPHA`.
+   - Balanced emerald action keys (`#43a047` / `#2e7d32`) for `DEL` and `AC`, avoiding proprietary fluorescent neon pigments.
+   - High-contrast sage LCD screen (`#dce5d3` background, `#121810` pixel matrix) with clean vector dot-matrix rendering.
+   - D-Pad: Minimalist directional cross with circular central dish and subtle metallic framing.
 
-3. **Abacus Matrix Carbon**:
-   - Textured micro-carbon weave faceplate.
-   - Machined brushed aluminium ring around a royal navy directional D-pad.
-   - Vivid primary yellow `2nd` key (`#fbc02d`), sky blue `ALPHA` (`#03a9f4`), deep cobalt `ON` (`#1565c0`), and crimson red `AC` (`#d32f2f`).
+2. **Classroom High-Contrast (Accessibility & Projector Mode)**:
+   - Optimized for classroom projectors, interactive smartboards, and students with low vision.
+   - Deep matte charcoal chassis (`#121316`) with high-contrast bright white keycaps (`#ffffff`).
+   - Bold, crisp black key text (`#000000`) and high-contrast color-coded modifier legends (vivid gold `#d48800` and vibrant ultramarine `#0050b3`).
+   - Solid high-contrast red `AC` (`#c62828`) and dark slate `DEL` (`#37474f`).
+   - Stark monochrome paper LCD (`#f4f6f8` background, `#000000` sharp pixels).
+
+3. **Studio Light (Clean Minimalist / Modernist)**:
+   - Contemporary light workspace theme for well-lit classrooms and personal computers.
+   - Cool off-white chassis (`#e9ecef`) with subtle slate bezel border (`#ced4da`).
+   - Slate-grey keycaps (`#495057` for functions, `#f8f9fa` for numbers) with crisp typography.
+   - Neutral LCD palette (`#e8edf2` background, `#1a202c` text).
+
+Under all themes, the product name badge on the calculator body is cleanly styled as **`CASSIM fx`** with the functional subtitle **`NATURAL DISPLAY`**. Proprietary badges such as "fx-82AU", "fx-100AU", "ABACUS", "MATRIXn", or "V.P.A.M." are strictly prohibited.
+
+### 5.1 Top Navigation Bar & Presentation Mode (CASSim Consistency)
+
+To ensure seamless visual and behavioral consistency with the rest of CASSim:
+1. **Top Navigation Bar (`FR-FX-UI-001`)**:
+   - Matches the exact dark chip styling of CASSim's Nspire and Pseudocode workspaces (`#14161a` bar, `#252830` chip buttons with subtle borders).
+   - **`CASSim` Menu Chip**:
+     - *Home*: Returns to the all-in-one device switcher (`home.py`).
+     - *Appearance...*: Opens theme dialog (CASSim Slate Dark, Classroom High-Contrast, Studio Light).
+     - *Settings...*: Configures default angle unit, MthIO/LineIO, and frequency tables.
+     - *Check for Updates*: Inspects static offline PWA update status.
+     - *Help (wiki)...*: Opens offline documentation pages.
+     - *About CASSim...*: Displays legal disclaimer, Unlicense notice, and clean-room confirmation.
+   - **`Doc` Menu Chip**:
+     - *Open...*: Restores previously saved calculation sessions.
+     - *Save / Save as...*: Persists state to browser storage (IndexedDB) or downloads `.cassim.json`.
+     - *Share Link...*: Copies compressed `#fx=...` URL fragment link to clipboard.
+     - *Examples ▶*: Pre-loaded syllabus datasets (Standard Deviation, Five-Number Summary, Linear Regression, Table of Values).
+     - *Reset All...*: Factory initialization restoring default degrees and clearing memory.
+   - **Status Badges**: Small unobtrusive chips indicating active calculation mode (`COMP` or `STAT`), angle unit (`Deg`, `Rad`, `Gra`), and input mode (`Math` or `Line`).
+
+2. **Hidable Top Bar for Full-Screen Classroom Demos (`FR-FX-UI-002`)**:
+   - A dedicated **Hide Menu** toggle in the top bar allows teachers to collapse the entire header.
+   - In presentation mode, the calculator sits in a clean, distraction-free environment ideal for smartboards and classroom projectors.
+   - An unobtrusive floating button (`Show Menu`) or pressing the `Esc` key instantly restores the navigation bar.
+
+3. **Understated Pedagogical Sidebar (`FR-FX-UI-003`)**:
+   - The interactive guide is styled as a quiet, professional textbook companion—completely free of cartoonish gamification, emojis, or loud neon gradients.
+   - Uses clean typography: step counter (`Step 1 of 6`), plain bold action (`Press [MODE]`), and mathematical rationale in muted secondary text.
+   - Target key on the calculator illuminates with a calm, subtle accent ring (`#38bdf8` sky blue), matching CASSim's design palette.
+   - The entire tutorial sidebar can be collapsed or docked away with one click, leaving the calculator freestanding for interactive whiteboard use.
 
 ---
 

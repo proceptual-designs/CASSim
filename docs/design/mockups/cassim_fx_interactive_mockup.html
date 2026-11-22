@@ -3,49 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CASSim fx — Scientific Calculator Interactive Mockup & Tutorial Engine</title>
+<title>CASSim fx — Scientific Calculator</title>
 <style>
   :root {
-    --bg-color: #0f1115;
-    --panel-bg: #181b21;
-    --panel-border: #2c3240;
-    --text-primary: #f2f4f7;
-    --text-secondary: #9aa2b1;
+    --bg-color: #0d0f12;
+    --panel-bg: #14161a;
+    --panel-border: #232730;
+    --text-primary: #f1f5f9;
+    --text-secondary: #8b95a5;
     --accent: #2462a1;
-    --accent-glow: rgba(36, 98, 161, 0.4);
+    --accent-hover: #1d4f82;
+    --accent-focus: #38bdf8;
     
     /* Calculator Theme: Default CASSim Slate (Dark) */
-    --calc-case: #1e2229;
-    --calc-bezel: #17191e;
-    --calc-border: #323846;
+    --calc-case: #1a1d24;
+    --calc-bezel: #13151a;
+    --calc-border: #2e3442;
     --lcd-bg: #dce5d3;
     --lcd-pixel: #121810;
     --lcd-annun-off: rgba(18, 24, 16, 0.12);
-    --key-fn: #282c35;
+    --key-fn: #262a33;
     --key-fn-text: #f0f2f5;
-    --key-fn-border: #181a20;
-    --key-num: #363c48;
+    --key-fn-border: #16181e;
+    --key-num: #333844;
     --key-num-text: #ffffff;
-    --key-num-border: #22262e;
-    --key-del: #3d8b40;
+    --key-num-border: #1e222b;
+    --key-del: #2e6930;
     --key-del-text: #ffffff;
-    --key-ac: #2e7d32;
+    --key-ac: #255d27;
     --key-ac-text: #ffffff;
     --label-shift: #e5a93c;
     --label-alpha: #e05d5d;
     --label-extra: #00bcd4;
-    --dpad-base: #22262e;
-    --dpad-dish: #191c22;
-    --dpad-border: #3e4656;
-    --ring-accent: #3a4250;
+    --dpad-base: #1f222a;
+    --dpad-dish: #16181e;
+    --dpad-border: #383f4f;
+    --ring-accent: #323847;
   }
 
-  /* Classroom High-Contrast Theme (Accessibility & Projector Mode) */
+  /* Classroom High-Contrast Theme */
   body.theme-contrast {
-    --calc-case: #121316;
-    --calc-bezel: #0a0b0d;
-    --calc-border: #444a56;
-    --lcd-bg: #f2f5f8;
+    --bg-color: #050608;
+    --calc-case: #101216;
+    --calc-bezel: #08090b;
+    --calc-border: #3e4452;
+    --lcd-bg: #f4f6f8;
     --lcd-pixel: #000000;
     --lcd-annun-off: rgba(0, 0, 0, 0.12);
     --key-fn: #ffffff;
@@ -56,22 +58,26 @@
     --key-num-border: #263238;
     --key-del: #37474f;
     --key-del-text: #ffffff;
-    --key-ac: #c62828;
+    --key-ac: #b71c1c;
     --key-ac-text: #ffffff;
     --label-shift: #c77700;
     --label-alpha: #0050b3;
-    --label-extra: #00838f;
     --dpad-base: #263238;
     --dpad-dish: #192024;
     --dpad-border: #78909c;
     --ring-accent: #b0bec5;
   }
 
-  /* Studio Light Theme (Clean Minimalist Workspace) */
+  /* Studio Light Theme */
   body.theme-light {
-    --calc-case: #e9ecef;
-    --calc-bezel: #dee2e6;
-    --calc-border: #adb5bd;
+    --bg-color: #f1f5f9;
+    --panel-bg: #ffffff;
+    --panel-border: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --calc-case: #e2e8f0;
+    --calc-bezel: #cbd5e1;
+    --calc-border: #94a3b8;
     --lcd-bg: #e2e8f0;
     --lcd-pixel: #0f172a;
     --lcd-annun-off: rgba(15, 23, 42, 0.12);
@@ -81,13 +87,12 @@
     --key-num: #f8fafc;
     --key-num-text: #0f172a;
     --key-num-border: #cbd5e1;
-    --key-del: #2563eb;
+    --key-del: #1e40af;
     --key-del-text: #ffffff;
-    --key-ac: #dc2626;
+    --key-ac: #b91c1c;
     --key-ac-text: #ffffff;
     --label-shift: #d97706;
     --label-alpha: #e11d48;
-    --label-extra: #0891b2;
     --dpad-base: #334155;
     --dpad-dish: #1e293b;
     --dpad-border: #64748b;
@@ -97,151 +102,289 @@
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   body { background: var(--bg-color); color: var(--text-primary); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
 
-  /* App Header */
-  header {
-    background: var(--panel-bg);
-    border-bottom: 1px solid var(--panel-border);
-    padding: 12px 24px;
+  /* ---------------------------------------------------- */
+  /* CASSim AUTHENTIC TOP NAVIGATION BAR                 */
+  /* ---------------------------------------------------- */
+  .cassim-topbar {
+    background: #14161a;
+    border-bottom: 1px solid #232730;
+    height: 38px;
+    padding: 0 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 500;
+    user-select: none;
+    transition: transform 0.25s ease, margin-top 0.25s ease;
   }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .logo-chip {
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    color: #fff;
-    font-weight: 800;
-    font-size: 14px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    letter-spacing: 1px;
+  .cassim-topbar.hidden {
+    margin-top: -38px;
+    transform: translateY(-100%);
   }
-  .brand-title { font-size: 18px; font-weight: 700; color: #fff; }
-  .brand-sub { font-size: 13px; color: var(--text-secondary); }
 
-  .theme-controls { display: flex; align-items: center; gap: 10px; }
-  .skin-btn {
-    background: #252a35;
-    border: 1px solid #373e4f;
-    color: #cad1de;
-    padding: 6px 14px;
-    border-radius: 6px;
+  .menu-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .menu-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* CASSim Chip Button (Dark button with light text) */
+  .cassim-chip {
+    background: #252830;
+    border: 1px solid #333842;
+    color: #e2e8f0;
     font-size: 13px;
     font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
   }
-  .skin-btn:hover { background: #323847; color: #fff; }
-  .skin-btn.active {
-    background: var(--accent);
-    border-color: #438cd9;
-    color: #fff;
-    box-shadow: 0 0 10px var(--accent-glow);
+  .cassim-chip:hover {
+    background: #2f3440;
+    border-color: #485060;
+  }
+  .cassim-chip.active {
+    background: #1c2027;
+    border-color: #2462a1;
+    color: #ffffff;
   }
 
-  /* Main Workspace Layout */
+  /* Status Chips */
+  .status-chip {
+    background: #191c22;
+    border: 1px solid #242932;
+    color: #7e8b9b;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.3px;
+  }
+  .status-chip.primary {
+    color: #93c5fd;
+    border-color: #1e3a5f;
+  }
+
+  /* Dropdown Menu Overlay */
+  .cassim-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 3px;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    border-radius: 4px;
+    min-width: 175px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.65), 0 2px 5px rgba(0,0,0,0.35);
+    display: none;
+    flex-direction: column;
+    padding: 3px 0;
+    z-index: 1000;
+  }
+  .cassim-menu.show { display: flex; }
+  
+  .menu-action {
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #e2e8f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.12s;
+  }
+  .menu-action:hover {
+    background: #272c38;
+    color: #ffffff;
+  }
+  .menu-sep {
+    height: 1px;
+    background: #282d38;
+    margin: 3px 0;
+  }
+
+  /* Submenu */
+  .has-sub { position: relative; }
+  .submenu {
+    position: absolute;
+    left: 100%;
+    top: -3px;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    border-radius: 4px;
+    min-width: 210px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.65);
+    display: none;
+    flex-direction: column;
+    padding: 3px 0;
+  }
+  .has-sub:hover .submenu { display: flex; }
+
+  /* Full Screen / Hide Menu Toggle */
+  .demo-btn {
+    background: transparent;
+    border: 1px solid #282d38;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+  .demo-btn:hover {
+    background: #21252e;
+    color: #f1f5f9;
+    border-color: #3b4352;
+  }
+
+  /* Floating Restore Button when topbar is hidden */
+  .restore-topbar-btn {
+    position: fixed;
+    top: 8px;
+    left: 12px;
+    background: rgba(20, 22, 26, 0.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid #2d3340;
+    color: #94a3b8;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 5px;
+    z-index: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .restore-topbar-btn:hover {
+    background: #252830;
+    color: #fff;
+    border-color: var(--accent-focus);
+  }
+  .restore-topbar-btn.visible { display: flex; }
+
+  /* ---------------------------------------------------- */
+  /* MAIN WORKSPACE                                       */
+  /* ---------------------------------------------------- */
   .workspace {
-    display: grid;
-    grid-template-columns: 460px 1fr;
-    gap: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 32px;
     padding: 24px;
-    max-width: 1480px;
+    max-width: 1300px;
     margin: 0 auto;
     flex: 1;
     width: 100%;
   }
 
   /* Calculator Hardware Wrapper */
-  .calc-column { display: flex; flex-direction: column; align-items: center; }
+  .calc-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
   .calc-chassis {
-    width: 390px;
+    width: 380px;
     background: var(--calc-case);
-    border: 3px solid var(--calc-border);
-    border-radius: 28px 28px 42px 42px;
-    padding: 22px 18px 28px 18px;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.08);
+    border: 2px solid var(--calc-border);
+    border-radius: 24px 24px 36px 36px;
+    padding: 18px 16px 24px 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255,255,255,0.06);
     position: relative;
     user-select: none;
-    transition: background 0.3s, border-color 0.3s;
   }
 
   .calc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding: 0 6px;
+    margin-bottom: 10px;
+    padding: 0 4px;
   }
   .calc-badge {
-    font-size: 15px;
-    font-weight: 900;
-    letter-spacing: 1.5px;
-    color: #d1d5db;
-    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #cbd5e1;
   }
   .calc-subbadge {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.8px;
-    color: #8b929e;
+    letter-spacing: 0.6px;
+    color: #64748b;
   }
 
   /* Screen Area */
   .screen-bezel {
     background: var(--calc-bezel);
-    border: 2px solid #232730;
-    border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 16px;
-    box-shadow: inset 0 4px 10px rgba(0,0,0,0.8);
+    border: 1px solid #232730;
+    border-radius: 10px;
+    padding: 8px;
+    margin-bottom: 14px;
+    box-shadow: inset 0 3px 8px rgba(0,0,0,0.7);
   }
   .lcd-display {
     background: var(--lcd-bg);
-    border-radius: 6px;
-    padding: 8px 10px;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
-    height: 94px;
+    border-radius: 5px;
+    padding: 6px 8px;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
+    height: 88px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     position: relative;
     overflow: hidden;
-    transition: background 0.3s;
   }
 
   /* Annunciators */
   .lcd-annunciators {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 800;
     font-family: "Courier New", Courier, monospace;
     line-height: 1;
     padding-bottom: 2px;
-    border-bottom: 1px dashed rgba(0,0,0,0.15);
+    border-bottom: 1px dashed rgba(0,0,0,0.12);
   }
   .annun-item { color: var(--lcd-annun-off); }
-  .annun-item.active { color: var(--lcd-pixel); text-shadow: 0 0 1px rgba(0,0,0,0.5); }
+  .annun-item.active { color: var(--lcd-pixel); }
 
   /* Expression & Result */
   .lcd-expr {
     font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--lcd-pixel);
     letter-spacing: 0.5px;
-    min-height: 24px;
+    min-height: 22px;
     display: flex;
     align-items: center;
-    position: relative;
     overflow-x: auto;
     white-space: nowrap;
   }
   .lcd-cursor {
     display: inline-block;
     width: 2px;
-    height: 16px;
+    height: 14px;
     background: var(--lcd-pixel);
     margin-left: 2px;
     animation: blink 1s infinite;
@@ -250,89 +393,76 @@
 
   .lcd-result {
     font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
     color: var(--lcd-pixel);
     text-align: right;
-    letter-spacing: 1px;
-    min-height: 26px;
+    letter-spacing: 0.8px;
+    min-height: 24px;
   }
-
-  /* Fraction rendering inside LCD */
-  .lcd-frac {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    vertical-align: middle;
-    margin: 0 2px;
-    font-size: 12px;
-  }
-  .lcd-frac-num { border-bottom: 1.5px solid var(--lcd-pixel); padding: 0 2px; }
-  .lcd-frac-den { padding: 0 2px; }
 
   /* Keypad Matrix */
   .keypad-grid {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 6px;
   }
 
   /* Row 1: Modifiers + D-Pad + On */
   .row-top {
     display: grid;
-    grid-template-columns: 50px 50px 110px 50px 50px;
+    grid-template-columns: 46px 46px 106px 46px 46px;
     gap: 6px;
     align-items: center;
     justify-content: center;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   /* Oval Modifier Buttons */
   .btn-oval {
-    width: 48px;
-    height: 32px;
-    border-radius: 16px;
+    width: 45px;
+    height: 30px;
+    border-radius: 15px;
     background: var(--key-fn);
     border: 1px solid var(--key-fn-border);
     color: #fff;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 3px 0 #121418, 0 4px 6px rgba(0,0,0,0.4);
-    transition: transform 0.08s, box-shadow 0.08s;
+    box-shadow: 0 2px 0 #121418, 0 3px 5px rgba(0,0,0,0.3);
+    transition: transform 0.06s, box-shadow 0.06s;
   }
-  .btn-oval:active { transform: translateY(2px); box-shadow: 0 1px 0 #121418; }
+  .btn-oval:active { transform: translateY(1px); box-shadow: 0 1px 0 #121418; }
   .btn-shift { color: var(--label-shift); }
   .btn-alpha { color: var(--label-alpha); }
 
   /* Directional D-Pad */
   .dpad-container {
-    width: 104px;
-    height: 74px;
+    width: 98px;
+    height: 70px;
     background: var(--dpad-base);
-    border: 3px solid var(--ring-accent);
-    border-radius: 37px;
+    border: 2px solid var(--ring-accent);
+    border-radius: 35px;
     display: grid;
     grid-template-areas: 
       ". up ."
       "left center right"
       ". down .";
-    grid-template-columns: 28px 40px 28px;
-    grid-template-rows: 22px 24px 22px;
+    grid-template-columns: 26px 38px 26px;
+    grid-template-rows: 21px 22px 21px;
     align-items: center;
     justify-items: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.06);
-    position: relative;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.05);
     margin: 0 auto;
   }
   .dpad-btn {
     background: transparent;
     border: none;
-    color: #9aa2b1;
-    font-size: 13px;
+    color: #8b95a5;
+    font-size: 12px;
     cursor: pointer;
     width: 100%;
     height: 100%;
@@ -341,373 +471,408 @@
     justify-content: center;
   }
   .dpad-btn:hover { color: #fff; }
-  .dpad-btn:active { transform: scale(0.9); }
+  .dpad-btn:active { transform: scale(0.92); }
   .dpad-up { grid-area: up; }
   .dpad-down { grid-area: down; }
   .dpad-left { grid-area: left; }
   .dpad-right { grid-area: right; }
   .dpad-center {
     grid-area: center;
-    width: 32px;
-    height: 24px;
-    border-radius: 12px;
+    width: 30px;
+    height: 22px;
+    border-radius: 11px;
     background: var(--dpad-dish);
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.06);
   }
 
-  /* Function Grid & Number Grid */
+  /* Button Rows */
   .btn-row {
     display: grid;
-    gap: 7px;
+    gap: 6px;
     justify-content: center;
   }
   .row-4col { grid-template-columns: repeat(4, 1fr); }
   .row-6col { grid-template-columns: repeat(6, 1fr); }
   .row-5col { grid-template-columns: repeat(5, 1fr); }
 
-  /* Key Cell wrapper (Key + Shift/Alpha Labels) */
   .key-cell {
     display: flex;
     flex-direction: column;
     align-items: center;
-    position: relative;
   }
   .key-legends {
     display: flex;
     justify-content: space-between;
     width: 100%;
     padding: 0 2px;
-    font-size: 8.5px;
+    font-size: 8px;
     font-weight: 700;
     line-height: 1.1;
-    height: 12px;
+    height: 11px;
   }
   .legend-shift { color: var(--label-shift); }
   .legend-alpha { color: var(--label-alpha); }
-  .legend-extra { color: var(--label-extra); }
 
-  /* Key Button Base */
   .calc-key {
     width: 100%;
-    height: 31px;
-    border-radius: 6px;
+    height: 30px;
+    border-radius: 5px;
     border: 1px solid var(--key-fn-border);
     background: var(--key-fn);
     color: var(--key-fn-text);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 3px 0 #14161a, 0 4px 6px rgba(0,0,0,0.3);
-    transition: transform 0.06s, box-shadow 0.06s, background 0.15s, border-color 0.15s;
-    position: relative;
+    box-shadow: 0 2px 0 #121418, 0 3px 5px rgba(0,0,0,0.25);
+    transition: transform 0.05s, box-shadow 0.05s;
   }
-  .calc-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #14161a; }
+  .calc-key:active { transform: translateY(1px); box-shadow: 0 1px 0 #121418; }
 
-  /* Numeric Block Key */
   .key-number {
     background: var(--key-num);
     color: var(--key-num-text);
     border-color: var(--key-num-border);
-    height: 34px;
-    font-size: 16px;
+    height: 33px;
+    font-size: 15px;
     font-weight: 600;
   }
   .key-del {
     background: var(--key-del);
     color: var(--key-del-text);
     border-color: rgba(0,0,0,0.2);
-    font-size: 13px;
+    font-size: 12px;
   }
   .key-ac {
     background: var(--key-ac);
     color: var(--key-ac-text);
     border-color: rgba(0,0,0,0.2);
-    font-size: 13px;
+    font-size: 12px;
   }
 
-  /* Educational Glowing Spotlight for Interactive Tutorial */
-  .calc-key.tutorial-spotlight {
-    outline: 3px solid #ffeb3b;
-    border-color: #ffffff !important;
-    background: linear-gradient(135deg, #fbc02d, #f57f17) !important;
-    color: #000000 !important;
-    box-shadow: 0 0 16px #ffeb3b, 0 4px 0 #b26a00 !important;
-    animation: pulse-glow 1s infinite alternate;
-    z-index: 20;
+  /* Clean, Non-Gaudy Pedagogical Target Ring */
+  .calc-key.target-focus {
+    outline: 2px solid var(--accent-focus) !important;
+    outline-offset: 1px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
   }
-  .btn-oval.tutorial-spotlight {
-    outline: 3px solid #ffeb3b;
-    box-shadow: 0 0 16px #ffeb3b, 0 3px 0 #b26a00 !important;
-    animation: pulse-glow 1s infinite alternate;
+  .btn-oval.target-focus {
+    outline: 2px solid var(--accent-focus) !important;
+    outline-offset: 1px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
   }
-  .dpad-btn.tutorial-spotlight {
-    color: #ffeb3b !important;
-    font-weight: 900;
-    filter: drop-shadow(0 0 6px #ffeb3b);
-  }
-  @keyframes pulse-glow {
-    0% { transform: scale(1); filter: brightness(1); }
-    100% { transform: scale(1.08); filter: brightness(1.25); }
+  .dpad-btn.target-focus {
+    color: var(--accent-focus) !important;
+    filter: drop-shadow(0 0 4px var(--accent-focus));
   }
 
-  /* Right Side: Interactive Tutorial Panel */
-  .tutorial-panel {
+  /* ---------------------------------------------------- */
+  /* CLEAN PEDAGOGICAL TUTORIAL SIDEBAR (NO AI SLOP)      */
+  /* ---------------------------------------------------- */
+  .tut-sidebar {
+    width: 380px;
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
-    border-radius: 16px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   }
-  .tut-header {
-    background: #20242d;
-    padding: 16px 20px;
+  .tut-top {
+    padding: 12px 16px;
     border-bottom: 1px solid var(--panel-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .tut-title { font-size: 17px; font-weight: 700; color: #fff; }
-  .tut-badge {
-    background: #2d3444;
-    color: #79a8e0;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 12px;
+  .tut-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
+  .tut-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .tut-close-btn:hover { color: var(--text-primary); }
 
-  .tut-body {
-    padding: 20px;
+  .tut-content {
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    flex: 1;
+    gap: 14px;
   }
 
-  /* Lesson Chooser Dropdown */
-  .chooser-group { display: flex; flex-direction: column; gap: 6px; }
-  .chooser-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-  .lesson-select {
-    background: #252a35;
-    border: 1px solid #3c4458;
-    color: #fff;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 14px;
+  .tut-select {
+    width: 100%;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    color: #e2e8f0;
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-size: 13px;
     outline: none;
     cursor: pointer;
   }
-  .lesson-select:focus { border-color: var(--accent); }
+  .tut-select:focus { border-color: var(--accent); }
 
-  /* Current Step Interactive Card */
-  .step-card {
-    background: #1f232c;
-    border: 2px solid #2d3342;
-    border-radius: 12px;
-    padding: 18px;
+  .step-box {
+    background: #181b22;
+    border: 1px solid #262a34;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    position: relative;
-    border-left: 5px solid #2462a1;
+    gap: 8px;
   }
-  .step-meta {
+  .step-counter {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7dd3fc;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .step-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .step-key-tag {
+    display: inline-block;
+    background: #252a35;
+    border: 1px solid #3c4458;
+    color: #f8fafc;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .step-detail {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Quiet error notice */
+  .tut-hint {
+    font-size: 12px;
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 6px 10px;
+    border-radius: 4px;
+    display: none;
+  }
+  .tut-hint.show { display: block; }
+
+  /* History breadcrumbs */
+  .key-history {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .history-list {
+    display: flex;
+    gap: 4px;
+    font-family: monospace;
+    color: #cbd5e1;
+  }
+
+  .tut-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .tut-btn {
+    flex: 1;
+    background: #20242d;
+    border: 1px solid #2e3442;
+    color: #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .tut-btn:hover { background: #2a303c; color: #fff; }
+  .tut-btn.accent {
+    background: var(--accent);
+    border-color: #3b82f6;
+  }
+  .tut-btn.accent:hover { background: var(--accent-hover); }
+
+  /* ---------------------------------------------------- */
+  /* MODAL DIALOGS (Appearance, About, Share)             */
+  /* ---------------------------------------------------- */
+  .modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-backdrop.open { display: flex; }
+  
+  .modal-window {
+    background: #181b22;
+    border: 1px solid #2e3442;
+    border-radius: 8px;
+    width: 420px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-head {
+    padding: 12px 18px;
+    background: #1f232c;
+    border-bottom: 1px solid #2a303c;
     display: flex;
     justify-content: space-between;
     align-items: center;
-  }
-  .step-count { font-size: 13px; font-weight: 800; color: #79a8e0; text-transform: uppercase; }
-  .user-driven-badge {
-    background: rgba(76, 175, 80, 0.15);
-    border: 1px solid rgba(76, 175, 80, 0.4);
-    color: #81c784;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    color: #f1f5f9;
   }
-
-  .step-instruction {
-    font-size: 16px;
-    font-weight: 600;
-    color: #fff;
-    line-height: 1.4;
-  }
-  .key-target-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #282f3e;
-    border: 1px solid #3e4860;
-    padding: 4px 10px;
-    border-radius: 6px;
+  .modal-body {
+    padding: 18px;
     font-size: 13px;
-    font-weight: 700;
-    color: #ffeb3b;
-  }
-
-  .step-explanation {
-    font-size: 13px;
-    color: #b0b8c6;
+    color: #cbd5e1;
     line-height: 1.5;
-    background: rgba(0,0,0,0.2);
-    padding: 10px;
-    border-radius: 6px;
-    border-left: 3px solid #ffb300;
-  }
-
-  /* Feedback Alert (Wrong Key / Gentle Guidance) */
-  .hint-banner {
-    background: rgba(229, 57, 53, 0.15);
-    border: 1px solid rgba(229, 57, 53, 0.4);
-    color: #ef9a9a;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    display: none;
-    align-items: center;
-    gap: 8px;
-  }
-  .hint-banner.show { display: flex; }
-
-  /* Breadcrumbs of user actions */
-  .history-tray {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 12px;
   }
-  .history-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
-  .history-chips {
+  .modal-foot {
+    padding: 12px 18px;
+    background: #15181e;
+    border-top: 1px solid #242934;
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    min-height: 28px;
-    align-items: center;
-  }
-  .history-chip {
-    background: #252a35;
-    border: 1px solid #373e4f;
-    color: #cfd6e4;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
-  /* Tutorial Controls Bar */
-  .tut-controls {
+  .theme-radio-group {
     display: flex;
-    gap: 10px;
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--panel-border);
+    flex-direction: column;
+    gap: 8px;
   }
-  .ctrl-btn {
-    flex: 1;
-    background: #282f3d;
-    border: 1px solid #3c465b;
-    color: #fff;
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+  .theme-radio-option {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.2s;
-  }
-  .ctrl-btn:hover { background: #353f52; }
-  .ctrl-btn.primary { background: var(--accent); border-color: #3f8ad6; }
-  .ctrl-btn.primary:hover { background: #1b538e; }
-  .action-btn {
-    background: #252a35;
-    border: 1px solid #3c4458;
-    color: #e2e8f0;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
+    gap: 8px;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
+    padding: 6px;
+    border-radius: 4px;
   }
-  .action-btn:hover { background: #323847; color: #fff; }
-  .action-btn.share-btn {
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    border-color: #3b82f6;
-    color: #fff;
-  }
-  .action-btn.share-btn:hover {
-    background: linear-gradient(135deg, #254b8c, #3566bb);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
-  }
+  .theme-radio-option:hover { background: #212630; }
+
+  /* Toast Notification */
   .toast {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 20px;
+    right: 20px;
     background: #1e293b;
-    border: 1px solid #3b82f6;
+    border: 1px solid #38bdf8;
     color: #f8fafc;
-    padding: 12px 18px;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    font-size: 13px;
-    font-weight: 500;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 12.5px;
     display: none;
-    z-index: 1000;
+    z-index: 3000;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   }
 </style>
 </head>
-<body>
+<body onclick="closeAllMenus(event)">
 
-<header>
-  <div class="brand">
-    <div class="logo-chip">CASSIM</div>
-    <div>
-      <div class="brand-title">CASSim fx — Scientific Calculator</div>
-      <div class="brand-sub">Australian Secondary Mathematics (Years 7–10, VCE, HSC)</div>
+<!-- Floating Menu Restore Button for Full Screen Mode -->
+<button class="restore-topbar-btn" id="restoreTopbarBtn" onclick="toggleTopbar(true)">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+  Show Menu
+</button>
+
+<!-- CASSim TOP MENU BAR -->
+<header class="cassim-topbar" id="cassimTopbar">
+  <div class="menu-left">
+    
+    <!-- CASSim Menu Chip -->
+    <div style="position: relative;">
+      <button class="cassim-chip" id="chipCASSim" onclick="toggleMenu('menuCASSim', event)">CASSim</button>
+      <div class="cassim-menu" id="menuCASSim">
+        <div class="menu-action" onclick="menuAction('Home')">Home</div>
+        <div class="menu-action" onclick="openAppearanceModal()">Appearance...</div>
+        <div class="menu-action" onclick="menuAction('Settings')">Settings...</div>
+        <div class="menu-sep"></div>
+        <div class="menu-action" onclick="menuAction('Updates')">Check for Updates</div>
+        <div class="menu-action" onclick="menuAction('Wiki')">Help (wiki)...</div>
+        <div class="menu-action" onclick="openAboutModal()">About CASSim...</div>
+      </div>
     </div>
+
+    <!-- Doc Menu Chip -->
+    <div style="position: relative;">
+      <button class="cassim-chip" id="chipDoc" onclick="toggleMenu('menuDoc', event)">Doc</button>
+      <div class="cassim-menu" id="menuDoc">
+        <div class="menu-action" onclick="loadFromBrowser()">Open...</div>
+        <div class="menu-action" onclick="saveToBrowser()">Save</div>
+        <div class="menu-action" onclick="saveToBrowser()">Save as...</div>
+        <div class="menu-action" onclick="shareStateURL()">Share Link...</div>
+        <div class="menu-sep"></div>
+        <div class="menu-action has-sub">
+          <span>Examples</span>
+          <span>▶</span>
+          <div class="submenu">
+            <div class="menu-action" onclick="loadExample('stddev')">1. Standard Deviation</div>
+            <div class="menu-action" onclick="loadExample('fivenum')">2. Five-Number Summary</div>
+            <div class="menu-action" onclick="loadExample('linreg')">3. Linear Regression</div>
+            <div class="menu-action" onclick="loadExample('table')">4. Table of Values</div>
+          </div>
+        </div>
+        <div class="menu-sep"></div>
+        <div class="menu-action" onclick="resetCalculator()">Reset All...</div>
+      </div>
+    </div>
+
+    <!-- Mode and Angle Status Chips -->
+    <span class="status-chip primary" id="topStatusMode">COMP</span>
+    <span class="status-chip" id="topStatusAngle">Deg</span>
+    <span class="status-chip" id="topStatusIO">Math</span>
+
   </div>
-  
-  <div style="display: flex; align-items: center; gap: 14px;">
-    <!-- Save & Share State Controls -->
-    <div style="display: flex; gap: 8px;">
-      <button class="action-btn" onclick="saveToBrowser()" title="Save current session to local browser storage">💾 Save State</button>
-      <button class="action-btn" onclick="loadFromBrowser()" title="Restore saved session from browser storage">📂 Load</button>
-      <button class="action-btn share-btn" onclick="shareStateURL()" title="Share state via compressed URL fragment (zero server tracking)">🔗 Share URL</button>
-    </div>
 
-    <!-- Software Theme Controls -->
-    <div class="theme-controls">
-      <span style="font-size: 13px; color: var(--text-secondary); margin-right: 4px;">Theme:</span>
-      <button class="skin-btn active" onclick="setTheme('slate')">Slate</button>
-      <button class="skin-btn" onclick="setTheme('contrast')">High-Contrast</button>
-      <button class="skin-btn" onclick="setTheme('light')">Light</button>
-    </div>
+  <div class="menu-right">
+    <button class="demo-btn" onclick="toggleTopbar(false)" title="Hide menu bar for full screen presentation">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      Hide Menu
+    </button>
   </div>
 </header>
 
 <div class="workspace">
 
   <!-- Left: Calculator Hardware Simulator -->
-  <div class="calc-column">
+  <div class="calc-wrapper">
     <div class="calc-chassis">
       
       <!-- Top Branding -->
       <div class="calc-header">
-        <span class="calc-badge" id="skinBadge">CASSIM fx</span>
+        <span class="calc-badge">CASSIM fx</span>
         <span class="calc-subbadge">NATURAL DISPLAY</span>
       </div>
 
@@ -741,7 +906,6 @@
           <button class="btn-oval btn-shift" id="k_shift" onclick="pressKey('SHIFT')">SHIFT</button>
           <button class="btn-oval btn-alpha" id="k_alpha" onclick="pressKey('ALPHA')">ALPHA</button>
           
-          <!-- Directional Cross -->
           <div class="dpad-container">
             <button class="dpad-btn dpad-up" id="k_up" onclick="pressKey('UP')">▲</button>
             <button class="dpad-btn dpad-left" id="k_left" onclick="pressKey('LEFT')">◄</button>
@@ -957,627 +1121,208 @@
       </div><!-- /keypad-grid -->
 
     </div><!-- /calc-chassis -->
-  </div><!-- /calc-column -->
+  </div><!-- /calc-wrapper -->
 
-  <!-- Right: User-Driven Interactive Tutorial Panel -->
-  <div class="tutorial-panel">
-    <div class="tut-header">
-      <div class="tut-title">Interactive Tutorial Engine</div>
-      <div class="tut-badge" id="modeBadge">USER-DRIVEN GUIDE</div>
+  <!-- Right: Quiet, Professional Pedagogical Tutorial Panel -->
+  <aside class="tut-sidebar" id="tutSidebar">
+    <div class="tut-top">
+      <span class="tut-title">Interactive Guide</span>
+      <button class="tut-close-btn" onclick="toggleTutorialPanel()">Hide Panel</button>
     </div>
 
-    <div class="tut-body">
-      
-      <!-- Lesson Chooser -->
-      <div class="chooser-group">
-        <label class="chooser-label">Select Built-In Syllabus Lesson:</label>
-        <select class="lesson-select" id="lessonSelect" onchange="changeLesson()">
-          <optgroup label="Priority YouTube Series (How To Maths)">
-            <option value="reset">1. Reset & Initialise Calculator (Shift+9 CLR)</option>
-            <option value="freq">2. Turn On Frequency Table in Setup</option>
-            <option value="stddev" selected>3. Find Mean and Standard Deviation (sx vs σx)</option>
-            <option value="five_num">4. Generate Five-Number Summary (Boxplots)</option>
-            <option value="linear_reg">5. Pearson Correlation (r) & Linear Regression</option>
-          </optgroup>
-          <optgroup label="Curriculum Essentials">
-            <option value="fractions">6. Fractions & Mixed Numbers (S⇔D toggle)</option>
-            <option value="prime_factor">7. Prime Factorisation (FACT)</option>
-            <option value="table_mode">8. Table of Values Mode (f(x))</option>
-          </optgroup>
+    <div class="tut-content">
+      <div>
+        <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">TOPIC:</label>
+        <select class="tut-select" id="lessonSelect" onchange="changeLesson()">
+          <option value="stddev">Standard Deviation (sx vs σx)</option>
+          <option value="fivenum">Five-Number Summary (Boxplots)</option>
+          <option value="freq">Enabling Frequency Table</option>
+          <option value="reset">Initialise Calculator (Shift+9 CLR)</option>
+          <option value="linreg">Linear Regression & Correlation (r)</option>
+          <option value="fractions">Fractions & Mixed Numbers (S⇔D)</option>
+          <option value="prime_factor">Prime Factorisation (FACT)</option>
         </select>
       </div>
 
-      <!-- Current Step Interactive Card -->
-      <div class="step-card">
-        <div class="step-meta">
-          <span class="step-count" id="stepCounter">STEP 1 OF 6</span>
-          <span class="user-driven-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-            YOU CONTROL THE KEYS
-          </span>
-        </div>
-
-        <div class="step-instruction" id="stepInstruction">
-          Press <span class="key-target-hint" id="stepTargetKey">[MODE]</span> to open the mode selection screen.
-        </div>
-
-        <div class="step-explanation" id="stepExplanation">
-          Mode 2 activates statistical calculations. On Australian school calculators, you must switch to STAT mode before entering data points.
-        </div>
-
-        <!-- Wrong-key gentle hint alert -->
-        <div class="hint-banner" id="hintBanner">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-          <span id="hintText">Tip: Look for the glowing button on the keypad!</span>
-        </div>
+      <div class="step-box">
+        <div class="step-counter" id="stepCounter">Step 1 of 6</div>
+        <div class="step-text" id="stepText">Press [MODE] to display calculation modes.</div>
+        <div class="step-detail" id="stepDetail">Select STAT mode to begin entering statistical data.</div>
       </div>
 
-      <!-- Action History -->
-      <div class="history-tray">
-        <div class="history-label">Keypress Breadcrumbs:</div>
-        <div class="history-chips" id="historyChips">
-          <span class="history-chip">[ON]</span>
-        </div>
+      <div class="tut-hint" id="tutHint">Key pressed does not match target. Follow the highlight on the keypad.</div>
+
+      <div class="key-history">
+        <span>Recent:</span>
+        <div class="history-list" id="historyList">[ON]</div>
       </div>
 
-      <!-- Controls -->
-      <div class="tut-controls">
-        <button class="ctrl-btn" onclick="restartLesson()">⏮ Restart</button>
-        <button class="ctrl-btn" onclick="prevStep()">◀ Back</button>
-        <button class="ctrl-btn primary" id="autoPlayBtn" onclick="toggleAutoPlay()">▶ Show Me (Autoplay)</button>
+      <div class="tut-actions">
+        <button class="tut-btn" onclick="restartLesson()">Restart</button>
+        <button class="tut-btn" onclick="prevStep()">Back</button>
+        <button class="tut-btn accent" id="autoBtn" onclick="toggleAutoPlay()">Demonstrate</button>
       </div>
-
     </div>
-  </div>
+  </aside>
 
 </div>
 
+<!-- Appearance Modal -->
+<div class="modal-backdrop" id="modalAppearance">
+  <div class="modal-window">
+    <div class="modal-head">
+      <span>Appearance</span>
+      <button class="tut-close-btn" onclick="closeModal('modalAppearance')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="theme-radio-group">
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="slate" checked onchange="setTheme('slate')">
+          <div>
+            <b>CASSim Slate (Dark)</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Default high-contrast obsidian and slate theme.</div>
+          </div>
+        </label>
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="contrast" onchange="setTheme('contrast')">
+          <div>
+            <b>Classroom High-Contrast</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Designed for projectors, smartboards, and low vision.</div>
+          </div>
+        </label>
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="light" onchange="setTheme('light')">
+          <div>
+            <b>Studio Light</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Clean off-white palette for bright environments.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="tut-btn accent" onclick="closeModal('modalAppearance')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div class="modal-backdrop" id="modalAbout">
+  <div class="modal-window">
+    <div class="modal-head">
+      <span>About CASSim fx</span>
+      <button class="tut-close-btn" onclick="closeModal('modalAbout')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p><b>CASSim fx</b> is a non-graphing, non-programmable scientific calculator simulator built for Australian secondary mathematics curricula (Years 7–10, VCE, HSC).</p>
+      <p style="font-size: 11.5px; color: var(--text-secondary);">
+        <b>Clean-Room Implementation:</b> Contains no proprietary ROM, firmware, or brand artwork. CASSim is an independent simulator released under the Unlicense.
+      </p>
+      <p style="font-size: 11.5px; color: var(--text-secondary);">
+        <b>Privacy:</b> Zero server tracking or telemetry. Saved states and URL share links run 100% locally in your browser.
+      </p>
+    </div>
+    <div class="modal-foot">
+      <button class="tut-btn accent" onclick="closeModal('modalAbout')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Alert -->
+<div class="toast" id="toast"></div>
+
 <script>
-  // Tutorial Lessons Database
+  // Tutorial Lessons Database (Clean, educational definitions)
   const LESSONS = {
     stddev: {
-      title: "Find Mean and Standard Deviation (sx vs σx)",
+      title: "Standard Deviation (sx vs σx)",
+      mode: "STAT",
       steps: [
-        {
-          key: "MODE",
-          keyId: "k_mode",
-          label: "[MODE]",
-          instruction: "Press [MODE] to open the mode selection screen.",
-          explanation: "Mode selection allows switching between general arithmetic (COMP), statistics (STAT), and function tables (TABLE).",
-          screenExpr: "1:COMP  2:STAT",
-          screenResult: "3:TABLE"
-        },
-        {
-          key: "2",
-          keyId: "k_2",
-          label: "[ 2 ]",
-          instruction: "Press [2] to select STAT mode.",
-          explanation: "STAT mode presents statistical options: 1-variable (univariate) or 2-variable regression lines.",
-          screenExpr: "1:1-VAR  2:A+BX",
-          screenResult: ""
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ]",
-          instruction: "Press [1] to choose 1-VAR.",
-          explanation: "Opens the univariate data table. Now enter the data points: 12, 15, 18, 22, 25.",
-          screenExpr: "STAT: 1-VAR",
-          screenResult: "X: [   ]"
-        },
-        {
-          key: "AC",
-          keyId: "k_ac",
-          label: "[AC]",
-          instruction: "Assume data is entered. Press [AC] to return to the calculation screen.",
-          explanation: "Pressing AC exits the data table without clearing the entered data. The STAT annunciator stays active at the top.",
-          screenExpr: "",
-          screenResult: "0",
-          statActive: true
-        },
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT] to access the secondary functions.",
-          explanation: "Notice the [S] indicator lights up on the top LCD annunciator bar.",
-          shiftActive: true
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ] (STAT)",
-          instruction: "Press [1] (STAT) to open the statistical calculation variables menu.",
-          explanation: "Shows items: 1:Type, 2:Data, 3:Sum, 4:Var, 5:MinMax.",
-          screenExpr: "1:Type 2:Data 3:Sum",
-          screenResult: "4:Var  5:MinMax"
-        },
-        {
-          key: "4",
-          keyId: "k_4",
-          label: "[ 4 ] (Var)",
-          instruction: "Press [4] to open the Var (Variables) menu.",
-          explanation: "Menu options: 1:n (sample size), 2:x̄ (mean), 3:σx (population standard deviation), 4:sx (sample standard deviation).",
-          screenExpr: "1:n    2:x̄",
-          screenResult: "3:σx   4:sx"
-        },
-        {
-          key: "4",
-          keyId: "k_4",
-          label: "[ 4 ] (sx)",
-          instruction: "Press [4] to select sample standard deviation (sx).",
-          explanation: "Australian VCE and HSC examinations require sample standard deviation sx (n-1 divisor), not population standard deviation σx.",
-          screenExpr: "sx",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to calculate the standard deviation.",
-          explanation: "Calculation complete! sx = 5.17687... Notice that this precisely matches the school curriculum specification.",
-          screenExpr: "sx",
-          screenResult: "5.176871642"
-        }
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE] to open calculation modes.", detail: "Options: 1:COMP (arithmetic), 2:STAT (statistics), 3:TABLE (functions)." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] to select STAT mode.", detail: "STAT sub-modes include 1-VAR (univariate) and various regression forms." },
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Press [1] to choose 1-VAR.", detail: "Opens data table. Enter sample scores: 12, 15, 18, 22, 25." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to exit table.", detail: "Stores data safely. Notice the STAT indicator remains active on screen." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary function layer (S annunciator lights)." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] to open the STAT variables menu.", detail: "Shows: 1:Type, 2:Data, 3:Sum, 4:Var, 5:MinMax." },
+        { key: "4", keyId: "k_4", label: "[ 4 ]", text: "Press [4] to open the Var menu.", detail: "Options: 1:n, 2:x̄ (mean), 3:σx (pop SD), 4:sx (sample SD)." },
+        { key: "4", keyId: "k_4", label: "[ 4 ] (sx)", text: "Press [4] to select sx.", detail: "Places sample standard deviation sx on the calculation line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Calculates sx = 5.17687... (Australian curriculum standard)." }
       ]
     },
-
-    reset: {
-      title: "Reset & Initialise Calculator (Shift+9 CLR)",
+    fivenum: {
+      title: "Five-Number Summary",
+      mode: "STAT",
       steps: [
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT] to activate the secondary layer.",
-          explanation: "The [S] annunciator illuminates.",
-          shiftActive: true
-        },
-        {
-          key: "9",
-          keyId: "k_9",
-          label: "[ 9 ] (CLR)",
-          instruction: "Press [9] (CLR) to open the Clear/Reset menu.",
-          explanation: "Options: 1:Setup, 2:Memory, 3:All.",
-          screenExpr: "Clear? 1:Setup",
-          screenResult: "2:Memory  3:All"
-        },
-        {
-          key: "3",
-          keyId: "k_3",
-          label: "[ 3 ] (All)",
-          instruction: "Press [3] to select 'All'.",
-          explanation: "Prompts confirmation: Reset All? [=] : Yes, [AC] : Cancel.",
-          screenExpr: "Reset All?",
-          screenResult: "[=]:Yes  [AC]:Cancel"
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to confirm the reset.",
-          explanation: "Screen confirms: Reset All, Press [AC] key.",
-          screenExpr: "Reset All",
-          screenResult: "Press [AC] key"
-        },
-        {
-          key: "AC",
-          keyId: "k_ac",
-          label: "[AC]",
-          instruction: "Press [AC] to finish and return to the blank calculation screen.",
-          explanation: "All memories are cleared and standard degree & MathIO settings are restored.",
-          screenExpr: "",
-          screenResult: "0"
-        }
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE] to select mode.", detail: "Open calculation modes." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] for STAT mode.", detail: "Statistical calculations." },
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Press [1] for 1-VAR.", detail: "Data table for 8 scores: 4, 7, 9, 12, 14, 18, 21, 25." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to store data.", detail: "Returns to calculation line with data preserved." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates STAT menu layer." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] for STAT menu.", detail: "Access statistical summary functions." },
+        { key: "5", keyId: "k_5", label: "[ 5 ] (MinMax)", text: "Press [5] for MinMax menu.", detail: "Options: 1:minX, 2:maxX, 3:Q1, 4:med, 5:Q3." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (Q1)", text: "Press [3] for Q1.", detail: "Places Q1 on the calculation line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Result: Q1 = 8 under Australian median-split rules." }
       ]
     },
-
     freq: {
-      title: "Turn On Frequency Table in Setup",
+      title: "Enabling Frequency Table",
+      mode: "COMP",
       steps: [
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT] to activate the setup layer.",
-          explanation: "Prepares to enter the Setup menu.",
-          shiftActive: true
-        },
-        {
-          key: "MODE",
-          keyId: "k_mode",
-          label: "[MODE] (SETUP)",
-          instruction: "Press [MODE] (SETUP) to open the Setup menu.",
-          explanation: "Shows Page 1: 1:MthIO, 2:LineIO, 3:Deg, 4:Rad, 5:Gra, 6:Fix, 7:Sci, 8:Norm.",
-          screenExpr: "1:MthIO  2:LineIO",
-          screenResult: "3:Deg    4:Rad"
-        },
-        {
-          key: "DOWN",
-          keyId: "k_down",
-          label: "[ ▼ ]",
-          instruction: "Press the Down arrow [▼] on the D-Pad to view Setup page 2.",
-          explanation: "Scrolls to page 2: 1:STAT, 2:TABLE, 3:Disp, 4:CONT.",
-          screenExpr: "1:STAT   2:TABLE",
-          screenResult: "3:Disp   4:CONT"
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ] (STAT)",
-          instruction: "Press [1] to configure Statistics settings.",
-          explanation: "Prompts: Frequency? 1:ON, 2:OFF.",
-          screenExpr: "Frequency?",
-          screenResult: "1:ON    2:OFF"
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ] (ON)",
-          instruction: "Press [1] to turn the Frequency column ON.",
-          explanation: "Frequency table is now active! Entering STAT mode will now display both score (X) and frequency (FREQ) columns.",
-          screenExpr: "",
-          screenResult: "0"
-        }
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Prepares to enter Setup." },
+        { key: "MODE", keyId: "k_mode", label: "[MODE] (SETUP)", text: "Press [MODE] (SETUP) to open Setup.", detail: "Shows system configuration options." },
+        { key: "DOWN", keyId: "k_down", label: "[ ▼ ]", text: "Press Down arrow [▼] on the D-Pad.", detail: "Scrolls to page 2 (1:STAT, 2:TABLE, etc.)." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] to configure Statistics.", detail: "Prompts: Frequency? 1:ON, 2:OFF." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (ON)", text: "Press [1] to activate Frequency.", detail: "Frequency column is now active in STAT tables." }
       ]
     },
-
-    five_num: {
-      title: "Generate Five-Number Summary (Boxplots)",
+    reset: {
+      title: "Initialise Calculator",
+      mode: "COMP",
       steps: [
-        {
-          key: "MODE",
-          keyId: "k_mode",
-          label: "[MODE]",
-          instruction: "Press [MODE] to choose STAT mode.",
-          explanation: "Opens the calculation mode selector.",
-          screenExpr: "1:COMP  2:STAT",
-          screenResult: "3:TABLE"
-        },
-        {
-          key: "2",
-          keyId: "k_2",
-          label: "[ 2 ]",
-          instruction: "Press [2] for STAT mode.",
-          explanation: "Selects statistical calculations.",
-          screenExpr: "1:1-VAR  2:A+BX",
-          screenResult: ""
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ]",
-          instruction: "Press [1] for 1-VAR data.",
-          explanation: "Opens data grid. Scores: 4, 7, 9, 12, 14, 18, 21, 25.",
-          screenExpr: "STAT: 1-VAR",
-          screenResult: "n = 8"
-        },
-        {
-          key: "AC",
-          keyId: "k_ac",
-          label: "[AC]",
-          instruction: "Press [AC] to exit table.",
-          explanation: "Returns to calculation line with STAT annunciator active.",
-          screenExpr: "",
-          screenResult: "0"
-        },
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT].",
-          explanation: "Activates STAT menu layer.",
-          shiftActive: true
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ] (STAT)",
-          instruction: "Press [1] for STAT menu.",
-          explanation: "Opens STAT variables.",
-          screenExpr: "1:Type 2:Data 3:Sum",
-          screenResult: "4:Var  5:MinMax"
-        },
-        {
-          key: "5",
-          keyId: "k_5",
-          label: "[ 5 ] (MinMax)",
-          instruction: "Press [5] to open the Five-Number Summary (MinMax) menu.",
-          explanation: "Options: 1:minX, 2:maxX, 3:Q1, 4:med, 5:Q3.",
-          screenExpr: "1:minX  2:maxX  3:Q1",
-          screenResult: "4:med   5:Q3"
-        },
-        {
-          key: "3",
-          keyId: "k_3",
-          label: "[ 3 ] (Q1)",
-          instruction: "Press [3] for Q1 (Lower Quartile).",
-          explanation: "Places Q1 on the expression line.",
-          screenExpr: "Q1",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to evaluate Q1.",
-          explanation: "Result: Q1 = 8. (Lower half {4, 7, 9, 12}, median = (7+9)/2 = 8). Australian school standard verified!",
-          screenExpr: "Q1",
-          screenResult: "8"
-        }
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary layer." },
+        { key: "9", keyId: "k_9", label: "[ 9 ] (CLR)", text: "Press [9] (CLR) to open Clear menu.", detail: "Options: 1:Setup, 2:Memory, 3:All." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (All)", text: "Press [3] to reset everything.", detail: "Prompts: Reset All? [=]:Yes, [AC]:Cancel." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to confirm.", detail: "Restores factory default modes and clears memory." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to finish.", detail: "Returns to clean calculation screen." }
       ]
     },
-
-    linear_reg: {
-      title: "Pearson Correlation (r) & Linear Regression",
+    linreg: {
+      title: "Linear Regression (r)",
+      mode: "STAT",
       steps: [
-        {
-          key: "MODE",
-          keyId: "k_mode",
-          label: "[MODE]",
-          instruction: "Press [MODE] to choose calculation mode.",
-          explanation: "Opens mode selector.",
-          screenExpr: "1:COMP  2:STAT",
-          screenResult: "3:TABLE"
-        },
-        {
-          key: "2",
-          keyId: "k_2",
-          label: "[ 2 ]",
-          instruction: "Press [2] for STAT mode.",
-          explanation: "Selects statistical calculations.",
-          screenExpr: "1:1-VAR  2:A+BX",
-          screenResult: ""
-        },
-        {
-          key: "2",
-          keyId: "k_2",
-          label: "[ 2 ] (A+BX)",
-          instruction: "Press [2] for Linear Regression (A+BX).",
-          explanation: "Opens bivariate table with X and Y columns.",
-          screenExpr: "STAT: A+BX",
-          screenResult: "X & Y Grid"
-        },
-        {
-          key: "AC",
-          keyId: "k_ac",
-          label: "[AC]",
-          instruction: "Assume data is entered. Press [AC].",
-          explanation: "Returns to calculation line.",
-          screenExpr: "",
-          screenResult: "0"
-        },
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT].",
-          explanation: "Activates STAT menu layer.",
-          shiftActive: true
-        },
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ] (STAT)",
-          instruction: "Press [1] to open the STAT menu.",
-          explanation: "Notice option 6: Reg is now available for bivariate data!",
-          screenExpr: "1:Type 2:Data 3:Sum",
-          screenResult: "4:Var  5:MinMax 6:Reg"
-        },
-        {
-          key: "6",
-          keyId: "k_6",
-          label: "[ 6 ] (Reg)",
-          instruction: "Press [6] to open the Regression menu.",
-          explanation: "Options: 1:A (y-intercept), 2:B (slope), 3:r (Pearson's correlation coefficient).",
-          screenExpr: "1:A    2:B    3:r",
-          screenResult: "4:x̂    5:ŷ"
-        },
-        {
-          key: "3",
-          keyId: "k_3",
-          label: "[ 3 ] (r)",
-          instruction: "Press [3] to select Pearson's r.",
-          explanation: "Places r on the line.",
-          screenExpr: "r",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to compute the correlation coefficient.",
-          explanation: "Result: r = 0.9972... Indicating a very strong positive linear relationship.",
-          screenExpr: "r",
-          screenResult: "0.9972418"
-        }
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE].", detail: "Select calculation mode." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] for STAT mode.", detail: "Selects statistical mode." },
+        { key: "2", keyId: "k_2", label: "[ 2 ] (A+BX)", text: "Press [2] for linear regression.", detail: "Opens paired X and Y data table." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to store data.", detail: "Returns to line with STAT active." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary menu." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] for STAT menu.", detail: "Item 6:Reg is now available." },
+        { key: "6", keyId: "k_6", label: "[ 6 ] (Reg)", text: "Press [6] for Regression menu.", detail: "Options: 1:A (intercept), 2:B (slope), 3:r (correlation)." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (r)", text: "Press [3] to select r.", detail: "Places correlation coefficient r on line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Result: r = 0.9972... (strong positive linear trend)." }
       ]
     },
-
     fractions: {
-      title: "Fractions & Mixed Numbers (S⇔D toggle)",
+      title: "Fractions & S⇔D Toggle",
+      mode: "COMP",
       steps: [
-        {
-          key: "FRAC",
-          keyId: "k_frac",
-          label: "[믐]",
-          instruction: "Press the fraction template key [믐].",
-          explanation: "Creates a natural 2-level fraction box on the dot matrix screen.",
-          screenExpr: "믐",
-          screenResult: ""
-        },
-        {
-          key: "3",
-          keyId: "k_3",
-          label: "[ 3 ]",
-          instruction: "Press [3] to enter 3 into the numerator.",
-          explanation: "Fills the top slot.",
-          screenExpr: "3/■",
-          screenResult: ""
-        },
-        {
-          key: "DOWN",
-          keyId: "k_down",
-          label: "[ ▼ ]",
-          instruction: "Press [▼] on the D-Pad to move cursor to denominator.",
-          explanation: "Cursor moves down into the denominator box.",
-          screenExpr: "3/■",
-          screenResult: ""
-        },
-        {
-          key: "4",
-          keyId: "k_4",
-          label: "[ 4 ]",
-          instruction: "Press [4] to enter 4 into the denominator.",
-          explanation: "Fraction is now 3/4.",
-          screenExpr: "3/4",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to evaluate.",
-          explanation: "In MathIO mode, the result stays in exact fraction form: 3/4.",
-          screenExpr: "3/4",
-          screenResult: "3/4"
-        },
-        {
-          key: "SD",
-          keyId: "k_sd",
-          label: "[ S⇔D ]",
-          instruction: "Press [ S⇔D ] to toggle to decimal form.",
-          explanation: "Instantly converts 3/4 into 0.75. Pressing again toggles back!",
-          screenExpr: "3/4",
-          screenResult: "0.75"
-        }
+        { key: "FRAC", keyId: "k_frac", label: "[믐]", text: "Press fraction key [믐].", detail: "Inserts a 2-level fraction box." },
+        { key: "3", keyId: "k_3", label: "[ 3 ]", text: "Press [3] for numerator.", detail: "Inputs 3 into top slot." },
+        { key: "DOWN", keyId: "k_down", label: "[ ▼ ]", text: "Press [▼] to move to denominator.", detail: "Cursor enters bottom slot." },
+        { key: "4", keyId: "k_4", label: "[ 4 ]", text: "Press [4] for denominator.", detail: "Inputs 4 into bottom slot." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Exact fraction 3/4 appears on screen." },
+        { key: "SD", keyId: "k_sd", label: "[ S⇔D ]", text: "Press [ S⇔D ] to toggle decimal.", detail: "Converts 3/4 to 0.75. Press again to return." }
       ]
     },
-
     prime_factor: {
       title: "Prime Factorisation (FACT)",
+      mode: "COMP",
       steps: [
-        {
-          key: "1",
-          keyId: "k_1",
-          label: "[ 1 ]",
-          instruction: "Enter the number 1050: Press [1].",
-          explanation: "Starting input.",
-          screenExpr: "1",
-          screenResult: ""
-        },
-        {
-          key: "0",
-          keyId: "k_0",
-          label: "[ 0 ]",
-          instruction: "Press [0].",
-          explanation: "Building digits.",
-          screenExpr: "10",
-          screenResult: ""
-        },
-        {
-          key: "5",
-          keyId: "k_5",
-          label: "[ 5 ]",
-          instruction: "Press [5].",
-          explanation: "Building digits.",
-          screenExpr: "105",
-          screenResult: ""
-        },
-        {
-          key: "0",
-          keyId: "k_0",
-          label: "[ 0 ]",
-          instruction: "Press [0].",
-          explanation: "Full number 1050.",
-          screenExpr: "1050",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to place 1050 into answer memory.",
-          explanation: "Prime factorisation requires the integer to be calculated into the result line first.",
-          screenExpr: "1050",
-          screenResult: "1050"
-        },
-        {
-          key: "SHIFT",
-          keyId: "k_shift",
-          label: "[SHIFT]",
-          instruction: "Press [SHIFT].",
-          explanation: "Activates secondary functions.",
-          shiftActive: true
-        },
-        {
-          key: "DMS",
-          keyId: "k_dms",
-          label: "[ ° ' \" ] (FACT)",
-          instruction: "Press [ ° ' \" ] (FACT) to factorise.",
-          explanation: "Factorises 1050 into prime factors: 2 × 3 × 5² × 7.",
-          screenExpr: "1050",
-          screenResult: "2×3×5²×7"
-        }
-      ]
-    },
-
-    table_mode: {
-      title: "Table of Values Mode (f(x))",
-      steps: [
-        {
-          key: "MODE",
-          keyId: "k_mode",
-          label: "[MODE]",
-          instruction: "Press [MODE] to open the mode selector.",
-          explanation: "Allows switching to Table mode.",
-          screenExpr: "1:COMP  2:STAT",
-          screenResult: "3:TABLE"
-        },
-        {
-          key: "3",
-          keyId: "k_3",
-          label: "[ 3 ] (TABLE)",
-          instruction: "Press [3] to select TABLE mode.",
-          explanation: "Prompts for function input: f(X) = .",
-          screenExpr: "f(X)=",
-          screenResult: ""
-        },
-        {
-          key: "ALPHA",
-          keyId: "k_alpha",
-          label: "[ALPHA]",
-          instruction: "Press [ALPHA] to access variable X.",
-          explanation: "Prepares to insert algebraic variable X.",
-          alphaActive: true
-        },
-        {
-          key: ")",
-          keyId: "k_rpar",
-          label: "[ ) ] (X)",
-          instruction: "Press [ ) ] (X) to insert variable X.",
-          explanation: "Inserts X.",
-          screenExpr: "f(X)=X",
-          screenResult: ""
-        },
-        {
-          key: "x²",
-          keyId: "k_x2",
-          label: "[ x² ]",
-          instruction: "Press [ x² ] to create X².",
-          explanation: "Function is now quadratic: f(X) = X².",
-          screenExpr: "f(X)=X²",
-          screenResult: ""
-        },
-        {
-          key: "=",
-          keyId: "k_eq",
-          label: "[ = ]",
-          instruction: "Press [ = ] to confirm function and set bounds.",
-          explanation: "Prompts for Start value (default 1). Press = for End (5), Step (1) to generate table.",
-          screenExpr: "Start? 1",
-          screenResult: "Table generated"
-        }
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Enter 1050: Press [1].", detail: "First digit." },
+        { key: "0", keyId: "k_0", label: "[ 0 ]", text: "Press [0].", detail: "Second digit." },
+        { key: "5", keyId: "k_5", label: "[ 5 ]", text: "Press [5].", detail: "Third digit." },
+        { key: "0", keyId: "k_0", label: "[ 0 ]", text: "Press [0].", detail: "Fourth digit." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to store in Ans.", detail: "Number must be evaluated first." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Secondary function." },
+        { key: "DMS", keyId: "k_dms", label: "[ ° ' \" ] (FACT)", text: "Press [ ° ' \" ] (FACT).", detail: "Factorises 1050 into 2 × 3 × 5² × 7." }
       ]
     }
   };
@@ -1585,90 +1330,254 @@
   // State
   let currentLessonId = "stddev";
   let currentStepIndex = 0;
-  let isAutoPlay = false;
-  let autoPlayTimer = null;
-  let actionHistory = ["[ON]"];
+  let isDemonstrating = false;
+  let demoTimer = null;
+  let recentHistory = ["[ON]"];
 
-  // Initialize
   window.onload = function() {
     if (!checkUrlHash()) {
       renderStep();
     }
   };
 
-  function setTheme(theme) {
-    document.body.className = '';
-    document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
-    
-    if (theme === 'contrast') {
-      document.body.classList.add('theme-contrast');
-      event.target.classList.add('active');
-    } else if (theme === 'light') {
-      document.body.classList.add('theme-light');
-      event.target.classList.add('active');
-    } else {
-      event.target.classList.add('active');
+  // ----------------------------------------------------
+  // MENU SYSTEM
+  // ----------------------------------------------------
+  function toggleMenu(menuId, event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById(menuId);
+    const wasOpen = menu.classList.contains('show');
+    closeAllMenus();
+    if (!wasOpen) {
+      menu.classList.add('show');
+      if (menuId === 'menuCASSim') document.getElementById('chipCASSim').classList.add('active');
+      if (menuId === 'menuDoc') document.getElementById('chipDoc').classList.add('active');
     }
-    document.getElementById('skinBadge').innerText = "CASSIM fx";
   }
 
-  // --- BROWSER STORAGE & URL SHARING ---
+  function closeAllMenus(e) {
+    document.querySelectorAll('.cassim-menu').forEach(m => m.classList.remove('show'));
+    document.querySelectorAll('.cassim-chip').forEach(c => c.classList.remove('active'));
+  }
+
+  function menuAction(name) {
+    closeAllMenus();
+    if (name === 'Home') showToast('CASSim Home: returned to device chooser.');
+    else if (name === 'Settings') showToast('Settings: angle=Deg, IO=MathIO, Freq=Off.');
+    else if (name === 'Updates') showToast('CASSim is up to date (offline static build).');
+    else if (name === 'Wiki') window.open('https://cassim-wiki.pages.dev/', '_blank');
+  }
+
+  function toggleTopbar(show) {
+    const topbar = document.getElementById('cassimTopbar');
+    const restoreBtn = document.getElementById('restoreTopbarBtn');
+    if (show) {
+      topbar.classList.remove('hidden');
+      restoreBtn.classList.remove('visible');
+    } else {
+      topbar.classList.add('hidden');
+      restoreBtn.classList.add('visible');
+      closeAllMenus();
+      showToast('Menu hidden for presentation. Click "Show Menu" or press Esc to restore.');
+    }
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleTopbar(true);
+  });
+
+  function toggleTutorialPanel() {
+    const panel = document.getElementById('tutSidebar');
+    if (panel.style.display === 'none') {
+      panel.style.display = 'flex';
+    } else {
+      panel.style.display = 'none';
+      showToast('Tutorial panel hidden. Reload or re-open from Doc menu.');
+    }
+  }
+
+  // ----------------------------------------------------
+  // TUTORIAL ENGINE (USER-DRIVEN)
+  // ----------------------------------------------------
+  function changeLesson() {
+    currentLessonId = document.getElementById('lessonSelect').value;
+    currentStepIndex = 0;
+    stopDemonstration();
+    renderStep();
+  }
+
+  function restartLesson() {
+    currentStepIndex = 0;
+    stopDemonstration();
+    renderStep();
+  }
+
+  function prevStep() {
+    if (currentStepIndex > 0) {
+      currentStepIndex--;
+      stopDemonstration();
+      renderStep();
+    }
+  }
+
+  function renderStep() {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+    const total = lesson.steps.length;
+
+    // Sidebar text
+    document.getElementById('stepCounter').innerText = `Step ${currentStepIndex + 1} of ${total}`;
+    document.getElementById('stepText').innerHTML = `Press <span class="step-key-tag">${step.label}</span>`;
+    document.getElementById('stepDetail').innerText = step.detail;
+    document.getElementById('tutHint').classList.remove('show');
+
+    // LCD display simulation
+    document.getElementById('lcdExprText').innerText = step.label;
+    document.getElementById('topStatusMode').innerText = lesson.mode;
+
+    // Spotlight the target button
+    clearSpotlights();
+    if (step.keyId) {
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) targetBtn.classList.add('target-focus');
+    }
+  }
+
+  function clearSpotlights() {
+    document.querySelectorAll('.target-focus').forEach(el => el.classList.remove('target-focus'));
+  }
+
+  function pressKey(keyName) {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+
+    addHistory(`[${keyName}]`);
+
+    if (keyName === step.key) {
+      // User pressed correct key
+      document.getElementById('tutHint').classList.remove('show');
+
+      // Key animation
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) {
+        targetBtn.style.transform = "scale(0.94)";
+        setTimeout(() => targetBtn.style.transform = "", 100);
+      }
+
+      if (currentStepIndex < lesson.steps.length - 1) {
+        currentStepIndex++;
+        renderStep();
+      } else {
+        clearSpotlights();
+        document.getElementById('stepCounter').innerText = `Complete`;
+        document.getElementById('stepText').innerText = `Lesson Complete`;
+        document.getElementById('stepDetail').innerText = `Finished all steps for ${lesson.title}. Select another topic or calculate freely.`;
+      }
+    } else {
+      // User pressed incorrect key: Quiet guidance
+      const hint = document.getElementById('tutHint');
+      hint.innerText = `Pressed [${keyName}]. Follow highlighted target: ${step.label}.`;
+      hint.classList.add('show');
+    }
+  }
+
+  function addHistory(chip) {
+    recentHistory.push(chip);
+    if (recentHistory.length > 5) recentHistory.shift();
+    document.getElementById('historyList').innerText = recentHistory.join(' ');
+  }
+
+  // Demonstration Fallback
+  function toggleAutoPlay() {
+    if (isDemonstrating) stopDemonstration();
+    else startDemonstration();
+  }
+
+  function startDemonstration() {
+    isDemonstrating = true;
+    document.getElementById('autoBtn').innerText = "Stop Demo";
+    function loop() {
+      if (!isDemonstrating) return;
+      const lesson = LESSONS[currentLessonId];
+      if (currentStepIndex < lesson.steps.length) {
+        pressKey(lesson.steps[currentStepIndex].key);
+        demoTimer = setTimeout(loop, 1200);
+      } else {
+        stopDemonstration();
+      }
+    }
+    demoTimer = setTimeout(loop, 800);
+  }
+
+  function stopDemonstration() {
+    isDemonstrating = false;
+    clearTimeout(demoTimer);
+    document.getElementById('autoBtn').innerText = "Demonstrate";
+  }
+
+  // ----------------------------------------------------
+  // STORAGE & URL SHARING
+  // ----------------------------------------------------
   function saveToBrowser() {
+    closeAllMenus();
     const state = {
       lesson: currentLessonId,
       step: currentStepIndex,
       expr: document.getElementById('lcdExprText').innerText,
       result: document.getElementById('lcdResult').innerText,
-      history: actionHistory,
-      theme: document.body.className || 'slate',
       time: Date.now()
     };
     try {
       localStorage.setItem('cassim_fx_state', JSON.stringify(state));
-      showToast('💾 State saved locally in browser storage.');
+      showToast('State saved to local browser storage.');
     } catch (e) {
-      showToast('⚠️ Storage error: ' + e.message);
+      showToast('Storage error: ' + e.message);
     }
   }
 
   function loadFromBrowser() {
+    closeAllMenus();
     try {
       const saved = localStorage.getItem('cassim_fx_state');
       if (!saved) {
-        showToast('ℹ️ No saved state found in browser storage.');
+        showToast('No saved state found.');
         return;
       }
       const state = JSON.parse(saved);
-      restoreState(state);
-      showToast('📂 Restored calculator state from browser storage.');
+      if (state.lesson) currentLessonId = state.lesson;
+      if (state.step !== undefined) currentStepIndex = state.step;
+      document.getElementById('lessonSelect').value = currentLessonId;
+      renderStep();
+      if (state.expr) document.getElementById('lcdExprText').innerText = state.expr;
+      if (state.result) document.getElementById('lcdResult').innerText = state.result;
+      showToast('State restored from browser storage.');
     } catch (e) {
-      showToast('⚠️ Load error: ' + e.message);
+      showToast('Load error: ' + e.message);
     }
   }
 
   function shareStateURL() {
+    closeAllMenus();
     const state = {
       l: currentLessonId,
       s: currentStepIndex,
       e: document.getElementById('lcdExprText').innerText,
-      r: document.getElementById('lcdResult').innerText,
-      h: actionHistory.slice(-6)
+      r: document.getElementById('lcdResult').innerText
     };
     const jsonStr = JSON.stringify(state);
     const b64 = btoa(encodeURIComponent(jsonStr));
     const fragment = 'fx=' + b64;
     window.location.hash = fragment;
-    
-    // Copy URL to clipboard
+
     const fullUrl = window.location.href;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(fullUrl).then(() => {
-        showToast(`🔗 Share Link copied to clipboard! (${fragment.length} chars in URL hash, zero server tracking)`);
+        showToast(`Share link copied to clipboard (${fragment.length} chars in hash, zero server tracking)`);
       }).catch(() => {
-        showToast(`🔗 Share Link generated in browser URL bar! (${fragment.length} chars)`);
+        showToast(`Share link generated in address bar (${fragment.length} chars)`);
       });
     } else {
-      showToast(`🔗 Share Link updated in URL address bar! (${fragment.length} chars)`);
+      showToast(`Share link generated in address bar (${fragment.length} chars)`);
     }
   }
 
@@ -1683,198 +1592,65 @@
         if (state.s !== undefined) currentStepIndex = state.s;
         document.getElementById('lessonSelect').value = currentLessonId;
         renderStep();
-        if (state.e !== undefined) document.getElementById('lcdExprText').innerText = state.e;
-        if (state.r !== undefined) document.getElementById('lcdResult').innerText = state.r;
-        if (state.h) {
-          actionHistory = state.h;
-          updateHistoryDisplay();
-        }
-        showToast('⚡ Restored calculator state from shared URL fragment!');
+        if (state.e) document.getElementById('lcdExprText').innerText = state.e;
+        if (state.r) document.getElementById('lcdResult').innerText = state.r;
+        showToast('Loaded shared calculator state from URL fragment.');
         return true;
       } catch (e) {
-        console.error('Failed to parse URL hash:', e);
+        console.error('URL hash error:', e);
       }
     }
     return false;
   }
 
-  function restoreState(state) {
-    if (state.lesson && LESSONS[state.lesson]) currentLessonId = state.lesson;
-    if (state.step !== undefined) currentStepIndex = state.step;
-    document.getElementById('lessonSelect').value = currentLessonId;
-    renderStep();
-    if (state.expr !== undefined) document.getElementById('lcdExprText').innerText = state.expr;
-    if (state.result !== undefined) document.getElementById('lcdResult').innerText = state.result;
-    if (state.history) {
-      actionHistory = state.history;
-      updateHistoryDisplay();
-    }
-    if (state.theme) {
-      document.body.className = state.theme === 'slate' ? '' : state.theme;
+  function loadExample(ex) {
+    closeAllMenus();
+    if (LESSONS[ex]) {
+      currentLessonId = ex;
+      document.getElementById('lessonSelect').value = ex;
+      currentStepIndex = 0;
+      renderStep();
+      showToast(`Loaded example: ${LESSONS[ex].title}`);
     }
   }
 
-  function updateHistoryDisplay() {
-    const container = document.getElementById('historyChips');
-    container.innerHTML = actionHistory.map(c => `<span class="history-chip">${c}</span>`).join('');
+  function resetCalculator() {
+    closeAllMenus();
+    currentStepIndex = 0;
+    renderStep();
+    document.getElementById('lcdExprText').innerText = '';
+    document.getElementById('lcdResult').innerText = '0';
+    showToast('Calculator reset to default settings.');
+  }
+
+  // ----------------------------------------------------
+  // THEME & MODAL SYSTEM
+  // ----------------------------------------------------
+  function setTheme(theme) {
+    document.body.className = '';
+    if (theme === 'contrast') document.body.classList.add('theme-contrast');
+    else if (theme === 'light') document.body.classList.add('theme-light');
+  }
+
+  function openAppearanceModal() {
+    closeAllMenus();
+    document.getElementById('modalAppearance').classList.add('open');
+  }
+
+  function openAboutModal() {
+    closeAllMenus();
+    document.getElementById('modalAbout').classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
   }
 
   function showToast(msg) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'toast';
-      toast.className = 'toast';
-      document.body.appendChild(toast);
-    }
-    toast.innerText = msg;
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 4000);
-  }
-
-  function changeLesson() {
-    currentLessonId = document.getElementById('lessonSelect').value;
-    currentStepIndex = 0;
-    stopAutoPlay();
-    clearSpotlights();
-    renderStep();
-  }
-
-  function restartLesson() {
-    currentStepIndex = 0;
-    stopAutoPlay();
-    renderStep();
-  }
-
-  function prevStep() {
-    if (currentStepIndex > 0) {
-      currentStepIndex--;
-      stopAutoPlay();
-      renderStep();
-    }
-  }
-
-  function renderStep() {
-    const lesson = LESSONS[currentLessonId];
-    const step = lesson.steps[currentStepIndex];
-    const total = lesson.steps.length;
-
-    // Update Step Card
-    document.getElementById('stepCounter').innerText = `STEP ${currentStepIndex + 1} OF ${total}`;
-    document.getElementById('stepInstruction').innerHTML = `Press <span class="key-target-hint">${step.label}</span> to proceed.`;
-    document.getElementById('stepExplanation').innerText = step.explanation;
-    document.getElementById('hintBanner').classList.remove('show');
-
-    // Update LCD Screen
-    if (step.screenExpr !== undefined) {
-      document.getElementById('lcdExprText').innerText = step.screenExpr;
-    }
-    if (step.screenResult !== undefined) {
-      document.getElementById('lcdResult').innerText = step.screenResult;
-    }
-
-    // Annunciators
-    document.getElementById('annunS').className = 'annun-item' + (step.shiftActive ? ' active' : '');
-    document.getElementById('annunA').className = 'annun-item' + (step.alphaActive ? ' active' : '');
-    document.getElementById('annunSTAT').className = 'annun-item' + (step.statActive ? ' active' : '');
-
-    // Spotlight the target button!
-    clearSpotlights();
-    if (step.keyId) {
-      const targetBtn = document.getElementById(step.keyId);
-      if (targetBtn) {
-        targetBtn.classList.add('tutorial-spotlight');
-      }
-    }
-  }
-
-  function clearSpotlights() {
-    document.querySelectorAll('.tutorial-spotlight').forEach(el => el.classList.remove('tutorial-spotlight'));
-  }
-
-  // Keypress Handler (User-Driven Execution!)
-  function pressKey(keyName) {
-    const lesson = LESSONS[currentLessonId];
-    const step = lesson.steps[currentStepIndex];
-
-    // Add to breadcrumb
-    addHistory(`[${keyName}]`);
-
-    // Check if key matches the active tutorial step target
-    if (keyName === step.key) {
-      // Correct key pressed!
-      document.getElementById('hintBanner').classList.remove('show');
-
-      // Animate LCD reaction
-      const targetBtn = document.getElementById(step.keyId);
-      if (targetBtn) {
-        targetBtn.style.transform = "scale(0.92)";
-        setTimeout(() => targetBtn.style.transform = "", 120);
-      }
-
-      // Advance step
-      if (currentStepIndex < lesson.steps.length - 1) {
-        currentStepIndex++;
-        renderStep();
-      } else {
-        // Finished lesson!
-        clearSpotlights();
-        document.getElementById('stepInstruction').innerHTML = `🎉 <b>Tutorial Complete!</b> Excellent work.`;
-        document.getElementById('stepExplanation').innerText = `You have completed all steps for: ${lesson.title}. Try another tutorial from the dropdown or experiment freely.`;
-        document.getElementById('stepCounter').innerText = `COMPLETED (${lesson.steps.length} STEPS)`;
-      }
-    } else {
-      // Incorrect key pressed: Gentle non-punitive guidance!
-      const banner = document.getElementById('hintBanner');
-      document.getElementById('hintText').innerHTML = `You pressed <b>[${keyName}]</b>. Look for the glowing target <b>${step.label}</b>!`;
-      banner.classList.add('show');
-    }
-  }
-
-  function addHistory(chipText) {
-    actionHistory.push(chipText);
-    if (actionHistory.length > 8) actionHistory.shift();
-    const container = document.getElementById('historyChips');
-    container.innerHTML = actionHistory.map(c => `<span class="history-chip">${c}</span>`).join('');
-  }
-
-  // Show Me (Autoplay Fallback)
-  function toggleAutoPlay() {
-    if (isAutoPlay) {
-      stopAutoPlay();
-    } else {
-      startAutoPlay();
-    }
-  }
-
-  function startAutoPlay() {
-    isAutoPlay = true;
-    document.getElementById('autoPlayBtn').innerText = "⏸ Pause Show Me";
-    document.getElementById('modeBadge').innerText = "DEMONSTRATION MODE";
-    document.getElementById('modeBadge').style.background = "#d32f2f";
-    document.getElementById('modeBadge').style.color = "#fff";
-
-    function stepLoop() {
-      if (!isAutoPlay) return;
-      const lesson = LESSONS[currentLessonId];
-      if (currentStepIndex < lesson.steps.length) {
-        const step = lesson.steps[currentStepIndex];
-        pressKey(step.key);
-        autoPlayTimer = setTimeout(stepLoop, 1500);
-      } else {
-        stopAutoPlay();
-      }
-    }
-    autoPlayTimer = setTimeout(stepLoop, 1000);
-  }
-
-  function stopAutoPlay() {
-    isAutoPlay = false;
-    clearTimeout(autoPlayTimer);
-    document.getElementById('autoPlayBtn').innerText = "▶ Show Me (Autoplay)";
-    document.getElementById('modeBadge').innerText = "USER-DRIVEN GUIDE";
-    document.getElementById('modeBadge').style.background = "#2d3444";
-    document.getElementById('modeBadge').style.color = "#79a8e0";
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
   }
 </script>
 
