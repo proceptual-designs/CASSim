@@ -9,7 +9,8 @@ moves between graphs with Up and Down, and goes to a typed x on Enter.
 
 Choices made without a capture are marked in the code: the arrow step of the zoom pointer, Up
 going to the previous graph (G-D11d: Up from f1 went to f3; an earlier note said f2) and the
-automatic trace step, 1.5% of the window width (0.3 on the Standard window, D27).
+automatic trace step, 1% of the window width (0.2 on the Standard window; Simon's choice, decision
+0034 item 7, where the device stepped about 0.26 to 0.3, D27 and R5-D11).
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ TRACE_TOOLS = (Tool.TRACE, Tool.TRACE_ALL)
 # Window / Zoom items that set the window at once, by their menu argument
 _PRESETS = {"standard": STANDARD, "quadrant1": QUADRANT_1, "trig": TRIG, "decimal": DECIMAL}
 _POINTER_STEPS = 80  # an arrow moves the zoom pointer 1/80 of the plot (CASSim's choice)
-_TRACE_STEP = 0.015  # automatic trace step: 0.3 on the Standard window (D27)
+_TRACE_STEP = 0.01  # automatic trace step: 1% of the width (decision 0034, item 7)
 _TRACE_MARGIN = 0.1  # a traced point off the top or bottom is brought 10% inside (R5-D11)
 _TYPED = frozenset("0123456789.-−")
 _FLOAT_DIGITS = 3  # the Graphs settings' Display Digits, Float 3 (graphs2 D1)

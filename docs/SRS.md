@@ -181,7 +181,7 @@ This cross-cuts every functional area.
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-GRAPH-001 | Function, parametric, polar, sequence, conic and differential-equation entry types. | M | T/D |
-| FR-GRAPH-002 | Window settings, zoom, pan, trace; coordinates labelled to 2 dp. | M | D |
+| FR-GRAPH-002 | Window settings, zoom, pan, trace; coordinates labelled to three significant figures (decision 0034). | M | D |
 | FR-GRAPH-003 | Analyse Graph: zero, minimum/maximum, intersection, integral (typed bounds accepted), dy/dx. | M | T |
 | FR-GRAPH-004 | Asymptotes and discontinuities handled (no spurious joining lines). | M | T |
 | FR-GRAPH-005 | Sliders; Table view of graph functions. | S | D |
