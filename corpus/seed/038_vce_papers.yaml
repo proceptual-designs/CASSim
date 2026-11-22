@@ -1052,8 +1052,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K5-p2.1-1.png
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+  status: pass
 - id: papers.sm2025e1.p2-1.substitute-vector
   course: specialist
   tier: 1
@@ -1100,8 +1099,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K5-p4.1-rerun-1.png
     note: Re-run in a new Problem.
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+  status: pass
 - id: papers.sm2025e1.p3-1.integral-to-variable
   course: specialist
   tier: 1
@@ -1350,8 +1348,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K6-p1.1-03.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+  status: pass
 - id: papers.sm2025e2a.p1-1.solve-column-vectors-extra-unknown
   course: specialist
   tier: 1
@@ -1373,8 +1370,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K6-p1.1-03.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): Data type error'
+  status: pass
 - id: papers.sm2025e2a.p1-1.dot-product-of-derivatives
   course: specialist
   tier: 1
@@ -1396,8 +1392,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K6-p1.1-04.png
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+  status: pass
 - id: papers.sm2025e2a.p1-1.solve-positive-parameter
   course: specialist
   tier: 1
@@ -1782,8 +1777,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p4.1-01.png
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+  status: pass
 - id: papers.sm2025e2b.p4-1.speed-squared
   course: specialist
   tier: 1
@@ -1808,8 +1802,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p4.1-02.png
-  status: xfail
-  xfail_reason: 'vector-valued calculus or vector equations (plan B6): derivative of a vector-valued function'
+  status: pass
 - id: papers.sm2025e2b.p4-1.surd-of-trig
   course: specialist
   tier: 1

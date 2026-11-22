@@ -1235,8 +1235,16 @@ def linear_solve(equations: list[Raw], variables: list[Raw]) -> list[Raw] | None
 
 
 def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
+    """Solve a system. One with more equations than unknowns that holds only for a value of
+    another variable solves for that too, as TI does: `[2+l;r-l;-3+4·l]=[4;3;t]` in l and t
+    gives `l=2 and r=5 and t=5` (emulator check 6, K6)."""
+    system = [as_equation(e) for e in equations]
     try:
-        solutions = sp.solve([as_equation(e) for e in equations], variables, dict=True)
+        solutions = sp.solve(system, variables, dict=True)
+        if not solutions and len(system) > len(variables):
+            others = set().union(*(e.free_symbols for e in system)) - set(variables)
+            variables = sorted([*variables, *others], key=str)
+            solutions = sp.solve(system, variables, dict=True)
     except NotImplementedError:
         return None
     if not solutions:

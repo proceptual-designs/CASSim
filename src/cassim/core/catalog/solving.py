@@ -8,7 +8,7 @@ from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.settings import variable_key
 from cassim.core.valueops import list_of, raw_list, raw_of
-from cassim.core.values import Bool, Expr, ListValue, Raw, Value
+from cassim.core.values import Bool, Expr, ListValue, MatrixValue, Raw, Value
 
 
 def _unknowns(host: Host, node: ast.Expr, *more: ast.Expr) -> list[str]:
@@ -31,9 +31,33 @@ def _equations(host: Host, node: ast.Expr, names: list[str]) -> list[Raw]:
     """Evaluate the equation(s) with the unknowns left symbolic, even if they hold a value."""
     symbols: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
     with host.bound(symbols):
+        vectors = _vector_equation(host, node)
+        if vectors is not None:
+            return vectors
         value = host.expr(node)
     items = list(value.items) if isinstance(value, ListValue) else [value]
     return [raw_of(item) for item in items]
+
+
+def _vector_equation(host: Host, node: ast.Expr) -> list[Raw] | None:
+    """`u=v` between two vectors or matrices is one equation per element (emulator check 6,
+    K5 and K6: `solve(l1(t)=l2(s),s,t)`). None if `node` is not such an equation."""
+    if not (isinstance(node, ast.Compare) and len(node.rest) == 1 and node.rest[0][0] == "="):
+        return None
+    left, right = host.expr(node.first), host.expr(node.rest[0][1])
+    if not isinstance(left, ListValue | MatrixValue) or not isinstance(right, type(left)):
+        return None
+    left_parts, right_parts = _elements(left), _elements(right)
+    if len(left_parts) != len(right_parts):
+        raise TIError(errors.DIMENSION_MISMATCH)
+    pairs = zip(left_parts, right_parts, strict=True)
+    return [cas.relation("=", a, b) for a, b in pairs]
+
+
+def _elements(value: ListValue | MatrixValue) -> list[Raw]:
+    if isinstance(value, ListValue):
+        return raw_list(value)
+    return [raw_of(cell) for row in value.rows for cell in row]
 
 
 def _require_relations(equations: list[Raw]) -> None:

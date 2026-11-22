@@ -138,3 +138,22 @@ def test_a_bound_with_a_parameter_filters_roots_and_names_the_parameter():
 
 def test_a_derivative_at_a_point_still_works():
     assert text("derivative(x^3,x)|x=2") == "12"
+
+
+# B6: vectors
+
+
+def test_the_derivative_of_a_vector_valued_function_is_taken_element_by_element():
+    assert text("r(t):=[t^2,sin(t)]", "dr(t):=derivative(r(t),t)", "dr(0)") == "[0,1]"
+
+
+def test_the_integral_of_a_vector_is_taken_element_by_element():
+    assert text("integral([t,t^2],t,0,1)") == "[1/2,1/3]"
+
+
+def test_a_vector_equation_is_solved_by_component():
+    assert text("solve([2,3,1]+t*[1,2,-1]=[1,3,2]+s*[-1,-1,1],s,t)") == "s=-2 and t=1"
+
+
+def test_a_vector_equation_with_too_many_components_solves_for_the_other_variable():
+    assert text("solve([2+l;r-l;-3+4*l]=[4;3;t],l,t)") == "l=2 and r=5 and t=5"

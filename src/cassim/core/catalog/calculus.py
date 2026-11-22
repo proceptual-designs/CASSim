@@ -5,7 +5,7 @@ from cassim.core.catalog.registry import Host, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.settings import CasMode, variable_key
-from cassim.core.valueops import raw_of
+from cassim.core.valueops import map_value, raw_of
 from cassim.core.values import Expr, Raw, Value
 
 # The order of the highest derivative that deSolve reads (`y''''`).
@@ -30,6 +30,13 @@ def _expression(host: Host, node: ast.Expr, names: list[str]) -> Raw:
     symbols: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
     with host.bound(symbols):
         return raw_of(host.expr(node))
+
+
+def _value(host: Host, node: ast.Expr, names: list[str]) -> Value:
+    """Like `_expression`, but a list or matrix stays one, for calculus element by element."""
+    symbols: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
+    with host.bound(symbols):
+        return host.expr(node)
 
 
 def _count(host: Host, node: ast.Expr) -> int:
@@ -60,29 +67,40 @@ def derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     name = _name_of(host, args[1])
     order = _count(host, args[2]) if len(args) == _WITH_ORDER else 1
     current = host.lookup(name)
-    expression = _expression(host, args[0], [name])
-    result = _at_current(cas.differentiate(expression, cas.symbol(name), order), name, current)
-    if host.settings.cas_mode != CasMode.ON and cas.is_symbolic(result):
-        raise TIError(errors.USE_DERIVATIVE_AT_POINT)
-    return Expr(result)
+
+    def differentiate(item: Value) -> Value:
+        derived = cas.differentiate(raw_of(item), cas.symbol(name), order)
+        result = _at_current(derived, name, current)
+        if host.settings.cas_mode != CasMode.ON and cas.is_symbolic(result):
+            raise TIError(errors.USE_DERIVATIVE_AT_POINT)
+        return Expr(result)
+
+    # A vector-valued function is differentiated element by element (emulator check 6, K7).
+    return map_value(differentiate, _value(host, args[0], [name]))
 
 
 @lazy("integral", 2, 4)
 @lazy("∫", 2, 4)
 def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
-    """`integral(expr, x)` or `integral(expr, x, lower, upper)`."""
+    """`integral(expr, x)` or `integral(expr, x, lower, upper)`, element by element for a list
+    or matrix."""
     if len(args) not in (_INTEGRAL_UNBOUNDED_ARGS, _INTEGRAL_BOUNDED_ARGS):
         raise TIError(errors.TOO_FEW_ARGUMENTS)
     name = _name_of(host, args[1])
-    expression = _expression(host, args[0], [name])
+    value = _value(host, args[0], [name])
     bounds = [raw_of(host.expr(arg)) for arg in args[2:]]
     lower, upper = bounds if bounds else (None, None)
-    result = cas.integrate(expression, cas.symbol(name), lower, upper)
-    if result is None and bounds:
-        # Echoed with its bounds: `∫` without them would be a different calculation.
-        call = (expression, cas.symbol(name), *bounds)
-        return Expr(cas.undefined_function("integral", call))
-    return _result(result, "integral", expression, name)
+
+    def integrate(item: Value) -> Value:
+        expression = raw_of(item)
+        result = cas.integrate(expression, cas.symbol(name), lower, upper)
+        if result is None and bounds:
+            # Echoed with its bounds: `∫` without them would be a different calculation.
+            call = (expression, cas.symbol(name), *bounds)
+            return Expr(cas.undefined_function("integral", call))
+        return _result(result, "integral", expression, name)
+
+    return map_value(integrate, value)
 
 
 def _series(host: Host, args: tuple[ast.Expr, ...], call: str, *, product: bool) -> Value:
