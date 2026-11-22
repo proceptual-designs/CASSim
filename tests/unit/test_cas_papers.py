@@ -182,3 +182,21 @@ def test_a_derivative_with_a_root_is_over_one_denominator():
 def test_a_substituted_product_is_multiplied_out_when_shorter():
     assert text("v(x):=2*x*(h-2*x)*(h-x)", "v(x)|x=h/2") == "0"
     assert text("(x+1)^2|a=2") == "(x+1)^2"
+
+
+# B8: the printer
+
+
+def test_a_negative_exponent_of_e_stays_on_top():
+    assert text("derivative(@e^(-2*a)-2*@e^(-a)+1,a)") == "2*ⅇ^(-a)-2*ⅇ^(-2*a)"
+    assert text("@e^(-x)") == "ⅇ^(-x)"
+
+
+def test_a_number_is_not_multiplied_into_a_bracket_over_a_denominator():
+    assert text("derivative(3*x/(x^3+x+2),x)").startswith("-6*(x^3-1)/")
+
+
+def test_ordinary_quotients_print_as_before():
+    assert text("3*x/4") == "3*x/4"
+    assert text("2/(3*x)") == "2/(3*x)"
+    assert text("x^(-1/2)") == "1/√(x)"

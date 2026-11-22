@@ -580,6 +580,31 @@ def _negate(node: ast.Expr) -> ast.Expr:
     return ast.Unary("-", node)
 
 
+def _unevaluated_product(factors: list[Raw]) -> Raw:
+    if not factors:
+        return sp.Integer(1)
+    return factors[0] if len(factors) == 1 else sp.Mul(*factors, evaluate=False)
+
+
+def _split_quotient(raw: Raw) -> tuple[Raw, Raw]:
+    """A product's numerator and denominator as TI shows them. Unlike SymPy's `as_numer_denom`,
+    `ⅇ^(-a)` stays on top (`2·ⅇ^(-a)`, not `2/ⅇ^a`) and a number is not multiplied into a
+    bracket (`-6·(x³-1)`, not `-6·x³+6`)."""
+    top: list[Raw] = []
+    bottom: list[Raw] = []
+    factors: list[Raw] = list(sp.Mul.make_args(raw))
+    for factor in factors:
+        if factor.is_Rational and not factor.is_Integer:
+            if factor.p != 1:
+                top.append(sp.Integer(factor.p))
+            bottom.append(sp.Integer(factor.q))
+        elif factor.is_Pow and factor.exp.is_number and factor.exp.is_negative:
+            bottom.append(sp.Pow(factor.base, -factor.exp))
+        else:
+            top.append(factor)
+    return _unevaluated_product(top), _unevaluated_product(bottom)
+
+
 class _Printer:
     """Build the AST of a result, so the parser's printer decides the parentheses."""
 
@@ -638,7 +663,7 @@ class _Printer:
         coefficient, _ = raw.as_coeff_Mul()
         if coefficient.is_negative:
             return _negate(self.node(-raw))
-        numerator, denominator = raw.as_numer_denom()
+        numerator, denominator = _split_quotient(raw)
         if denominator != 1:
             return ast.Binary("/", self.node(numerator), self.node(denominator))
         first, *rest = raw.as_ordered_factors()

@@ -205,7 +205,7 @@ def test_extrema(line, wanted):
 def test_an_extremum_that_is_not_reached_is_echoed():
     assert text("fMin(x^3,x)") == "fMin(x^3,x)"
     assert text("fMax(-x^2,x)|x>1") == "fMax(-x^2,x)"
-    assert text("fMin(exp(-x),x)") == "fMin(ⅇ^-x,x)"
+    assert text("fMin(exp(-x),x)") == "fMin(ⅇ^(-x),x)"
 
 
 @pytest.mark.parametrize(

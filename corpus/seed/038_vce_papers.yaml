@@ -594,8 +594,7 @@ cases:
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K4-p4.1-2.png
     note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: printer writes 2/ⅇ^a, not 2*ⅇ^(-a) (plan B8)
+  status: pass
 - id: papers.mm2021e2.p4-1.solve-no-solution
   course: specialist
   settings:
@@ -1689,8 +1688,7 @@ cases:
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
     evidence: ../docs/testing/pages-shots-6/K7-p3.1-01.png
-  status: xfail
-  xfail_reason: printer writes 295/ⅇ^(t/150) (plan B8)
+  status: pass
 - id: papers.sm2025e2b.p3-1.solve-exponential-and-rational
   course: specialist
   tier: 1

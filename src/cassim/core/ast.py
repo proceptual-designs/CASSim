@@ -214,6 +214,8 @@ class Binary(Node):
         left = _wrap(self.left, prec + 1 if right_assoc else prec)
         negated = right_assoc and isinstance(self.right, Unary) and self.right.op == "-"
         right = str(self.right) if negated else _wrap(self.right, prec if right_assoc else prec + 1)
+        if negated and self.left == Name("ⅇ"):
+            right = f"({right})"  # TI writes ⅇ^(-a) (emulator check 6, K4 and K7)
         if self.op in _WORD_OPS or self.op == "|":
             return f"{left} {self.op} {right}"
         # `1.+x` would read as the number `1.` plus x.
