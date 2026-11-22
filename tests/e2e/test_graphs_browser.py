@@ -88,6 +88,12 @@ def test_window_zoom_and_trace_menus_work_in_the_browser(
     app.press("ArrowRight")
     app.press("Enter")
     expect(app.page.get_by_text("Plotting…")).to_be_hidden(timeout=30000)
+    # sqrt(x) is not real for x < 0: the samples there are gaps, the app carries on
+    app.press("ArrowDown")
+    app.type_text("sqrt(x")
+    app.press("Enter")
+    expect(app.page.get_by_text("Plotting…")).to_be_hidden(timeout=30000)
+    expect(app.page.get_by_text("encountered an error")).to_have_count(0)
 
     for key in ("F2", "4"):
         app.press(key)
@@ -96,7 +102,10 @@ def test_window_zoom_and_trace_menus_work_in_the_browser(
     )
     app.press("1")
     expect(app.page.get_by_text("Window Settings")).to_be_visible(timeout=10000)
-    expect(app.page.get_by_text("-6.6666666666667").first).to_be_attached(timeout=10000)
+    # Flutter exposes the value of the focused box only (XMin); the full digits of the other
+    # boxes are checked headless in tests/unit/test_graph_window_zoom.py
+    expect(app.page.get_by_role("textbox", name="XMin")).to_have_value("-10", timeout=10000)
+    expect(app.page.get_by_role("textbox", name="YMin")).to_be_attached()
     app.page.get_by_role("button", name="Cancel").click()
 
     for key in ("F2", "5"):
