@@ -181,7 +181,7 @@ This cross-cuts every functional area.
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-GRAPH-001 | Function, parametric, polar, sequence, conic and differential-equation entry types. | M | T/D |
-| FR-GRAPH-002 | Window settings, zoom, pan, trace; coordinates labelled to 2 dp. | M | D |
+| FR-GRAPH-002 | Window settings, zoom, pan, trace; coordinates labelled to three significant figures (decision 0034). | M | D |
 | FR-GRAPH-003 | Analyse Graph: zero, minimum/maximum, intersection, integral (typed bounds accepted), dy/dx. | M | T |
 | FR-GRAPH-004 | Asymptotes and discontinuities handled (no spurious joining lines). | M | T |
 | FR-GRAPH-005 | Sliders; Table view of graph functions. | S | D |
@@ -234,14 +234,14 @@ This cross-cuts every functional area.
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
 ### 4.12 Programming environments and later device profiles — M5, M8–M9
-M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the remembered, lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
+M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
 
 **Device profiles (M8)**
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
 | FR-PROF-001 | Device-specific behaviour (input dialect, command catalogue and its behaviour differences, display conventions, settings and presets, document/page model, key layers, menu tree, keymap and skin, error table, corpus) is packaged as a **device profile**; common maths-engine pieces stay shared. | C | I |
 | FR-PROF-002 | The TI-Nspire CX CAS is the first profile. Moving it onto the profile interface changes no behaviour: the full Nspire corpus replays unchanged and the coverage targets in NFR-MAINT-004 still hold. | M (conditional on FR-PROF-001) | T |
-| FR-PROF-003 | The all-in-one app (the `all` bundle) switches between profiles at run time from a visible switcher, and remembers the active profile. A single-device bundle has no switcher. | C | E |
+| FR-PROF-003 | The all-in-one app (the `all` bundle) switches between profiles at run time from a visible switcher. A single-device bundle has no switcher. | C | E |
 | FR-PROF-004 | Each profile has its own documents, settings and theme namespace in browser storage; switching never mixes or overwrites another profile's data. Sharing data between profiles is not required [Q20]. | C | T |
 | FR-PROF-005 | Profile assets (grammar tables, catalogue data, skins) load lazily and are cached for offline use on first use, so a user who only opens the Nspire profile does not download the others. Cold start and download size (NFR-PERF-001, -005) are reported per bundle. | C | A |
 | FR-PROF-006 | Each profile declares its page/app types. Page types are registered, not hard-coded, so a type (Python, Pseudocode) can be offered by any profile that opts in [Q22]. | S | I |
@@ -249,11 +249,11 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | FR-PROF-008 | Each profile can be published as its own **bundle** on its own site, holding the shell and that one profile and nothing another profile needs (the pseudocode bundle ships no SymPy or SciPy). A profile is a plug-in package that imports the shared layers and never another profile; the build lists the profiles in a bundle. Single-device sites are published on a release only. | C | T |
 | FR-PROF-009 | A document file and a share link carry the id of their profile. A bundle that holds that profile opens them; a bundle that does not names the site that does, links to it, and changes nothing. | C | T |
 | FR-PROF-010 | The `all` bundle has a shell-level **Home** screen which owns no calculator document and is drawn without importing a device's Flet UI or engine. | C | E/I |
-| FR-PROF-011 | Home displays an original CASSim icon and the exact message “Hi from CASSim, a simulator of handheld graphing and computer algebra system calculators.” | C | D/E |
+| FR-PROF-011 | Home displays an original CASSim icon and the exact message “Hi! Choose a CAS Calculator or other tool to start” | C | D/E |
 | FR-PROF-012 | Home presents the choices **Nspire**, **Classpad**, **Prime**, **Pseudocode & Python** and **Scientific**, in that order, whether or not they are implemented or included in the build. | C | E |
 | FR-PROF-013 | Only an implemented profile included in the bundle is enabled. An unavailable Home choice is greyed out and marked coming soon; pointer, keyboard and programmatic activation cannot open it. | C | E |
-| FR-PROF-014 | Selecting an enabled choice mounts it and records its device id. A later normal launch of the `all` bundle opens that remembered device directly. | C | E |
-| FR-PROF-015 | A missing, invalid or no-longer-bundled remembered id shows Home on launch. Visiting Home does not clear a valid remembered id. | C | T/E |
+| FR-PROF-014 | Selecting an enabled choice mounts it. Every normal launch of the `all` bundle opens Home; no last-used device is remembered (revised 2026-11-21). | C | T/E |
+| FR-PROF-015 | A direct app route (`#/app/<id>`) or a share link opens its bundled device; a route naming a device that is not bundled shows Home. | C | T/E |
 | FR-PROF-016 | The CASSim menu has a **Home** action from every mounted app in the `all` bundle. It unmounts the app without discarding its saved document or settings. | C | E |
 | FR-PROF-017 | Home has a CASSim Settings control which can change shell appearance without loading a device UI. Appearance is shared with the device system settings when the same setting is supported. | C | E |
 | FR-PROF-018 | A single-device bundle mounts its one device directly and has neither Home nor an app chooser. | C | E |
@@ -315,6 +315,7 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | FR-TRC-010 | Export a trace as CSV, Markdown or an image. | C | D |
 | FR-TRC-011 | A third, per-iteration view (one row per loop pass, variables as columns), after the vertical and horizontal views are done (Q33, decided 2026-11-04). | C | D |
 | FR-TRC-012 | Line-by-line variable trace for Python outside the supported subset. | C | D |
+| FR-TRC-013 | In the vertical layout a call to a function defined in the code is one row, which opens a modal window that can be moved and resized: the function's code (highlighting the current line) beside that call's own trace (its variables as resizable columns, Step / First / Last, rows up to the cursor), stacked in one column when the window is narrow; its starting values are in the title. A call made inside it opens the same way (added 2026-11-22). | S | T |
 
 **Settings bar (M5)**
 | ID | Requirement | Pri | Ver |
@@ -382,7 +383,7 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | NFR-PERF-002 | Warm start (cache populated) is noticeably faster than cold start; measured and tracked, no fixed target. | S | A |
 | NFR-PERF-003 | Typical Tier 1 operation (solve, factor, diff, integrate) returns in <= 1 s after import; a slower operation is shown as busy. | S | A |
 | NFR-PERF-006 | Switching pages draws the new page from what the UI already holds and does not wait for the engine. The time from the key press to the page drawn is measured and reported (`tools/switchtime.py`); the aim is 100 ms on a desktop and 250 ms on a mid-range phone, with no fixed limit. | S | A |
-| NFR-PERF-007 | In an `all` bundle, Home can render before any device UI, device assets or engine worker starts. A device's UI and worker begin loading only when that device is selected or restored as the remembered app. | C | A/E |
+| NFR-PERF-007 | In an `all` bundle, Home can render before any device UI, device assets or engine worker starts. A device's UI and worker begin loading only when that device is selected or named by a direct route or share link. | C | A/E |
 | NFR-PERF-004 | UI remains responsive during evaluation; Cancel takes effect within 1 s. | M | E |
 | NFR-PERF-005 | Total download is measured and reported. Baseline 22 MB (CDN) / 95 MB (vendored); no fixed budget. | C | A |
 
@@ -527,5 +528,5 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | Pseudocode runtime and Code view | 4.12 (FR-RUN-005/006/009, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built ahead of schedule as M5b; 58 golden programs are green. The standalone device now has editor and file workflows, responsive and resizable panes, Symbols and scrolling/resizable trace tables, settings, typing/display controls, supported-subset Python/Pseudocode translation, examples and console/trace polish. Direct CPython execution and Nspire Code page types remain incomplete. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike in 5a comes first. |
 | TI-Basic, libraries | 4.8 | Not started (M6, Could). |
-| Multi-app shell, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Home, remembered-device switching, bundle-specific device lists and the Nspire/Pseudocode device boundary are built. Per-device lazy caching is follow-up; ClassPad remains M8 and HP Prime M9. |
+| Multi-app shell, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Home, device switching, bundle-specific device lists and the Nspire/Pseudocode device boundary are built. Per-device lazy caching is follow-up; ClassPad remains M8 and HP Prime M9. |
 | Non-functional | 5 | Traceability, accessibility notes and per-package coverage floors exist. Primary-browser matrix gaps and the M7 release audits remain open. |

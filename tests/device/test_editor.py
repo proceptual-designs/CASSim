@@ -6,7 +6,7 @@ Behaviour follows the emulator run in docs/testing/emulator-editor-results.md (d
 import pytest
 
 from cassim.core.session import Session
-from cassim.device.editor import Editor, Kind
+from cassim.device.editor import Editor, Kind, Template, position_near
 
 # Key sequences use these letters for the non-character keys.
 _KEYS = {
@@ -296,7 +296,8 @@ class TestLatex:
         assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")  # after the inserted Ans
 
     def test_nested_templates(self):
-        assert keys("1F(√2R)").latex(cursor=False) == r"\frac{1}{(\sqrt{2})}"
+        # brackets round a root grow with it (decision 0035)
+        assert keys("1F(√2R)").latex(cursor=False) == r"\frac{1}{\left(\sqrt{2}\right)}"
 
 
 def test_matrix_template_reads_as_ti_text_and_moves_by_cells() -> None:
@@ -332,3 +333,12 @@ def test_matrix_latex_is_a_bracketed_grid() -> None:
     latex = editor.latex(cursor=False)
     assert r"\begin{matrix}" in latex
     assert r"\\" in latex
+
+
+def test_position_near_a_click_counts_template_widths() -> None:
+    """The history is drawn on the canvas, so a click's place is estimated from glyph widths."""
+    row = ["x", Template(Kind.FRACTION, [["1"], ["2"]]), "+", "1"]
+    assert position_near(row, 0.0) == 0
+    assert position_near(row, 0.4) == 1  # past the x (0.5 em)
+    assert position_near(row, 0.85) == 2  # past the fraction (about 0.6 em)
+    assert position_near(row, 9.0) == 4

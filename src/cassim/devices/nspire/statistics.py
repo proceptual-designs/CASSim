@@ -10,7 +10,7 @@ ALTERNATIVE = Field(
     "alternative",
     "Alternate Hyp",
     "0",
-    choices=(("0", "Ha: ≠"), ("1", "Ha: <"), ("2", "Ha: >")),
+    choices=(("0", "Ha: ≠"), ("-1", "Ha: <"), ("1", "Ha: >")),
 )
 POOLED = Field("pooled", "Pooled", "0", choices=(("0", "No"), ("1", "Yes")))
 

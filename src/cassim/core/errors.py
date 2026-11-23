@@ -76,6 +76,8 @@ _MESSAGES = {
 # Warnings: the entry succeeds, and its history row gets a triangle that shows the text
 # (FR-CALC-007, decision 0026).
 NON_REAL_CALCULATION = "Non-real calculation"
+# CASSim's own wording (the device's text is not reused): solve gave decimals found by a search.
+NUMERIC_SOLUTION = "Solved numerically: there may be other solutions"
 
 
 class TIError(Exception):

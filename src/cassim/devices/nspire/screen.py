@@ -9,6 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from cassim.core.results import Result
+from cassim.device.editor_ast import result_latex
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 from cassim.devices.nspire.pages.graphs import graphs_of
@@ -53,6 +55,15 @@ class Screen:
     sorter: tuple[tuple[Tile, ...], ...] | None = None
     sheet: SheetScreen | None = None  # a Lists & Spreadsheet page
     graphs: bool = False  # a Graphs page with its own view
+    error_title: str = "Error"  # the dialog's title ("Warning" for Show Warning Info)
+
+
+def _result_latex(result: Result) -> str:
+    """A result is drawn from its text through the editor tree, as the same row is once picked
+    and moved into (decision 0035 stage 3); SymPy's LaTeX is the fallback."""
+    if result.error is not None:
+        return result.latex
+    return result_latex(result.text) or result.latex
 
 
 def page_name(page: Page, names: Mapping[str, str] | None = None) -> str:
@@ -136,12 +147,13 @@ def render(
     for index, entry in enumerate(page.history):
         for kind in ("entry", "result"):
             picked = page.recall == (index, kind)
-            latex = entry.latex if kind == "entry" else entry.result.latex
+            latex = entry.latex if kind == "entry" else _result_latex(entry.result)
             text = entry.text if kind == "entry" else entry.result.text
             editor = page.recall_editor
             part = picked and page.recall_touched and editor is not None
             if part and editor is not None:  # drawn from its editor: its cursor and selection show
-                latex = editor.latex(is_defined=page.session.is_defined)
+                # no bold names: a history row is drawn without them (emulator check 4, A4)
+                latex = editor.latex()
             warnings = entry.result.warnings if kind == "entry" else ()
             shown = latex or rf"\text{{{text}}}"
             lines.append(
@@ -162,4 +174,5 @@ def render(
         page.editor.latex(is_defined=page.session.is_defined),
         page.error,
         menu,
+        error_title=page.error_title,
     )

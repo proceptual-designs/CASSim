@@ -5,8 +5,8 @@ from cassim.core.catalog.registry import Host, lazy
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.settings import CasMode, variable_key
-from cassim.core.valueops import raw_of
-from cassim.core.values import Expr, Raw, Value
+from cassim.core.valueops import map_value, matrix_of, raw_of
+from cassim.core.values import Expr, ListValue, Raw, Value
 
 # The order of the highest derivative that deSolve reads (`y''''`).
 _MAX_ODE_ORDER = 4
@@ -30,6 +30,13 @@ def _expression(host: Host, node: ast.Expr, names: list[str]) -> Raw:
     symbols: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
     with host.bound(symbols):
         return raw_of(host.expr(node))
+
+
+def _value(host: Host, node: ast.Expr, names: list[str]) -> Value:
+    """Like `_expression`, but a list or matrix stays one, for calculus element by element."""
+    symbols: dict[str, Value] = {name: Expr(cas.symbol(name)) for name in names}
+    with host.bound(symbols):
+        return host.expr(node)
 
 
 def _count(host: Host, node: ast.Expr) -> int:
@@ -60,25 +67,40 @@ def derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     name = _name_of(host, args[1])
     order = _count(host, args[2]) if len(args) == _WITH_ORDER else 1
     current = host.lookup(name)
-    expression = _expression(host, args[0], [name])
-    result = _at_current(cas.differentiate(expression, cas.symbol(name), order), name, current)
-    if host.settings.cas_mode != CasMode.ON and cas.is_symbolic(result):
-        raise TIError(errors.USE_DERIVATIVE_AT_POINT)
-    return Expr(result)
+
+    def differentiate(item: Value) -> Value:
+        derived = cas.differentiate(raw_of(item), cas.symbol(name), order)
+        result = _at_current(derived, name, current)
+        if host.settings.cas_mode != CasMode.ON and cas.is_symbolic(result):
+            raise TIError(errors.USE_DERIVATIVE_AT_POINT)
+        return Expr(result)
+
+    # A vector-valued function is differentiated element by element (emulator check 6, K7).
+    return map_value(differentiate, _value(host, args[0], [name]))
 
 
 @lazy("integral", 2, 4)
 @lazy("∫", 2, 4)
 def integral(host: Host, args: tuple[ast.Expr, ...]) -> Value:
-    """`integral(expr, x)` or `integral(expr, x, lower, upper)`."""
+    """`integral(expr, x)` or `integral(expr, x, lower, upper)`, element by element for a list
+    or matrix."""
     if len(args) not in (_INTEGRAL_UNBOUNDED_ARGS, _INTEGRAL_BOUNDED_ARGS):
         raise TIError(errors.TOO_FEW_ARGUMENTS)
     name = _name_of(host, args[1])
-    expression = _expression(host, args[0], [name])
+    value = _value(host, args[0], [name])
     bounds = [raw_of(host.expr(arg)) for arg in args[2:]]
     lower, upper = bounds if bounds else (None, None)
-    result = cas.integrate(expression, cas.symbol(name), lower, upper)
-    return _result(result, "integral", expression, name)
+
+    def integrate(item: Value) -> Value:
+        expression = raw_of(item)
+        result = cas.integrate(expression, cas.symbol(name), lower, upper)
+        if result is None and bounds:
+            # Echoed with its bounds: `∫` without them would be a different calculation.
+            call = (expression, cas.symbol(name), *bounds)
+            return Expr(cas.undefined_function("integral", call))
+        return _result(result, "integral", expression, name)
+
+    return map_value(integrate, value)
 
 
 def _series(host: Host, args: tuple[ast.Expr, ...], call: str, *, product: bool) -> Value:
@@ -254,3 +276,42 @@ def de_solve(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     if solution is None:
         raise TIError(errors.NO_SOLUTION)
     return Expr(solution)
+
+
+@lazy("domain", 2, cas=True)
+def domain(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`domain(expr, x)`: where `expr` is defined in the reals, as a condition on `x` (`-∞<x<∞`,
+    `-∞<x<-1`, `x≠0`). Echoed if it cannot be found."""
+    name = _name_of(host, args[1])
+    expression = _expression(host, args[0], [name])
+    found = cas.domain_of(expression, cas.symbol(name))
+    if found is None:
+        return _result(None, "domain", expression, name)
+    return Expr(found)
+
+
+_EULER_WITH_SUBSTEPS = 7
+
+
+@lazy("euler", 6, 7)
+def euler(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`euler(expr, t, y, {t0, tMax}, y0, step[, substeps])`: Euler's method for y'=expr, as a
+    matrix of the t values over the y values, in decimals (emulator check 6, K7)."""
+    t, y = _name_of(host, args[1]), _name_of(host, args[2])
+    expression = _expression(host, args[0], [t, y])
+    span = host.expr(args[3])
+    if not isinstance(span, ListValue) or len(span.items) != 2:  # noqa: PLR2004
+        raise TIError(errors.DIMENSION)
+    start, end = (raw_of(item) for item in span.items)
+    initial, step = raw_of(host.expr(args[4])), raw_of(host.expr(args[5]))
+    substeps = _count(host, args[6]) if len(args) == _EULER_WITH_SUBSTEPS else 1
+    if cas.real_float(step) is None or cas.real_float(step) == 0:
+        raise TIError(errors.DOMAIN)
+    t_symbol, y_symbol = cas.symbol(t), cas.symbol(y)
+
+    def slope(t_value: Raw, y_value: Raw) -> Raw:
+        at_t = cas.substitute(expression, t_symbol, t_value)
+        return cas.approximate(cas.substitute(at_t, y_symbol, y_value))
+
+    rows = cas.euler_table(slope, (start, end), initial, step, substeps)
+    return matrix_of(rows)

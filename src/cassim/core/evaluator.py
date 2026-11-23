@@ -20,6 +20,7 @@ from cassim.core.values import (
     ListValue,
     MatrixValue,
     Raw,
+    Shown,
     Str,
     Unevaluated,
     Value,
@@ -258,6 +259,10 @@ class Evaluator:
     def note_non_real(self) -> None:
         self._non_real = True
 
+    def warn(self, message: str) -> None:
+        if message not in self.warnings:
+            self.warnings.append(message)
+
     def evaluated(self, node: ast.Expr) -> Value:
         """One expression, finished as an entry's result is (a spreadsheet formula)."""
         try:
@@ -344,6 +349,9 @@ class Evaluator:
     def _finish(self, value: Value) -> Value:
         if not isinstance(value, Expr):
             return value
+        decided = cas.truth(value.raw)
+        if decided is not None:
+            return Bool(decided)  # `eqn|x=4 and y=-2` that holds is `true`, never SymPy's True
         if self._settings.cas_mode != CasMode.ON and cas.is_symbolic(value.raw):
             raise TIError(errors.CAS_RESTRICTED)
         finished = Expr(cas.finish(value.raw, self._settings))
@@ -396,10 +404,21 @@ class Evaluator:
     def _in_frame(self, name: str) -> bool:
         return any(name in frame for frame in self._frames)
 
+    def _held_symbolic(self, name: str) -> bool:
+        """Whether the innermost binding of `name` keeps it a symbol: the variable of a
+        derivative or a solve, which a `|` binding must not reach into until the end."""
+        for frame in reversed(self._frames):
+            if name in frame:
+                held = frame[name]
+                return isinstance(held, Expr) and held.raw == cas.symbol(name)
+        return False
+
     def _substituted(self, value: Value) -> Value:
         """Apply the enclosing `|` bindings to a stored value or Ans: `Ans|x=1` with Ans `x^2`."""
         for bindings in self._substitutions:
             for name, replacement in bindings.items():
+                if self._held_symbolic(name):
+                    continue
                 symbol = cas.symbol(name)
                 new = raw_of(as_expr(replacement))
                 value = map_value(
@@ -570,10 +589,13 @@ class Evaluator:
         self._substitutions.append(bindings)
         try:
             with self.bound(bindings):
-                return self.expr(node.left)
+                value = self.expr(node.left)
         finally:
             del self._constraints[mark:]
             self._substitutions.pop()
+        # Then into the result: `impDif(eqn,x,y)|x=4 and y=-2` differentiates first, and a user
+        # function's result `eq(z)|a=-8` has the Problem's `a` in it (emulator check 6, K5, K6).
+        return _apply_bindings(bindings, value)
 
     def _binary(self, node: ast.Binary) -> Value:
         if node.op == "|":
@@ -620,6 +642,29 @@ class Evaluator:
             raise _unsupported(f"▶{target}")
         args = [] if isinstance(target, ast.Name) else self._arguments(target)
         return run(self, self.expr(node.value), args)
+
+
+def _apply_bindings(bindings: dict[str, Value], value: Value) -> Value:
+    """Put the `|` values into whatever of their variables a result still holds."""
+    replacements = {
+        name: raw_of(binding)
+        for name, binding in bindings.items()
+        if isinstance(binding, Expr | Bool | Shown)
+    }
+    if not replacements:
+        return value
+
+    def put(item: Value) -> Value:
+        if not isinstance(item, Expr):
+            return item
+        raw = item.raw
+        for name, new in replacements.items():
+            raw = cas.substitute(raw, cas.symbol(name), new)
+        if cas.is_boolean(raw):
+            return _from_truth(raw)
+        return Expr(cas.tidy_substitution(raw))
+
+    return map_value(put, value)
 
 
 def _conjuncts(node: ast.Expr) -> list[ast.Expr]:

@@ -117,6 +117,7 @@ COMPUTER_PANEL_NAMES = {
 
 # The keys of the two texts kept in browser storage, after the device's prefix (`cassim.`).
 AUTOSAVE_KEY = "autosave"
+HELP_PAGE = "Nspire.html"  # the Nspire's page on the help site
 SYSTEM_KEY = "system"
 # The document is saved this long after the last change, not on every key (decision 0031): saving
 # writes the whole document, and with sheet data that is too slow to do per key.
@@ -1136,7 +1137,7 @@ class App:
             "system_settings": lambda: system_settings_dialog(
                 self.page, self.state, self.on_system_change, self.theme, self.open_appearance
             ),
-            "help": self.shell.help,
+            "help": lambda: self.shell.help(HELP_PAGE),
             "about": self.shell.about,
             "home": lambda: self.shell.home() if self.shell.home is not None else None,
         }

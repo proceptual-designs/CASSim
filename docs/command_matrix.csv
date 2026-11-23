@@ -64,7 +64,7 @@ dotP(),45,47,1,0,0,0,core,yes,done
 eff(),46,48,2,0,0,4,core,yes,done
 eigVc(),46,48,1,0,0,0,core,yes,done
 eigVl(),47,48,2,0,0,0,core,yes,done
-euler(),48,50,0,1,20,1,likely,,todo
+euler(),48,50,1,1,20,1,likely,yes,done
 Exit,49,52,0,0,0,0,later,,todo
 exp(),49,52,13,0,0,0,core,yes,done
 expr(),51,53,1,0,0,0,core,yes,done
@@ -286,7 +286,7 @@ completeSquare(),26,,2,0,0,0,core,yes,done
 cSolve(),34,,6,0,2,0,core,yes,done
 cZeros(),37,,3,0,5,0,core,yes,done
 deSolve(),42,,5,0,0,0,core,yes,done
-domain(),44,,0,6,2,2,likely,,todo
+domain(),44,,3,6,2,2,likely,yes,done
 dominantTerm(),45,,0,0,0,0,later,,todo
 ElseIf,47,,0,0,4,0,later,,todo
 exact(),48,,3,0,1,0,core,yes,done

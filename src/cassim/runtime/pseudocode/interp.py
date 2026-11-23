@@ -11,7 +11,8 @@ import random
 import re
 import sys
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from difflib import get_close_matches
 from fractions import Fraction
 from typing import TypeGuard
@@ -155,6 +156,12 @@ def infer_input(text: str, settings: Settings) -> object:
     return text
 
 
+def _snapshot(value: object) -> object:
+    """A value as it is now: a list is copied, so a later `append` or `a[i] ← ...` does not
+    change what an earlier trace row shows (nor what stepping back restores)."""
+    return deepcopy(value) if isinstance(value, list) else value
+
+
 def _is_function(v: object) -> TypeGuard[UserFunc | ExprFunc | Builtin]:
     return isinstance(v, UserFunc | ExprFunc | Builtin)
 
@@ -197,8 +204,8 @@ class Interpreter:
         halt, error, error_line = "finished", None, 0
         try:
             for stmt in self.program.body:
-                if isinstance(stmt, Define):
-                    self.exec_define(stmt)
+                if isinstance(stmt, Define):  # callable before its line; recorded at it
+                    self.exec_define(stmt, record=False)
             self.exec_block(self.program.body)
         except _Return:
             pass
@@ -254,6 +261,7 @@ class Interpreter:
                 f"stopped: the trace is limited to {self.settings.max_events} steps", line, "events"
             )
         loop = (self.loops[-1][0], self.loops[-1][1]) if self.loops else None
+        changes = tuple(replace(c, old=_snapshot(c.old), new=_snapshot(c.new)) for c in changes)
         if function is None:
             function = self.functions[-1] if self.functions else ""
         self.steps.append(
@@ -306,8 +314,13 @@ class Interpreter:
                 value = self.eval(s.value)
                 if not isinstance(target, list):
                     raise PseudocodeRuntimeError("append needs a list")
+                before = _snapshot(target)
                 target.append(value)
-                self.record(s.line, "assign", calc=f"append {self.tfmt(value)}")
+                # A named list shows its new value on this row, as an assignment would.
+                grown = (
+                    (Change(s.target.name, before, target),) if isinstance(s.target, Name) else ()
+                )
+                self.record(s.line, "assign", changes=grown, calc=f"append {self.tfmt(value)}")
             case ExprStmt():
                 before = self.user_calls
                 value = self.eval(s.expr)
@@ -340,8 +353,18 @@ class Interpreter:
 
     # ------------------------------------------------------------------ statements
 
-    def exec_define(self, s: Define) -> None:
+    def exec_define(self, s: Define, *, record: bool = True) -> None:
+        """Make the function, and give the `define` line its own trace row (Simon, 2026-11-22)."""
         self.scope.vars[s.name] = UserFunc(s.name, s.params, s.body, self.scope)
+        if not record:
+            return
+        params = ", ".join(
+            p.name
+            + (f"({', '.join(p.sig)})" if p.sig is not None else "")
+            + (f" = {self.render(p.default)}" if p.default is not None else "")
+            for p in s.params
+        )
+        self.record(s.line, "define", calc=f"define {s.name}({params})")
 
     def set_var(self, name: str, value: object) -> Change:
         old = self.scope.vars.get(name, _MISSING)

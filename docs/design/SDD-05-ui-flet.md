@@ -21,7 +21,7 @@ Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 003
 | `theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
 | `entry.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
 | `ui.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, About, Page Sorter, wizards. `math()` draws LaTeX. |
-| `main.py` | `Application`: chooses Home, a share-link device or the remembered app; imports and mounts a device UI only when selected. |
+| `main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
 | `home.py` | The all-in-one Home screen, fixed choice order, unavailable state and shared appearance setting. It imports no device UI. |
 | `shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
 | `web.py` | Browser-only: the engine worker and the page bridge (SDD-02). |
@@ -99,9 +99,8 @@ Dialogs are plain `ft.AlertDialog`s opened with `page.show_dialog`. The device m
 
 ## Startup
 
-The `all` bundle renders Home on its first normal launch. A saved `cassim.shell.last_device`
-opens that device directly on later visits, unless the route names another bundled device in a
-share link. A `tin`, `pseudo`, `cp` or `prime` single-device bundle always mounts its one device.
+The `all` bundle renders Home on every normal launch; it does not remember the last device. A
+direct route (`#/app/pseudocode`) or a share link opens the bundled device it names. A `tin`, `pseudo`, `cp` or `prime` single-device bundle always mounts its one device.
 Developer `#/debug` routes also open the first device so existing browser flows can drive it.
 
 `cassim` with no arguments calls `app.main.run`, which starts Flet (a window, or the browser with `--web`). The static site runs the same `main` from a staged entry point (SDD-10). In the browser `make_runner` creates the worker engine and `make_bridge` the page bridge; elsewhere the engine is in-process.
@@ -109,7 +108,7 @@ Developer `#/debug` routes also open the first device so existing browser flows 
 Home is part of the shell worker only. `Application.open_device` calls `devices.load` and imports
 the module named by `Device.ui`; only then does the Nspire (or another profile) create its engine
 worker. The CASSim menu can call `Application.show_home`, which first saves the current document
-and releases the device-owned page controls. Returning Home does not clear the remembered app.
+and releases the device-owned page controls.
 The fixed Home order is Nspire, Classpad, Prime, Pseudocode & Python and Scientific; enablement is derived
 from `cassim.bundle.DEVICES`, so unbuilt choices stay visible without becoming profile imports.
 

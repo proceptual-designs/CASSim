@@ -145,7 +145,7 @@ def test_copy_keeps_templates_and_cut_removes_them() -> None:
     editor.paste(copied)
     assert editor.linear() == "((1)/(2))"  # replaced the selection with a copy of itself
     editor.paste(copied)
-    assert editor.linear() == "((1)/(2))((1)/(2))"
+    assert editor.linear() == "((1)/(2))*((1)/(2))"
     assert editor.root[0] is not editor.root[1]  # copies, not the same template twice
     editor.select_left()
     assert linear_text(editor.cut()) == "((1)/(2))"

@@ -6,6 +6,9 @@ from contextlib import contextmanager
 
 import pytest
 from playwright.sync_api import Browser, Page, expect
+from tests.e2e.test_home_browser import AID_WAIT, REDRAW, clear_editor
+
+from cassim.app.home import WELCOME
 
 pytestmark = pytest.mark.e2e
 
@@ -92,6 +95,33 @@ def test_code_workspace_is_responsive_in_both_themes(
             assert trace["y"] > code["y"]
         else:
             assert trace["x"] > code["x"]
+
+
+def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) -> None:
+    """FR-RUN-008: a person's clicks go to Flutter's canvas, not to the accessibility layer the
+    other tests use, so this test clicks screen positions and only turns that layer on at the
+    end to read the result. A pane-sized resize layer once swallowed these clicks."""
+    context = browser.new_context(viewport={"width": 1100, "height": 760})
+    page = context.new_page()
+    try:
+        page.goto(site[1] + "#/app/pseudocode", wait_until="load")
+        expect(page.locator("flt-semantics-placeholder")).to_be_attached(timeout=60_000)
+        page.wait_for_timeout(5_000)  # no accessibility layer to wait on: let the UI draw
+        page.mouse.click(300, 300)  # below the example in the Code pane: caret at the end
+        page.wait_for_timeout(1_000)  # let the field connect, or the first keys are lost (A13)
+        page.keyboard.press("Enter")
+        page.keyboard.type("print 7")
+        page.mouse.click(583, 65)  # Run
+        page.wait_for_timeout(3_000)
+        page.mouse.click(580, 179)  # the first variable's checkbox (a)
+        page.wait_for_timeout(1_000)
+
+        page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
+        # The browser's text box is empty unless focused; Python's gutter shows the new line.
+        expect(page.get_by_text(re.compile(r"^1(\s+\d+)*\s+10$"))).to_be_attached()
+        expect(page.get_by_role("checkbox", name="a", exact=True)).not_to_be_checked()
+    finally:
+        context.close()
 
 
 def test_trace_controls_discover_and_toggle_constants(browser: Browser, site) -> None:
@@ -183,7 +213,7 @@ def test_settings_hold_line_numbers_and_typing_aid(browser: Browser, site) -> No
         page.get_by_role("button", name=re.compile("^CASSim")).click()
         page.get_by_role("button", name="Settings…").click()
         expect(page.get_by_role("switch", name="Line numbers", exact=True)).to_be_checked()
-        expect(page.get_by_role("switch", name="Typing aid", exact=True)).not_to_be_checked()
+        expect(page.get_by_role("switch", name="Typing aid", exact=True)).to_be_checked()
         expect(
             page.get_by_text("Plain names such as pi are never changed.", exact=False)
         ).to_be_attached()
@@ -202,14 +232,73 @@ def test_python_toggle_translates_and_traces(browser: Browser, site) -> None:
         expect(page.get_by_text("0 /", exact=False)).to_be_attached()
 
 
-def test_typing_aid_rewrites_only_while_enabled(browser: Browser, site) -> None:
-    with code_app(browser, site[1], 1100, 760) as page:
-        page.get_by_role("button", name=re.compile("^CASSim")).click()
-        page.get_by_role("button", name="Settings…").click()
-        page.get_by_role("switch", name="Typing aid").click()
-        page.wait_for_timeout(300)
-        page.get_by_role("button", name="Save", exact=True).click()
+ANDROID_UA = (
+    "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+)
 
+
+def test_phone_opens_runs_and_traces_typed_pseudocode(browser: Browser, site) -> None:
+    """FR-RUN-008, FR-PROF-014: on a touch phone Home opens Pseudocode, and code typed as an
+    on-screen keyboard types it runs and traces. No request fails (fallback fonts are shipped)."""
+    context = browser.new_context(
+        viewport={"width": 412, "height": 839},
+        device_scale_factor=2.625,
+        is_mobile=True,
+        has_touch=True,
+        user_agent=ANDROID_UA,
+    )
+    page = context.new_page()
+    failed: list[str] = []
+    page.on("response", lambda r: failed.append(f"{r.status} {r.url}") if r.status >= 400 else None)
+    page.on("pageerror", lambda error: failed.append(str(error)))
+    try:
+        page.goto(site[1], wait_until="load")
+        pseudocode = page.get_by_role("button", name=re.compile("^Pseudocode"))
+        placeholder = page.locator("flt-semantics-placeholder")
+        expect(placeholder).to_be_attached(timeout=60_000)
+        for _ in range(20):  # a mobile Flutter page enables semantics on a real tap
+            if pseudocode.count():
+                break
+            if placeholder.count():
+                placeholder.tap(force=True, timeout=5_000)
+            page.wait_for_timeout(500)
+        expect(page.get_by_text(WELCOME)).to_be_attached()
+        pseudocode.tap()
         editor = page.locator("textarea").first
-        editor.press_sequentially("x <-")
-        expect(editor).to_have_value(re.compile(r".*←$", re.DOTALL))
+        expect(editor).to_be_attached(timeout=15_000)
+        editor.tap()
+        clear_editor(page, editor)  # waits until the app has seen the clear
+        page.keyboard.insert_text("total ← 0\nfor k from 1 to 4\n  total ← total + k\nend for\n")
+        page.keyboard.insert_text("print total")
+        page.get_by_role("button", name=re.compile("^Run")).tap()
+        expect(page.get_by_text("0 / 10 steps", exact=False)).to_be_attached(timeout=15_000)
+        page.get_by_role("button", name="Last", exact=True).tap()
+        expect(page.get_by_text("10 / 10 steps", exact=False)).to_be_attached()
+        expect(page.get_by_role("checkbox", name="total", exact=True)).to_be_attached()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert failed == []
+    finally:
+        context.close()
+
+
+def test_typing_aid_converts_latex_words(browser: Browser, site) -> None:
+    """FR-SYN-013: with the default typing aid, `\\theta ` becomes θ as it is typed (before the
+    two typing-aid switches were merged, the reachable mode never converted these words)."""
+    with code_app(browser, site[1], 1100, 760) as page:
+        editor = page.locator("textarea").first
+        clear_editor(page, editor)  # waits until the app has seen the clear
+        editor.press_sequentially("t <-")
+        # The aid converts once typing pauses (0.5 s), and a key typed while that conversion is
+        # on its way back can be overwritten on a busy machine (PLAN.md A12). So wait well past
+        # the pause before typing on. (The browser's text box can lag what the editor shows,
+        # so the check reads it only after more typing has synced it.)
+        page.wait_for_timeout(AID_WAIT)
+        editor.press_sequentially(" \\theta")
+        page.wait_for_timeout(REDRAW)
+        editor.press_sequentially(" ")
+        page.wait_for_timeout(AID_WAIT)
+        editor.press_sequentially("+x^2")
+        page.wait_for_timeout(REDRAW)
+        editor.press_sequentially(" ")
+        expect(editor).to_have_value("t ← θ +x² ")  # `^2 ` became a superscript

@@ -65,7 +65,7 @@ def test_place_in_a_fraction_inside_a_power() -> None:
     assert editor.linear() == "x^(((91)/(2)))"
     editor.place([(1, 0)], 0)  # the exponent row itself, before the fraction
     editor.insert("3")
-    assert editor.linear() == "x^(3((91)/(2)))"
+    assert editor.linear() == "x^(3*((91)/(2)))"
     assert editor.path == [(1, 0)]
 
 

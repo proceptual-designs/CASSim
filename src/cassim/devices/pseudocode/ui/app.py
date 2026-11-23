@@ -7,14 +7,29 @@ import asyncio
 import contextlib
 import io
 import json
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
-from cassim.devices.pseudocode.typing_aids import convert_symbols, convert_typing
+from cassim.devices.pseudocode.typing_aids import (
+    TYPED_BURST,
+    convert_region,
+    convert_symbols,
+    typed_span,
+)
+from cassim.devices.pseudocode.ui.call_window import CallWindow
 from cassim.devices.pseudocode.ui.panes import BoxedPane, PaneOptions
+from cassim.devices.pseudocode.ui.trace_grid import (
+    CONDITION_COLUMN_WIDTH,
+    LINE_COLUMN_WIDTH,
+    OUTPUT_COLUMN_WIDTH,
+    VARIABLE_COLUMN_WIDTH,
+    Column,
+    TraceGrid,
+)
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
     PseudocodeError,
@@ -28,12 +43,12 @@ from cassim.runtime.pseudocode import (
     trace,
 )
 from cassim.runtime.pseudocode.settings import AngleMode, NumberMode
-from cassim.runtime.pseudocode.typing_aid import replacement_before_cursor
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
 
 
+HELP_PAGE = "Pseudocode.html"  # this app's page on the help site
 EXAMPLE = (
     "terms ← 10\n"
     "a ← 0\n"
@@ -78,9 +93,33 @@ GCD_LCM = (
     "print g\n"
     "print (a*b) div g"
 )
+PRIME_SIEVE = (
+    "n ← 100\n"
+    "is_prime ← []\n"
+    "for i from 1 to n\n"
+    "  append true to is_prime\n"
+    "end for\n"
+    "is_prime[1] ← false\n"
+    "for p from 2 to n\n"
+    "  if is_prime[p] then\n"
+    "    multiple ← p*p\n"
+    "    while multiple ≤ n do\n"
+    "      is_prime[multiple] ← false\n"
+    "      multiple ← multiple + p\n"
+    "    end while\n"
+    "  end if\n"
+    "end for\n"
+    "primes ← []\n"
+    "for i from 2 to n\n"
+    "  if is_prime[i] then\n"
+    "    append i to primes\n"
+    "  end if\n"
+    "end for\n"
+    "print primes"
+)
 DICE_MAX_STATS = (
     "seed(42)\n"
-    "trials ← 200\n"
+    "trials ← 20\n"  # small, so the trace table draws quickly (Simon, 2026-11-22)
     "sum ← 0\n"
     "sum_squares ← 0\n"
     "for trial from 1 to trials\n"
@@ -123,34 +162,80 @@ LEFT_RIEMANN = (
     "print total"
 )
 POLYNOMIAL_NEWTON = (
-    "define polynomial(coefficients, x)\n"
+    "define eval(coeffs, x)\n"
     "  value ← 0\n"
-    "  for each coefficient in coefficients\n"
-    "    value ← value*x + coefficient\n"
+    "  for each coeff in coeffs\n"
+    "    value ← value*x + coeff\n"
     "  end for\n"
     "  return value\n"
     "end\n"
-    "define derivative(coefficients, x)\n"
-    "  value ← 0\n"
-    "  power ← len(coefficients) - 1\n"
-    "  for i from 1 to len(coefficients)-1\n"
-    "    value ← value*x + coefficients[i]*power\n"
-    "    power ← power - 1\n"
+    "\n"
+    "define derivative(coeffs)\n"
+    "  dcoeffs ← []\n"
+    "  n ← len(coeffs) - 1\n"
+    "  for i from 1 to len(coeffs)-1\n"
+    "    append (n - i + 1)*coeffs[i] to dcoeffs\n"
     "  end for\n"
-    "  return value\n"
+    "  return dcoeffs\n"
     "end\n"
-    "coefficients ← [1, 0, -2, -5]\n"
-    "x ← 2\n"
-    "for iteration from 1 to 8\n"
-    "  x ← x - polynomial(coefficients, x)/derivative(coefficients, x)\n"
-    "end for\n"
-    "print x"
+    "\n"
+    "# f(x) ← x³ + 0 x² - 2 x - 5\n"
+    "# f'(x) ← 3x² + 0 x - 2\n"
+    "f ← [1, 0, -2, -5]\n"
+    "df ← derivative(f)\n"
+    "x ← 1\n"
+    "for i from 1 to 8\n"
+    "  x ← x - eval(f, x)/eval(df, x)\n"
+    "  print x\n"
+    "end for"
 )
 MOBILE_BREAKPOINT = 900
-LINE_COLUMN_WIDTH = 40
-VARIABLE_COLUMN_WIDTH = 76
-CONDITION_COLUMN_WIDTH = 130
-OUTPUT_COLUMN_WIDTH = 140
+# The typing aid converts once typing has paused this long (seconds). Converting on every
+# key sent the whole text back from Python, overwriting keys typed in the meantime.
+TYPING_AID_PAUSE = 0.5
+EDITOR_FONT_SIZE = 14
+# Width the editor keeps from its text: content padding (8 each side) and Flutter's text
+# cursor (2), measured 2026-11-22: a 461.2 px line wrapped in a 478 px editor.
+EDITOR_SIDE_PADDING = 18
+PROBE_LENGTH = 40  # characters in each hidden sample the editor font is measured with
+ROW_HEIGHT = 20  # one editor row: font size 14 at line height 20/14
+EDITOR_TOP = 8  # the first row's top in the editor box, as the gutter's padding
+# Before the samples are measured: character width as a fraction of the font size.
+CHAR_EM = {"monospace": 0.6, "formatted": 0.5}
+
+
+def _one(_char: str) -> float:
+    return 1.0
+
+
+def wrapped_rows(line: str, width: float, char_width: Callable[[str], float] = _one) -> int:
+    """How many rows the editor draws `line` on in `width`, wrapping at spaces as Flutter
+    does: a word that does not fit moves to the next row, and a word longer than a row is
+    split. `char_width` gives each character's width (by default 1, so `width` counts
+    characters); `width` 0 means not known yet, so no wrapping."""
+
+    def measure(text: str) -> float:
+        return sum(char_width(char) for char in text)
+
+    if width <= 0 or measure(line) <= width:
+        return 1
+    rows, used = 1, 0.0
+    # A row can end at a space or just after a "/" (Flutter breaks `x)/derivative` there).
+    for piece in re.findall(r"\s*[^\s/]*/|\s*[^\s/]+", line):
+        text = piece
+        if used and used + measure(text) > width:
+            rows, used = rows + 1, 0.0
+            text = piece.lstrip()  # the spaces before a wrapped word end the last row
+        while measure(text) > width:
+            fits, total = 0, 0.0
+            while fits < len(text) and total + char_width(text[fits]) <= width:
+                total += char_width(text[fits])
+                fits += 1
+            rows, text = rows + 1, text[max(fits, 1) :]
+        used += measure(text)
+    return rows
+
+
 SYMBOL_COLUMN_COUNT = 3
 EDITOR_SETTINGS_KEY = "editor"
 CODE_FONT = "CASSim Code"
@@ -200,8 +285,7 @@ class CodeApp:
         self.current_source = EXAMPLE
         self.trace_source = EXAMPLE
         self.line_numbers_visible = True
-        self.typing_aid = False
-        self.typing_aids = False
+        self.typing_aid = True  # Settings, on by default
         self.typing_undo: tuple[str, str] | None = None
         self.code_style = "monospace"
         self.symbol_style = "unicode"
@@ -213,6 +297,13 @@ class CodeApp:
         self.theme_name = "Dark"
         self.cm = None
         self.cm_change_proxy = None
+        self.editor_width = 0.0  # drawn width, reported by the box around the editor
+        self.code_char_width = 0.0  # measured from the hidden samples once drawn
+        # Typed since the typing aid last converted: (start, end) in the current text.
+        self.typed_region: tuple[int, int] | None = None
+        self.typed_paste = False
+        self.edit_generation = 0  # counts edits, so only the last one before a pause acts
+        self.symbol_char_width = 0.0
         self._init_workspace_state()
 
         self.fallback_editor = ft.TextField(
@@ -229,7 +320,13 @@ class CodeApp:
             label_style=ft.TextStyle(size=1, color="transparent"),
             tooltip="Code editor",
             on_change=self.on_fallback_source,
+            expand=True,  # fill the pane: lines wrap only when the pane is too narrow
         )
+        self.highlighted_line = 0  # the source line the trace has reached (0: none)
+        self.line_band = ft.Container(
+            left=0, right=0, top=0, height=ROW_HEIGHT, visible=False,
+            bgcolor=ft.Colors.SECONDARY_CONTAINER, border_radius=3,
+        )  # fmt: skip
         self.line_number_gutter = ft.Text(
             self._line_numbers_for(EXAMPLE),
             style=ft.TextStyle(font_family="monospace", size=14, height=20 / 14),
@@ -245,14 +342,37 @@ class CodeApp:
                     padding=ft.Padding.only(top=8),
                     alignment=ft.Alignment.TOP_RIGHT,
                 ),
-                self.fallback_editor,
+                ft.Container(
+                    # the band behind the text marks the line the trace has reached
+                    ft.Stack([self.line_band, self.fallback_editor]),
+                    expand=True,
+                    # The text field does not report its size; this box is exactly its width.
+                    on_size_change=self.on_editor_size,
+                    size_change_interval=100,
+                ),
             ],
             expand=True,
             spacing=6,
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
+        # Hidden samples in the editor's font: their drawn widths give the width of a code
+        # character and of a symbol, so the gutter knows where long lines wrap.
+        self.code_sample = ft.Text("0" * PROBE_LENGTH, style=self.editor_text_style())
+        self.symbol_sample = ft.Text("←" * PROBE_LENGTH, style=self.editor_text_style())
+        samples = ft.Container(
+            ft.Column(
+                [
+                    ft.Container(self.code_sample, on_size_change=self.measured_sample("code")),
+                    ft.Container(self.symbol_sample, on_size_change=self.measured_sample("symbol")),
+                ],
+                spacing=0,
+                tight=True,
+            ),
+            height=0,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        )
         editor_content = ft.Column(
-            [editor_row],
+            [samples, editor_row],
             scroll=ft.ScrollMode.AUTO,
             expand=True,
             spacing=0,
@@ -311,11 +431,6 @@ class CodeApp:
             "Trace: Vertical",
             on_click=self.cycle_trace_layout,
             style=_control_style(),
-        )
-        self.typing_aids_switch = ft.Switch(
-            label="Typing aids",
-            value=False,
-            on_change=self.toggle_typing_aids,
         )
         self.trace_items = ft.Column(
             [ft.Text("Run to discover constants, variables, functions, and conditions", size=12)],
@@ -385,7 +500,6 @@ class CodeApp:
                 self.number_button,
                 self.angle_button,
                 self.trace_layout,
-                self.typing_aids_switch,
             ],
             scroll=ft.ScrollMode.AUTO,
             spacing=8,
@@ -415,10 +529,7 @@ class CodeApp:
                 ),
                 group(
                     "Number theory",
-                    (
-                        ("GCD and LCM", GCD_LCM),
-                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
-                    ),
+                    (("GCD and LCM", GCD_LCM), ("Prime sieve (1 to 100)", PRIME_SIEVE)),
                 ),
                 group(
                     "Probability",
@@ -427,7 +538,13 @@ class CodeApp:
                         ("Two D4 sample space", D4_SAMPLE_SPACE),
                     ),
                 ),
-                group("Numerical methods", (("Left Riemann sum", LEFT_RIEMANN),)),
+                group(
+                    "Numerical methods",
+                    (
+                        ("Left Riemann sum", LEFT_RIEMANN),
+                        ("Polynomial + Newton", POLYNOMIAL_NEWTON),
+                    ),
+                ),
             ],
         )
 
@@ -437,13 +554,9 @@ class CodeApp:
         self.column_split = 0.5
         self.left_host: ft.Container | None = None
         self.trace_mode = "vertical"
-        self.trace_widths: dict[str, float] = {
-            "__line__": LINE_COLUMN_WIDTH,
-            "__output__": OUTPUT_COLUMN_WIDTH,
-        }
-        self.trace_active_columns: list[str] = []
-        self.trace_resize_controls: dict[str, list[ft.Container]] = {}
-        self.trace_table_container: ft.Container | None = None
+        self.trace_grid = TraceGrid(self.show_call)
+        self.call_windows: list[CallWindow] = []  # open call windows, newest last
+        self.trace_widths = self.trace_grid.widths  # kept when the table is redrawn
         self.symbol_widths = [150.0, 150.0, 150.0]
         self.symbol_columns: list[ft.Container] = []
 
@@ -516,15 +629,14 @@ class CodeApp:
             return
         code_style = data.get("code_style")
         symbol_style = data.get("symbol_style")
-        typing_aids = data.get("typing_aids")
+        # A new key: the old "typing_aids" mostly holds the old default (off).
+        typing_aid = data.get("typing_aid")
         if code_style in ("monospace", "formatted"):
             self.code_style = str(code_style)
         if symbol_style in ("unicode", "ascii"):
             self.symbol_style = str(symbol_style)
-        if isinstance(typing_aids, bool):
-            self.typing_aids = typing_aids
-            self.typing_aid = typing_aids
-        self.typing_aids_switch.value = self.typing_aids
+        if isinstance(typing_aid, bool):
+            self.typing_aid = typing_aid
         self.update_typing_aids()
         self.apply_code_style()
         if self.symbol_style == "ascii":
@@ -537,13 +649,17 @@ class CodeApp:
                 {
                     "code_style": self.code_style,
                     "symbol_style": self.symbol_style,
-                    "typing_aids": self.typing_aids,
+                    "typing_aid": self.typing_aid,
                 }
             ),
         )
 
     def apply_code_style(self) -> None:
         self.fallback_editor.text_style = self.editor_text_style()
+        for sample in (self.code_sample, self.symbol_sample):
+            sample.style = self.editor_text_style()  # re-measured in the new font
+            _safe_update(sample)
+        self.refresh_line_numbers()  # the character width sets where lines wrap
         if self.cm is not None:
             family = (
                 f'"{CODE_FONT}", "{MATH_FONT}", monospace'
@@ -566,11 +682,13 @@ class CodeApp:
 
     @staticmethod
     def _has_browser_dom() -> bool:
+        """True only with a page document: the web build's UI runs in a worker, which has `js`
+        but no `document`, so CodeMirror cannot be mounted there."""
         try:
-            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415, F401
+            import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
         except ImportError:
             return False
-        return True
+        return hasattr(js, "document")
 
     def on_bridge(self) -> None:
         self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
@@ -597,30 +715,67 @@ class CodeApp:
     def on_fallback_source(self, event: ft.Event[ft.TextField]) -> None:
         text = str(event.control.value or "")
         previous = self.current_source
-        if self.typing_aid and not self.typing_aids:
-            selection = event.control.selection
-            cursor = selection.end if selection is not None else len(text)
-            replacement = replacement_before_cursor(text, cursor)
-            if replacement is not None:
-                event.control.value = (
-                    text[: replacement.start] + replacement.replacement + text[replacement.end :]
-                )
-                event.control.update()
-                self.typing_undo = (str(event.control.value or ""), text)
-                self.current_source = str(event.control.value or "")
-                self.refresh_line_numbers()
-                self.mark_dirty()
-                return
-        if self.typing_aids and self.symbol_style == "unicode":
-            converted = convert_typing(previous, text)
-            if converted != text:
-                self.typing_undo = (converted, text)
-                event.control.value = converted
-                event.control.update()
-                text = converted
         self.current_source = text
+        self.highlighted_line = 0  # the trace no longer matches the code
+        if self.typing_aid_available():
+            self.note_typed(previous, text)
+            self.edit_generation += 1
+            run_task = getattr(self.page, "run_task", None)
+            if run_task is None:  # no event loop (unit tests): convert at once
+                self.apply_typing_aid()
+            else:
+                run_task(self.typing_aid_after_pause, self.edit_generation)
         self.refresh_line_numbers()
         self.mark_dirty()
+
+    def note_typed(self, previous: str, text: str) -> None:
+        """Widen the region typed since the last conversion to cover this edit."""
+        shortest = min(len(previous), len(text))
+        start = 0
+        while start < shortest and previous[start] == text[start]:
+            start += 1
+        tail = 0
+        while tail < shortest - start and previous[-1 - tail] == text[-1 - tail]:
+            tail += 1
+        end = len(text) - tail
+        span = typed_span(previous, text)
+        if span is None and end - start > TYPED_BURST:
+            self.typed_paste = True  # a paste is left as it is
+        if self.typed_region is None:
+            self.typed_region = (start, end)
+            return
+        low, high = self.typed_region
+        moved = len(text) - len(previous)
+        if low >= len(previous) - tail:
+            low += moved
+        if high > start:
+            high = max(start, high + moved)
+        self.typed_region = (max(0, min(low, start)), min(len(text), max(high, end)))
+
+    async def typing_aid_after_pause(self, generation: int) -> None:
+        await asyncio.sleep(TYPING_AID_PAUSE)
+        if generation == self.edit_generation:  # nothing typed since: the pause is real
+            self.apply_typing_aid()
+
+    def apply_typing_aid(self) -> None:
+        """Convert what was typed since the last conversion, then send the text back once."""
+        region, paste = self.typed_region, self.typed_paste
+        self.typed_region, self.typed_paste = None, False
+        if region is None or paste or not self.typing_aid_available():
+            return
+        text = self.current_source
+        converted = convert_region(text, *region)
+        if converted == text:
+            return
+        self.typing_undo = (converted, text)
+        self.fallback_editor.value = converted
+        # Setting the text puts the caret at the end; put it back after what was typed. Every
+        # conversion ends inside the typed region, so the text before the caret is what shrank.
+        caret = max(0, min(len(converted), region[1] + len(converted) - len(text)))
+        self.fallback_editor.selection = ft.TextSelection(base_offset=caret, extent_offset=caret)
+        self.current_source = converted
+        self.refresh_line_numbers()
+        _safe_update(self.fallback_editor)
 
     def toggle_language(self, event: ft.Event[ft.SegmentedButton]) -> None:
         selected = event.control.selected
@@ -659,16 +814,71 @@ class CodeApp:
             self.cm.refresh()
 
     @staticmethod
-    def _line_numbers_for(source: str) -> str:
-        return "\n".join(str(number) for number in range(1, len(source.splitlines()) + 1))
+    def _line_numbers_for(
+        source: str, width: float = 0, char_width: Callable[[str], float] = _one
+    ) -> str:
+        """One number per source line; a line the editor wraps onto more rows gets blank rows
+        after its number, so the numbers stay beside their lines. `width` 0: no wrapping."""
+        rows: list[str] = []
+        for number, line in enumerate(source.splitlines(), start=1):
+            rows.append(str(number))
+            rows.extend([""] * (wrapped_rows(line, width, char_width) - 1))
+        return "\n".join(rows)
+
+    def text_width(self) -> float:
+        """Room for text on one editor row, in pixels (0 before the editor is drawn)."""
+        return max(0.0, self.editor_width - EDITOR_SIDE_PADDING) if self.editor_width else 0.0
+
+    def char_width(self, char: str) -> float:
+        """A character's drawn width in the editor: measured from the hidden samples, ASCII
+        in the code font and other characters (arrows, π, ≤) in the fallback symbol fonts."""
+        measured = self.code_char_width if char.isascii() else self.symbol_char_width
+        return measured or CHAR_EM[self.code_style] * EDITOR_FONT_SIZE
+
+    def on_editor_size(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
+        if abs(event.width - self.editor_width) >= 1:
+            self.editor_width = event.width
+            self.refresh_line_numbers()
+
+    def measured_sample(self, kind: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def measured(event: ft.LayoutSizeChangeEvent) -> None:
+            width = event.width / PROBE_LENGTH
+            if kind == "code" and width != self.code_char_width:
+                self.code_char_width = width
+                self.refresh_line_numbers()
+            elif kind == "symbol" and width != self.symbol_char_width:
+                self.symbol_char_width = width
+                self.refresh_line_numbers()
+
+        return measured
 
     def refresh_line_numbers(self) -> None:
         source = str(self.fallback_editor.value or "")
-        self.line_number_gutter.value = self._line_numbers_for(source)
+        self.line_number_gutter.value = self._line_numbers_for(
+            source, self.text_width(), self.char_width
+        )
         self.fallback_editor.min_lines = max(12, len(source.splitlines()) + 1)
         self.line_number_gutter.visible = self.line_numbers_visible
         _safe_update(self.line_number_gutter)
         _safe_update(self.fallback_editor)
+        self.highlight_line(self.highlighted_line)  # wrapping may have moved it
+
+    def highlight_line(self, line: int) -> None:
+        """Put the band behind source line `line` (counting the rows wrapped lines take, as
+        the gutter does), as the call window highlights its code; 0 hides it."""
+        self.highlighted_line = line
+        lines = str(self.fallback_editor.value or "").splitlines()
+        if not 1 <= line <= len(lines):
+            self.line_band.visible = False
+        else:
+            width = self.text_width()
+            rows_before = sum(wrapped_rows(t, width, self.char_width) for t in lines[: line - 1])
+            self.line_band.top = EDITOR_TOP + rows_before * ROW_HEIGHT
+            self.line_band.height = (
+                wrapped_rows(lines[line - 1], width, self.char_width) * ROW_HEIGHT
+            )
+            self.line_band.visible = True
+        _safe_update(self.line_band)
 
     def cycle_trace_layout(self, _: ft.Event[ft.Button]) -> None:
         modes = ("vertical", "horizontal", "none")
@@ -751,6 +961,7 @@ class CodeApp:
         return source
 
     def set_source(self, text: str, *, generated_python: bool = False) -> None:
+        self.typed_region, self.typed_paste = None, False  # nothing typed in the new text
         if self.symbol_style == "ascii":
             text = convert_symbols(text, "ascii")
         self.generated_python = generated_python
@@ -964,9 +1175,7 @@ if (!window.CASSimPseudocodeModeDefined) {
                     "indentUnit": 2,
                     "tabSize": 2,
                     "autofocus": False,
-                    "cassimTypingAids": self.typing_aids
-                    and self.language == "pseudocode"
-                    and self.symbol_style == "unicode",
+                    "cassimTypingAids": self.typing_aid_available(),
                 },
                 dict_converter=js.Object.fromEntries,
             ),
@@ -979,28 +1188,8 @@ if (!window.CASSimPseudocodeModeDefined) {
         self.update_typing_aids()
         self.install_typing_aids()
 
-        def changed(_instance: object, change: object) -> None:
-            if (
-                self.typing_aid
-                and not self.typing_aids
-                and str(getattr(change, "origin", "")) == "+input"
-            ):
-                cursor = cm.getCursor()
-                source = str(cm.getValue())
-                line = int(cursor.line)
-                offset = sum(len(part) + 1 for part in source.splitlines()[:line])
-                index = offset + int(cursor.ch)
-                replacement = replacement_before_cursor(source, index)
-                if replacement is not None:
-                    from_cursor = to_js(
-                        {
-                            "line": line,
-                            "ch": int(cursor.ch) - (replacement.end - replacement.start),
-                        },
-                        dict_converter=js.Object.fromEntries,
-                    )
-                    cm.replaceRange(replacement.replacement, from_cursor, cursor, "+typingAid")
-                    return
+        def changed(_instance: object, _change: object) -> None:
+            # CodeMirror's own `CASSimTypingAids` handler converts while typing.
             self.current_source = str(cm.getValue())
             self.mark_dirty()
 
@@ -1175,23 +1364,15 @@ window.CASSimTypingAids = function(editor, change) {
         self.angle_button.content = self.angle_mode.title()
         _safe_update(self.angle_button)
 
-    def toggle_typing_aids(self, event: ft.Event[ft.Switch]) -> None:
-        enabled = bool(event.control.value)
-        self.typing_aids = enabled
-        self.typing_aid = enabled
-        self.update_typing_aids()
-        self.save_editor_settings()
+    def typing_aid_available(self) -> bool:
+        """The typing aid (Settings) converts only Pseudocode written in Unicode symbols."""
+        return self.typing_aid and self.language == "pseudocode" and self.symbol_style == "unicode"
 
     def update_typing_aids(self) -> None:
-        available = self.language == "pseudocode" and self.symbol_style == "unicode"
-        self.typing_aids_switch.disabled = not available
-        self.typing_aids_switch.value = self.typing_aids
-        if not available:
+        if not self.typing_aid_available():
             self.typing_undo = None
-        if hasattr(self.page, "update"):
-            self.typing_aids_switch.update()
         if self.cm is not None:
-            self.cm.setOption("cassimTypingAids", self.typing_aids and available)
+            self.cm.setOption("cassimTypingAids", self.typing_aid_available())
 
     async def run_code(self, _: ft.Event[ft.Button]) -> None:
         source = self.source()
@@ -1261,14 +1442,18 @@ window.CASSimTypingAids = function(editor, change) {
             self.cursor = len([step for step in self.result.steps if step.kind != "halt"])
         self.update_trace()
 
+    def step_stops(self) -> list[int]:
+        """Where Step stops: after each top-level row, with the lines of any call on it run
+        (step over; they are examined in the call's window)."""
+        return [] if self.result is None else trace.step_over_stops(self.result)
+
     def step_back(self, _: ft.Event[ft.Button] | None) -> None:
-        self.cursor = max(0, self.cursor - 1)
+        self.cursor = max((stop for stop in self.step_stops() if stop < self.cursor), default=0)
         self.update_trace()
 
     def step_forward(self, _: ft.Event[ft.Button] | None) -> None:
-        if self.result is not None:
-            shown = len([step for step in self.result.steps if step.kind != "halt"])
-            self.cursor = min(shown, self.cursor + 1)
+        stops = self.step_stops()
+        self.cursor = next((stop for stop in stops if stop > self.cursor), self.cursor)
         self.update_trace()
 
     def variable_toggle(self, name: str) -> Callable[[ft.Event[ft.Checkbox]], None]:
@@ -1481,13 +1666,14 @@ window.CASSimTypingAids = function(editor, change) {
             _safe_update(self.trace_items)
 
     def condition_labels(self) -> tuple[str, ...]:
-        """Each executed boolean expression once, labelled by source line."""
+        """Each boolean expression the program's own lines ran, once, labelled by source line.
+        Conditions inside a function belong to its calls' windows, as its variables do."""
         if self.result is None:
             return ()
         source_lines = self.trace_source.splitlines()
         found: dict[tuple[int, str], None] = {}
         for step in self.result.steps:
-            if step.cond is None:
+            if step.cond is None or step.depth > 0:
                 continue
             line = step.line
             if not 1 <= line <= len(source_lines):
@@ -1521,132 +1707,117 @@ window.CASSimTypingAids = function(editor, change) {
                     )
         return tuple(values)
 
-    def _trace_header(
-        self,
-        key: str,
-        title: str,
-        width: float,
-    ) -> ft.Container:
-        if key == "__line__":
-            return ft.Container(
-                ft.Text(
-                    title,
-                    weight=ft.FontWeight.BOLD,
-                    size=12,
-                    no_wrap=True,
-                    text_align=ft.TextAlign.CENTER,
-                ),
-                width=LINE_COLUMN_WIDTH,
-                height=38,
-                padding=0,
-                border=ft.Border.all(1),
-                alignment=ft.Alignment.CENTER,
-            )
-
-        def resize(event: ft.DragUpdateEvent) -> None:
-            self.resize_trace_column(key, event)
-
-        grip = ft.GestureDetector(
-            ft.Icon(ft.Icons.DRAG_INDICATOR, size=12),
-            mouse_cursor=ft.MouseCursor.RESIZE_LEFT_RIGHT,
-            on_horizontal_drag_update=resize,
-            drag_interval=25,
-            tooltip=f"Resize {title} column",
-        )
-        return ft.Container(
-            ft.Row(
-                [ft.Text(title, weight=ft.FontWeight.BOLD, size=12, expand=True), grip],
-                tight=True,
-                spacing=2,
-            ),
-            width=width,
-            height=38,
-            padding=ft.Padding.symmetric(horizontal=6),
-            border=ft.Border.all(1),
-            alignment=ft.Alignment.CENTER_LEFT,
-        )
-
     def resize_trace_column(self, key: str, event: ft.DragUpdateEvent) -> None:
-        if key == "__line__" or event.global_delta is None:
-            return
-        current = self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH)
-        self.trace_widths[key] = min(420, max(48, current + event.global_delta.x))
-        for control in self.trace_resize_controls.get(key, []):
-            control.width = self.trace_widths[key]
-            _safe_update(control)
-        if self.trace_table_container is not None:
-            self.trace_table_container.width = sum(
-                self.trace_widths[column] for column in self.trace_active_columns
-            )
-            _safe_update(self.trace_table_container)
+        self.trace_grid.resize(key, event)
 
-    def _trace_cell(self, key: str, value: str, *, header: bool = False) -> ft.Container:
-        return ft.Container(
-            ft.Text(
-                value,
-                size=12,
-                weight=ft.FontWeight.BOLD if header else None,
-                selectable=not header,
-                no_wrap=key == "__line__",
-            ),
-            width=self.trace_widths.get(key, VARIABLE_COLUMN_WIDTH),
-            height=38,
-            padding=ft.Padding.symmetric(horizontal=6, vertical=4),
-            border=ft.Border.all(1),
-            alignment=ft.Alignment.CENTER_LEFT,
+    def call_rows(self, table: trace.VerticalTable) -> dict[int, int]:
+        """Row number -> step for the rows that call a function defined in the code."""
+        if self.result is None:
+            return {}
+        steps = self.result.steps
+        return {
+            number: row.step
+            for number, row in enumerate(table.rows)
+            if row.step < len(steps) and steps[row.step].kind == "call"
+        }
+
+    def show_call(self, call: int) -> None:
+        """Open one function call in a movable, resizable window: the function's code beside
+        its trace (stacked on a phone), with the trace pane's resizable columns and Step /
+        First / Last over the call's own rows. The code highlights the line of the last row
+        shown. Calls inside it open the same way (FR-TRC-013)."""
+        if self.result is None:
+            return
+        result, settings, cursor = self.result, self.settings(), self.cursor
+        reached = trace.call_table(result, settings, call, cursor=cursor)
+        total = len(reached.rows)
+        grid = TraceGrid(self.show_call)
+        host = ft.Container(expand=True)
+        counter = ft.Text(size=12)
+        shown = [total]  # rows of the call shown: all it has reached when it opens
+        columns: list[Column] = [
+            ("__line__", "Line", LINE_COLUMN_WIDTH),
+            *((f"variable:{name}", name, VARIABLE_COLUMN_WIDTH) for name in reached.variables),
+            ("__output__", "Calcs / Output", OUTPUT_COLUMN_WIDTH),
+        ]
+        source = trace.function_source(parse(self.trace_source), result.steps[call].function)
+        code = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=0)
+
+        def draw_code(current: int) -> None:
+            code.controls = [
+                ft.Container(
+                    ft.Row(
+                        [
+                            ft.Text(str(number), width=28, text_align=ft.TextAlign.RIGHT),
+                            ft.Text(text, font_family=CODE_FONT, no_wrap=True),
+                        ],
+                        spacing=8,
+                    ),
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER if number == current else None,
+                    padding=ft.Padding.symmetric(horizontal=4, vertical=1),
+                )
+                for number, text in source
+            ]
+            _safe_update(code)
+
+        def draw() -> None:
+            table = trace.call_table(result, settings, call, cursor=cursor, rows=shown[0])
+            rows = [
+                [str(row.line), *(row.cells.get(name, "") for name in reached.variables), row.calc]
+                for row in table.rows
+            ]
+            host.content = grid.build(columns, rows, self.call_rows(table))
+            counter.value = f"{shown[0]} / {total} steps"
+            draw_code(table.rows[-1].line if table.rows else source[0][0] if source else 0)
+            _safe_update(host)
+            _safe_update(counter)
+
+        def go(rows: int) -> None:
+            shown[0] = max(0, min(total, rows))
+            draw()
+
+        controls = ft.Row(
+            [
+                ft.Button("Step", on_click=lambda _: go(shown[0] + 1), style=_control_style()),
+                ft.Button("First", on_click=lambda _: go(0), style=_control_style()),
+                ft.Button("Last", on_click=lambda _: go(total), style=_control_style()),
+                counter,
+            ],
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
+        draw()
+        starting = trace.call_parameters(result, call, settings)
+        name = result.steps[call].calc
+        trace_side = ft.Column([controls, host], spacing=8, expand=3)
+        code_side = ft.Container(  # long lines scroll sideways rather than run under the trace
+            ft.Row(
+                [code],
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            ),
+            expand=2,
+            padding=ft.Padding.only(top=4),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        )
+        window = CallWindow(  # side by side when it is wide enough, stacked when narrow
+            self.page,
+            f"{name}: {starting}" if starting else name,
+            code_side,
+            trace_side,
+            offset=len(self.call_windows),
+            on_close=self.call_windows.remove,
+        )
+        self.call_windows.append(window)
+        window.open()
 
     def draw_trace_table(
         self,
         columns: list[tuple[str, str, float]],
         rows: list[list[str]],
+        calls: dict[int, int] | None = None,
     ) -> None:
-        for key, _, default in columns:
-            self.trace_widths.setdefault(key, default)
-        self.trace_active_columns = [key for key, _, _ in columns]
-        self.trace_resize_controls = {key: [] for key in self.trace_active_columns}
-        header_containers = [
-            self._trace_header(key, title, self.trace_widths[key]) for key, title, _ in columns
-        ]
-        for (key, _, _), control in zip(columns, header_containers, strict=True):
-            self.trace_resize_controls[key].append(control)
-        header_controls: list[ft.Control] = list(header_containers)
-        header = ft.Row(
-            header_controls,
-            spacing=0,
-            tight=True,
-        )
-        body_rows: list[ft.Control] = []
-        for row in rows:
-            row_containers = [
-                self._trace_cell(key, value)
-                for (key, _, _), value in zip(columns, row, strict=True)
-            ]
-            for (key, _, _), control in zip(columns, row_containers, strict=True):
-                self.trace_resize_controls[key].append(control)
-            row_controls: list[ft.Control] = list(row_containers)
-            body_rows.append(
-                ft.Row(
-                    row_controls,
-                    spacing=0,
-                    tight=True,
-                    height=38,
-                )
-            )
-        body = ft.Column(
-            body_rows,
-            scroll=ft.ScrollMode.AUTO,
-            expand=True,
-            spacing=0,
-        )
-        total_width = sum(self.trace_widths[key] for key, _, _ in columns)
-        table = ft.Container(
-            ft.Column([header, body], spacing=0, expand=True),
-            width=total_width,
-            expand=True,
-        )
-        self.trace_table_container = table
-        self.trace.controls = [ft.Row([table], scroll=ft.ScrollMode.AUTO, expand=True, spacing=0)]
+        self.trace.controls = [self.trace_grid.build(columns, rows, calls)]
         _safe_update(self.trace)
 
     def condition_name(self, line: int) -> str:
@@ -1677,7 +1848,7 @@ window.CASSimTypingAids = function(editor, change) {
             dict.fromkeys(
                 name
                 for step in self.result.steps
-                if step.cond is not None
+                if step.cond is not None and step.depth == 0
                 for name in (self.condition_name(step.line),)
                 if name and f"{step.line}: {name}" in self.selection.conditions
             )
@@ -1752,17 +1923,21 @@ window.CASSimTypingAids = function(editor, change) {
                 self.trace_layout.content = "Trace: Vertical"
                 _safe_update(self.trace_layout)
                 vertical, columns, rows = self.update_vertical_trace()
-                self.draw_trace_table(columns, rows)
+                self.draw_trace_table(columns, rows, self.call_rows(vertical))
         else:
             vertical, columns, rows = self.update_vertical_trace()
-            self.draw_trace_table(columns, rows)
-        shown = (
-            len([step for step in self.result.steps if step.kind != "halt"])
-            if self.result is not None
-            else 0
+            self.draw_trace_table(columns, rows, self.call_rows(vertical))
+        stops = self.step_stops()
+        self.status.value = (
+            f"{sum(1 for stop in stops if stop <= self.cursor)} / {len(stops)} steps"
         )
-        self.status.value = f"{self.cursor} / {shown} steps"
         _safe_update(self.status)
+        reached = [
+            step
+            for step in (self.result.steps[: self.cursor] if self.result is not None else [])
+            if step.depth == 0 and step.kind != "halt"
+        ]
+        self.highlight_line(reached[-1].line if reached else 0)
         if self.cm is not None and vertical is not None and vertical.rows:
             line = vertical.rows[-1].line
             import js  # ty: ignore[unresolved-import]  # noqa: PLC0415
@@ -1837,7 +2012,6 @@ window.CASSimTypingAids = function(editor, change) {
             self.angle_mode = cast(AngleMode, angle.selected[0])
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
-            self.typing_aids = self.typing_aid
             self.code_style = str(code_style.value or "monospace")
             new_symbol_style = str(symbol_style.value or "unicode")
             if new_symbol_style != self.symbol_style:
@@ -1925,7 +2099,7 @@ window.CASSimTypingAids = function(editor, change) {
         self.shell.activate_update()
 
     def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.help()
+        self.shell.help(HELP_PAGE)
 
     def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.about()

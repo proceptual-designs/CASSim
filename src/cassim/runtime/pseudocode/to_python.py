@@ -3,8 +3,10 @@
 import ast
 import builtins
 import keyword
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, fields, is_dataclass
 
+from cassim.runtime.pseudocode import comments
 from cassim.runtime.pseudocode.parser import parse
 from cassim.runtime.pseudocode.settings import Settings
 from cassim.runtime.pseudocode.syntax import DEFAULT, Syntax
@@ -41,6 +43,8 @@ from cassim.runtime.pseudocode.tree import (
 )
 
 TRANSLATION_MARKER = "# CASSim pseudocode translation"
+# Comment lines, then the blank line unparse puts before a `def`.
+_COMMENT_BEFORE_DEF = re.compile(r"(?m)^((?:[ \t]*#.*\n)+)\n(?=[ \t]*def )")
 _RESERVED = frozenset(
     set(keyword.kwlist) | set(dir(builtins)) | {"Fraction", "read_value", "radians", "degrees"}
 )
@@ -63,6 +67,12 @@ class _Translator:
     needs_input: bool = False
     needs_inclusive_range: bool = False
     math_names: set[str] = field(default_factory=set)
+    # Loop variables translated 0-based: the pseudocode's `i` is the Python `i + 1`.
+    shifted: set[str] = field(default_factory=set)
+    # The program's or the current function's body, to see where else a name is used.
+    scopes: list[list[Stmt]] = field(default_factory=list)
+    # Comments to write before a statement: its line -> placeholder numbers.
+    comments_before: dict[int, list[int]] = field(default_factory=dict)
 
     def rename(self, name: str) -> str:
         return self.names.get(name, name)
@@ -122,6 +132,10 @@ class _Translator:
                     return ast.Constant(True)
                 if name.lower() == "false":
                     return ast.Constant(False)
+                if name in self.shifted:
+                    return ast.BinOp(
+                        ast.Name(self.rename(name), ast.Load()), ast.Add(), ast.Constant(1)
+                    )
                 return ast.Name(self.rename(name), ast.Load())
             case Paren(inner=inner):
                 return self.expression(inner)
@@ -168,7 +182,9 @@ class _Translator:
             case Call():
                 return self.call(expr)
             case Index():
-                index = ast.BinOp(self.expression(expr.index), ast.Sub(), ast.Constant(1))
+                index = _simplify(
+                    ast.BinOp(self.expression(expr.index), ast.Sub(), ast.Constant(1))
+                )
                 return ast.Subscript(self.expression(expr.target), index, ast.Load())
             case ListLit():
                 return ast.List([self.expression(item) for item in expr.items], ast.Load())
@@ -181,11 +197,18 @@ class _Translator:
     def target(self, target: Name | Index) -> ast.expr:
         if isinstance(target, Name):
             return ast.Name(self.rename(target.name), ast.Store())
-        index = ast.BinOp(self.expression(target.index), ast.Sub(), ast.Constant(1))
+        index = _simplify(ast.BinOp(self.expression(target.index), ast.Sub(), ast.Constant(1)))
         return ast.Subscript(self.expression(target.target), index, ast.Store())
 
     def block(self, body: list[Stmt]) -> list[ast.stmt]:
-        return [statement for stmt in body for statement in self.statement(stmt)]
+        out: list[ast.stmt] = []
+        for stmt in body:
+            out.extend(
+                ast.Expr(ast.Name(comments.PLACEHOLDER.format(number), ast.Load()))
+                for number in self.comments_before.pop(stmt.line, [])
+            )
+            out.extend(self.statement(stmt))
+        return out
 
     def statement(self, stmt: Stmt) -> list[ast.stmt]:  # noqa: PLR0911, PLR0912
         match stmt:
@@ -287,7 +310,47 @@ class _Translator:
             current.orelse = self.block(stmt.orelse)
         return result
 
+    def scoped_block(self, body: list[Stmt]) -> list[ast.stmt]:
+        self.scopes.append(body)
+        try:
+            return self.block(body)
+        finally:
+            self.scopes.pop()
+
+    def can_shift(self, stmt: For) -> bool:
+        """A counting loop whose variable indexes a list, is not set inside the loop and is
+        not used anywhere else in its function (after the loop Python's `i` is one less)."""
+        return (
+            stmt.step is None
+            and stmt.var not in self.shifted
+            and _indexes_with(stmt.body, stmt.var)
+            and stmt.var not in _bound_names(stmt.body)
+            and stmt.var not in _names_in(self.scopes[-1] if self.scopes else [], skip=stmt)
+        )
+
+    def shifted_for(self, stmt: For) -> ast.For:
+        """`for i from 1 to n` indexing lists as `L[i]` becomes `for i in range(n)` with `L[i]`:
+        the Python `i` is one less, so its other uses read `i + 1`, folded where they can be
+        (`n - i + 1` becomes `n - i`)."""
+        start = _simplify(ast.BinOp(self.expression(stmt.start), ast.Sub(), ast.Constant(1)))
+        stop = self.expression(stmt.stop)
+        zero = isinstance(start, ast.Constant) and start.value == 0
+        self.shifted.add(stmt.var)
+        try:
+            body = [_SumSimplifier().visit(line) for line in self.block(stmt.body)]
+        finally:
+            self.shifted.discard(stmt.var)
+        return ast.For(
+            ast.Name(self.rename(stmt.var), ast.Store()),
+            ast.Call(ast.Name("range"), [stop] if zero else [start, stop], []),
+            body,
+            [],
+            type_comment=None,
+        )
+
     def for_statement(self, stmt: For) -> ast.For:
+        if self.can_shift(stmt):
+            return self.shifted_for(stmt)
         start = self.expression(stmt.start)
         stop = self.expression(stmt.stop)
         if stmt.step is None:
@@ -312,7 +375,7 @@ class _Translator:
                 type_comment=None,
             )
         if stmt.step is None:
-            range_args = [start, ast.BinOp(stop, ast.Add(), ast.Constant(1))]
+            range_args = [start, _past(stmt.stop, stop, 1)]
         else:
             step = self.expression(stmt.step)
             signed = _signed_one(stmt.step)
@@ -322,9 +385,9 @@ class _Translator:
                     ast.Constant(1),
                     ast.Constant(-1),
                 )
+                range_args = [start, ast.BinOp(stop, ast.Add(), adjustment), step]
             else:
-                adjustment = ast.Constant(1 if signed > 0 else -1)
-            range_args = [start, ast.BinOp(stop, ast.Add(), adjustment), step]
+                range_args = [start, _past(stmt.stop, stop, 1 if signed > 0 else -1), step]
         return ast.For(
             ast.Name(self.rename(stmt.var), ast.Store()),
             ast.Call(ast.Name("range"), range_args, []),
@@ -351,7 +414,7 @@ class _Translator:
         return ast.FunctionDef(
             self.rename(stmt.name),
             _arguments(args, defaults),
-            self.block(stmt.body),
+            self.scoped_block(stmt.body),
             [],
             returns=None,
             type_comment=None,
@@ -371,20 +434,53 @@ def _signed_one(expr: Expr) -> int | None:
     return None
 
 
+def _whole_number_literal(text: str) -> bool:
+    try:
+        int(text.replace("ᴇ", "E"))
+    except ValueError:
+        return False
+    return True
+
+
 def _integer_expression(expr: Expr) -> bool:
-    if isinstance(expr, Name):
-        return True
-    if isinstance(expr, Num):
-        try:
-            int(expr.text.replace("ᴇ", "E"))
+    """Whether a loop bound is a whole number, so the loop can use range(): names, whole
+    literals, `len(...)`, and + - * div mod of those."""
+    match expr:
+        case Name():
             return True
-        except ValueError:
-            return False
-    if isinstance(expr, Unary) and expr.op in {"-", "+"}:
-        return _integer_expression(expr.operand)
-    if isinstance(expr, Binary):
-        return _integer_expression(expr.left) and _integer_expression(expr.right)
+        case Num():
+            return _whole_number_literal(expr.text)
+        case Unary(op="-" | "+"):
+            return _integer_expression(expr.operand)
+        case Binary() if expr.op in _WHOLE_NUMBER_OPS:
+            return _integer_expression(expr.left) and _integer_expression(expr.right)
+        case Call(name="len"):
+            return True
     return False
+
+
+# Operators that keep whole numbers whole (not `/` or `÷`, which can give a decimal).
+_WHOLE_NUMBER_OPS = {"+", "-", "*", "div", "mod"}
+
+
+def _past(stop: Expr, python: ast.expr, adjustment: int) -> ast.expr:
+    """The exclusive `range` end for an inclusive `stop`: `8` gives 9 and `n - 1` gives `n`,
+    rather than `8 + 1` and `n - 1 + 1`."""
+    if isinstance(stop, Num):
+        try:
+            return ast.Constant(int(stop.text) + adjustment)
+        except ValueError:
+            pass
+    if (
+        adjustment == 1
+        and isinstance(stop, Binary)
+        and stop.op == "-"
+        and isinstance(stop.right, Num)
+        and stop.right.text == "1"
+        and isinstance(python, ast.BinOp)
+    ):
+        return python.left
+    return ast.BinOp(python, ast.Add(), ast.Constant(adjustment))
 
 
 def _integer_step(expr: Expr) -> bool:
@@ -403,6 +499,71 @@ def _arguments(args: list[ast.arg], defaults: list[ast.expr] | None = None) -> a
         kwarg=None,
         defaults=[] if defaults is None else defaults,
     )
+
+
+def _children(node: object) -> list[object]:
+    if isinstance(node, (list, tuple)):
+        return list(node)
+    if is_dataclass(node) and not isinstance(node, type):
+        return [getattr(node, f.name) for f in fields(node)]
+    return []
+
+
+def _names_in(node: object, *, skip: object = None) -> set[str]:
+    """Every name used in a statement or expression tree, leaving out the subtree `skip`."""
+    if node is skip:
+        return set()
+    found = {node.name} if isinstance(node, Name) else set()
+    for child in _children(node):
+        found |= _names_in(child, skip=skip)
+    return found
+
+
+def _indexes_with(node: object, var: str) -> bool:
+    """Whether `L[var]` (the bare loop variable as an index) appears in the tree."""
+    if isinstance(node, Index) and isinstance(node.index, Name) and node.index.name == var:
+        return True
+    return any(_indexes_with(child, var) for child in _children(node))
+
+
+def _simplify(node: ast.expr) -> ast.expr:
+    """Fold the whole-number constants of a sum: `(i + 1) - 1` is `i`, `n - (i + 1) + 1` is
+    `n - i`. Other terms keep their order; anything that is not a sum is left alone."""
+    if not (isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub))):
+        return node
+    terms: list[tuple[int, ast.expr]] = []
+    constant = 0
+
+    def walk(part: ast.expr, sign: int) -> None:
+        nonlocal constant
+        if isinstance(part, ast.BinOp) and isinstance(part.op, (ast.Add, ast.Sub)):
+            walk(part.left, sign)
+            walk(part.right, sign if isinstance(part.op, ast.Add) else -sign)
+        elif isinstance(part, ast.Constant) and type(part.value) is int:
+            constant += sign * part.value
+        else:
+            terms.append((sign, part))
+
+    walk(node, 1)
+    if not terms:
+        return ast.Constant(constant)
+    first_sign, first = terms[0]
+    result: ast.expr = first if first_sign > 0 else ast.UnaryOp(ast.USub(), first)
+    for sign, term in terms[1:]:
+        result = ast.BinOp(result, ast.Add() if sign > 0 else ast.Sub(), term)
+    if constant:
+        result = ast.BinOp(
+            result, ast.Add() if constant > 0 else ast.Sub(), ast.Constant(abs(constant))
+        )
+    return result
+
+
+class _SumSimplifier(ast.NodeTransformer):
+    """Fold the constants of every sum in a shifted loop's body (see `_simplify`)."""
+
+    def visit_BinOp(self, node: ast.BinOp) -> ast.expr:
+        self.generic_visit(node)
+        return _simplify(node)
 
 
 def _bound_names(body: list[Stmt]) -> set[str]:
@@ -457,9 +618,15 @@ def pseudocode_to_python(
     """Translate pseudocode (or its program tree) to a safe, readable Python subset."""
     program = parse(source, syntax) if isinstance(source, str) else source
     translator = _Translator(settings or Settings(), _renames(program))
-    module = ast.Module(body=translator.block(program.body), type_ignores=[])
+    found = comments.pseudocode_comments(program.lines, syntax.comments)
+    translator.comments_before, texts, trailing = comments.anchor(
+        found, comments.statement_lines(program.body)
+    )
+    module = ast.Module(body=translator.scoped_block(program.body), type_ignores=[])
     ast.fix_missing_locations(module)
-    translated = ast.unparse(module)
+    translated = comments.restore(ast.unparse(module), texts, trailing, "#")
+    # unparse puts a blank line before each `def`: keep a comment with its function.
+    translated = _COMMENT_BEFORE_DEF.sub(r"\n\1", translated)
     header: list[str] = []
     if translator.needs_fraction:
         header.append("from fractions import Fraction")

@@ -109,3 +109,10 @@ def test_integral_handles_equal_and_reversed_bounds_and_reports_depth_limit() ->
         integral(cubic, math.inf, math.inf)
     with pytest.raises(ArithmeticError, match="subdivision limit"):
         integral(math.exp, 0, 1, tolerance=1e-20, max_depth=1)
+
+
+def test_find_zero_accepts_a_root_found_to_rounding() -> None:
+    """A converged bracket whose midpoint residual is rounding noise is still a root."""
+    assert find_zero(lambda x: x**3 - 3 * x, -2.5, -1.0000000000000004) == pytest.approx(
+        -math.sqrt(3)
+    )
