@@ -52,6 +52,7 @@ class Site:
 SITES = {
     "nspire": Site("tin", "CASSim-TIN", "https://cassim-tin.pages.dev/"),
     "pseudocode": Site("pseudo", "CASSim-pseudo", "https://cassim-pseudo.pages.dev/"),
+    "scientific": Site("fx", "CASSim-fx", "https://cassim-fx.pages.dev/"),
     "classpad": Site("cp", "CASSim-CP", "https://cassim-cp.pages.dev/"),
     "prime": Site("prime", "CASSim-Prime", "https://cassim-prime.pages.dev/"),
 }
@@ -60,6 +61,8 @@ SITES = {
 def load(device_id: str) -> Device:
     """The device with this id. Its package is imported here, by name, and nowhere else in the
     shell, so a bundle holds only the devices it lists (`cassim.bundle`)."""
+    if device_id == "fx":
+        device_id = "scientific"
     if device_id not in SITES:
         msg = f"{device_id!r} is not a device"
         raise ValueError(msg)

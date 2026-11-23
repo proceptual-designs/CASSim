@@ -76,6 +76,8 @@ cassim/
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
     pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
+    scientific/             DEVICE (SDD-12); CASSim fx scientific calculator: engine.py, state.py, tutorials.py;
+                            ui/ (FLET: app.py; the only part that imports Flet)
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M5b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -117,7 +119,7 @@ device interface, Nspire move, all-in-one Home chooser and bundle-aware build ca
 | Device model | Key-layer, menu and screen-buffer framework | Keymap, menu tree, skin, presets (e.g. the VCE settings) |
 | Evidence | Corpus format and replay tool | `corpus/<device>/` cases captured from that device's oracle |
 
-Layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../pseudocode/`, `.../prime/` (each a plug-in, section 15), with `core/` keeping the shared parts. Today's TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) move under `devices/nspire/` in M8a, when the ClassPad shows what is shared (decision 0032 item 7, agreed 2026-11-13; M2x moved everything else); the Nspire corpus is the safety net, and the refactor is done when every Nspire case replays unchanged. The Nspire symbol and statistics conventions (SRS C-4, C-5) stay the Nspire profile's; other profiles take theirs from their own oracle.
+Layout: `src/cassim/devices/nspire/`, `.../scientific/`, `.../classpad/`, `.../pseudocode/`, `.../prime/` (each a plug-in, section 15), with `core/` keeping the shared parts. Today's TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) move under `devices/nspire/` in M8a, when the ClassPad shows what is shared (decision 0032 item 7, agreed 2026-11-13; M2x moved everything else); the Nspire corpus is the safety net, and the refactor is done when every Nspire case replays unchanged. The Nspire symbol and statistics conventions (SRS C-4, C-5) stay the Nspire profile's; other profiles take theirs from their own oracle.
 
 **Runtime for Python and pseudocode** (`src/cassim/runtime/`). A small `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, cancel. Two implementations:
 - *Python*: CPython from Pyodide in a **dedicated worker**, separate from the CAS engine. A runaway script is cancelled by terminating its worker (as in decision 0005) without touching CAS state. The goal is no network and no host-page access for user code; how that is enforced (CSP, removing the `js` bridge, or both) is a spike before the build, and any gap that cannot be closed is documented rather than hidden.
@@ -478,6 +480,7 @@ the SRS.
 | every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire and Pseudocode & Python |
 | `nspire` | `tin` | CASSim-TIN | `cassim-tin` | M2x |
 | `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; single-device build exists, site release wiring remains |
+| `scientific` | `fx` | CASSim-fx | `cassim-fx` | SDD-12, in development; Pages project not reserved yet |
 | `classpad` | `cp` | CASSim-CP | `cassim-cp` | M8 |
 | `prime` | `prime` | CASSim-Prime | `cassim-prime` | M9, if go |
 
