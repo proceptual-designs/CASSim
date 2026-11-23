@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CASSim fx — Scientific Calculator</title>
+<style>
+  :root {
+    --bg-color: #0d0f12;
+    --panel-bg: #14161a;
+    --panel-border: #232730;
+    --text-primary: #f1f5f9;
+    --text-secondary: #8b95a5;
+    --accent: #2462a1;
+    --accent-hover: #1d4f82;
+    --accent-focus: #38bdf8;
+    
+    /* Calculator Theme: Default CASSim Slate (Dark) */
+    --calc-case: #1a1d24;
+    --calc-bezel: #13151a;
+    --calc-border: #2e3442;
+    --lcd-bg: #dce5d3;
+    --lcd-pixel: #121810;
+    --lcd-annun-off: rgba(18, 24, 16, 0.12);
+    --key-fn: #262a33;
+    --key-fn-text: #f0f2f5;
+    --key-fn-border: #16181e;
+    --key-num: #333844;
+    --key-num-text: #ffffff;
+    --key-num-border: #1e222b;
+    --key-del: #2e6930;
+    --key-del-text: #ffffff;
+    --key-ac: #255d27;
+    --key-ac-text: #ffffff;
+    --label-shift: #e5a93c;
+    --label-alpha: #e05d5d;
+    --label-extra: #00bcd4;
+    --dpad-base: #1f222a;
+    --dpad-dish: #16181e;
+    --dpad-border: #383f4f;
+    --ring-accent: #323847;
+  }
+
+  /* Classroom High-Contrast Theme */
+  body.theme-contrast {
+    --bg-color: #050608;
+    --calc-case: #101216;
+    --calc-bezel: #08090b;
+    --calc-border: #3e4452;
+    --lcd-bg: #f4f6f8;
+    --lcd-pixel: #000000;
+    --lcd-annun-off: rgba(0, 0, 0, 0.12);
+    --key-fn: #ffffff;
+    --key-fn-text: #000000;
+    --key-fn-border: #263238;
+    --key-num: #ffffff;
+    --key-num-text: #000000;
+    --key-num-border: #263238;
+    --key-del: #37474f;
+    --key-del-text: #ffffff;
+    --key-ac: #b71c1c;
+    --key-ac-text: #ffffff;
+    --label-shift: #c77700;
+    --label-alpha: #0050b3;
+    --dpad-base: #263238;
+    --dpad-dish: #192024;
+    --dpad-border: #78909c;
+    --ring-accent: #b0bec5;
+  }
+
+  /* Studio Light Theme */
+  body.theme-light {
+    --bg-color: #f1f5f9;
+    --panel-bg: #ffffff;
+    --panel-border: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --calc-case: #e2e8f0;
+    --calc-bezel: #cbd5e1;
+    --calc-border: #94a3b8;
+    --lcd-bg: #e2e8f0;
+    --lcd-pixel: #0f172a;
+    --lcd-annun-off: rgba(15, 23, 42, 0.12);
+    --key-fn: #475569;
+    --key-fn-text: #ffffff;
+    --key-fn-border: #334155;
+    --key-num: #f8fafc;
+    --key-num-text: #0f172a;
+    --key-num-border: #cbd5e1;
+    --key-del: #1e40af;
+    --key-del-text: #ffffff;
+    --key-ac: #b91c1c;
+    --key-ac-text: #ffffff;
+    --label-shift: #d97706;
+    --label-alpha: #e11d48;
+    --dpad-base: #334155;
+    --dpad-dish: #1e293b;
+    --dpad-border: #64748b;
+    --ring-accent: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { background: var(--bg-color); color: var(--text-primary); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+  /* ---------------------------------------------------- */
+  /* CASSim AUTHENTIC TOP NAVIGATION BAR                 */
+  /* ---------------------------------------------------- */
+  .cassim-topbar {
+    background: #14161a;
+    border-bottom: 1px solid #232730;
+    height: 38px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 500;
+    user-select: none;
+    transition: transform 0.25s ease, margin-top 0.25s ease;
+  }
+  .cassim-topbar.hidden {
+    margin-top: -38px;
+    transform: translateY(-100%);
+  }
+
+  .menu-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .menu-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* CASSim Chip Button (Dark button with light text) */
+  .cassim-chip {
+    background: #252830;
+    border: 1px solid #333842;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .cassim-chip:hover {
+    background: #2f3440;
+    border-color: #485060;
+  }
+  .cassim-chip.active {
+    background: #1c2027;
+    border-color: #2462a1;
+    color: #ffffff;
+  }
+
+  /* Status Chips */
+  .status-chip {
+    background: #191c22;
+    border: 1px solid #242932;
+    color: #7e8b9b;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.3px;
+  }
+  .status-chip.primary {
+    color: #93c5fd;
+    border-color: #1e3a5f;
+  }
+
+  /* Dropdown Menu Overlay */
+  .cassim-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 3px;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    border-radius: 4px;
+    min-width: 175px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.65), 0 2px 5px rgba(0,0,0,0.35);
+    display: none;
+    flex-direction: column;
+    padding: 3px 0;
+    z-index: 1000;
+  }
+  .cassim-menu.show { display: flex; }
+  
+  .menu-action {
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #e2e8f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.12s;
+  }
+  .menu-action:hover {
+    background: #272c38;
+    color: #ffffff;
+  }
+  .menu-sep {
+    height: 1px;
+    background: #282d38;
+    margin: 3px 0;
+  }
+
+  /* Submenu */
+  .has-sub { position: relative; }
+  .submenu {
+    position: absolute;
+    left: 100%;
+    top: -3px;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    border-radius: 4px;
+    min-width: 210px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.65);
+    display: none;
+    flex-direction: column;
+    padding: 3px 0;
+  }
+  .has-sub:hover .submenu { display: flex; }
+
+  /* Full Screen / Hide Menu Toggle */
+  .demo-btn {
+    background: transparent;
+    border: 1px solid #282d38;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+  .demo-btn:hover {
+    background: #21252e;
+    color: #f1f5f9;
+    border-color: #3b4352;
+  }
+
+  /* Floating Restore Button when topbar is hidden */
+  .restore-topbar-btn {
+    position: fixed;
+    top: 8px;
+    left: 12px;
+    background: rgba(20, 22, 26, 0.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid #2d3340;
+    color: #94a3b8;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 5px;
+    z-index: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .restore-topbar-btn:hover {
+    background: #252830;
+    color: #fff;
+    border-color: var(--accent-focus);
+  }
+  .restore-topbar-btn.visible { display: flex; }
+
+  /* ---------------------------------------------------- */
+  /* MAIN WORKSPACE                                       */
+  /* ---------------------------------------------------- */
+  .workspace {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 32px;
+    padding: 24px;
+    max-width: 1300px;
+    margin: 0 auto;
+    flex: 1;
+    width: 100%;
+  }
+
+  /* Calculator Hardware Wrapper */
+  .calc-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .calc-chassis {
+    width: 380px;
+    background: var(--calc-case);
+    border: 2px solid var(--calc-border);
+    border-radius: 24px 24px 36px 36px;
+    padding: 18px 16px 24px 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255,255,255,0.06);
+    position: relative;
+    user-select: none;
+  }
+
+  .calc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+  .calc-badge {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #cbd5e1;
+  }
+  .calc-subbadge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: #64748b;
+  }
+
+  /* Screen Area */
+  .screen-bezel {
+    background: var(--calc-bezel);
+    border: 1px solid #232730;
+    border-radius: 10px;
+    padding: 8px;
+    margin-bottom: 14px;
+    box-shadow: inset 0 3px 8px rgba(0,0,0,0.7);
+  }
+  .lcd-display {
+    background: var(--lcd-bg);
+    border-radius: 5px;
+    padding: 6px 8px;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
+    height: 88px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Annunciators */
+  .lcd-annunciators {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    font-weight: 800;
+    font-family: "Courier New", Courier, monospace;
+    line-height: 1;
+    padding-bottom: 2px;
+    border-bottom: 1px dashed rgba(0,0,0,0.12);
+  }
+  .annun-item { color: var(--lcd-annun-off); }
+  .annun-item.active { color: var(--lcd-pixel); }
+
+  /* Expression & Result */
+  .lcd-expr {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--lcd-pixel);
+    letter-spacing: 0.5px;
+    min-height: 22px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .lcd-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    background: var(--lcd-pixel);
+    margin-left: 2px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+  .lcd-result {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--lcd-pixel);
+    text-align: right;
+    letter-spacing: 0.8px;
+    min-height: 24px;
+  }
+
+  /* Keypad Matrix */
+  .keypad-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Row 1: Modifiers + D-Pad + On */
+  .row-top {
+    display: grid;
+    grid-template-columns: 46px 46px 106px 46px 46px;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+
+  /* Oval Modifier Buttons */
+  .btn-oval {
+    width: 45px;
+    height: 30px;
+    border-radius: 15px;
+    background: var(--key-fn);
+    border: 1px solid var(--key-fn-border);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #121418, 0 3px 5px rgba(0,0,0,0.3);
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .btn-oval:active { transform: translateY(1px); box-shadow: 0 1px 0 #121418; }
+  .btn-shift { color: var(--label-shift); }
+  .btn-alpha { color: var(--label-alpha); }
+
+  /* Directional D-Pad */
+  .dpad-container {
+    width: 98px;
+    height: 70px;
+    background: var(--dpad-base);
+    border: 2px solid var(--ring-accent);
+    border-radius: 35px;
+    display: grid;
+    grid-template-areas: 
+      ". up ."
+      "left center right"
+      ". down .";
+    grid-template-columns: 26px 38px 26px;
+    grid-template-rows: 21px 22px 21px;
+    align-items: center;
+    justify-items: center;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.05);
+    margin: 0 auto;
+  }
+  .dpad-btn {
+    background: transparent;
+    border: none;
+    color: #8b95a5;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dpad-btn:hover { color: #fff; }
+  .dpad-btn:active { transform: scale(0.92); }
+  .dpad-up { grid-area: up; }
+  .dpad-down { grid-area: down; }
+  .dpad-left { grid-area: left; }
+  .dpad-right { grid-area: right; }
+  .dpad-center {
+    grid-area: center;
+    width: 30px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--dpad-dish);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Button Rows */
+  .btn-row {
+    display: grid;
+    gap: 6px;
+    justify-content: center;
+  }
+  .row-4col { grid-template-columns: repeat(4, 1fr); }
+  .row-6col { grid-template-columns: repeat(6, 1fr); }
+  .row-5col { grid-template-columns: repeat(5, 1fr); }
+
+  .key-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .key-legends {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 2px;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.1;
+    height: 11px;
+  }
+  .legend-shift { color: var(--label-shift); }
+  .legend-alpha { color: var(--label-alpha); }
+
+  .calc-key {
+    width: 100%;
+    height: 30px;
+    border-radius: 5px;
+    border: 1px solid var(--key-fn-border);
+    background: var(--key-fn);
+    color: var(--key-fn-text);
+    font-size: 11.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #121418, 0 3px 5px rgba(0,0,0,0.25);
+    transition: transform 0.05s, box-shadow 0.05s;
+  }
+  .calc-key:active { transform: translateY(1px); box-shadow: 0 1px 0 #121418; }
+
+  .key-number {
+    background: var(--key-num);
+    color: var(--key-num-text);
+    border-color: var(--key-num-border);
+    height: 33px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .key-del {
+    background: var(--key-del);
+    color: var(--key-del-text);
+    border-color: rgba(0,0,0,0.2);
+    font-size: 12px;
+  }
+  .key-ac {
+    background: var(--key-ac);
+    color: var(--key-ac-text);
+    border-color: rgba(0,0,0,0.2);
+    font-size: 12px;
+  }
+
+  /* Clean, Non-Gaudy Pedagogical Target Ring */
+  .calc-key.target-focus {
+    outline: 2px solid var(--accent-focus) !important;
+    outline-offset: 1px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
+  }
+  .btn-oval.target-focus {
+    outline: 2px solid var(--accent-focus) !important;
+    outline-offset: 1px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
+  }
+  .dpad-btn.target-focus {
+    color: var(--accent-focus) !important;
+    filter: drop-shadow(0 0 4px var(--accent-focus));
+  }
+
+  /* ---------------------------------------------------- */
+  /* CLEAN PEDAGOGICAL TUTORIAL SIDEBAR (NO AI SLOP)      */
+  /* ---------------------------------------------------- */
+  .tut-sidebar {
+    width: 380px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .tut-top {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tut-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tut-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .tut-close-btn:hover { color: var(--text-primary); }
+
+  .tut-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .tut-select {
+    width: 100%;
+    background: #1a1d24;
+    border: 1px solid #2e3442;
+    color: #e2e8f0;
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  .tut-select:focus { border-color: var(--accent); }
+
+  .step-box {
+    background: #181b22;
+    border: 1px solid #262a34;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .step-counter {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7dd3fc;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .step-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .step-key-tag {
+    display: inline-block;
+    background: #252a35;
+    border: 1px solid #3c4458;
+    color: #f8fafc;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .step-detail {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Quiet error notice */
+  .tut-hint {
+    font-size: 12px;
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 6px 10px;
+    border-radius: 4px;
+    display: none;
+  }
+  .tut-hint.show { display: block; }
+
+  /* History breadcrumbs */
+  .key-history {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .history-list {
+    display: flex;
+    gap: 4px;
+    font-family: monospace;
+    color: #cbd5e1;
+  }
+
+  .tut-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .tut-btn {
+    flex: 1;
+    background: #20242d;
+    border: 1px solid #2e3442;
+    color: #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .tut-btn:hover { background: #2a303c; color: #fff; }
+  .tut-btn.accent {
+    background: var(--accent);
+    border-color: #3b82f6;
+  }
+  .tut-btn.accent:hover { background: var(--accent-hover); }
+
+  /* ---------------------------------------------------- */
+  /* MODAL DIALOGS (Appearance, About, Share)             */
+  /* ---------------------------------------------------- */
+  .modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-backdrop.open { display: flex; }
+  
+  .modal-window {
+    background: #181b22;
+    border: 1px solid #2e3442;
+    border-radius: 8px;
+    width: 420px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-head {
+    padding: 12px 18px;
+    background: #1f232c;
+    border-bottom: 1px solid #2a303c;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .modal-body {
+    padding: 18px;
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-foot {
+    padding: 12px 18px;
+    background: #15181e;
+    border-top: 1px solid #242934;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .theme-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .theme-radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+  }
+  .theme-radio-option:hover { background: #212630; }
+
+  /* Toast Notification */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #1e293b;
+    border: 1px solid #38bdf8;
+    color: #f8fafc;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    display: none;
+    z-index: 3000;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+</style>
+</head>
+<body onclick="closeAllMenus(event)">
+
+<!-- Floating Menu Restore Button for Full Screen Mode -->
+<button class="restore-topbar-btn" id="restoreTopbarBtn" onclick="toggleTopbar(true)">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+  Show Menu
+</button>
+
+<!-- CASSim TOP MENU BAR -->
+<header class="cassim-topbar" id="cassimTopbar">
+  <div class="menu-left">
+    
+    <!-- CASSim Menu Chip -->
+    <div style="position: relative;">
+      <button class="cassim-chip" id="chipCASSim" onclick="toggleMenu('menuCASSim', event)">CASSim</button>
+      <div class="cassim-menu" id="menuCASSim">
+        <div class="menu-action" onclick="menuAction('Home')">Home</div>
+        <div class="menu-action" onclick="openAppearanceModal()">Appearance...</div>
+        <div class="menu-action" onclick="menuAction('Settings')">Settings...</div>
+        <div class="menu-sep"></div>
+        <div class="menu-action" onclick="menuAction('Updates')">Check for Updates</div>
+        <div class="menu-action" onclick="menuAction('Wiki')">Help (wiki)...</div>
+        <div class="menu-action" onclick="openAboutModal()">About CASSim...</div>
+      </div>
+    </div>
+
+    <!-- Doc Menu Chip -->
+    <div style="position: relative;">
+      <button class="cassim-chip" id="chipDoc" onclick="toggleMenu('menuDoc', event)">Doc</button>
+      <div class="cassim-menu" id="menuDoc">
+        <div class="menu-action" onclick="loadFromBrowser()">Open...</div>
+        <div class="menu-action" onclick="saveToBrowser()">Save</div>
+        <div class="menu-action" onclick="saveToBrowser()">Save as...</div>
+        <div class="menu-action" onclick="shareStateURL()">Share Link...</div>
+        <div class="menu-sep"></div>
+        <div class="menu-action has-sub">
+          <span>Examples</span>
+          <span>▶</span>
+          <div class="submenu">
+            <div class="menu-action" onclick="loadExample('stddev')">1. Standard Deviation</div>
+            <div class="menu-action" onclick="loadExample('fivenum')">2. Five-Number Summary</div>
+            <div class="menu-action" onclick="loadExample('linreg')">3. Linear Regression</div>
+            <div class="menu-action" onclick="loadExample('table')">4. Table of Values</div>
+          </div>
+        </div>
+        <div class="menu-sep"></div>
+        <div class="menu-action" onclick="resetCalculator()">Reset All...</div>
+      </div>
+    </div>
+
+    <!-- Mode and Angle Status Chips -->
+    <span class="status-chip primary" id="topStatusMode">COMP</span>
+    <span class="status-chip" id="topStatusAngle">Deg</span>
+    <span class="status-chip" id="topStatusIO">Math</span>
+
+  </div>
+
+  <div class="menu-right">
+    <button class="demo-btn" onclick="toggleTopbar(false)" title="Hide menu bar for full screen presentation">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      Hide Menu
+    </button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left: Calculator Hardware Simulator -->
+  <div class="calc-wrapper">
+    <div class="calc-chassis">
+      
+      <!-- Top Branding -->
+      <div class="calc-header">
+        <span class="calc-badge">CASSIM fx</span>
+        <span class="calc-subbadge">NATURAL DISPLAY</span>
+      </div>
+
+      <!-- LCD Dot Matrix Screen -->
+      <div class="screen-bezel">
+        <div class="lcd-display">
+          <div class="lcd-annunciators">
+            <span class="annun-item" id="annunS">S</span>
+            <span class="annun-item" id="annunA">A</span>
+            <span class="annun-item" id="annunM">M</span>
+            <span class="annun-item" id="annunSTO">STO</span>
+            <span class="annun-item" id="annunSTAT">STAT</span>
+            <span class="annun-item active" id="annunD">D</span>
+            <span class="annun-item" id="annunR">R</span>
+            <span class="annun-item" id="annunFIX">FIX</span>
+            <span class="annun-item active" id="annunMath">Math</span>
+            <span class="annun-item" id="annunReplay">▲▼</span>
+          </div>
+          <div class="lcd-expr" id="lcdExpr">
+            <span id="lcdExprText"></span><span class="lcd-cursor"></span>
+          </div>
+          <div class="lcd-result" id="lcdResult">0</div>
+        </div>
+      </div>
+
+      <!-- Keypad -->
+      <div class="keypad-grid">
+
+        <!-- Row 1: Oval Modifiers + D-Pad + On -->
+        <div class="row-top">
+          <button class="btn-oval btn-shift" id="k_shift" onclick="pressKey('SHIFT')">SHIFT</button>
+          <button class="btn-oval btn-alpha" id="k_alpha" onclick="pressKey('ALPHA')">ALPHA</button>
+          
+          <div class="dpad-container">
+            <button class="dpad-btn dpad-up" id="k_up" onclick="pressKey('UP')">▲</button>
+            <button class="dpad-btn dpad-left" id="k_left" onclick="pressKey('LEFT')">◄</button>
+            <div class="dpad-center"></div>
+            <button class="dpad-btn dpad-right" id="k_right" onclick="pressKey('RIGHT')">►</button>
+            <button class="dpad-btn dpad-down" id="k_down" onclick="pressKey('DOWN')">▼</button>
+          </div>
+
+          <button class="btn-oval" id="k_mode" onclick="pressKey('MODE')">MODE</button>
+          <button class="btn-oval" id="k_on" onclick="pressKey('ON')">ON</button>
+        </div>
+
+        <!-- Row 2: Secondary Functions -->
+        <div class="btn-row row-4col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span><span></span></div>
+            <button class="calc-key" id="k_abs" onclick="pressKey('Abs')">Abs</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">:</span></div>
+            <button class="calc-key" id="k_x3" onclick="pressKey('x³')"><i>x</i>³</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_inv" onclick="pressKey('x⁻¹')"><i>x</i>⁻¹</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_fact" onclick="pressKey('x!')"><i>x</i>!</button>
+          </div>
+        </div>
+
+        <!-- Row 3: Math Templates -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">■믐</span></div>
+            <button class="calc-key" id="k_frac" onclick="pressKey('FRAC')">믐</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">³√</span></div>
+            <button class="calc-key" id="k_sqrt" onclick="pressKey('SQRT')">√■</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key" id="k_x2" onclick="pressKey('x²')"><i>x</i>²</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">■√</span></div>
+            <button class="calc-key" id="k_pow" onclick="pressKey('xⁿ')"><i>x</i><sup>■</sup></button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">10<sup>■</sup></span></div>
+            <button class="calc-key" id="k_log" onclick="pressKey('log')">log</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift"><i>e</i><sup>■</sup></span></div>
+            <button class="calc-key" id="k_ln" onclick="pressKey('ln')">ln</button>
+          </div>
+        </div>
+
+        <!-- Row 4: Scientific & Trig Row -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">A</span></div>
+            <button class="calc-key" id="k_neg" onclick="pressKey('(-)')">(-)</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">FACT</span><span class="legend-alpha">B</span></div>
+            <button class="calc-key" id="k_dms" onclick="pressKey('DMS')">° ' "</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">C</span></div>
+            <button class="calc-key" id="k_hyp" onclick="pressKey('hyp')">hyp</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">sin⁻¹</span><span class="legend-alpha">D</span></div>
+            <button class="calc-key" id="k_sin" onclick="pressKey('sin')">sin</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">cos⁻¹</span><span class="legend-alpha">E</span></div>
+            <button class="calc-key" id="k_cos" onclick="pressKey('cos')">cos</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">tan⁻¹</span><span class="legend-alpha">F</span></div>
+            <button class="calc-key" id="k_tan" onclick="pressKey('tan')">tan</button>
+          </div>
+        </div>
+
+        <!-- Row 5: Memory & Formatting -->
+        <div class="btn-row row-6col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">STO</span></div>
+            <button class="calc-key" id="k_rcl" onclick="pressKey('RCL')">RCL</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">←</span></div>
+            <button class="calc-key" id="k_eng" onclick="pressKey('ENG')">ENG</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">%</span></div>
+            <button class="calc-key" id="k_lpar" onclick="pressKey('(')">(</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-alpha">X</span></div>
+            <button class="calc-key" id="k_rpar" onclick="pressKey(')')">)</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">a b/c</span><span class="legend-alpha">Y</span></div>
+            <button class="calc-key" id="k_sd" onclick="pressKey('SD')">S⇔D</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">M-</span><span class="legend-alpha">M</span></div>
+            <button class="calc-key" id="k_mplus" onclick="pressKey('M+')">M+</button>
+          </div>
+        </div>
+
+        <!-- Row 6: Numeric 7-9, DEL, AC -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_7" onclick="pressKey('7')">7</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_8" onclick="pressKey('8')">8</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">CLR</span></div>
+            <button class="calc-key key-number" id="k_9" onclick="pressKey('9')">9</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">INS</span></div>
+            <button class="calc-key key-del" id="k_del" onclick="pressKey('DEL')">DEL</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">OFF</span></div>
+            <button class="calc-key key-ac" id="k_ac" onclick="pressKey('AC')">AC</button>
+          </div>
+        </div>
+
+        <!-- Row 7: Numeric 4-6, Multiplication, Division -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_4" onclick="pressKey('4')">4</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_5" onclick="pressKey('5')">5</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">VERIFY</span></div>
+            <button class="calc-key key-number" id="k_6" onclick="pressKey('6')">6</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">nPr</span><span class="legend-alpha">GCD</span></div>
+            <button class="calc-key key-number" id="k_mul" onclick="pressKey('×')">×</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">nCr</span><span class="legend-alpha">LCM</span></div>
+            <button class="calc-key key-number" id="k_div" onclick="pressKey('÷')">÷</button>
+          </div>
+        </div>
+
+        <!-- Row 8: Numeric 1-3, Addition, Subtraction -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">STAT</span></div>
+            <button class="calc-key key-number" id="k_1" onclick="pressKey('1')">1</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_2" onclick="pressKey('2')">2</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_3" onclick="pressKey('3')">3</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Pol</span></div>
+            <button class="calc-key key-number" id="k_add" onclick="pressKey('+')">+</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Rec</span></div>
+            <button class="calc-key key-number" id="k_sub" onclick="pressKey('-')">−</button>
+          </div>
+        </div>
+
+        <!-- Row 9: 0, Dot, 10^x, Ans, Equals -->
+        <div class="btn-row row-5col">
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Rnd</span></div>
+            <button class="calc-key key-number" id="k_0" onclick="pressKey('0')">0</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">Ran#</span><span class="legend-alpha">RanInt</span></div>
+            <button class="calc-key key-number" id="k_dot" onclick="pressKey('.')">·</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">π</span><span class="legend-alpha"><i>e</i></span></div>
+            <button class="calc-key key-number" id="k_exp" onclick="pressKey('EXP')">×10<sup><i>x</i></sup></button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span class="legend-shift">DRG►</span></div>
+            <button class="calc-key key-number" id="k_ans" onclick="pressKey('Ans')">Ans</button>
+          </div>
+          <div class="key-cell">
+            <div class="key-legends"><span></span></div>
+            <button class="calc-key key-number" id="k_eq" onclick="pressKey('=')">=</button>
+          </div>
+        </div>
+
+      </div><!-- /keypad-grid -->
+
+    </div><!-- /calc-chassis -->
+  </div><!-- /calc-wrapper -->
+
+  <!-- Right: Quiet, Professional Pedagogical Tutorial Panel -->
+  <aside class="tut-sidebar" id="tutSidebar">
+    <div class="tut-top">
+      <span class="tut-title">Interactive Guide</span>
+      <button class="tut-close-btn" onclick="toggleTutorialPanel()">Hide Panel</button>
+    </div>
+
+    <div class="tut-content">
+      <div>
+        <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">TOPIC:</label>
+        <select class="tut-select" id="lessonSelect" onchange="changeLesson()">
+          <option value="stddev">Standard Deviation (sx vs σx)</option>
+          <option value="fivenum">Five-Number Summary (Boxplots)</option>
+          <option value="freq">Enabling Frequency Table</option>
+          <option value="reset">Initialise Calculator (Shift+9 CLR)</option>
+          <option value="linreg">Linear Regression & Correlation (r)</option>
+          <option value="fractions">Fractions & Mixed Numbers (S⇔D)</option>
+          <option value="prime_factor">Prime Factorisation (FACT)</option>
+        </select>
+      </div>
+
+      <div class="step-box">
+        <div class="step-counter" id="stepCounter">Step 1 of 6</div>
+        <div class="step-text" id="stepText">Press [MODE] to display calculation modes.</div>
+        <div class="step-detail" id="stepDetail">Select STAT mode to begin entering statistical data.</div>
+      </div>
+
+      <div class="tut-hint" id="tutHint">Key pressed does not match target. Follow the highlight on the keypad.</div>
+
+      <div class="key-history">
+        <span>Recent:</span>
+        <div class="history-list" id="historyList">[ON]</div>
+      </div>
+
+      <div class="tut-actions">
+        <button class="tut-btn" onclick="restartLesson()">Restart</button>
+        <button class="tut-btn" onclick="prevStep()">Back</button>
+        <button class="tut-btn accent" id="autoBtn" onclick="toggleAutoPlay()">Demonstrate</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Appearance Modal -->
+<div class="modal-backdrop" id="modalAppearance">
+  <div class="modal-window">
+    <div class="modal-head">
+      <span>Appearance</span>
+      <button class="tut-close-btn" onclick="closeModal('modalAppearance')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="theme-radio-group">
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="slate" checked onchange="setTheme('slate')">
+          <div>
+            <b>CASSim Slate (Dark)</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Default high-contrast obsidian and slate theme.</div>
+          </div>
+        </label>
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="contrast" onchange="setTheme('contrast')">
+          <div>
+            <b>Classroom High-Contrast</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Designed for projectors, smartboards, and low vision.</div>
+          </div>
+        </label>
+        <label class="theme-radio-option">
+          <input type="radio" name="themeChoice" value="light" onchange="setTheme('light')">
+          <div>
+            <b>Studio Light</b>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Clean off-white palette for bright environments.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="tut-btn accent" onclick="closeModal('modalAppearance')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div class="modal-backdrop" id="modalAbout">
+  <div class="modal-window">
+    <div class="modal-head">
+      <span>About CASSim fx</span>
+      <button class="tut-close-btn" onclick="closeModal('modalAbout')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p><b>CASSim fx</b> is a non-graphing, non-programmable scientific calculator simulator built for Australian secondary mathematics curricula (Years 7–10, VCE, HSC).</p>
+      <p style="font-size: 11.5px; color: var(--text-secondary);">
+        <b>Clean-Room Implementation:</b> Contains no proprietary ROM, firmware, or brand artwork. CASSim is an independent simulator released under the Unlicense.
+      </p>
+      <p style="font-size: 11.5px; color: var(--text-secondary);">
+        <b>Privacy:</b> Zero server tracking or telemetry. Saved states and URL share links run 100% locally in your browser.
+      </p>
+    </div>
+    <div class="modal-foot">
+      <button class="tut-btn accent" onclick="closeModal('modalAbout')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Alert -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // Tutorial Lessons Database (Clean, educational definitions)
+  const LESSONS = {
+    stddev: {
+      title: "Standard Deviation (sx vs σx)",
+      mode: "STAT",
+      steps: [
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE] to open calculation modes.", detail: "Options: 1:COMP (arithmetic), 2:STAT (statistics), 3:TABLE (functions)." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] to select STAT mode.", detail: "STAT sub-modes include 1-VAR (univariate) and various regression forms." },
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Press [1] to choose 1-VAR.", detail: "Opens data table. Enter sample scores: 12, 15, 18, 22, 25." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to exit table.", detail: "Stores data safely. Notice the STAT indicator remains active on screen." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary function layer (S annunciator lights)." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] to open the STAT variables menu.", detail: "Shows: 1:Type, 2:Data, 3:Sum, 4:Var, 5:MinMax." },
+        { key: "4", keyId: "k_4", label: "[ 4 ]", text: "Press [4] to open the Var menu.", detail: "Options: 1:n, 2:x̄ (mean), 3:σx (pop SD), 4:sx (sample SD)." },
+        { key: "4", keyId: "k_4", label: "[ 4 ] (sx)", text: "Press [4] to select sx.", detail: "Places sample standard deviation sx on the calculation line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Calculates sx = 5.17687... (Australian curriculum standard)." }
+      ]
+    },
+    fivenum: {
+      title: "Five-Number Summary",
+      mode: "STAT",
+      steps: [
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE] to select mode.", detail: "Open calculation modes." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] for STAT mode.", detail: "Statistical calculations." },
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Press [1] for 1-VAR.", detail: "Data table for 8 scores: 4, 7, 9, 12, 14, 18, 21, 25." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to store data.", detail: "Returns to calculation line with data preserved." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates STAT menu layer." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] for STAT menu.", detail: "Access statistical summary functions." },
+        { key: "5", keyId: "k_5", label: "[ 5 ] (MinMax)", text: "Press [5] for MinMax menu.", detail: "Options: 1:minX, 2:maxX, 3:Q1, 4:med, 5:Q3." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (Q1)", text: "Press [3] for Q1.", detail: "Places Q1 on the calculation line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Result: Q1 = 8 under Australian median-split rules." }
+      ]
+    },
+    freq: {
+      title: "Enabling Frequency Table",
+      mode: "COMP",
+      steps: [
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Prepares to enter Setup." },
+        { key: "MODE", keyId: "k_mode", label: "[MODE] (SETUP)", text: "Press [MODE] (SETUP) to open Setup.", detail: "Shows system configuration options." },
+        { key: "DOWN", keyId: "k_down", label: "[ ▼ ]", text: "Press Down arrow [▼] on the D-Pad.", detail: "Scrolls to page 2 (1:STAT, 2:TABLE, etc.)." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] to configure Statistics.", detail: "Prompts: Frequency? 1:ON, 2:OFF." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (ON)", text: "Press [1] to activate Frequency.", detail: "Frequency column is now active in STAT tables." }
+      ]
+    },
+    reset: {
+      title: "Initialise Calculator",
+      mode: "COMP",
+      steps: [
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary layer." },
+        { key: "9", keyId: "k_9", label: "[ 9 ] (CLR)", text: "Press [9] (CLR) to open Clear menu.", detail: "Options: 1:Setup, 2:Memory, 3:All." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (All)", text: "Press [3] to reset everything.", detail: "Prompts: Reset All? [=]:Yes, [AC]:Cancel." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to confirm.", detail: "Restores factory default modes and clears memory." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to finish.", detail: "Returns to clean calculation screen." }
+      ]
+    },
+    linreg: {
+      title: "Linear Regression (r)",
+      mode: "STAT",
+      steps: [
+        { key: "MODE", keyId: "k_mode", label: "[MODE]", text: "Press [MODE].", detail: "Select calculation mode." },
+        { key: "2", keyId: "k_2", label: "[ 2 ]", text: "Press [2] for STAT mode.", detail: "Selects statistical mode." },
+        { key: "2", keyId: "k_2", label: "[ 2 ] (A+BX)", text: "Press [2] for linear regression.", detail: "Opens paired X and Y data table." },
+        { key: "AC", keyId: "k_ac", label: "[AC]", text: "Press [AC] to store data.", detail: "Returns to line with STAT active." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Activates secondary menu." },
+        { key: "1", keyId: "k_1", label: "[ 1 ] (STAT)", text: "Press [1] for STAT menu.", detail: "Item 6:Reg is now available." },
+        { key: "6", keyId: "k_6", label: "[ 6 ] (Reg)", text: "Press [6] for Regression menu.", detail: "Options: 1:A (intercept), 2:B (slope), 3:r (correlation)." },
+        { key: "3", keyId: "k_3", label: "[ 3 ] (r)", text: "Press [3] to select r.", detail: "Places correlation coefficient r on line." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Result: r = 0.9972... (strong positive linear trend)." }
+      ]
+    },
+    fractions: {
+      title: "Fractions & S⇔D Toggle",
+      mode: "COMP",
+      steps: [
+        { key: "FRAC", keyId: "k_frac", label: "[믐]", text: "Press fraction key [믐].", detail: "Inserts a 2-level fraction box." },
+        { key: "3", keyId: "k_3", label: "[ 3 ]", text: "Press [3] for numerator.", detail: "Inputs 3 into top slot." },
+        { key: "DOWN", keyId: "k_down", label: "[ ▼ ]", text: "Press [▼] to move to denominator.", detail: "Cursor enters bottom slot." },
+        { key: "4", keyId: "k_4", label: "[ 4 ]", text: "Press [4] for denominator.", detail: "Inputs 4 into bottom slot." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to evaluate.", detail: "Exact fraction 3/4 appears on screen." },
+        { key: "SD", keyId: "k_sd", label: "[ S⇔D ]", text: "Press [ S⇔D ] to toggle decimal.", detail: "Converts 3/4 to 0.75. Press again to return." }
+      ]
+    },
+    prime_factor: {
+      title: "Prime Factorisation (FACT)",
+      mode: "COMP",
+      steps: [
+        { key: "1", keyId: "k_1", label: "[ 1 ]", text: "Enter 1050: Press [1].", detail: "First digit." },
+        { key: "0", keyId: "k_0", label: "[ 0 ]", text: "Press [0].", detail: "Second digit." },
+        { key: "5", keyId: "k_5", label: "[ 5 ]", text: "Press [5].", detail: "Third digit." },
+        { key: "0", keyId: "k_0", label: "[ 0 ]", text: "Press [0].", detail: "Fourth digit." },
+        { key: "=", keyId: "k_eq", label: "[ = ]", text: "Press [ = ] to store in Ans.", detail: "Number must be evaluated first." },
+        { key: "SHIFT", keyId: "k_shift", label: "[SHIFT]", text: "Press [SHIFT].", detail: "Secondary function." },
+        { key: "DMS", keyId: "k_dms", label: "[ ° ' \" ] (FACT)", text: "Press [ ° ' \" ] (FACT).", detail: "Factorises 1050 into 2 × 3 × 5² × 7." }
+      ]
+    }
+  };
+
+  // State
+  let currentLessonId = "stddev";
+  let currentStepIndex = 0;
+  let isDemonstrating = false;
+  let demoTimer = null;
+  let recentHistory = ["[ON]"];
+
+  window.onload = function() {
+    if (!checkUrlHash()) {
+      renderStep();
+    }
+  };
+
+  // ----------------------------------------------------
+  // MENU SYSTEM
+  // ----------------------------------------------------
+  function toggleMenu(menuId, event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById(menuId);
+    const wasOpen = menu.classList.contains('show');
+    closeAllMenus();
+    if (!wasOpen) {
+      menu.classList.add('show');
+      if (menuId === 'menuCASSim') document.getElementById('chipCASSim').classList.add('active');
+      if (menuId === 'menuDoc') document.getElementById('chipDoc').classList.add('active');
+    }
+  }
+
+  function closeAllMenus(e) {
+    document.querySelectorAll('.cassim-menu').forEach(m => m.classList.remove('show'));
+    document.querySelectorAll('.cassim-chip').forEach(c => c.classList.remove('active'));
+  }
+
+  function menuAction(name) {
+    closeAllMenus();
+    if (name === 'Home') showToast('CASSim Home: returned to device chooser.');
+    else if (name === 'Settings') showToast('Settings: angle=Deg, IO=MathIO, Freq=Off.');
+    else if (name === 'Updates') showToast('CASSim is up to date (offline static build).');
+    else if (name === 'Wiki') window.open('https://cassim-wiki.pages.dev/', '_blank');
+  }
+
+  function toggleTopbar(show) {
+    const topbar = document.getElementById('cassimTopbar');
+    const restoreBtn = document.getElementById('restoreTopbarBtn');
+    if (show) {
+      topbar.classList.remove('hidden');
+      restoreBtn.classList.remove('visible');
+    } else {
+      topbar.classList.add('hidden');
+      restoreBtn.classList.add('visible');
+      closeAllMenus();
+      showToast('Menu hidden for presentation. Click "Show Menu" or press Esc to restore.');
+    }
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleTopbar(true);
+  });
+
+  function toggleTutorialPanel() {
+    const panel = document.getElementById('tutSidebar');
+    if (panel.style.display === 'none') {
+      panel.style.display = 'flex';
+    } else {
+      panel.style.display = 'none';
+      showToast('Tutorial panel hidden. Reload or re-open from Doc menu.');
+    }
+  }
+
+  // ----------------------------------------------------
+  // TUTORIAL ENGINE (USER-DRIVEN)
+  // ----------------------------------------------------
+  function changeLesson() {
+    currentLessonId = document.getElementById('lessonSelect').value;
+    currentStepIndex = 0;
+    stopDemonstration();
+    renderStep();
+  }
+
+  function restartLesson() {
+    currentStepIndex = 0;
+    stopDemonstration();
+    renderStep();
+  }
+
+  function prevStep() {
+    if (currentStepIndex > 0) {
+      currentStepIndex--;
+      stopDemonstration();
+      renderStep();
+    }
+  }
+
+  function renderStep() {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+    const total = lesson.steps.length;
+
+    // Sidebar text
+    document.getElementById('stepCounter').innerText = `Step ${currentStepIndex + 1} of ${total}`;
+    document.getElementById('stepText').innerHTML = `Press <span class="step-key-tag">${step.label}</span>`;
+    document.getElementById('stepDetail').innerText = step.detail;
+    document.getElementById('tutHint').classList.remove('show');
+
+    // LCD display simulation
+    document.getElementById('lcdExprText').innerText = step.label;
+    document.getElementById('topStatusMode').innerText = lesson.mode;
+
+    // Spotlight the target button
+    clearSpotlights();
+    if (step.keyId) {
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) targetBtn.classList.add('target-focus');
+    }
+  }
+
+  function clearSpotlights() {
+    document.querySelectorAll('.target-focus').forEach(el => el.classList.remove('target-focus'));
+  }
+
+  function pressKey(keyName) {
+    const lesson = LESSONS[currentLessonId];
+    const step = lesson.steps[currentStepIndex];
+
+    addHistory(`[${keyName}]`);
+
+    if (keyName === step.key) {
+      // User pressed correct key
+      document.getElementById('tutHint').classList.remove('show');
+
+      // Key animation
+      const targetBtn = document.getElementById(step.keyId);
+      if (targetBtn) {
+        targetBtn.style.transform = "scale(0.94)";
+        setTimeout(() => targetBtn.style.transform = "", 100);
+      }
+
+      if (currentStepIndex < lesson.steps.length - 1) {
+        currentStepIndex++;
+        renderStep();
+      } else {
+        clearSpotlights();
+        document.getElementById('stepCounter').innerText = `Complete`;
+        document.getElementById('stepText').innerText = `Lesson Complete`;
+        document.getElementById('stepDetail').innerText = `Finished all steps for ${lesson.title}. Select another topic or calculate freely.`;
+      }
+    } else {
+      // User pressed incorrect key: Quiet guidance
+      const hint = document.getElementById('tutHint');
+      hint.innerText = `Pressed [${keyName}]. Follow highlighted target: ${step.label}.`;
+      hint.classList.add('show');
+    }
+  }
+
+  function addHistory(chip) {
+    recentHistory.push(chip);
+    if (recentHistory.length > 5) recentHistory.shift();
+    document.getElementById('historyList').innerText = recentHistory.join(' ');
+  }
+
+  // Demonstration Fallback
+  function toggleAutoPlay() {
+    if (isDemonstrating) stopDemonstration();
+    else startDemonstration();
+  }
+
+  function startDemonstration() {
+    isDemonstrating = true;
+    document.getElementById('autoBtn').innerText = "Stop Demo";
+    function loop() {
+      if (!isDemonstrating) return;
+      const lesson = LESSONS[currentLessonId];
+      if (currentStepIndex < lesson.steps.length) {
+        pressKey(lesson.steps[currentStepIndex].key);
+        demoTimer = setTimeout(loop, 1200);
+      } else {
+        stopDemonstration();
+      }
+    }
+    demoTimer = setTimeout(loop, 800);
+  }
+
+  function stopDemonstration() {
+    isDemonstrating = false;
+    clearTimeout(demoTimer);
+    document.getElementById('autoBtn').innerText = "Demonstrate";
+  }
+
+  // ----------------------------------------------------
+  // STORAGE & URL SHARING
+  // ----------------------------------------------------
+  function saveToBrowser() {
+    closeAllMenus();
+    const state = {
+      lesson: currentLessonId,
+      step: currentStepIndex,
+      expr: document.getElementById('lcdExprText').innerText,
+      result: document.getElementById('lcdResult').innerText,
+      time: Date.now()
+    };
+    try {
+      localStorage.setItem('cassim_fx_state', JSON.stringify(state));
+      showToast('State saved to local browser storage.');
+    } catch (e) {
+      showToast('Storage error: ' + e.message);
+    }
+  }
+
+  function loadFromBrowser() {
+    closeAllMenus();
+    try {
+      const saved = localStorage.getItem('cassim_fx_state');
+      if (!saved) {
+        showToast('No saved state found.');
+        return;
+      }
+      const state = JSON.parse(saved);
+      if (state.lesson) currentLessonId = state.lesson;
+      if (state.step !== undefined) currentStepIndex = state.step;
+      document.getElementById('lessonSelect').value = currentLessonId;
+      renderStep();
+      if (state.expr) document.getElementById('lcdExprText').innerText = state.expr;
+      if (state.result) document.getElementById('lcdResult').innerText = state.result;
+      showToast('State restored from browser storage.');
+    } catch (e) {
+      showToast('Load error: ' + e.message);
+    }
+  }
+
+  function shareStateURL() {
+    closeAllMenus();
+    const state = {
+      l: currentLessonId,
+      s: currentStepIndex,
+      e: document.getElementById('lcdExprText').innerText,
+      r: document.getElementById('lcdResult').innerText
+    };
+    const jsonStr = JSON.stringify(state);
+    const b64 = btoa(encodeURIComponent(jsonStr));
+    const fragment = 'fx=' + b64;
+    window.location.hash = fragment;
+
+    const fullUrl = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        showToast(`Share link copied to clipboard (${fragment.length} chars in hash, zero server tracking)`);
+      }).catch(() => {
+        showToast(`Share link generated in address bar (${fragment.length} chars)`);
+      });
+    } else {
+      showToast(`Share link generated in address bar (${fragment.length} chars)`);
+    }
+  }
+
+  function checkUrlHash() {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash.startsWith('fx=')) {
+      try {
+        const b64 = hash.slice(3);
+        const jsonStr = decodeURIComponent(atob(b64));
+        const state = JSON.parse(jsonStr);
+        if (state.l && LESSONS[state.l]) currentLessonId = state.l;
+        if (state.s !== undefined) currentStepIndex = state.s;
+        document.getElementById('lessonSelect').value = currentLessonId;
+        renderStep();
+        if (state.e) document.getElementById('lcdExprText').innerText = state.e;
+        if (state.r) document.getElementById('lcdResult').innerText = state.r;
+        showToast('Loaded shared calculator state from URL fragment.');
+        return true;
+      } catch (e) {
+        console.error('URL hash error:', e);
+      }
+    }
+    return false;
+  }
+
+  function loadExample(ex) {
+    closeAllMenus();
+    if (LESSONS[ex]) {
+      currentLessonId = ex;
+      document.getElementById('lessonSelect').value = ex;
+      currentStepIndex = 0;
+      renderStep();
+      showToast(`Loaded example: ${LESSONS[ex].title}`);
+    }
+  }
+
+  function resetCalculator() {
+    closeAllMenus();
+    currentStepIndex = 0;
+    renderStep();
+    document.getElementById('lcdExprText').innerText = '';
+    document.getElementById('lcdResult').innerText = '0';
+    showToast('Calculator reset to default settings.');
+  }
+
+  // ----------------------------------------------------
+  // THEME & MODAL SYSTEM
+  // ----------------------------------------------------
+  function setTheme(theme) {
+    document.body.className = '';
+    if (theme === 'contrast') document.body.classList.add('theme-contrast');
+    else if (theme === 'light') document.body.classList.add('theme-light');
+  }
+
+  function openAppearanceModal() {
+    closeAllMenus();
+    document.getElementById('modalAppearance').classList.add('open');
+  }
+
+  function openAboutModal() {
+    closeAllMenus();
+    document.getElementById('modalAbout').classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+</script>
+
+</body>
+</html>
