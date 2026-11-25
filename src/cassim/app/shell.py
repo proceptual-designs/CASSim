@@ -89,21 +89,24 @@ def update_message(result: str) -> str:
 
 
 def about_dialog(page: ft.Page) -> None:
-    """About CASSim: disclaimer, privacy, licence, notices and versions (NFR-LEG-002, -003)."""
+    """About CASSim: which edition this is, the disclaimer, privacy, licence, help, notices and
+    versions (NFR-LEG-002, -003)."""
 
     def heading(text: str) -> ft.Text:
         return ft.Text(text, weight=ft.FontWeight.BOLD)
 
-    notices = [ft.Text(f"{n.name}: {n.licence}, {n.use}", size=12) for n in about.NOTICES]
+    notices = [ft.Text(f"{n.name} ({n.licence}): {n.use}", size=12) for n in about.notices()]
     body = ft.Column(
         [
+            ft.Text(about.edition(), selectable=True, weight=ft.FontWeight.BOLD),
             ft.Text(about.DISCLAIMER),
             heading("Privacy"),
             ft.Text(about.PRIVACY),
             heading("Licence"),
             ft.Text(about.LICENCE),
-            ft.Text(f"Help: {about.WIKI_URL}", selectable=True),
-            heading("Third-party notices"),
+            heading("Help"),
+            ft.Text(about.HELP, selectable=True),
+            heading("Third-party software and fonts"),
             *notices,
             heading("Version"),
             ft.Text(about.build_info(), selectable=True, size=12),

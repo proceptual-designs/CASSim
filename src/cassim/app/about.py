@@ -6,29 +6,54 @@ import platform
 from dataclasses import dataclass
 from importlib import metadata
 
-from cassim import bundle
+from cassim import bundle, devices
 
 DISCLAIMER = (
-    "CASSim is a simulator of handheld computer algebra systems (CAS) for educational purposes. "
-    "It is not affiliated with, endorsed by, or sponsored by any company, corporation, or "
-    "curriculum authority.\n"
-    "It is not an approved exam calculator and must not be used in assessments that require an "
+    "CASSim simulates handheld calculators, including computer algebra systems (CAS), for "
+    "teaching and learning. It is not affiliated with, endorsed by or sponsored by any company "
+    "or curriculum authority.\n"
+    "It is not an approved exam calculator: do not use it in an assessment that requires an "
     "approved device."
 )
 
 PRIVACY = (
-    "CASSim has no server, telemetry, or analytics. Your documents stay in this browser, or in "
-    "the link or file you choose to share. Opening a shared link or file never runs Python or a "
-    "program automatically."
+    "CASSim has no server and collects nothing: no telemetry and no analytics. Your documents "
+    "are kept on this device, and leave it only in a link or file you choose to share. Opening a "
+    "shared link or file never runs Python or a program by itself."
 )
 
 LICENCE = (
-    "CASSim is vibe-coded and is released under the Unlicense as free and unencumbered software "
-    "in the public domain."
+    "CASSim is vibe-coded and is released under the Unlicense: it is free and unencumbered "
+    "software in the public domain."
 )
 
 # The help pages: `docs/wiki/`, built by `tools.wiki_site` and deployed to their own site.
 WIKI_URL = "https://cassim-wiki.pages.dev/"
+HELP = f"Help, and the list of CASSim sites: {WIKI_URL}"
+
+# The released all-in-one site, which the testing and single-app editions point to.
+STABLE_URL = "https://cassim-app.pages.dev/"
+
+
+def edition() -> str:
+    """Which edition this build is: testing (beta), released, single-app or a development copy.
+    The source is what `tools.publish --source` wrote into `cassim/bundle.py`."""
+    if bundle.SOURCE == "CASSim-calc":
+        return (
+            "Testing version (beta). It has the newest changes before they are released, so "
+            "expect bugs, and things may change or break without notice. The released version "
+            f"is at {STABLE_URL}"
+        )
+    titles = [devices.load(device_id).title for device_id in bundle.DEVICES]
+    if bundle.NAME != "all":
+        return (
+            f"Single-app version: this copy has only {titles[0]}. CASSim with every app is at "
+            f"{STABLE_URL}"
+        )
+    apps = ", ".join(titles[:-1]) + f" and {titles[-1]}" if len(titles) > 1 else titles[0]
+    if bundle.SOURCE == "CASSim-app":
+        return f"Released version, with every app: {apps}."
+    return f"Development copy, run from the source code, with {apps}."
 
 
 @dataclass(frozen=True)
@@ -36,18 +61,32 @@ class Notice:
     name: str
     licence: str
     use: str
+    package: str = ""  # an engine package: shown only when a device in the build needs it
 
 
-# Third-party notices that ship with the build (NFR-LEG-003).
+# Third-party parts that ship with the build (NFR-LEG-003).
 NOTICES = (
     Notice("Flet", "Apache-2.0", "the user interface"),
     Notice("Pyodide", "MPL-2.0", "Python in the browser"),
-    Notice("SymPy", "BSD-3-Clause", "computer algebra"),
-    Notice("SciPy", "BSD-3-Clause", "numerical methods"),
-    Notice("NumPy", "BSD-3-Clause", "numerical arrays"),
-    Notice("Noto Sans, Math, Symbols 2 and SC", "SIL OFL 1.1", "glyphs the browser lacks"),
-    Notice("Roboto Mono", "Apache-2.0", "the code editor"),
+    Notice("SymPy", "BSD-3-Clause", "computer algebra", "sympy"),
+    Notice("mpmath", "BSD-3-Clause", "numerical methods", "mpmath"),
+    Notice("openpyxl and et-xmlfile", "MIT", "spreadsheet files"),
+    Notice("msgpack, PyYAML, repath and six", "Apache-2.0 and MIT", "supporting libraries"),
+    Notice("Noto Sans, Math, Symbols 2 and SC", "SIL OFL 1.1", "symbols the browser lacks"),
+    Notice("Roboto Mono", "Apache-2.0", "the code editor and the Scientific display"),
 )
+
+
+def notices() -> list[Notice]:
+    """The notices for this build: SymPy and mpmath only when a device's engine ships them."""
+    shipped = {
+        package
+        for device_id in bundle.DEVICES
+        if (engine := devices.load(device_id).engine) is not None
+        for package in engine.packages
+    }
+    return [n for n in NOTICES if not n.package or n.package in shipped]
+
 
 UNKNOWN = "not available"
 
@@ -80,6 +119,6 @@ def versions(shipped: dict[str, str] | None = None) -> list[tuple[str, str]]:
 
 
 def build_info() -> str:
-    return f"Source: {bundle.SOURCE}\n" + "\n".join(
+    return f"Build: {bundle.SOURCE}\n" + "\n".join(
         f"{name} {version}" for name, version in versions()
     )

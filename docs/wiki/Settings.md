@@ -31,4 +31,4 @@ Doc, Settings & Status, **Handheld Setup**. These belong to your device, not the
 
 ## About
 
-CASSim, **About CASSim**: the disclaimer, privacy statement, licence, third-party notices and version.
+CASSim, **About CASSim**: which version this is (the released one, the testing beta, or a single-app copy), the disclaimer, privacy statement, licence, help link, third-party notices and version numbers.
