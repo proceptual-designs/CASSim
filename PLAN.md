@@ -69,12 +69,13 @@ cassim/
   src/cassim/app/            FLET: the shell only (decision 0032): main.py owns Home and lazily mounts the selected device;
                             home.py draws the all-in-one chooser without importing device UI; shell.py is what a device's UI
                             may use (storage, files, clipboard, links, notices, About, install and full screen, the engine
-                            worker); web.py, about.py, theme.py, keyboard.py, assets
+                            worker); entry_line.py (the shared 2D entry line, decision 0035); web.py, about.py, theme.py,
+                            keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
                             load(id). A device never imports another device, and imports without Flet
     nspire/                 DEVICE; keymap.py, menus.py, syntax.py (the profile data); pages/ (page types, Calculator and
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
-                            entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
+                            layout.py and the Graphs controls; the only part of a device that imports Flet)
     pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
     scientific/             DEVICE (SDD-14); CASSim Scientific scientific calculator: keys.py (keypad and keyboard),
                             layouts.py (other calculators' keypads),

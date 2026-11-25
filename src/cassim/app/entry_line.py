@@ -14,6 +14,7 @@ tests can click every region without a GUI.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
 import flet as ft
 
@@ -36,15 +37,26 @@ Path = Sequence[tuple[int, int]]
 type Click = Callable[[Path, int], None]  # a click at (row path, position in that row)
 type Chrome = Callable[[ft.Control], ft.Control]
 
-SELECTION = "#7fb2e8"
 HIT = "#01ffffff"  # all but invisible, but a coloured box takes clicks where nothing is drawn
 _SHOWN = {"*": "·", "-": "−", "ⅇ": "ⅇ", "ᴇ": "ᴇ", "/": "/", " ": " "}
-# The fonts flutter_math draws the history with, so the entry matches it: letters in KaTeX_Math
-# (italic by design), everything else in KaTeX_Main.
-_MATH_FONT = "packages/flutter_math_fork/KaTeX_Math"
-_MAIN_FONT = "packages/flutter_math_fork/KaTeX_Main"
-# A string's quote is straight, as on the device; KaTeX_Main draws it curly, KaTeX_Typewriter not
-_QUOTE_FONT = "packages/flutter_math_fork/KaTeX_Typewriter"
+
+
+@dataclass(frozen=True)
+class EntryStyle:
+    """What a device may choose about how the entry line looks; the defaults are the Nspire's.
+    The fonts are those flutter_math draws the history with, so the entry matches it: letters in
+    KaTeX_Math (italic by design), everything else in KaTeX_Main."""
+
+    math_font: str = "packages/flutter_math_fork/KaTeX_Math"
+    main_font: str = "packages/flutter_math_fork/KaTeX_Main"
+    # A string's quote is straight, as on the device (KaTeX_Main draws it curly)
+    quote_font: str = "packages/flutter_math_fork/KaTeX_Typewriter"
+    selection: str = "#7fb2e8"
+    cursor_in_selection: str = "#0b3d78"
+
+
+DEFAULT_STYLE = EntryStyle()
+SELECTION = DEFAULT_STYLE.selection
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
 _BINARY = frozenset("+-*=<>≤≥≠")
 _DRAG_GROUP = "entry-selection"  # set with a little space either side, as TeX does
@@ -62,6 +74,8 @@ class EntryLine:
         hold: Click | None = None,
     ) -> None:
         self.theme = theme
+        # Another device sets its own look here, as it sets `drop` (the constructor is full)
+        self.style = DEFAULT_STYLE
         self.size = size
         self.click = click
         self.is_defined = is_defined
@@ -149,7 +163,7 @@ class EntryLine:
                     closers,
                     size=self.size,
                     color="#66" + self.theme.screen_text[1:],
-                    font_family=_MAIN_FONT,
+                    font_family=self.style.main_font,
                     no_wrap=True,
                 )
             )
@@ -176,7 +190,7 @@ class EntryLine:
         return low if pos == low else high
 
     def _highlight(self, control: ft.Control) -> ft.Control:
-        shown = ft.Container(control, bgcolor=SELECTION)
+        shown = ft.Container(control, bgcolor=self.style.selection)
         if self.drop is None:
             return shown
         return ft.Draggable(shown, group=_DRAG_GROUP)
@@ -185,7 +199,7 @@ class EntryLine:
         return ft.Container(
             width=2,
             height=self.size * 1.15,
-            bgcolor="#0b3d78" if selected else self.theme.accent,
+            bgcolor=self.style.cursor_in_selection if selected else self.theme.accent,
         )
 
     def _empty_slot(self) -> ft.Control:
@@ -208,11 +222,11 @@ class EntryLine:
             size=self.size,
             color=self.theme.screen_text,
             weight=ft.FontWeight.BOLD if style in (Style.BOLD, Style.BOLD_ITALIC) else None,
-            font_family=_QUOTE_FONT
+            font_family=self.style.quote_font
             if char == '"'
-            else _MATH_FONT
+            else self.style.math_font
             if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
-            else _MAIN_FONT,
+            else self.style.main_font,
             no_wrap=True,
         )
         if char in _BINARY:
@@ -303,7 +317,7 @@ class EntryLine:
                 "√",
                 size=self.size * max(1.15, 1.1 * height),
                 color=self.theme.screen_text,
-                font_family=_MAIN_FONT,
+                font_family=self.style.main_font,
             )
         )
         overline = chrome(
@@ -391,7 +405,7 @@ class _Parts:
             text,
             size=line.size * scale,
             color=line.theme.screen_text,
-            font_family=_MAIN_FONT,
+            font_family=line.style.main_font,
             no_wrap=True,
         )
         return ft.Stack([drawn, line._halves(self.here, self.index)])

@@ -13,6 +13,7 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app import scene_canvas
+from cassim.app.entry_line import EntryLine
 from cassim.app.theme import DARK, Theme
 from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
@@ -26,7 +27,6 @@ from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.spreadsheet import AreaPane, ShadePane, Spreadsheet, pane_boxes
 from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.statistics_plot import area_scene, p_value_scene
-from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.graphs_view import GraphsView
 from cassim.devices.nspire.ui.layout import COMPUTER_COLUMN_PADDING, SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView

@@ -11,7 +11,7 @@ Both had one cause. A picked history row was built with `Editor(text)`, which ty
 ## What the investigation found
 - **No structured way into the editor tree.** Text became a tree three ways, none using the parser: key-by-key typing (the bug), `_paste_linear` (knows only `^` and `√`; fractions, `abs` and matrices stay flat) and `modernised` (character patterns for `sqrt(`, `exp(`, `pi`).
 - **Two printers for one result.** `Result.text` comes from our AST (`format.to_text`); `Result.latex` comes straight from SymPy. A screen that changes from one to the other jumps: stacked fractions become `π/9`, `\cos` becomes letter-by-letter `\mathrm`.
-- **Three renderers for one tree.** `Editor.latex()` (Markdown, no hit-testing: history entries and picked rows), `devices/nspire/ui/entry.py` (Flet controls with click zones: the entry line) and SymPy LaTeX (results).
+- **Three renderers for one tree.** `Editor.latex()` (Markdown, no hit-testing: history entries and picked rows), `app/entry_line.py` (Flet controls with click zones: the entry line) and SymPy LaTeX (results).
 - **A template kind is defined in about five tables** (`_SLOTS`, `_CALLS`, `_LATEX`, the `entry.py` drawers, `row_height`), kept in step by hand.
 - **Not shareable.** `entry.py` is inside the Nspire device, so other devices cannot reuse the entry line.
 - **Speed is unmeasured.** History rows are cached; the entry line is rebuilt with several Flet controls per character on each key (0019). Not measured on a Chromebook.
@@ -37,6 +37,7 @@ The editor model itself (rows of characters and templates, a cursor path, the TI
    - **The view keeps the picked line in sight.** Picking a line turned Flet's `auto_scroll` off to follow it, which reset the history to its top; once off its end, `auto_scroll` stopped pinning (Flet suspends it until the user scrolls back), so Up soon after Enter could hide the last result (reproduced in Edge). The history no longer uses `auto_scroll`: after each redraw it scrolls to its end when the page, history or entry line changed and no line is picked (twice, the second after the new lines are laid out), and to the picked line otherwise. Checked in Edge with Up pressed 0 to 450 ms after Enter and quick Up/Down runs.
    - The original idea of one renderer interface with two backends (LaTeX and controls) moves to stage 4 with the shared entry line: both renderers now draw the same tree, which was the point of it.
 4. **Shared, measured.** Move the entry-line renderer out of `devices/nspire/ui` to a device-neutral place, with the theme and key map supplied by the device. Measure the entry line on a Chromebook; build option C only if it is too slow.
+   - Done 2026-11-25 (first half): the entry-line renderer moved from `devices/nspire/ui/entry.py` to `app/entry_line.py`. Its fonts and selection colours are an `EntryStyle` passed to `EntryLine` (the defaults are the Nspire look); the theme was already a parameter. Measuring on a Chromebook is still to do.
 
 ## Left open
 - The variable sidebar and Graphs labels still draw SymPy's LaTeX: accepted for now, to revisit (PLAN.md section 12, A11).

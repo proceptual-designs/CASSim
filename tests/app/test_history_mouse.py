@@ -7,11 +7,11 @@ from typing import cast
 import flet as ft
 import pytest
 
+from cassim.app.entry_line import EntryLine
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor
 from cassim.devices.nspire.pages.calculator import calculator_on
 from cassim.devices.nspire.ui import views as views_module
-from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import CalculatorView
 
