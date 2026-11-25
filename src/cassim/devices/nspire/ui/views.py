@@ -1701,6 +1701,28 @@ def field_box(
     )
 
 
+class _WizardClosing:
+    """Tells OK and Cancel from Esc (or a click outside): Esc goes back to the dialog before
+    this one where there is one, as a test's fields go back to its Data Input Method box
+    (emulator run 6, R6-C3)."""
+
+    def __init__(
+        self, page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
+    ) -> None:
+        self.page, self.state, self.wizard, self.on_change = page, state, wizard, on_change
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+        self.page.pop_dialog()
+
+    def dismissed(self) -> None:
+        if not self.closed and self.wizard.back:
+            self.closed = True
+            self.state.escape_wizard(self.wizard)
+            self.on_change()
+
+
 def wizard_dialog(
     page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
 ) -> ft.AlertDialog:
@@ -1762,12 +1784,14 @@ def wizard_dialog(
         state.store_wizard(wizard, values())
         page.update()
 
+    closing = _WizardClosing(page, state, wizard, on_change)
+
     def ok() -> None:
         found = wizard.problems(values())
         if found:
             report("\n".join(found))
             return
-        page.pop_dialog()
+        closing.close()
         state.finish_wizard(wizard, values())
         on_change()
 
@@ -1781,7 +1805,7 @@ def wizard_dialog(
     )
     actions: list[ft.Control] = [
         ft.TextButton("OK", on_click=lambda _: ok()),
-        ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+        ft.TextButton("Cancel", on_click=lambda _: closing.close()),
     ]
     if live is not None:
         actions.insert(0, ft.TextButton("Calculate", on_click=lambda _: calculate(focused[0])))
@@ -1789,6 +1813,7 @@ def wizard_dialog(
         title=ft.Text(wizard.title),
         content=ft.Column([*hint, *boxes.values(), problems], tight=True, spacing=10),
         actions=actions,
+        on_dismiss=closing.dismissed,
     )
     page.show_dialog(dialog)
     return dialog

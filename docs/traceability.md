@@ -153,7 +153,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-STAT-005 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_statistics_page.py`, `tests/e2e/test_statistics_browser.py` and 1 more |
 | FR-STAT-002 | Must | `tests/unit/test_sheet_stats.py`, `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/device/test_spreadsheet_page.py`, `tests/device/test_statistics_page.py`, `tests/unit/test_statistics.py` and 1 more |
-| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py` and 4 more |
+| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/device/test_wizard.py` and 5 more |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-001 | Must | `tests/app/test_graphs_view.py`, `tests/e2e/test_graphs_browser.py`, `tests/unit/test_graph_page.py` |
 | FR-GRAPH-002 | Must | `tests/app/test_graphs_view.py`, `tests/e2e/test_graphs_browser.py`, `tests/unit/test_graph_page.py` and 4 more |
