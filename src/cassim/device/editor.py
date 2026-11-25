@@ -956,6 +956,27 @@ def estimated_width(row: Row) -> float:
     return sum(_node_width(node) for node in row)
 
 
+def cursor_offset(editor: Editor) -> float:
+    """How far the cursor is from the left of the line's drawing, in ems (an estimate, as
+    `estimated_width` is): what a long line scrolls by to keep its cursor in view."""
+    return _offset(editor.root, editor.path, editor.pos)
+
+
+def _offset(row: Row, path: Sequence[tuple[int, int]], pos: int) -> float:
+    if not path:
+        return estimated_width(row[:pos])
+    index, slot = path[0]
+    node = _template(row[index])
+    inner = _offset(node.slots[slot], path[1:], pos)
+    if node.kind in (Kind.FRACTION, Kind.POWER):
+        lead = _SCRIPT * inner
+    elif node.kind is Kind.ROOT:
+        lead = 0.83 + inner
+    else:  # about: the slots before this one, then the place in it
+        lead = 0.5 + sum(estimated_width(s) or 0.6 for s in node.slots[:slot]) + inner
+    return estimated_width(row[:index]) + min(lead, _node_width(node))
+
+
 _WIDE = {**dict.fromkeys("+-−", 1.22), **dict.fromkeys("=<>≤≥≠", 1.33), "*": 0.72, " ": 0.25}
 _NARROW = {**dict.fromkeys(".,:;'!|", 0.28), **dict.fromkeys("()[]{}", 0.39)}
 _SCRIPT = 0.7  # a fraction's parts and an exponent, set at script size

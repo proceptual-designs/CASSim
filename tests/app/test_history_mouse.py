@@ -122,13 +122,23 @@ def _texts(control: ft.Control) -> list[str]:
     return [str(c.value) for c in walk(control) if isinstance(c, ft.Text)]
 
 
-def _laid_out(*entries: str) -> CalculatorView:
+def _marks(control: ft.Control) -> list[str]:
+    """The ◂ and ▸ that show: each keeps its room beside a cut line, unseen when not needed."""
+    return [
+        str(c.value)
+        for c in walk(control)
+        if isinstance(c, ft.Text) and c.value in ("◂", "▸") and c.opacity != 0
+    ]
+
+
+def _laid_out(*entries: str, width: float = 320.0) -> CalculatorView:
     state = AppState()
     calculator = calculator_on(state.document.current)
     for entry in entries:
         calculator.editor.insert_linear(entry)
         state.key_event("Enter")
     view = CalculatorView(state, on_action=state.run_action)
+    view.body_size = lambda: (width, 200.0)
     view.refresh()
     return view
 
@@ -148,7 +158,7 @@ def test_a_long_input_is_cut_with_a_mark_and_its_result_has_its_own_line() -> No
     pair = view.history.controls[1]
     assert isinstance(pair, ft.Container)
     assert isinstance(pair.content, ft.Column)  # input and result on lines of their own
-    assert "▸" in _texts(pair)
+    assert _marks(pair) == ["▸"]
     result = pair.content.controls[1]
     assert isinstance(result, ft.GestureDetector)
     assert isinstance(result.content, ft.Container)
@@ -161,21 +171,103 @@ def test_a_long_result_is_cut_on_its_own_line() -> None:
     pair = view.history.controls[1]
     assert isinstance(pair, ft.Container)
     assert isinstance(pair.content, ft.Column)
-    assert _texts(pair.content.controls[1]).count("▸") == 1
+    assert _marks(pair.content.controls[1]) == ["▸"]
 
 
 def test_a_long_entry_line_scrolls_sideways_with_marks() -> None:
-    """H3 f: ◂ at the left; ▸ too once the cursor has moved back from the end."""
+    """H3 f: ◂ at the left while the cursor is at the end, ▸ at the right when it is at the
+    start, and both with the cursor in the middle of the line."""
     state = AppState()
     calculator = calculator_on(state.document.current)
     calculator.editor.insert_linear("1111111+2222222+3333333+4444444+5555555+6666666+7777777+")
     view = CalculatorView(state, on_action=state.run_action)
     view.refresh()
-    assert "◂" in _texts(view.entry)
-    assert "▸" not in _texts(view.entry)
+    assert _marks(view.entry) == ["◂"]
     calculator.editor.home()
     view.refresh()
-    assert {"◂", "▸"} <= set(_texts(view.entry))
+    assert _marks(view.entry) == ["▸"]
+    for _ in range(28):
+        calculator.editor.right()
+    view.refresh()
+    assert _marks(view.entry) == ["◂", "▸"]
     calculator.editor.clear()
     view.refresh()
-    assert "◂" not in _texts(view.entry)
+    assert _marks(view.entry) == []
+
+
+def test_a_long_line_scrolls_only_when_the_cursor_nears_an_edge() -> None:
+    """The line stays put while the cursor moves in the middle of the window, and follows it
+    within `margin` of either edge, never past the line's own ends."""
+    offset = views_module.scroll_offset
+    assert offset(100, 300, 1000, 400, 60) == 100  # in the middle: no move
+    assert offset(100, 480, 1000, 400, 60) == 140  # near the right edge: the line moves left
+    assert offset(100, 130, 1000, 400, 60) == 70  # near the left edge: it moves right
+    assert offset(100, 10, 1000, 400, 60) == 0  # not past the start
+    assert offset(500, 990, 1000, 400, 60) == 600  # nor past the end
+
+
+def test_the_entry_line_is_scrolled_to_its_cursor_after_the_redraw() -> None:
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    calculator.editor.insert_linear("1111111+2222222+3333333+4444444+5555555+6666666+7777777+")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    strip = view._strips["entry"]
+    assert strip.due
+    assert strip.offset == views_module.TO_END  # the cursor is at the end
+    calculator.editor.home()
+    view.refresh()
+    assert view._strips["entry"] is strip  # the same row: it keeps its place between redraws
+    assert strip.offset == 0
+
+
+def test_a_wide_screen_keeps_an_entry_and_its_result_on_one_line() -> None:
+    """The Computer view's pane is wider than the Handheld's screen: what needs two lines at
+    320 pixels shares one at 900, the entry at the left and the result at the right."""
+    entry = "1234567+2345678+3456789+4567891"
+    narrow = _laid_out(entry).history.controls[1]
+    wide = _laid_out(entry, width=900.0).history.controls[1]
+    assert isinstance(narrow, ft.Container)
+    assert isinstance(wide, ft.Container)
+    assert isinstance(narrow.content, ft.Column)
+    assert isinstance(wide.content, ft.Row)
+    assert _marks(wide) == []
+
+
+def test_a_fraction_is_measured_as_it_is_drawn_not_by_its_characters() -> None:
+    """`(x+1)/(x+2)` is 11 characters of text but a stacked fraction about three wide."""
+    from cassim.device.editor_ast import text_ems  # noqa: PLC0415
+
+    assert text_ems("(x+1)/(x+2)") < text_ems("x+1+x+2")
+
+
+def test_a_row_moved_into_keeps_the_history_s_small_fractions() -> None:
+    """A picked result is redrawn from controls once the cursor is in it; its fractions stay at
+    the size the history draws them, so the row does not grow."""
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    calculator.editor.insert_linear("1/3+1/x")
+    state.key_event("Enter")
+    state.run_action("recall_at", "0:result")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    sizes = {c.size for c in walk(view.history) if isinstance(c, ft.Text) and c.value == "3"}
+    assert sizes == {state.math_size * 0.7}
+
+
+def test_stepping_back_from_the_end_of_a_long_line_does_not_move_it() -> None:
+    """The line is at its end; one Left keeps it there (the cursor is still well inside)."""
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    calculator.editor.insert_linear("1111111+2222222+3333333+4444444+5555555+6666666+7777777+")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    calculator.editor.left()
+    view.refresh()
+    strip = view._strips["entry"]
+    assert strip.offset > 0
+    assert _marks(view.entry) == ["◂"]  # nothing more to the right: it is still at its end
+    before = strip.offset
+    calculator.editor.left()
+    view.refresh()
+    assert strip.offset == before

@@ -21,7 +21,7 @@ from cassim.core import ast
 from cassim.core.ast import RIGHT_ASSOCIATIVE, UNARY_OPERAND_PREC, Prec
 from cassim.core.errors import TIError
 from cassim.core.parser import parse_expression
-from cassim.device.editor import Editor, Row, Template, linear_text
+from cassim.device.editor import Editor, Row, Template, estimated_width, linear_text
 from cassim.device.templates import SPECS, Kind
 
 # Binary operators written with a space either side, as `ast.Binary` prints them
@@ -37,6 +37,13 @@ def row_from_text(text: str) -> Row:
     editor = Editor()
     editor.insert_linear(text)
     return editor.root
+
+
+@lru_cache(maxsize=1024)
+def text_ems(text: str) -> float:
+    """About how wide engine text is when drawn as maths, in ems (`editor.estimated_width` of
+    its tree): fractions, powers and roots at their drawn sizes, not a count of characters."""
+    return estimated_width(row_from_text(text))
 
 
 def pasted_row(text: str) -> Row | None:

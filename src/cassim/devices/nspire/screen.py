@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cassim.core.results import Result
-from cassim.device.editor_ast import result_latex
+from cassim.device.editor import estimated_width
+from cassim.device.editor_ast import result_latex, text_ems
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 from cassim.devices.nspire.pages.graphs import graphs_of
@@ -28,6 +29,7 @@ class Line:
     part: bool = False  # the LaTeX draws its own cursor and selection (the row was moved into)
     warnings: tuple[str, ...] = ()  # an entry row's warning triangle (FR-CALC-007)
     error: bool = False  # error result text is drawn as ordinary text to keep ASCII quotes straight
+    width: float = 0.0  # about how wide the row is drawn, in ems (`editor.estimated_width`)
 
 
 @dataclass(frozen=True)
@@ -155,6 +157,12 @@ def render(
                 # no bold names: a history row is drawn without them (emulator check 4, A4)
                 latex = editor.latex()
             warnings = entry.result.warnings if kind == "entry" else ()
+            if part and editor is not None:
+                width = estimated_width(editor.root)
+            elif kind == "entry" and entry.nodes:
+                width = estimated_width(list(entry.nodes))
+            else:
+                width = text_ems(text)
             shown = latex or rf"\text{{{text}}}"
             lines.append(
                 Line(
@@ -165,6 +173,7 @@ def render(
                     bool(part),
                     warnings,
                     kind == "result" and entry.result.error is not None,
+                    width,
                 )
             )
     return Screen(
