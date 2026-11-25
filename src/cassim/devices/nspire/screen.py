@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cassim.core.results import Result
-from cassim.device.editor import estimated_width
-from cassim.device.editor_ast import result_latex, text_ems
+from cassim.device.editor import Node, estimated_width
+from cassim.device.editor_ast import result_latex, result_row, text_ems
 from cassim.device.menu import MenuView
 from cassim.devices.nspire.pages.calculator import calculator_of, calculator_on
 from cassim.devices.nspire.pages.graphs import graphs_of
@@ -30,6 +30,9 @@ class Line:
     warnings: tuple[str, ...] = ()  # an entry row's warning triangle (FR-CALC-007)
     error: bool = False  # error result text is drawn as ordinary text to keep ASCII quotes straight
     width: float = 0.0  # about how wide the row is drawn, in ems (`editor.estimated_width`)
+    # The maths tree the row is drawn from (decision 0038); None when there is none (a message,
+    # an error, a result SymPy draws): the GUI then draws `latex`
+    row: tuple[Node, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -157,12 +160,17 @@ def render(
                 # no bold names: a history row is drawn without them (emulator check 4, A4)
                 latex = editor.latex()
             warnings = entry.result.warnings if kind == "entry" else ()
+            row: tuple[Node, ...] | None = None
             if part and editor is not None:
                 width = estimated_width(editor.root)
+                row = tuple(editor.root)
             elif kind == "entry" and entry.nodes:
                 width = estimated_width(list(entry.nodes))
+                row = tuple(entry.nodes)
             else:
                 width = text_ems(text)
+                if kind == "result" and entry.result.error is None:
+                    row = result_row(text)
             shown = latex or rf"\text{{{text}}}"
             lines.append(
                 Line(
@@ -174,6 +182,7 @@ def render(
                     warnings,
                     kind == "result" and entry.result.error is not None,
                     width,
+                    row,
                 )
             )
     return Screen(

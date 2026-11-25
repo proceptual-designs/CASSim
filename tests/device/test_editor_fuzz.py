@@ -1,6 +1,6 @@
 """Random edits and clicks never break the editor (FR-CALC-004): the cursor stays on a real row,
 the line can always be turned into text and LaTeX, and the model stays consistent. A second test
-checks that the Flet entry line draws whatever state the fuzz reaches."""
+checks that the canvas line draws whatever state the fuzz reaches, with its cursor."""
 
 import copy
 from typing import Any
@@ -8,7 +8,7 @@ from typing import Any
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from cassim.app.entry_line import EntryLine
+from cassim.app.math_canvas import MathLine
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor, Kind, Row, Template
 from cassim.device.templates import GRIDS
@@ -142,7 +142,11 @@ def test_the_entry_line_draws_any_fuzzed_state(ops: list[tuple[str, object]]) ->
     clipboard: Row = []
     for name, arg in ops:
         clipboard = apply(editor, name, arg, clipboard)
-    EntryLine(DARK, 20, lambda _path, _pos: None).build(editor)
+    line = MathLine(DARK, 20, lambda _path, _pos: None)
+    line.build(editor)
+    path, pos = line.place_at(*line.point_at(editor.path, editor.pos))
+    assert tuple(path) in line.layout.rows  # a click where the cursor is finds a real place
+    assert 0 <= pos <= len(line.layout.rows[tuple(path)].gaps)
 
 
 @settings(max_examples=150, deadline=None)

@@ -84,15 +84,25 @@ def result_latex(text: str) -> str | None:
     row looks the same before and after the cursor moves into it, products show their `·` as on
     the device, and `and`/`or` are upright. None for text the tree should not draw (it does not
     parse, or SymPy draws it closer to the device): the caller keeps SymPy's LaTeX."""
+    row = result_row(text)
+    if row is None:
+        return None
+    editor = Editor()
+    editor.root = list(row)
+    return editor.latex(cursor=False)
+
+
+@lru_cache(maxsize=1024)
+def result_row(text: str) -> tuple[str | Template, ...] | None:
+    """The tree a result is drawn from (`result_latex`'s rule), or None. It is shared by every
+    caller, so it is a tuple: copy it before editing."""
     parsed = _parsed(text)
     if parsed is None:
         return None
     node, row = parsed
     if (isinstance(node, ast.Name) and node.text in _MESSAGES) or _calls(node, _SYMPY_CALLS):
         return None
-    editor = Editor()
-    editor.root = row
-    return editor.latex(cursor=False)
+    return tuple(row)
 
 
 def _parsed(text: str) -> tuple[ast.Expr, Row] | None:

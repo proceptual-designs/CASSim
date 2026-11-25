@@ -1122,9 +1122,42 @@ def _linear(row: Row) -> str:
     return "".join(out)
 
 
-# Digit height with a little depth: a taller bar pushes a denominator down.
-_CURSOR = r"{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}"
-_CURSOR_IN_SELECTION = r"{\color{#0b3d78}\rule[-0.15em]{0.06em}{0.8em}}"  # darker on the highlight
+# The cursor's bar. Anything in the LaTeX takes part in its layout, and the renderer has no
+# `\smash`: a bar taller than the digits beside it makes a small fraction, a radical and the
+# brackets round them grow as the cursor passes. So the bar is as tall as a digit at the size
+# its row is set at (full, script, script of a script), with no depth, and sits between two
+# kerns that take its width back: nothing moves, whatever the cursor is in.
+_BAR_HEIGHTS = (0.64, 0.45, 0.31)  # ems of the line's own size, by how small the row is set
+_BAR_COLOUR, _BAR_COLOUR_IN_SELECTION = (
+    "#4da3ff",
+    "#0b3d78",
+)  # the second is darker, on the highlight
+# How much smaller than its template each slot is set (in Tab order); a slot not listed is not
+_SMALLER: dict[Kind, tuple[int, ...]] = {
+    Kind.FRACTION: (1, 1),
+    Kind.POWER: (1,),
+    Kind.NTH_ROOT: (2, 0),
+    Kind.LOG: (1, 0),
+    Kind.DERIVATIVE: (1, 0),
+    Kind.DERIVATIVE2: (1, 0),
+    Kind.DERIVATIVE_N: (2, 1, 0),
+    Kind.INTEGRAL: (1, 1, 0, 0),
+    Kind.SUM: (1, 1, 1, 0),
+    Kind.PRODUCT: (1, 1, 1, 0),
+    Kind.LIMIT: (1, 1, 2, 0),
+}
+
+
+def _bar(level: int, *, selected: bool = False) -> str:
+    height = _BAR_HEIGHTS[min(level, len(_BAR_HEIGHTS) - 1)]
+    colour = _BAR_COLOUR_IN_SELECTION if selected else _BAR_COLOUR
+    bar = rf"{{\color{{{colour}}}\rule{{0.06em}}{{{height}em}}}}"
+    return bar if selected else rf"\kern-0.03em{bar}\kern-0.03em "
+
+
+# A `+` or `-` at the cursor that is a sign, not an operator: first in its row, or after these
+_SIGNS_AT_START = ("+", "-")
+_BEFORE_A_SIGN = frozenset("([{,;=<>≤≥≠+-*/|→")
 _EMPTY_SLOT = r"\square"
 EMPTY_SLOT = _EMPTY_SLOT  # public: how `row_latex` draws an empty slot
 _SELECTION = "#7fb2e8"
@@ -1274,22 +1307,30 @@ def _stretch_brackets(row: Row, pieces: list[str], span: tuple[int, int]) -> Non
             tall = any(
                 isinstance(n, Template) and n.kind is not Kind.POWER for n in row[start + 1 : index]
             )
-            whole = (low <= start and index < high) or index < low or start >= high
+            # a bare cursor splits nothing: only a selection's edge inside the pair does
+            whole = low == high or (low <= start and index < high) or index < low or start >= high
             if tall and whole:
                 pieces[start], pieces[index] = r"\left(", r"\right)"
 
 
 def _latex(
-    row: Row, place: Place | None, here: list[tuple[int, int]], is_defined: Callable[[str], bool]
+    row: Row,
+    place: Place | None,
+    here: list[tuple[int, int]],
+    is_defined: Callable[[str], bool],
+    level: int = 0,
 ) -> str:
-    """The row as LaTeX. `place` is the cursor's path, its position and the selected span."""
+    """The row as LaTeX. `place` is the cursor's path, its position and the selected span;
+    `level` is how small the row is set (0 full size, 1 a script, 2 a script's script)."""
     here_cursor = place is not None and place[0] == here
     at = place[1] if place is not None else -1
     low, high = place[2] if here_cursor and place is not None else (0, 0)
     styles = name_styles(row, is_defined)
     constants = at_constants(row)
-    if not row:
-        return _CURSOR if here_cursor else _EMPTY_SLOT
+    if not row:  # an empty slot keeps its box under the cursor; an empty line is only the cursor
+        return (_bar(level) if here_cursor else "") + (
+            "" if here_cursor and not here else _EMPTY_SLOT
+        )
     pieces: list[str] = []
     for i, node in enumerate(row):
         if i in constants:
@@ -1300,16 +1341,24 @@ def _latex(
             style = styles.get(i)
             pieces.append(rf"\{_FONTS[style]}{{{node}}}" if style else _SYMBOLS.get(node, node))
             continue
+        smaller = _SMALLER.get(node.kind, ())
         slots = [
-            _latex(slot, place, [*here, (i, s)], is_defined) for s, slot in enumerate(node.slots)
+            _latex(
+                slot,
+                place,
+                [*here, (i, s)],
+                is_defined,
+                level + (smaller[s] if s < len(smaller) else 0),
+            )
+            for s, slot in enumerate(node.slots)
         ]
         pieces.append(SPECS[node.kind].latex(slots, node.cols))
     _stretch_brackets(row, pieces, (low, high))
-    cursor = _CURSOR if here_cursor else ""
+    cursor = _bar(level) if here_cursor else ""
     if high > low:
         chosen = "".join(pieces[low:high])
         if here_cursor:  # the cursor sits inside the highlight at its edge, so no gap opens
-            bar = _CURSOR_IN_SELECTION
+            bar = _bar(level, selected=True)
             chosen = bar + chosen if at == low else chosen + bar
         # \colorbox draws no fill; \fcolorbox pads by 0.34em, so pull the contents back to its edges
         box = (
@@ -1319,4 +1368,10 @@ def _latex(
         return "".join(pieces[:low]) + box + "".join(pieces[high:])
     if not here_cursor:
         return "".join(pieces)
+    sign = at < len(row) and row[at] in _SIGNS_AT_START
+    before = row[at - 1] if at else ""
+    if sign and (at == 0 or (isinstance(before, str) and before in _BEFORE_A_SIGN)):
+        # the cursor is an atom of its own to TeX, and a sign after an atom is spaced as an
+        # operator: in braces the sign stays a sign, so it does not move as the cursor comes
+        pieces[at] = "{" + pieces[at] + "}"
     return "".join(pieces[:at]) + cursor + "".join(pieces[at:])

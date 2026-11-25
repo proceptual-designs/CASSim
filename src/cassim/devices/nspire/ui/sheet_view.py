@@ -18,16 +18,18 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app.context_menu import context_menu_region
-from cassim.app.entry_line import EntryLine, row_height
+from cassim.app.math_canvas import PAD, MathLine
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
-from cassim.device.editor import Template, format_target
+from cassim.device.editor import format_target
 from cassim.device.keys import Action
+from cassim.device.math_layout import lines
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
 from cassim.graph.scene import Layer
 
 BAR = 22  # the bar under the grid, in the handheld's pixels
+EDIT_SIZE = 12  # the text of a cell being edited, in the same pixels
 
 
 def sheet_colours(theme: Theme) -> dict[str, str]:
@@ -105,9 +107,9 @@ class SheetView:
         scale = self.scale()
         editor = sheet.editor
         bar_height = BAR * scale
-        if editor and any(isinstance(node, Template) for node in editor.root):
-            wanted = max(52, 16 + 16 * row_height(editor.root)) * scale
-            bar_height = min(wanted, max(BAR * scale, height - ROW * scale))
+        if editor:  # the bar grows to hold what is being typed (a fraction, a matrix)
+            wanted = lines(editor.root) * EDIT_SIZE * scale + 2 * PAD + 8 * scale
+            bar_height = min(max(bar_height, wanted), max(bar_height, height - ROW * scale))
         grid_height = max(height - bar_height, ROW * scale)
         rows, columns = fit(width, grid_height, sheet, scale)
         if (rows, columns) != (sheet.rows_shown, sheet.columns_shown):
@@ -130,29 +132,26 @@ class SheetView:
                 control.left, control.top, control.width, control.height = regions[index]
             canvases.append(control)
         self.grid.controls = canvases
-        size = 12 * scale
+        size = EDIT_SIZE * scale
         self.address.value, self.address.size = screen.address, size
         self.entry.value = screen.entry
         self.entry.size = size
         self.entry_box.content = (
-            ft.Column(
-                [
-                    ft.Row(
-                        [
-                            EntryLine(
-                                replace(self.theme, screen_text=self.theme.title_text),
-                                size,
-                                self.click,
-                                sheet.session.is_defined,
-                                self.hold,
-                            ).build(editor)
-                        ],
-                        spacing=0,
-                        scroll=ft.ScrollMode.AUTO,
-                    )
-                ],
-                spacing=0,
-                scroll=ft.ScrollMode.AUTO,
+            ft.Container(
+                ft.Row(
+                    [
+                        MathLine(
+                            replace(self.theme, screen_text=self.theme.title_text),
+                            size,
+                            self.click,
+                            sheet.session.is_defined,
+                            self.hold,
+                        ).build(editor)
+                    ],
+                    spacing=0,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                alignment=ft.Alignment.CENTER_LEFT,
             )
             if editor is not None
             else self.entry
