@@ -1106,8 +1106,12 @@ def _linear(row: Row) -> str:
     return "".join(out)
 
 
-# Digit height with a little depth: a taller bar pushes a denominator down.
-_CURSOR = r"{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}"
+# Digit height with a little depth: a taller bar pushes a denominator down. The kerns either side
+# take back the bar's width, so the bar is drawn over the gap and nothing moves as the cursor does.
+_CURSOR = r"\kern-0.03em{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}\kern-0.03em "
+# A `+` or `-` at the cursor that is a sign, not an operator: first in its row, or after these
+_SIGNS_AT_START = ("+", "-")
+_BEFORE_A_SIGN = frozenset("([{,;=<>≤≥≠+-*/|→")
 _CURSOR_IN_SELECTION = r"{\color{#0b3d78}\rule[-0.15em]{0.06em}{0.8em}}"  # darker on the highlight
 _EMPTY_SLOT = r"\square"
 _SELECTION = "#7fb2e8"
@@ -1271,8 +1275,8 @@ def _latex(
     low, high = place[2] if here_cursor and place is not None else (0, 0)
     styles = name_styles(row, is_defined)
     constants = at_constants(row)
-    if not row:
-        return _CURSOR if here_cursor else _EMPTY_SLOT
+    if not row:  # an empty slot keeps its box under the cursor; an empty line is only the cursor
+        return (_CURSOR if here_cursor else "") + ("" if here_cursor and not here else _EMPTY_SLOT)
     pieces: list[str] = []
     for i, node in enumerate(row):
         if i in constants:
@@ -1302,4 +1306,10 @@ def _latex(
         return "".join(pieces[:low]) + box + "".join(pieces[high:])
     if not here_cursor:
         return "".join(pieces)
+    sign = at < len(row) and row[at] in _SIGNS_AT_START
+    before = row[at - 1] if at else ""
+    if sign and (at == 0 or (isinstance(before, str) and before in _BEFORE_A_SIGN)):
+        # the cursor is an atom of its own to TeX, and a sign after an atom is spaced as an
+        # operator: in braces the sign stays a sign, so it does not move as the cursor comes
+        pieces[at] = "{" + pieces[at] + "}"
     return "".join(pieces[:at]) + cursor + "".join(pieces[at:])

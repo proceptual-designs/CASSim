@@ -236,10 +236,28 @@ class TestLatex:
     def test_cursor_is_a_bar_and_empty_slots_are_boxes(self):
         editor = keys("1F")
         tex = editor.latex()
-        assert tex.startswith(r"\frac{1}{{\color")  # the cursor is in the empty denominator
-        assert r"\square" not in tex
+        # the cursor is in the empty denominator, over its box: the box stays, so the fraction
+        # is the same size with the cursor in it as without
+        assert tex.startswith(r"\frac{1}{\kern-0.03em{\color")
+        assert tex.count(r"\square") == 1
         editor.up()
-        assert r"\square" in editor.latex()  # the empty denominator now shows as a box
+        assert editor.latex().count(r"\square") == 1  # the empty denominator is still a box
+
+    def test_the_cursor_takes_no_width(self):
+        """The bar is 0.06em wide between two kerns of -0.03em: nothing moves as it does."""
+        tex = keys("12").latex()
+        assert tex == r"12\kern-0.03em{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}\kern-0.03em "
+
+    def test_a_sign_at_the_cursor_stays_a_sign(self):
+        """TeX would space `-` after the cursor's bar as an operator; in braces it is a sign."""
+        editor = Editor("-x")
+        editor.home()
+        assert editor.latex().endswith("{-}x")
+        editor = Editor("2-x")
+        editor.home()
+        editor.right()
+        assert editor.latex().endswith("-x")  # an operator here: left as it is
+        assert "{-}" not in editor.latex()
 
     def test_cursor_can_be_left_out(self):
         assert keys("1F2").latex(cursor=False) == r"\frac{1}{2}"

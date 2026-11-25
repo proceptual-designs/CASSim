@@ -1,7 +1,9 @@
 # Requirements traced here: FR-CALC-004, FR-CALC-005
 """The mouse on the Calculator page, from emulator check 6, run 5 (H3)."""
 
+import asyncio
 from collections.abc import Callable, Iterator
+from types import SimpleNamespace
 from typing import cast
 
 import flet as ft
@@ -72,8 +74,9 @@ def test_shift_click_in_a_history_line_extends() -> None:
     assert actions == [("recall_extend", ":2")]
 
 
-def test_a_clicked_history_line_is_drawn_as_an_editor() -> None:
-    """H3 a: no highlight over the item; a cursor in it, which clicks can move."""
+def test_a_clicked_history_line_shows_a_cursor_in_the_same_drawing() -> None:
+    """H3 a: no highlight over the item; a cursor in it. The row is still LaTeX, the drawing it
+    had before, so nothing in it changes size or place (decision 0036)."""
     state = AppState()
     for char in "2+3":
         state.key_event(char)
@@ -85,13 +88,35 @@ def test_a_clicked_history_line_is_drawn_as_an_editor() -> None:
     view.refresh()
     calculator = calculator_on(state.document.current)
     assert calculator.recall == (0, "entry")
-    editors = [c for c in walk(view.history) if isinstance(c, ft.GestureDetector) and c.on_tap]
-    assert len([c for c in walk(view.history) if isinstance(c, ft.Markdown)]) < len(plain)
-    assert editors
+    drawn = [c for c in walk(view.history) if isinstance(c, ft.Markdown)]
+    assert len(drawn) == len(plain)
+    assert len([c for c in drawn if "rule" in str(c.value)]) == 1  # the cursor's bar
     highlighted = [
         c for c in walk(view.history) if isinstance(c, ft.Container) and c.bgcolor == DARK.selection
     ]
     assert not highlighted
+
+
+def test_a_tap_in_a_row_with_a_cursor_moves_the_cursor_near_it() -> None:
+    """H3 a, b: the tap's distance from the maths' left edge picks the nearest gap."""
+    state = AppState()
+    for char in "2+3":
+        state.key_event(char)
+    state.key_event("Enter")
+    state.run_action("recall_at", "0:entry")
+    actions: list[tuple[str, str]] = []
+    view = CalculatorView(state, on_action=lambda action, arg: actions.append((action, arg)))
+    view.refresh()
+    taps = [
+        c.on_tap_down
+        for c in walk(view.history)
+        if isinstance(c, ft.Container) and c.on_tap_down and isinstance(c.content, ft.Markdown)
+    ]
+    size = state.math_size
+    event = cast("ft.TapEvent", SimpleNamespace(local_position=SimpleNamespace(x=0.6 * size, y=5)))
+    tap = cast("Callable[[ft.TapEvent], None]", taps[0])
+    tap(event)  # just right of the `2`, which is half an em wide
+    assert actions == [("recall_place", ":1")]
 
 
 def test_a_selection_drags_and_places_accept_drops() -> None:
@@ -241,20 +266,6 @@ def test_a_fraction_is_measured_as_it_is_drawn_not_by_its_characters() -> None:
     assert text_ems("(x+1)/(x+2)") < text_ems("x+1+x+2")
 
 
-def test_a_row_moved_into_keeps_the_history_s_small_fractions() -> None:
-    """A picked result is redrawn from controls once the cursor is in it; its fractions stay at
-    the size the history draws them, so the row does not grow."""
-    state = AppState()
-    calculator = calculator_on(state.document.current)
-    calculator.editor.insert_linear("1/3+1/x")
-    state.key_event("Enter")
-    state.run_action("recall_at", "0:result")
-    view = CalculatorView(state, on_action=state.run_action)
-    view.refresh()
-    sizes = {c.size for c in walk(view.history) if isinstance(c, ft.Text) and c.value == "3"}
-    assert sizes == {state.math_size * 0.7}
-
-
 def test_stepping_back_from_the_end_of_a_long_line_does_not_move_it() -> None:
     """The line is at its end; one Left keeps it there (the cursor is still well inside)."""
     state = AppState()
@@ -273,27 +284,12 @@ def test_stepping_back_from_the_end_of_a_long_line_does_not_move_it() -> None:
     assert strip.offset == before
 
 
-def test_a_row_moved_into_is_held_at_the_height_it_was_drawn_at() -> None:
-    """The LaTeX row reports its height once; the same row drawn from controls keeps it, so the
-    rows under it stay where they were."""
-    state = AppState()
-    calculator = calculator_on(state.document.current)
-    calculator.editor.insert_linear("1/3+1/x")
-    state.key_event("Enter")
-    view = CalculatorView(state, on_action=state.run_action)
-    view.refresh()
-    reports = [
-        c.on_size_change
-        for c in walk(view.history)
-        if isinstance(c, ft.Container) and isinstance(c.content, ft.Markdown) and c.on_size_change
-    ]
-    assert len(reports) == 2  # the entry and its result
-    view._row_heights["0:result"] = (calculator.history[0].result.text, 27.0)
-    state.run_action("recall_at", "0:result")
-    view.refresh()
-    held = [c for c in walk(view.history) if isinstance(c, ft.Container) and c.height == 27.0]
-    assert len(held) == 1
-    view._row_heights["0:result"] = ("something else", 27.0)  # a stale report is not used
-    view._history_rows.clear()
-    view.refresh()
-    assert not [c for c in walk(view.history) if isinstance(c, ft.Container) and c.height == 27.0]
+def test_a_sideways_scroll_that_the_window_does_not_answer_is_dropped() -> None:
+    """A busy window can time out on `scroll_to` (Flet raises RuntimeError); the next redraw
+    scrolls again, so the failure must not surface."""
+
+    class Row:
+        async def scroll_to(self, **_: object) -> None:
+            raise RuntimeError("TimeoutException after 0:00:10: ... Row(1).scroll_to")
+
+    asyncio.run(views_module._scroll_strip(cast("ft.Row", Row()), 10.0))

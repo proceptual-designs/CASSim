@@ -39,7 +39,11 @@ type Click = Callable[[Path, int], None]  # a click at (row path, position in th
 type Chrome = Callable[[ft.Control], ft.Control]
 
 HIT = "#01ffffff"  # all but invisible, but a coloured box takes clicks where nothing is drawn
-_SHOWN = {"*": "·", "-": "−", "ⅇ": "ⅇ", "ᴇ": "ᴇ", "/": "/", " ": " "}
+_SHOWN = {"*": "·", "-": "−", "ᴇ": "ᴇ", "/": "/", " ": " "}
+# Euler's number and the imaginary unit are drawn as the history's LaTeX draws them, a bold
+# upright e and a bold italic i (`constant_style`), not as the double-struck Unicode letters
+# the text holds: no KaTeX font has those, and a fallback font's look out of place
+_CONSTANTS = {"ⅇ": "e", "ⅈ": "i"}
 
 
 @dataclass(frozen=True)
@@ -60,14 +64,13 @@ DEFAULT_STYLE = EntryStyle()
 SELECTION = DEFAULT_STYLE.selection
 _LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπ")
 # TeX's spacing, in ems either side: a medium space round a binary operator and a thick one
-# round a relation, at full size only (none in an exponent or a small fraction)
+# round a relation, at full size only (none in an exponent)
 _OPERATORS = frozenset("+-*")
 _RELATIONS = frozenset("=<>≤≥≠")
 _MEDIUM, _THICK = 0.2222, 0.2778
 # After one of these a `+` or `-` is a sign, not an operator, and is set without the space
 _NO_OPERAND = frozenset("(+-*/^=<>≤≥≠,[{;|:→ ")
-_TIGHT = 0.88  # the line height of a small fraction's parts, in ems
-_SCRIPT = 0.7  # an exponent, and the parts of a fraction set as TeX sets it in a line of text
+_SCRIPT = 0.7  # an exponent is set at this fraction of the size
 _DRAG_GROUP = "entry-selection"  # set with a little space either side, as TeX does
 
 
@@ -92,9 +95,6 @@ class EntryLine:
         self.hold = hold or click
         # Selected text dragged onto a place moves there (run 5, H3 k); None: no dragging
         self.drop: Click | None = None
-        # Fractions as TeX sets them in a line of text (small, close to the bar), which is how
-        # the history draws them: a picked history row keeps its size when the cursor enters it
-        self.inline = False
         self._full = size  # the size of the line's own text; smaller text is set tight
 
     def _detector(
@@ -122,10 +122,8 @@ class EntryLine:
         return self._detector(
             ft.Container(
                 row,
-                # a history row is only as big as its maths, so it stays where it was drawn;
-                # the entry line fills its width, and a click past its end goes to the end
-                padding=None if self.inline else ft.Padding.symmetric(vertical=2),
-                alignment=None if self.inline else ft.Alignment.CENTER_LEFT,
+                padding=ft.Padding.symmetric(vertical=2),
+                alignment=ft.Alignment.CENTER_LEFT,
                 bgcolor=HIT,
             ),
             [],
@@ -217,15 +215,10 @@ class EntryLine:
             return shown
         return ft.Draggable(shown, group=_DRAG_GROUP)
 
-    @property
-    def _tight(self) -> bool:
-        """In a small fraction: its lines are set close to the bar, as TeX sets them."""
-        return self.inline and self.size < self._full
-
     def _cursor(self, *, selected: bool = False) -> ft.Control:
         """The cursor bar, drawn over the gap between two nodes and taking no width of its own:
         nothing in the row moves as the cursor does."""
-        height = self.size * (_TIGHT if self._tight else 1.15)
+        height = self.size * 1.15
         bar = ft.Container(
             width=CURSOR_WIDTH,
             height=height,
@@ -268,6 +261,9 @@ class EntryLine:
     ) -> ft.Control:
         """A character; a letter of a Catalog name is upright and of a defined name bold
         (`name_styles`), and any other letter italic, as a variable."""
+        if char in _CONSTANTS:
+            char = _CONSTANTS[char]
+            style = constant_style(char)
         text: ft.Control = ft.Text(
             _SHOWN.get(char, char),
             size=self.size,
@@ -279,8 +275,6 @@ class EntryLine:
             if char in _LETTERS and style in (None, Style.BOLD_ITALIC)
             else self.style.main_font,
             no_wrap=True,
-            # in a small fraction the lines sit close to the bar, as TeX sets them
-            style=ft.TextStyle(height=_TIGHT) if self._tight else None,
         )
         if space:
             text = ft.Container(text, padding=ft.Padding.symmetric(horizontal=self.size * space))
@@ -301,8 +295,7 @@ class EntryLine:
             body = _DRAWN[node.kind](_Parts(self, node, here, index))
             return ft.Stack([self._halves(here, index), body])
         size = self.size
-        small = node.kind is Kind.FRACTION and self.inline
-        if node.kind is Kind.POWER or small:
+        if node.kind is Kind.POWER:
             self.size = size * _SCRIPT  # an exponent is set smaller
         # a slot's own click area takes in what is around its text: a matrix cell's padding and the
         # width a fraction gives a short numerator
@@ -323,7 +316,7 @@ class EntryLine:
             return ft.Stack([piece, self._halves(here, index)])
 
         if node.kind is Kind.FRACTION:
-            body = self._fraction(slots, chrome, small=small)
+            body = self._fraction(slots, chrome)
         elif node.kind is Kind.POWER:
             body = self._power(slots[0])
         elif node.kind is Kind.ROOT:
@@ -334,14 +327,11 @@ class EntryLine:
         # are on top, so anything inside a slot is that slot's.
         return ft.Stack([self._halves(here, index), body])
 
-    def _fraction(
-        self, slots: list[ft.Control], chrome: Chrome, *, small: bool = False
-    ) -> ft.Control:
-        rule = max(1.0, self.size * 0.05) if small else 1.5
+    def _fraction(self, slots: list[ft.Control], chrome: Chrome) -> ft.Control:
         bar = chrome(
             ft.Container(
-                ft.Container(height=rule, bgcolor=self.theme.screen_text),
-                padding=ft.Padding.symmetric(vertical=self.size * 0.04 if small else 3),
+                ft.Container(height=1.5, bgcolor=self.theme.screen_text),
+                padding=ft.Padding.symmetric(vertical=3),
             )
         )
         return ft.Container(
@@ -351,7 +341,7 @@ class EntryLine:
                     bar,
                     slots[1],
                 ],
-                spacing=0 if small else 1,
+                spacing=1,
                 tight=True,
                 intrinsic_width=True,
                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,

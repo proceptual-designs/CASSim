@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -18,7 +19,13 @@ from cassim.app.theme import DARK, Theme
 from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
-from cassim.device.editor import Editor, cursor_offset, estimated_width, format_target
+from cassim.device.editor import (
+    Editor,
+    cursor_offset,
+    estimated_width,
+    format_target,
+    position_near,
+)
 from cassim.device.editor_ast import text_ems
 from cassim.device.keys import Action
 from cassim.device.menu import MenuView, Panel, Row
@@ -81,6 +88,14 @@ class Strip:
         self.row = ft.Row(scroll=ft.ScrollMode.HIDDEN, tight=True, expand=True)
         self.offset = 0.0
         self.due = False
+
+
+async def _scroll_strip(row: ft.Row, offset: float) -> None:
+    """Scroll a long line sideways. The window may be too busy to answer in time, or the row
+    may have gone by the time it does (the line got shorter, the page changed): the next redraw
+    scrolls again, so a scroll that fails is dropped, not raised."""
+    with contextlib.suppress(RuntimeError, TimeoutError):
+        await row.scroll_to(offset=offset, duration=0)
 
 
 def cut_off(
@@ -358,8 +373,6 @@ class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
     _strips: dict[str, Strip]  # long lines scrolled sideways: "entry", "recall"
-    # "row:kind" -> the row's text and the height it was drawn at as LaTeX
-    _row_heights: dict[str, tuple[str, float]]
 
     def __init__(
         self,
@@ -409,7 +422,7 @@ class CalculatorView:
         self._keep: float | None = None  # the scroll offset when that click was made
         self._tapped: str | None = None  # a line whose maths took a tap its line may see too
         self._to_end = False  # after this redraw, scroll the history to its end (the entry line)
-        self._strips, self._row_heights = {}, {}
+        self._strips = {}
         self._last_drawn: tuple[object, ...] | None = None  # what the last Calculator redraw showed
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
@@ -931,7 +944,7 @@ class CalculatorView:
             return
         for strip in due:  # long lines: sideways, to where their cursors are
             strip.due = False
-            page.run_task(strip.row.scroll_to, offset=strip.offset, duration=0)
+            page.run_task(_scroll_strip, strip.row, strip.offset)
         if not (to_end or self._follow or keep is not None):
             return
         if to_end:
@@ -1115,34 +1128,31 @@ class CalculatorView:
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
 
-    def _row_sized(self, spec: str, text: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
-        def store(event: ft.LayoutSizeChangeEvent) -> None:
-            self._row_heights[spec] = (text, event.height)
-
-        return store
+    def _tap_part(self, editor: Editor, event: ft.TapEvent) -> None:
+        """A tap in a picked row that has a cursor in it: the cursor goes to the gap nearest
+        the tap, at the row's top level (the row is LaTeX on the canvas, which gives no layout,
+        so the place is worked out from the maths: `position_near`). One, two and three taps and
+        shift work as in the entry line."""
+        position = event.local_position
+        pos = (
+            len(editor.root)
+            if position is None
+            else position_near(editor.root, position.x / self.state.math_size)
+        )
+        self._recall_click([], pos)
 
     def _line(self, line: Line, number: int, *, own_line: bool = False) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
-        place as before; once moved into, its own LaTeX draws the cursor and the selected part.
-        A row too long for the screen is not wrapped: it is cut at the right edge with ▸ (H9 b)."""
+        place as before; once moved into, its own LaTeX draws the cursor and the selected part,
+        so the row is drawn by the same renderer throughout and nothing in it changes size.
+        A row too long for the screen is not wrapped: it is cut at the right edge with ▸ (H9 b),
+        and follows its cursor once it has one."""
         right = line.kind == "result" and not own_line
         spec = f"{number // 2}:{line.kind}"  # history rows come in entry, result pairs
         calculator = calculator_of(self.state.document.current)
         editor = calculator.recall_editor if calculator is not None and line.part else None
-        if editor is not None and calculator is not None:
-            # a line clicked or moved into is drawn as an editor, so a click places its cursor
-            # and a double- or triple-click selects (run 5, H3 a, b)
-            recalled = EntryLine(
-                self.theme, self.state.math_size, self._recall_click, calculator.session.is_defined
-            )
-            recalled.inline = True  # as the history draws the row, so it keeps its size
-            body: ft.Control = recalled.build(editor)
-            drawn = self._row_heights.get(spec)
-            if drawn is not None and drawn[0] == line.text:
-                # held at the height the row had as LaTeX: the rows under it do not move
-                body = ft.Container(body, height=drawn[1])
-        elif line.error:
-            body = ft.Text(
+        if line.error:
+            body: ft.Control = ft.Text(
                 line.text,
                 size=self.state.math_size,
                 color=self.theme.screen_text,
@@ -1153,11 +1163,11 @@ class CalculatorView:
         shown: ft.Control = ft.Container(
             body,
             bgcolor=self.theme.selection if line.selected and not line.part else None,
-            # a tap on the maths itself says where: the cursor goes near it
-            on_tap_down=None if editor is not None else lambda event: self._tap_line(spec, event),
-            # a row drawn as LaTeX says how tall it came out, once (rows are kept between
-            # redraws), so it can keep that height when the cursor moves into it
-            on_size_change=None if editor is not None else self._row_sized(spec, line.text),
+            # a tap on the maths itself says where: the cursor goes near it. In a row that has
+            # a cursor it only moves the cursor, and two or three taps select (run 5, H3 a, b)
+            on_tap_down=(lambda event: self._tap_line(spec, event))
+            if editor is None
+            else (lambda event: self._tap_part(editor, event)),
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))
@@ -1181,7 +1191,7 @@ class CalculatorView:
                 padding=ft.Padding.only(left=6, right=6, top=self.state.px(3)),  # air above
                 key=_scroll_key() if line.selected else None,
             ),
-            # a picked row drawn as an editor takes its own clicks: none brings it down (H3 a)
+            # a picked row with a cursor in it takes its own clicks: none brings it down (H3 a)
             on_tap=None if editor is not None else lambda _: self._click_line(spec),
             on_secondary_tap_down=lambda _: self._context_line(spec, picked=line.selected),
             mouse_cursor=ft.MouseCursor.CONTEXT_MENU,
