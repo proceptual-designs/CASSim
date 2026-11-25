@@ -1620,6 +1620,25 @@ class ScientificState:
     # the screen
     # ------------------------------------------------------------------------------------------
 
+    def mode_name(self) -> str:
+        """The mode as this calculator names it: SD or REG on the fx-82MS family, NORMAL on the
+        EL-531, VERIF on the SX-II."""
+        match self.dialect, self.mode:
+            case "ms", "STAT":
+                return "SD" if self.stat_type == "1-VAR" else "REG"
+            case "sharp", "COMP":
+                return "NORMAL"
+            case "sx2", "VERIFY":
+                return "VERIF"
+        return self.mode
+
+    def mode_help(self) -> str:
+        """How to get back to calculating, for the mode chip's tooltip."""
+        back = "MODE 0 (NORMAL) or HOME" if self.dialect == "sharp" else "MODE 1 (COMP)"
+        return (
+            f"Calculation mode: click for the MODE menu (Ctrl+M). {back} goes back to calculating."
+        )
+
     def annunciators(self) -> dict[str, bool]:
         """Which status indicators are lit (FR-FX-DSP-002)."""
         in_history = self.screen == "calc" and self.showing_result

@@ -182,6 +182,17 @@ class ScientificApp:
                 name = str(menu.content)
                 menu.on_open = lambda _, name=name: self.open_menus.add(name)
                 menu.on_close = lambda _, name=name: self.open_menus.discard(name)
+        self.model_label = ft.Text("fx-82", size=12, weight=ft.FontWeight.W_600)
+        self.model_icon = ft.Icon(ft.Icons.SYNC, size=14)
+        self.model_chip = ft.Container(
+            ft.Row([self.model_icon, self.model_label], spacing=4, tight=True),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            border_radius=6,
+            tooltip="Calculator keys: click for the next calculator "
+            "(" + ", ".join(layout.series for layout in LAYOUTS) + ")",
+            on_click=lambda _: self.cycle_layout(),
+            ink=False,  # not focusable: Tab and Enter must not land on it
+        )
         self.mode_chip = self._chip("COMP", "Calculation mode: click for the MODE menu (Ctrl+M)")
         self.mode_chip.on_click = lambda _: self.on_key(k.MODE)
         self.angle_chip = self._chip("Deg", "Angle unit: click to change")
@@ -205,6 +216,7 @@ class ScientificApp:
             ft.Row(
                 [
                     ft.MenuBar(controls=[self.cassim_menu, self.doc_menu]),
+                    self.model_chip,
                     self.mode_chip,
                     self.angle_chip,
                     self.io_chip,
@@ -279,11 +291,16 @@ class ScientificApp:
         subtitle = "TWO-LINE DISPLAY" if layout.linear else "NATURAL DISPLAY"
         badge = ft.Row(
             [
-                ft.Text(
-                    f"CASSim Scientific ({layout.series})",
-                    size=13 * s,
-                    weight=ft.FontWeight.BOLD,
-                    color=skin.badge,
+                ft.Container(
+                    ft.Text(
+                        f"CASSim Scientific ({layout.series})",
+                        size=13 * s,
+                        weight=ft.FontWeight.BOLD,
+                        color=skin.badge,
+                    ),
+                    tooltip="Click for the next calculator's keys",
+                    on_click=lambda _: self.cycle_layout(),
+                    ink=False,  # not focusable: Tab and Enter must not land on it
                 ),
                 ft.Text(subtitle, size=9 * s, weight=ft.FontWeight.W_600, color=skin.badge_sub),
             ],
@@ -688,8 +705,9 @@ class ScientificApp:
         self.top_bar.bgcolor = skin.bar
         self.top_bar.border = ft.Border(bottom=ft.BorderSide(1, skin.chassis_edge))
         state = self.state
+        self.mode_chip.tooltip = state.mode_help()
         for chip, text in (
-            (self.mode_chip, state.mode),
+            (self.mode_chip, state.mode_name()),
             (self.angle_chip, {"DEG": "Deg", "RAD": "Rad", "GRA": "Gra"}[state.setup.angle]),
             (self.io_chip, "Math" if state.setup.input == "math" else "Line"),
         ):
@@ -700,6 +718,11 @@ class ScientificApp:
             label.value = text
             label.color = skin.bar_text
             _safe_update(chip)
+        self.model_chip.bgcolor = skin.chip
+        self.model_chip.border = ft.Border.all(1, "#4d5563")
+        self.model_label.value = self.layout.series
+        self.model_label.color = self.model_icon.color = skin.bar_text
+        _safe_update(self.model_chip)
         for item in (self.panel_button, self.hide_button):
             if isinstance(item, ft.IconButton):
                 item.icon_color = skin.bar_text
@@ -1659,6 +1682,11 @@ class ScientificApp:
                 ],
             )
         )
+
+    def cycle_layout(self) -> None:
+        """The next calculator's keys (the chip in the menu bar, or the title on the calculator)."""
+        index = next(i for i, layout in enumerate(LAYOUTS) if layout is self.layout)
+        self.set_layout(LAYOUTS[(index + 1) % len(LAYOUTS)].id)
 
     def set_layout(self, layout_id: str, *, save: bool = True) -> None:
         """Show another calculator's keys. A lesson in progress ends first."""

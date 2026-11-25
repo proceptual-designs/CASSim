@@ -592,3 +592,21 @@ def test_calculator_title_names_the_series(layout_id: str, title: str) -> None:
     app.set_layout(layout_id)
     assert f"CASSim Scientific ({title})" in _texts(app.calculator)
     page.drop_tasks()
+
+
+def test_model_chip_and_title_cycle_the_calculators() -> None:
+    """The model chip in the menu bar, and the title on the calculator, step through the
+    calculators in the Appearance list and back to the first."""
+    app, _, page = started()
+    assert app.model_label.value == "fx-82"
+    seen = []
+    for _ in LAYOUTS:
+        app.model_chip.on_click(None)
+        seen.append(app.layout.id)
+    assert seen == [layout.id for layout in (*LAYOUTS[1:], LAYOUTS[0])]
+    title = app.calculator.content.controls[0].controls[0]
+    title.on_click(None)
+    assert app.layout.id == LAYOUTS[1].id
+    assert app.model_label.value == LAYOUTS[1].series
+    assert f"CASSim Scientific ({LAYOUTS[1].series})" in _texts(app.calculator)
+    page.drop_tasks()

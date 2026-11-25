@@ -297,3 +297,15 @@ def test_sx2_hyp_menu_verify_order_and_norm2() -> None:
     assert verify.display().options[3] == "4:<"
     casio = keys_on(L.FX82, k.MODE, "4", k.SHIFT, "6")
     assert casio.display().options[3] == "4:≥"
+
+
+def test_mode_names_follow_the_calculator() -> None:
+    """The menu bar's mode chip uses the calculator's own names."""
+    assert keys_on(L.HP10S, k.MODE, "2").mode_name() == "SD"
+    assert keys_on(L.HP10S, k.MODE, "3", "1").mode_name() == "REG"
+    assert keys_on(L.EL531).mode_name() == "NORMAL"
+    assert keys_on(L.EL531, k.MODE, "1", "0").mode_name() == "STAT"
+    assert keys_on(L.SX2, k.MODE, "3").mode_name() == "VERIF"
+    assert keys_on(L.FX82, k.MODE, "2", "1", k.AC).mode_name() == "STAT"  # AC keeps STAT
+    assert "MODE 0" in keys_on(L.EL531).mode_help()
+    assert "MODE 1" in keys_on(L.HP10S).mode_help()
