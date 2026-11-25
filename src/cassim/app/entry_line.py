@@ -31,6 +31,7 @@ from cassim.device.editor import (
     name_styles,
 )
 
+CURSOR_WIDTH = 2.0
 _SMALL = 0.6  # limits, indices and bounds are set smaller, as in TeX
 
 Path = Sequence[tuple[int, int]]
@@ -134,7 +135,12 @@ class EntryLine:
         constants = at_constants(row)
         parts: list[ft.Control] = []
         if not row:
-            parts.append(self._cursor() if on_cursor else self._empty_slot())
+            # an empty slot keeps its box under the cursor, so nothing moves as the cursor
+            # enters or leaves it; an empty line is only the cursor
+            if on_cursor:
+                parts.append(self._cursor())
+            if here or not on_cursor:
+                parts.append(self._empty_slot())
         for index, node in enumerate(row):
             if on_cursor and editor.pos == index and low == high:
                 parts.append(self._cursor())
@@ -196,11 +202,17 @@ class EntryLine:
         return ft.Draggable(shown, group=_DRAG_GROUP)
 
     def _cursor(self, *, selected: bool = False) -> ft.Control:
-        return ft.Container(
-            width=2,
-            height=self.size * 1.15,
+        """The cursor bar, drawn over the gap between two nodes and taking no width of its own:
+        nothing in the row moves as the cursor does."""
+        height = self.size * 1.15
+        bar = ft.Container(
+            width=CURSOR_WIDTH,
+            height=height,
+            left=-CURSOR_WIDTH / 2,
+            top=0,
             bgcolor=self.style.cursor_in_selection if selected else self.theme.accent,
         )
+        return ft.Stack([bar], width=0, height=height, clip_behavior=ft.ClipBehavior.NONE)
 
     def _empty_slot(self) -> ft.Control:
         return ft.Container(
