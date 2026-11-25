@@ -2204,3 +2204,94 @@ def test_save_and_reopen_keep_split_pages_plots_and_axes_but_not_the_selection()
     assert (page.x_name, page.y_name, page.regression) == ("xs", "ys", "LinRegMx")
     assert page.selected == set()
     assert scatter.plot_data().selected == frozenset()
+
+
+# ----- run 6: Fill from one cell, Insert Cell and Insert Row (R6-C7, R6-C8, S4, S5) ----------
+
+
+def test_fill_from_one_cell_copies_relative_formulas_and_undoes_in_one_step():
+    """FR-SHEET-001 (run 6, R6-C7 and S4): F1 `=a1+1`, Fill, Down three times, Return: F2:F4 hold
+    `=a2+1` to `=a4+1`; one ctrl+Z removes all three and F1 keeps its formula."""
+    state = sheet_app()
+    for value in ("1", "2", "3", "4"):
+        type_cell(state, value)
+    sheet = sheet_of(state)
+    sheet.go((F, 1))
+    type_cell(state, "=a1+1")
+    sheet.go((F, 1))
+    state.run(Binding("sheet", "fill"))
+    keys(state, "down", "down", "down")
+    assert sheet.screen().marker == (F, 1, F, 4)
+    keys(state, "enter")
+    assert [sheet.entry_text((F, row)) for row in (2, 3, 4)] == ["=a2+1", "=a3+1", "=a4+1"]
+    assert column(state, F, [1, 2, 3, 4]) == ["2", "3", "4", "5"]
+    keys(state, "undo")
+    assert column(state, F, [1, 2, 3, 4]) == ["2", "", "", ""]
+    assert sheet.entry_text((F, 1)) == "=a1+1"
+
+
+def test_insert_cell_moves_the_cells_below_down():
+    """Run 6, S5: Insert Cell on A2 of 1, 2, 3, 4: A2 is blank and 2, 3, 4 move to A3:A5."""
+    state = sheet_app()
+    for value in ("1", "2", "3", "4"):
+        type_cell(state, value)
+    sheet = sheet_of(state)
+    sheet.go((A, 2))
+    state.run(Binding("sheet", "insert_cell"))
+    assert column(state, A, [1, 2, 3, 4, 5]) == ["1", "", "2", "3", "4"]
+
+
+def _insert_menu(state):
+    state.run(Binding("open_menu", "menu"))
+    state.run(Binding("insert", "2"))
+    assert state.menu is not None
+    rows = state.menu.view().rows
+    state.menu = None
+    return {row.label: row.enabled for row in rows}
+
+
+def test_insert_cell_is_grey_in_a_results_column_and_with_a_range():
+    """Run 6, R6-C8 and S5: Insert Cell is grey with the cursor in a results column (and does
+    nothing there); with a range selected the whole Insert menu is grey."""
+    state, sheet = stats_sheet()
+    state.run(Binding("sheet", "inference:tTest"))
+    finish_wizard(state)
+    finish_wizard(state, null="4")
+    assert _insert_menu(state)["Insert Cell"]
+    for results in (D, E):
+        sheet.go((results, 8))
+        assert _insert_menu(state) == {
+            "Insert Cell": False,
+            "Insert Row": True,
+            "Insert Column": True,
+        }
+    state.run(Binding("sheet", "insert_cell"))
+    assert column(state, D, [1, 8, 9]) == ["Title", "n", ""]
+    sheet.go((C, 1))
+    sheet.move(0, 1, extend=True)
+    assert sheet.selection() is not None
+    state.run(Binding("open_menu", "menu"))
+    assert state.menu is not None
+    menu = {row.label: row.enabled for row in state.menu.view().rows}
+    assert not menu["Insert"]
+    state.menu = None
+    state.run(Binding("sheet", "insert_cell"))  # a shortcut does nothing either
+    assert column(state, C, [1, 2, 3]) == ["2", "4", "4"]
+
+
+def test_insert_row_leaves_test_results_where_they_are():
+    """Run 6, R6-C8: Insert Row with a t Test's results in D and E: the data moves down, the
+    results stay; one ctrl+Z removes the row."""
+    state, sheet = stats_sheet()
+    state.run(Binding("sheet", "inference:tTest"))
+    finish_wizard(state)
+    finish_wizard(state, null="4")
+    before_labels, before_values = column(state, D, range(1, 10)), column(state, E, range(1, 10))
+    sheet.go((C, 2))
+    state.run(Binding("sheet", "insert_row"))
+    assert column(state, C, [1, 2, 3]) == ["2", "", "4"]
+    assert column(state, D, range(1, 10)) == before_labels
+    assert column(state, D, [1, 8]) == ["Title", "n"]
+    assert column(state, E, [1, 2, 3, 4]) == before_values[:4]
+    keys(state, "undo")
+    assert column(state, C, [1, 2, 3]) == ["2", "4", "4"]

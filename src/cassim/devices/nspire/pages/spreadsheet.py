@@ -633,6 +633,7 @@ class Spreadsheet:
         graph = bool(self.quick_graph_lists())
         kind = self.selection_kind()
         menu = root.label == "Menu"
+        in_results = self.cursor[0] in self.results_columns()
 
         def visit(item: MenuItem) -> MenuItem:
             items = tuple(visit(child) for child in item.items)
@@ -640,6 +641,8 @@ class Spreadsheet:
             key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
             if item.action == "sheet" and item.arg == "quick_graph":
                 enabled = graph
+            elif item.action == "sheet" and item.arg == "insert_cell" and in_results:
+                enabled = False  # grey in a results column (run 6, R6-C8)
             elif menu and key in MENU_ENABLED_FOR and item is not root:
                 enabled = enabled and kind in MENU_ENABLED_FOR[key]
             if items == item.items and enabled == item.enabled:
@@ -647,6 +650,16 @@ class Spreadsheet:
             return replace(item, items=items, enabled=enabled)
 
         return visit(root)
+
+    def results_columns(self) -> set[int]:
+        """The label and value columns of a Stat Calculations, interval or test result: `Title`
+        in row 1 beside a column formula."""
+        found: set[int] = set()
+        for column in range(COLUMNS - 1):
+            cell = self.cells.get((column, 1))
+            if cell is not None and cell[1].strip('"') == "Title" and self.columns[column + 1][2]:
+                found |= {column, column + 1}
+        return found
 
     def _span(self) -> tuple[int, int, int, int]:
         """The selection, or the cursor's cell."""
@@ -1620,6 +1633,10 @@ class Spreadsheet:
         if name in ("insert_row", "delete_row", "insert_column", "delete_column"):
             verb, what = name.split("_")
             self._send(verb, what=what, column=column, row=max(row, 1))
+        elif name == "insert_cell" and (
+            column in self.results_columns() or self.selection() is not None
+        ):
+            pass  # grey in a results column and with a range selected (run 6, R6-C8)
         elif name in ("insert_cell", "delete_cell"):
             self._send(name.split("_", maxsplit=1)[0], what="cell", column=column, row=max(row, 1))
         elif name == "delete_cells":
