@@ -489,7 +489,7 @@ the SRS.
 
 - Ids and package names in the code are the long ones; bundle and site names are the short ones.
 - Single-device sites are **stable only**: they deploy on a release, like `cassim-app`. Testing happens on `cassim-calc`, which holds every device.
-- Single-device bundle icons should include a device-specific modifier (for example, TIN, CP or Pseudo) when those bundles are built, so they are distinct from the all-in-one app.
+- A single-device site's icon carries its Home symbol where the testing icon carries β (ℕ for the Nspire, < > for Pseudocode & Python, a flask for Scientific; `tools.publish.draw_mark`), so each installed app is distinct from the all-in-one app and from the others (2026-11-25).
 - The help site (`cassim-wiki`) stays one site, with a section per device, and lists every site.
 - All eight Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13, and cassim-sci on 2026-11-25); a single-device site has no content until its bundle is first built.
 
