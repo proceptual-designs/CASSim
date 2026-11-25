@@ -30,7 +30,7 @@ from this map:
 | `doc/`, autosave or storage | matching app/device document tests | autosave/reload e2e and relevant PWA/offline e2e |
 | `sheet/`, `graph/` or `stats/` | matching unit and device tests | corresponding sheet/statistics browser test when rendering or controls change |
 | `runtime/` | matching `tests/runtime/` file | browser coverage when the Code UI is involved |
-| `devices/scientific/` (CASSim Scientific) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, ui) | a manual browser check until an fx e2e test exists |
+| `devices/scientific/` (CASSim Scientific) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, layouts, ui; `test_scientific_ui.py` also lays the app out at four simulated phone sizes and checks the calculator and every dialog fit) | a manual browser check until an fx e2e test exists; Flet draws to a canvas, so overflow is tested in the layout tests, not the browser |
 | publishing, PWA, worker or Pyodide | matching tool/unit tests | full e2e suite |
 
 Run a single e2e file when the browser path is local, for example:

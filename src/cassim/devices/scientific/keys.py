@@ -199,6 +199,7 @@ COMPUTER: dict[str, Binding] = {
     "r": _seq(SQRT),
     "R": _seq(SHIFT, SQRT),
     "q": _seq(X2),
+    "o": _seq(ON),  # ON: switches the calculator on again after SHIFT AC (OFF)
     "g": _seq(LOGAB),
     "d": _seq(DMS),
     "D": _seq(SHIFT, DMS),
@@ -236,6 +237,7 @@ SHORTCUT_HELP: tuple[tuple[str, str], ...] = (
     ("m, M", "M+ and M−"),
     ("p, e", "π and e"),
     ("a, x, y", "Ans, and the variables X and Y"),
+    ("o", "ON (switches the calculator on after OFF)"),
     ("< >", "Relations (VERIFY mode)"),
     ("Ctrl+C", "Copy the answer"),
 )

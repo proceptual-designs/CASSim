@@ -48,6 +48,11 @@ MAX_SCALE = 1.3
 # calculator fills the screen, its keys grow to use the height, and the tutorials start hidden.
 NARROW = 600
 PHONE_MAX_SCALE = 2.0
+PHONE_MIN_SCALE = 0.4  # a landscape phone: smaller keys rather than a calculator cut off
+# An AlertDialog keeps 40 px either side of it and pads its content by 24 px: a dialog's content
+# may be no wider than the window less these, or it runs off a phone's screen.
+DIALOG_MARGIN = 2 * 40 + 2 * 24
+DIALOG_TEXT = 14  # a dialog's radio and switch labels
 MAX_STRETCH = 1.8  # how much taller the keys may grow on a phone
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
@@ -840,7 +845,8 @@ class ScientificApp:
         room = page_h - bar - (12 if phone else 32)
         tall = room / self.layout_height()
         wide = (page_w - margin) / BASE_WIDTH
-        scale = max(MIN_SCALE, min(PHONE_MAX_SCALE if phone else MAX_SCALE, tall, wide))
+        smallest = PHONE_MIN_SCALE if phone else MIN_SCALE
+        scale = max(smallest, min(PHONE_MAX_SCALE if phone else MAX_SCALE, tall, wide))
         stretch = 1.0
         if phone and not self.panel_open:
             spare = room - self.layout_height() * scale
@@ -1581,7 +1587,7 @@ class ScientificApp:
                         ft.TextField(value=url, read_only=True, dense=True, multiline=True),
                     ],
                     tight=True,
-                    width=420,
+                    width=self.dialog_width(420),
                 ),
                 actions=[
                     ft.TextButton("Copy link", on_click=copy),
@@ -1619,44 +1625,72 @@ class ScientificApp:
     # dialogs
     # ------------------------------------------------------------------------------------------
 
+    def dialog_width(self, preferred: float) -> float:
+        """A dialog's content width: what it would like, or what a narrow window leaves."""
+        page_w = float(getattr(self.page, "width", 0) or 1200)
+        return max(200.0, min(preferred, page_w - DIALOG_MARGIN))
+
+    @staticmethod
+    def _choice(value: str, label: str, group: list[ft.RadioGroup]) -> ft.Control:
+        """A radio button whose label wraps (a Radio's own label does not, so a long one runs
+        off a phone). Tapping the label chooses it too."""
+
+        def pick(_: object) -> None:
+            if group:
+                group[0].value = value
+                _safe_update(group[0])
+
+        return ft.Row(
+            [
+                ft.Radio(value=value),
+                ft.Container(
+                    ft.Text(label, size=DIALOG_TEXT), expand=True, on_click=pick, ink=False
+                ),
+            ],
+            spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
     def open_settings(self) -> None:
-        """The SETUP choices as a form (FR-FX-CFG-001 to -005)."""
+        """The SETUP choices as a form (FR-FX-CFG-001 to -005), sized to fit a phone."""
         setup = self.state.setup
+        dialect = self.state.dialect
+        width = self.dialog_width(420)
         io = "line" if setup.input == "line" else ("math" if setup.output == "math" else "mathline")
         angle = ft.RadioGroup(
             ft.Row(
                 [
                     ft.Radio(value=v, label=label)
                     for v, label in (("DEG", "Deg"), ("RAD", "Rad"), ("GRA", "Gra"))
-                ]
+                ],
+                wrap=True,
             ),
             value=setup.angle,
         )
+        display_group: list[ft.RadioGroup] = []
         display = ft.RadioGroup(
             ft.Column(
                 [
-                    ft.Radio(value="math", label="MthIO, MathO (natural input and answers)"),
-                    ft.Radio(
-                        value="mathline", label="MthIO, LineO (natural input, decimal answers)"
+                    self._choice("math", "MthIO, MathO: natural input and answers", display_group),
+                    self._choice(
+                        "mathline", "MthIO, LineO: natural input, linear answers", display_group
                     ),
-                    ft.Radio(value="line", label="LineIO (all on one line)"),
+                    self._choice("line", "LineIO: all on one line", display_group),
                 ],
                 spacing=0,
             ),
             value=io,
         )
+        display_group.append(display)
+        formats = [("Norm", n, f"Norm {n}") for n in (1, 2)]
+        formats += [("Fix", n, f"Fix {n} (decimal places)") for n in range(10)]
+        formats += [("Sci", n, f"Sci {n} (significant figures)") for n in range(10)]
+        if dialect == "sharp" or setup.disp == "Eng":
+            formats += [("Eng", n, f"ENG {n} (powers of 1000)") for n in range(10)]
         number = ft.Dropdown(
             value=f"{setup.disp} {setup.digits}",
-            options=[ft.DropdownOption(key=f"Norm {n}", text=f"Norm {n}") for n in (1, 2)]
-            + [
-                ft.DropdownOption(key=f"Fix {n}", text=f"Fix {n} (decimal places)")
-                for n in range(10)
-            ]
-            + [
-                ft.DropdownOption(key=f"Sci {n}", text=f"Sci {n} (significant figures)")
-                for n in range(10)
-            ],
-            width=260,
+            options=[ft.DropdownOption(key=f"{d} {n}", text=text) for d, n, text in formats],
+            width=min(260, width),
             dense=True,
         )
         fraction = ft.RadioGroup(
@@ -1664,11 +1698,27 @@ class ScientificApp:
                 [
                     ft.Radio(value="d/c", label="d/c (improper)"),
                     ft.Radio(value="ab/c", label="a b/c (mixed)"),
-                ]
+                ],
+                wrap=True,
             ),
             value=setup.fraction,
         )
+        point = ft.RadioGroup(
+            ft.Row(
+                [
+                    ft.Radio(value="dot", label="Dot (1.5)"),
+                    ft.Radio(value="comma", label="Comma (1,5)"),
+                ],
+                wrap=True,
+            ),
+            value="comma" if setup.comma else "dot",
+        )
         frequency = ft.Switch(label="STAT frequency column", value=setup.frequency)
+        where = {
+            "ms": "These are the choices on the MODE pages (MODE, pressed again for each page).",
+            "sharp": "These are the SET UP menu's choices; DRG also changes the angle unit.",
+            "sx2": "These are the SET UP menu's choices (2nd then MODE).",
+        }.get(dialect, "These are the SETUP menu's choices (SHIFT then MODE).")
 
         def apply(_: object) -> None:
             new = dataclasses.replace(setup)
@@ -1677,9 +1727,13 @@ class ScientificApp:
             new.input = "line" if choice == "line" else "math"
             new.output = "math" if choice == "math" else "line"
             disp, digits = (number.value or "Norm 1").split()
-            new.disp = "Fix" if disp == "Fix" else "Sci" if disp == "Sci" else "Norm"
+            new.disp = (
+                "Fix" if disp == "Fix" else "Sci" if disp == "Sci" else "Eng" if disp == "Eng"
+                else "Norm"
+            )  # fmt: skip
             new.digits = int(digits)
             new.fraction = "ab/c" if fraction.value == "ab/c" else "d/c"
+            new.comma = point.value == "comma"
             self.state.set_frequency(on=bool(frequency.value))
             new.frequency = self.state.setup.frequency
             self.state.setup = new
@@ -1703,13 +1757,15 @@ class ScientificApp:
                         number,
                         heading("Fraction answers"),
                         fraction,
+                        heading("Decimal point in answers"),
+                        point,
                         frequency,
-                        ft.Text("These are the SETUP menu's choices (SHIFT then MODE).", size=12),
+                        ft.Text(where, size=12),
                     ],
                     tight=True,
                     spacing=6,
                     scroll=ft.ScrollMode.AUTO,
-                    width=420,
+                    width=width,
                 ),
                 actions=[
                     ft.TextButton("Apply", on_click=apply),
@@ -1724,7 +1780,7 @@ class ScientificApp:
             label="Calculator",
             value=self.layout.id,
             options=[ft.DropdownOption(key=layout.id, text=layout.title) for layout in LAYOUTS],
-            width=320,
+            width=self.dialog_width(320),
             dense=True,
         )
         choice = ft.RadioGroup(
@@ -1758,7 +1814,7 @@ class ScientificApp:
                     ],
                     tight=True,
                     spacing=10,
-                    width=360,
+                    width=self.dialog_width(360),
                 ),
                 actions=[
                     ft.TextButton("Apply", on_click=apply),
@@ -1790,10 +1846,14 @@ class ScientificApp:
             self._save_prefs()
 
     def open_shortcuts(self) -> None:
+        width = self.dialog_width(460)
         rows = [
             ft.Row(
                 [
-                    ft.Container(ft.Text(keys, weight=ft.FontWeight.BOLD, size=13), width=170),
+                    ft.Container(
+                        ft.Text(keys, weight=ft.FontWeight.BOLD, size=13),
+                        width=min(170, width * 0.4),
+                    ),
                     ft.Text(what, size=13, expand=True),
                 ],
                 vertical_alignment=ft.CrossAxisAlignment.START,
@@ -1815,7 +1875,7 @@ class ScientificApp:
                     tight=True,
                     spacing=4,
                     scroll=ft.ScrollMode.AUTO,
-                    width=460,
+                    width=width,
                 ),
                 actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
             )

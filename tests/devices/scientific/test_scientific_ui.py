@@ -1,8 +1,8 @@
 """The CASSim Scientific view, run headless against a stand-in shell.
 
 Requirements: FR-FX-DSP-001, FR-FX-DSP-002, FR-FX-SHR-001, FR-FX-SHR-002, FR-FX-TUT-001,
-FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004.
-Cited: FR-FX-UI-001 FR-FX-UI-002 FR-FX-UI-003 FR-FX-UI-004 FR-FX-TUT-003.
+FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004, FR-FX-UI-007 (phones).
+Cited: FR-FX-UI-001 FR-FX-UI-002 FR-FX-UI-003 FR-FX-UI-004 FR-FX-UI-007 FR-FX-TUT-003.
 """
 
 from __future__ import annotations
@@ -14,14 +14,17 @@ from types import SimpleNamespace
 from typing import Any
 
 import flet as ft
+import flet.canvas as cv
 import pytest
 
 from cassim.app.shell import BrowserOffers
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
+from cassim.devices.scientific.layout import Frac, Sqrt, Text
 from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
+from cassim.devices.scientific.ui import render
 from cassim.devices.scientific.ui.app import BASE_WIDTH, ScientificApp
 from cassim.devices.scientific.ui.skins import SKINS
 
@@ -212,8 +215,8 @@ def test_the_calculator_scales_to_the_window() -> None:
         app.set_layout(layout.id)
         assert app.layout_height() * app.scale <= page.height - ui.BAR_HEIGHT, layout.id
         page.drop_tasks()
-    small, _, _ = started(FakePage(360, 500))
-    assert small.scale == ui.MIN_SCALE  # then the page scrolls
+    small, _, _ = started(FakePage(360, 500))  # a phone: smaller keys rather than scrolling
+    assert small.layout_height() * small.scale <= 500 - ui.BAR_HEIGHT
     big, _, _ = started(FakePage(2560, 1400))
     assert big.scale == ui.MAX_SCALE
     assert BASE_WIDTH * big.scale > BASE_WIDTH
@@ -662,3 +665,128 @@ def test_an_installed_phone_can_avoid_the_cutout() -> None:
     assert app.root.padding.top == 40
     assert app.root.padding.bottom == 20
     page.drop_tasks()
+
+
+# ---- phones (simulated): the app laid out at real phone sizes -------------------------------
+
+PHONES = {
+    "small-360x640": (360, 640),
+    "iphone-390x844": (390, 844),
+    "pixel-412x915": (412, 915),
+    "landscape-844x390": (844, 390),
+}
+
+
+def _walk(control: object):
+    yield control
+    for name in ("content", "controls", "actions", "title"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child] if child is not None else []:
+            if isinstance(item, ft.Control):
+                yield from _walk(item)
+
+
+def _too_wide(dialog: ft.AlertDialog, room: float) -> list[str]:
+    """What in a dialog would run off a screen `room` wide: a fixed width over it, a row of
+    radio buttons that cannot wrap, or a radio label (they do not wrap) longer than fits."""
+    problems = []
+    for control in _walk(dialog.content):
+        fixed = getattr(control, "width", None)
+        if isinstance(fixed, (int, float)) and fixed > room + 0.5:
+            problems.append(f"{type(control).__name__} width {fixed} > {room}")
+        if isinstance(control, ft.Row) and not control.wrap:
+            radios = [c for c in control.controls if isinstance(c, ft.Radio)]
+            if len(radios) > 1:
+                problems.append(f"a row of {len(radios)} radios that cannot wrap")
+        if isinstance(control, ft.Radio) and control.label:
+            label = control.label if isinstance(control.label, str) else ""
+            if 48 + len(label) * ui.DIALOG_TEXT * 0.55 > room:
+                problems.append(f"radio label {label!r} is too long")
+    return problems
+
+
+@pytest.mark.parametrize("size", PHONES.values(), ids=PHONES.keys())
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+def test_phone_calculator_fits_the_screen(size: tuple[int, int], layout) -> None:
+    """On a phone the calculator fills the width without running past it, and with the
+    tutorials hidden all of it fits the height."""
+    app, _, page = started(FakePage(*size))
+    app.set_layout(layout.id)
+    width, height = size
+    drawn = BASE_WIDTH * app.scale
+    assert drawn <= width - 4
+    tall = (app.layout_height() + (app.stretch - 1) * app.key_height()) * app.scale
+    assert tall <= height - ui.BAR_HEIGHT + 1
+    # it fills the width, or (a short or landscape screen) the height
+    assert drawn >= width - 16 or tall >= height - ui.BAR_HEIGHT - 30
+    page.drop_tasks()
+
+
+@pytest.mark.parametrize("size", PHONES.values(), ids=PHONES.keys())
+@pytest.mark.parametrize("dialog", ["settings", "appearance", "shortcuts", "share"])
+def test_phone_dialogs_fit_the_screen(size: tuple[int, int], dialog: str) -> None:
+    """Every dialog fits a phone: the settings once had a 420 px column and rows of radio
+    buttons with long labels, which ran off the screen."""
+    app, _, page = started(FakePage(*size))
+    for key in ("1", k.ADD, "2", k.EQ):
+        app.on_key(key)
+    {
+        "settings": app.open_settings,
+        "appearance": app.open_appearance,
+        "shortcuts": app.open_shortcuts,
+        "share": app.open_share_link,
+    }[dialog]()
+    shown = page.dialogs[-1]
+    assert isinstance(shown, ft.AlertDialog)
+    room = size[0] - ui.DIALOG_MARGIN
+    assert _too_wide(shown, room) == []
+    page.drop_tasks()
+
+
+def test_phone_settings_change_the_decimal_point() -> None:
+    app, _, page = started(FakePage(390, 844))
+    app.open_settings()
+    dialog = page.dialogs[-1]
+    groups = [c for c in _walk(dialog.content) if isinstance(c, ft.RadioGroup)]
+    point = next(g for g in groups if g.value in ("dot", "comma"))
+    point.value = "comma"
+    apply = next(b for b in dialog.actions if isinstance(b, ft.TextButton) and b.content == "Apply")
+    apply.on_click(None)
+    assert app.state.setup.comma
+    page.drop_tasks()
+
+
+# ---- the natural display's drawing --------------------------------------------------------
+
+
+def test_square_root_is_one_stroke_that_reaches_its_vinculum() -> None:
+    """√ is drawn as one path, the sign then the vinculum, sized to the argument: the √
+    character and a separate line did not meet, least of all over a fraction."""
+    renderer = render.Renderer("#000", "#000")
+    for arg in ((Text("8"),), (Frac((Text("1"),), (Text("2"),)),)):
+        drawn = renderer.node(Sqrt(arg), 20)
+        assert isinstance(drawn, cv.Canvas)
+        path = drawn.shapes[0]
+        assert isinstance(path, cv.Path)
+        points = [
+            (e.x, e.y) for e in path.elements if isinstance(e, (cv.Path.MoveTo, cv.Path.LineTo))
+        ]
+        sign_top, line_end = points[-2], points[-1]
+        assert sign_top[1] == line_end[1]  # the sign's top is where the vinculum starts
+        assert line_end[0] == drawn.width == render.node_width(Sqrt(arg), 20)
+        assert points[2][1] > (drawn.height or 0) * 0.9  # the stroke reaches the baseline
+    tall = renderer.node(Sqrt((Frac((Text("1"),), (Text("2"),)),)), 20)
+    short = renderer.node(Sqrt((Text("8"),)), 20)
+    assert isinstance(tall, cv.Canvas)
+    assert isinstance(short, cv.Canvas)
+    assert (tall.height or 0) > (short.height or 0)  # the sign grows with a fraction under it
+
+
+def test_mixed_number_answer_is_spaced_like_the_entry() -> None:
+    """The answer 1 3/4 had a whole character's space before the fraction; it now has the
+    small gap the typed mixed number has."""
+    answer = (Text("1 "), Frac((Text("3"),), (Text("4"),)))
+    typed = (Text("1"), Frac((Text("3"),), (Text("4"),)))
+    gap = render.width(answer, 20) - render.width(typed, 20)
+    assert gap == pytest.approx(render.MIXED_GAP * 20)
+    assert gap == 0  # the fraction follows the whole part directly, as in the entry
