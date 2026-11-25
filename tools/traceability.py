@@ -27,7 +27,7 @@ OUTPUT = ROOT / "docs" / "traceability.md"
 SEARCH = (ROOT / "tests", ROOT / "corpus")
 SUFFIXES = {".py", ".yaml", ".yml", ".md", ".js"}
 
-ID = r"(?:N?FR|FID)-(?:[A-Z]+-)?\d+"
+ID = r"(?:N?FR|FID)-(?:[A-Z]+-){0,2}\d+"  # FR-CAT-001, and FR-FX-MOD-001 (SDD-14)
 ROW = re.compile(rf"^\|\s*\*{{0,2}}({ID})\*{{0,2}}\s*\|.*\|\s*([MSCW])[^|]*\|[^|]*\|\s*$")
 BULLET = re.compile(rf"^-\s+\*{{0,2}}({ID})\*{{0,2}}\s+\(([MSCW])")
 MENTION = re.compile(ID)
