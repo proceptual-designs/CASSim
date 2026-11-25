@@ -82,7 +82,7 @@ You need [uv](https://docs.astral.sh/uv/). Python 3.14 is installed by uv.
 uv sync --group web
 uv run cassim                         # the app in a window (for development)
 uv run cassim --web                   # the app in your browser (for development)
-uv run cassim --app pseudocode        # skip Home and open one app (nspire or pseudocode)
+uv run cassim --app pseudocode        # skip Home and open one app (nspire, pseudocode or scientific)
 uv run cassim --view handheld         # choose the view (handheld or computer)
 uv run cassim --course methods        # the app with the Methods settings
 uv run cassim --text                  # text interface, like the Calculator page

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
+from cassim import bundle
 from cassim.core import catalog
 from cassim.core.format import to_ascii, to_pretty
 from cassim.core.parser import COMMANDS
@@ -284,7 +285,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--app",
-        choices=("nspire", "pseudocode"),
+        choices=bundle.DEVICES,
         help="open directly to an app in the graphical interface",
     )
     parser.add_argument("--course", choices=sorted(PRESETS), help="start from a course preset")
