@@ -711,10 +711,11 @@ class Editor:
         selected (run 5, H3 k). A drop inside the selection, or in another row, changes nothing."""
         if self.anchor is None or list(path) != self.path:
             return
+        row = self.row()
+        pos = max(0, min(pos, len(row)))  # a stale drop target never leaves the row
         low, high = self.span
         if low <= pos <= high:
             return
-        row = self.row()
         moved = row[low:high]
         del row[low:high]
         at = pos - len(moved) if pos > high else pos
