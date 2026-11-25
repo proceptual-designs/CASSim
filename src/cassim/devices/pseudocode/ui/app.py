@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
+from cassim.app.saved import SavedDocuments
 from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -275,6 +276,14 @@ class CodeApp:
         self.shell = shell
         self.page = shell.page
         shell.changed = self.on_bridge
+        self.saved = SavedDocuments(
+            self.page,
+            shell,
+            dump=self._dump,
+            load=self._load_saved,
+            said=lambda text: shell.notice("Saved", text),
+            noun="program",
+        )
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -403,9 +412,11 @@ class CodeApp:
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
-                ft.MenuItemButton(content="Open…", on_click=self.open_file),
-                ft.MenuItemButton(content="Save", on_click=self.save_file),
-                ft.MenuItemButton(content="Save as…", on_click=self.save_file_as),
+                ft.MenuItemButton(content="Open…", on_click=self.saved.open),
+                ft.MenuItemButton(content="Save", on_click=self.saved.save),
+                ft.MenuItemButton(content="Save as…", on_click=self.saved.save_as),
+                ft.MenuItemButton(content="Import file…", on_click=self.import_file),
+                ft.MenuItemButton(content="Export file…", on_click=self.export_file),
                 examples,
             ],
         )
@@ -605,6 +616,8 @@ class CodeApp:
         self.arrange()
         if self._has_browser_dom():
             await self.start_codemirror()
+        await self.saved.start()
+        self.saved.fresh()  # the starting program has nothing to lose yet
 
     def editor_text_style(self) -> ft.TextStyle:
         family = CODE_FONT if self.code_style == "monospace" else "sans-serif"
@@ -890,44 +903,71 @@ class CodeApp:
         _safe_update(self.trace_layout)
         self.update_trace()
 
-    async def open_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        text = await self.shell.pick_file(("py", "txt", "pseudo"), "Open code")
+    # Open, Save and Save as keep programs by name in this app's storage (`self.saved`,
+    # decision 0033, FR-EDT-002); a file on disk comes in and goes out through Import and Export
+    # (FR-EDT-003).
+
+    def _dump(self, _name: str) -> str:
+        """The program as it is stored: its language with its text (FR-EDT-002)."""
+        return json.dumps(
+            {
+                "format": "cassim-code",
+                "language": self.language,
+                "source": self.python_translation_source()
+                if self.language == "python"
+                else self.source(),
+            },
+            ensure_ascii=False,
+        )
+
+    def _load_saved(self, text: str, _name: str) -> None:
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as error:
+            msg = "it is not a saved CASSim program"
+            raise ValueError(msg) from error
+        if not isinstance(data, dict) or not isinstance(data.get("source"), str):
+            msg = "it is not a saved CASSim program"
+            raise ValueError(msg)
+        self.set_language("python" if data.get("language") == "python" else "pseudocode")
+        self.show_text(data["source"])
+
+    def set_language(self, target: str) -> None:
+        """Show `target` as the language without translating the text (a saved program names
+        its own)."""
+        self.language = target
+        self.language_switch.selected = [target]
+        if self.cm is not None:
+            self.cm.setOption("mode", "pseudocode" if target == "pseudocode" else "python")
+        _safe_update(self.language_switch)
+        self.update_typing_aids()
+
+    def show_text(self, text: str) -> None:
+        """Put a program's text in the editor (Python made by translation keeps its header)."""
+        if TRANSLATION_MARKER in text.splitlines():
+            self.set_generated_python(text)
+        else:
+            self.set_source(text)
+
+    def import_file(self, _: object = None) -> None:
+        """Import file…: open a code file, asking first if work would be lost."""
+        self.saved.ask_discard(lambda: self.page.run_task(self._import_file))
+
+    async def _import_file(self) -> None:
+        try:
+            text = await self.shell.pick_file(("py", "txt", "pseudo"), "Import code")
+        except UnicodeDecodeError:
+            self.shell.notice("Import file", "That file is not text.")
+            return
         if text is not None:
-            if TRANSLATION_MARKER in text.splitlines():
-                self.set_generated_python(text)
-            else:
-                self.set_source(text)
+            self.show_text(text)
+            self.saved.unsaved()  # not in this app's storage until it is saved
 
-    async def save_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        extension = "py" if self.language == "python" else "txt"
-        await self.shell.save_file(
-            f"untitled.{extension}",
-            self.source(),
-            "Save code",
-        )
-
-    def save_file_as(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        name = ft.TextField(
-            label="File name",
-            value="untitled.py" if self.language == "python" else "untitled.txt",
-        )
-
-        async def save(_: ft.Event[ft.TextButton]) -> None:
-            file_name = str(name.value or "").strip()
-            if file_name:
-                await self.shell.save_file(file_name, self.source(), "Save code")
-            self.page.pop_dialog()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Save code"),
-                content=name,
-                actions=[
-                    ft.TextButton("Save", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
-        )
+    async def export_file(self, _: object = None) -> None:
+        """Export file…: download the program as `.py` or `.pseudo.txt` (FR-EDT-003)."""
+        extension = "py" if self.language == "python" else "pseudo.txt"
+        stem = self.saved.current.stored or "untitled"
+        await self.shell.save_file(f"{stem}.{extension}", self.source(), "Export code")
 
     def load_example(self, text: str) -> None:
         try:
@@ -941,6 +981,7 @@ class CodeApp:
             self.set_generated_python(source)
         else:
             self.set_source(source)
+        self.saved.unsaved()  # an example is not the saved program any more
 
     @staticmethod
     def split_generated_python(source: str) -> tuple[str, str]:

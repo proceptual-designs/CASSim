@@ -21,4 +21,5 @@ Until now Save downloaded a `.cassim.json` file and Open read one. The autosave 
 
 - A document is still on one browser and one site only. Export File… or a share link moves it, as before.
 - Clearing the site's data removes the saved documents. The help pages say so.
+- **Every app (Simon, 2026-11-25).** The rule is not the Nspire's alone: in every CASSim app, Open, Save and Save As work on documents kept by name in storage the app looks after (IndexedDB in the browser, the app's preferences on the desktop), and only Import and Export read or write a file. The Scientific and Pseudocode & Python apps, which downloaded and picked files, now follow it through `cassim.app.saved.SavedDocuments`, which uses the same `doc/library.py` storage under each device's prefix; a saved program records its language (FR-EDT-002). Later devices do the same. The Nspire keeps its own dialogs for now (the title-bar name and `*`, ctrl+S and ctrl+O are its own).
 - Not done: Close (File 3) and a "Save changes?" choice with Save as one of its buttons. The question offers only Discard or Cancel.
