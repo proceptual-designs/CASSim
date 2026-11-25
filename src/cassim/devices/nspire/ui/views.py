@@ -87,9 +87,9 @@ class Strip:
 
 async def _scroll_strip(strip: Strip) -> None:
     """Scroll a long line sideways to where its cursor is, and again a moment later: the first
-    can run before the line's new width is laid out, and then stops short or does nothing
-    (seen once in four runs with the cursor at the end of a line just made longer). Each scroll
-    goes to where the strip should be by then, so a later key's place is never undone. The
+    can run before the line's new width is laid out and then stops short, as the history's
+    scroll to its end can. Each scroll goes to where the strip should be by then, so a later
+    key's place is never undone. The
     window may be too busy to answer in time, or the row may have gone (the line got shorter,
     the page changed): the next redraw scrolls again, so a scroll that fails is dropped."""
     for wait in (_SETTLE, 0.0):
