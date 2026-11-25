@@ -1,6 +1,7 @@
 # 0031: M3 and M4 plan: shared data, fast page switching, no SciPy
 
-Status: accepted 2026-11-13 (Simon). Requirements: FR-DOC-008, FR-DOC-009, FR-SHEET-001 to 003, FR-STAT-001 to 005, FR-GRAPH-001 to 007, FR-NOTE-001, NFR-PERF-006. The slices are in PLAN.md section 8. Nothing here is built yet; the spikes below can change the detail, and their results are recorded here when they run.
+Status: accepted 2026-11-13 (Simon). Requirements: FR-DOC-008, FR-DOC-009, FR-SHEET-001 to 003, FR-STAT-001 to 005, FR-GRAPH-001 to 007, FR-NOTE-001, NFR-PERF-006. The slices are in PLAN.md section 8. Nothing here was built when this was written; the spikes below could change the detail, and their results are recorded here.
+Since changed (note added 2026-11-25): M3 is mostly built and M4 is in progress (SDD-07 and PLAN.md section 8 hold the current state). The limit of two panes a page was replaced by up to four (0034 item 2); Custom Split stays greyed.
 
 ## What the emulator shows
 

@@ -1,6 +1,7 @@
 # 0013. M2 planning decisions
 
 Date: 2026-11-02. Status: accepted (owner decisions), with two spikes to run first.
+Since changed (note added 2026-11-25): this was the plan before the M2 spikes, and most items have been settled by later decisions. Item 1: results are drawn from LaTeX by `ft.Markdown` (0014, 0035). Item 2: CASSim has its own template editor; MathLive and MathQuill are not used (0015, 0017). Item 6: the data pages and Graphs are no longer stubs (0031). Item 8 and spike D: 0016. Item 9: the presets built are Dark, Light and High contrast (SDD-05). Item 10: the site is on Cloudflare Pages, not GitHub Pages (PLAN.md section 14). Items 3, 4, 5 and 7 stand.
 
 ## Decisions
 

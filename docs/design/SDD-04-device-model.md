@@ -1,12 +1,12 @@
 # SDD-04. Device model
 
-Status: describes `src/cassim/device/` and the Nspire data, now in `src/cassim/devices/nspire/` (decision 0032), as at 2026-11-08 (M2a to M2h). Requirements: FR-DEV-001, FR-DEV-007 to FR-DEV-009, FR-CALC-001 to FR-CALC-006, FR-DOC-001 to FR-DOC-004, FR-DOC-007, FR-SCOPE-002. Decisions: 0013, 0015, 0017, 0019, 0022, 0023, 0025.
+Status: describes `src/cassim/device/` and the Nspire data, now in `src/cassim/devices/nspire/` (decision 0032), as at 2026-11-08 (M2a to M2h); the page types and file names were brought up to date on 2026-11-25. Requirements: FR-DEV-001, FR-DEV-007 to FR-DEV-009, FR-CALC-001 to FR-CALC-006, FR-DOC-001 to FR-DOC-004, FR-DOC-007, FR-SCOPE-002. Decisions: 0013, 0015, 0017, 0019, 0022, 0023, 0025.
 
 ## Purpose and rule
 
 The device model is everything a TI-Nspire does that is not drawing: which key does what, what a menu holds, what the entry line contains, what is on the screen, and how a document is built and saved. It is driven by key names and returns data, so it is tested headless (`tests/device/`, `tests/flows/`) and the GUI is a thin renderer over it.
 
-The model has no Flet and no Nspire constants (the M2 guard, PLAN.md 3.2). The Nspire is a `Profile` of data (`devices/nspire/keymap.py`, `nspire_menus.py`) handed to `AppState`. `tests/test_architecture.py` enforces the import rules.
+The model has no Flet and no Nspire constants (the M2 guard, PLAN.md 3.2). The Nspire is a `Profile` of data (`devices/nspire/keymap.py`, `menus.py`) handed to `AppState`. `tests/test_architecture.py` enforces the import rules.
 
 ## Layers
 
@@ -40,7 +40,7 @@ A `MenuItem` is a leaf (`action`, `arg`) or has `items`. Position gives the item
 
 `MenuState` walks the tree from keys (`press`) or a click (`pick`) and yields a `MenuView` (panels of `Row`s, cascading to the right) for the GUI. Choosing a leaf returns its `Binding`, which the app performs like any key. `AppState` builds the Variables menu on demand from the current Problem.
 
-The Menu (F2) and Doc (F4) trees, and the trig, templates, relations, punctuation, symbols and catalog menus, are data in `nspire_menus.py` (FR-DEV-008).
+The Menu (F2) and Doc (F4) trees, and the trig, templates, relations, punctuation, symbols and catalog menus, are data in `devices/nspire/menus.py` (FR-DEV-008).
 
 ## Wizards
 
@@ -64,7 +64,7 @@ Many menu items with several arguments open a dialog on the handheld (distributi
 
 ## Document
 
-`Document` holds Problems; a `Problem` holds `Page`s and one `Session` (one variable scope), so a new Page keeps variables and a new Problem starts clean (FR-SCOPE-002). Document settings (`core.settings.Settings`) apply to every Problem. `PageKind` lists all page types, but only Calculator has a model; the rest are placeholders. A Problem holds at most 50 pages (`MAX_PAGES`, as on the device). The Page Sorter order and the add, delete, move and undo of page changes live here.
+`Document` holds Problems; a `Problem` holds `Page`s and one `Session` (one variable scope), so a new Page keeps variables and a new Problem starts clean (FR-SCOPE-002). Document settings (`core.settings.Settings`) apply to every Problem. Page types are registered by the device (`doc/document.py` `PageType`, decision 0032); the Nspire's are in `devices/nspire/pages/`. Calculator, Lists & Spreadsheet, Data & Statistics and Graphs have models (SDD-07 for the data pages); Notes and the Program Editor are placeholders. A Problem holds at most 50 pages (`MAX_PAGES`, as on the device). The Page Sorter order and the add, delete, move and undo of page changes live here.
 
 ## Screen buffer
 
@@ -80,7 +80,7 @@ Many menu items with several arguments open a dialog on the handheld (distributi
 
 ## Known gaps
 
-- Page types other than Calculator have no model (M3 to M7).
+- Notes and the Program Editor have no model yet (M4 and M6); the Python and Pseudocode page types are M5 (FR-RUN-010).
 - Typed-character capture on non-US layouts is open (decision 0024).
 - Action names and worker messages are strings (PLAN.md A1).
 - `devices/nspire/ui/state.py` imports `devices.nspire.keymap` as its default profile (FR-DEV-007 review item).
