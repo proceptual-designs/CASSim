@@ -789,4 +789,4 @@ def test_mixed_number_answer_is_spaced_like_the_entry() -> None:
     typed = (Text("1"), Frac((Text("3"),), (Text("4"),)))
     gap = render.width(answer, 20) - render.width(typed, 20)
     assert gap == pytest.approx(render.MIXED_GAP * 20)
-    assert gap < render.ADVANCE * 20 / 2
+    assert gap == 0  # the fraction follows the whole part directly, as in the entry

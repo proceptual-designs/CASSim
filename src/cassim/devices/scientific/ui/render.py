@@ -37,7 +37,7 @@ FONTS = {
 ADVANCE = 0.6  # Roboto Mono's character width, in em
 SMALL = 0.62  # exponents and root indices
 FRACTION = 0.82  # numerators and denominators
-MIXED_GAP = 0.15  # em between a mixed number's whole part and its fraction, as typed
+MIXED_GAP = 0.0  # em between a mixed number's whole part and its fraction: none, as typed
 RADICAL = 0.55  # the √ sign's width, in em
 
 
