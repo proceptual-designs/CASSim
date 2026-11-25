@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
+    from PIL.ImageDraw import ImageDraw as PILDraw
     from PIL.ImageFont import FreeTypeFont
     from PIL.ImageFont import ImageFont as PILFont
 
@@ -797,8 +798,53 @@ def write_engine_zip(dist: Path, bundle: Bundle) -> None:
                 archive.write(file, file.relative_to(root).as_posix())
 
 
-def draw_icon(size: int, *, beta: bool = False) -> PILImage:
-    """The app icon, CASSim's own artwork: CAS over a blue SIM bar, in a rounded square."""
+ICON_INK = "#e8e8e8"
+# A single-app site's icon carries its Home symbol where the testing icon carries β: the
+# double-struck N for the Nspire, < > for Pseudocode & Python and a flask for Scientific
+# (`cassim.app.home`). Drawn in strokes, so the icon font needs no more glyphs.
+ICON_MARKS = ("nspire", "pseudocode", "scientific")
+
+
+def draw_mark(draw: PILDraw, kind: str, cx: float, cy: float, h: float) -> None:
+    """A Home symbol about `h` high, centred on (cx, cy)."""
+    w = max(2, round(h * 0.19))  # the stroke
+    top, bottom = cy - h / 2, cy + h / 2
+    if kind == "nspire":  # a double-struck N: the left stem is split by a thin line
+        left, right = cx - h * 0.38, cx + h * 0.38
+        draw.line((left, bottom, left, top), fill=ICON_INK, width=w)
+        split = left + w * 1.25
+        draw.line(
+            (split, bottom - w * 0.5, split, top + w * 1.4),
+            fill=THEME,
+            width=max(1, round(w * 0.35)),
+        )
+        draw.line((left, top, right, bottom), fill=ICON_INK, width=w)
+        draw.line((right, bottom, right, top), fill=ICON_INK, width=w)
+    elif kind == "pseudocode":  # < >
+        for sign in (-1, 1):
+            tip, back = cx + sign * h * 0.5, cx + sign * h * 0.14
+            points = (back, top + h * 0.1, tip, cy, back, bottom - h * 0.1)
+            draw.line(points, fill=ICON_INK, width=w, joint="curve")
+    elif kind == "scientific":  # a flask: a neck with a lip, sloping sides, a liquid line
+        neck, base, shoulder = h * 0.16, h * 0.46, top + h * 0.34
+        outline = [
+            (cx - neck, top),
+            (cx - neck, shoulder),
+            (cx - base, bottom),
+            (cx + base, bottom),
+            (cx + neck, shoulder),
+            (cx + neck, top),
+        ]
+        draw.line(outline, fill=ICON_INK, width=w, joint="curve")
+        draw.line((cx - neck * 1.7, top, cx + neck * 1.7, top), fill=ICON_INK, width=w)
+        level = top + h * 0.68
+        half = neck + (base - neck) * (level - shoulder) / (bottom - shoulder)
+        draw.line((cx - half + w, level, cx + half - w, level), fill=ICON_INK, width=max(1, w // 2))
+
+
+def draw_icon(size: int, *, beta: bool = False, mark: str = "") -> PILImage:
+    """The app icon, CASSim's own artwork: CAS over a blue SIM bar, in a rounded square. The
+    testing site adds β after SIM; a single-app site adds its Home symbol there (`mark`)."""
     from PIL import Image, ImageDraw, ImageFont
 
     def bold(px: float) -> FreeTypeFont | PILFont:
@@ -810,7 +856,7 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
     draw.rounded_rectangle(
         (0, 0, size - 1, size - 1), radius=size // 6, outline=ACCENT, width=max(2, size // 32)
     )
-    draw.text((size / 2, size * 0.36), "CAS", fill="#e8e8e8", font=bold(size * 0.36), anchor="mm")
+    draw.text((size / 2, size * 0.36), "CAS", fill=ICON_INK, font=bold(size * 0.36), anchor="mm")
     sim, gap = bold(size * 0.21), size * 0.015
     widths = [draw.textlength(c, font=sim) for c in "SIM"]
     text_w = sum(widths) + 2 * gap
@@ -824,11 +870,13 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
     for letter, width in zip("SIM", widths, strict=True):
         draw.text((x, mid), letter, fill=THEME, font=sim, anchor="lm")
         x += width + gap
-    if beta:
+    if mark:
+        draw_mark(draw, mark, x - gap + size * 0.13, mid - size * 0.075, size * 0.15)
+    elif beta:
         draw.text(
             (x - gap + size * 0.115, mid - size * 0.09),
             "β",
-            fill="#e8e8e8",
+            fill=ICON_INK,
             font=bold(size * 0.18),
             anchor="mm",
         )
@@ -836,20 +884,27 @@ def draw_icon(size: int, *, beta: bool = False) -> PILImage:
 
 
 def write_icons(dist: Path, bundle: Bundle) -> None:
-    """App icons and the favicon (all the same artwork; no TI artwork)."""
+    """App icons and the favicon (all the same artwork; no TI artwork). The testing site's carry
+    β; a single-app site's carry that app's Home symbol."""
     from PIL import Image
 
     beta = bundle.product == "CASSimᵝ"
+    single = bundle.devices[0] if bundle.name != "all" and len(bundle.devices) == 1 else ""
+    mark = single if single in ICON_MARKS else ""
+
+    def icon(size: int) -> PILImage:
+        return draw_icon(size, beta=beta, mark=mark)
+
     out = dist / "icons"
     out.mkdir(exist_ok=True)
-    draw_icon(192, beta=beta).save(out / "icon-192.png")
-    draw_icon(512, beta=beta).save(out / "icon-512.png")
+    icon(192).save(out / "icon-192.png")
+    icon(512).save(out / "icon-512.png")
     # Maskable: the launcher crops to its own shape, so keep the artwork inside the safe zone.
     maskable = Image.new("RGBA", (512, 512), THEME)
-    inner = draw_icon(512, beta=beta).resize((360, 360), Image.Resampling.LANCZOS)
+    inner = icon(512).resize((360, 360), Image.Resampling.LANCZOS)
     maskable.paste(inner, (76, 76), inner)
     maskable.save(out / "icon-maskable-512.png")
-    draw_icon(64, beta=beta).save(dist / "favicon.png")  # Flet's index.html links this file
+    icon(64).save(dist / "favicon.png")  # Flet's index.html links this file
 
 
 def write_manifest(dist: Path, bundle: Bundle) -> None:

@@ -2,22 +2,30 @@
 
 - [[Home]]
 - [[Getting started]]
-
-**Apps**
-
-- [[Nspire calculator|Nspire]]
-- [[Pseudocode & Python|Pseudocode]]
-- [[Pseudocode syntax]]
-- [[CASSim Scientific (scientific)|Scientific calculator]]
+- [[Which site to use]]
+- [[What works and what does not yet]]
+- [[Reporting a problem]]
 
 **Nspire**
 
+- [[Nspire calculator|Nspire]]
 - [[The two views]]
 - [[Keys and shortcuts]]
 - [[Menus]]
 - [[Settings]]
 - [[Documents and sharing]]
-- [[What works and what does not yet]]
-- [[Other calculators and CAS software]]
 - [[Text interface]]
-- [[Reporting a problem]]
+
+**Pseudocode & Python**
+
+- [[Pseudocode & Python|Pseudocode]]
+- [[Pseudocode syntax]]
+
+**Scientific**
+
+- [[Scientific calculator]]
+- [[Choosing your calculator]]
+
+**More**
+
+- [[Other calculators and CAS software]]

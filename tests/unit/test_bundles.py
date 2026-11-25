@@ -103,6 +103,25 @@ def test_icon_font_draws_beta_not_a_missing_glyph() -> None:
     assert ImageChops.difference(stable.convert("RGB"), marked.convert("RGB")).getbbox()
 
 
+@pytest.mark.parametrize("bundle_name", ["tin", "pseudo", "sci"])
+def test_single_app_icons_carry_their_home_symbol(tmp_path: Path, bundle_name: str) -> None:
+    """A single-app site's icon has its Home symbol where the testing icon has β, so each
+    installed app is told apart from the all-in-one app and from the others."""
+    bundle = publish.bundles()[bundle_name]
+    publish.write_icons(tmp_path, bundle)
+    icon = Image.open(tmp_path / "icons/icon-192.png").convert("RGB")
+    plain = publish.draw_icon(192).convert("RGB")
+    beta = publish.draw_icon(192, beta=True).convert("RGB")
+    assert ImageChops.difference(icon, plain).getbbox()
+    assert ImageChops.difference(icon, beta).getbbox()
+    others = {
+        name: publish.draw_icon(192, mark=name).convert("RGB")
+        for name in publish.ICON_MARKS
+        if name != bundle.devices[0]
+    }
+    assert all(ImageChops.difference(icon, other).getbbox() for other in others.values())
+
+
 def test_the_engine_packages_come_from_the_devices() -> None:
     assert publish.bundles()["tin"].engine_packages == ["sympy", "mpmath"]
 
