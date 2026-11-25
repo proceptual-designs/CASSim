@@ -5,7 +5,7 @@ import pytest
 
 from cassim.device.editor import Editor, Kind, Template
 from cassim.device.wizard import CURSOR, Field, Wizard
-from cassim.devices.nspire.menus import WIZARDS, polynomial
+from cassim.devices.nspire.menus import MENU, WIZARDS, polynomial
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of
 from cassim.devices.nspire.ui.state import AppState
 
@@ -343,3 +343,64 @@ def test_a_ticked_matrix_form_box_pastes_a_last_argument_one() -> None:
     assert entry.result.text == "[6,0.828125;7,0.9453125]"
     entry = _calculator(_finish("invBinomN", c="0.9", p="0.5", x="5", matrix="1")).history[-1]
     assert entry.text == "invBinomN(0.9,0.5,5,1)"
+
+
+def test_calculator_statistics_menus_match_the_device_lists() -> None:
+    """FR-STAT-004 (emulator run 6, S3): Stat Calculations to G Correlation Matrix,
+    Distributions to K Poisson Cdf, Confidence Intervals 1 to 8, Stat Tests 1 to D; unbuilt
+    items are grey."""
+    statistics = next(item for item in MENU.items if item.label == "Statistics")
+    lists = {
+        item.label: [(child.key, child.label) for child in item.items] for item in statistics.items
+    }
+    regressions = ["Linear Regression (mx+b)", "Linear Regression (a+bx)", "Median-Median Line"]
+    regressions += [f"{kind} Regression" for kind in ("Quadratic", "Cubic", "Quartic", "Power")]
+    regressions += [f"{kind} Regression" for kind in ("Exponential", "Logarithmic", "Sinusoidal")]
+    regressions += ["Logistic Regression (d=0)", "Logistic Regression (d≠0)"]
+    calculations = [
+        "One-Variable Statistics…",
+        "Two-Variable Statistics…",
+        *(f"{label}…" for label in regressions),
+        "Multiple Linear Regression…",
+        "Correlation Matrix",
+    ]
+    keys = "123456789ABCDEFGHIJK"
+    assert lists["Stat Calculations"] == list(zip(keys, calculations, strict=False))
+    distributions = [label for _, label in lists["Distributions"]]
+    assert [key for key, _ in lists["Distributions"]] == list(keys)
+    assert (distributions[0], distributions[12], distributions[-1]) == (
+        "Normal Pdf…",
+        "Inverse Binomial N…",
+        "Poisson Cdf…",
+    )
+    assert [label for _, label in lists["Confidence Intervals"]] == [
+        "z Interval…",
+        "t Interval…",
+        "2-Sample z Interval…",
+        "2-Sample t Interval…",
+        "1-Prop z Interval…",
+        "2-Prop z Interval…",
+        "Linear Reg t Intervals…",
+        "Multiple Reg Intervals…",
+    ]
+    assert lists["Stat Tests"] == list(
+        zip(
+            keys,
+            [
+                "z Test…",
+                "t Test…",
+                "2-Sample z Test…",
+                "2-Sample t Test…",
+                "1-Prop z Test…",
+                "2-Prop z Test…",
+                "χ² GOF…",
+                "χ² 2-way Test…",
+                "2-Sample F Test…",
+                "Linear Reg t Test…",
+                "Multiple Reg Tests…",
+                "ANOVA…",
+                "ANOVA 2-Way…",
+            ],
+            strict=False,
+        )
+    )

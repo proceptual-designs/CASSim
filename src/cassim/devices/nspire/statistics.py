@@ -176,7 +176,7 @@ TESTS = (
             Field("df", "df"),
         ),
     ),
-    ("χ² 2-Way Test", "χ²2way", "8", (Field("observed", "Observed Matrix"),)),
+    ("χ² 2-way Test", "χ²2way", "8", (Field("observed", "Observed Matrix"),)),
     (
         "2-Sample F Test",
         "FTest_2Samp",
