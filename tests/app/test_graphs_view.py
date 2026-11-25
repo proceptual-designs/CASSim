@@ -1,6 +1,7 @@
 """FR-GRAPH-002: Graphs pointer gestures and plot layout."""
 
 from collections.abc import Callable
+from types import SimpleNamespace
 
 import flet as ft
 import pytest
@@ -35,9 +36,9 @@ def test_graph_rows_use_shared_entry_renderer_and_target_the_selected_function()
     assert isinstance(field, ft.Row)
     entry = field.controls[0]
     assert isinstance(entry, ft.GestureDetector)
-    assert entry.on_tap is not None
-    tap: Callable[..., object] = entry.on_tap
-    tap(None)
+    assert entry.on_tap_up is not None  # a canvas line: the tap's place says where
+    tap: Callable[..., object] = entry.on_tap_up
+    tap(SimpleNamespace(local_position=SimpleNamespace(x=2.0, y=10.0)))
     assert actions == [("place", "1::0")]
 
 
@@ -89,8 +90,7 @@ def test_tall_templates_expand_the_entry_without_clipping_the_plot() -> None:
     view = GraphsView(DARK, lambda _action, _argument: None, lambda: 1.0)
     graphs = Graphs(Session())
     editor = graphs.functions[0].editing.editor
-    editor.insert_template(Kind.FRACTION)
-    editor.insert_template(Kind.FRACTION)
+    editor.insert_template(Kind.MATRIX, (3, 1))  # three lines tall
     view.refresh(graphs, 320, 400)
 
     container = view.functions.controls[0]

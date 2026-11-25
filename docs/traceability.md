@@ -126,8 +126,8 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-001 | Must | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 19 more |
-| FR-CALC-005 | Must | `tests/app/test_calculator_menus.py`, `tests/app/test_history_mouse.py`, `tests/app/test_menus.py` and 4 more |
+| FR-CALC-004 | Must | `tests/app/test_history_cache.py`, `tests/app/test_history_mouse.py`, `tests/app/test_math_canvas.py` and 19 more |
+| FR-CALC-005 | Must | `tests/app/test_calculator_menus.py`, `tests/app/test_history_mouse.py`, `tests/app/test_menus.py` and 5 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py`, `tests/unit/test_cas_papers.py` |
 | FR-DOC-001 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_documents.py`, `tests/app/test_history_cache.py` and 9 more |
@@ -292,7 +292,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
 | NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
 | NFR-USE-003 | Should | `tests/app/test_theme_settings.py` |
-| NFR-PORT-002 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py` |
+| NFR-PORT-002 | Must | `tests/app/test_math_canvas.py` |
 | NFR-PORT-003 | Should | `tests/app/test_layout.py` |
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
