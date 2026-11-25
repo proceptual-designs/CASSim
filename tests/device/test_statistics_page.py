@@ -48,6 +48,20 @@ def test_dragging_a_scatter_point_updates_its_shared_source_lists() -> None:
     assert statistics.plot_data().y == (2.0, 5.25, 6.0)
 
 
+def test_a_dragged_point_stores_three_decimal_places() -> None:
+    """FR-STAT-005 (emulator run 6, S1): the point (3,5) dragged up stored ys[3] as 6.949."""
+    session = Session()
+    _eval(session, "xs:={1,2,3,4,5,6}")
+    _eval(session, "ys:={2,3,5,4,6,8}")
+    statistics = Statistics(session)
+    statistics.perform("x:xs")
+    statistics.perform("y:ys")
+
+    expression = statistics.drag_expression(2, 3.0000000001, 6.94912345678)
+    assert expression == "xs[3]:=3:ys[3]:=6.949"
+    assert statistics.drag_expression(2, 3, -0.0001) == "xs[3]:=3:ys[3]:=0"
+
+
 def test_dragging_a_dot_plot_point_updates_its_source_list() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3}")

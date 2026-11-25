@@ -738,8 +738,15 @@ def _format(value: float) -> str:
     return f"{value:.6g}"
 
 
+# A dragged point's value is stored to three decimal places: the device stored 6.949 on a
+# window with y from 2 to 8, also at Float 12 (emulator run 6, S1 and C1). Whether the places
+# depend on the window is not known yet (run 7, J3a); until then every window uses three.
+_DRAG_PLACES = 3
+
+
 def _input_number(value: float) -> str:
-    return re.sub(r"[eE]", "ᴇ", format(value, ".15g"))
+    rounded = round(value, _DRAG_PLACES) + 0.0  # + 0.0 turns -0.0 into 0.0
+    return re.sub(r"[eE]", "ᴇ", format(rounded, ".15g"))
 
 
 def _numeric_text(value: DataValue) -> DataValue:
