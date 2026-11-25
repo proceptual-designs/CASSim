@@ -138,6 +138,7 @@ The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceabi
 | **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
 | **FR-FX-UI-004** | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
 | **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
+| **FR-FX-UI-006** | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T, E |
 
 ---
 
@@ -300,7 +301,7 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | Area | Status |
 |---|---|
 | COMP, STAT (all eight types), TABLE, VERIFY | Built and unit tested. |
-| CMPLX and VECTOR (FR-FX-MOD-005, Could) | Not built. |
+| CMPLX and VECTOR (FR-FX-MOD-005, Could) | Not built: they need an fx-100 series layout (FR-FX-UI-006, Could, deferred 2026-11-25). |
 | SETUP, CLR, annunciators | Built and tested, including Disp (decimal comma) and CONT (contrast). SETUP page 2 is ab/c, d/c, STAT, Disp, CONT and the default is Norm 2, as the fx-82AU PLUS II and SX-II manuals give (corrected 2026-11-25). The manuals also give MthIO-LineO as the default output; CASSim keeps MathO until the emulator check (`docs/testing/emulator-scientific-capture.md`, row A7) confirms it. |
 | Natural display input and exact answers | Built: fraction, mixed, √, ³√, ⁿ√, power, ×10ˣ, Abs, log■□ templates; fractions, surds with up to two terms, multiples of π; exact trigonometry at multiples of 30° and 45°. |
 | Multi-statement `:` | Not built. |
