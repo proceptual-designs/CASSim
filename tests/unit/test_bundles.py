@@ -139,6 +139,18 @@ def close_to(image: Image.Image, expected: Image.Image) -> bool:
     return ImageStat.Stat(diff).mean[0] < 2
 
 
+def drawn(filename: str, size: int, mark: str = "") -> Image.Image:
+    """The icon as `write_icons` makes `filename`: the iOS icon is the artwork on the theme
+    colour, as iOS paints transparent corners black. Compared with its transparent corners, it
+    starts 0.75 from the limit, and a Linux font rendering took it over (batch PR #187)."""
+    icon = publish.draw_icon(size, mark=mark)
+    if "apple-touch" not in filename:
+        return icon
+    touch = Image.new("RGBA", (size, size), publish.THEME)
+    touch.paste(icon, (0, 0), icon)
+    return touch
+
+
 @pytest.mark.parametrize("bundle_name", ["all", "tin"])
 def test_every_icon_flet_ships_is_replaced_by_the_bundles_own(
     tmp_path: Path, bundle_name: str
@@ -152,7 +164,7 @@ def test_every_icon_flet_ships_is_replaced_by_the_bundles_own(
         image = Image.open(tmp_path / filename)
         assert image.width == image.height
         if "maskable" not in filename:  # the maskable ones hold the artwork at a smaller scale
-            assert close_to(image, publish.draw_icon(image.width, mark=mark)), filename
+            assert close_to(image, drawn(filename, image.width, mark)), filename
     touch = Image.open(tmp_path / "icons/apple-touch-icon-192.png").convert("RGBA")
     # Opaque: iOS paints transparent corners black.
     assert touch.getchannel("A").getextrema() == (255, 255)
@@ -164,7 +176,7 @@ def test_a_local_run_has_the_plain_cassim_icons() -> None:
     for filename in FLET_ICON_FILES:
         image = Image.open(publish.APP_ASSETS / filename)
         if "maskable" not in filename:
-            assert close_to(image, publish.draw_icon(image.width)), filename
+            assert close_to(image, drawn(filename, image.width)), filename
     window = Image.open(publish.APP_ASSETS / publish.WINDOW_ICON)
     assert window.format == "ICO"
     assert {size[0] for size in window.info["sizes"]} == set(publish.WINDOW_ICON_SIZES)
