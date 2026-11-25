@@ -25,7 +25,7 @@ SETUP sets Norm 1 or Norm 2, a fixed number of decimal places (Fix) or significa
 3. Press AC to go back to the calculation screen. The data stays until you leave STAT mode.
 4. Press SHIFT 1 for the STAT menu: Sum, Var (n, x̄, σx, sx…), MinMax (min, Q1, median, Q3, max) and, for two variables, Reg (A, B, r, x̂, ŷ). Choose an item, then press =.
 
-Quartiles use the method taught in Australian schools: Q1 and Q3 are the medians of the lower and upper halves, leaving the median out when there is an odd number of values. sx divides by n − 1 and σx by n. To use frequencies, turn on the FREQ column first: SHIFT MODE, ▼, 1 (STAT), 1 (ON).
+Quartiles use the method taught in Australian schools: Q1 and Q3 are the medians of the lower and upper halves, leaving the median out when there is an odd number of values. sx divides by n − 1 and σx by n. To use frequencies, turn on the FREQ column first: SHIFT MODE, ▼, 3 (STAT), 1 (ON). SETUP's second page also has Disp (a decimal point or a decimal comma in answers) and CONT (contrast: ◀ ▶, then AC).
 
 ## Tables
 

@@ -163,7 +163,7 @@ OPEN_1VAR = (
     Step(("2",), "Press 2 for STAT.", "STAT mode works with lists of data."),
     Step(("1",), "Press 1 for 1-VAR.", "One variable: a single list of numbers."),
 )
-FREQ_ON = (k.SHIFT, k.MODE, k.DOWN, "1", "1")
+FREQ_ON = (k.SHIFT, k.MODE, k.DOWN, "3", "1")
 
 LESSONS: tuple[Lesson, ...] = (
     Lesson(
@@ -195,7 +195,7 @@ LESSONS: tuple[Lesson, ...] = (
         steps=(
             Step((k.SHIFT, k.MODE), "Press {SHIFT MODE} to open SETUP."),
             Step((k.DOWN,), "Press ▼ to see the second page of settings."),
-            Step(("1",), "Press 1 for STAT."),
+            Step(("3",), "Press 3 for STAT."),
             Step(("1",), "Press 1 for ON.", "Each data row now has a frequency."),
         ),
         answer="",

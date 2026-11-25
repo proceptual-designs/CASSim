@@ -198,6 +198,7 @@ class ScientificState:
     dialect: Dialect = "casio"  # whose menus and key sequences (layouts.Dialect)
     note: str = ""  # a line above the entry (DATA SET)
     tab: int = 9  # the EL-531's TAB: decimal places for FIX and SCI
+    contrast: int = 0  # SETUP CONT: −4 (lightest) to 4 (darkest)
     percent_base: Number | None = None  # fx-82MS family: A in A × B %, for a following + or −
 
     # ------------------------------------------------------------------------------------------
@@ -643,7 +644,12 @@ class ScientificState:
                     down="setup2",
                 )
             case "setup2":
-                return MenuSpec("", ("1:STAT", "2:ab/c", "3:d/c"), self._pick_setup2, up="setup1")
+                options = ("1:ab/c", "2:d/c", "3:STAT", "4:Disp", "5:CONT")
+                return MenuSpec("", options, self._pick_setup2, up="setup1")
+            case "disp":
+                return MenuSpec("Disp", ("1:Dot", "2:Comma"), self._pick_point)
+            case "cont":
+                return MenuSpec("CONTRAST", ("◀ LIGHT   DARK ▶",), lambda _: None)
             case "setup_io":
                 return MenuSpec("MthIO", ("1:MathO", "2:LineO"), self._pick_io)
             case "fix":
@@ -681,7 +687,9 @@ class ScientificState:
         two = self.stat_type != "1-VAR"
         match name:
             case "stat_sum":
-                return ("Σx²", "Σx", "Σy²", "Σy", "Σxy") if two else ("Σx²", "Σx")
+                if two:
+                    return ("Σx²", "Σx", "Σy²", "Σy", "Σxy", "Σx³", "Σx²y", "Σx⁴")
+                return ("Σx²", "Σx")
             case "stat_var":
                 return ("n", "x̄", "σx", "sx", "ȳ", "σy", "sy") if two else ("n", "x̄", "σx", "sx")
             case "stat_minmax":
@@ -694,7 +702,7 @@ class ScientificState:
                 return ("regA", "regB", "r", "x̂", "ŷ")
         return ()
 
-    def _menu_key(self, key: str) -> None:
+    def _menu_key(self, key: str) -> None:  # noqa: PLR0911
         spec = self.menu_spec()
         if key in (k.AC,):
             self.screen = self.back if self.back != "menu" else "calc"
@@ -706,6 +714,9 @@ class ScientificState:
             return
         if key == k.UP and spec.up:
             self.menu = spec.up
+            return
+        if self.menu == "cont" and key in (k.LEFT, k.RIGHT):
+            self.contrast = max(-4, min(4, self.contrast + (1 if key == k.RIGHT else -1)))
             return
         if key == k.RIGHT and spec.right:
             self.menu = spec.right
@@ -833,10 +844,21 @@ class ScientificState:
         self._after_setup()
 
     def _pick_setup2(self, n: int) -> None:
-        if n == 1:
-            self.menu = "freq"
-            return
-        self.setup.fraction = "ab/c" if n == 2 else "d/c"  # noqa: PLR2004
+        """SETUP page 2, in the order the fx-82AU PLUS II and SX-II manuals give: ab/c, d/c,
+        STAT (the FREQ column), Disp (dot or comma) and CONT (contrast)."""
+        match n:
+            case 1 | 2:
+                self.setup.fraction = "ab/c" if n == 1 else "d/c"
+                self._after_setup()
+            case 3:
+                self.menu = "freq"
+            case 4:
+                self.menu = "disp"
+            case _:
+                self.menu = "cont"
+
+    def _pick_point(self, n: int) -> None:
+        self.setup.comma = n == 2  # noqa: PLR2004
         self._after_setup()
 
     def _pick_io(self, n: int) -> None:
@@ -1004,7 +1026,11 @@ class ScientificState:
             case "ms_more":
                 return MenuSpec("", ("1:Disp",), lambda _: setattr(self, "menu", "ms_frac"))
             case "ms_frac":
-                return MenuSpec("Disp", ("1:a b/c", "2:d/c"), self._ms_pick_fraction)
+                return MenuSpec(
+                    "Disp", ("1:a b/c", "2:d/c"), self._ms_pick_fraction, right="ms_point"
+                )
+            case "ms_point":
+                return MenuSpec("Disp", ("1:Dot", "2:Comma"), self._pick_point, left="ms_frac")
             case "ms_reg":
                 return MenuSpec(
                     "", ("1:Lin", "2:Log", "3:Exp"), self._ms_pick_reg(0), right="ms_reg2"
@@ -1021,7 +1047,11 @@ class ScientificState:
                     ("Σx²", "Σx", "n"), ("Σx²", "Σx", "n"), "", "ms_ssum2" if two else ""
                 )
             case "ms_ssum2":
-                return self._ms_page(("Σy²", "Σy", "Σxy"), ("Σy²", "Σy", "Σxy"), "ms_ssum1", "")
+                tokens = ("Σy²", "Σy", "Σxy")
+                return self._ms_page(tokens, tokens, "ms_ssum1", "ms_ssum3")
+            case "ms_ssum3":
+                tokens = ("Σx³", "Σx²y", "Σx⁴")
+                return self._ms_page(tokens, tokens, "ms_ssum2", "")
             case "ms_svar1":
                 return self._ms_page(
                     ("x̄", "xσn", "xσn-1"), ("x̄", "σx", "sx"), "", "ms_svar2" if two else ""
@@ -1116,19 +1146,21 @@ class ScientificState:
         self.menu = "sh_fse" if n == 0 else "sh_tab"
 
     def _sh_pick_fse(self, n: int) -> None:
-        """FIX and SCI use TAB places; ENG (a display mode CASSim does not have) changes nothing."""
+        """FIX, SCI and ENG use TAB places; NORM1 and NORM2 set the exponent range."""
         match n:
             case 0:
                 self.setup.disp, self.setup.digits = "Fix", self.tab
             case 1:
                 self.setup.disp, self.setup.digits = "Sci", (self.tab + 1) % 10
+            case 2:
+                self.setup.disp, self.setup.digits = "Eng", self.tab
             case 3 | 4:
                 self.setup.disp, self.setup.digits = "Norm", n - 2
         self._after_setup()
 
     def _sh_pick_tab(self, n: int) -> None:
         self.tab = n
-        if self.setup.disp == "Fix":
+        if self.setup.disp in ("Fix", "Eng"):
             self.setup.digits = n
         elif self.setup.disp == "Sci":
             self.setup.digits = (n + 1) % 10
@@ -1302,6 +1334,9 @@ class ScientificState:
                 "Σy": two.sum_y,
                 "Σy²": two.sum_y2,
                 "Σxy": two.sum_xy,
+                "Σx³": two.sum_x3,
+                "Σx²y": two.sum_x2y,
+                "Σx⁴": two.sum_x4,
                 "minX": two.min_x,
                 "maxX": two.max_x,
                 "minY": two.min_y,
@@ -1438,18 +1473,17 @@ class ScientificState:
     # ------------------------------------------------------------------------------------------
 
     def default_setup(self) -> Setup:
-        """SETUP's defaults, which follow the calculator: Norm 2 on the SX-II; a linear display,
-        Norm 2 and mixed numbers on the HP 10s; a linear display and mixed numbers on the
-        EL-531."""
+        """SETUP's defaults, which follow the calculator's manual: Norm 2 on the fx-82 and SX-II
+        (their manuals also give MthIO-LineO, to be checked on the emulators first); a linear
+        display, Norm 2 and mixed numbers on the HP 10s; a linear display and mixed numbers on
+        the EL-531."""
         match self.dialect:
             case "ms":
                 return Setup(input="line", output="line", digits=2, fraction="ab/c")
             case "sharp":
                 return Setup(input="line", output="line", fraction="ab/c")
-            case "sx2":
-                base = Setup(digits=2)
             case _:
-                base = Setup()
+                base = Setup(digits=2)  # Norm 2: the fx-82AU PLUS II and SX-II manuals
         if self.linear_layout:
             base.input = base.output = "line"
         return base
@@ -1665,7 +1699,7 @@ class ScientificState:
             return ()
         if self.form == "fact":
             return self.fact
-        return fmt.show(
+        shown = fmt.show(
             self.result,
             self.setup,
             self.form,
@@ -1673,6 +1707,7 @@ class ScientificState:
             eng=self.eng,
             prefer_exact=self._prefer_exact(),
         )
+        return fmt.with_comma(shown) if self.setup.comma else shown
 
     def answer_text(self) -> str:
         return to_text(self.answer())

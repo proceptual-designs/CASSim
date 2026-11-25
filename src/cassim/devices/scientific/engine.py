@@ -151,6 +151,9 @@ class TwoVar:
     sum_y: float
     sum_y2: float
     sum_xy: float
+    sum_x3: float
+    sum_x2y: float
+    sum_x4: float
     mean_x: float
     mean_y: float
     sigma_x: float
@@ -186,6 +189,9 @@ def two_var(rows: list[tuple[float, float, float]]) -> TwoVar:
         sum_y=sum_y,
         sum_y2=math.fsum(f * y * y for _, y, f in rows),
         sum_xy=math.fsum(f * x * y for x, y, f in rows),
+        sum_x3=math.fsum(f * x**3 for x, _, f in rows),
+        sum_x2y=math.fsum(f * x * x * y for x, y, f in rows),
+        sum_x4=math.fsum(f * x**4 for x, _, f in rows),
         mean_x=mean_x,
         mean_y=mean_y,
         sigma_x=math.sqrt(ssx / n),

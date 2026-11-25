@@ -309,3 +309,19 @@ def test_mode_names_follow_the_calculator() -> None:
     assert keys_on(L.FX82, k.MODE, "2", "1", k.AC).mode_name() == "STAT"  # AC keeps STAT
     assert "MODE 0" in keys_on(L.EL531).mode_help()
     assert "MODE 1" in keys_on(L.HP10S).mode_help()
+
+
+def test_el531_eng_display_and_hp_third_sum_page() -> None:
+    """SET UP 0 2 is the EL-531's ENG display (TAB places); the HP's S-SUM has a third page
+    in REG mode (Σx³, Σx²y, Σx⁴)."""
+    eng = keys_on(L.EL531, k.SHIFT, k.MODE, "1", "2", k.SHIFT, k.MODE, "0", "2")
+    for key in ("1", "2", "3", "4", "5", k.EQ):
+        eng.press(key)
+    assert eng.answer_text() == "12.35×10³"
+    hp = keys_on(L.HP10S, k.MODE, "3", "1", "2", k.SHIFT, k.RPAREN, "5", "DATA")
+    for key in (k.SHIFT, "1", k.RIGHT, k.RIGHT):
+        hp.press(key)
+    assert hp.display().options == ("1:Σx³", "2:Σx²y", "3:Σx⁴")
+    hp.press("2")
+    hp.press(k.EQ)
+    assert hp.answer_text() == "20"

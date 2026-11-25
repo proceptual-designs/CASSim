@@ -63,7 +63,7 @@ def _tokens() -> dict[str, Token]:
         table[name] = Token("var", name)
     for name in (
         "n", "x̄", "σx", "sx", "ȳ", "σy", "sy", "Σx", "Σx²", "Σy", "Σy²", "Σxy", "minX", "maxX",
-        "minY", "maxY", "Q1", "med", "Q3", "r",
+        "minY", "maxY", "Q1", "med", "Q3", "r", "Σx³", "Σx²y", "Σx⁴",
     ):  # fmt: skip
         table[name] = Token("statvar", name)
     for name, text in (("regA", "A"), ("regB", "B"), ("regC", "C")):

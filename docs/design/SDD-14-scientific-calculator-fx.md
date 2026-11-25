@@ -301,13 +301,13 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 |---|---|
 | COMP, STAT (all eight types), TABLE, VERIFY | Built and unit tested. |
 | CMPLX and VECTOR (FR-FX-MOD-005, Could) | Not built. |
-| SETUP, CLR, annunciators | Built and tested. Contrast (CONT) and the decimal-comma Disp setting are not built. |
+| SETUP, CLR, annunciators | Built and tested, including Disp (decimal comma) and CONT (contrast). SETUP page 2 is ab/c, d/c, STAT, Disp, CONT and the default is Norm 2, as the fx-82AU PLUS II and SX-II manuals give (corrected 2026-11-25). The manuals also give MthIO-LineO as the default output; CASSim keeps MathO until the emulator check (`docs/testing/emulator-scientific-capture.md`, row A7) confirms it. |
 | Natural display input and exact answers | Built: fraction, mixed, √, ³√, ⁿ√, power, ×10ˣ, Abs, log■□ templates; fractions, surds with up to two terms, multiples of π; exact trigonometry at multiples of 30° and 45°. |
 | Multi-statement `:` | Not built. |
-| PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it (the fx-82AU layout has none). |
-| Tutorials | Twelve lessons with Guide, Show and Test modes; progress kept in browser storage. |
+| PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it: none of the four calculators' manuals shows a PreAns key. |
+| Tutorials | Twelve lessons on the fx-82 keys (eleven on the SX-II), and lessons written in the HP 10s's and EL-531's own keys; Guide, Show and Test modes; progress kept in browser storage per calculator. |
 | Files, links, autosave | Built; links and files use the CASSim document envelope. |
 | Keyboard | Built (section 4.1). |
 | Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the makers' keypad pictures. Checked in Chrome on 2026-11-25. |
 | Browser (E) verification | Checked by hand in Chrome on 2026-11-25 (layout at 1366 × 650 and 1920 × 935, keyboard input, natural display, Guide and Show modes, themes). No Playwright test yet. |
-| Device verification | None of the behaviour has been compared with a physical calculator. In particular Norm thresholds, the order of SETUP page 2, ENG on whole numbers, mixed-number display and the clearing of STAT data on leaving STAT mode follow this document and should be checked against a real device. |
+| Device verification | None of the behaviour has been compared with a physical calculator. The emulator check (`docs/testing/emulator-scientific-capture.md`) covers the fx-82AU PLUS II and SX-II: Norm thresholds, the default output, ENG on whole numbers, mixed-number display, the clearing of STAT data on leaving STAT mode and the keypad legends. The HP 10s and EL-531 sequences come from their manuals only. |

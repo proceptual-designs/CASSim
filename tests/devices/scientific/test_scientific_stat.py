@@ -75,7 +75,7 @@ def test_one_variable_summary() -> None:
 
 def test_frequency_column() -> None:
     """FR-FX-CFG-005 and FR-FX-STA-001: SETUP ▼ STAT turns on FREQ."""
-    state = press(S, k.MODE, k.DOWN, "1", "1")
+    state = press(S, k.MODE, k.DOWN, "3", "1")
     assert state.setup.frequency
     press(k.MODE, "2", "1", *column("1", "2", "3", "4"), state=state)
     assert state.stat_columns() == ("X", "FREQ")
@@ -213,7 +213,7 @@ def test_setup_menu() -> None:
     state = press(S, k.MODE)
     assert state.display().options[0] == "1:MthIO"
     state.press(k.DOWN)
-    assert state.display().options == ("1:STAT", "2:ab/c", "3:d/c")
+    assert state.display().options == ("1:ab/c", "2:d/c", "3:STAT", "4:Disp", "5:CONT")
     press(k.UP, "4", state=state)
     assert state.setup.angle == "RAD"
     press(S, k.MODE, "2", state=state)
@@ -241,3 +241,26 @@ def test_clear() -> None:
     press(S, "9", "3", k.EQ, k.AC, state=state)
     assert float(state.variables["M"]) == 0
     assert state.mode == "COMP"
+
+
+def test_setup_page_two_disp_and_contrast() -> None:
+    """SETUP page 2 in the manuals' order; Disp 2 gives a decimal comma in answers (a dot is
+    still typed); CONT changes the contrast with ◀ ▶."""
+    state = press(S, k.MODE, k.DOWN, "4", "2", "1", k.DIV, "4", k.EQ, k.SD)
+    assert state.answer_text() == "0,25"
+    press(S, k.MODE, k.DOWN, "5", k.RIGHT, k.RIGHT, k.AC, state=state)
+    assert state.contrast == 2
+    assert state.screen == "calc"
+
+
+def test_two_variable_sums_of_cubes_and_fourth_powers() -> None:
+    """The Sum menu for paired data also has Σx³, Σx²y and Σx⁴."""
+    state = press(k.MODE, "2", "2", "1", k.EQ, "2", k.EQ, k.UP, k.UP, k.RIGHT, "3", k.EQ, "5", k.EQ)
+    press(k.AC, S, "1", "3", state=state)
+    assert state.display().options[5:] == ("6:Σx³", "7:Σx²y", "8:Σx⁴")
+    press("6", k.EQ, state=state)
+    assert state.answer_text() == "9"
+    press(S, "1", "3", "7", k.EQ, state=state)
+    assert state.answer_text() == "23"  # 1·3 + 4·5
+    press(S, "1", "3", "8", k.EQ, state=state)
+    assert state.answer_text() == "17"

@@ -583,7 +583,12 @@ class ScientificApp:
                 spacing=0,
                 expand=True,
             )
-        self.lcd.content = ft.Column([annunciators, body], spacing=2 * s, expand=True)
+        # SETUP CONT: the characters fade as the contrast is lowered (the default is the darkest
+        # the theme draws, so raising it above 0 changes nothing)
+        opacity = 1.0 + 0.1 * min(0, self.state.contrast)
+        self.lcd.content = ft.Column(
+            [annunciators, body], spacing=2 * s, expand=True, opacity=opacity
+        )
         _safe_update(self.lcd)
 
     def _menu_body(self, shown: Display, ink: str) -> ft.Control:
