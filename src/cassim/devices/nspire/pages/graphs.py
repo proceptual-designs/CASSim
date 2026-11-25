@@ -323,6 +323,15 @@ class Graphs:
     def zoom(self, factor: float) -> None:
         self.gesture(0, 0, factor, self._viewport_width / 2, self._viewport_height / 2)
 
+    def keep_trace_point(self) -> None:
+        """Enter during a trace leaves the traced point on the page with its coordinates; it
+        stays after Esc and moves with the function (emulator run 6, R6-A3)."""
+        state = self.tools
+        if state.trace_x is None or not 0 <= state.trace_index < len(self.functions):
+            return
+        name = self.functions[state.trace_index].name
+        self.objects.append(graph_analyze.AnalysisObject("point", (name,), (state.trace_x,)))
+
     def gesture(self, dx: float, dy: float, factor: float, x: float, y: float) -> None:
         """Pan in screen pixels and zoom around a screen-space focal point."""
         values = (dx, dy, factor, x, y)

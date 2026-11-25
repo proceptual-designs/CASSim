@@ -291,6 +291,9 @@ def _typed_key(graphs: Graphs, binding: Binding) -> bool:
             x = None
         if x is not None:
             _trace_to(graphs, x)
+        elif not typed:
+            # Enter with nothing typed leaves a point with its coordinates (R6-A3)
+            graphs.keep_trace_point()
     else:
         return action in ("insert_linear", "delete")
     return True

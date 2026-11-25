@@ -51,6 +51,8 @@ ITEMS: tuple[tuple[str, str, int, int], ...] = (
     ("bounded", "Bounded Area", 2, 2),
 )
 _SPEC = {name: (label, graphs, bounds) for name, label, graphs, bounds in ITEMS}
+# A point Enter leaves during a trace (R6-A3): kept like the results, not on the menu
+_SPEC["point"] = ("Point", 1, 1)
 _POINTER_STEPS = 160  # 2 handheld px a press, as the zoom pointer (R6-A6)
 _SHADE_POINTS = 80
 _ZERO_RESIDUAL = 1e-9
@@ -149,6 +151,7 @@ def result(graphs: Graphs, item: AnalysisObject) -> Result | None:
     lower, upper = min(item.bounds), max(item.bounds)
     points: dict[str, Callable[[], tuple[float, float]]] = {
         "zero": lambda: _zero(first, lower, upper),
+        "point": lambda: (lower, first(lower)),
         "minimum": lambda: _at_bound(find_minimum(first, lower, upper), first, lower, upper),
         "maximum": lambda: _at_bound(find_maximum(first, lower, upper), first, lower, upper),
         "inflection": lambda: find_inflection(first, lower, upper),
