@@ -246,7 +246,17 @@ class TestLatex:
     def test_the_cursor_takes_no_width(self):
         """The bar is 0.06em wide between two kerns of -0.03em: nothing moves as it does."""
         tex = keys("12").latex()
-        assert tex == r"12\kern-0.03em{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}\kern-0.03em "
+        assert tex == r"12\kern-0.03em{\color{#4da3ff}\rule{0.06em}{0.64em}}\kern-0.03em "
+
+    def test_the_cursor_is_no_taller_than_the_digits_beside_it(self):
+        """A bar taller than its row's text makes a small fraction, a radical and the brackets
+        round them grow (the renderer has no \\smash): it is sized to how small the row is set."""
+        editor = keys("1F2")  # in the denominator: a script
+        assert r"\rule{0.06em}{0.45em}" in editor.latex()
+        editor = keys("1F2^3")  # an exponent in the denominator: a script's script
+        assert r"\rule{0.06em}{0.31em}" in editor.latex()
+        editor = keys("√2")  # a radicand is set at its root's size
+        assert r"\rule{0.06em}{0.64em}" in editor.latex()
 
     def test_a_sign_at_the_cursor_stays_a_sign(self):
         """TeX would space `-` after the cursor's bar as an operator; in braces it is a sign."""
@@ -311,10 +321,6 @@ class TestLatex:
         assert Editor("g(x)").latex(cursor=False, is_defined=defined) == "g(x)"
         assert Editor("xy").latex(cursor=False) == "xy"
 
-    def test_cursor_bar_is_no_taller_than_a_digit(self):
-        """A taller bar pushed the denominator down while it was being typed."""
-        assert r"\rule[-0.15em]{0.06em}{0.8em}" in keys("1F2").latex()
-
     def test_a_leading_power_is_valid_latex(self):
         assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")
 
@@ -365,3 +371,19 @@ def test_position_near_a_click_counts_template_widths() -> None:
     assert position_near(row, 0.4) == 1  # past the x (0.5 em)
     assert position_near(row, 0.85) == 2  # past the fraction (about 0.6 em)
     assert position_near(row, 9.0) == 4
+
+
+def test_brackets_stay_tall_with_the_cursor_inside_them() -> None:
+    """Round brackets grow round a fraction (decision 0035). A cursor inside the pair leaves them
+    tall; only a selection's edge inside the pair makes them plain, since a highlight box cannot
+    hold half of a pair."""
+    editor = keys("(1F2R+3)")
+    tall = editor.latex(cursor=False)
+    assert tall.startswith(r"\left(")
+    assert tall.endswith(r"\right)")
+    editor.left()  # inside the pair, before the `)`
+    with_cursor = editor.latex()
+    assert with_cursor.startswith(r"\left(")
+    assert with_cursor.endswith(r"\right)")
+    editor.select_left()  # the `3` is selected: an edge of the selection is inside the pair
+    assert not editor.latex().startswith(r"\left(")
