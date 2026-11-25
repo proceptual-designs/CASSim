@@ -437,7 +437,7 @@ def _ms_clear_stats() -> Step:
     )
 
 
-def _data(*values: str, how: str = "") -> tuple[Step, ...]:
+def _data(*values: str, how: str = "", key: str = "DT") -> tuple[Step, ...]:
     """One step per value (or x,f or x,y pair, written with the key between): type it, then DT."""
     steps = []
     for value in values:
@@ -448,7 +448,7 @@ def _data(*values: str, how: str = "") -> tuple[Step, ...]:
         steps.append(
             Step(
                 (*typed, DT),
-                f"Type {shown} and press {{{DT}}}.",
+                f"Type {shown} and press {{{DT}}} ({key}).",
                 how or "The value is stored; the screen counts the data so far.",
             )
         )
@@ -460,6 +460,10 @@ SEPARATORS: dict[str, tuple[str, ...]] = {
     "TOK:;": ("TOK:;",),
     "COMMA": (k.SHIFT, k.RPAREN),
 }
+
+
+def _sharp_data(*values: str, how: str = "") -> tuple[Step, ...]:
+    return _data(*values, how=how, key="DATA")
 
 
 def _ms_var(*pages_then_item: str, what: str, why: str = "") -> tuple[Step, ...]:
@@ -690,7 +694,7 @@ SHARP_LESSONS: tuple[Lesson, ...] = (
         steps=(
             Step((k.MODE,), "Press {MODE}.", "0 is NORMAL and 1 is STAT."),
             Step(("1", "0"), "Press 1 for STAT, then 0 for SD.", "SD works with a list of data."),
-            *_data("12", "15", "18", "22", "25"),
+            *_sharp_data("12", "15", "18", "22", "25"),
             _sharp_recall("x̄", "x̄, the mean"),
             _sharp_recall("sx", "sx, the sample standard deviation", "σx divides by n; sx by n−1."),
         ),
@@ -705,7 +709,7 @@ SHARP_LESSONS: tuple[Lesson, ...] = (
         dialect="sharp",
         steps=(
             Step((k.MODE, "1", "0"), "Press {MODE}, 1 (STAT), 0 (SD)."),
-            *_data(
+            *_sharp_data(
                 "1 STOXY 5",
                 "2 STOXY 12",
                 "3 STOXY 8",
@@ -726,7 +730,7 @@ SHARP_LESSONS: tuple[Lesson, ...] = (
         dialect="sharp",
         steps=(
             Step((k.MODE, "1", "1"), "Press {MODE}, 1 (STAT), 1 (LINE).", "LINE is y = a + bx."),
-            *_data(
+            *_sharp_data(
                 "2 STOXY 5",
                 "4 STOXY 9",
                 "6 STOXY 12",
@@ -805,14 +809,153 @@ SHARP_LESSONS: tuple[Lesson, ...] = (
 )
 
 
+def _fixed_to(places: int, value: float) -> Callable[[ScientificState], bool]:
+    def check(state: ScientificState) -> bool:
+        fixed = state.setup.disp == "Fix" and state.setup.digits == places
+        return fixed and _ans_close(value)(state)
+
+    return check
+
+
+def _angle_then(angle: str, value: float) -> Callable[[ScientificState], bool]:
+    return lambda state: state.setup.angle == angle and _ans_close(value)(state)
+
+
+PI_OVER_6 = (k.SIN, k.SHIFT, k.EXP, k.DIV, "6", k.EQ)  # sin(π÷6
+
+MS_EXTRA: tuple[Lesson, ...] = (
+    Lesson(
+        id="fix",
+        title="Rounding to decimal places (Fix)",
+        category="Settings",
+        problem="Show 100 ÷ 7 to three decimal places.",
+        dialect="ms",
+        steps=(
+            Step(
+                (k.MODE, k.MODE, k.MODE),
+                "Press {MODE} three times.",
+                "Each press shows the next page: modes, angle units, then Fix, Sci and Norm.",
+            ),
+            Step(("1",), "Press 1 for Fix."),
+            Step(("3",), "Press 3 for three decimal places.", "FIX lights at the top."),
+            Step(("1", "0", "0", k.DIV, "7", k.EQ), "Type 100 ÷ 7 and press {EQ}."),
+        ),
+        answer="14.286",
+        challenge=Challenge(
+            "Show 22 ÷ 7 to two decimal places.", _fixed_to(2, 22 / 7), "3.14 in Fix 2"
+        ),
+    ),
+    Lesson(
+        id="angle",
+        title="Changing the angle unit",
+        category="Trigonometry",
+        problem="Find sin(π/6) with the angle in radians.",
+        dialect="ms",
+        steps=(
+            Step((k.MODE, k.MODE), "Press {MODE} twice for the angle units."),
+            Step(("2",), "Press 2 for Rad.", "R lights at the top."),
+            Step(PI_OVER_6, "Press {SIN}, then π ({SHIFT EXP}) ÷ 6, and {EQ}."),
+        ),
+        answer="0.5",
+        challenge=Challenge(
+            "The calculator is in radians. Change it to degrees and find cos 60°.",
+            _angle_then("DEG", 0.5),
+            "0.5 with the angle unit in degrees",
+            start=(k.MODE, k.MODE, "2"),
+        ),
+    ),
+    Lesson(
+        id="pctchange",
+        title="Percentage change",
+        category="Number",
+        problem="A price rose from $60 to $66. By what percentage did it rise?",
+        dialect="ms",
+        steps=(
+            Step(("6", "6", k.SUB, "6", "0"), "Type 66 − 60: the new price minus the old."),
+            Step(
+                (k.SHIFT, k.LPAREN, k.EQ),
+                "Press {SHIFT LPAREN EQ} for %.",
+                "The change as a percentage of the old price.",
+            ),
+        ),
+        answer="10",
+        challenge=Challenge(
+            "A price fell from $80 to $60. What is the percentage change?",
+            _ans_close(-25.0),
+            "−25",
+        ),
+    ),
+)
+
+SHARP_EXTRA: tuple[Lesson, ...] = (
+    Lesson(
+        id="fix",
+        title="Rounding to decimal places (FIX and TAB)",
+        category="Settings",
+        problem="Show 100 ÷ 7 to three decimal places.",
+        dialect="sharp",
+        steps=(
+            Step(
+                (k.SHIFT, k.MODE, "0", "0"), "Press {SHIFT MODE}, 0 (FSE), 0 (FIX).", "FIX lights."
+            ),
+            Step(
+                (k.SHIFT, k.MODE, "1", "3"),
+                "Press {SHIFT MODE}, 1 (TAB), 3.",
+                "TAB is the number of places.",
+            ),
+            Step(("1", "0", "0", k.DIV, "7", k.EQ), "Type 100 ÷ 7 and press {EQ}."),
+        ),
+        answer="14.286",
+        challenge=Challenge(
+            "Show 22 ÷ 7 to two decimal places.", _fixed_to(2, 22 / 7), "3.14 in FIX, TAB 2"
+        ),
+    ),
+    Lesson(
+        id="angle",
+        title="Changing the angle unit with DRG",
+        category="Trigonometry",
+        problem="Find sin(π/6) with the angle in radians.",
+        dialect="sharp",
+        steps=(
+            Step(("DRG",), "Press {DRG} once.", "DEG changes to RAD at the top of the screen."),
+            Step(PI_OVER_6, "Press {SIN}, then {SHIFT EXP} ÷ 6, and {EQ}."),
+        ),
+        answer="0.5",
+        challenge=Challenge(
+            "The calculator is in radians. Change it to degrees and find cos 60°.",
+            _angle_then("DEG", 0.5),
+            "0.5 with the angle unit in degrees",
+            start=("DRG",),
+        ),
+    ),
+    Lesson(
+        id="drgconv",
+        title="Converting degrees to radians",
+        category="Trigonometry",
+        problem="Convert 90° to radians.",
+        dialect="sharp",
+        steps=(
+            Step(("9", "0"), "Type 90 (in degrees, DEG at the top)."),
+            Step(("DRGCONV",), "Press {DRGCONV} (DRG▸).", "90° is π/2 radians, and RAD is now on."),
+        ),
+        answer="1.570796327",
+        challenge=Challenge(
+            "Convert 180° to radians.",
+            _angle_then("RAD", math.pi),
+            "3.141592654 (π), with the angle unit in radians",
+        ),
+    ),
+)
+
+
 def lessons_for(layout: layouts.Layout) -> tuple[Lesson, ...]:
     """The lessons for a calculator, in its own keys. A lesson for something it does not have
     (TABLE, quartiles, FACT, the FREQ setting) is not offered."""
     match layout.dialect:
         case "ms":
-            return MS_LESSONS
+            return MS_LESSONS + MS_EXTRA
         case "sharp":
-            return SHARP_LESSONS
+            return SHARP_LESSONS + SHARP_EXTRA
     return tuple(
         lesson for lesson in LESSONS if not lesson.needs_mode or lesson.needs_mode in layout.modes
     )

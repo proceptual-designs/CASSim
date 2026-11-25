@@ -62,8 +62,9 @@ def test_lessons_follow_the_calculator() -> None:
     assert ids["fx82"] == [lesson.id for lesson in LESSONS]
     assert "table" not in ids["sx2"]
     linear = ["stddev", "freqtable", "linreg", "fractions", "trig", "percent", "memory"]
+    assert set(ids["hp10s"]) == {"reset", *linear, "fix", "angle", "pctchange"}
+    assert set(ids["el531"]) == {"reset", *linear, "fix", "angle", "drgconv"}
     for layout_id in ("hp10s", "el531"):
-        assert set(ids[layout_id]) == {"reset", *linear}
         assert {
             lesson.dialect
             for lesson in lessons_for(LAYOUTS[[x.id for x in LAYOUTS].index(layout_id)])

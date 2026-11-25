@@ -87,7 +87,7 @@ Those calculators do differ in what they can do, and CASSim follows them:
 
 - On a linear calculator a fraction shows as 2⌟3 and a surd as a decimal. Choosing the EL-531 or 10s keys switches SETUP to linear display; you can switch it back in SETUP.
 - The EL-531 keys also show base-n and logic functions; CASSim Scientific does not do those, so the keys do nothing.
-- The tutorials offer only what your calculator can do, in its own keys: the HP 10s and EL-531 have no frequency setting, five-number summary, prime factorisation or table lessons.
+- The tutorials offer only what your calculator can do, in its own keys: the HP 10s and EL-531 have no frequency setting, five-number summary, prime factorisation or table lessons, but they have lessons of their own: rounding with Fix (or FIX and TAB), changing the angle unit, percentage change on the HP 10s, and converting angles with DRG▸ on the EL-531.
 - On the HP 10s, % works out the whole calculation as the fx-82MS family does: 250 × 15 SHIFT % gives 37.5, and + straight after gives 287.5. On the EL-531, 250 + 15 2ndF % gives 287.5.
 - The computer keyboard types the fx-82's keys, so F1 then Ctrl+M is SETUP on the fx-82 but CLR on the HP 10s, as SHIFT MODE is on each.
 - The EL-531's M-CLR menu, CA and STAT VAR have not yet been checked against a real calculator.
