@@ -104,8 +104,11 @@ def test_test_me_challenges_can_be_solved() -> None:
     assert not by_id["fractions"].challenge.check(solve("7", k.EQ))
     prime = solve("3", "6", "0", k.EQ, k.SHIFT, k.DMS)
     assert by_id["prime"].challenge.check(prime)
-    reset = solve(k.SHIFT, "9", "3", k.EQ, k.AC, start=by_id["reset"].start)
+    messy = by_id["reset"].challenge.start or ()
+    reset = solve(k.SHIFT, "9", "1", k.EQ, k.AC, start=messy)
     assert by_id["reset"].challenge.check(reset)
+    assert by_id["reset"].challenge.check(solve(k.SHIFT, "9", "1", k.EQ, start=messy))  # no AC
+    assert not by_id["reset"].challenge.check(solve(k.SHIFT, "9", "3", k.EQ, start=messy))
     table = solve(
         k.MODE, "3", "2", k.ALPHA, k.RPAREN, k.ADD, "1", k.EQ, "0", k.EQ, "4", k.EQ, "1", k.EQ,
         k.DOWN, k.DOWN, k.DOWN, k.DOWN,
@@ -133,3 +136,24 @@ def test_examples_load(index: int) -> None:
     load_example(state, index)
     assert state.screen in ("calc", "stat_editor", "table_fx")
     assert state.display().text()
+
+
+def _finished(lesson: tutorials.Lesson, *, test: bool) -> ScientificState:
+    state = ScientificState()
+    lesson.prepare(state, test=test)
+    if not test:
+        for step in lesson.steps:
+            for key in step.keys:
+                state.press(key)
+    return state
+
+
+def test_test_me_is_like_the_lesson_but_not_the_same() -> None:
+    """FR-FX-TUT-005: each Test me problem is a new one. Its starting calculator does not already
+    pass (the frequency column started off, so "turn it off" passed with no keys), and the
+    lesson's own finished calculator does not pass either."""
+    for lesson in tutorials.LESSONS:
+        challenge = lesson.challenge
+        assert challenge.prompt != lesson.problem, lesson.id
+        assert not challenge.check(_finished(lesson, test=True)), lesson.id
+        assert not challenge.check(_finished(lesson, test=False)), lesson.id

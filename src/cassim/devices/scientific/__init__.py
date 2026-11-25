@@ -1,4 +1,4 @@
-"""CASSim fx: a natural-display scientific calculator for Australian schools (SDD-14).
+"""CASSim Scientific: a natural-display scientific calculator for Australian schools (SDD-14).
 
 `engine` (statistics), `values`, `parser`, `display`, `editor` and `state` are the calculator and
 import without Flet; `tutorials` holds the lessons; `keys` names every key and the computer
@@ -20,7 +20,7 @@ def new_calc(_: object) -> dict[str, str]:
 
 
 PROFILE = Profile(
-    name="CASSim fx",
+    name="CASSim Scientific",
     handheld={},
     computer=COMMANDS,  # the shortcuts the published page keeps from the browser
     modifiers=("shift", "alpha"),
@@ -36,7 +36,7 @@ PAGES = PageTypes(
 
 DEVICE = Device(
     id="scientific",
-    title="CASSim fx",
+    title="CASSim Scientific",
     profile=PROFILE,
     pages=PAGES,
     engine=None,

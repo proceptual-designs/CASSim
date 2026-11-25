@@ -68,7 +68,7 @@ def test_press_follows_the_waiting_modifier() -> None:
     sharp_square = L.EL531.key(k.X2)
     assert L.press(sharp_square, shift=True, alpha=False) == [k.SHIFT, k.XINV]  # x⁻¹
     times = L.EL531.key(k.MUL)
-    assert L.press(times, shift=True, alpha=False) == [k.SHIFT]  # →HEX: not in CASSim fx
+    assert L.press(times, shift=True, alpha=False) == [k.SHIFT]  # →HEX: not in CASSim Scientific
 
 
 def test_normalize() -> None:

@@ -1,6 +1,6 @@
-# SDD-14. Scientific Calculator (CASSim fx)
+# SDD-14. Scientific Calculator (CASSim Scientific)
 
-Status: Design and functional requirements for CASSim fx, a natural-display scientific calculator of the class used in Australian schools (fx-82AU PLUS II / fx-100AU PLUS / Abacus SX-II MATRIXn). Built in `src/cassim/devices/scientific/` (device id `scientific`, bundle and site `fx`). Section 8 records what is built and what is not.
+Status: Design and functional requirements for CASSim Scientific, a natural-display scientific calculator of the class used in Australian schools (fx-82AU PLUS II / fx-100AU PLUS / Abacus SX-II MATRIXn). Built in `src/cassim/devices/scientific/` (device id `scientific`, bundle and site `fx`). Section 8 records what is built and what is not.
 Author: CASSim Team (Simon Tyler).
 Conventions: Clean room boundary (decision 0028, NFR-LEG-008, NFR-LEG-009). Pure Python core, headless device state, Flet UI rendering, Pyodide offline execution. Numbered SDD-14 because SRS appendix A reserves SDD-12 for device profiles (first written as SDD-12, renamed 2026-11-25).
 
@@ -16,7 +16,7 @@ In Australian secondary mathematics (Year 7–10, VCE General Mathematics, VCE M
 5. **HP Scientific Calculator 10s II** - Hewlett Packard scientific calculator.
 6. **Sharp Scientific Calculator EL-531TH** - Sharp's advanced scientific calculator.
 
-**CASSim fx** is a scientific calculator device package (`src/cassim/devices/scientific`) in the CASSim multi-app browser shell. It delivers:
+**CASSim Scientific** is a scientific calculator device package (`src/cassim/devices/scientific`) in the CASSim multi-app browser shell. It delivers:
 - A responsive handheld calculator in CASSim's own design that keeps the familiar 50-key arrangement, usable with a mouse, touch or the computer keyboard.
 - Natural Display (MthIO) input and exact answers: fractions, mixed numbers, surds and multiples of π.
 - The statistics conventions CASSim uses everywhere (median-split quartiles, $n-1$ sample $s_x$, $n$ population $\sigma_x$, Pearson's $r$).
@@ -28,9 +28,9 @@ In Australian secondary mathematics (Year 7–10, VCE General Mathematics, VCE M
 
 Per CASSim decisions 0028, NFR-LEG-008, and NFR-LEG-009:
 1. **No ROM, Firmware, or Proprietary Code**: No binary dumps or decompiled code from Casio, Abacus, or any other manufacturer. The simulator is a purely behavioral, mathematical reconstruction built from curriculum specifications, user manuals, and syllabus requirements.
-2. **No Proprietary Brand Trademarks**: The product is strictly **CASSim fx**. Manufacturer trademarks such as "Casio", "fx-82AU", "fx-100AU", "Natural V.P.A.M.", "ClassWiz", and "Abacus" are never used as product names, screen badges, or UI assets. Generic, descriptive terminology is employed: "CASSim fx", "Natural Display", "MathIO / LineIO", "S⇔D Toggle", "Scientific Calculator". The one place a maker and model class is named is the Appearance ▸ Calculator list (FR-FX-UI-005, decided 2026-11-25), which names the class of calculator a keypad layout follows ("Casio fx-82 series") so students and teachers can find their own model; logos, artwork, fonts and copyright text are never copied.
+2. **No Proprietary Brand Trademarks**: The product is strictly **CASSim Scientific**. Manufacturer trademarks such as "Casio", "fx-82AU", "fx-100AU", "Natural V.P.A.M.", "ClassWiz", and "Abacus" are never used as product names, screen badges, or UI assets. Generic, descriptive terminology is employed: "CASSim Scientific", "Natural Display", "MathIO / LineIO", "S⇔D Toggle", "Scientific Calculator". The one place a maker and model class is named is the Appearance ▸ Calculator list (FR-FX-UI-005, decided 2026-11-25), which names the class of calculator a keypad layout follows ("Casio fx-82 series") so students and teachers can find their own model; logos, artwork, fonts and copyright text are never copied.
 3. **No Trade Dress Mimicry**: Skins and visual themes must **not** be faithful reproductions or traces of proprietary physical calculator casings. We replicate the abstract functional arrangement of keys (the standard 50-key matrix) so that students build transferable muscle memory for examinations, but the physical presentation—curvatures, bevels, badge placements, unique color combinations, textures, and keycap profiles—is CASSim's own original digital design.
-4. **Original CASSim Design Language**: Rather than attempting to mimic physical plastics or branded hardware replicas, CASSim fx adopts CASSim's unified software design language: clean flat-design aesthetics, elegant dark/light/high-contrast accessibility palettes, modern typography, and vector-rendered components.
+4. **Original CASSim Design Language**: Rather than attempting to mimic physical plastics or branded hardware replicas, CASSim Scientific adopts CASSim's unified software design language: clean flat-design aesthetics, elegant dark/light/high-contrast accessibility palettes, modern typography, and vector-rendered components.
 5. **Documentation & Help Prose**: All instructional texts, step-by-step guides, and tutorial explanations are original pedagogical prose written from scratch for Australian classrooms.
 
 Behaviour that has not been checked against a real device is marked as such in section 8; it is CASSim's best reading of the requirement, not a verified match.
@@ -123,7 +123,7 @@ The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceabi
 | ID | Description | MoSCoW | Verif |
 |---|---|---|---|
 | **FR-FX-SHR-001** | **Automatic Browser Persistence**: Calculator state is saved to browser storage (the shell's storage, under the device prefix `scientific.`) shortly after each key press. On reload the mode, settings, variables, STAT data, table and recent history are restored. A tutorial never overwrites the student's own saved work. | M | T, E |
-| **FR-FX-SHR-002** | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim fx by its `device`. | M | T, E |
+| **FR-FX-SHR-002** | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim Scientific by its `device`. | M | T, E |
 | **FR-FX-SHR-003** | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. A link holds key names and numbers only; nothing in it is executed. | M | I, T |
 | **FR-FX-SHR-004** | **Compact Link Budget**: A typical calculator link is 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`); history is left out of links and default settings are omitted. | M | T |
 | **FR-FX-SHR-005** | **Teacher Pre-Populated Problem Sets**: Teachers can share a single link that pre-loads a data set (e.g. a 25-row bivariate table) or a TABLE-mode function, so students begin solving immediately. | S | D, E |
@@ -226,7 +226,7 @@ A layout is data: rows of keys, each with its face, its legends and, for each la
 | Exact/decimal key | S⇔D | F↔D | none (a b/c, d/c) | none (a b/c, d/c) |
 | STAT data entry | table editor | table editor | DATA key (and the table) | DT key (and the table) |
 | Not on the keys | — | TABLE | TABLE, VERIFY, FACT, S⇔D | TABLE, VERIFY, FACT, S⇔D, MinMax, Reg |
-| On the keys but not in CASSim fx | — | — | base-n conversions, logic operations, MDF-like functions beyond Rnd | — |
+| On the keys but not in CASSim Scientific | — | — | base-n conversions, logic operations, MDF-like functions beyond Rnd | — |
 
 Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the fx-82 layout follows the natural-display models. The 10s's quartile, MinMax and regression menus are not reachable from its keys (its S-VAR key opens CASSim's Var menu). Lessons that need something a layout lacks run on the fx-82 keys (tests list which).
 
@@ -234,13 +234,13 @@ Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the f
 
 ## 5. Visual Styling & Original CASSim Themes
 
-To avoid trade dress mimicry, CASSim fx does **not** reproduce physical hardware shells, branded badges, or proprietary manufacturing finishes. It keeps the functional 50-key layout and applies CASSim's own flat design. The themes use CASSim's names, so Appearance works as in the other apps (`ui/skins.py`):
+To avoid trade dress mimicry, CASSim Scientific does **not** reproduce physical hardware shells, branded badges, or proprietary manufacturing finishes. It keeps the functional 50-key layout and applies CASSim's own flat design. The themes use CASSim's names, so Appearance works as in the other apps (`ui/skins.py`):
 
 1. **CASSim Slate (Dark, the default)**: chassis `#1e2229`; function keys `#282c35` with `#f0f2f5` labels; number keys `#363c48`; SHIFT amber `#e5a93c` and ALPHA coral (`#ef7b7b`, lighter than the first draft's `#e05d5d` for contrast on the dark body); DEL and AC emerald `#43a047` / `#2e7d32`; sage LCD `#dce5d3` with `#121810` characters.
 2. **Classroom high contrast**: charcoal chassis `#121316` with white keys and black labels; AC `#c62828`, DEL `#37474f`; paper LCD `#f4f6f8` with black characters. The legends above the keys sit on the dark body, so they are light gold `#ffb020` and light blue `#7cc0ff`; the draft's `#d48800` and `#0050b3` are used where they sit on white (the SHIFT and ALPHA key labels).
 3. **Studio Light**: chassis `#e9ecef` with a `#ced4da` edge; function keys `#495057`, number keys `#f8f9fa`; LCD `#e8edf2` with `#1a202c` characters.
 
-The badge on every theme reads **`CASSim fx`** with the subtitle **`NATURAL DISPLAY`**. The LCD uses Roboto Mono (bundled), whose fixed character width lets fraction bars and scrolling be laid out without measuring text; symbols fall back to the bundled Noto fonts so nothing is fetched at run time.
+The badge on every theme reads **`CASSim Scientific`** with the subtitle **`NATURAL DISPLAY`**. The LCD uses Roboto Mono (bundled), whose fixed character width lets fraction bars and scrolling be laid out without measuring text; symbols fall back to the bundled Noto fonts so nothing is fetched at run time.
 
 The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 design) so every key is visible on a Chromebook screen; below 0.7× the page scrolls. The tutorial panel moves under the calculator when the window is too narrow for both.
 

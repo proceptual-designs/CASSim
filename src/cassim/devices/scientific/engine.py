@@ -1,4 +1,4 @@
-"""Statistics and number theory for CASSim fx (FR-FX-STA-002 to -005, FR-FX-DSP-009).
+"""Statistics and number theory for CASSim Scientific (FR-FX-STA-002 to -005, FR-FX-DSP-009).
 
 Quartiles follow the school convention CASSim uses everywhere (AGENTS.md): Q1 and Q3 are the
 medians of the lower and upper halves, leaving the median out when n is odd; numpy's interpolated

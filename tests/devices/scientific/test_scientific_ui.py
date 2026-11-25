@@ -1,4 +1,4 @@
-"""The CASSim fx view, run headless against a stand-in shell.
+"""The CASSim Scientific view, run headless against a stand-in shell.
 
 Requirements: FR-FX-DSP-001, FR-FX-DSP-002, FR-FX-SHR-001, FR-FX-SHR-002, FR-FX-TUT-001,
 FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004.
@@ -17,6 +17,7 @@ import flet as ft
 import pytest
 
 from cassim.devices.scientific import keys as k
+from cassim.devices.scientific import layouts
 from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
@@ -131,7 +132,7 @@ def keyboard(app: ScientificApp, key: str, **mods: bool) -> None:
 
 def test_mount_and_start() -> None:
     app, _, page = started()
-    assert page.title == "CASSim fx"
+    assert page.title == "CASSim Scientific"
     assert page.controls == [app.root]
     assert page.on_keyboard_event == app.on_keyboard
     drawn = {key.id for key in app.layout.all_keys()}
@@ -416,6 +417,7 @@ def test_back_and_skip() -> None:
 def test_show_me_plays_the_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
     """FR-FX-TUT-005: Show me presses the keys itself."""
     monkeypatch.setattr(ui, "DEMO_STEP", 0.0)
+    monkeypatch.setattr(ui, "DEMO_NEW_STEP", 0.0)
     app, _, page = started()
     app.set_tutorial_mode("show")
     app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
@@ -518,4 +520,53 @@ def test_a_lesson_needing_table_uses_the_fx82_keys() -> None:
     assert app.shown_layout.id == "fx82"
     app.stop_lesson()
     assert app.shown_layout.id == "hp10s"
+    page.drop_tasks()
+
+
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+@pytest.mark.parametrize("how", ["keypad", "keyboard"])
+def test_reset_test_passes_on_every_calculator_by_keypad_or_keyboard(layout, how: str) -> None:
+    """Test me for "reset" is judged on the calculator: it passes on every layout (a linear
+    calculator resets to LineIO), whether the keys are clicked or typed."""
+    app, _, page = started()
+    app.set_layout(layout.id)
+    app.set_tutorial_mode("test")
+    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("reset")
+    app.start_lesson()
+    assert float(app.state.variables["A"]) == 5  # the test's own starting mess
+    canonical = [k.SHIFT, "9", "1", k.EQ, k.AC]
+    if how == "keyboard":
+        for name in ("F1", "9", "1", "Enter", "Escape"):
+            keyboard(app, name)
+    else:
+        steps = layouts.plan(app.shown_layout, canonical)
+        assert steps is not None
+        for step in steps:
+            for key in step.presses:
+                app.on_layout_key(key)
+    app.check_test()
+    assert app.feedback_ok, (layout.id, how, app.feedback)
+    page.drop_tasks()
+
+
+def _texts(control: object) -> list[str]:
+    found = []
+    if isinstance(control, ft.Text) and isinstance(control.value, str):
+        found.append(control.value)
+    for name in ("content", "controls"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child] if child is not None else []:
+            found.extend(_texts(item))
+    return found
+
+
+@pytest.mark.parametrize(
+    ("layout_id", "title"),
+    [("fx82", "fx-82"), ("sx2", "SX-II"), ("el531", "EL-531"), ("hp10s", "10s")],
+)
+def test_calculator_title_names_the_series(layout_id: str, title: str) -> None:
+    """The title on the calculator names the class of calculator its keys follow."""
+    app, _, page = started()
+    app.set_layout(layout_id)
+    assert f"CASSim Scientific ({title})" in _texts(app.calculator)
     page.drop_tasks()

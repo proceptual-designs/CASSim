@@ -55,6 +55,7 @@ type Cell = LKey | None  # None leaves a column empty
 class Layout:
     id: str
     title: str  # what the Appearance list calls it
+    series: str  # the class of calculator, short, for the title on the calculator ("SX-II")
     shift_name: str  # the face of the SHIFT key ("2nd", "2nd F")
     alpha_name: str
     top: tuple[tuple[Cell, ...], ...]  # rows beside the D-pad
@@ -134,6 +135,7 @@ DPAD_KEYS: tuple[LKey, ...] = tuple(
 FX82 = Layout(
     id="fx82",
     title="Casio fx-82 series",
+    series="fx-82",
     shift_name="SHIFT",
     alpha_name="ALPHA",
     top=(
@@ -211,6 +213,7 @@ FX82 = Layout(
 SX2 = Layout(
     id="sx2",
     title="Abacus SX-II series",
+    series="SX-II",
     shift_name="2nd",
     alpha_name="ALPHA",
     shift_mark="2nd",
@@ -293,6 +296,7 @@ _NONE: Seq = ()
 EL531 = Layout(
     id="el531",
     title="Sharp EL-531 series",
+    series="EL-531",
     shift_name="2ndF",
     alpha_name="ALPHA",
     shift_mark="2ndF",
@@ -402,7 +406,7 @@ EL531 = Layout(
         "A two-line linear display: fractions show as 2⌟3 and surds as decimals.",
         "No TABLE or VERIFY mode, and no prime factorisation (FACT) or S⇔D key.",
         "In STAT mode M+ is DATA: it adds the entry (x, or x,y) as a new data row.",
-        "Base-n conversions and logic operations are on the keys but are not part of CASSim fx.",
+        "Base-n conversions and logic operations are on the keys but are not simulated.",
         "Statistics variables are typed with ALPHA and the key they are printed above.",
     ),
 )
@@ -412,6 +416,7 @@ EL531 = Layout(
 HP10S = Layout(
     id="hp10s",
     title="HP 10s series",
+    series="10s",
     shift_name="SHIFT",
     alpha_name="ALPHA",
     shift_colour="#5fb4ff",

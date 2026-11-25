@@ -1,8 +1,8 @@
-# CASSim fx (scientific calculator)
+# CASSim Scientific (scientific calculator)
 
-CASSim fx is a natural-display scientific calculator of the kind used in Australian schools for Years 7–10, VCE General Mathematics and the non-CAS parts of Methods and Specialist. It has the familiar 50-key layout, so what students practise here carries over to their own calculator. It is in the testing version of CASSim while it is being built: open it from the Home screen, or go straight to it with `#/app/scientific` after the site address.
+CASSim Scientific is a natural-display scientific calculator of the kind used in Australian schools for Years 7–10, VCE General Mathematics and the non-CAS parts of Methods and Specialist. It has the familiar 50-key layout, so what students practise here carries over to their own calculator. It is in the testing version of CASSim while it is being built: open it from the Home screen, or go straight to it with `#/app/scientific` after the site address.
 
-> CASSim fx is an independent simulator. It is not an approved exam calculator. Its behaviour has not yet been compared key for key with a physical calculator; see [[What works and what does not yet]].
+> CASSim Scientific is an independent simulator. It is not an approved exam calculator. Its behaviour has not yet been compared key for key with a physical calculator; see [[What works and what does not yet]].
 
 ## The keypad
 
@@ -83,7 +83,7 @@ Those calculators do differ in what they can do, and CASSim follows them:
 | Prime factors (FACT) | yes | yes | no | no |
 
 - On a linear calculator a fraction shows as 2⌟3 and a surd as a decimal. Choosing the EL-531 or 10s keys switches SETUP to linear display; you can switch it back in SETUP.
-- The EL-531 keys also show base-n and logic functions; CASSim fx does not do those, so the keys do nothing.
+- The EL-531 keys also show base-n and logic functions; CASSim Scientific does not do those, so the keys do nothing.
 - A lesson that needs something your calculator does not have (TABLE mode, for example) uses the fx-82 keys and says so.
 - Older fx-82 models (such as the fx-82MS) have a linear display and no VERIFY or TABLE.
 

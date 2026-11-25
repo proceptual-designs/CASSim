@@ -1,4 +1,4 @@
-"""The CASSim fx view: top bar, calculator and tutorial panel (SDD-14 section 5).
+"""The CASSim Scientific view: top bar, calculator and tutorial panel (SDD-14 section 5).
 
 The calculator is drawn from the key table in `keys.py` and the screen model of `state.py`; this
 module only draws them and passes keys on. It scales to the window, so the whole keypad fits on a
@@ -46,7 +46,8 @@ MIN_SCALE = 0.7
 MAX_SCALE = 1.3
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
-DEMO_STEP = 0.8  # seconds per key at 1×
+DEMO_STEP = 2.0  # seconds per key at 1×: slow enough to talk through
+DEMO_NEW_STEP = 2.0  # extra seconds before a new step, to read its instruction
 # The legends above a key, as in the design mockup: 8 px bold, inset 2 px from the key's edges.
 LEGEND_SIZE = 8.0
 LEGEND_MIN = 6.5
@@ -64,6 +65,15 @@ def legend_font_size(shift: str, alpha: str, width: float, scale: float) -> floa
         return LEGEND_SIZE * scale
     fitted = room / (chars * LEGEND_ADVANCE)
     return max(LEGEND_MIN * scale, min(LEGEND_SIZE * scale, fitted))
+
+
+def ink_on(fill: str) -> str:
+    """Near-black or white text, whichever reads better on `fill` (a #rrggbb colour)."""
+    hex_ = fill.lstrip("#")[:6]
+    if len(hex_) != 6:  # noqa: PLR2004
+        return "#ffffff"
+    r, g, b = (int(hex_[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    return "#111111" if 0.299 * r + 0.587 * g + 0.114 * b > 0.55 else "#ffffff"  # noqa: PLR2004
 
 
 def _safe_update(control: ft.Control) -> None:
@@ -85,7 +95,7 @@ SHORTCUTS = _shortcut_names()
 
 
 class ScientificApp:
-    """The mounted CASSim fx app."""
+    """The mounted CASSim Scientific app."""
 
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
@@ -269,7 +279,12 @@ class ScientificApp:
         subtitle = "TWO-LINE DISPLAY" if layout.linear else "NATURAL DISPLAY"
         badge = ft.Row(
             [
-                ft.Text("CASSim fx", size=13 * s, weight=ft.FontWeight.BOLD, color=skin.badge),
+                ft.Text(
+                    f"CASSim Scientific ({layout.series})",
+                    size=13 * s,
+                    weight=ft.FontWeight.BOLD,
+                    color=skin.badge,
+                ),
                 ft.Text(subtitle, size=9 * s, weight=ft.FontWeight.W_600, color=skin.badge_sub),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -650,12 +665,16 @@ class ScientificApp:
         shift_colour, alpha_colour = self._legend_colours()
         for key, face in self.key_controls.items():
             spec = self._layout_key(key)
-            fill, _ = self._colours(spec)
+            fill, text = self._colours(spec)
             if spec.plain == (k.SHIFT,) and self.state.shift:
                 fill = shift_colour
+                text = ink_on(fill)
             elif spec.plain == (k.ALPHA,) and self.state.alpha:
                 fill = alpha_colour
+                text = ink_on(fill)
             face.bgcolor = fill
+            if isinstance(face.content, ft.Text):
+                face.content.color = text  # a lit modifier's own name must stay readable
             if key == target:
                 face.border = ft.Border.all(3 * self.scale, skin.target)
                 face.shadow = ft.BoxShadow(spread_radius=1, blur_radius=10, color=skin.target)
@@ -703,7 +722,7 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     async def start(self, **_options: object) -> None:
-        self.page.title = "CASSim fx"
+        self.page.title = "CASSim Scientific"
         self.page.fonts = {**(self.page.fonts or {}), **FONTS}
         self.page.padding = 0
         self.page.on_keyboard_event = self.on_keyboard
@@ -1166,7 +1185,7 @@ class ScientificApp:
         if self.saved_before_lesson is None:
             self.saved_before_lesson = self.state.to_dict()
         self._show_layout(lesson_layout(lesson, self.layout))
-        lesson.prepare(self.state)
+        lesson.prepare(self.state, test=self.tutorial_mode == "test")
         self.session = TutorialSession(lesson, mode=self.tutorial_mode)
         self.session._screens = expected_screens(lesson, self.shown_layout)
         self.pending = []
@@ -1271,7 +1290,8 @@ class ScientificApp:
         session = self.session
         while session is not None and not session.is_complete and run == self.demo_run:
             self.refresh()
-            await asyncio.sleep(DEMO_STEP / self.speed)
+            pause = DEMO_STEP + (DEMO_NEW_STEP if session.key_index == 0 else 0)
+            await asyncio.sleep(pause / self.speed)
             if run != self.demo_run or self.session is not session:
                 return
             target = self._target_key()
@@ -1608,7 +1628,8 @@ class ScientificApp:
                         calculator,
                         ft.Text(
                             "The keys are named and arranged like that calculator's, so you can "
-                            "find yours. CASSim fx works the same behind them; see Help for what "
+                            "find yours. CASSim Scientific works the same behind them; see Help "
+                            "for what "
                             "each model does differently.",
                             size=12,
                         ),

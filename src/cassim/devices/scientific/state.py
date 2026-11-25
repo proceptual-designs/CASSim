@@ -1,4 +1,4 @@
-"""The CASSim fx device: what each key does and what the screen shows (SDD-14 sections 3 and 6).
+"""The CASSim Scientific device: what each key does and what the screen shows (SDD-14 3, 6).
 
 `ScientificState.press(key)` takes the key ids of `keys.py`; `display()` describes the LCD for the
 view (and as text for the tests and the tutorials). The state also reads and writes its part of a
@@ -73,7 +73,7 @@ VARIABLES = ("A", "B", "C", "D", "E", "F", "M", "X", "Y")
 
 
 class DocumentFileError(ValueError):
-    """The text is not a CASSim fx document this version can open."""
+    """The text is not a CASSim Scientific document this version can open."""
 
 
 # ---- what the LCD shows ---------------------------------------------------------------------
@@ -1454,7 +1454,7 @@ class ScientificState:
             raise DocumentFileError(msg)
         device = data.get("device", "nspire")
         if device != DEVICE_ID:
-            msg = f"this document is for the {device} app, not CASSim fx"
+            msg = f"this document is for the {device} app, not CASSim Scientific"
             raise DocumentFileError(msg)
         self.from_dict(data.get("calculator"))
         name = data.get("name", "Untitled")

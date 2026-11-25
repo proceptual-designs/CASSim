@@ -1,4 +1,4 @@
-"""Exact and decimal values for CASSim fx (SDD-14 section 6.2).
+"""Exact and decimal values for CASSim Scientific (SDD-14 section 6.2).
 
 A natural-display scientific calculator gives exact answers in a few fixed shapes: fractions,
 surds such as `3√2/4` or `1 + √3`, and rational multiples of π. A value here is either `Exact`, a

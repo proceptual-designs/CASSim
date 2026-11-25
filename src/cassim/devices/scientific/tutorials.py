@@ -41,7 +41,8 @@ class Challenge:
 
     prompt: str
     check: Callable[[ScientificState], bool]
-    answer: str  # shown after a wrong check
+    answer: str  # shown after a wrong check: what the calculator should end with, not the keys
+    start: tuple[str, ...] | None = None  # keys pressed (unseen) after a reset; None: the lesson's
 
 
 @dataclass(frozen=True)
@@ -60,10 +61,11 @@ class Lesson:
     def key_count(self) -> int:
         return sum(len(step.keys) for step in self.steps)
 
-    def prepare(self, state: ScientificState) -> None:
-        """Reset the calculator and set it up for step 1."""
+    def prepare(self, state: ScientificState, *, test: bool = False) -> None:
+        """Reset the calculator and set it up for step 1 (or for the Test me problem)."""
         state.reset()
-        for key in self.start:
+        start = self.challenge.start if test and self.challenge.start is not None else self.start
+        for key in start:
             state.press(key)
 
 
@@ -87,13 +89,37 @@ def _answer_is(text: str) -> Callable[[ScientificState], bool]:
     return check
 
 
-def _is_reset(state: ScientificState) -> bool:
-    fresh = ScientificState()
+def _is_number(value: object, target: float) -> bool:
+    return isinstance(value, (v.Exact, float, int)) and math.isclose(float(value), target)
+
+
+def _value_is(target: float) -> Callable[[ScientificState], bool]:
+    """The last answer has this value, whatever form the display shows it in (a natural display
+    shows 1/2 where a linear one shows 0.5)."""
+    return _ans_close(target, rel=1e-9)
+
+
+def _settings_reset_memories_kept(state: ScientificState) -> bool:
+    """Judged on the calculator, not the keys: SETUP is back to this calculator's defaults (a
+    linear-display calculator's default is LineIO), the mode is COMP, and A and M still hold the
+    values stored before the test."""
     return (
-        state.setup == fresh.setup
+        state.setup == state.default_setup()
         and state.mode == "COMP"
-        and all(float(value) == 0 for value in state.variables.values())
+        and float(state.variables["A"]) == 5  # noqa: PLR2004
+        and float(state.variables["M"]) == 7  # noqa: PLR2004
     )
+
+
+# Test me for "reset": a different mess (degrees, Fix 2, A = 5, M = 7, STAT data) and a different
+# clear (the setup only), so it is like the lesson but not the same.
+MESSY = (
+    *(k.SHIFT, k.MODE, "3"),  # Deg
+    *(k.SHIFT, k.MODE, "6", "2"),  # Fix 2
+    *("5", k.SHIFT, k.RCL, k.NEG),  # 5 → A
+    *("7", k.SHIFT, k.RCL, k.MPLUS),  # 7 → M
+    *(k.MODE, "2", "1", "4", k.EQ, k.AC),  # STAT data
+)
 
 
 def _entries(*numbers: str) -> tuple[Step, ...]:
@@ -144,9 +170,11 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         answer="",
         challenge=Challenge(
-            "Reset only the setup (not the memories), then reset everything again.",
-            _is_reset,
-            "SHIFT 9, 3, =, AC",
+            "Someone has changed the settings and left 5 in A and 7 in M. Put the settings back "
+            "to their defaults but keep the memories.",
+            _settings_reset_memories_kept,
+            "the settings reset (COMP mode, default SETUP) with A = 5 and M = 7 kept",
+            start=MESSY,
         ),
     ),
     Lesson(
@@ -162,9 +190,10 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         answer="",
         challenge=Challenge(
-            "Turn the frequency column off again.",
+            "The frequency column is on. Turn it off.",
             lambda state: not state.setup.frequency,
-            "SHIFT MODE, ▼, 1, 2",
+            "STAT's frequency setting OFF",
+            start=FREQ_ON,
         ),
         start=(),
     ),
@@ -306,7 +335,7 @@ LESSONS: tuple[Lesson, ...] = (
             Step((k.EQ,), "Press {EQ}.", "The angle is in degrees."),
         ),
         answer="30",
-        challenge=Challenge("Find cos 60° exactly.", _answer_is("1⌟2"), "1/2"),
+        challenge=Challenge("Find cos 60°.", _value_is(0.5), "1/2"),
     ),
     Lesson(
         id="percent",
@@ -372,8 +401,9 @@ LESSONS: tuple[Lesson, ...] = (
                 state.screen == "table"
                 and bool(state.table_rows)
                 and float(state.table_rows[state.table_cursor[0]][0]) == 4  # noqa: PLR2004
+                and _is_number(state.table_rows[state.table_cursor[0]][1], 9)
             ),
-            "MODE 3, 2 ALPHA ) + 1, =, 0 =, 4 =, 1 =, then ▼ to X = 4",
+            "the table of 2X + 1 (start 0, end 4, step 1) with the row X = 4 selected",
         ),
     ),
 )

@@ -1,4 +1,4 @@
-"""CASSim fx scientific calculator Flet UI."""
+"""CASSim Scientific scientific calculator Flet UI."""
 
 from __future__ import annotations
 

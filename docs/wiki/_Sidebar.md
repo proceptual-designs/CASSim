@@ -8,7 +8,7 @@
 - [[Nspire calculator|Nspire]]
 - [[Pseudocode & Python|Pseudocode]]
 - [[Pseudocode syntax]]
-- [[CASSim fx (scientific)|Scientific calculator]]
+- [[CASSim Scientific (scientific)|Scientific calculator]]
 
 **Nspire**
 

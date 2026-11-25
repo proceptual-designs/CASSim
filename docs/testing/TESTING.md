@@ -30,7 +30,7 @@ from this map:
 | `doc/`, autosave or storage | matching app/device document tests | autosave/reload e2e and relevant PWA/offline e2e |
 | `sheet/`, `graph/` or `stats/` | matching unit and device tests | corresponding sheet/statistics browser test when rendering or controls change |
 | `runtime/` | matching `tests/runtime/` file | browser coverage when the Code UI is involved |
-| `devices/scientific/` (CASSim fx) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, ui) | a manual browser check until an fx e2e test exists |
+| `devices/scientific/` (CASSim Scientific) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, ui) | a manual browser check until an fx e2e test exists |
 | publishing, PWA, worker or Pyodide | matching tool/unit tests | full e2e suite |
 
 Run a single e2e file when the browser path is local, for example:

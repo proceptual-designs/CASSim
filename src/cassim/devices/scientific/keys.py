@@ -1,4 +1,4 @@
-"""The CASSim fx keypad and computer keyboard, as data (SDD-14 section 4).
+"""The CASSim Scientific keypad and computer keyboard, as data (SDD-14 section 4).
 
 One table names every key once. The keypad drawing, the device state, the tutorials and the computer
 keyboard map all use these names, so a key that the drawing shows is a key the state handles
