@@ -357,6 +357,10 @@ STUB_HELP = (
 class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
+    _strips: dict[str, Strip]  # long lines scrolled sideways: "entry", "recall"
+    # "row:kind" -> the row's text and the height it was drawn at as LaTeX
+    _row_heights: dict[str, tuple[str, float]]
+
     def __init__(
         self,
         state: AppState,
@@ -405,7 +409,7 @@ class CalculatorView:
         self._keep: float | None = None  # the scroll offset when that click was made
         self._tapped: str | None = None  # a line whose maths took a tap its line may see too
         self._to_end = False  # after this redraw, scroll the history to its end (the entry line)
-        self._strips: dict[str, Strip] = {}  # long lines scrolled sideways: "entry", "recall"
+        self._strips, self._row_heights = {}, {}
         self._last_drawn: tuple[object, ...] | None = None  # what the last Calculator redraw showed
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
@@ -1111,6 +1115,12 @@ class CalculatorView:
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
 
+    def _row_sized(self, spec: str, text: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def store(event: ft.LayoutSizeChangeEvent) -> None:
+            self._row_heights[spec] = (text, event.height)
+
+        return store
+
     def _line(self, line: Line, number: int, *, own_line: bool = False) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
         place as before; once moved into, its own LaTeX draws the cursor and the selected part.
@@ -1127,6 +1137,10 @@ class CalculatorView:
             )
             recalled.inline = True  # as the history draws the row, so it keeps its size
             body: ft.Control = recalled.build(editor)
+            drawn = self._row_heights.get(spec)
+            if drawn is not None and drawn[0] == line.text:
+                # held at the height the row had as LaTeX: the rows under it do not move
+                body = ft.Container(body, height=drawn[1])
         elif line.error:
             body = ft.Text(
                 line.text,
@@ -1141,6 +1155,9 @@ class CalculatorView:
             bgcolor=self.theme.selection if line.selected and not line.part else None,
             # a tap on the maths itself says where: the cursor goes near it
             on_tap_down=None if editor is not None else lambda event: self._tap_line(spec, event),
+            # a row drawn as LaTeX says how tall it came out, once (rows are kept between
+            # redraws), so it can keep that height when the cursor moves into it
+            on_size_change=None if editor is not None else self._row_sized(spec, line.text),
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))

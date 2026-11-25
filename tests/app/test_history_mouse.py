@@ -271,3 +271,29 @@ def test_stepping_back_from_the_end_of_a_long_line_does_not_move_it() -> None:
     calculator.editor.left()
     view.refresh()
     assert strip.offset == before
+
+
+def test_a_row_moved_into_is_held_at_the_height_it_was_drawn_at() -> None:
+    """The LaTeX row reports its height once; the same row drawn from controls keeps it, so the
+    rows under it stay where they were."""
+    state = AppState()
+    calculator = calculator_on(state.document.current)
+    calculator.editor.insert_linear("1/3+1/x")
+    state.key_event("Enter")
+    view = CalculatorView(state, on_action=state.run_action)
+    view.refresh()
+    reports = [
+        c.on_size_change
+        for c in walk(view.history)
+        if isinstance(c, ft.Container) and isinstance(c.content, ft.Markdown) and c.on_size_change
+    ]
+    assert len(reports) == 2  # the entry and its result
+    view._row_heights["0:result"] = (calculator.history[0].result.text, 27.0)
+    state.run_action("recall_at", "0:result")
+    view.refresh()
+    held = [c for c in walk(view.history) if isinstance(c, ft.Container) and c.height == 27.0]
+    assert len(held) == 1
+    view._row_heights["0:result"] = ("something else", 27.0)  # a stale report is not used
+    view._history_rows.clear()
+    view.refresh()
+    assert not [c for c in walk(view.history) if isinstance(c, ft.Container) and c.height == 27.0]
