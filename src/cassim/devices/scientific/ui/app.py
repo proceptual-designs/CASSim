@@ -44,6 +44,11 @@ BAR_HEIGHT = 48.0
 PANEL_WIDTH = 330.0
 MIN_SCALE = 0.7
 MAX_SCALE = 1.3
+# A phone: a short side below this (as the Nspire app's NARROW, decision 0013 item 3). There the
+# calculator fills the screen, its keys grow to use the height, and the tutorials start hidden.
+NARROW = 600
+PHONE_MAX_SCALE = 2.0
+MAX_STRETCH = 1.8  # how much taller the keys may grow on a phone
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
 DEMO_STEP = 2.0  # seconds per key at 1×: slow enough to talk through
@@ -105,6 +110,8 @@ class ScientificApp:
         self.scale = 1.0
         self.menu_visible = True
         self.panel_open = True
+        self.stretch = 1.0  # the keys' height over their width's, above 1 on a tall phone
+        self.use_cutout = True  # an installed phone draws under its camera cutout unless avoided
         self.doc_name = "Untitled"
         self.key_controls: dict[str, ft.Container] = {}
         self.completed: set[str] = set()
@@ -141,10 +148,18 @@ class ScientificApp:
             if self.shell.home is not None
             else []
         )
+        self.tutorials_item = ft.MenuItemButton(
+            content="Hide tutorials", on_click=lambda _: self.toggle_panel()
+        )
+        self.cutout_item = ft.MenuItemButton(
+            content="Avoid cutout", on_click=lambda _: self.toggle_cutout(), visible=False
+        )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
                 *home,
+                self.tutorials_item,
+                self.cutout_item,
                 ft.MenuItemButton(content="Settings…", on_click=lambda _: self.open_settings()),
                 ft.MenuItemButton(content="Appearance…", on_click=lambda _: self.open_appearance()),
                 ft.MenuItemButton(
@@ -250,14 +265,21 @@ class ScientificApp:
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
+        self.body_frame = ft.Container(self.body, padding=12)
         self.content = ft.Column(
-            [ft.Container(self.body, padding=12)],
+            [self.body_frame],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        self.root = ft.Stack(
-            [ft.Column([self.top_bar, self.content], expand=True, spacing=0), self.restore_button],
+        self.root = ft.Container(
+            ft.Stack(
+                [
+                    ft.Column([self.top_bar, self.content], expand=True, spacing=0),
+                    self.restore_button,
+                ],
+                expand=True,
+            ),
             expand=True,
         )
 
@@ -279,7 +301,7 @@ class ScientificApp:
         self.key_controls = {}
         inner = (BASE_WIDTH - 28) * s
         self.lcd = ft.Container(
-            height=112 * s,
+            height=112 * s * (1 + (self.stretch - 1) / 2),
             bgcolor=skin.lcd,
             border_radius=8 * s,
             border=ft.Border.all(3 * s, skin.lcd_edge),
@@ -439,11 +461,11 @@ class ScientificApp:
         return ft.Row(controls, spacing=gap, width=width, tight=True)
 
     def _key_row(self, row: tuple[Cell, ...], inner: float) -> ft.Row:
-        return self._cells(row, inner, 34 * self.scale)
+        return self._cells(row, inner, 34 * self.scale * self.stretch)
 
     def _dpad(self) -> ft.Column:
         s = self.scale
-        nav_w, nav_h = 40 * s, 24 * s
+        nav_w, nav_h = 40 * s, 24 * s * self.stretch
         up, left, right, down = layouts.DPAD_KEYS
         return ft.Column(
             [
@@ -468,7 +490,7 @@ class ScientificApp:
         """The keys beside the D-pad: either side of it, or all to its left."""
         s = self.scale
         layout = self.shown_layout
-        h = 30 * s
+        h = 30 * s * self.stretch
         dpad_w = 100 * s
         gap = 6 * s
         if layout.dpad == "right":
@@ -498,6 +520,11 @@ class ScientificApp:
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    def key_height(self) -> float:
+        """The part of `layout_height` that is key faces (what grows on a tall phone)."""
+        layout = self.shown_layout
+        return len(layout.rows) * 34.0 + max(len(layout.top) * 30.0, 72.0) + 56.0
 
     def layout_height(self) -> float:
         """The calculator's height at scale 1 for the shown layout."""
@@ -757,6 +784,8 @@ class ScientificApp:
         self.page.on_resize = lambda _: self.fit()
         self.shell.changed = self.on_bridge
         await self._load_prefs()
+        if self.phone:
+            self.panel_open = False  # a phone starts with the whole screen for the calculator
         await self._load_state()
         layout = self.layout
         self.state.use_layout(
@@ -774,22 +803,56 @@ class ScientificApp:
         self.page.controls.clear()
 
     def on_bridge(self) -> None:
+        """The page reported a change (an update, installing, the safe area)."""
         self.update_item.content = getattr(self.shell, "update_label", "Check for updates")
         _safe_update(self.update_item)
+        if self.key_controls:
+            self.fit()
+
+    @property
+    def phone(self) -> bool:
+        """A phone-sized window: its short side is narrow."""
+        sides = [side for side in (self.page.width, self.page.height) if side]
+        return bool(sides) and min(sides) < NARROW
+
+    def _safe_area(self) -> tuple[float, float, float, float]:
+        """The inset kept clear of a phone's camera cutout, when the user asks for it (installed
+        app only, as in the Nspire app)."""
+        offers = getattr(self.shell, "offers", None)
+        if offers is not None and self.phone and offers.installed and not self.use_cutout:
+            return offers.safe_area
+        return (0.0, 0.0, 0.0, 0.0)
+
+    def toggle_cutout(self) -> None:
+        self.use_cutout = not self.use_cutout
+        self.fit()
 
     def fit(self) -> None:
-        """Scale the calculator so all of it fits the window (FR-FX-DSP-001)."""
-        page_w = float(getattr(self.page, "width", 0) or 1200)
-        page_h = float(getattr(self.page, "height", 0) or 800)
+        """Scale the calculator so all of it fits the window (FR-FX-DSP-001). On a phone it fills
+        the width and its keys grow to use the height, unless the tutorials are open below it."""
+        phone = self.phone
+        top, right, bottom, left = self._safe_area()
+        self.root.padding = ft.Padding.only(top=top, right=right, bottom=bottom, left=left)
+        page_w = float(getattr(self.page, "width", 0) or 1200) - left - right
+        page_h = float(getattr(self.page, "height", 0) or 800) - top - bottom
         bar = BAR_HEIGHT if self.menu_visible else 0
-        tall = (page_h - bar - 32) / self.layout_height()
-        wide = (page_w - 28) / BASE_WIDTH
-        scale = max(MIN_SCALE, min(MAX_SCALE, tall, wide))
-        if abs(scale - self.scale) > 0.02 or not self.key_controls:  # noqa: PLR2004
-            self.scale = scale
+        margin = 8 if phone else 28
+        room = page_h - bar - (12 if phone else 32)
+        tall = room / self.layout_height()
+        wide = (page_w - margin) / BASE_WIDTH
+        scale = max(MIN_SCALE, min(PHONE_MAX_SCALE if phone else MAX_SCALE, tall, wide))
+        stretch = 1.0
+        if phone and not self.panel_open:
+            spare = room - self.layout_height() * scale
+            stretch = min(MAX_STRETCH, 1 + max(0.0, spare) / (self.key_height() * scale))
+        changed = abs(scale - self.scale) > 0.02 or abs(stretch - self.stretch) > 0.02  # noqa: PLR2004
+        if changed or not self.key_controls:
+            self.scale, self.stretch = scale, stretch
             self._build_calculator()
-        self.panel.width = min(PANEL_WIDTH, page_w - 28)
-        self.body.width = page_w - 24  # a wrapping row needs a width to centre and to wrap in
+        self.body_frame.padding = 2 if phone else 12
+        self.panel.width = min(PANEL_WIDTH, page_w - margin)
+        self.body.width = page_w - (4 if phone else 24)  # a wrapping row needs a width
+        self._phone_bar(phone=phone)
         self.refresh()
         _safe_update(self.body)
 
@@ -940,9 +1003,25 @@ class ScientificApp:
         self.fit()
 
     def toggle_panel(self) -> None:
+        """Show or hide the tutorials (the Tutorials button, or CASSim ▸ Show/Hide tutorials). On a
+        phone the calculator gives up its stretch to make room for them below it."""
         self.panel_open = not self.panel_open
         self._draw_panel()
-        self._save_prefs()
+        if not self.phone:
+            self._save_prefs()  # a phone always starts with them hidden; keep the saved choice
+        self.fit()
+
+    def _phone_bar(self, *, phone: bool) -> None:
+        """The menu bar on a phone: the model and mode chips stay; the angle and display chips
+        and the Tutorials button go (CASSim ▸ Show tutorials has it). The menu's own labels
+        follow the state."""
+        for item in (self.angle_chip, self.io_chip, self.panel_button):
+            item.visible = not phone
+        self.tutorials_item.content = "Hide tutorials" if self.panel_open else "Show tutorials"
+        offers = getattr(self.shell, "offers", None)
+        self.cutout_item.visible = bool(phone and offers is not None and offers.installed)
+        self.cutout_item.content = "Avoid cutout" if self.use_cutout else "Use cutout"
+        _safe_update(self.top_bar)
 
     def _home(self) -> None:
         if self.shell.home is not None:
