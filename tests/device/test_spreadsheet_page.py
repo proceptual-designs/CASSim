@@ -1528,7 +1528,7 @@ def test_inference_wizard_writes_a_live_result_column():
     finish_wizard(state, method="stats")
     finish_wizard(state, mean="5", sd="2", n="8", level="0.95")
     assert sheet.columns[H][2] == "tInterval 5,2,8,0.95"
-    assert column(state, G, [1, 2, 3]) == ["Title", "x̄", "CLower"]
+    assert column(state, G, [1, 2, 3]) == ["Title", "CLower", "CUpper"]
 
 
 def test_shade_p_value_splits_the_spreadsheet_view():
@@ -1827,7 +1827,7 @@ def test_two_sample_t_interval_and_linear_reg_t_test_fields():
     state, sheet = stats_sheet()
     sheet.go((E, 1))
     state.run(Binding("sheet", "inference:tInterval_2Samp"))
-    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data"]
+    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data", "Stats"]
     finish_wizard(state)
     assert [(f.label, f.default) for f in state.wizards[-1].fields] == [
         ("List 1", "e[]"),
@@ -1851,7 +1851,116 @@ def test_two_sample_t_interval_and_linear_reg_t_test_fields():
     ]
     assert wizard.fields[4].choices[1][1] == f"Ha: β & {RHO} ≠ 0"
     finish_wizard(state, x="c[]", y="c[]^2")
-    assert sheet.columns[J][2] == "LinRegtTest c[],c[]^2,1,0,0: CopyVar stat.RegEqn,f1"
+    assert sheet.columns[J][2] == "LinRegtTest c[],c[]^2,1,0: CopyVar stat.RegEqn,f1"
+
+
+@pytest.mark.parametrize(
+    ("command", "labels", "values", "formula"),
+    [
+        (
+            "zTest_2Samp",
+            ["σ1", "σ2", "x̄1", "n1", "x̄2", "n2", "Alternate Hyp"],
+            {"sigma1": "1.2", "sigma2": "1.5", "mean1": "5.4", "n1": "10", "mean2": "4.8"},
+            "zTest_2Samp 1.2,1.5,5.4,10,4.8,12,0",
+        ),
+        (
+            "tTest_2Samp",
+            ["x̄1", "Sx1", "n1", "x̄2", "Sx2", "n2", "Alternate Hyp", "Pooled"],
+            {"mean1": "5.4", "sd1": "1.2", "n1": "10", "mean2": "4.8", "sd2": "1.5"},
+            "tTest_2Samp 5.4,1.2,10,4.8,1.5,12,0,0",
+        ),
+        (
+            "tInterval_2Samp",
+            ["x̄1", "Sx1", "n1", "x̄2", "Sx2", "n2", "C Level", "Pooled"],
+            {"mean1": "5.4", "sd1": "1.2", "n1": "10", "mean2": "4.8", "sd2": "1.5"},
+            "tInterval_2Samp 5.4,1.2,10,4.8,1.5,12,0.95,0",
+        ),
+    ],
+)
+def test_two_sample_stats_forms(command, labels, values, formula):
+    """FR-STAT-004 (run 6, R6-C3): the two-sample tests and interval offer Stats as well as
+    Data, with the device's fields; then the result column, and Draw for a test."""
+    state, sheet = stats_sheet()
+    sheet.go((E, 1))
+    state.run(Binding("sheet", f"inference:{command}"))
+    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data", "Stats"]
+    finish_wizard(state, method="stats")
+    fields = [field.label for field in state.wizards[-1].fields]
+    tail = ["1st Result Column", *(["Draw: Shade P Value"] if "Test" in command else [])]
+    assert fields == [*labels, *tail]
+    finish_wizard(state, **values, n2="12")
+    assert sheet.columns[G][2] == formula
+
+
+def test_two_sample_t_interval_stats_in_the_sheet_matches_run_6():
+    """Run 6, S2: x̄1 5.4, Sx1 1.2, n1 10, x̄2 4.8, Sx2 1.5, n2 12, C 0.95, not pooled."""
+    state, sheet = stats_sheet()
+    sheet.go((E, 1))
+    state.run(Binding("sheet", "inference:tInterval_2Samp"))
+    finish_wizard(state, method="stats")
+    finish_wizard(state, mean1="5.4", sd1="1.2", n1="10", mean2="4.8", sd2="1.5", n2="12")
+    rows = list(range(1, 13))
+    assert column(state, F, rows) == [
+        "Title",
+        "CLower",
+        "CUpper",
+        "x̄Diff",
+        "ME",
+        "df",
+        "x̄1",
+        "x̄2",
+        "sx1",
+        "sx2",
+        "n1",
+        "n2",
+    ]
+    assert column(state, G, [1, 4, 6]) == ["2-Sample t Interval", "0.6", "19.980327"]
+
+
+def test_t_test_in_the_sheet_matches_run_6():
+    """Run 6, R6-C2: t Test on d1 = {2,4,4,4,5,5,7,9}, μ0 4, Ha μ ≠ μ0: eight rows, labels in
+    one column and values in the next."""
+    state, _ = stats_sheet()
+    state.run(Binding("sheet", "inference:tTest"))
+    finish_wizard(state)
+    finish_wizard(state, null="4")
+    rows = list(range(1, 9))
+    assert column(state, D, rows) == [
+        "Title",
+        "Alternate Hyp",
+        "t",
+        "PVal",
+        "df",
+        "x̄",
+        "sx := sn-1x",
+        "n",
+    ]
+    assert column(state, E, rows) == [
+        "t Test",
+        "μ ≠ μ0",
+        "1.3228757",
+        "0.22745282",
+        "7.",
+        "5.",
+        "2.1380899",
+        "8.",
+    ]
+
+
+def test_escape_in_a_tests_fields_goes_back_to_the_data_input_method():
+    """Run 6, R6-C3: Esc in the fields dialog reopens the Data Input Method box; a dialog with
+    no such box just closes."""
+    state, _ = stats_sheet()
+    state.run(Binding("sheet", "inference:zTest_2Samp"))
+    finish_wizard(state, method="stats")
+    fields = state.wizards.pop()
+    state.escape_wizard(fields)
+    assert state.wizards[-1].fields[0].label == "Data Input Method"
+    assert [label for _, label in state.wizards[-1].fields[0].choices] == ["Data", "Stats"]
+    state.wizards.clear()
+    state.run(Binding("sheet", "inference:zTest_1Prop"))
+    state.escape_wizard(state.wizards.pop())
+    assert state.wizards == []
 
 
 def test_the_stat_tests_and_intervals_lists():

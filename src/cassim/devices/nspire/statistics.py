@@ -139,8 +139,8 @@ TESTS = (
             Field("x2", "X2 List"),
             Field("freq1", "Frequency List 1", "1"),
             Field("freq2", "Frequency List 2", "1"),
-            POOLED,
             ALTERNATIVE,
+            POOLED,
         ),
     ),
     (
@@ -197,7 +197,6 @@ TESTS = (
             Field("x", "X List"),
             Field("y", "Y List"),
             FREQUENCY,
-            Field("slope", "Slope", "0"),
             ALTERNATIVE,
         ),
     ),

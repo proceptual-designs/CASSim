@@ -1238,6 +1238,12 @@ class AppState:
                 self.run(binding)
         return problems
 
+    def escape_wizard(self, wizard: Wizard) -> None:
+        """Esc in a dialog: back to the dialog before it, where there is one (a test's fields go
+        back to its Data Input Method box: emulator run 6, R6-C3)."""
+        for binding in wizard.back:
+            self.run(binding)
+
     def store_wizard(self, wizard: Wizard, values: dict[str, str]) -> None:
         """Leave a live dialog's results in variables (the Finance Solver's `tvm.` set)."""
         calculator = calculator_of(self.document.current)

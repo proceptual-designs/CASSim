@@ -166,6 +166,16 @@ def test_inference_dialogs_build_and_run_commands() -> None:
     assert _calculator(state).history[-1].result.text == "Done"
 
 
+def test_two_sample_t_test_and_linear_reg_t_test_put_hypoth_where_ti_reads_it() -> None:
+    """Reference Guide: `tTest_2Samp List1,List2,Freq1,Freq2,Hypoth,Pooled` and
+    `LinRegtTest X,Y,Freq,Hypoth` (emulator run 6 follow-up)."""
+    state = _finish("ttest_2samp", x1="{1,2,3,4}", x2="{2,3,4,5}", alternative="1", pooled="0")
+    assert _calculator(state).history[-1].text == "tTest_2Samp {1,2,3,4},{2,3,4,5},1,1,1,0"
+    state = _finish("linregttest", x="{1,2,3,4}", y="{3,5,7,9.5}", alternative="-1")
+    assert _calculator(state).history[-1].text == "LinRegtTest {1,2,3,4},{3,5,7,9.5},1,-1"
+    assert _calculator(state).history[-1].result.text == "Done"
+
+
 def test_every_dialog_builds_with_its_defaults_filled() -> None:
     for name, wizard in WIZARDS.items():
         values = {field.name: field.default or "1" for field in wizard.fields}

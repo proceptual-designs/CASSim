@@ -1969,7 +1969,8 @@ class Spreadsheet:
             args = {"formula": formula, "column": target.column, "choose": {}, "confirm": False}
             return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
 
-        return Wizard(found.title, tuple(fields), steps=steps)
+        back = (Binding("sheet", f"inference:{command}"),) if found.method else ()
+        return Wizard(found.title, tuple(fields), steps=steps, back=back)
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(
