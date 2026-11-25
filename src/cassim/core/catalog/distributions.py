@@ -9,7 +9,7 @@ from cassim.core.compat import distributions as dist
 from cassim.core.compat import sympy_adapter as cas
 from cassim.core.errors import TIError
 from cassim.core.valueops import list_of, map_value, raw_of
-from cassim.core.values import Expr, Raw, Value
+from cassim.core.values import Expr, MatrixValue, Raw, Value
 
 type Continuous = Callable[..., float]
 type Entry = Callable[[Host, list[Value]], Value]
@@ -158,37 +158,73 @@ def binom_cdf(host: Host, args: list[Value]) -> Value:
     return Expr(_as_decimal(_cumulative(term, lower, min(upper, count))))
 
 
-@eager("invBinom", 3)
+def _matrix_form(args: list[Value], index: int) -> bool:
+    """The optional last argument of invBinom and invBinomN: 1 is the dialog's Matrix Form."""
+    if len(args) <= index:
+        return False
+    flag = _count(args[index])
+    if flag not in (0, 1):
+        raise TIError(errors.DOMAIN)
+    return flag == 1
+
+
+def _neighbours(rows: list[tuple[int, float]]) -> MatrixValue:
+    """Matrix Form: the value before the answer and the answer, each with its cumulative
+    probability as a decimal (emulator run 6, R6-D1: `invBinom(0.9,10,0.5,1)` is
+    `[[6,0.828125],[7,0.9453125]]`)."""
+    return MatrixValue(
+        tuple((Expr(cas.integer(k)), Expr(cas.from_float(chance))) for k, chance in rows)
+    )
+
+
+@eager("invBinom", 3, 4)
 def inv_binom(host: Host, args: list[Value]) -> Value:
-    """The smallest k with P(X<=k) at least the given area."""
+    """The smallest k with P(X<=k) at least the given area. With Matrix Form, the k before it
+    too (with no k before 0, only the answer's row: a guess)."""
     area, n, p = _real(args[0]), _count(args[1]), _probability(args[2])
+    matrix = _matrix_form(args, 3)
     if not 0 <= area <= 1:
         raise TIError(errors.DOMAIN)
     total = cas.integer(0)
+    cumulative: list[float] = []
+    answer = n
     for k in range(n + 1):
         total = total + _binomial_term(n, p, k)
-        if (cas.real_float(total) or 0.0) >= area - _AREA_TOLERANCE:
-            return Expr(cas.integer(k))
-    return Expr(cas.integer(n))
+        cumulative.append(cas.real_float(total) or 0.0)
+        if cumulative[-1] >= area - _AREA_TOLERANCE:
+            answer = k
+            break
+    if not matrix:
+        return Expr(cas.integer(answer))
+    return _neighbours([(k, cumulative[k]) for k in range(max(answer - 1, 0), answer + 1)])
 
 
 _MOST_TRIALS = 100_000  # invBinomN stops looking here
 
 
-@eager("invBinomN", 3)
+@eager("invBinomN", 3, 4)
 def inv_binom_n(host: Host, args: list[Value]) -> Value:
     """`invBinomN(area, p, x)`: the fewest trials n for which P(X<=x) is below the area. On the
-    device an exact tie moves on, so invBinomN(0.5,0.5,5) is 12, not 11 (P(X<=5) is 0.5 at 11)."""
+    device an exact tie moves on, so invBinomN(0.5,0.5,5) is 12, not 11 (P(X<=5) is 0.5 at 11).
+    With Matrix Form, the n before it too: `invBinomN(0.9,0.5,5,1)` is
+    `[[7,0.9375],[8,0.85546875]]` (emulator run 6, R6-D1)."""
     area, chance, successes = _real(args[0]), _real(args[1]), _count(args[2])
+    matrix = _matrix_form(args, 3)
     if not (0 < area < 1 and 0 < chance < 1):
         raise TIError(errors.DOMAIN)
-    for trials in range(successes, _MOST_TRIALS):
-        below = sum(
+
+    def below(trials: int) -> float:
+        return sum(
             math.comb(trials, k) * chance**k * (1 - chance) ** (trials - k)
             for k in range(successes + 1)
         )
-        if below < area - _AREA_TOLERANCE:
-            return Expr(cas.integer(trials))
+
+    for trials in range(successes, _MOST_TRIALS):
+        if below(trials) < area - _AREA_TOLERANCE:
+            if not matrix:
+                return Expr(cas.integer(trials))
+            first = max(trials - 1, successes)
+            return _neighbours([(n, below(n)) for n in range(first, trials + 1)])
     raise TIError(errors.DOMAIN)
 
 

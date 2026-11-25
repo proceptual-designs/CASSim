@@ -252,13 +252,14 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - 1e `cassim` REPL and script runner, tab-completion from the catalog.
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
 - **Status: done (2026-11-02).** See `docs/decisions/0007` to `0011`.
-- **Run 6 follow-ups (2026-11-25, `docs/testing/emulator-check6-run6-plan.md` 1.1), to do.** CAS differences from the emulator, in order:
-  1. Arbitrary constants (decision 0034 item 4): one `c` and one `n` counter per Problem, used by `solve`, `domain` and `fMin`, restarting at 1 in a new Problem. `solve(sin(x)=0,x)` gives `x=n2·π` (one family, not `2·π·n1 or 2·π·n1+π`); `domain(tan(x),x)` gives `x≠(2·n1-1)·π/2`; `fMin(sin(x)+cos(x),x)` gives `x=(4·n4-3)·π/4 and (-1)^n4>0`, not a decimal.
-  2. Display forms: `x=-(c1-3)/3` (not `-(c1/3-1)`); `d/dx(x·ⅇ^(-x))` as `(1-x)·ⅇ^(-x)`.
-  3. Keep an exact definite integral TI can write, even a long one: `∫₀² 1/(x³+x+2)dx` is a sum of `tan⁻¹` and `ln` terms, not `0.53085063` (whole form in run 7, J1c).
-  4. `tCollect` of the R6-B7 dot product: `41-40·cos(3·t/2)`; `expand((x²+a)/(b·x+c),x)`: `(a·b²+c²)/(b²·(b·x+c))+x/b-c/b²`; `solve(x^2=4,x)|x=2`: `x=-2 or x=2`, not `true` (rule in run 7, J1b).
-  5. `LinRegtTest` with a zero frequency: "Domain error", not "Invalid list or matrix".
-  6. `invBinom` and `invBinomN` with a 4th argument 1 (Matrix Form): a 2×2 matrix of the answer and its neighbour with their cumulative probabilities (`invBinom(0.9,10,0.5,1)` is `[[6,0.828125],[7,0.9453125]]`), and the dialogs' Matrix Form box pastes it.
+- **Run 6 follow-ups (2026-11-25, `docs/testing/emulator-check6-run6-plan.md` 1.1). Done 2026-11-25** (`tests/unit/test_cas_run6.py`):
+  1. Arbitrary constants (decision 0034 item 4): the Session holds one `c` and one `n` counter per Problem, restarting in a new Problem; new constants are numbered from them through a context variable in the adapter, and only the numbers an answer shows are used up (a recalled `ans` keeps its names). `solve(sin(x)=0,x)` is `x=n1·π` (evenly spaced families merge), `domain(tan(x),x)` is `x≠(2·n1-1)·π/2`, and `fMin`/`fMax` of a periodic function whose f'=0 is one family is `x=(4·n1-3)·π/4 and (-1)^n1>0` (otherwise the decimal search, as before). `deSolve` constants share the `c` counter (Reference Guide; to confirm in run 7, J1g).
+  2. Display forms: `x=-(c1-3)/3` (free parameters factored); an arbitrary integer before π (`2·n1·π`); a shared exponential taken out of a derivative, `(1-x)·ⅇ^(-x)`, while different exponentials stay apart; a negated factor gives its sign to the product (`-y·(x-1)`, was `y·-(x-1)`).
+  3. Exact definite integrals: logarithms of numbers are combined before the length test (limit 25 operations), so `∫₀² 1/(x³+x+2)dx` stays exact with `ln(9/2)/8` and the K7 integral stays a decimal. A logarithm of a fraction stays whole in any number (`ln(9/2)`, `ln(1/2)` is `-ln(2)`; to confirm in run 7, J1h).
+  4. `tCollect` multiplies a sum of squares out when that ends shorter (`41-40·cos(3·t/2)`; a sum with no bare variable is led by a positive term); `expand(…,x)` divides a quotient out in `x`; `|x=value` is not put into the answer for the variable a solving command solves for.
+  5. A single frequency of 0 is a Domain error.
+  6. `invBinom` and `invBinomN` take a 4th argument 1 (Matrix Form) and give the matrix of the value before the answer and the answer with their cumulative probabilities; the dialogs' box pastes it.
+  Still different: `expand` lists its terms in CASSim's order (the device puts the fraction first), and `expand` with no variable does not divide out (run 5 K6 #1, xfail); the order of the B5 integral's terms.
 
 **M2 — GUI shell: keyboard, pages, settings (L)**
 

@@ -600,7 +600,7 @@ cases:
   - solve
   steps:
   - in: solve(sin(x)=1/2,x)
-    out: x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6
+    out: x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6
     compare: text
   provenance:
     source: simulator
@@ -608,7 +608,7 @@ cases:
     captured: '2026-11-13'
     reviewed_by: claude (transcribed from Cowork's check 6 part B results); human review pending
     evidence: ../docs/testing/pages-shots-6/B-D8-solve-sin.png
-    note: The simulator writes 2·n1·π; the same family.
+    note: The simulator writes 2·n1·π (n before π since run 6, R6-B3).
   status: pass
 - id: c6.cmd.numeric-fallbacks
   course: none

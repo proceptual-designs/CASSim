@@ -862,17 +862,16 @@ cases:
   - in: g(x,a):=sin(x/a)+cos(a*x)
     out: Done
   - in: fMin(g(x,1),x)
-    out: x=(4*n3-3)*π/4 and (-1)^n3>0
+    out: x=(4*@n1-3)*π/4 and (-1)^@n1>0
   provenance:
     source: simulator
     simulator_version: TI-Nspire CX CAS Premium Teacher Software, handheld page size (emulator check 6,
       run 5)
     captured: '2026-11-20'
     reviewed_by: claude (transcribed from docs/testing/emulator-papers-results.md); human review pending
+    note: Read from a zoomed view. The simulator shows n3 because two earlier entries of the Problem used n1 and n2; alone, the family is n1.
     evidence: ../docs/testing/pages-shots-6/K4-p6.1-1.png
-    note: Read from a zoomed view.
-  status: xfail
-  xfail_reason: 'fMin answers with an integer family (n3) are not built (decision 0034 item 4: n later)'
+  status: pass
 - id: papers.mm2021e2.p6-1.fmin-with-parameter-unevaluated
   course: specialist
   settings:
