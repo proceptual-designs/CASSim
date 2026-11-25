@@ -572,7 +572,7 @@ Six of the fifteen are written (2026-11-25). Until the others are, their materia
 | `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy | Written |
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI | Not written; `docs/testing/TESTING.md` |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire | Not written; decision 0032 and PLAN.md section 15 |
-| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) | Not written; decisions 0020, 0021 and 0036, `docs/pseudocode/` |
+| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) | Not written; decisions 0020, 0021 and 0037, `docs/pseudocode/` |
 | `SDD-14-scientific-calculator-fx.md` | CASSim Scientific: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links | Written |
 
 ---

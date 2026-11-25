@@ -212,6 +212,9 @@ class App:
         self.status = ft.Text("", size=13, color="#ffd479")
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
+        # `#/debug/keytime` shows what each redraw cost in the status line, to measure typing on a
+        # Chromebook or phone with no tools (decision 0035 stage 4)
+        self.keytime = "keytime" in (page.url or "")
         self.sheet_line = ""  # the debug SHEET line last printed
         self.sheet_selection_line = ""
         self.plan: HandheldPlan | None = None  # the last Handheld arrangement
@@ -466,6 +469,8 @@ class App:
         built = time.perf_counter()
         self.page.update()
         self.view.follow_selection()
+        if self.keytime:
+            self.show_key_time((built - start) * 1000, (time.perf_counter() - built) * 1000)
         if self.debug:  # tools/switchtime.py times a page change by this line (NFR-PERF-006)
             document = self.state.document
             here = (document.problem, document.page)
@@ -479,6 +484,15 @@ class App:
                 )
             self.print_sheet()
         self.kick()
+
+    def show_key_time(self, build: float, send: float) -> None:
+        """The last redraw's cost in the status line and the console (`CASSIM: KEY`): `build` is
+        Python making the controls, `send` is Flet working out what changed and sending it. The
+        browser's own drawing time comes after both and is not in either."""
+        self.status.value = f"build {build:.0f} ms, send {send:.0f} ms"
+        print(f"CASSIM: KEY build={build:.0f} send={send:.0f}", flush=True)
+        with contextlib.suppress(RuntimeError):  # not on a page (the tests' stand-in page)
+            self.status.update()
 
     def place_status(self) -> None:
         """The status line goes in the toolbar row, or in full screen (which has no toolbar row)
@@ -1063,7 +1077,7 @@ class App:
     async def _calculator_command(self, calculator: Calculator, command: str) -> bool:
         saved_editor = calculator.editor
         calculator.editor = Editor()
-        calculator.editor.insert_text(command)
+        calculator.editor.insert_linear(command)
         try:
             calculator.perform(Binding("enter"))
             if calculator.pending is not None:

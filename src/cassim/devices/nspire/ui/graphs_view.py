@@ -8,13 +8,13 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.context_menu import context_menu_region
+from cassim.app.entry_line import EntryLine, row_height
 from cassim.app.scene_canvas import COLOURS, canvas
 from cassim.app.theme import Theme
 from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.graphs import FUNCTION_COLOURS, Graphs, function_colour
-from cassim.devices.nspire.ui.entry import EntryLine, row_height
 from cassim.graph.sampling import Window
 
 _FUNCTION_HEIGHT = 52

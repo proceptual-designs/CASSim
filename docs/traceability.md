@@ -128,7 +128,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-001 | Must | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-002 | Must | `tests/device/test_calculator.py` |
 | FR-CALC-003 | Must | `tests/device/test_calculator.py`, `tests/device/test_editor.py`, `tests/device/test_engine.py` and 1 more |
-| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 17 more |
+| FR-CALC-004 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_kinds.py`, `tests/app/test_entry_touch.py` and 19 more |
 | FR-CALC-005 | Must | `tests/app/test_calculator_menus.py`, `tests/app/test_history_mouse.py`, `tests/app/test_menus.py` and 4 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
 | FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py`, `tests/unit/test_cas_papers.py` |
@@ -282,7 +282,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-FX-UI-004 | Must | `tests/devices/scientific/test_scientific_keys.py`, `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-005 | Should | `tests/devices/scientific/test_scientific_layouts.py`, `tests/devices/scientific/test_scientific_tutorials.py`, `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-007 | Should | `tests/devices/scientific/test_scientific_ui.py` |
-| NFR-PERF-006 | Should | `tests/app/test_sheet_view.py`, `tests/device/test_sheet_scene.py` |
+| NFR-PERF-006 | Should | `tests/app/test_key_time.py`, `tests/app/test_sheet_view.py`, `tests/device/test_sheet_scene.py` |
 | NFR-PERF-007 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | NFR-PERF-004 | Must | `tests/e2e/test_pwa.py` |
 | NFR-REL-001 | Must | `tests/device/test_serialize.py` |

@@ -13,9 +13,9 @@ from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
 from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, graph_compile_op
+from cassim.device.entry_session import EntrySession
 from cassim.device.keys import Binding
 from cassim.devices.nspire.pages import graph_analyze, graph_tools
-from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.doc.document import PageType
 from cassim.graph.sampling import (
     CompiledFunction,
@@ -89,7 +89,7 @@ class GridStyle(StrEnum):
 @dataclass
 class FunctionEntry:
     name: str
-    editing: Calculator = field(repr=False)
+    editing: EntrySession = field(repr=False)  # no `Ans` in front of an operator typed first
     expression: str = ""
     latex: str = ""
     visible: bool = True
@@ -130,7 +130,7 @@ class Graphs:
         return self._viewport_width, self._viewport_height
 
     def _entry(self, name: str) -> FunctionEntry:
-        return FunctionEntry(name, Calculator(self.session, self.clipboard))
+        return FunctionEntry(name, EntrySession(self.clipboard))
 
     def _next_function_name(self, reserved: tuple[str, ...]) -> str:
         numbers = [

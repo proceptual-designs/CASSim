@@ -1,4 +1,4 @@
-# 0036 Pseudocode convenience symbols
+# 0037 Pseudocode convenience symbols
 
 Date: 2026-11-19. Status: accepted. Numbered 0034 until 2026-11-25; renumbered because two records shared that number, and every "decision 0034" in the code and documents means the run 5 choices (`0034-run5-decisions.md`).
 

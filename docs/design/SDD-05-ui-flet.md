@@ -9,7 +9,7 @@ Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 003
 
 ## Rule
 
-The UI is a thin renderer. State and behaviour live in `AppState` and the device model (SDD-04); the Flet controls draw `Screen` data and send key names back. Anything that can be decided without Flet is a plain function with a test: `layout.py` (sizes), `keyboard.py` (key names), `entry.py` (click targets), `state.py`.
+The UI is a thin renderer. State and behaviour live in `AppState` and the device model (SDD-04); the Flet controls draw `Screen` data and send key names back. Anything that can be decided without Flet is a plain function with a test: `layout.py` (sizes), `keyboard.py` (key names), `entry_line.py` (click targets), `state.py`.
 
 ## Modules
 
@@ -21,7 +21,7 @@ The first group is the Nspire's UI in `devices/nspire/ui/`; the second is the sh
 | `app/keyboard.py` | Browser key events to key names. Flet reports the key, not the typed character, so shifted symbols come from a US/AU layout table. Wrong on other layouts until typed characters are captured (decision 0024). |
 | `devices/nspire/ui/layout.py` | Pure sizing: `starting_mode` (a short side under 600 px starts Handheld), `handheld_plan` (fits the 320 x 240 screen and the keypad to the window, scaled together), the splitter range (0.15 to 0.8), zoom (0.5 to 2.0). |
 | `app/theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
-| `devices/nspire/ui/entry.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
+| `app/entry_line.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
 | `devices/nspire/ui/views.py`, `keypad.py`, `sidebar.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, Page Sorter, wizards. `math()` draws LaTeX. (One module, `app/ui.py`, until decision 0032.) |
 | `devices/nspire/ui/app.py` | Joins `state.py` to the views; `sheet_view.py`, `statistics_view.py` and `graphs_view.py` draw the other page types (SDD-07). |
 | `app/main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
