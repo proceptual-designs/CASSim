@@ -157,6 +157,29 @@ def _row_widths(app: ScientificApp) -> list[float]:
     return widths
 
 
+@pytest.mark.parametrize("scale", [ui.MIN_SCALE, 0.85, 1.0, ui.MAX_SCALE])
+def test_key_legends_stay_inside_their_key(scale: float) -> None:
+    """Legends such as sin⁻¹ D or ab/c⇔d/c Y ran into the gap between keys. As in the design
+    mockup they are inset from the key's edges; a pair that would not fit is made smaller."""
+    inner = (BASE_WIDTH - 28) * scale
+    rows = [(spec, 56 * scale) for spec in (*k.ROW1_LEFT, *k.ROW1_RIGHT)]
+    for row in k.ROWS:
+        width = (inner - 5 * scale * (len(row) - 1)) / len(row)
+        rows.extend((spec, width) for spec in row)
+    for spec, width in rows:
+        size = ui.legend_font_size(spec.shift, spec.alpha, width, scale)
+        needed = (len(spec.shift) + len(spec.alpha)) * ui.LEGEND_ADVANCE * size
+        if spec.shift and spec.alpha:
+            needed += ui.LEGEND_GAP * scale
+        assert needed <= width - 2 * ui.LEGEND_INSET * scale + 1e-9, (spec.id, scale)
+        assert size >= ui.LEGEND_MIN * scale
+
+
+def test_legends_keep_the_design_size_when_they_fit() -> None:
+    assert ui.legend_font_size("STO", "", 51, 1.0) == ui.LEGEND_SIZE
+    assert ui.legend_font_size("ab/c⇔d/c", "Y", 51, 1.0) < ui.LEGEND_SIZE
+
+
 @pytest.mark.parametrize(("width", "height"), [(1366, 650), (1920, 935), (800, 600), (390, 760)])
 def test_the_keypad_fits_the_calculator(width: float, height: float) -> None:
     """The review's bug: six-key rows were wider than the calculator, so ln, tan and M+ were

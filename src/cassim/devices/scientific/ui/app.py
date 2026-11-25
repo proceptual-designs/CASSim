@@ -46,6 +46,23 @@ MAX_SCALE = 1.3
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
 DEMO_STEP = 0.8  # seconds per key at 1×
+# The legends above a key, as in the design mockup: 8 px bold, inset 2 px from the key's edges.
+LEGEND_SIZE = 8.0
+LEGEND_MIN = 6.5
+LEGEND_INSET = 2.0
+LEGEND_GAP = 3.0
+LEGEND_ADVANCE = 0.62  # a generous average character width of the legend font, in em
+
+
+def legend_font_size(shift: str, alpha: str, width: float, scale: float) -> float:
+    """The legend text size that keeps both labels inside the key: the design size, shrunk only
+    when the pair (ab/c⇔d/c and Y) would otherwise run past the key's edge."""
+    room = width - 2 * LEGEND_INSET * scale - (LEGEND_GAP * scale if shift and alpha else 0)
+    chars = len(shift) + len(alpha)
+    if not chars:
+        return LEGEND_SIZE * scale
+    fitted = room / (chars * LEGEND_ADVANCE)
+    return max(LEGEND_MIN * scale, min(LEGEND_SIZE * scale, fitted))
 
 
 def _safe_update(control: ft.Control) -> None:
@@ -322,31 +339,36 @@ class ScientificApp:
         spoken = ft.Semantics(content=face, label=spec.spoken, button=True)
         if not legends:
             return spoken
-        legend_size = 8.5 * s
-        legend = ft.Row(
-            [
-                ft.Text(
-                    spec.shift,
-                    size=legend_size,
-                    color=skin.shift,
-                    no_wrap=True,
-                    style=ft.TextStyle(font_family_fallback=FALLBACK),
-                ),
-                ft.Text(
-                    spec.alpha,
-                    size=legend_size,
-                    color=skin.alpha,
-                    no_wrap=True,
-                    style=ft.TextStyle(font_family_fallback=FALLBACK),
-                ),
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-            if spec.shift and spec.alpha
-            else ft.MainAxisAlignment.CENTER,
-            spacing=2,
+        # As in the design mockup: SHIFT's legend at the key's left and ALPHA's at its right (a
+        # lone legend at the left), inset from the edges, bold, and clipped there so nothing runs
+        # into the next key.
+        size = legend_font_size(spec.shift, spec.alpha, w, s)
+        legend = ft.Container(
+            ft.Row(
+                [
+                    ft.Text(
+                        text,
+                        size=size,
+                        color=colour,
+                        weight=ft.FontWeight.BOLD,
+                        no_wrap=True,
+                        style=ft.TextStyle(font_family_fallback=FALLBACK),
+                    )
+                    for text, colour in (
+                        ((spec.shift, skin.shift), (spec.alpha, skin.alpha))
+                        if spec.shift
+                        else ((spec.alpha, skin.alpha), ("", skin.shift))  # a lone legend: left
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                spacing=LEGEND_GAP * s,
+                vertical_alignment=ft.CrossAxisAlignment.END,
+            ),
             width=w,
             height=12 * s,
-            vertical_alignment=ft.CrossAxisAlignment.END,
+            padding=ft.Padding.symmetric(horizontal=LEGEND_INSET * s),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            alignment=ft.Alignment.BOTTOM_LEFT,
         )
         return ft.Column([legend, spoken], spacing=1 * s, tight=True)
 
