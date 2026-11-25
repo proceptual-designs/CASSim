@@ -33,7 +33,8 @@ type Node = str | Template
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
-# An operator typed first on an empty line is applied to the last answer, as on the handheld.
+# An operator typed first on an empty line is applied to the last answer, as on the handheld
+# (when the editor's `ans_prefix` is on).
 _ANS_OPERATORS = frozenset("+-*/^")
 
 
@@ -57,7 +58,10 @@ class Template:
 class Editor:
     """One entry line being edited."""
 
-    def __init__(self, text: str = "") -> None:
+    def __init__(self, text: str = "", *, ans_prefix: bool = False) -> None:
+        # An operator typed first on an empty line gets `Ans` in front (the Calculator's entry
+        # line only: a graph or a cell entry line does not do it). See `device.entry_session`.
+        self.ans_prefix = ans_prefix
         self.root: Row = []
         self.path: list[tuple[int, int]] = []
         self.pos = 0
@@ -172,7 +176,7 @@ class Editor:
         if char == "," and not quoted and self.path and self._parent().kind is Kind.LIST:
             self._split_list_cell()
             return
-        if char in _ANS_OPERATORS and not self.root:
+        if self.ans_prefix and char in _ANS_OPERATORS and not self.root:
             self.root.extend("Ans")
             self.pos = 3
         if char == "^" and not quoted:

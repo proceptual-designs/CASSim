@@ -64,7 +64,8 @@ cassim/
     doc/                    Document > Problem > Page, the versioned JSON serialiser (migrations, replay_steps) and share
                             links. Page types are registered by the device, not named here (decision 0032, M2x step 2)
     device/                 headless device framework: key layers (shift/ctrl/var/menu/doc), menu tree (data-driven), input
-                            editor, wizard, clipboard, the Profile type; and, until slice 3.0, the engine protocol (engine.py)
+                            editor and the entry session each page's entry line uses (entry_session.py: undo, clipboard,
+                            keys), wizard, clipboard, the Profile type; and, until slice 3.0, the engine protocol (engine.py)
     cli/                    `cassim` REPL (prompt_toolkit) + `cassim run file.tib`
   src/cassim/app/            FLET: the shell only (decision 0032): main.py owns Home and lazily mounts the selected device;
                             home.py draws the all-in-one chooser without importing device UI; shell.py is what a device's UI
@@ -323,7 +324,7 @@ navigation. Apply the same editor to Graphs and verify repeat when Graphs is int
 - 4e Table (split page, ctrl+T from the graph and from the sheet) and sliders.
 - 4f Notes page, text only (FR-NOTE-001); maths boxes are a later Could.
 - **Simon's notes (2026-11-22), to do; not built yet.** Check each against `feature/m4-graphs-menus` (paused) before starting, since it changes the Graphs page.
-  1. No `Ans` in the graph entry line: an operator typed first must not get `ans` put in front, and `ans` is not offered there (the Calculator's `ans` prefix must not leak into the shared editor).
+  1. No `Ans` in the graph entry line: an operator typed first must not get `ans` put in front, and `ans` is not offered there (the Calculator's `ans` prefix must not leak into the shared editor). **Prefix done 2026-11-25:** each entry line is a `device/entry_session.py` `EntrySession` and only the Calculator's turns the `Ans` rule on; whether `ans` is offered in the graph line's menus is still to check.
   2. On a Graphs page, Tab moves the focus to the graph entry line and opens it on the first empty `fN(x)` slot (as ctrl+G does). Capture Tab so the browser does not move focus out of the app.
   3. Restrict each function's plotted domain to where it is real: `sqrt(x)` currently crashes the app ("The application encountered an error: must be real number, not complex"). Non-real or failed samples must be dropped as gaps, never raise; add `sqrt(x)`, `ln(x)`, `sqrt(4-x^2)` and `x^(1/3)` as page-level tests, not only sampler tests.
   4. Pinch zoom, and mouse-wheel or two-finger-scroll zoom about the pointer, on Graphs **and** Data & Statistics pages (decision 0034, item 1: standard affordances that do not clash). Check trackpad two-finger scroll on Chromebook and Mac, which arrives as wheel events.

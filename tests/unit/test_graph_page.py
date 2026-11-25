@@ -222,6 +222,28 @@ def test_graph_editor_uses_calculator_bindings_and_submits_a_template() -> None:
     assert state.document.problems[0].session.is_function("f1")
 
 
+def test_an_operator_typed_first_in_a_graph_entry_gets_no_ans() -> None:
+    """FR-GRAPH-001: `-x` typed into a function entry is `-x`, not `Ans-x` (PLAN.md M4 notes, 1);
+    the Calculator's `Ans` prefix stays on the Calculator's entry line."""
+    state = AppState()
+    state.run_action("insert", "5")
+    state.run_action("enter", "")  # an answer exists on the Problem
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    state.run_action("insert", "-")
+    state.run_action("insert", "x")
+    state.run_action("enter", "")
+
+    entry = graphs.functions[0]
+    assert entry.expression == "-x"
+    assert entry.compiled is not None
+    assert entry.compiled(2) == -2
+
+    graphs.functions[1].editing.perform(Binding("power", "2"))
+    assert graphs.functions[1].editing.editor.linear() == "^(2)"
+
+
 def test_graph_editor_accepts_keyboard_and_keypad_navigation() -> None:
     state = AppState()
     state.run_action("add_page", "graphs")
