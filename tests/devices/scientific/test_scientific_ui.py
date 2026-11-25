@@ -17,9 +17,10 @@ import flet as ft
 import pytest
 
 from cassim.devices.scientific import keys as k
+from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
-from cassim.devices.scientific.ui.app import BASE_HEIGHT, BASE_WIDTH, ScientificApp
+from cassim.devices.scientific.ui.app import BASE_WIDTH, ScientificApp
 from cassim.devices.scientific.ui.skins import SKINS
 
 
@@ -133,7 +134,8 @@ def test_mount_and_start() -> None:
     assert page.title == "CASSim fx"
     assert page.controls == [app.root]
     assert page.on_keyboard_event == app.on_keyboard
-    assert set(app.key_controls) == set(k.KEYS_BY_ID)  # FR-FX-DSP-001: every key is drawn
+    drawn = {key.id for key in app.layout.all_keys()}
+    assert set(app.key_controls) == drawn  # FR-FX-DSP-001: every key is drawn
     app.unmount()
     assert page.on_keyboard_event is None
     assert page.controls == []
@@ -150,29 +152,37 @@ def _row_widths(app: ScientificApp) -> list[float]:
                 face = cell.controls[-1] if isinstance(cell, ft.Column) else cell
                 if isinstance(face, ft.Semantics):
                     face = face.content
-                assert isinstance(face, ft.Container)
+                assert isinstance(face, ft.Container)  # a key, or a gap's spacer
                 total += face.width or 0
             total += row.spacing * (len(row.controls) - 1)
             widths.append(total - row.width)
     return widths
 
 
-@pytest.mark.parametrize("scale", [ui.MIN_SCALE, 0.85, 1.0, ui.MAX_SCALE])
-def test_key_legends_stay_inside_their_key(scale: float) -> None:
+def _drawn_keys(app: ScientificApp) -> list[tuple[str, float]]:
+    """(key id, width) of every key face drawn."""
+    return [(key_id, face.width or 0) for key_id, face in app.key_controls.items()]
+
+
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+@pytest.mark.parametrize("size", [(360, 500), (1366, 650), (2560, 1400)])
+def test_key_legends_stay_inside_their_key(layout, size: tuple[int, int]) -> None:
     """Legends such as sin⁻¹ D or ab/c⇔d/c Y ran into the gap between keys. As in the design
     mockup they are inset from the key's edges; a pair that would not fit is made smaller."""
-    inner = (BASE_WIDTH - 28) * scale
-    rows = [(spec, 56 * scale) for spec in (*k.ROW1_LEFT, *k.ROW1_RIGHT)]
-    for row in k.ROWS:
-        width = (inner - 5 * scale * (len(row) - 1)) / len(row)
-        rows.extend((spec, width) for spec in row)
-    for spec, width in rows:
-        size = ui.legend_font_size(spec.shift, spec.alpha, width, scale)
-        needed = (len(spec.shift) + len(spec.alpha)) * ui.LEGEND_ADVANCE * size
-        if spec.shift and spec.alpha:
+    app, _, page = started(FakePage(*size))
+    app.set_layout(layout.id)
+    scale = app.scale
+    for key_id, width in _drawn_keys(app):
+        key = app.shown_layout.key(key_id)
+        if not (key.shift_label or key.alpha_label):
+            continue
+        size_ = ui.legend_font_size(key.shift_label, key.alpha_label, width, scale)
+        needed = (len(key.shift_label) + len(key.alpha_label)) * ui.LEGEND_ADVANCE * size_
+        if key.shift_label and key.alpha_label:
             needed += ui.LEGEND_GAP * scale
-        assert needed <= width - 2 * ui.LEGEND_INSET * scale + 1e-9, (spec.id, scale)
-        assert size >= ui.LEGEND_MIN * scale
+        assert needed <= width - 2 * ui.LEGEND_INSET * scale + 1e-9, (layout.id, key_id, scale)
+        assert size_ >= ui.LEGEND_MIN * scale
+    page.drop_tasks()
 
 
 def test_legends_keep_the_design_size_when_they_fit() -> None:
@@ -184,16 +194,22 @@ def test_legends_keep_the_design_size_when_they_fit() -> None:
 def test_the_keypad_fits_the_calculator(width: float, height: float) -> None:
     """The review's bug: six-key rows were wider than the calculator, so ln, tan and M+ were
     cut off. Every row must fit inside the body at every size."""
-    app, _, _ = started(FakePage(width, height))
-    overflow = _row_widths(app)
-    assert len(overflow) == 8
-    assert all(excess <= 0.5 for excess in overflow), overflow
+    for layout in LAYOUTS:
+        app, _, page = started(FakePage(width, height))
+        app.set_layout(layout.id)
+        overflow = _row_widths(app)
+        assert overflow, layout.id
+        assert all(excess <= 0.5 for excess in overflow), (layout.id, overflow)
+        page.drop_tasks()
 
 
 def test_the_calculator_scales_to_the_window() -> None:
     """FR-FX-DSP-001: the whole calculator fits a Chromebook-sized window."""
-    app, _, page = started(FakePage(1366, 650))
-    assert BASE_HEIGHT * app.scale <= page.height - ui.BAR_HEIGHT
+    for layout in LAYOUTS:
+        app, _, page = started(FakePage(1366, 650))
+        app.set_layout(layout.id)
+        assert app.layout_height() * app.scale <= page.height - ui.BAR_HEIGHT, layout.id
+        page.drop_tasks()
     small, _, _ = started(FakePage(360, 500))
     assert small.scale == ui.MIN_SCALE  # then the page scrolls
     big, _, _ = started(FakePage(2560, 1400))
@@ -432,3 +448,74 @@ def test_dialogs_open() -> None:
     for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_file_as):
         opener()
     assert len(page.dialogs) == 4
+
+
+def test_appearance_chooses_a_calculator() -> None:
+    """FR-FX-UI-005: the choice draws that calculator's keys, switches a linear calculator's
+    display, and is remembered."""
+    app, shell, page = started()
+    app.set_layout("el531")
+    assert app.shown_layout.id == "el531"
+    assert "SETUP" in app.key_controls  # the SET UP key
+    assert app.state.setup.input == "line"
+    assert json.loads(shell.store["prefs"])["layout"] == "el531"
+    again, _, page2 = started(store=shell.store)
+    assert again.layout.id == "el531"
+    assert "SETUP" in again.key_controls
+    page.drop_tasks()
+    page2.drop_tasks()
+
+
+def test_layout_keys_type_on_the_calculator() -> None:
+    app, _, page = started()
+    app.set_layout("sx2")
+    app.on_layout_key(app.layout.key("FACTORIAL"))  # x! has its own key here
+    assert app.state.display().text() == "!"
+    app.on_key(k.AC)
+    for key_id in ("5", "FACTORIAL", k.EQ):
+        app.on_layout_key(app.layout.key(key_id))
+    assert app.state.answer_text() == "120"
+    page.drop_tasks()
+
+
+def test_guide_me_on_another_keypad() -> None:
+    """FR-FX-TUT-001 to -003: the glow, the wording and the checks follow the chosen keys."""
+    app, _, page = started()
+    app.set_layout("sx2")
+    app.lesson_index = 0  # reset: SHIFT 9 3 = AC
+    app.start_lesson()
+    assert app.shown_layout.id == "sx2"
+    assert app._target_face() == "2nd"
+    app.on_layout_key(app.layout.key("7"))
+    assert not app.feedback_ok
+    assert "2nd" in app.feedback
+    app.on_layout_key(app.layout.key("SHIFT"))
+    assert app._target_face() == "9"
+    for key_id in ("9", "3", k.EQ, k.AC):
+        app.on_layout_key(app.layout.key(key_id))
+    assert app.session is not None
+    assert app.session.is_complete
+    page.drop_tasks()
+
+
+def test_a_modifier_waits_for_the_next_key() -> None:
+    """On the EL-531, 2ndF then x² is x⁻¹: the lesson only judges the pair."""
+    app, _, page = started()
+    app.set_layout("el531")
+    app.on_layout_key(app.layout.key("SHIFT"))
+    assert app.pending == [k.SHIFT]
+    app.on_layout_key(app.layout.key(k.X2))
+    assert app.pending == []
+    assert app.state.display().text() == "⁻¹"
+    page.drop_tasks()
+
+
+def test_a_lesson_needing_table_uses_the_fx82_keys() -> None:
+    app, _, page = started()
+    app.set_layout("hp10s")
+    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("table")
+    app.start_lesson()
+    assert app.shown_layout.id == "fx82"
+    app.stop_lesson()
+    assert app.shown_layout.id == "hp10s"
+    page.drop_tasks()

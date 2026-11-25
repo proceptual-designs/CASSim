@@ -182,6 +182,9 @@ class ScientificState:
     table_top: int = 0
     fact: Seq = ()
     rng: random.Random = field(default_factory=random.Random)
+    allowed_modes: tuple[CalcMode, ...] = MODES  # the modes the chosen keypad layout has
+    linear_layout: bool = False  # the layout's calculator has a linear display
+    note: str = ""  # a line above the entry (DATA SET)
 
     # ------------------------------------------------------------------------------------------
     # keys
@@ -203,6 +206,8 @@ class ScientificState:
         shift, alpha = self.shift, self.alpha
         self.shift = self.alpha = False
         if self._global(key, shift=shift):
+            return
+        if self._pseudo(key):
             return
         match self.screen:
             case "menu":
@@ -334,6 +339,7 @@ class ScientificState:
         self.hyp = False
         if action is None:
             return
+        self.note = ""
         if self.showing_result:
             continuing = action_continues(action)
             self.editor = Editor()
@@ -570,7 +576,8 @@ class ScientificState:
         name = self.menu
         match name:
             case "mode":
-                return MenuSpec("", ("1:COMP", "2:STAT", "3:TABLE", "4:VERIFY"), self._pick_mode)
+                options = tuple(f"{i}:{m}" for i, m in enumerate(self.allowed_modes, start=1))
+                return MenuSpec("", options, self._pick_mode)
             case "stat_type":
                 options = tuple(
                     f"{i}:{STAT_TYPE_LABELS[t]}" for i, t in enumerate(STAT_TYPES, start=1)
@@ -684,7 +691,7 @@ class ScientificState:
         return self.editor
 
     def _pick_mode(self, n: int) -> None:
-        mode = MODES[n - 1]
+        mode = self.allowed_modes[n - 1]
         if mode == "STAT":
             self.back = "calc"
             self.menu = "stat_type"
@@ -808,7 +815,7 @@ class ScientificState:
     def _do_clear(self, choice: str) -> None:
         """CLR (FR-FX-CFG-006): reset the setup, clear the memories, or both."""
         if choice in ("setup", "all"):
-            self.setup = Setup()
+            self.setup = self.default_setup()
             self.mode = "COMP"
         if choice in ("memory", "all"):
             for name in self.variables:
@@ -1100,6 +1107,97 @@ class ScientificState:
             self.table_top = row - GRID_ROWS + 1
 
     # ------------------------------------------------------------------------------------------
+    # keypad layouts (FR-FX-UI-005; layouts.py)
+    # ------------------------------------------------------------------------------------------
+
+    def default_setup(self) -> Setup:
+        """SETUP's defaults: linear display for a layout whose calculator has one."""
+        if self.linear_layout:
+            return Setup(input="line", output="line")
+        return Setup()
+
+    def use_layout(
+        self, modes: tuple[CalcMode, ...], *, linear: bool, switch_display: bool = True
+    ) -> None:
+        """Take on a keypad layout's modes and display. A mode the layout lacks is left for COMP.
+        When the layout changes between a natural and a linear calculator the display switches to
+        match (`switch_display`; a restored calculator keeps the SETUP it was saved with)."""
+        self.allowed_modes = modes
+        if self.linear_layout != linear:
+            self.linear_layout = linear
+            if switch_display:
+                self.setup.input = self.setup.output = "line" if linear else "math"
+        if self.mode not in modes:
+            self._enter_mode("COMP")
+        elif self.screen == "menu":
+            self._to_calc()
+
+    def _pseudo(self, key: str) -> bool:
+        """Keys only some layouts have: a token key, a STAT submenu key, and DATA."""
+        if key.startswith("TOK:"):
+            self._insert_token(key[4:])
+            return True
+        if key.startswith("STATSUB:"):
+            if self.mode == "STAT" and self.screen != "menu":
+                self.open_menu("stat")
+                self._menu_key(key.split(":", 1)[1])
+            return True
+        if key == "DATA":
+            if self.mode == "STAT" and self.screen == "calc":
+                self._data_entry()
+            elif self.mode != "STAT":
+                self._memory(minus=False)
+            return True
+        return False
+
+    def _insert_token(self, token: str) -> None:
+        if token not in TOKENS or self.screen not in ("calc", "table_fx", "stat_editor"):
+            return
+        editor = self._target_editor()
+        if self.screen == "calc" and self.showing_result:
+            self.editor = Editor()
+            if TOKENS[token].kind in ("estimator", "postfix", "op"):
+                self.editor.insert("Ans")
+            self.showing_result = False
+            self.result = None
+            editor = self.editor
+        self.note = ""
+        editor.insert(token)
+
+    def _data_entry(self) -> None:
+        """DATA (DT): the entry, x or x,y (and a frequency when FREQ is on), becomes a new data
+        row; the screen counts the rows."""
+        if self.showing_result or self.editor.is_empty():
+            return
+        parts: list[list[Item]] = [[]]
+        for item in self.editor.items:
+            if isinstance(item, Tok) and item.id == ",":
+                parts.append([])
+            else:
+                parts[-1].append(item)
+        columns = len(self.stat_columns())
+        try:
+            if not 1 <= len(parts) <= columns:
+                raise v.syntax_error()
+            values = [number(evaluate(part, self.context(statistics=False))) for part in parts]
+        except CalcError as error:
+            self.error = error.message
+            self.screen = "error"
+            return
+        if len(self.stat_rows) >= MAX_STAT_ROWS:
+            return
+        row = self._blank_row()
+        for index, value in enumerate(values):
+            row[index] = value
+        if self.stat_type != "1-VAR" and len(values) == 1:
+            return  # a pair needs its y
+        self.stat_rows.append(row)
+        self.editor = Editor()
+        self.note = "DATA SET="
+        self._show(v.rational(len(self.stat_rows)))
+        self.showing_result = True
+
+    # ------------------------------------------------------------------------------------------
     # the screen
     # ------------------------------------------------------------------------------------------
 
@@ -1175,7 +1273,7 @@ class ScientificState:
                 )
             case "table":
                 return Display("grid", grid=self._table_grid())
-        title = "VERIFY" if self.mode == "VERIFY" else ""
+        title = "VERIFY" if self.mode == "VERIFY" else self.note
         return Display(
             "calc",
             title=title,
@@ -1221,8 +1319,12 @@ class ScientificState:
         self.setup.angle = angle
 
     def reset(self) -> None:
-        """Everything back to its starting state (CLR 3 without the questions)."""
-        fresh = ScientificState(rng=self.rng)
+        """Everything back to its starting state (CLR 3 without the questions), keeping the
+        keypad layout's modes and display."""
+        fresh = ScientificState(
+            rng=self.rng, allowed_modes=self.allowed_modes, linear_layout=self.linear_layout
+        )
+        fresh.setup = fresh.default_setup()
         for name in fresh.__dataclass_fields__:
             setattr(self, name, getattr(fresh, name))
 
