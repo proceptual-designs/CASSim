@@ -91,6 +91,9 @@ class FakeShell:
     def write(self, key: str, text: str) -> None:
         self.store[key] = text
 
+    def remove(self, key: str) -> None:
+        self.store.pop(key, None)
+
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
 
@@ -355,24 +358,75 @@ def test_share_link_opens_on_start() -> None:
     assert broken.state.mode == "COMP"
 
 
-def test_share_dialog_and_files() -> None:
+def save_under(page: FakePage, name: str) -> None:
+    """Type `name` into the Save as dialog and press Save."""
+    dialog: Any = page.dialogs[-1]
+    dialog.content.controls[1].value = name
+    dialog.actions[0].on_click(None)
+    page.run_tasks()
+
+
+def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None:
+    """FR-FX-SHR-006, FR-DOC-010 (decision 0033): Save and Open keep calculations by name in
+    the app's storage; only Import file and Export file touch a file on disk."""
     app, shell, page = started()
+    labels = [str(item.content) for item in app.doc_menu.controls]
+    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    assert not app.saved.dirty()  # a first visit has nothing to lose
     for key in ("5", k.EQ):
         app.on_key(key)
+    assert app.saved.dirty()
     app.open_share_link()
     assert page.dialogs
-    asyncio.run(app.save_file())
+
+    app.save()  # never saved: asks for a name
+    save_under(page, "Homework")
+    assert not shell.saved  # nothing was downloaded
+    assert "doc:Homework" in shell.store
+    assert shell.notices[-1][0] == "Saved"
+    assert app.doc_name == "Homework"
+    assert not app.saved.dirty()
+
+    for key in (k.AC, "9", k.EQ):
+        app.on_key(key)
+    app.save_as()
+    save_under(page, "Other")
+    app.open_saved()  # the saved calculations, newest first
+    rows: Any = page.dialogs[-1]
+    assert [row.title.value for row in rows.content.controls] == ["Other", "Homework"]
+    rows.content.controls[1].on_click(None)
+    page.run_tasks()
+    assert app.doc_name == "Homework"
+    assert app.state.answer_text() == "5"
+
+    asyncio.run(app.export_file())
     name, text = shell.saved[-1]
-    assert name == "Untitled.cassim.json"
-    shell.picked = text.replace('"Untitled"', '"Homework"')
-    other = ScientificApp(shell)
-    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
-    assert other.doc_name == "Homework"
-    assert other.state.answer_text() == "5"
+    assert name == "Homework.cassim.json"
+
+    shell.picked = text.replace('"Homework"', '"From a file"')
+    app.import_file()
+    page.run_tasks()
+    assert app.doc_name == "From a file"
+    assert app.saved.current.stored is None  # an imported file is saved nowhere here yet
+    assert app.state.answer_text() == "5"
     shell.picked = json.dumps({"format": "cassim-document", "schema": 5, "device": "nspire"})
-    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
+    app.import_file()
+    page.run_tasks()
     assert "nspire" in shell.notices[-1][1]
     page.drop_tasks()
+
+
+def test_the_saved_name_survives_a_reload() -> None:
+    """FR-FX-SHR-001, FR-DOC-010: the autosave keeps which saved calculation is open."""
+    app, shell, page = started()
+    app.on_key("5")
+    app.save()
+    save_under(page, "Homework")
+    again, _, other_page = started(store=shell.store)
+    assert again.doc_name == "Homework"
+    assert again.saved.name == "Homework"
+    page.drop_tasks()
+    other_page.drop_tasks()
 
 
 def test_reset_all_and_examples() -> None:
@@ -451,7 +505,7 @@ def test_test_me() -> None:
 
 def test_dialogs_open() -> None:
     app, _, page = started()
-    for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_file_as):
+    for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_as):
         opener()
     assert len(page.dialogs) == 4
 

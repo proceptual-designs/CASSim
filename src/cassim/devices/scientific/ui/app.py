@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.keyboard import key_name
+from cassim.app.saved import SavedDocuments
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
@@ -118,6 +119,15 @@ class ScientificApp:
         self.stretch = 1.0  # the keys' height over their width's, above 1 on a tall phone
         self.use_cutout = True  # an installed phone draws under its camera cutout unless avoided
         self.doc_name = "Untitled"
+        self.saved = SavedDocuments(
+            self.page,
+            shell,
+            dump=self._dump,
+            load=self._load_saved,
+            changed=self._saved_changed,
+            said=lambda text: shell.notice("Saved", text),
+            noun="calculation",
+        )
         self.key_controls: dict[str, ft.Container] = {}
         self.completed: set[str] = set()
         self.speed = 1.0
@@ -180,9 +190,11 @@ class ScientificApp:
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
-                ft.MenuItemButton(content="Open…", on_click=self.open_file),
-                ft.MenuItemButton(content="Save", on_click=self.save_file),
-                ft.MenuItemButton(content="Save as…", on_click=lambda _: self.save_file_as()),
+                ft.MenuItemButton(content="Open…", on_click=self.open_saved),
+                ft.MenuItemButton(content="Save", on_click=self.save),
+                ft.MenuItemButton(content="Save as…", on_click=self.save_as),
+                ft.MenuItemButton(content="Import file…", on_click=self.import_file),
+                ft.MenuItemButton(content="Export file…", on_click=self.export_file),
                 ft.MenuItemButton(content="Share link…", on_click=lambda _: self.open_share_link()),
                 ft.SubmenuButton(
                     content="Examples",
@@ -1462,11 +1474,13 @@ class ScientificApp:
         self.page.run_task(save)
 
     async def _load_state(self) -> None:
+        await self.saved.start()
         route = self.shell.route or ""
         fragment = route.lstrip("/")
         if fragment.startswith("doc="):
             try:
                 if self.state.open_fragment(fragment):
+                    self.saved.unsaved()  # a link's calculator is saved nowhere here yet
                     return
             except DocumentFileError as error:
                 self.shell.notice("Share link", f"The link could not be opened: {error}.")
@@ -1476,6 +1490,11 @@ class ScientificApp:
                 self.doc_name = self.state.loads(saved)
             except DocumentFileError:
                 self.state = ScientificState()
+                self.saved.fresh()
+            else:
+                self.doc_name = self.saved.current.stored or self.doc_name
+        else:
+            self.saved.fresh()  # a first visit: nothing to lose yet
 
     async def _load_prefs(self) -> None:
         text = await self.shell.read(PREFS_KEY)
@@ -1513,50 +1532,65 @@ class ScientificApp:
             ),
         )
 
-    async def open_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    # Open, Save and Save as keep calculations by name in this app's storage (`self.saved`,
+    # decision 0033); a file on disk comes in and goes out through Import and Export.
+
+    def _dump(self, name: str) -> str:
+        return self.state.dumps(name or "Untitled", compact=True)
+
+    def _load_saved(self, text: str, name: str) -> None:
+        trial = ScientificState()
+        trial.loads(text)  # raises DocumentFileError before anything is replaced
+        self.state.from_dict(trial.to_dict())
+        self.doc_name = name
+
+    def _saved_changed(self) -> None:
+        self.doc_name = self.saved.name
+        self.refresh()
+        self._schedule_save()
+
+    def open_saved(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.open()
+
+    def save(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.save()
+
+    def save_as(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.save_as()
+
+    def import_file(self, _: object = None) -> None:
+        """Import file…: open a `.cassim.json` file, asking first if work would be lost."""
+        self.stop_lesson()
+        self.saved.ask_discard(lambda: self.page.run_task(self._import_file))
+
+    async def _import_file(self) -> None:
         try:
-            text = await self.shell.pick_file(("json",), "Open a calculation")
+            text = await self.shell.pick_file(("json",), "Import a calculation")
         except UnicodeDecodeError:
-            self.shell.notice("Open", "That file is not a CASSim document.")
+            self.shell.notice("Import file", "That file is not a CASSim document.")
             return
         if text is None:
             return
-        self.stop_lesson()
         trial = ScientificState()
         try:
             name = trial.loads(text)
         except DocumentFileError as error:
-            self.shell.notice("Open", f"The file could not be opened: {error}.")
+            self.shell.notice("Import file", f"The file could not be opened: {error}.")
             return
         self.state.from_dict(trial.to_dict())
+        self.saved.unsaved()  # not in this app's storage until it is saved
         self.doc_name = name
         self.refresh()
         self._schedule_save()
 
-    async def save_file(self, _: object = None) -> None:
+    async def export_file(self, _: object = None) -> None:
+        """Export file…: download the calculation as `.cassim.json`."""
+        self.stop_lesson()
         await self.shell.save_file(
-            f"{self.doc_name}.cassim.json", self.state.dumps(self.doc_name), "Save calculation"
-        )
-
-    def save_file_as(self) -> None:
-        field = ft.TextField(label="Name", value=self.doc_name, autofocus=True)
-
-        async def save(_: object) -> None:
-            name = str(field.value or "").strip() or "Untitled"
-            self.doc_name = name
-            self.page.pop_dialog()
-            await self.save_file()
-            self._schedule_save()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Save as"),
-                content=field,
-                actions=[
-                    ft.TextButton("Save", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
+            f"{self.doc_name}.cassim.json", self.state.dumps(self.doc_name), "Export calculation"
         )
 
     def open_share_link(self) -> None:
@@ -1565,7 +1599,7 @@ class ScientificApp:
         except ValueError:
             self.shell.notice(
                 "Share link",
-                "This calculation is too big for a link. Use Doc ▸ Save and share the file.",
+                "This calculation is too big for a link. Use Doc ▸ Export file… and share that.",
             )
             return
 
@@ -1603,6 +1637,8 @@ class ScientificApp:
             self.shell.notice("Examples", reason)
             return
         load_example(self.state, index)
+        self.saved.unsaved()  # an example is not the saved calculation any more
+        self.doc_name = "Untitled"
         self.refresh()
         self._schedule_save()
 
@@ -1611,6 +1647,7 @@ class ScientificApp:
             self.stop_lesson()
             self.state.reset()
             self.doc_name = "Untitled"
+            self.saved.fresh()
             self.refresh()
             self._schedule_save()
 
