@@ -641,7 +641,12 @@ def stage(version: str, bundle: Bundle) -> None:
     (STAGE / "src" / "main.py").write_text(MAIN_PY, encoding="utf-8")
     copy_package(STAGE / "src", bundle, ui=True)
     # Flet copies src/assets into the site root (decision 0016), so fonts/... is served at fonts/...
-    shutil.copytree(ROOT / "src" / "cassim" / "app" / "assets", STAGE / "src" / "assets")
+    # The window icon is for the desktop app only; `write_icons` redraws the other icons.
+    shutil.copytree(
+        ROOT / "src" / "cassim" / "app" / "assets",
+        STAGE / "src" / "assets",
+        ignore=shutil.ignore_patterns("*.ico"),
+    )
     (STAGE / "pyproject.toml").write_text(
         STAGE_PYPROJECT.format(version=version, flet=flet_version()), encoding="utf-8"
     )
@@ -905,6 +910,29 @@ def write_icons(dist: Path, bundle: Bundle) -> None:
     maskable.paste(inner, (76, 76), inner)
     maskable.save(out / "icon-maskable-512.png")
     icon(64).save(dist / "favicon.png")  # Flet's index.html links this file
+    # Flet's web client ships its own artwork under these names and its index.html uses them, so
+    # each is replaced: none of Flet's icons is left in a site or in a local run.
+    maskable.resize((192, 192), Image.Resampling.LANCZOS).save(out / "icon-maskable-192.png")
+    touch = Image.new("RGBA", (192, 192), THEME)  # iOS paints transparent corners black
+    touch.paste(icon(192), (0, 0), icon(192))
+    touch.save(out / "apple-touch-icon-192.png")
+    icon(192).save(out / "loading-animation.png")
+
+
+APP_ASSETS = ROOT / "src" / "cassim" / "app" / "assets"
+WINDOW_ICON = "icons/cassim.ico"  # the desktop window's icon (`cassim.app.main.WINDOW_ICON`)
+WINDOW_ICON_SIZES = (16, 24, 32, 48, 64, 256)
+
+
+def write_dev_icons(assets: Path = APP_ASSETS) -> None:
+    """The icons a local run shows (`cassim`, `cassim --web`, `flet run`): the plain CASSim
+    artwork, committed in the app's assets because nothing draws icons when the app starts. A
+    build copies them into the site and then `write_icons` replaces them with its bundle's own.
+    Run `python -m tools.publish --dev-icons` after changing the artwork."""
+    write_icons(assets, bundles()["all"])
+    draw_icon(256).save(
+        assets / WINDOW_ICON, format="ICO", sizes=[(size, size) for size in WINDOW_ICON_SIZES]
+    )
 
 
 def write_manifest(dist: Path, bundle: Bundle) -> None:
@@ -1127,7 +1155,15 @@ def main() -> None:
         help="sub-path on the host, for example CASSim; '' (default) for the root",
     )
     parser.add_argument("--cdn", action="store_true", help="leave Pyodide and CanvasKit on the CDN")
+    parser.add_argument(
+        "--dev-icons",
+        action="store_true",
+        help="redraw the icons a local run shows (src/cassim/app/assets) and stop",
+    )
     args = parser.parse_args()
+    if args.dev_icons:
+        write_dev_icons()
+        return
     build(
         args.dist.resolve(),
         args.base_url,
