@@ -28,7 +28,7 @@ In Australian secondary mathematics (Year 7–10, VCE General Mathematics, VCE M
 
 Per CASSim decisions 0028, NFR-LEG-008, and NFR-LEG-009:
 1. **No ROM, Firmware, or Proprietary Code**: No binary dumps or decompiled code from Casio, Abacus, or any other manufacturer. The simulator is a purely behavioral, mathematical reconstruction built from curriculum specifications, user manuals, and syllabus requirements.
-2. **No Proprietary Brand Trademarks**: The product is strictly **CASSim fx**. Manufacturer trademarks such as "Casio", "fx-82AU", "fx-100AU", "Natural V.P.A.M.", "ClassWiz", and "Abacus" are never used as product names, screen badges, or UI assets. Generic, descriptive terminology is employed: "CASSim fx", "Natural Display", "MathIO / LineIO", "S⇔D Toggle", "Scientific Calculator".
+2. **No Proprietary Brand Trademarks**: The product is strictly **CASSim fx**. Manufacturer trademarks such as "Casio", "fx-82AU", "fx-100AU", "Natural V.P.A.M.", "ClassWiz", and "Abacus" are never used as product names, screen badges, or UI assets. Generic, descriptive terminology is employed: "CASSim fx", "Natural Display", "MathIO / LineIO", "S⇔D Toggle", "Scientific Calculator". The one place a maker and model class is named is the Appearance ▸ Calculator list (FR-FX-UI-005, decided 2026-11-25), which names the class of calculator a keypad layout follows ("Casio fx-82 series") so students and teachers can find their own model; logos, artwork, fonts and copyright text are never copied.
 3. **No Trade Dress Mimicry**: Skins and visual themes must **not** be faithful reproductions or traces of proprietary physical calculator casings. We replicate the abstract functional arrangement of keys (the standard 50-key matrix) so that students build transferable muscle memory for examinations, but the physical presentation—curvatures, bevels, badge placements, unique color combinations, textures, and keycap profiles—is CASSim's own original digital design.
 4. **Original CASSim Design Language**: Rather than attempting to mimic physical plastics or branded hardware replicas, CASSim fx adopts CASSim's unified software design language: clean flat-design aesthetics, elegant dark/light/high-contrast accessibility palettes, modern typography, and vector-rendered components.
 5. **Documentation & Help Prose**: All instructional texts, step-by-step guides, and tutorial explanations are original pedagogical prose written from scratch for Australian classrooms.
@@ -137,6 +137,7 @@ The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceabi
 | **FR-FX-UI-002** | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
 | **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
 | **FR-FX-UI-004** | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
+| **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The calculator behind the keys is the same. A layout lists only the modes that calculator has, a linear-display calculator switches SETUP to LineIO, and lessons name and highlight the chosen keys (a lesson needing a missing mode or key uses the fx-82 keys and says so). The choice is remembered. | S | T, E |
 
 ---
 
@@ -151,8 +152,8 @@ The keypad keeps the standard 50-key arrangement. Small labels above a key are i
                                [ ▼ ]                   [ ON ]
 
 [Row 2]
-  [ Abs ]      [ x³ ]          [ x⁻¹ ]        [ log■□ ]
-                               (x!)
+  [ Abs ]      [ x³ ]          [ x⁻¹ ]        [ x! ]
+                                 (the D-pad sits above rows 1 and 2)
 
 [Row 3: Templates]
   [ ■/□ ]      [ √■ ]          [ x² ]         [ x■ ]    [ log ]   [ ln ]
@@ -183,7 +184,7 @@ The keypad keeps the standard 50-key arrangement. Small labels above a key are i
   (Rnd)        (Ran# / RanInt) (π / e)        (DRG▶)
 ```
 
-Changes from the first draft of this document: row 2's last key is `log■□` (FR-FX-DSP-003 needs the base template) and `x!` is the SHIFT layer of `x⁻¹`; `)` carries the comma on SHIFT and `X` on ALPHA; `S⇔D` carries `Y` and `M+` carries `M` on ALPHA. SHIFT 6 (VERIFY) opens the relations `= ≠ > ≥ < ≤`. SHIFT DEL (INS) inserts a row in the STAT editor; the calculation screen is always in insert mode.
+The default layout (section 4.2) follows the fx-82 series, whose row 2 is `Abs x³ x⁻¹ x!`; the log■□ template (FR-FX-DSP-003) is typed with the keyboard key `g`. Other changes from the first draft of this document: `)` carries the comma on SHIFT and `X` on ALPHA; `S⇔D` carries `Y` and `M+` carries `M` on ALPHA. SHIFT 6 (VERIFY) opens the relations `= ≠ > ≥ < ≤`. SHIFT DEL (INS) inserts a row in the STAT editor; the calculation screen is always in insert mode.
 
 Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, %, °, ʳ, ᵍ, x̂, ŷ) and powers; the negative sign; nPr and nCr; multiplication with the × left out (so 1÷2π is 1÷(2π)); × and ÷; + and −; relations. `a + b%` adds b% of a. A missing `)` at the end of an entry is allowed.
 
@@ -201,7 +202,7 @@ Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, 
 | Ctrl+M | MODE (F1 then Ctrl+M is SETUP) |
 | Ctrl+/ | fraction template (as in the Nspire app) |
 | s c t / S C T | sin cos tan / their inverses |
-| h, l, n, L, N, r, R, q | hyp, log, ln, 10■, e■, √, ³√, x² |
+| h, l, n, L, N, r, R, q, g | hyp, log, ln, 10■, e■, √, ³√, x², log■□ |
 | ! % , | x!, %, the comma |
 | d, D | ° ' " and FACT |
 | m, M | M+ and M− |
@@ -210,6 +211,24 @@ Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, 
 | Ctrl+C | copy the answer |
 
 Tab is deliberately unbound: it moves the browser's focus, and Enter would then also press the focused button. The keypad keys are not focusable for the same reason. Only the non-typing shortcuts are listed in the device profile (`Profile.computer`), which the published page uses to keep them from the browser (`tools/publish.py`).
+
+---
+
+### 4.2 Calculator layouts (FR-FX-UI-005; `layouts.py`)
+
+A layout is data: rows of keys, each with its face, its legends and, for each layer (plain, after SHIFT, after ALPHA), the canonical key sequence it stands for. Pressing a layout key sends that sequence to the one device state, so the engine, the keyboard map and the tutorials are shared. Three pseudo-keys serve keys only some calculators have: `TOK:<token>` types a statistics variable printed on a key, `STATSUB:<n>` opens item n of the STAT menu (the 10s's S-SUM and S-VAR), and `DATA` adds the entry as a STAT data row (the EL-531's DATA and the 10s's DT; M+ outside STAT). Layouts follow each class's arrangement and key names closely but not exactly.
+
+| | Casio fx-82 series | Abacus SX-II series | Sharp EL-531 series | HP 10s series |
+|---|---|---|---|---|
+| SHIFT / ALPHA keys | SHIFT, ALPHA | 2nd, ALPHA | 2ndF, ALPHA | SHIFT, ALPHA |
+| Display | natural | natural ("Math") | two-line linear | two-line linear |
+| Modes listed | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIFY | COMP, STAT | COMP, STAT |
+| Exact/decimal key | S⇔D | F↔D | none (a b/c, d/c) | none (a b/c, d/c) |
+| STAT data entry | table editor | table editor | DATA key (and the table) | DT key (and the table) |
+| Not on the keys | — | TABLE | TABLE, VERIFY, FACT, S⇔D | TABLE, VERIFY, FACT, S⇔D, MinMax, Reg |
+| On the keys but not in CASSim fx | — | — | base-n conversions, logic operations, MDF-like functions beyond Rnd | — |
+
+Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the fx-82 layout follows the natural-display models. The 10s's quartile, MinMax and regression menus are not reachable from its keys (its S-VAR key opens CASSim's Var menu). Lessons that need something a layout lacks run on the fx-82 keys (tests list which).
 
 ---
 
@@ -243,6 +262,7 @@ src/cassim/devices/scientific/
   __init__.py     DEVICE (id "scientific", storage "scientific.", help page); the profile lists the
                   keyboard shortcuts
   keys.py         every key: id, labels, layers; the computer keyboard map
+  layouts.py      the four calculator layouts, and the translation from their keys to canonical keys
   values.py       exact values (fractions, two-term surds, multiples of π) and arithmetic
   layout.py       the LCD as a tree: text, fractions, roots, raised and lowered parts, cursor
   editor.py       the input line: tokens and templates with a cursor that moves through slots
@@ -278,5 +298,6 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | Tutorials | Twelve lessons with Guide, Show and Test modes; progress kept in browser storage. |
 | Files, links, autosave | Built; links and files use the CASSim document envelope. |
 | Keyboard | Built (section 4.1). |
+| Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the makers' keypad pictures. Checked in Chrome on 2026-11-25. |
 | Browser (E) verification | Checked by hand in Chrome on 2026-11-25 (layout at 1366 × 650 and 1920 × 935, keyboard input, natural display, Guide and Show modes, themes). No Playwright test yet. |
 | Device verification | None of the behaviour has been compared with a physical calculator. In particular Norm thresholds, the order of SETUP page 2, ENG on whole numbers, mixed-number display and the clearing of STAT data on leaving STAT mode follow this document and should be checked against a real device. |

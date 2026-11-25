@@ -56,6 +56,7 @@ Your own calculation is put aside during a lesson and comes back when the lesson
 | s, c, t (S, C, T) | sin, cos, tan (their inverses) |
 | h, l, n (L, N) | hyp, log, ln (10■ and e■) |
 | r (R), q | √ (³√), x² |
+| g | log■□, a logarithm with a base |
 | ! % , | x!, %, comma |
 | d (D) | ° ' " (FACT) |
 | m (M) | M+ (M−) |
@@ -64,6 +65,27 @@ Your own calculation is put aside during a lesson and comes back when the lesson
 | Ctrl+C | Copy the answer |
 
 Hover over a key to see its shortcut, or open **CASSim ▸ Keyboard shortcuts**.
+
+## Choose your calculator's keys
+
+**CASSim ▸ Appearance ▸ Calculator** shows the keys of the calculator you use, so you can find them in the same places: the Casio fx-82 series (the default), the Abacus SX-II series, the Sharp EL-531 series or the HP 10s series. The key names, the labels above the keys and the arrangement follow that calculator; the look is CASSim's own. The calculator behind the keys works the same way, and the tutorials name and highlight the keys of the calculator you chose.
+
+Those calculators do differ in what they can do, and CASSim follows them:
+
+| | fx-82 series | SX-II series | EL-531 series | 10s series |
+|---|---|---|---|---|
+| SHIFT key is called | SHIFT | 2nd | 2ndF | SHIFT |
+| Display | natural (textbook) | natural ("Math") | two lines, linear | two lines, linear |
+| Modes | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIFY | COMP, STAT | COMP, STAT |
+| Exact or decimal | S⇔D | F↔D | a b/c and d/c only | a b/c and d/c only |
+| Entering STAT data | the data table | the data table | DATA (M+) or the table | DT (M+) or the table |
+| Q1, median, Q3 | yes | yes | not on the keys | not on the keys |
+| Prime factors (FACT) | yes | yes | no | no |
+
+- On a linear calculator a fraction shows as 2⌟3 and a surd as a decimal. Choosing the EL-531 or 10s keys switches SETUP to linear display; you can switch it back in SETUP.
+- The EL-531 keys also show base-n and logic functions; CASSim fx does not do those, so the keys do nothing.
+- A lesson that needs something your calculator does not have (TABLE mode, for example) uses the fx-82 keys and says so.
+- Older fx-82 models (such as the fx-82MS) have a linear display and no VERIFY or TABLE.
 
 ## Saving and sharing
 

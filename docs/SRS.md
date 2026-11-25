@@ -548,6 +548,7 @@ The `scientific` device (FR-PROF-012). The device as a whole is Could; the prior
 | FR-FX-UI-002 | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
 | FR-FX-UI-003 | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
 | FR-FX-UI-004 | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
+| FR-FX-UI-005 | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The calculator behind the keys is the same. A layout lists only the modes that calculator has, a linear-display calculator switches SETUP to LineIO, and lessons name and highlight the chosen keys (a lesson needing a missing mode or key uses the fx-82 keys and says so). The choice is remembered. | S | T, E |
 
 ---
 

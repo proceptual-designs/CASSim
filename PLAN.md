@@ -77,6 +77,7 @@ cassim/
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
     pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
     scientific/             DEVICE (SDD-14); CASSim fx scientific calculator: keys.py (keypad and keyboard),
+                            layouts.py (other calculators' keypads),
                             values.py, layout.py, editor.py, parser.py (Pratt; no eval), display.py,
                             engine.py (statistics), state.py, tutorials.py, examples.py;
                             ui/ (FLET: app.py, render.py, skins.py; the only part that imports Flet)
