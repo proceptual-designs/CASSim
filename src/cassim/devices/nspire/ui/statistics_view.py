@@ -22,6 +22,7 @@ AXIS_VERTICAL_MARGIN = 8
 POINT_HIT_RADIUS = 12
 DRAG_MARKER_SIZE = 14
 DRAG_MARKER_RADIUS = 7
+WHEEL_ZOOM_STEP = 600  # scroll pixels for a zoom by a factor of e, as on a Graphs page
 
 
 def statistics_colours(theme: Theme) -> dict[str, str]:
@@ -52,6 +53,7 @@ class StatisticsView:
         self._selected_point: int | None = None
         self._drag_index: int | None = None
         self._drag_value: tuple[float, float] | None = None
+        self._pinch_scale: float | None = None  # while two fingers zoom, the last scale
         self.x_button = ft.TextButton(
             content=ft.Text("Click to add variable", size=11, no_wrap=True),
             style=ft.ButtonStyle(padding=0),
@@ -90,9 +92,11 @@ class StatisticsView:
             on_tap_down=self._tap,
             on_long_press_start=self._context,
             on_secondary_tap_down=self._context,
-            on_pan_start=self._pan_start,
-            on_pan_update=self._pan_update,
-            on_pan_end=self._pan_end,
+            # One pointer drags a point; two pinch to zoom (Flutter allows pan or scale, not both)
+            on_scale_start=self._scale_start,
+            on_scale_update=self._scale_update,
+            on_scale_end=self._scale_end,
+            on_scroll=self._scroll,
             drag_interval=16,
             exclude_from_semantics=True,
             expand=True,
@@ -315,8 +319,42 @@ class StatisticsView:
             return "box"
         return ""
 
-    def _pan_start(self, event: ft.DragStartEvent) -> None:
-        point = self._point_at(event.local_position.x, event.local_position.y)
+    def _scroll(self, event: ft.ScrollEvent) -> None:
+        """The mouse wheel or a two-finger scroll zooms about the pointer (Simon's note 4)."""
+        delta = max(-WHEEL_ZOOM_STEP, min(WHEEL_ZOOM_STEP, event.scroll_delta.y))
+        position = event.local_position
+        if delta and position is not None:
+            self._zoom(math.exp(delta / WHEEL_ZOOM_STEP), position.x, position.y)
+
+    def _zoom(self, factor: float, x: float, y: float) -> None:
+        values = (self._width, self._chart_height, factor, x, y)
+        self.on_action("statistics", "zoom:" + ",".join(format(v, ".17g") for v in values))
+
+    def _scale_start(self, event: ft.ScaleStartEvent) -> None:
+        if event.pointer_count > 1:
+            self._pinch_scale = 1.0
+            return
+        self._pinch_scale = None
+        self._pan_start(event.local_focal_point.x, event.local_focal_point.y)
+
+    def _scale_update(self, event: ft.ScaleUpdateEvent) -> None:
+        if event.pointer_count > 1 or self._pinch_scale is not None:
+            if self._pinch_scale is None:  # a second finger came down during a drag
+                self._pinch_scale = 1.0
+                self._drag_index = None
+            if math.isfinite(event.scale) and event.scale > 0:
+                factor = self._pinch_scale / event.scale
+                self._pinch_scale = event.scale
+                self._zoom(factor, event.local_focal_point.x, event.local_focal_point.y)
+            return
+        self._pan_update(event.local_focal_point.x, event.local_focal_point.y)
+
+    def _scale_end(self, _: ft.ScaleEndEvent) -> None:
+        self._pinch_scale = None
+        self._pan_end()
+
+    def _pan_start(self, x: float, y: float) -> None:
+        point = self._point_at(x, y)
         self._drag_index = point.index if point is not None else None
         self._drag_value = None
         if point is not None:
@@ -325,21 +363,18 @@ class StatisticsView:
             self._drag_marker.top = point.screen_y - DRAG_MARKER_RADIUS
             self._drag_marker.visible = True
 
-    def _pan_update(self, event: ft.DragUpdateEvent) -> None:
+    def _pan_update(self, x: float, y: float) -> None:
         if self._drag_index is None or self.statistics is None:
             return
-        position = event.local_position
-        value = self.statistics.drag_value_at(
-            self._width, self._chart_height, position.x, position.y
-        )
+        value = self.statistics.drag_value_at(self._width, self._chart_height, x, y)
         if value is None:
             return
         self._drag_value = value
-        self._drag_marker.left = position.x - DRAG_MARKER_RADIUS
-        self._drag_marker.top = position.y - DRAG_MARKER_RADIUS
+        self._drag_marker.left = x - DRAG_MARKER_RADIUS
+        self._drag_marker.top = y - DRAG_MARKER_RADIUS
         self._drag_marker.update()
 
-    def _pan_end(self, _: ft.DragEndEvent) -> None:
+    def _pan_end(self) -> None:
         if (
             self._drag_index is not None
             and self._drag_value is not None

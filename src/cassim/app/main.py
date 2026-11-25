@@ -15,6 +15,9 @@ from cassim.app.shell import Shell
 from cassim.doc.share import PREFIX, unpack
 
 ASSETS = Path(__file__).parent / "assets"
+# The desktop window's icon, in `ASSETS` (drawn by `python -m tools.publish --dev-icons`). The
+# browser tab takes `favicon.png` from the same folder, or from the built site.
+WINDOW_ICON = "icons/cassim.ico"
 APP_ROUTE_PARTS = 2
 
 
@@ -155,6 +158,8 @@ def run(*, web: bool = False, **options: object) -> None:
     `view` and `settings` come from `--view`, `--course` and `--set`."""
 
     async def start(page: ft.Page) -> None:
+        if not web:
+            page.window.icon = WINDOW_ICON
         await main(page, **options)
 
     ft.run(

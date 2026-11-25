@@ -68,6 +68,18 @@ def _form(*fields: Field, order: tuple[str, ...] = ()) -> Form:
     return Form(fields, order or tuple(field.name for field in fields))
 
 
+def _two_summaries(spread: str) -> tuple[Field, ...]:
+    """x̄1, n1, x̄2, n2, with `Sx1` and `Sx2` after the means for a t form (emulator run 6,
+    R6-C3); a z form passes "" as its σ1 and σ2 come first."""
+    fields: list[Field] = []
+    for k in ("1", "2"):
+        fields.append(Field(f"mean{k}", f"x̄{k}"))
+        if spread:
+            fields.append(Field(f"sd{k}", f"{spread}{k}"))
+        fields.append(Field(f"n{k}", f"n{k}"))
+    return tuple(fields)
+
+
 def _two_lists() -> tuple[Field, ...]:
     return (
         Field("x1", "List 1", LIST),
@@ -105,15 +117,7 @@ INTERVALS = (
             _LEVEL,
             order=("sigma1", "sigma2", "x1", "x2", "freq1", "freq2", "level"),
         ),
-        _form(
-            Field("sigma1", "σ1"),
-            Field("sigma2", "σ2"),
-            Field("mean1", "x̄1"),
-            Field("n1", "n1"),
-            Field("mean2", "x̄2"),
-            Field("n2", "n2"),
-            _LEVEL,
-        ),
+        _form(Field("sigma1", "σ1"), Field("sigma2", "σ2"), *_two_summaries(""), _LEVEL),
         method=True,
     ),
     Inference(
@@ -121,6 +125,7 @@ INTERVALS = (
         "tInterval_2Samp",
         "4",
         _form(*_two_lists(), _LEVEL, _POOLED),
+        _form(*_two_summaries("Sx"), _LEVEL, _POOLED),
         method=True,
     ),
     Inference(
@@ -170,7 +175,7 @@ TESTS = (
         "tTest",
         "2",
         _form(Field("null", "μ0"), Field("x", "List", LIST), _FREQ, _MU),
-        _form(Field("null", "μ0"), Field("mean", "x̄"), Field("sd", "sx"), Field("n", "n"), _MU),
+        _form(Field("null", "μ0"), Field("mean", "x̄"), Field("sd", "Sx"), Field("n", "n"), _MU),
         shade="t",
         method=True,
     ),
@@ -179,6 +184,7 @@ TESTS = (
         "zTest_2Samp",
         "3",
         _form(Field("sigma1", "σ1"), Field("sigma2", "σ2"), *_two_lists(), _TWO_MU),
+        _form(Field("sigma1", "σ1"), Field("sigma2", "σ2"), *_two_summaries(""), _TWO_MU),
         shade="z",
         method=True,
     ),
@@ -186,12 +192,8 @@ TESTS = (
         "2-Sample t Test",
         "tTest_2Samp",
         "4",
-        _form(
-            *_two_lists(),
-            _TWO_MU,
-            _POOLED,
-            order=("x1", "x2", "freq1", "freq2", "pooled", "alternative"),
-        ),
+        _form(*_two_lists(), _TWO_MU, _POOLED),
+        _form(*_two_summaries("Sx"), _TWO_MU, _POOLED),
         shade="t",
         method=True,
     ),
@@ -246,7 +248,6 @@ TESTS = (
             Field("y", "Y List"),
             _FREQ,
             hypotheses(f"β & {RHO}", "0"),
-            order=("x", "y", "freq", "=0", "alternative"),
         ),
         save=True,
     ),

@@ -3,10 +3,11 @@ import pytest
 from scipy import stats
 
 from cassim.core.session import Session
+from cassim.core.settings import Settings
 
 
-def _session(*lines: str) -> Session:
-    session = Session()
+def _session(*lines: str, digits: str = "float8") -> Session:
+    session = Session(Settings(digits=digits))
     for line in lines:
         result = session.eval(line)
         assert result.error is None, (line, result.error)
@@ -213,3 +214,134 @@ def test_linear_regression_t_test_stores_the_regression_equation():
     session = _session("LinRegtTest {1,2,3,4},{3,5,7,9.5}")
     assert session.eval("stat.RegEqn(x)").text == "2.15*x+0.75"
     assert session.eval("stat.RegEqn(2)").text == "5.05"
+
+
+def _rows(session: Session) -> list[tuple[str, str]]:
+    result = session.eval("stat.results")
+    assert result.error is None, result.error
+    rows = result.text.removeprefix("[").removesuffix("]").split(";")
+    return [(label, value) for label, _, value in (row.partition(",") for row in rows)]
+
+
+def test_t_test_rows_match_the_run_6_sheet():
+    """Emulator run 6, R6-C2: eight rows, the Alternate Hyp and sx among them."""
+    session = _session("d1:={2,4,4,4,5,5,7,9}", "tTest 4,d1,1,0")
+    assert [label for label, _ in _rows(session)] == [
+        '"Title"',
+        '"Alternate Hyp"',
+        '"t"',
+        '"PVal"',
+        '"df"',
+        '"x̄"',
+        '"sx := sn-1x"',
+        '"n"',
+    ]
+    assert _rows(session)[1][1] == '"μ ≠ μ0"'
+    assert _number(session, "t") == pytest.approx(1.3228757, abs=1e-7)
+    assert _number(session, "PVal") == pytest.approx(0.22745282, abs=1e-8)
+    assert _number(session, "df") == 7
+    assert _number(session, "x̄") == 5
+    assert _number(session, "sx") == pytest.approx(2.1380899, abs=1e-7)
+    assert _number(session, "n") == 8
+
+
+def test_two_sample_t_interval_from_summary_statistics_matches_run_6():
+    """Emulator run 6, S2: Stats input, not pooled. The device's t quantile differs from
+    SciPy's (and CASSim's, -0.601090895431) by about 2.4ᴇ-8, so the bounds are checked to 1ᴇ-7;
+    df is the same to all 12 places."""
+    session = _session("tInterval_2Samp 5.4,1.2,10,4.8,1.5,12,0.95,0", digits="float12")
+    assert _number(session, "CLower") == pytest.approx(-0.601090871756, abs=1e-7)
+    assert _number(session, "CUpper") == pytest.approx(1.80109087176, abs=1e-7)
+    assert _number(session, "x̄Diff") == pytest.approx(0.6, abs=1e-12)
+    assert _number(session, "ME") == pytest.approx(1.20109087176, abs=1e-7)
+    assert _number(session, "df") == pytest.approx(19.9803265276, abs=1e-10)
+    labels = [label.strip('"') for label, _ in _rows(session)]
+    assert labels == [
+        "Title",
+        "CLower",
+        "CUpper",
+        "x̄Diff",
+        "ME",
+        "df",
+        "x̄1",
+        "x̄2",
+        "sx1",
+        "sx2",
+        "n1",
+        "n2",
+    ]
+
+
+def test_linear_regression_t_test_matches_run_6():
+    """Emulator run 6, S2: the dragged ys, the device's values and row order. The device's
+    PVal differs from SciPy's (and CASSim's, 0.047039689277) by about 2.5ᴇ-10."""
+    session = _session(
+        "xs:={1,2,3,4,5,6}",
+        "ys:={2,3,6.949,4,6,8}",
+        "LinRegtTest xs,ys,1,0",
+        digits="float12",
+    )
+    expected = {
+        "t": 2.83638252595,
+        "PVal": 0.047039689028,
+        "df": 4,
+        "a": 1.3864,
+        "b": 1.03002857143,
+        "s": 1.51915992293,
+        "SESlope": 0.363148680407,
+        "r²": 0.667913811739,
+        "r": 0.817259941352,
+    }
+    for name, value in expected.items():
+        tolerance = 1e-9 if name == "PVal" else 1e-11
+        assert _number(session, name) == pytest.approx(value, abs=tolerance), name
+    rows = _rows(session)
+    assert [label.strip('"') for label, _ in rows] == [
+        "Title",
+        "Alternate Hyp",
+        "RegEqn",
+        "t",
+        "PVal",
+        "df",
+        "a",
+        "b",
+        "s",
+        "SESlope",
+        "r²",
+        "r",
+        "Resid",
+    ]
+    assert rows[0][1] == '"Linear Reg t Test"'
+    assert rows[1][1] == f'"β & {chr(0x3C1)} ≠ 0"'  # Greek rho
+
+
+@pytest.mark.parametrize(("alternative", "relation"), [(0, "≠"), (1, ">"), (-1, "<")])
+def test_the_alternate_hypothesis_row_names_the_relation(alternative, relation):
+    session = _session(f"tTest_2Samp 5.4,1.2,10,4.8,1.5,12,{alternative},0")
+    assert _rows(session)[1] == ('"Alternate Hyp"', f'"μ1 {relation} μ2"')
+
+
+def test_two_sample_t_test_takes_the_hypothesis_before_pooled():
+    """Reference Guide order: `tTest_2Samp List1,List2,Freq1,Freq2,Hypoth,Pooled`."""
+    lists = _session("xs:={1,2,3,4}", "ys:={2,3,4,5}", "tTest_2Samp xs,ys,1,1,1,0")
+    welch = stats.ttest_ind([1, 2, 3, 4], [2, 3, 4, 5], equal_var=False, alternative="greater")
+    assert _number(lists, "PVal") == pytest.approx(welch.pvalue, abs=1e-8)
+    pooled = _session("xs:={1,2,3,9}", "ys:={2,3,4,5}", "tTest_2Samp xs,ys,1,1,0,1")
+    expected = stats.ttest_ind([1, 2, 3, 9], [2, 3, 4, 5], equal_var=True)
+    assert _number(pooled, "PVal") == pytest.approx(expected.pvalue, abs=1e-8)
+    assert _number(pooled, "df") == 6
+
+
+def test_two_sample_t_test_from_summary_statistics():
+    session = _session("tTest_2Samp 5.4,1.2,10,4.8,1.5,12,0,1")
+    expected = stats.ttest_ind_from_stats(5.4, 1.2, 10, 4.8, 1.5, 12, equal_var=True)
+    assert _number(session, "t") == pytest.approx(expected.statistic, abs=1e-7)
+    assert _number(session, "PVal") == pytest.approx(expected.pvalue, abs=1e-8)
+    assert _number(session, "df") == 20
+
+
+def test_two_sample_z_test_from_summary_statistics():
+    session = _session("zTest_2Samp 1.2,1.5,5.4,10,4.8,12,-1")
+    z = 0.6 / (1.2**2 / 10 + 1.5**2 / 12) ** 0.5
+    assert _number(session, "z") == pytest.approx(z, abs=1e-7)
+    assert _number(session, "PVal") == pytest.approx(stats.norm.cdf(z), abs=1e-8)

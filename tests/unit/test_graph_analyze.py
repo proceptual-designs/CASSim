@@ -101,9 +101,12 @@ def test_no_zero_in_the_bounds_says_so() -> None:
     pick(state, "6", "1")
     bound(state, -3)
     bound(state, 3)
-    assert labels(graphs, "tool") == ["No zero found within the specified bounds"]
+    # an Error dialog over the graph (R6-A8); other keys wait, Enter closes it
+    assert labels(graphs, "tool") == ["Error", "No zero found within the specified bounds", "OK"]
     assert graphs.objects == []
-    state.key_event("Escape")
+    state.key_event("ArrowLeft")
+    assert "OK" in labels(graphs, "tool")
+    state.key_event("Enter")
     assert labels(graphs, "tool") == ["lower bound?"]
 
 
@@ -124,8 +127,8 @@ def test_kept_points_follow_the_function_when_it_changes() -> None:
     state.key_event("Escape")
     graphs.submit(1, "2sin(x)")
     assert labels(graphs, "analysis") == ["(1.57,2)"]
-    graphs.submit(1, "x+5")  # no maximum inside the bounds now: the mark goes
-    assert labels(graphs, "analysis") == []
+    graphs.submit(1, "x+5")  # the greatest value is now at the upper bound (R6-A8)
+    assert labels(graphs, "analysis") == ["(3,8)"]
 
 
 def test_a_tap_picks_the_nearest_graph() -> None:
@@ -240,3 +243,12 @@ def test_typing_and_pointer_keys_while_analysing() -> None:
     state.key_event(".")
     state.key_event("Enter")  # `1..` is not a number: ignored
     assert len(graphs.tools.bounds) == 1
+
+
+def test_a_minimum_at_a_bound_is_the_bound_point() -> None:
+    """R6-A8: Minimum on x^2 from 1 to 3 marks the lower bound, (1,1)."""
+    state, graphs = page("x^2")
+    pick(state, "6", "2")
+    bound(state, 1)
+    bound(state, 3)
+    assert labels(graphs, "analysis") == ["(1,1)"]

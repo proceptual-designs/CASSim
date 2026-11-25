@@ -1,10 +1,13 @@
 """Responsive Code workspace and trace controls (FR-RUN-008, FR-TRC-001 to -008)."""
 
 import re
+import time
 from collections.abc import Generator
 from contextlib import contextmanager
+from io import BytesIO
 
 import pytest
+from PIL import Image
 from playwright.sync_api import Browser, Page, expect
 from tests.e2e.test_home_browser import AID_WAIT, REDRAW, clear_editor
 
@@ -97,6 +100,21 @@ def test_code_workspace_is_responsive_in_both_themes(
             assert trace["x"] > code["x"]
 
 
+RUN_BUTTON = (564, 58, 620, 90)  # left, top, right, bottom at a 1100 x 760 viewport
+
+
+def wait_until_drawn(page: Page, box: tuple[int, int, int, int], timeout: float = 60.0) -> None:
+    """Wait until `box` shows a drawn control: dark fill with light text. The loading screen
+    is light all over and an empty dark page has no light text, so neither passes."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        counts = Image.open(BytesIO(page.screenshot())).convert("L").crop(box).histogram()
+        if any(counts[:80]) and any(counts[181:]):  # dark and light pixels both present
+            return
+        page.wait_for_timeout(500)
+    pytest.fail(f"nothing was drawn at {box} within {timeout} s")
+
+
 def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) -> None:
     """FR-RUN-008: a person's clicks go to Flutter's canvas, not to the accessibility layer the
     other tests use, so this test clicks screen positions and only turns that layer on at the
@@ -106,7 +124,7 @@ def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) ->
     try:
         page.goto(site[1] + "#/app/pseudocode", wait_until="load")
         expect(page.locator("flt-semantics-placeholder")).to_be_attached(timeout=60_000)
-        page.wait_for_timeout(5_000)  # no accessibility layer to wait on: let the UI draw
+        wait_until_drawn(page, RUN_BUTTON)
         page.mouse.click(300, 300)  # below the example in the Code pane: caret at the end
         page.wait_for_timeout(1_000)  # let the field connect, or the first keys are lost (A13)
         page.keyboard.press("Enter")

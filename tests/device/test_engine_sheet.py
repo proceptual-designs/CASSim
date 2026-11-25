@@ -494,5 +494,5 @@ def test_inference_result_columns_run_through_the_engine():
     ops = [cell(0, row, str(value)) for row, value in enumerate([1, 2, 3, 4], start=1)]
     ops += [inference("tInterval a[],1,.95", 4), view(4, 1, 5, 6)]
     reply = core.apply(1, ops)
-    assert column_texts(reply, 4, [1, 2, 3]) == ["Title", "x̄", "CLower"]
-    assert column_texts(reply, 5, [1, 2, 3]) == ["t Interval", "2.5", "0.44573974"]
+    assert column_texts(reply, 4, [1, 2, 3]) == ["Title", "CLower", "CUpper"]
+    assert column_texts(reply, 5, [1, 2, 3]) == ["t Interval", "0.44573974", "4.5542603"]
