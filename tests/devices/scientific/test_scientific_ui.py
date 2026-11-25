@@ -404,7 +404,7 @@ def test_guide_me_lesson() -> None:
 
 def test_back_and_skip() -> None:
     app, _, page = started()
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("fractions")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("fractions")
     app.start_lesson()
     app.lesson_skip()
     app.lesson_skip()
@@ -420,7 +420,7 @@ def test_show_me_plays_the_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ui, "DEMO_NEW_STEP", 0.0)
     app, _, page = started()
     app.set_tutorial_mode("show")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("prime")
     app.start_lesson()
     page.drop_tasks()  # the playback the button scheduled; run it directly
     asyncio.run(app._play())
@@ -432,7 +432,7 @@ def test_test_me() -> None:
     """FR-FX-TUT-005: no glow; Check says right or wrong."""
     app, _, page = started()
     app.set_tutorial_mode("test")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("prime")
     app.start_lesson()
     assert app._target_key() is None
     app.check_test()
@@ -512,34 +512,56 @@ def test_a_modifier_waits_for_the_next_key() -> None:
     page.drop_tasks()
 
 
-def test_a_lesson_needing_table_uses_the_fx82_keys() -> None:
+def test_a_calculator_offers_only_its_own_lessons() -> None:
+    """FR-FX-UI-005: the HP 10s has no TABLE, so it has no TABLE lesson; its lessons use its keys
+    and stay on them."""
     app, _, page = started()
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("stddev")
     app.set_layout("hp10s")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("table")
+    assert "table" not in [lesson.id for lesson in app.lessons]
+    assert app.lesson.id == "stddev"  # the same lesson, in the HP's keys
     app.start_lesson()
-    assert app.shown_layout.id == "fx82"
-    app.stop_lesson()
     assert app.shown_layout.id == "hp10s"
+    assert app._target_face() == "MODE"
     page.drop_tasks()
+
+
+# Test me for "reset" on each calculator, by its keypad (canonical keys, planned on the layout)
+# and by the computer keyboard. The EL-531's M-CLR has no keyboard shortcut.
+RESET_BY_KEYPAD = {
+    "casio": [k.SHIFT, "9", "1", k.EQ, k.AC],
+    "sx2": [k.SHIFT, "9", "1", k.EQ, k.AC],
+    "ms": [k.SHIFT, k.MODE, "2", k.EQ],
+    "sharp": ["MCLR", "0"],
+}
+RESET_BY_KEYBOARD = {
+    "casio": ["F1", "9", "1", "Enter", "Escape"],
+    "sx2": ["F1", "9", "1", "Enter", "Escape"],
+    "ms": ["F1", ("m", {"ctrl": True}), "2", "Enter"],
+}
 
 
 @pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
 @pytest.mark.parametrize("how", ["keypad", "keyboard"])
 def test_reset_test_passes_on_every_calculator_by_keypad_or_keyboard(layout, how: str) -> None:
-    """Test me for "reset" is judged on the calculator: it passes on every layout (a linear
-    calculator resets to LineIO), whether the keys are clicked or typed."""
+    """Test me for "reset" is judged on the calculator, not the keys: it passes on every
+    calculator (a linear one resets to LineIO), whether the keys are clicked or typed."""
+    if how == "keyboard" and layout.dialect not in RESET_BY_KEYBOARD:
+        pytest.skip("M-CLR has no keyboard shortcut")
     app, _, page = started()
     app.set_layout(layout.id)
     app.set_tutorial_mode("test")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("reset")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("reset")
     app.start_lesson()
     assert float(app.state.variables["A"]) == 5  # the test's own starting mess
-    canonical = [k.SHIFT, "9", "1", k.EQ, k.AC]
+    app.check_test()
+    assert not app.feedback_ok
     if how == "keyboard":
-        for name in ("F1", "9", "1", "Enter", "Escape"):
-            keyboard(app, name)
+        for name in RESET_BY_KEYBOARD[layout.dialect]:
+            key, mods = name if isinstance(name, tuple) else (name, {})
+            keyboard(app, key, **mods)
     else:
-        steps = layouts.plan(app.shown_layout, canonical)
+        steps = layouts.plan(app.shown_layout, RESET_BY_KEYPAD[layout.dialect])
         assert steps is not None
         for step in steps:
             for key in step.presses:

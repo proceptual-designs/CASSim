@@ -17,18 +17,18 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.keyboard import key_name
-from cassim.devices.scientific import HELP_PAGE, layouts
+from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
 from cassim.devices.scientific.layouts import LAYOUTS, LAYOUTS_BY_ID, Cell, Layout, LKey
 from cassim.devices.scientific.state import Display, DocumentFileError, ScientificState
 from cassim.devices.scientific.tutorials import (
-    LESSONS,
     SPEEDS,
+    Lesson,
     TutorialMode,
     TutorialSession,
     expected_screens,
-    lesson_layout,
+    lessons_for,
     wording,
 )
 from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
@@ -731,7 +731,9 @@ class ScientificApp:
         await self._load_prefs()
         await self._load_state()
         layout = self.layout
-        self.state.use_layout(layout.modes, linear=layout.linear, switch_display=False)
+        self.state.use_layout(
+            layout.modes, linear=layout.linear, dialect=layout.dialect, switch_display=False
+        )
         self.page.controls.clear()
         self.page.add(self.root)
         self.apply_skin(self.skin_name, save=False)
@@ -785,7 +787,10 @@ class ScientificApp:
 
     def on_layout_key(self, key: LKey, *, from_demo: bool = False) -> None:
         """A key of the drawn keypad: it sends the canonical keys of the layer that is waiting."""
-        produced = layouts.press(key, shift=self.state.shift, alpha=self.state.alpha)
+        state = self.state
+        produced = layouts.press(
+            key, shift=state.shift, alpha=state.alpha, waiting=state.sto or state.rcl
+        )
         self._feed(produced, key, from_demo=from_demo)
 
     def on_key(self, key: str, *, from_demo: bool = False) -> None:
@@ -937,16 +942,17 @@ class ScientificApp:
         if not self.panel_open:
             _safe_update(self.panel)
             return
-        lesson = LESSONS[self.lesson_index]
+        lessons = self.lessons
+        lesson = self.lesson
         picker = ft.Dropdown(
             value=lesson.id,
             options=[
                 ft.DropdownOption(
                     key=item.id,
-                    text=("✓ " if item.id in self.completed else "")
+                    text=("✓ " if item.key in self.completed else "")
                     + f"{item.category}: {item.title}",
                 )
-                for item in LESSONS
+                for item in lessons
             ],
             on_select=self._pick_lesson,
             width=self.panel.width - 32 if self.panel.width else PANEL_WIDTH - 32,
@@ -969,7 +975,10 @@ class ScientificApp:
                     self._panel_text("Tutorials", size=15, bold=True),
                     ft.Container(expand=True),
                     self._panel_text(
-                        f"{len(self.completed)} of {len(LESSONS)} done", size=11, muted=True
+                        f"{sum(item.key in self.completed for item in lessons)} of "
+                        f"{len(lessons)} done",
+                        size=11,
+                        muted=True,
                     ),
                     ft.IconButton(
                         ft.Icons.CLOSE,
@@ -1050,15 +1059,6 @@ class ScientificApp:
         layout = self.shown_layout
         total = len(lesson.steps)
         notes: list[ft.Control] = []
-        if layout is not self.layout:
-            notes.append(
-                self._panel_text(
-                    f"This lesson uses the {layout.title} keys: the {self.layout.title} "
-                    "does not have everything it needs.",
-                    size=12,
-                    muted=True,
-                )
-            )
         if session.is_complete:
             answer = self.state.answer_text()
             body: list[ft.Control] = [
@@ -1171,20 +1171,28 @@ class ScientificApp:
 
     def _pick_lesson(self, event: ft.Event[ft.Dropdown]) -> None:
         value = event.control.value
-        for index, lesson in enumerate(LESSONS):
+        for index, lesson in enumerate(self.lessons):
             if lesson.id == value:
                 self.lesson_index = index
         self.feedback = ""
         self._draw_panel()
 
+    @property
+    def lessons(self) -> tuple[Lesson, ...]:
+        """The chosen calculator's lessons, in its own keys."""
+        return lessons_for(self.layout)
+
+    @property
+    def lesson(self) -> Lesson:
+        lessons = self.lessons
+        return lessons[min(self.lesson_index, len(lessons) - 1)]
+
     def start_lesson(self) -> None:
-        """Put the student's calculation aside, set the calculator up and begin. A lesson that
-        needs a mode or key the chosen calculator lacks runs on the default layout."""
+        """Put the student's calculation aside, set the calculator up and begin."""
         self.stop_demo()
-        lesson = LESSONS[self.lesson_index]
+        lesson = self.lesson
         if self.saved_before_lesson is None:
             self.saved_before_lesson = self.state.to_dict()
-        self._show_layout(lesson_layout(lesson, self.layout))
         lesson.prepare(self.state, test=self.tutorial_mode == "test")
         self.session = TutorialSession(lesson, mode=self.tutorial_mode)
         self.session._screens = expected_screens(lesson, self.shown_layout)
@@ -1211,7 +1219,12 @@ class ScientificApp:
         """Draw this layout's keypad and give the calculator its modes (and display)."""
         changed = layout is not self.shown_layout
         self.shown_layout = layout
-        self.state.use_layout(layout.modes, linear=layout.linear, switch_display=switch_display)
+        self.state.use_layout(
+            layout.modes,
+            linear=layout.linear,
+            dialect=layout.dialect,
+            switch_display=switch_display,
+        )
         if changed:
             self.key_controls = {}
             self.fit()
@@ -1221,7 +1234,7 @@ class ScientificApp:
         if session is None:
             return
         if self.tutorial_mode == "guide":
-            self.completed.add(session.lesson.id)
+            self.completed.add(session.lesson.key)
             self._save_prefs()
         self.feedback, self.feedback_ok = "Well done: every step is complete.", True
 
@@ -1308,7 +1321,7 @@ class ScientificApp:
             return
         challenge = session.lesson.challenge
         if challenge.check(self.state):
-            self.completed.add(session.lesson.id)
+            self.completed.add(session.lesson.key)
             self._save_prefs()
             self.feedback, self.feedback_ok = "Correct. Well done.", True
         else:
@@ -1472,9 +1485,9 @@ class ScientificApp:
 
     def load_example(self, index: int) -> None:
         self.stop_lesson()
-        title, presses = EXAMPLES[index]
-        if k.MODE in presses and "TABLE" not in self.layout.modes and title.startswith("Table"):
-            self.shell.notice("Examples", f"The {self.layout.title} has no TABLE mode.")
+        reason = examples.missing(index, self.layout)
+        if reason:
+            self.shell.notice("Examples", reason)
             return
         load_example(self.state, index)
         self.refresh()
@@ -1652,7 +1665,11 @@ class ScientificApp:
         layout = LAYOUTS_BY_ID.get(layout_id, layouts.DEFAULT)
         if self.session is not None:
             self.stop_lesson()
+        lesson_id = self.lesson.id
         self.layout = layout
+        self.lesson_index = next(
+            (i for i, lesson in enumerate(self.lessons) if lesson.id == lesson_id), 0
+        )
         self.pending = []
         self._show_layout(layout)
         self.refresh()

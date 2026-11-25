@@ -108,7 +108,7 @@ def test_stat_menu_only_offers_reg_for_two_variables() -> None:
     state.press("1")
     assert state.display().options == ("1:Type", "2:Data", "3:Sum", "4:Var", "5:MinMax")
     two = press(k.MODE, "2", "2", S, "1")
-    assert two.display().options[-1] == "6:Reg"
+    assert two.display().options[-2:] == ("5:Reg", "6:MinMax")  # as on the fx-82AU PLUS II
     assert press(S, "1").screen == "calc"  # no STAT menu outside STAT mode
 
 
@@ -128,13 +128,13 @@ def linreg_state() -> ScientificState:
 def test_linear_regression() -> None:
     """FR-FX-STA-004 and -005 (the catalogue's YT-6 numbers were wrong; these are checked)."""
     state = linreg_state()
-    assert stat(state, "6", "1") == "1.2"
-    assert stat(state, "6", "2") == "1.9"
-    assert stat(state, "6", "3") == "0.9972413741"
+    assert stat(state, "5", "1") == "1.2"
+    assert stat(state, "5", "2") == "1.9"
+    assert stat(state, "5", "3") == "0.9972413741"
     press("7", state=state)
-    assert stat(state, "6", "5") == "14.5"
+    assert stat(state, "5", "5") == "14.5"
     press("1", "6", state=state)
-    assert stat(state, "6", "4") == "7.789473684"
+    assert stat(state, "5", "4") == "7.789473684"
     assert stat(state, "4", "5") == "12.6"  # ȳ
 
 
@@ -170,9 +170,9 @@ def test_quadratic_menu_on_the_keypad() -> None:
         k.MODE, "2", "3", *column("0", "1", "2", "3"), *(k.UP,) * 4, k.RIGHT,
         *column("1", "6", "17", "34"), k.AC,
     )  # fmt: skip
-    assert stat(state, "6", "3") == "3"  # C
+    assert stat(state, "5", "3") == "3"  # C
     press("6", state=state)
-    assert stat(state, "6", "4") == "1"  # x̂₁ of y = 6
+    assert stat(state, "5", "4") == "1"  # x̂₁ of y = 6
 
 
 def test_one_var_needs_data() -> None:

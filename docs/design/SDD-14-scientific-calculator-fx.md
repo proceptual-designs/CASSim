@@ -137,7 +137,7 @@ The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceabi
 | **FR-FX-UI-002** | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
 | **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
 | **FR-FX-UI-004** | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
-| **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The calculator behind the keys is the same. A layout lists only the modes that calculator has, a linear-display calculator switches SETUP to LineIO, and lessons name and highlight the chosen keys (a lesson needing a missing mode or key uses the fx-82 keys and says so). The choice is remembered. | S | T, E |
+| **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
 
 ---
 
@@ -216,19 +216,29 @@ Tab is deliberately unbound: it moves the browser's focus, and Enter would then 
 
 ### 4.2 Calculator layouts (FR-FX-UI-005; `layouts.py`)
 
-A layout is data: rows of keys, each with its face, its legends and, for each layer (plain, after SHIFT, after ALPHA), the canonical key sequence it stands for. Pressing a layout key sends that sequence to the one device state, so the engine, the keyboard map and the tutorials are shared. Three pseudo-keys serve keys only some calculators have: `TOK:<token>` types a statistics variable printed on a key, `STATSUB:<n>` opens item n of the STAT menu (the 10s's S-SUM and S-VAR), and `DATA` adds the entry as a STAT data row (the EL-531's DATA and the 10s's DT; M+ outside STAT). Layouts follow each class's arrangement and key names closely but not exactly.
+A layout is data: rows of keys, each with its face, its legends and, for each layer (plain, after SHIFT, after ALPHA), the canonical key sequence it stands for. Pressing a layout key sends that sequence to the one device state, so the maths engine and the keyboard map are shared. After STO or RCL a key sends the letter or statistic printed above it, with no ALPHA (the EL-531's STO then yˣ for A, RCL then 4 for x̄). Pseudo-keys serve keys only some calculators have: `TOK:<token>` types a token printed on a key (a statistic, or the 10s's `;`), `DATA` adds the entry as a STAT data row (the EL-531's DATA and the 10s's DT; M+ outside STAT), and the EL-531's `HOME`, `CA`, `MCLR`, `RANDOM`, `DRG`, `DRGCONV` and `STOXY` (STO, which is (x,y) in STAT mode). Layouts follow each class's arrangement and key names closely but not exactly; the key *sequences* follow the makers' manuals (`references/`).
+
+Each layout names a **dialect**, the way the device state runs its menus (`state.py`):
+
+- `casio` (fx-82): as sections 3 and 4.1. The two-variable STAT menu is 1 Type, 2 Data, 3 Sum, 4 Var, 5 Reg, 6 MinMax (corrected 2026-11-25; Reg was 6).
+- `sx2` (SX-II): as `casio`, but HYP opens a menu (1 sinh … 6 tanh⁻¹), the VERIFY menu is = ≠ > < ≥ ≤, and Norm 2 is the default.
+- `ms` (the fx-82MS family the HP 10s follows): MODE shows COMP, SD, REG, and MODE again shows Deg/Rad/Gra, then Fix/Sci/Norm, then Disp (a b/c or d/c). SHIFT MODE is CLR: 1 Scl (in SD/REG) or Mcl, 2 Mode, 3 All, then =. SD and REG take data on the calculation screen: x DT, x ; f DT, x , y DT, and DT alone repeats the last entry. SHIFT 1 (S-SUM) and SHIFT 2 (S-VAR) are menus of pages turned with ◀ ▶ (S-VAR: x̄, xσn, xσn-1; ȳ, yσn, yσn-1; A, B, r; x̂, ŷ). % works out the whole entry: A × B % is B% of A, and + or − straight after adds it on or takes it off; A ÷ B %, A + B % and A − B % are the ratio, the total and the change as a percentage of B. a b/c types a fraction mark (2⌟3, 1⌟2⌟3) and, after an answer, switches between a fraction and a decimal. Defaults: LineIO, Norm 2, mixed numbers.
+- `sharp` (EL-531): MODE 0 is NORMAL and MODE 1 n is STAT (0 SD, 1 LINE, 2 QUAD, 3 EXP, 4 LOG, 5 PWR, 6 INV), with data typed as x DATA, x (x,y) f DATA or x (x,y) y DATA; RCL and a statistics key shows its value. SET UP 0 n sets FIX, SCI, ENG, NORM1, NORM2 and SET UP 1 n sets TAB. DRG cycles the angle unit and 2ndF DRG▸ converts the answer into the next unit. 2ndF % works out the entry (125 + 10 % is 137.5). a b/c as for `ms`. 2ndF CA clears the answer and the statistics; 2ndF M-CLR offers 0 (memories) and 1 (reset, then =). Defaults: LineIO, mixed numbers.
 
 | | Casio fx-82 series | Abacus SX-II series | Sharp EL-531 series | HP 10s series |
 |---|---|---|---|---|
 | SHIFT / ALPHA keys | SHIFT, ALPHA | 2nd, ALPHA | 2ndF, ALPHA | SHIFT, ALPHA |
 | Display | natural | natural ("Math") | two-line linear | two-line linear |
 | Modes listed | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIFY | COMP, STAT | COMP, STAT |
-| Exact/decimal key | S⇔D | F↔D | none (a b/c, d/c) | none (a b/c, d/c) |
-| STAT data entry | table editor | table editor | DATA key (and the table) | DT key (and the table) |
-| Not on the keys | — | TABLE | TABLE, VERIFY, FACT, S⇔D | TABLE, VERIFY, FACT, S⇔D, MinMax, Reg |
-| On the keys but not in CASSim Scientific | — | — | base-n conversions, logic operations, MDF-like functions beyond Rnd | — |
+| Exact/decimal key | S⇔D | F↔D | a b/c after an answer | a b/c after an answer |
+| SETUP | SHIFT MODE | 2nd SET UP | SET UP 0 (FSE), 1 (TAB); DRG key | MODE pressed again |
+| Clear | SHIFT 9 (CLR) | 2nd CLR | 2ndF CA; 2ndF M-CLR | SHIFT MODE (CLR) |
+| STAT data entry | table editor | table editor | x (x,y) f DATA | x ; f DT, x , y DT |
+| STAT results | SHIFT 1 menus | 2nd STATVAR menus | RCL + key | SHIFT S-SUM / S-VAR pages |
+| Lessons not offered | — | TABLE | freq, fivenum, prime, table | freq, fivenum, prime, table |
+| On the keys but not simulated | — | — | base-n, logic, ENG display mode, STAT VAR list | CL (delete a data item), Σx³ page, `:` |
 
-Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the fx-82 layout follows the natural-display models. The 10s's quartile, MinMax and regression menus are not reachable from its keys (its S-VAR key opens CASSim's Var menu). Lessons that need something a layout lacks run on the fx-82 keys (tests list which).
+Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the fx-82 layout follows the natural-display models, and the HP 10s layout shows how the MS family works. Not yet checked against a real calculator: the EL-531's M-CLR menu (not in its operation guide), CA's exact reach, and STAT VAR (it opens the fx-82's STAT menu). Doc ▸ Examples are the fx-82's keys; they are pressed on its menus and refused where the calculator lacks the feature.
 
 ---
 

@@ -2,10 +2,11 @@
 
 A layout changes only what the keys are called and where they are. Each layout key names, for each
 layer (plain, after SHIFT/2nd, after ALPHA), the sequence of canonical keys (`keys.py`) it stands
-for, so the device state, the keyboard map and the tutorials stay the same for every layout. A
-sequence may hold three pseudo-keys the state understands: `TOK:<token>` types one token (the
-statistics variables printed on some keys), `STATSUB:<n>` opens item n of the STAT menu, and
-`DATA` adds the entry as a STAT data row.
+for, so the maths engine and the keyboard map stay the same for every layout; the layout's
+`dialect` tells the device state whose menus and key sequences to follow. A sequence may hold
+pseudo-keys the state understands: `TOK:<token>` types one token (statistics printed on some
+keys, the HP's ;), `DATA` adds the entry as a STAT data row, and the EL-531's own keys
+(`state.SHARP_KEYS`). After STO or RCL a key sends the letter printed above it (`press`).
 
 Layouts follow the arrangement and the key names of each class of calculator, so students can
 find their own keys; the artwork, fonts and colours are CASSim's own (decision 0028).
@@ -22,6 +23,11 @@ from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.keys import KeyStyle
 
 CalcModeName = Literal["COMP", "STAT", "TABLE", "VERIFY"]
+# How the calculator behind the keys runs its menus (state.py): the fx-82's own; the SX-II's (HYP
+# and VERIFY menus, Norm 2); the fx-82MS family's that the HP 10s follows (MODE pages, CLR on
+# SHIFT MODE, SD and REG with DT, S-SUM and S-VAR); and the Sharp EL-531's (MODE 0 and 1, SET UP,
+# DRG, RCL and a statistics key, (x,y) and DATA).
+Dialect = Literal["casio", "sx2", "ms", "sharp"]
 DpadPlace = Literal["center", "right"]
 Seq = tuple[str, ...]
 
@@ -63,6 +69,7 @@ class Layout:
     dpad: DpadPlace = "center"
     modes: tuple[CalcModeName, ...] = ("COMP", "STAT", "TABLE", "VERIFY")
     linear: bool = False  # a two-line linear display: choosing it switches SETUP to LineIO
+    dialect: Dialect = "casio"
     shift_colour: str = ""  # legend colours on a dark body; "" keeps the theme's
     alpha_colour: str = ""
     shift_mark: str = "S"  # the status indicators
@@ -220,6 +227,7 @@ SX2 = Layout(
     shift_colour="#f2d15c",
     alpha_colour="#5fb4ff",
     modes=("COMP", "STAT", "VERIFY"),
+    dialect="sx2",
     top=(
         (
             LKey(k.MODE, "MODE", (k.MODE,), (SHIFT, k.MODE), shift_label="SET UP", name="Mode"),
@@ -304,14 +312,15 @@ EL531 = Layout(
     alpha_colour="#6fd19a",
     modes=("COMP", "STAT"),
     linear=True,
+    dialect="sharp",
     top=(
         (
-            LKey("HOME", "HOME", (k.MODE, "1"), name="Home: back to normal calculation"),
+            LKey("HOME", "HOME", ("HOME",), name="Home: back to normal calculation"),
             LKey(k.ON, "ON/C", (k.AC,), (SHIFT, k.AC), shift_label="OFF", name="On, clear"),
         ),
         (
             LKey("SHIFT", "2ndF", (SHIFT,), style="mod_shift", name="Second function"),
-            LKey(k.MODE, "MODE", (k.MODE,), (SHIFT, "9"), shift_label="CA", name="Mode"),
+            LKey(k.MODE, "MODE", (k.MODE,), ("CA",), shift_label="CA", name="Mode"),
         ),
     ),
     rows=(
@@ -337,7 +346,7 @@ EL531 = Layout(
             std(k.COS, "cos", "cos⁻¹"),
             std(k.TAN, "tan", "tan⁻¹"),
             LKey("PI", "π", (SHIFT, k.EXP), name="Pi"),
-            LKey("DRG", "DRG", (SHIFT, k.ANS), (SHIFT, k.ANS), shift_label="DRG▸", name="Angle"),
+            LKey("DRG", "DRG", ("DRG",), ("DRGCONV",), shift_label="DRG▸", name="Angle"),
         ),
         (
             LKey(k.POW, "yˣ", (k.POW,), (SHIFT, k.POW), var("A"), "ˣ√", "A", name="Power"),
@@ -355,7 +364,7 @@ EL531 = Layout(
             LKey(
                 "STO",
                 "STO",
-                (SHIFT, k.RCL),
+                ("STOXY",),
                 (SHIFT, k.RPAREN),
                 var("Y"),
                 ",",
@@ -365,7 +374,7 @@ EL531 = Layout(
             LKey(k.MPLUS, "M+", ("DATA",), (SHIFT, k.MPLUS), var("M"), "M−", "M", name="M+ (DATA)"),
         ),
         (
-            LKey("7", "7", ("7",), (SHIFT, k.DOT), tok("ȳ"), "RANDOM", "ȳ", style="num"),
+            LKey("7", "7", ("7",), ("RANDOM",), tok("ȳ"), "RANDOM", "ȳ", style="num"),
             LKey("8", "8", ("8",), (SHIFT, k.ADD), tok("sy"), "→rθ", "sy", style="num"),
             LKey("9", "9", ("9",), (SHIFT, k.SUB), tok("σy"), "→xy", "σy", style="num"),
             LKey(k.LPAREN, "(", (k.LPAREN,), tok("x̂"), tok("regA"), "x′", "a"),  # noqa: RUF001
@@ -379,7 +388,7 @@ EL531 = Layout(
             LKey(k.DIV, "÷", (k.DIV,), _NONE, tok("r"), "→BIN", "r", style="num"),
         ),
         (
-            LKey("1", "1", ("1",), (SHIFT, k.LPAREN), tok("Σxy"), "%", "Σxy", style="num"),
+            LKey("1", "1", ("1",), (SHIFT, k.LPAREN, k.EQ), tok("Σxy"), "%", "Σxy", style="num"),
             LKey("2", "2", ("2",), alpha=tok("Σy"), alpha_label="Σy", style="num"),
             LKey("3", "3", ("3",), alpha=tok("Σy²"), alpha_label="Σy²", style="num"),
             LKey(k.ADD, "+", (k.ADD,), _NONE, shift_label="→PEN", style="num"),
@@ -392,7 +401,7 @@ EL531 = Layout(
                 k.NEG,
                 "+/−",
                 (k.NEG,),
-                (SHIFT, "9", "2"),
+                ("MCLR",),
                 tok("Σx²"),
                 "M-CLR",
                 "Σx²",
@@ -423,12 +432,13 @@ HP10S = Layout(
     alpha_colour="#ff7a6b",
     modes=("COMP", "STAT"),
     linear=True,
+    dialect="ms",
     dpad="right",
     top=(
         (
             SHIFT_KEY,
             ALPHA_KEY,
-            LKey(k.MODE, "MODE", (k.MODE,), (SHIFT, k.MODE), shift_label="SETUP", name="Mode"),
+            LKey(k.MODE, "MODE", (k.MODE,), (SHIFT, k.MODE), shift_label="CLR", name="Mode"),
             std(k.ON, "ON"),
         ),
         (
@@ -460,7 +470,7 @@ HP10S = Layout(
             std(k.ENG, "ENG", "←"),
             std(k.LPAREN, "("),
             std(k.RPAREN, ")", alpha_label="X"),
-            LKey("COMMA", ",", (SHIFT, k.RPAREN), alpha=var("Y"), alpha_label="Y", name="Comma"),
+            LKey("COMMA", ",", (SHIFT, k.RPAREN), tok(";"), var("Y"), ";", "Y", name="Comma"),
             LKey(k.MPLUS, "M+", ("DATA",), (SHIFT, k.MPLUS), var("M"), "M−", "M", name="M+ (DT)"),
         ),
         (
@@ -468,18 +478,18 @@ HP10S = Layout(
             num("8"),
             num("9"),
             std(k.AC, "AC", "OFF", style="ac"),
-            LKey(k.DEL, "DEL", (k.DEL,), (SHIFT, "9"), shift_label="CLR", style="del"),
+            std(k.DEL, "DEL", "INS", style="del"),
         ),
         (
             num("4"),
             num("5"),
             num("6"),
             std(k.MUL, "×", style="num"),
-            LKey(k.DIV, "÷", (k.DIV,), (SHIFT, k.DEL), shift_label="INS", style="num"),
+            std(k.DIV, "÷", style="num"),
         ),
         (
-            LKey("1", "1", ("1",), ("STATSUB:3",), shift_label="S-SUM", style="num"),
-            LKey("2", "2", ("2",), ("STATSUB:4",), shift_label="S-VAR", style="num"),
+            LKey("1", "1", ("1",), (SHIFT, "1"), shift_label="S-SUM", style="num"),
+            LKey("2", "2", ("2",), (SHIFT, "2"), shift_label="S-VAR", style="num"),
             num("3"),
             std(k.ADD, "+", style="num"),
             std(k.SUB, "−", style="num"),
@@ -489,14 +499,17 @@ HP10S = Layout(
             std(k.DOT, "·", "Ran#", style="num"),
             std(k.EXP, "EXP", "π", style="num"),
             std(k.ANS, "Ans", "DRG▸", style="num"),
-            LKey(k.EQ, "=", (k.EQ,), (SHIFT, k.LPAREN), shift_label="%", style="eq"),
+            LKey(k.EQ, "=", (k.EQ,), (SHIFT, k.LPAREN, k.EQ), shift_label="%", style="eq"),
         ),
     ),
     notes=(
         "A two-line linear display: fractions show as 2⌟3 and surds as decimals.",
-        "No TABLE or VERIFY mode, and no prime factorisation (FACT) or S⇔D key.",
-        "In STAT mode M+ is DT: it adds the entry (x, or x,y) as a new data row.",
-        "SHIFT 1 (S-SUM) and SHIFT 2 (S-VAR) open the sums and the statistics in STAT mode.",
+        "MODE shows COMP, SD and REG; MODE again shows Deg, Rad and Gra, again Fix, Sci and Norm, "
+        "and again the fraction display. SHIFT MODE is CLR.",
+        "In SD and REG mode M+ is DT: x DT adds x, x ; f DT adds it f times, x , y DT a pair.",
+        "SHIFT 1 (S-SUM) and SHIFT 2 (S-VAR) give the statistics; ▶ shows more of them.",
+        "a b/c types a fraction, and after an answer switches it between a fraction and a decimal.",
+        "No TABLE or VERIFY mode, no prime factorisation (FACT) and no quartiles.",
     ),
 )
 
@@ -533,8 +546,22 @@ def normalize(seq: list[str]) -> list[str]:
     return out
 
 
-def press(lkey: LKey, *, shift: bool, alpha: bool) -> list[str]:
-    """The canonical keys a layout key sends when SHIFT or ALPHA may already be waiting."""
+def _letter(lkey: LKey) -> Seq | None:
+    """What a key sends after STO or RCL: the variable or statistic printed above it, with no
+    ALPHA (STO then the key marked A; RCL then the key marked x̄ on the EL-531)."""
+    layer = lkey.alpha
+    if len(layer) == 2 and layer[0] == ALPHA and layer[1] in k.VARIABLE_KEYS:  # noqa: PLR2004
+        return (layer[1],)
+    if len(layer) == 1 and layer[0].startswith("TOK:"):
+        return layer
+    return None
+
+
+def press(lkey: LKey, *, shift: bool, alpha: bool, waiting: bool = False) -> list[str]:
+    """The canonical keys a layout key sends when SHIFT or ALPHA may already be waiting, or when
+    STO or RCL is waiting for a letter (`waiting`)."""
+    if waiting and not shift and not alpha and (letter := _letter(lkey)) is not None:
+        return list(letter)
     layer = lkey.shift if shift else lkey.alpha if alpha else lkey.plain
     active = SHIFT if shift else ALPHA if alpha else None
     if active is None:
@@ -575,15 +602,22 @@ def _candidates(layout: Layout) -> list[Step]:
     return found
 
 
+WAITS = (k.RCL, "STOXY")  # keys after which a letter key needs no ALPHA (SHIFT RCL is STO)
+
+
 def plan(layout: Layout, canonical: list[str]) -> list[Step] | None:
     """The layout presses that produce these canonical keys (longest match first), or None when
-    the layout cannot produce them."""
+    the layout cannot produce them. After STO or RCL a letter is its key alone."""
     candidates = _candidates(layout)
+    letters = [
+        Step((key,), letter) for key in layout.all_keys() if (letter := _letter(key)) is not None
+    ]
     steps: list[Step] = []
     i = 0
     while i < len(canonical):
         best: Step | None = None
-        for step in candidates:
+        waiting = i > 0 and canonical[i - 1] in WAITS
+        for step in (letters if waiting else []) + candidates:
             n = len(step.produces)
             if tuple(canonical[i : i + n]) == step.produces and (
                 best is None or n > len(best.produces)

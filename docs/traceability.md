@@ -298,4 +298,4 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-FX-UI-002 | Should | `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-003 | Should | `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-004 | Must | `tests/devices/scientific/test_scientific_keys.py`, `tests/devices/scientific/test_scientific_ui.py` |
-| FR-FX-UI-005 | Should | `tests/devices/scientific/test_scientific_layouts.py`, `tests/devices/scientific/test_scientific_ui.py` |
+| FR-FX-UI-005 | Should | `tests/devices/scientific/test_scientific_layouts.py`, `tests/devices/scientific/test_scientific_tutorials.py`, `tests/devices/scientific/test_scientific_ui.py` |
