@@ -285,4 +285,22 @@ def test_a_sideways_scroll_that_the_window_does_not_answer_is_dropped() -> None:
         async def scroll_to(self, **_: object) -> None:
             raise RuntimeError("TimeoutException after 0:00:10: ... Row(1).scroll_to")
 
-    asyncio.run(views_module._scroll_strip(cast("ft.Row", Row()), 10.0))
+    strip = views_module.Strip()
+    strip.row, strip.offset = cast("ft.Row", Row()), 10.0
+    asyncio.run(views_module._scroll_strip(strip))
+
+
+def test_a_sideways_scroll_is_made_twice_to_where_the_line_should_be_by_then() -> None:
+    """The first scroll can run before the longer line is laid out, so it is made again a
+    moment later; if a later key has moved the cursor meanwhile, the second goes there."""
+    strip = views_module.Strip()
+    asked: list[float] = []
+
+    class Row:
+        async def scroll_to(self, *, offset: float, duration: int) -> None:
+            asked.append(offset)
+            strip.offset = 42.0  # another key came while this one settled
+
+    strip.row, strip.offset = cast("ft.Row", Row()), views_module.TO_END
+    asyncio.run(views_module._scroll_strip(strip))
+    assert asked == [views_module.TO_END, 42.0]

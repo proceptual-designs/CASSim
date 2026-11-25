@@ -85,12 +85,17 @@ class Strip:
         self.due = False
 
 
-async def _scroll_strip(row: ft.Row, offset: float) -> None:
-    """Scroll a long line sideways. The window may be too busy to answer in time, or the row
-    may have gone by the time it does (the line got shorter, the page changed): the next redraw
-    scrolls again, so a scroll that fails is dropped, not raised."""
-    with contextlib.suppress(RuntimeError, TimeoutError):
-        await row.scroll_to(offset=offset, duration=0)
+async def _scroll_strip(strip: Strip) -> None:
+    """Scroll a long line sideways to where its cursor is, and again a moment later: the first
+    can run before the line's new width is laid out, and then stops short or does nothing
+    (seen once in four runs with the cursor at the end of a line just made longer). Each scroll
+    goes to where the strip should be by then, so a later key's place is never undone. The
+    window may be too busy to answer in time, or the row may have gone (the line got shorter,
+    the page changed): the next redraw scrolls again, so a scroll that fails is dropped."""
+    for wait in (_SETTLE, 0.0):
+        with contextlib.suppress(RuntimeError, TimeoutError):
+            await strip.row.scroll_to(offset=strip.offset, duration=0)
+        await asyncio.sleep(wait)
 
 
 def cut_off(
@@ -939,7 +944,7 @@ class CalculatorView:
             return
         for strip in due:  # long lines: sideways, to where their cursors are
             strip.due = False
-            page.run_task(_scroll_strip, strip.row, strip.offset)
+            page.run_task(_scroll_strip, strip)
         if not (to_end or self._follow or keep is not None):
             return
         if to_end:
