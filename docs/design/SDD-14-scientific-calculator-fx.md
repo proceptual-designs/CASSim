@@ -172,7 +172,7 @@ The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 des
 
 1. **Top bar (FR-FX-UI-001)**:
    - **CASSim menu**: Home, Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…, Check for updates, Help (wiki)…, About CASSim….
-   - **Doc menu**: Open…, Save, Save as…, Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
+   - **Doc menu**: Open…, Save, Save as… (calculations kept by name in the app's storage: `cassim.app.saved`, decision 0033), Import file…, Export file… (`.cassim.json`), Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
    - **Status chips**: mode, angle unit, input mode; clickable.
 2. **Presentation mode (FR-FX-UI-002)**: the full-screen button hides the bar; a floating button or Esc restores it.
 3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Show/Hide tutorials; lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
@@ -220,7 +220,7 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | Multi-statement `:` | Not built. |
 | PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it: none of the four calculators' manuals shows a PreAns key. |
 | Tutorials | Twelve lessons on the fx-82 keys (eleven on the SX-II), and lessons written in the HP 10s's and EL-531's own keys; Guide, Show and Test modes; progress kept in browser storage per calculator. |
-| Files, links, autosave | Built; links and files use the CASSim document envelope. |
+| Files, links, autosave | Built; links and files use the CASSim document envelope. Open, Save and Save as keep calculations by name in the app's storage and files are Import and Export, as in every CASSim app (changed 2026-11-25; they used to download and pick files). |
 | Keyboard | Built (section 4.1). `o` is ON, so the calculator can be switched on again from the keyboard. |
 | Phones (FR-FX-UI-007) | Built 2026-11-25: the calculator fills a phone's width and its keys stretch to its height (scale down to 0.4 on a landscape phone); tutorials start hidden; dialogs size to the window; Avoid cutout in the installed app. Simulated phone tests (`test_scientific_ui.py`: 360 × 640, 390 × 844, 412 × 915 and 844 × 390) check that the calculator and every dialog fit. Flet draws to a canvas, so the browser tests cannot see overflow; these layout tests stand in for them. |
 | Drawing (`ui/render.py`) | √ and its vinculum are one stroke sized to the argument (a √ character and a separate line did not meet). A mixed-number answer's fraction follows its whole part directly, as in the typed entry (it had a whole character's space). |

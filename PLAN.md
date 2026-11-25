@@ -70,7 +70,9 @@ cassim/
   src/cassim/app/            FLET: the shell only (decision 0032): main.py owns Home and lazily mounts the selected device;
                             home.py draws the all-in-one chooser without importing device UI; shell.py is what a device's UI
                             may use (storage, files, clipboard, links, notices, About, install and full screen, the engine
-                            worker); entry_line.py (the shared 2D entry line, decision 0035); web.py, about.py, theme.py,
+                            worker); entry_line.py (the shared 2D entry line, decision 0035); saved.py (Open, Save and
+                            Save As on documents kept by name in the app's storage, for any device, decision 0033);
+                            web.py, about.py, theme.py,
                             keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,
                             load(id). A device never imports another device, and imports without Flet
