@@ -77,6 +77,9 @@ class Editor:
         # Whole rows or columns of the matrix the cursor is in: (axis, anchor, free) with axis
         # "row" or "col" and the two ends as indices of that axis.
         self.cell_sel: tuple[str, int, int] | None = None
+        # An operator typed first takes `Ans`, as on the Calculator; off where there is no
+        # answer to take, such as a Graphs entry line (Simon, 2026-11-22)
+        self.ans_first = True
         self.insert_text(text)
 
     # ---- state ------------------------------------------------------------------------------
@@ -174,7 +177,7 @@ class Editor:
         if char == "," and not quoted and self.path and self._parent().kind is Kind.LIST:
             self._split_list_cell()
             return
-        if char in _ANS_OPERATORS and not self.root:
+        if char in _ANS_OPERATORS and not self.root and self.ans_first:
             self.root.extend("Ans")
             self.pos = 3
         if char == "^" and not quoted:

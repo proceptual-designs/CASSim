@@ -155,7 +155,9 @@ class Graphs:
         return self._viewport_width, self._viewport_height
 
     def _entry(self, name: str) -> FunctionEntry:
-        return FunctionEntry(name, Calculator(self.session, self.clipboard))
+        editing = Calculator(self.session, self.clipboard)
+        editing.editor.ans_first = False  # no `Ans` in a graph entry line (Simon's note 1)
+        return FunctionEntry(name, editing)
 
     def _next_function_name(self, reserved: tuple[str, ...]) -> str:
         numbers = [

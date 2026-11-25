@@ -595,3 +595,30 @@ def test_a_function_is_drawn_only_where_it_is_real(
     assert max(xs) <= high + step
     if expression == "x^(1/3)":
         assert min(xs) < -9
+
+
+def _graphs_state(*expressions: str) -> tuple[AppState, Graphs]:
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    for index, expression in enumerate(expressions):
+        graphs.submit(index, expression)
+    return state, graphs
+
+
+def test_an_operator_typed_first_in_a_graph_entry_takes_no_ans() -> None:
+    """Simon's note 1 (2026-11-22): the Calculator's `Ans` prefix stays out of graph entries."""
+    state, graphs = _graphs_state()
+    state.key_event("-")
+    state.key_event("x")
+    assert graphs.functions[graphs.active_index].editing.editor.linear() == "-x"
+
+
+def test_tab_opens_the_first_empty_function() -> None:
+    """Simon's note 2: Tab on a Graphs page opens the entry line on the first empty fN, as
+    ctrl+G does."""
+    state, graphs = _graphs_state("x^2", "x+1")
+    graphs.select_function(0)
+    state.key_event("Tab")
+    assert graphs.functions[graphs.active_index].name == "f3"
