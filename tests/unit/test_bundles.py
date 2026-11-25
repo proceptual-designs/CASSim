@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from tools import publish
 
 
@@ -120,6 +120,61 @@ def test_single_app_icons_carry_their_home_symbol(tmp_path: Path, bundle_name: s
         if name != bundle.devices[0]
     }
     assert all(ImageChops.difference(icon, other).getbbox() for other in others.values())
+
+
+FLET_ICON_FILES = (  # the names Flet's web client ships its own artwork under
+    "favicon.png",
+    "icons/icon-192.png",
+    "icons/icon-512.png",
+    "icons/icon-maskable-192.png",
+    "icons/icon-maskable-512.png",
+    "icons/apple-touch-icon-192.png",
+    "icons/loading-animation.png",
+)
+
+
+def close_to(image: Image.Image, expected: Image.Image) -> bool:
+    """The same artwork, allowing for small differences between font-rendering versions."""
+    diff = ImageChops.difference(image.convert("RGB"), expected.convert("RGB")).convert("L")
+    return ImageStat.Stat(diff).mean[0] < 2
+
+
+@pytest.mark.parametrize("bundle_name", ["all", "tin"])
+def test_every_icon_flet_ships_is_replaced_by_the_bundles_own(
+    tmp_path: Path, bundle_name: str
+) -> None:
+    """FR-PWA-001: the tab icon, the installed icons, the iOS icon and the loading image are all
+    the bundle's artwork, so no Flet icon is left in a site."""
+    bundle = publish.bundles()[bundle_name]
+    publish.write_icons(tmp_path, bundle)
+    mark = "" if bundle_name == "all" else bundle.devices[0]
+    for filename in FLET_ICON_FILES:
+        image = Image.open(tmp_path / filename)
+        assert image.width == image.height
+        if "maskable" not in filename:  # the maskable ones hold the artwork at a smaller scale
+            assert close_to(image, publish.draw_icon(image.width, mark=mark)), filename
+    touch = Image.open(tmp_path / "icons/apple-touch-icon-192.png").convert("RGBA")
+    # Opaque: iOS paints transparent corners black.
+    assert touch.getchannel("A").getextrema() == (255, 255)
+
+
+def test_a_local_run_has_the_plain_cassim_icons() -> None:
+    """FR-PWA-001: `cassim` and `cassim --web` run from the source tree, where nothing draws
+    icons, so the plain artwork is committed in the app's assets (`--dev-icons` redraws it)."""
+    for filename in FLET_ICON_FILES:
+        image = Image.open(publish.APP_ASSETS / filename)
+        if "maskable" not in filename:
+            assert close_to(image, publish.draw_icon(image.width)), filename
+    window = Image.open(publish.APP_ASSETS / publish.WINDOW_ICON)
+    assert window.format == "ICO"
+    assert {size[0] for size in window.info["sizes"]} == set(publish.WINDOW_ICON_SIZES)
+    assert close_to(window, publish.draw_icon(window.width))
+
+
+def test_dev_icons_command_writes_the_window_icon(tmp_path: Path) -> None:
+    publish.write_dev_icons(tmp_path)
+    assert (tmp_path / "favicon.png").is_file()
+    assert Image.open(tmp_path / publish.WINDOW_ICON).format == "ICO"
 
 
 def test_the_engine_packages_come_from_the_devices() -> None:

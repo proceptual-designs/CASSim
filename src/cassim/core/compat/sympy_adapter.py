@@ -3,7 +3,10 @@
 import math
 import operator
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from itertools import pairwise
@@ -132,6 +135,64 @@ def symbol(name: str) -> Raw:
     return sp.Symbol(name, real=True)
 
 
+# Arbitrary constants: `c1`, `c2`, ... (free parameters and constants of integration) and the
+# arbitrary integers `@n1`, `@n2`, ... (shown `n1`). Each kind has one counter that runs through
+# a Problem (emulator run 6, R6-B3; decision 0034 item 4). The session sets the counters for an
+# entry with `arbitrary_constants`; outside one, each answer starts at 1.
+_ARBITRARY_NAME = re.compile(r"(c|@n)([1-9]\d*)")
+
+
+@dataclass
+class ArbitraryConstants:
+    """The last `c` and `n` numbers used."""
+
+    c: int = 0
+    n: int = 0
+
+
+_ARBITRARY: ContextVar[ArbitraryConstants | None] = ContextVar("arbitrary", default=None)
+
+
+@contextmanager
+def arbitrary_constants(counters: ArbitraryConstants) -> Generator[None]:
+    """Number the new constants of the entry evaluated inside from `counters`, which it updates."""
+    token = _ARBITRARY.set(counters)
+    try:
+        yield
+    finally:
+        _ARBITRARY.reset(token)
+
+
+def _fresh(kind: str) -> int:
+    counters = _ARBITRARY.get()
+    if counters is None:
+        return 1
+    number = getattr(counters, kind) + 1
+    setattr(counters, kind, number)
+    return number
+
+
+def fresh_constant() -> Raw:
+    """The next arbitrary constant, `c1`, `c2`, ..."""
+    return symbol(f"c{_fresh('c')}")
+
+
+def fresh_integer() -> Raw:
+    """The next arbitrary integer, `@n1`, `@n2`, ..."""
+    return symbol(f"@n{_fresh('n')}")
+
+
+def arbitrary_numbers(raw: Raw) -> ArbitraryConstants:
+    """The highest `c` and `n` numbers in an expression."""
+    found = ArbitraryConstants()
+    for item in getattr(raw, "free_symbols", ()):
+        match = _ARBITRARY_NAME.fullmatch(item.name)
+        if match:
+            kind = "c" if match[1] == "c" else "n"
+            setattr(found, kind, max(getattr(found, kind), int(match[2])))
+    return found
+
+
 def undefined_function(name: str, args: tuple[Raw, ...]) -> Raw:
     function: Raw = sp.Function(name)
     return function(*args)
@@ -248,7 +309,18 @@ def finish(raw: Raw, settings: Settings) -> Raw:
     if raw.is_number and raw.is_real is False:
         return _complex_form(raw)
     # Numbers are always in simplest form: (1+ⅈ)^2 is 2*ⅈ, while (x+1)^2 stays as typed.
-    return sp.expand(raw) if raw.is_number else raw
+    return _simplest_number(raw) if raw.is_number else raw
+
+
+def _simplest_number(raw: Raw) -> Raw:
+    """A number multiplied out. The logarithm of a fraction stays whole, `ln(9/2)/8` (emulator
+    run 6, R6-B5), where `ln(4)` is `2*ln(2)`; a fraction below 1 is turned over, `-ln(2)`."""
+    fractions = [log for log in raw.atoms(sp.log) if log.args[0].is_Rational]
+    fractions = [log for log in fractions if not log.args[0].is_Integer]
+    if not fractions:
+        return sp.expand(raw)
+    turned = {log: -sp.log(1 / log.args[0]) for log in fractions if log.args[0] < 1}
+    return sp.expand(raw.xreplace(turned), log=False)
 
 
 _INVERSE_FUNCTIONS = (sp.asin, sp.acos, sp.acot, sp.asec, sp.acsc, sp.asinh, sp.acosh, sp.atanh)
@@ -433,6 +505,10 @@ class _GraphMathPrinter:
             return "(" + " * ".join(self.emit(part) for part in raw.args) + ")"
         if raw.is_Pow:
             base, exponent = raw.args
+            if exponent.is_Rational and not exponent.is_Integer and exponent.q % 2:
+                # The real odd root, as Real mode has it: x^(1/3) is drawn for x<0 too (R6-A10)
+                size = f"(math.fabs({self.emit(base)}) ** {self.emit(exponent)})"
+                return f"math.copysign({size}, {self.emit(base)})" if exponent.p % 2 else size
             return f"({self.emit(base)} ** {self.emit(exponent)})"
         return None
 
@@ -617,6 +693,27 @@ def _surds_after_variables(factors: list[Raw]) -> list[Raw]:
     return [*rest[: last + 1], *surds, *rest[last + 1 :]]
 
 
+def _bare_variables(term: Raw) -> bool:
+    """Whether a term has a variable, or a power of one, as a factor (not only inside a
+    function): `x²·cos(x)` does, `-40·cos(3·t/2)` does not."""
+    for factor in sp.Mul.make_args(term):
+        base = factor.as_base_exp()[0]
+        if base.is_Symbol:
+            return True
+    return False
+
+
+def _integers_before_pi(factors: list[Raw]) -> list[Raw]:
+    """A factor with an arbitrary integer before π: TI writes `n2·π` and `(2·n1-1)·π/2`
+    (emulator run 6, R6-B2 and R6-B3)."""
+    if sp.pi not in factors:
+        return factors
+    integers = [f for f in factors if any(s.name.startswith("@n") for s in f.free_symbols)]
+    rest = [f for f in factors if f not in integers]
+    at = rest.index(sp.pi)
+    return [*rest[:at], *integers, *rest[at:]]
+
+
 class _Printer:
     """Build the AST of a result, so the parser's printer decides the parentheses."""
 
@@ -666,6 +763,10 @@ class _Printer:
         # term is taken out: `-(3*c1-1)`, `-(√3+2)` (emulator check 6, K4 and K7).
         first, *rest = raw.as_ordered_terms(order="grlex")
         if first.could_extract_minus_sign() and not first.is_number:
+            if not any(_bare_variables(term) for term in (first, *rest)):
+                # No term is a power of a variable: a positive term leads, `41-40·cos(3·t/2)`
+                # (emulator run 6, R6-B7), where `1-x` is `-(x-1)`.
+                return self._sum_positive_first(raw)
             return ast.Unary("-", self.node(-raw))
         total = self.node(first)
         for term in rest:
@@ -683,11 +784,39 @@ class _Printer:
         if denominator != 1:
             return ast.Binary("/", self.node(numerator), self.node(denominator))
         # A surd after the variables: TI writes `h^3*√(3)` (emulator check 6, K4).
-        first, *rest = _surds_after_variables(raw.as_ordered_factors())
-        product = self.node(first)
-        for factor in rest:
-            product = ast.Binary("*", product, self.node(factor))
-        return product
+        factors = _surds_after_variables(_integers_before_pi(raw.as_ordered_factors()))
+        exponential = any(isinstance(f, sp.exp) for f in factors)
+        nodes = [
+            self._sum_positive_first(f) if exponential and isinstance(f, sp.Add) else self.node(f)
+            for f in factors
+        ]
+        # A factor printed `-(x-1)` gives its sign to the product: `-(x-1)·y`, not `y·-(x-1)`.
+        negative = False
+        for index, node in enumerate(nodes):
+            if isinstance(node, ast.Unary) and node.op == "-":
+                nodes[index], negative = node.operand, not negative
+        product = nodes[0]
+        for node in nodes[1:]:
+            product = ast.Binary("*", product, node)
+        return _negate(product) if negative else product
+
+    def _sum_positive_first(self, raw: Raw) -> ast.Expr:
+        """A sum beside an exponential, led by a positive term: TI writes `(1-x)·ⅇ^(-x)`
+        (emulator run 6, R6-B4), where alone it writes `-(x-1)`."""
+        terms = raw.as_ordered_terms(order="grlex")
+        positive = [t for t in terms if not t.could_extract_minus_sign()]
+        if not positive:
+            return ast.Unary("-", self.node(-raw))
+        if not terms[0].could_extract_minus_sign():
+            return self.node(raw)
+        first, *rest = [positive[0], *[t for t in terms if t is not positive[0]]]
+        total = self.node(first)
+        for term in rest:
+            if term.could_extract_minus_sign():
+                total = ast.Binary("-", total, self.node(-term))
+            else:
+                total = ast.Binary("+", total, self.node(term))
+        return total
 
     def _power(self, raw: Raw) -> ast.Expr:
         base, exponent = raw.as_base_exp()
@@ -864,8 +993,31 @@ def when(condition: Raw, then: Raw, otherwise: Raw | None) -> Raw:
 # Algebra
 
 
-def expand(raw: Raw) -> Raw:
+def expand(raw: Raw, variable: Raw | None = None) -> Raw:
+    """`expand`; with a variable, a quotient of polynomials in it is divided out:
+    `expand((x²+a)/(b·x+c),x)` is `(a·b²+c²)/(b²·(b·x+c))+x/b-c/b²` (emulator run 6, R6-B7)."""
+    if isinstance(variable, sp.Symbol):
+        divided = _divided_out(raw, variable)
+        if divided is not None:
+            return divided
     return sp.expand(raw)
+
+
+def _divided_out(raw: Raw, variable: Raw) -> Raw | None:
+    """The polynomial part of a quotient and the rest over the denominator; None unless the
+    numerator's degree in `variable` is at least the denominator's."""
+    numerator, denominator = sp.fraction(sp.together(raw))
+    if not denominator.has(variable):
+        return None
+    try:
+        top, bottom = sp.Poly(numerator, variable), sp.Poly(denominator, variable)
+    except sp.PolynomialError:
+        return None
+    if top.degree() < bottom.degree():
+        return None
+    quotient, rest = sp.div(top, bottom)
+    whole = sp.expand(quotient.as_expr())
+    return whole if rest.is_zero else whole + sp.factor(rest.as_expr() / denominator)
 
 
 def factor(raw: Raw) -> Raw:
@@ -1118,17 +1270,62 @@ def _constraint_set(constraint: Raw, variable: Raw) -> Raw:
     return sp.solveset(constraint, variable, sp.S.Reals)
 
 
-def _family(found: Raw, variable: Raw) -> Raw | None:
-    """An infinite set of solutions as `x=2*@n1*π+π/6 or ...`, with @n1 any integer."""
+def _family_pieces(found: Raw) -> list[tuple[Raw, Raw]] | None:
+    """A set of integer families as (offset, step) pairs, `{2nπ} or {2nπ+π}` as [(0, 2π), (π, 2π)];
+    None unless every piece is a linear family in one integer."""
     pieces = found.args if isinstance(found, sp.Union) else (found,)
-    if not all(isinstance(p, sp.ImageSet) and p.base_set == sp.S.Integers for p in pieces):
-        return None
-    counter = symbol("@n1")
-    clauses = []
+    families: list[tuple[Raw, Raw]] = []
     for piece in pieces:
-        parameter, formula = piece.lamda.variables[0], piece.lamda.expr
-        clauses.append(sp.Eq(variable, sp.expand(formula.subs(parameter, counter)), evaluate=False))
-    return sp.Or(*clauses)
+        if not (isinstance(piece, sp.ImageSet) and piece.base_set == sp.S.Integers):
+            return None
+        parameter, formula = piece.lamda.variables[0], sp.expand(piece.lamda.expr)
+        step = sp.simplify(sp.diff(formula, parameter))
+        if step.has(parameter) or step == 0:
+            return None
+        families.append((sp.simplify(formula - step * parameter), step))
+    return families
+
+
+def _merged(families: list[tuple[Raw, Raw]]) -> list[tuple[Raw, Raw]]:
+    """Families with one step whose offsets are evenly spaced over it are one family with a
+    smaller step: `2nπ` and `2nπ+π` are `nπ` (emulator run 6, R6-B3: `x=n2·π`)."""
+    steps = {step for _, step in families}
+    if len(families) < 2 or len(steps) != 1:  # noqa: PLR2004 (one family needs no merging)
+        return families
+    step = steps.pop()
+    gap = step / len(families)
+    offsets = sorted((sp.simplify(offset % step) for offset, _ in families), key=_real_key)
+    if all(sp.simplify(later - earlier - gap) == 0 for earlier, later in pairwise(offsets)):
+        return [(offsets[0], gap)]
+    return families
+
+
+def _family(found: Raw, variable: Raw) -> Raw | None:
+    """An infinite set of solutions as `x=2*@n1*π+π/6 or ...`, with @n1 any integer: one new
+    integer for the whole answer."""
+    families = _family_pieces(found)
+    if families is None:
+        return None
+    counter = fresh_integer()
+    return sp.Or(
+        *[
+            sp.Eq(variable, sp.expand(offset + step * counter), evaluate=False)
+            for offset, step in _merged(families)
+        ]
+    )
+
+
+def _negative_offset(offset: Raw, step: Raw) -> Raw:
+    """The offset of a family moved into (-step, 0], as TI writes `x≠(2·n1-1)·π/2` and
+    `x=(4·n1-3)·π/4` (emulator run 6, R6-B2 and R6-B3)."""
+    moved = sp.simplify(offset % step)
+    return sp.simplify(moved - step) if moved != 0 else moved
+
+
+def _family_text(offset: Raw, step: Raw, counter: Raw) -> Raw:
+    """`offset+step·n` with the offset in (-step, 0] and the common factor taken out:
+    `(2·n1-1)·π/2`, as TI writes a family it builds itself."""
+    return sp.factor(_negative_offset(offset, step) + step * counter)
 
 
 def _needs_nonnegative(root: Raw) -> list[Raw]:
@@ -1307,12 +1504,12 @@ def solve_system(equations: list[Raw], variables: list[Raw]) -> Raw | None:
 def _with_free_parameters(solution: dict[Raw, Raw], variables: list[Raw]) -> dict[Raw, Raw]:
     """An unknown the system leaves free is named `c1`, `c2`, ... and the others are given in
     terms of it, as TI does: `x=-(3·c1-1) and y=2·(c1+1)/3 and z=c1` (decision 0034, item 4).
-    The numbering starts at c1 in each answer, as deSolve's does."""
+    The numbers run on through the Problem (emulator run 6, R6-B3)."""
     free = [v for v in variables if v not in solution]
     if not free:
         return solution
-    names = {v: sp.Symbol(f"c{k}", real=True) for k, v in enumerate(free, start=1)}
-    named = {v: sp.expand(value.xreplace(names)) for v, value in solution.items()}
+    names = {v: fresh_constant() for v in free}
+    named = {v: sp.factor(value.xreplace(names)) for v, value in solution.items()}
     return named | names
 
 
@@ -1374,7 +1571,7 @@ def _tidy_derivative(derived: Raw) -> Raw:
         return expanded if sp.count_ops(expanded) <= sp.count_ops(derived) else derived
     numerator, denominator = sp.fraction(sp.together(derived))
     if denominator == 1 or denominator.has(sp.exp) or not denominator.free_symbols:
-        return derived
+        return _exponential_out(derived)
     if denominator.is_polynomial(*symbols) and numerator.is_polynomial(*symbols):
         quotient = sp.factor(numerator) / sp.factor(denominator)
         numerator, denominator = sp.fraction(quotient)
@@ -1383,6 +1580,24 @@ def _tidy_derivative(derived: Raw) -> Raw:
     sign = -1 if _leading_term(numerator).could_extract_minus_sign() else 1
     tidy = sign * sp.factor_terms(sign * numerator) / denominator
     return tidy if sp.count_ops(tidy) <= sp.count_ops(derived) else derived
+
+
+def _exponential_out(derived: Raw) -> Raw:
+    """A sum whose terms all have the same exponential with it taken out: `(1-x)·ⅇ^(-x)`, not
+    `-x·ⅇ^(-x)+ⅇ^(-x)` (emulator run 6, R6-B4). Different exponentials stay apart:
+    `2·ⅇ^(-a)-2·ⅇ^(-2·a)` (run 5, K4 4.1 #9)."""
+    if not isinstance(derived, sp.Add):
+        return derived
+    shared = {
+        tuple(f for f in sp.Mul.make_args(term) if isinstance(f, sp.exp))
+        for term in sp.Add.make_args(derived)
+    }
+    if len(shared) != 1 or len(next(iter(shared))) != 1:
+        return derived
+    taken = sp.factor_terms(derived, sign=False)
+    if not (isinstance(taken, sp.Mul) and any(isinstance(f, sp.exp) for f in taken.args)):
+        return derived
+    return taken if sp.count_ops(taken) <= sp.count_ops(derived) else derived
 
 
 def _leading_term(raw: Raw) -> Raw:
@@ -1465,9 +1680,29 @@ _ELEMENTARY = (
     sp.asinh,
     sp.Abs,
 )
-# An exact value with more operations than this is shown as a decimal (emulator check 6, K7:
-# TI gives `∫₀² π·f1(x)²dx` as 2.2880103, not a sum of logarithms and inverse tangents).
-_LONGEST_EXACT_INTEGRAL = 20
+# An exact value with more operations than this, once its logarithms of numbers are combined,
+# is shown as a decimal. TI gives `∫₀² π·f1(x)²dx` (f1 = 3x/(x³+x+2)) as 2.2880103 (emulator
+# check 6, K7) but keeps `∫₀² 1/(x³+x+2)dx` as two `tan⁻¹` terms and `ln(9/2)/8` (run 6, R6-B5):
+# 34 and 20 operations.
+_LONGEST_EXACT_INTEGRAL = 25
+
+
+def _combined_logs(result: Raw) -> Raw:
+    """A sum's logarithms of numbers as one: `ln(3)/4-ln(2)/8` is `ln(9/2)/8`."""
+    terms = sp.Add.make_args(sp.expand(sp.expand_log(result, force=True)))
+    logs: list[tuple[Raw, Raw]] = []
+    rest: list[Raw] = []
+    for term in terms:
+        coefficient, factor = term.as_coeff_Mul()
+        if isinstance(factor, sp.log) and factor.args[0].is_Rational and coefficient.is_Rational:
+            logs.append((coefficient, factor.args[0]))
+        else:
+            rest.append(term)
+    if len(logs) < 2:  # noqa: PLR2004 (one logarithm is already combined)
+        return result
+    denominator = sp.ilcm(*[coefficient.q for coefficient, _ in logs])
+    argument = sp.Mul(*[number ** (coefficient * denominator) for coefficient, number in logs])
+    return sp.Add(*rest, sp.log(argument) / denominator)
 
 
 def _wants_decimal(result: Raw, expression: Raw, variable: Raw, bounds: tuple[Raw, Raw]) -> bool:
@@ -1494,6 +1729,8 @@ def integrate(expression: Raw, variable: Raw, lower: Raw | None, upper: Raw | No
         result = sp.integrate(expression, (variable, lower, upper))
         if result.has(sp.Integral) and expression.has(sp.Abs):
             result = _without_abs(expression, variable, lower, upper) or result
+        if not result.has(sp.Integral):
+            result = _combined_logs(result)
         if _wants_decimal(result, expression, variable, (lower, upper)):
             return numerical_integral(expression, variable, lower, upper)
     if result.has(sp.Integral):
@@ -1576,6 +1813,8 @@ def domain_of(expression: Raw, variable: Raw) -> Raw | None:
         return None
     if found == sp.S.EmptySet:
         return sp.false
+    if isinstance(found, sp.Complement) and found.args[0] == sp.S.Reals:
+        return _periodic_gaps(found.args[1], variable)
     pieces = list(found.args) if isinstance(found, sp.Union) else [found]
     if not all(isinstance(piece, sp.Interval) for piece in pieces):
         return None
@@ -1584,6 +1823,20 @@ def domain_of(expression: Raw, variable: Raw) -> Raw | None:
         return sp.And(*[sp.Ne(variable, point, evaluate=False) for point in points])
     conditions = [_interval_condition(piece, variable) for piece in pieces]
     return conditions[0] if len(conditions) == 1 else sp.Or(*conditions)
+
+
+def _periodic_gaps(excluded: Raw, variable: Raw) -> Raw | None:
+    """The reals less families of points as `x≠(2·n1-1)·π/2` (emulator run 6, R6-B2)."""
+    families = _family_pieces(excluded)
+    if families is None:
+        return None
+    counter = fresh_integer()
+    return sp.And(
+        *[
+            sp.Ne(variable, _family_text(offset, step, counter), evaluate=False)
+            for offset, step in _merged(families)
+        ]
+    )
 
 
 def euler_table(
@@ -1734,6 +1987,46 @@ def _periodic_extremum(expression: Raw, variable: Raw, period: Raw, *, maximum: 
     return sp.Eq(variable, sp.Float(nearest, 15), evaluate=False)
 
 
+def _critical_family(expression: Raw, variable: Raw) -> tuple[Raw, Raw, Raw] | None:
+    """Where f'=0, as one family `start+step·n` with its start in (-step, 0], and how much f
+    falls from one member to the next; None unless f repeats every two steps."""
+    try:
+        critical = sp.solveset(sp.diff(expression, variable), variable, sp.S.Reals)
+        families = _family_pieces(critical)
+        merged = _merged(families) if families is not None else []
+        if len(merged) != 1:
+            return None
+        offset, step = merged[0]
+        start = _negative_offset(offset, step)
+        repeats = sp.simplify(expression.subs(variable, variable + 2 * step) - expression) == 0
+        here = sp.simplify(expression.subs(variable, start))
+        difference = sp.simplify(here - expression.subs(variable, start + step))
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    return (start, step, difference) if repeats and difference.is_number else None
+
+
+def _extremum_family(expression: Raw, variable: Raw, *, maximum: bool) -> Raw | None:
+    """The extrema of a periodic function as a family, when f'=0 solves exactly as one:
+    `fMin(sin(x)+cos(x),x)` is `x=(4·n1-3)·π/4 and (-1)^n1>0` (emulator run 6, R6-B3). The
+    offset is in (-step, 0]; when minima and maxima alternate along the family, `(-1)^n>0` keeps
+    the even members. None if the critical points are not one family (TI then gives a decimal,
+    as `fMin(sin(x/2)+cos(2·x),x)` is `x=-1.65576`, run 5 K4)."""
+    found = _critical_family(expression, variable)
+    if found is None:
+        return None
+    start, step, difference = found
+    sign = -1 if maximum else 1
+    counter = fresh_integer()
+    point = sp.Eq(variable, _family_text(start, step, counter), evaluate=False)
+    if difference == 0:
+        curvature = sp.simplify(sp.diff(expression, variable, 2).subs(variable, start))
+        return point if curvature.is_number and sign * curvature > 0 else None
+    parity = sp.Pow(-1, counter, evaluate=False)
+    even = sign * difference < 0  # the start is the extremum wanted, so even members
+    return sp.And(point, sp.Gt(parity, 0) if even else sp.Lt(parity, 0))
+
+
 def _domain_ends(
     expression: Raw, variable: Raw, domain: Raw
 ) -> tuple[list[Raw], list[float]] | None:
@@ -1766,7 +2059,12 @@ def extremum(
     if domain == sp.S.Reals and expression.free_symbols == {variable}:
         period = _period(expression, variable)
         if period is not None:
-            return _periodic_extremum(expression, variable, period, maximum=maximum)
+            exact = _extremum_family(expression, variable, maximum=maximum)
+            return (
+                exact
+                if exact is not None
+                else _periodic_extremum(expression, variable, period, maximum=maximum)
+            )
     critical = sp.solveset(sp.diff(expression, variable), variable, domain)
     if critical != sp.S.EmptySet and not isinstance(critical, sp.FiniteSet):
         return None
@@ -1826,7 +2124,9 @@ def solve_ode(conditions: Raw, variable: Raw, name: str) -> Raw | None:
 
 
 def _renumbered(expression: Raw) -> Raw:
-    """Name the constants c1, c2, ... in the order their terms print, as TI does."""
+    """Name the constants c1, c2, ... in the order their terms print, as TI does. The numbers run
+    on through the Problem, as `solve`'s do: the Reference Guide gives both as `ck`, k from 1 to
+    255 (not yet seen on the emulator: run 7, J1g)."""
     constants = [s for s in expression.free_symbols if _CONSTANT_NAME.fullmatch(s.name)]
     terms = [t for t in sp.expand(expression).as_ordered_terms() if t.free_symbols & set(constants)]
 
@@ -1837,7 +2137,7 @@ def _renumbered(expression: Raw) -> Raw:
     for term in sorted(terms, key=shape):
         for constant in sorted(term.free_symbols & set(constants), key=lambda s: s.name):
             if constant not in renamed:
-                renamed[constant] = sp.Symbol(f"c{len(renamed) + 1}", real=True)
+                renamed[constant] = fresh_constant()
     return expression.xreplace(renamed)
 
 
@@ -1893,7 +2193,13 @@ def expand_trig(raw: Raw) -> Raw:
 
 
 def collect_trig(raw: Raw) -> Raw:
-    return sp.fu(raw)
+    """`tCollect`: products and powers of trig functions as sums of multiple angles. A sum of
+    squares is multiplied out first when that ends shorter: the dot product of
+    `[5cos(t)-4cos(5t/2), 5sin(t)-4sin(5t/2)]` with itself is `41-40·cos(3·t/2)` (emulator run 6,
+    R6-B7)."""
+    collected = sp.fu(raw)
+    expanded = sp.fu(sp.expand(raw))
+    return expanded if sp.count_ops(expanded) < sp.count_ops(collected) else collected
 
 
 def _eigen_key(value: Raw) -> tuple[float, float]:

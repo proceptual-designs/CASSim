@@ -93,15 +93,20 @@ _SYSTEM_FIELDS = (
 )
 
 
-# The inverse binomial dialogs end with a Matrix Form box (run 5, E2). What it does when ticked
-# was not recorded, so CASSim shows it, unticked, and pastes the same command either way.
+# The inverse binomial dialogs end with a Matrix Form box (run 5, E2). Ticked, it adds a last
+# argument 1, `invBinom(0.9,10,0.5,1)`, and the answer is a matrix (run 6, R6-D1).
 _MATRIX_FORM = Field("matrix", "Matrix Form", "0", toggle=True)
 
 
 def _dist(title: str, name: str, *fields: Field) -> Wizard:
     """A distribution dialog: pastes `name(fields…)` and runs it on OK, as the handheld does."""
     names = [field.name for field in fields if field is not _MATRIX_FORM]
-    return Wizard(title, fields, run=True, build=lambda v: call(name, *(v[n] for n in names)))
+
+    def build(values: Mapping[str, str]) -> str:
+        ticked = _MATRIX_FORM in fields and values.get(_MATRIX_FORM.name) == "1"
+        return call(name, *(values[n] for n in names), *(("1",) if ticked else ()))
+
+    return Wizard(title, fields, run=True, build=build)
 
 
 def _derivative_at(v: Mapping[str, str]) -> list[Binding]:

@@ -58,7 +58,7 @@ ZOOM_TOOLS = (Tool.ZOOM_BOX, Tool.ZOOM_IN, Tool.ZOOM_OUT)
 TRACE_TOOLS = (Tool.TRACE, Tool.TRACE_ALL)
 # Window / Zoom items that set the window at once, by their menu argument
 _PRESETS = {"standard": STANDARD, "quadrant1": QUADRANT_1, "trig": TRIG, "decimal": DECIMAL}
-_POINTER_STEPS = 80  # an arrow moves the zoom pointer 1/80 of the plot (CASSim's choice)
+_POINTER_STEPS = 160  # an arrow moves the zoom pointer 1/160 of the plot, 2 handheld px (R6-A6)
 _TRACE_STEP = 0.01  # automatic trace step: 1% of the width (decision 0034, item 7)
 _TRACE_MARGIN = 0.1  # a traced point off the top or bottom is brought 10% inside (R5-D11)
 _TYPED = frozenset("0123456789.-−")
@@ -291,6 +291,9 @@ def _typed_key(graphs: Graphs, binding: Binding) -> bool:
             x = None
         if x is not None:
             _trace_to(graphs, x)
+        elif not typed:
+            # Enter with nothing typed leaves a point with its coordinates (R6-A3)
+            graphs.keep_trace_point()
     else:
         return action in ("insert_linear", "delete")
     return True

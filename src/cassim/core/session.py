@@ -33,6 +33,8 @@ class Session:
         self._settings = settings if settings is not None else Settings()
         self._ans: Value | None = None
         self.scope = Scope()
+        # The Problem's last `c` and `n` numbers (emulator run 6, R6-B3)
+        self._arbitrary = cas.ArbitraryConstants()
 
     @property
     def settings(self) -> Settings:
@@ -62,10 +64,12 @@ class Session:
             if self._ans is None:
                 return Result("", "", None, None)
             line = "ans"
+        counters = replace(self._arbitrary)
         try:
             tree: ast.Line = parse(line)
             evaluator = Evaluator(self.settings, self._ans, self.scope)
-            value = evaluator.line(tree)
+            with cas.arbitrary_constants(counters):
+                value = evaluator.line(tree)
             if value is None:
                 return Result("", "", None, None)
             if approximate:
@@ -91,6 +95,12 @@ class Session:
             return Result(message, "", None, message)
         if remember and not isinstance(value, Void):
             self._ans = value
+        if remember:
+            # Only the constants the answer shows are used up, not those of a discarded attempt.
+            used = _arbitrary_numbers(value)
+            self._arbitrary = cas.ArbitraryConstants(
+                max(self._arbitrary.c, used.c), max(self._arbitrary.n, used.n)
+            )
         return Result(text, latex, value, None, full, tuple(evaluator.warnings))
 
     def set_ans(self, line: str | None) -> None:
@@ -172,9 +182,28 @@ class Session:
     def new_problem(self) -> None:
         self._ans = None
         self.scope.clear()
+        self._arbitrary = cas.ArbitraryConstants()
 
     def set(self, **changes: str) -> None:
         self.settings = updated(self.settings, changes)
+
+
+def _arbitrary_numbers(value: Value) -> cas.ArbitraryConstants:
+    """The highest `c` and `n` numbers anywhere in a value."""
+    if isinstance(value, Shown):
+        return _arbitrary_numbers(value.value)
+    if isinstance(value, Expr):
+        return cas.arbitrary_numbers(value.raw)
+    parts: list[Value] = []
+    if isinstance(value, ListValue):
+        parts = list(value.items)
+    elif isinstance(value, MatrixValue):
+        parts = [cell for row in value.rows for cell in row]
+    found = cas.ArbitraryConstants()
+    for part in parts:
+        used = _arbitrary_numbers(part)
+        found = cas.ArbitraryConstants(max(found.c, used.c), max(found.n, used.n))
+    return found
 
 
 def _approximated(value: Value, settings: Settings) -> Value:

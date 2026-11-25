@@ -29,7 +29,7 @@ from cassim.graph.analysis import (
     find_zero,
     integral,
 )
-from cassim.graph.scene import Align, Dots, Fill, Label, Segments, Shape, Stroke
+from cassim.graph.scene import Align, Box, Dots, Fill, Label, Segments, Shape, Stroke
 from cassim.graph.zoom import parse_window_value
 
 if TYPE_CHECKING:
@@ -51,7 +51,9 @@ ITEMS: tuple[tuple[str, str, int, int], ...] = (
     ("bounded", "Bounded Area", 2, 2),
 )
 _SPEC = {name: (label, graphs, bounds) for name, label, graphs, bounds in ITEMS}
-_POINTER_STEPS = 80
+# A point Enter leaves during a trace (R6-A3): kept like the results, not on the menu
+_SPEC["point"] = ("Point", 1, 1)
+_POINTER_STEPS = 160  # 2 handheld px a press, as the zoom pointer (R6-A6)
 _SHADE_POINTS = 80
 _ZERO_RESIDUAL = 1e-9
 _MIN_FILL_POINTS = 2
@@ -125,12 +127,15 @@ def _zero(function: Function, lower: float, upper: float) -> tuple[float, float]
         return x, 0.0
 
 
-def _inside(point: tuple[float, float], lower: float, upper: float) -> tuple[float, float]:
-    """A minimum or maximum at a bound is not a turning point: none is reported."""
+def _at_bound(
+    point: tuple[float, float], function: Function, lower: float, upper: float
+) -> tuple[float, float]:
+    """A minimum or maximum reached at a bound is that bound's point: Minimum on x² from 0.943
+    to 3 is `(0.943, 0.89)` (emulator run 6, R6-A8)."""
     edge = (upper - lower) * _EDGE
-    if not lower + edge < point[0] < upper - edge:
-        msg = "no turning point between the bounds"
-        raise ValueError(msg)
+    for bound in (lower, upper):
+        if abs(point[0] - bound) <= edge:
+            return bound, function(bound)
     return point
 
 
@@ -146,8 +151,9 @@ def result(graphs: Graphs, item: AnalysisObject) -> Result | None:
     lower, upper = min(item.bounds), max(item.bounds)
     points: dict[str, Callable[[], tuple[float, float]]] = {
         "zero": lambda: _zero(first, lower, upper),
-        "minimum": lambda: _inside(find_minimum(first, lower, upper), lower, upper),
-        "maximum": lambda: _inside(find_maximum(first, lower, upper), lower, upper),
+        "point": lambda: (lower, first(lower)),
+        "minimum": lambda: _at_bound(find_minimum(first, lower, upper), first, lower, upper),
+        "maximum": lambda: _at_bound(find_maximum(first, lower, upper), first, lower, upper),
         "inflection": lambda: find_inflection(first, lower, upper),
         "intersection": lambda: find_intersection(first, second, lower, upper),
     }
@@ -190,7 +196,7 @@ def prompt(graphs: Graphs) -> str:
     if state.tool is not Tool.ANALYZE:
         return ""
     if state.message:
-        return state.message
+        return ""  # the dialog shows it
     _, needed, bounds = _SPEC[state.analysis]
     if len(state.picked) < needed:
         return f"graph? {graphs.functions[state.trace_index].name}"
@@ -228,7 +234,11 @@ def key(graphs: Graphs, binding: Binding) -> bool:
     if state.tool is not Tool.ANALYZE:
         return False
     action = binding.action
-    state.message = "" if action != "escape" else state.message
+    if state.message:
+        # The no-result dialog (R6-A8): Enter or Esc closes it; other keys wait for it.
+        if action in ("enter", "escape"):
+            state.message = ""
+        return True
     picking = len(state.picked) < _SPEC[state.analysis][1]
     width, height = graphs.viewport_size
     x, y = state.pointer or (width / 2, height / 2)
@@ -239,22 +249,26 @@ def key(graphs: Graphs, binding: Binding) -> bool:
         indices = plotted(graphs)
         position = indices.index(state.trace_index) if state.trace_index in indices else 0
         state.trace_index = indices[(position + (1 if action == "down" else -1)) % len(indices)]
-    elif action == "insert" and not picking:
-        if all(character in _TYPED for character in binding.arg):
-            state.typed += binding.arg.replace("−", "-")
-    elif action == "backspace":
-        state.typed = state.typed[:-1]
+    elif (action == "insert" and not picking) or action == "backspace":
+        _type(state, binding)
     elif action == "enter":
         _enter(graphs, x)
     elif action == "escape":
-        if state.typed or state.message:
+        if state.typed:
             state.typed = ""
-            state.message = ""
         else:
             graph_tools.leave(graphs)
     else:
         return action in ("insert_linear", "delete", "up", "down")
     return True
+
+
+def _type(state: graph_tools.ToolState, binding: Binding) -> None:
+    """A typed bound: digits, a point and a minus are added; Backspace takes one off."""
+    if binding.action == "backspace":
+        state.typed = state.typed[:-1]
+    elif all(character in _TYPED for character in binding.arg):
+        state.typed += binding.arg.replace("−", "-")
 
 
 def _enter(graphs: Graphs, pointer_x: float) -> None:
@@ -276,8 +290,10 @@ def _enter(graphs: Graphs, pointer_x: float) -> None:
 def click(graphs: Graphs, x: float, y: float) -> None:
     """A tap: the graph nearest the tap when `graph?` is asked, else a bound at its x."""
     state = graphs.tools
+    if state.message:  # a tap closes the no-result dialog and does nothing else
+        state.message = ""
+        return
     state.pointer = (x, y)
-    state.message = ""
     state.typed = ""
     gx, gy = to_graph(graphs, x, y)
     if len(state.picked) < _SPEC[state.analysis][1]:
@@ -376,12 +392,38 @@ def object_shapes(graphs: Graphs, viewport: Viewport) -> tuple[Shape, ...]:
     return tuple(found)
 
 
+_DIALOG_WIDTH = 220
+_DIALOG_HEIGHT = 74
+
+
+def _message_dialog(message: str, width: float, height: float) -> tuple[Shape, ...]:
+    """A no-result dialog over the graph, closed by OK (Enter), Esc or a tap: the device shows
+    "No zero found within the specified bounds" in an Error dialog (emulator run 6, R6-A8)."""
+    box_width = min(_DIALOG_WIDTH, width - 8)
+    left, top = (width - box_width) / 2, (height - _DIALOG_HEIGHT) / 2
+    corners = (
+        (left, top),
+        (left + box_width, top),
+        (left + box_width, top + _DIALOG_HEIGHT),
+        (left, top + _DIALOG_HEIGHT),
+    )
+    return (
+        Fill(corners, "paper", 1.0),
+        Box(left, top, box_width, _DIALOG_HEIGHT, Stroke("ink", 1)),
+        Label(left + 8, top + 6, "Error", 12),
+        Label(left + 8, top + 24, message, 11, width=box_width - 16),
+        Label(left + box_width - 8, top + _DIALOG_HEIGHT - 18, "OK", 12, align=Align.RIGHT),
+    )
+
+
 def tool_shapes(graphs: Graphs, viewport: Viewport) -> tuple[Shape, ...]:
     """The item's prompt at the lower left and the dotted line at the pointer."""
     state = graphs.tools
     if state.tool is not Tool.ANALYZE:
         return ()
     width, height = viewport.width, viewport.height
+    if state.message:
+        return _message_dialog(state.message, width, height)
     found: list[Shape] = [Label(4, height - 18, prompt(graphs), 12)]
     picking = len(state.picked) < _SPEC[state.analysis][1]
     if not picking and not state.message:

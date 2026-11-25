@@ -17,6 +17,7 @@ import flet as ft
 import pytest
 from tests.app.test_splitter_drag import handheld_app
 
+from cassim.app import main as app_main
 from cassim.app.home import WELCOME, Home, HomeChoice, home_choices
 from cassim.app.main import Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
@@ -46,6 +47,27 @@ def test_home_uses_the_published_app_icon() -> None:
     mark = Home._mark()
     assert isinstance(mark, ft.Image)
     assert mark.src == "icons/icon-192.png"
+    assert (app_main.ASSETS / mark.src).is_file()  # a local run draws it too
+
+
+def test_desktop_window_gets_the_cassim_icon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-PWA-001: the desktop window shows CASSim's icon, not Flet's; a browser tab takes
+    favicon.png from the assets instead."""
+    started: list[Any] = []
+    monkeypatch.setattr(app_main.ft, "run", lambda start, **_: started.append(start))
+
+    async def no_app(_page: object, **_options: object) -> None:
+        return None
+
+    monkeypatch.setattr(app_main, "main", no_app)
+    assert (app_main.ASSETS / app_main.WINDOW_ICON).is_file()
+    assert (app_main.ASSETS / "favicon.png").is_file()
+
+    for web, expected in ((False, app_main.WINDOW_ICON), (True, None)):
+        page = SimpleNamespace(window=SimpleNamespace(icon=None))
+        app_main.run(web=web)
+        asyncio.run(started.pop()(page))
+        assert page.window.icon == expected
 
 
 def test_light_home_cards_are_not_coloured_like_dark_keypad_keys() -> None:

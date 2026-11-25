@@ -120,7 +120,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-EVAL-006 | Must | `tests/device/test_engine.py` |
 | FR-SCOPE-001 | Must | `tests/unit/test_scope.py` |
 | FR-SCOPE-002 | Must | `tests/device/test_document.py` |
-| FR-CAT-001 | Must | `tests/unit/test_calculus.py`, `tests/unit/test_cas_papers.py`, `tests/unit/test_catalog.py` and 2 more |
+| FR-CAT-001 | Must | `tests/unit/test_calculus.py`, `tests/unit/test_cas_papers.py`, `tests/unit/test_cas_run6.py` and 3 more |
 | FR-CAT-002 | Should | `tests/unit/test_conversions.py` |
 | FR-CAT-004 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
 | FR-CAT-005 | Must | `tests/unit/test_ref_matrix.py` |
@@ -153,7 +153,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-STAT-005 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_statistics_page.py`, `tests/e2e/test_statistics_browser.py` and 1 more |
 | FR-STAT-002 | Must | `tests/unit/test_sheet_stats.py`, `tests/unit/test_statistics.py` |
 | FR-STAT-003 | Must | `tests/device/test_spreadsheet_page.py`, `tests/device/test_statistics_page.py`, `tests/unit/test_statistics.py` and 1 more |
-| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/unit/test_distributions_finance.py` and 4 more |
+| FR-STAT-004 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_spreadsheet_page.py`, `tests/device/test_wizard.py` and 5 more |
 | FR-FIN-001 | Must | `tests/unit/test_distributions_finance.py` |
 | FR-GRAPH-001 | Must | `tests/app/test_graphs_view.py`, `tests/e2e/test_graphs_browser.py`, `tests/unit/test_graph_page.py` |
 | FR-GRAPH-002 | Must | `tests/app/test_graphs_view.py`, `tests/e2e/test_graphs_browser.py`, `tests/unit/test_graph_page.py` and 4 more |
@@ -170,7 +170,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
 | FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
-| FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` |
+| FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` and 1 more |
 | FR-PWA-002 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py`, `tests/unit/test_bundles.py` |
 | FR-PWA-003 | Must | `tests/e2e/test_pwa.py` |
 | FR-PWA-004 | Should | `tests/app/test_full_screen.py`, `tests/app/test_menus.py`, `tests/e2e/test_pwa.py` |

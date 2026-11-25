@@ -170,11 +170,28 @@ def _shift_ref(ref: Ref, *, column: int | None = None, row: int, by: int) -> Ref
     return ref
 
 
+def result_labels(sheet: Sheet) -> set[int]:
+    """The label columns of Stat Calculations, interval and test results: `Title` in row 1
+    beside a column formula, which writes the values."""
+    found = set()
+    for column in range(COLUMNS - 1):
+        content = sheet.content(column, 1)
+        if (
+            isinstance(content, Constant)
+            and content.value == Str("Title")
+            and sheet.column(column + 1).formula is not None
+        ):
+            found.add(column)
+    return found
+
+
 def insert_row(sheet: Sheet, row: int) -> list[Notice]:
-    """Insert Row: a blank row across the sheet; linked lists get `_` there (check run 2, E12)."""
+    """Insert Row: a blank row across the sheet; linked lists get `_` there (check run 2, E12).
+    Result labels stay where they are, as their values do (run 6, R6-C8)."""
+    labels = result_labels(sheet)
     return _rebuild(
         sheet,
-        lambda key: (key[0], key[1] + 1) if key[1] >= row else key,
+        lambda key: (key[0], key[1] + 1) if key[1] >= row and key[0] not in labels else key,
         lambda ref: _shift_ref(ref, row=row, by=1),
     )
 

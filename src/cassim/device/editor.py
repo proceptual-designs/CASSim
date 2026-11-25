@@ -22,7 +22,18 @@ from cassim.core.parser import COMMANDS
 from cassim.device.accents import next_accent
 from cassim.device.templates import GRIDS, SPECS, WALKED, Kind
 
-__all__ = ["GRIDS", "MARK", "WALKED", "Editor", "Kind", "Node", "Row", "Template"]
+__all__ = [
+    "EMPTY_SLOT",
+    "GRIDS",
+    "MARK",
+    "WALKED",
+    "Editor",
+    "Kind",
+    "Node",
+    "Row",
+    "Template",
+    "row_latex",
+]
 
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
 
@@ -809,6 +820,11 @@ class Editor:
         return _latex(self.root, place, [], is_defined)
 
 
+def row_latex(row: Row, is_defined: Callable[[str], bool] = lambda _: False) -> str:
+    """LaTeX for a row with no cursor; an empty slot is `EMPTY_SLOT`."""
+    return _latex(row, None, [], is_defined)
+
+
 _CLOSERS = {"(": ")", "[": "]", "{": "}"}
 
 
@@ -1143,6 +1159,7 @@ def _bar(level: int, *, selected: bool = False) -> str:
 _SIGNS_AT_START = ("+", "-")
 _BEFORE_A_SIGN = frozenset("([{,;=<>≤≥≠+-*/|→")
 _EMPTY_SLOT = r"\square"
+EMPTY_SLOT = _EMPTY_SLOT  # public: how `row_latex` draws an empty slot
 _SELECTION = "#7fb2e8"
 _SYMBOLS = {
     "*": r"\cdot ",

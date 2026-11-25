@@ -245,3 +245,23 @@ def test_graph_page_modules_do_not_load_sympy() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     ).stdout
     assert out.strip() == "False"
+
+
+def test_enter_during_a_trace_leaves_a_point_that_stays_after_esc() -> None:
+    """R6-A3: Enter at a traced point leaves a dot with its coordinates; Esc ends the trace and
+    the point stays."""
+    state, graphs, _ = traced("x^2")
+    pick(state, "5", "1")
+    for _ in range(3):
+        state.key_event("ArrowRight")
+    state.key_event("Enter")
+    assert graphs.tools.tool is Tool.TRACE
+    state.key_event("Escape")
+    assert graphs.tools.tool is None
+    layer = graphs.scene(318, 212).layer("analysis")
+    assert layer is not None
+    assert [shape.text for shape in layer.shapes if isinstance(shape, Label)] == ["(0.6,0.36)"]
+    graphs.submit(0, "2x^2")  # the point follows the function
+    layer = graphs.scene(318, 212).layer("analysis")
+    assert layer is not None
+    assert [shape.text for shape in layer.shapes if isinstance(shape, Label)] == ["(0.6,0.72)"]
