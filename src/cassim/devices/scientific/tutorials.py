@@ -1,487 +1,497 @@
-"""Built-in tutorial catalog and user-driven interactive step engine for CASSim fx.
+"""The interactive tutorials (FR-FX-TUT-001 to -006).
 
-Features:
-- Pure user-driven execution: keypad is live; student must press the correct target key to advance.
-- Quiet, non-punitive guidance on incorrect keypresses.
-- Flagship Australian curriculum lessons (Standard Deviation, 5-Number Summary, Frequency Tables,
-  Linear Regression, Fractions, Prime Factorisation, Table mode).
+The lessons follow docs/design/tutorials-catalog-fx.md.
 
-Pure Python: zero Flet imports. Tested headless.
+A lesson is a list of steps; a step is one or more keypad keys with an instruction and the reason
+for it. The student presses every key (Guide Me), watches it played (Show Me), or is given a new
+problem and checked on the answer (Test Me). What the screen should show after each step is not
+written by hand: `expected_screens` runs the lesson on a headless calculator, so it always matches
+what the calculator really does. The lesson answers are checked the same way in the tests.
+
+Pure Python: no Flet. Progress is kept by the view in browser storage; nothing leaves the device.
 """
 
 from __future__ import annotations
 
+import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
+
+from cassim.devices.scientific import keys as k
+from cassim.devices.scientific import values as v
+from cassim.devices.scientific.state import ScientificState
+
+TutorialMode = Literal["guide", "show", "test"]
+SPEEDS = (0.5, 1.0, 1.5, 2.0)
 
 
 @dataclass(frozen=True)
-class TutorialStep:
-    key: str
-    label: str
+class Step:
+    keys: tuple[str, ...]
     instruction: str
-    detail: str = ""
-    expected_screen: str = ""
+    why: str = ""
 
 
 @dataclass(frozen=True)
-class TutorialLesson:
+class Challenge:
+    """Test Me: a new problem, and how to tell the student's calculator has the answer."""
+
+    prompt: str
+    check: Callable[[ScientificState], bool]
+    answer: str  # shown after a wrong check
+
+
+@dataclass(frozen=True)
+class Lesson:
     id: str
     title: str
-    mode: str
-    steps: list[TutorialStep]
-    category: str = "General"
+    category: str
+    problem: str
+    steps: tuple[Step, ...]
+    answer: str  # the answer line after the last step, as `Display.text` shows it
+    challenge: Challenge
+    start: tuple[str, ...] = ()  # keys pressed (unseen) after a reset, before step 1
+
+    @property
+    def key_count(self) -> int:
+        return sum(len(step.keys) for step in self.steps)
+
+    def prepare(self, state: ScientificState) -> None:
+        """Reset the calculator and set it up for step 1."""
+        state.reset()
+        for key in self.start:
+            state.press(key)
 
 
-CATALOG: dict[str, TutorialLesson] = {
-    "stddev": TutorialLesson(
-        id="stddev",
-        title="Standard Deviation (sx vs σx)",
-        mode="STAT",
-        steps=[
-            TutorialStep(
-                key="MODE",
-                label="[MODE]",
-                instruction="Press [MODE] to open calculation modes.",
-                detail="Options: 1:COMP (arithmetic), 2:STAT (statistics), 3:TABLE (functions).",
-            ),
-            TutorialStep(
-                key="2",
-                label="[ 2 ]",
-                instruction="Press [2] to select STAT mode.",
-                detail="STAT sub-modes include 1-VAR (univariate) and various regression forms.",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ]",
-                instruction="Press [1] to choose 1-VAR.",
-                detail="Opens data table. Enter sample scores: 12, 15, 18, 22, 25.",
-            ),
-            TutorialStep(
-                key="AC",
-                label="[AC]",
-                instruction="Press [AC] to exit table.",
-                detail="Stores data safely. Notice the STAT indicator remains active on screen.",
-            ),
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Activates secondary function layer (S annunciator lights).",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ] (STAT)",
-                instruction="Press [1] to open the STAT variables menu.",
-                detail="Shows: 1:Type, 2:Data, 3:Sum, 4:Var, 5:MinMax.",
-            ),
-            TutorialStep(
-                key="4",
-                label="[ 4 ]",
-                instruction="Press [4] to open the Var menu.",
-                detail="Options: 1:n, 2:x̄ (mean), 3:σx (pop SD), 4:sx (sample SD).",
-            ),
-            TutorialStep(
-                key="4",
-                label="[ 4 ] (sx)",
-                instruction="Press [4] to select sx.",
-                detail="Places sample standard deviation sx on the calculation line.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to evaluate.",
-                detail="Calculates sx = 5.17687... (Australian curriculum standard).",
-            ),
-        ],
-    ),
-    "fivenum": TutorialLesson(
-        id="fivenum",
-        title="Five-Number Summary",
-        mode="STAT",
-        steps=[
-            TutorialStep(
-                key="MODE",
-                label="[MODE]",
-                instruction="Press [MODE] to select mode.",
-                detail="Open calculation modes.",
-            ),
-            TutorialStep(
-                key="2",
-                label="[ 2 ]",
-                instruction="Press [2] for STAT mode.",
-                detail="Statistical calculations.",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ]",
-                instruction="Press [1] for 1-VAR.",
-                detail="Data table for 8 scores: 4, 7, 9, 12, 14, 18, 21, 25.",
-            ),
-            TutorialStep(
-                key="AC",
-                label="[AC]",
-                instruction="Press [AC] to store data.",
-                detail="Returns to calculation line with data preserved.",
-            ),
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Activates STAT menu layer.",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ] (STAT)",
-                instruction="Press [1] for STAT menu.",
-                detail="Access statistical summary functions.",
-            ),
-            TutorialStep(
-                key="5",
-                label="[ 5 ] (MinMax)",
-                instruction="Press [5] for MinMax menu.",
-                detail="Options: 1:minX, 2:maxX, 3:Q1, 4:med, 5:Q3.",
-            ),
-            TutorialStep(
-                key="3",
-                label="[ 3 ] (Q1)",
-                instruction="Press [3] for Q1.",
-                detail="Places Q1 on the calculation line.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to evaluate.",
-                detail="Result: Q1 = 8 under Australian median-split rules.",
-            ),
-        ],
-    ),
-    "freq": TutorialLesson(
-        id="freq",
-        title="Enabling Frequency Table",
-        mode="COMP",
-        steps=[
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Prepares to enter Setup.",
-            ),
-            TutorialStep(
-                key="MODE",
-                label="[MODE] (SETUP)",
-                instruction="Press [MODE] (SETUP) to open Setup.",
-                detail="Shows system configuration options.",
-            ),
-            TutorialStep(
-                key="DOWN",
-                label="[ ▼ ]",
-                instruction="Press Down arrow [▼] on the D-Pad.",
-                detail="Scrolls to page 2 (1:STAT, 2:TABLE, etc.).",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ] (STAT)",
-                instruction="Press [1] to configure Statistics.",
-                detail="Prompts: Frequency? 1:ON, 2:OFF.",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ] (ON)",
-                instruction="Press [1] to activate Frequency.",
-                detail="Frequency column is now active in STAT tables.",
-            ),
-        ],
-    ),
-    "reset": TutorialLesson(
+def _ans_close(target: float, rel: float = 1e-6) -> Callable[[ScientificState], bool]:
+    def check(state: ScientificState) -> bool:
+        if state.result is None or isinstance(state.result, (bool,)):
+            return False
+        try:
+            value = float(v.check(state.variables["Ans"]))
+        except v.CalcError:
+            return False
+        return math.isclose(value, target, rel_tol=rel, abs_tol=1e-9)
+
+    return check
+
+
+def _answer_is(text: str) -> Callable[[ScientificState], bool]:
+    def check(state: ScientificState) -> bool:
+        return state.screen == "calc" and state.answer_text() == text
+
+    return check
+
+
+def _is_reset(state: ScientificState) -> bool:
+    fresh = ScientificState()
+    return (
+        state.setup == fresh.setup
+        and state.mode == "COMP"
+        and all(float(value) == 0 for value in state.variables.values())
+    )
+
+
+def _entries(*numbers: str) -> tuple[Step, ...]:
+    """One step per data value: type it, then =."""
+    return tuple(
+        Step(
+            (*tuple(number), k.EQ),
+            f"Type {number} and press =.",
+            "= stores the value and moves down a row.",
+        )
+        for number in numbers
+    )
+
+
+def _keys(text: str) -> tuple[str, ...]:
+    """Digits and a decimal point as keys."""
+    return tuple(k.DOT if ch == "." else ch for ch in text)
+
+
+def _stat_steps(menu: str, item: str, what: str, why: str = "") -> tuple[Step, ...]:
+    names = {"3": "Sum", "4": "Var", "5": "MinMax", "6": "Reg"}
+    return (
+        Step((k.SHIFT, "1"), "Press SHIFT then 1 to open the STAT menu.", why),
+        Step((menu,), f"Press {menu} for {names[menu]}."),
+        Step((item, k.EQ), f"Press {item} for {what}, then = to calculate it."),
+    )
+
+
+OPEN_1VAR = (
+    Step((k.MODE,), "Press MODE to see the calculation modes."),
+    Step(("2",), "Press 2 for STAT.", "STAT mode works with lists of data."),
+    Step(("1",), "Press 1 for 1-VAR.", "One variable: a single list of numbers."),
+)
+FREQ_ON = (k.SHIFT, k.MODE, k.DOWN, "1", "1")
+
+LESSONS: tuple[Lesson, ...] = (
+    Lesson(
         id="reset",
-        title="Initialise Calculator",
-        mode="COMP",
-        steps=[
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Activates secondary layer.",
+        title="Resetting the calculator",
+        category="Getting started",
+        problem="Clear every setting and memory before a test.",
+        start=(k.SHIFT, k.MODE, "4", "7", k.MPLUS, k.MODE, "2", "1"),
+        steps=(
+            Step(
+                (k.SHIFT, "9"), "Press SHIFT then 9 to open CLR.", "CLR is the shift of the 9 key."
             ),
-            TutorialStep(
-                key="9",
-                label="[ 9 ] (CLR)",
-                instruction="Press [9] (CLR) to open Clear menu.",
-                detail="Options: 1:Setup, 2:Memory, 3:All.",
-            ),
-            TutorialStep(
-                key="3",
-                label="[ 3 ] (All)",
-                instruction="Press [3] to reset everything.",
-                detail="Prompts: Reset All? [=]:Yes, [AC]:Cancel.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to confirm.",
-                detail="Restores factory default modes and clears memory.",
-            ),
-            TutorialStep(
-                key="AC",
-                label="[AC]",
-                instruction="Press [AC] to finish.",
-                detail="Returns to clean calculation screen.",
-            ),
-        ],
+            Step(("3",), "Press 3 for All.", "All resets the settings and clears every memory."),
+            Step((k.EQ,), "Press = to confirm.", "AC would cancel instead."),
+            Step((k.AC,), "Press AC to go back to the calculation screen."),
+        ),
+        answer="",
+        challenge=Challenge(
+            "Reset only the setup (not the memories), then reset everything again.",
+            _is_reset,
+            "SHIFT 9, 3, =, AC",
+        ),
     ),
-    "linreg": TutorialLesson(
+    Lesson(
+        id="freq",
+        title="Turning on the frequency column",
+        category="Getting started",
+        problem="Switch on the FREQ column for frequency tables.",
+        steps=(
+            Step((k.SHIFT, k.MODE), "Press SHIFT then MODE to open SETUP."),
+            Step((k.DOWN,), "Press ▼ to see the second page of settings."),
+            Step(("1",), "Press 1 for STAT."),
+            Step(("1",), "Press 1 for ON.", "Each data row now has a frequency."),
+        ),
+        answer="",
+        challenge=Challenge(
+            "Turn the frequency column off again.",
+            lambda state: not state.setup.frequency,
+            "SHIFT MODE, ▼, 1, 2",
+        ),
+        start=(),
+    ),
+    Lesson(
+        id="stddev",
+        title="Mean and standard deviation (sx and σx)",
+        category="Statistics",
+        problem="Find the mean and the sample standard deviation of 12, 15, 18, 22, 25.",
+        steps=(
+            *OPEN_1VAR,
+            *_entries("12", "15", "18", "22", "25"),
+            Step(
+                (k.AC,), "Press AC to leave the table.", "The data stays in memory: STAT stays lit."
+            ),
+            *_stat_steps("4", "2", "x̄ (the mean)"),
+            *_stat_steps(
+                "4",
+                "4",
+                "sx (the sample standard deviation)",
+                "sx divides by n−1; σx, item 3, divides by n.",
+            ),
+        ),
+        answer="5.224940191",
+        challenge=Challenge(
+            "Find sx for the scores 3, 8, 10, 15.",
+            _ans_close(4.966554809),
+            "4.966554809",
+        ),
+    ),
+    Lesson(
+        id="fivenum",
+        title="Five-number summary",
+        category="Statistics",
+        problem="Find min, Q1, median, Q3 and max of 4, 7, 9, 12, 14, 18, 21, 25.",
+        steps=(
+            *OPEN_1VAR,
+            *_entries("4", "7", "9", "12", "14", "18", "21", "25"),
+            Step((k.AC,), "Press AC to leave the table."),
+            *_stat_steps("5", "1", "minX"),
+            *_stat_steps("5", "3", "Q1", "Q1 is the median of the lower half."),
+            *_stat_steps("5", "4", "med (the median)"),
+            *_stat_steps("5", "5", "Q3", "Q3 is the median of the upper half."),
+            *_stat_steps("5", "2", "maxX"),
+        ),
+        answer="25",
+        challenge=Challenge(
+            "Find Q1 of 2, 5, 6, 9, 11, 14, 20. (The median is left out of both halves.)",
+            _ans_close(5.0),
+            "5",
+        ),
+    ),
+    Lesson(
+        id="freqtable",
+        title="Statistics from a frequency table",
+        category="Statistics",
+        problem="Scores 1, 2, 3, 4 occur 5, 12, 8 and 3 times. Find n and the mean.",
+        start=FREQ_ON,
+        steps=(
+            *OPEN_1VAR,
+            *_entries("1", "2", "3", "4"),
+            Step((k.UP,) * 4, "Press ▲ four times to go back to the first row."),
+            Step((k.RIGHT,), "Press ▶ to move to the FREQ column."),
+            *_entries("5", "12", "8", "3"),
+            Step((k.AC,), "Press AC to leave the table."),
+            *_stat_steps("4", "1", "n, the number of scores"),
+            *_stat_steps("4", "2", "x̄, the mean"),
+        ),
+        answer="2.321428571",
+        challenge=Challenge(
+            "Scores 0, 1, 2 occur 4, 10 and 6 times. Find the mean.",
+            _ans_close(1.1),
+            "1.1",
+        ),
+    ),
+    Lesson(
         id="linreg",
-        title="Linear Regression (r)",
-        mode="STAT",
-        steps=[
-            TutorialStep(
-                key="MODE",
-                label="[MODE]",
-                instruction="Press [MODE].",
-                detail="Select calculation mode.",
+        title="Correlation and the regression line",
+        category="Bivariate data",
+        problem=(
+            "Fit y = A + Bx to (2, 5), (4, 9), (6, 12), (8, 17), (10, 20); find r and ŷ at x = 7."
+        ),
+        steps=(
+            Step((k.MODE, "2"), "Press MODE then 2 for STAT."),
+            Step(("2",), "Press 2 for A+BX, the straight line.", "Two columns: X and Y."),
+            *_entries("2", "4", "6", "8", "10"),
+            Step((k.UP,) * 5, "Press ▲ five times to go back to the first row."),
+            Step((k.RIGHT,), "Press ▶ to move to the Y column."),
+            *_entries("5", "9", "12", "17", "20"),
+            Step((k.AC,), "Press AC to leave the table."),
+            *_stat_steps(
+                "6", "3", "r, the correlation coefficient", "Reg appears for two-variable data."
             ),
-            TutorialStep(
-                key="2",
-                label="[ 2 ]",
-                instruction="Press [2] for STAT mode.",
-                detail="Selects statistical mode.",
-            ),
-            TutorialStep(
-                key="2",
-                label="[ 2 ] (A+BX)",
-                instruction="Press [2] for linear regression.",
-                detail="Opens paired X and Y data table.",
-            ),
-            TutorialStep(
-                key="AC",
-                label="[AC]",
-                instruction="Press [AC] to store data.",
-                detail="Returns to line with STAT active.",
-            ),
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Activates secondary menu.",
-            ),
-            TutorialStep(
-                key="1",
-                label="[ 1 ] (STAT)",
-                instruction="Press [1] for STAT menu.",
-                detail="Item 6:Reg is now available.",
-            ),
-            TutorialStep(
-                key="6",
-                label="[ 6 ] (Reg)",
-                instruction="Press [6] for Regression menu.",
-                detail="Options: 1:A (intercept), 2:B (slope), 3:r (correlation).",
-            ),
-            TutorialStep(
-                key="3",
-                label="[ 3 ] (r)",
-                instruction="Press [3] to select r.",
-                detail="Places correlation coefficient r on line.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to evaluate.",
-                detail="Result: r = 0.9972... (strong positive linear trend).",
-            ),
-        ],
+            *_stat_steps("6", "1", "A, the intercept"),
+            *_stat_steps("6", "2", "B, the slope"),
+            Step(("7",), "Type 7, the x value to predict from."),
+            *_stat_steps("6", "5", "ŷ, the predicted y"),
+        ),
+        answer="14.5",
+        challenge=Challenge(
+            "For (1, 3), (2, 5), (3, 8), (4, 9), find the slope B.",
+            _ans_close(2.1),
+            "2.1",
+        ),
     ),
-    "fractions": TutorialLesson(
+    Lesson(
         id="fractions",
-        title="Fractions & S⇔D Toggle",
-        mode="COMP",
-        steps=[
-            TutorialStep(
-                key="FRAC",
-                label="[믐]",
-                instruction="Press fraction key [믐].",
-                detail="Inserts a 2-level fraction box.",
-            ),
-            TutorialStep(
-                key="3",
-                label="[ 3 ]",
-                instruction="Press [3] for numerator.",
-                detail="Inputs 3 into top slot.",
-            ),
-            TutorialStep(
-                key="DOWN",
-                label="[ ▼ ]",
-                instruction="Press [▼] to move to denominator.",
-                detail="Cursor enters bottom slot.",
-            ),
-            TutorialStep(
-                key="4",
-                label="[ 4 ]",
-                instruction="Press [4] for denominator.",
-                detail="Inputs 4 into bottom slot.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to evaluate.",
-                detail="Exact fraction 3/4 appears on screen.",
-            ),
-            TutorialStep(
-                key="SD",
-                label="[ S⇔D ]",
-                instruction="Press [ S⇔D ] to toggle decimal.",
-                detail="Converts 3/4 to 0.75. Press again to return.",
-            ),
-        ],
+        title="Fractions and S⇔D",
+        category="Number",
+        problem="Work out 2/3 + 3/4 as a fraction, a decimal and a mixed number.",
+        steps=(
+            Step((k.FRAC,), "Press the fraction key.", "The cursor goes into the numerator."),
+            Step(("2",), "Type 2."),
+            Step((k.DOWN,), "Press ▼ to move to the denominator."),
+            Step(("3",), "Type 3."),
+            Step((k.RIGHT,), "Press ▶ to leave the fraction."),
+            Step((k.ADD,), "Press +."),
+            Step((k.FRAC, "3", k.DOWN, "4"), "Enter 3/4 the same way: fraction, 3, ▼, 4."),
+            Step((k.EQ,), "Press =.", "Natural display keeps the answer exact."),
+            Step((k.SD,), "Press S⇔D to see it as a decimal."),
+            Step((k.SHIFT, k.SD), "Press SHIFT then S⇔D for a mixed number."),
+        ),
+        answer="1 5⌟12",
+        challenge=Challenge("Work out 5/6 − 1/4 as a fraction.", _answer_is("7⌟12"), "7/12"),
     ),
-    "prime_factor": TutorialLesson(
-        id="prime_factor",
-        title="Prime Factorisation (FACT)",
-        mode="COMP",
-        steps=[
-            TutorialStep(
-                key="1",
-                label="[ 1 ]",
-                instruction="Enter 1050: Press [1].",
-                detail="First digit.",
-            ),
-            TutorialStep(
-                key="0",
-                label="[ 0 ]",
-                instruction="Press [0].",
-                detail="Second digit.",
-            ),
-            TutorialStep(
-                key="5",
-                label="[ 5 ]",
-                instruction="Press [5].",
-                detail="Third digit.",
-            ),
-            TutorialStep(
-                key="0",
-                label="[ 0 ]",
-                instruction="Press [0].",
-                detail="Fourth digit.",
-            ),
-            TutorialStep(
-                key="=",
-                label="[ = ]",
-                instruction="Press [ = ] to store in Ans.",
-                detail="Number must be evaluated first.",
-            ),
-            TutorialStep(
-                key="SHIFT",
-                label="[SHIFT]",
-                instruction="Press [SHIFT].",
-                detail="Secondary function.",
-            ),
-            TutorialStep(
-                key="DMS",
-                label="[ ° ' \" ] (FACT)",
-                instruction="Press [ ° ' \" ] (FACT).",
-                detail="Factorises 1050 into 2 × 3 × 5² × 7.",
-            ),
-        ],
+    Lesson(
+        id="trig",
+        title="Exact trigonometry",
+        category="Trigonometry",
+        problem="Find sin 30° exactly, then the angle whose sine is 0.5.",
+        steps=(
+            Step((k.SIN, "3", "0", k.RPAREN), "Press sin, type 30 and close the bracket."),
+            Step((k.EQ,), "Press =.", "Natural display gives the exact value 1/2."),
+            Step((k.SHIFT, k.SIN), "Press SHIFT then sin for sin⁻¹."),
+            Step(("0", k.DOT, "5", k.RPAREN), "Type 0.5 and close the bracket."),
+            Step((k.EQ,), "Press =.", "The angle is in degrees: D is lit."),
+        ),
+        answer="30",
+        challenge=Challenge("Find cos 60° exactly.", _answer_is("1⌟2"), "1/2"),
     ),
-}
+    Lesson(
+        id="percent",
+        title="Percentage increase",
+        category="Number",
+        problem="Increase $250 by 15%.",
+        steps=(
+            Step(("2", "5", "0", k.ADD, "1", "5"), "Type 250 + 15."),
+            Step((k.SHIFT, k.LPAREN), "Press SHIFT then ( for %.", "+ 15% adds 15% of 250."),
+            Step((k.EQ,), "Press =.", "Natural display shows the exact answer, 575/2."),
+            Step((k.SD,), "Press S⇔D to see it as a decimal: $287.50."),
+        ),
+        answer="287.5",
+        challenge=Challenge("Decrease $80 by 25%.", _ans_close(60.0), "60"),
+    ),
+    Lesson(
+        id="memory",
+        title="Storing a value in a variable",
+        category="Memory",
+        problem="Store 12 × 3 in A, then work out 2A.",
+        steps=(
+            Step(("1", "2", k.MUL, "3", k.EQ), "Work out 12 × 3."),
+            Step((k.SHIFT, k.RCL), "Press SHIFT then RCL for STO.", "STO lights up."),
+            Step((k.NEG,), "Press (−), which has A above it in red.", "36 is now in A."),
+            Step(("2", k.ALPHA, k.NEG), "Type 2, then ALPHA and (−) to type A."),
+            Step((k.EQ,), "Press =."),
+        ),
+        answer="72",
+        challenge=Challenge("Store 7 in B, then work out B².", _ans_close(49.0), "49"),
+    ),
+    Lesson(
+        id="prime",
+        title="Prime factorisation (FACT)",
+        category="Number",
+        problem="Write 1050 as a product of primes.",
+        steps=(
+            Step(("1", "0", "5", "0", k.EQ), "Type 1050 and press =."),
+            Step((k.SHIFT, k.DMS), "Press SHIFT then ° ' \" for FACT."),
+        ),
+        answer="2×3×5²×7",
+        challenge=Challenge("Factorise 360.", _answer_is("2³×3²×5"), "2³×3²×5"),
+    ),
+    Lesson(
+        id="table",
+        title="A table of values",
+        category="Functions",
+        problem="Tabulate f(x) = x² − 3 for x = 1 to 5.",
+        steps=(
+            Step((k.MODE, "3"), "Press MODE then 3 for TABLE."),
+            Step((k.ALPHA, k.RPAREN), "Press ALPHA then ) to type X."),
+            Step((k.X2, k.SUB, "3"), "Press x², then − 3."),
+            Step((k.EQ,), "Press =. The calculator asks for the start."),
+            Step(("1", k.EQ), "Type 1 and press = (start)."),
+            Step(("5", k.EQ), "Type 5 and press = (end)."),
+            Step(("1", k.EQ), "Type 1 and press = (step)."),
+            Step((k.DOWN, k.DOWN, k.DOWN), "Press ▼ to scroll down the table."),
+        ),
+        answer="",
+        challenge=Challenge(
+            "Make a table of 2X + 1 from 0 to 4 and stop on X = 4.",
+            lambda state: (
+                state.screen == "table"
+                and bool(state.table_rows)
+                and float(state.table_rows[state.table_cursor[0]][0]) == 4  # noqa: PLR2004
+            ),
+            "MODE 3, 2 ALPHA ) + 1, =, 0 =, 4 =, 1 =, then ▼ to X = 4",
+        ),
+    ),
+)
+
+LESSONS_BY_ID: dict[str, Lesson] = {lesson.id: lesson for lesson in LESSONS}
 
 
-MAX_HISTORY = 6
+def expected_screens(lesson: Lesson) -> list[str]:
+    """What the screen shows after each step, found by running the lesson."""
+    state = ScientificState()
+    lesson.prepare(state)
+    screens = []
+    for step in lesson.steps:
+        for key in step.keys:
+            state.press(key)
+        screens.append(state.display().text())
+    return screens
 
-CORE_LESSONS: list[TutorialLesson] = list(CATALOG.values())
+
+def run_lesson(lesson: Lesson) -> ScientificState:
+    """The calculator after every step of a lesson (for tests and Show Me)."""
+    state = ScientificState()
+    lesson.prepare(state)
+    for step in lesson.steps:
+        for key in step.keys:
+            state.press(key)
+    return state
+
+
+def key_label(key: str) -> str:
+    spec = k.KEYS_BY_ID.get(key)
+    return spec.label if spec is not None else key
 
 
 @dataclass
 class TutorialSession:
-    lesson_id: str = "stddev"
+    """Where a student is in a lesson."""
+
+    lesson: Lesson
+    mode: TutorialMode = "guide"
     step_index: int = 0
-    history: list[str] = field(default_factory=lambda: ["[ON]"])
-    last_hint: str = ""
-
-    def __init__(
-        self,
-        lesson: TutorialLesson | None = None,
-        lesson_id: str = "stddev",
-        step_index: int = 0,
-    ) -> None:
-        self.lesson_id = lesson.id if lesson is not None else lesson_id
-        self.step_index = step_index
-        self.history = ["[ON]"]
-        self.last_hint = ""
-
-    @property
-    def lesson(self) -> TutorialLesson:
-        return CATALOG.get(self.lesson_id, next(iter(CATALOG.values())))
-
-    @property
-    def total_steps(self) -> int:
-        return len(self.lesson.steps)
-
-    @property
-    def current_step_index(self) -> int:
-        return self.step_index
+    key_index: int = 0
+    history: list[str] = field(default_factory=list)
+    wrong: int = 0
+    _screens: list[str] | None = None
 
     @property
     def is_complete(self) -> bool:
-        return self.step_index >= self.total_steps
+        return self.step_index >= len(self.lesson.steps)
 
     @property
-    def current_step(self) -> TutorialStep | None:
-        if self.is_complete:
-            return None
-        return self.lesson.steps[self.step_index]
+    def current_step(self) -> Step | None:
+        return None if self.is_complete else self.lesson.steps[self.step_index]
 
     @property
     def target_key(self) -> str | None:
+        """The key to press next (the one that glows)."""
         step = self.current_step
-        return step.key if step else None
+        return None if step is None else step.keys[self.key_index]
+
+    def expected_screen(self) -> str:
+        if self._screens is None:
+            self._screens = expected_screens(self.lesson)
+        if self.is_complete:
+            return self._screens[-1] if self._screens else ""
+        return self._screens[self.step_index]
 
     def press(self, key: str) -> bool:
-        """Process user keypress.
-
-        Returns True if key matched target and advanced, False if wrong key was pressed.
-        """
-        self.history.append(f"[{key}]")
-        if len(self.history) > MAX_HISTORY:
-            self.history.pop(0)
-
-        if self.is_complete:
+        """A key the student pressed. True when it was the one asked for (and the lesson moves
+        on); False otherwise, and the lesson waits (FR-FX-TUT-003)."""
+        target = self.target_key
+        if target is None:
             return False
-
+        if key != target:
+            self.wrong += 1
+            return False
+        self.history.append(key_label(key))
+        self.wrong = 0
+        self.key_index += 1
         step = self.current_step
         assert step is not None
-        if key == step.key:
+        if self.key_index >= len(step.keys):
             self.step_index += 1
-            self.last_hint = ""
-            return True
+            self.key_index = 0
+        return True
 
-        self.last_hint = f"Pressed [{key}]. Target is {step.label}."
-        return False
+    def hint(self) -> str:
+        target = self.target_key
+        if target is None:
+            return ""
+        spec = k.KEYS_BY_ID.get(target)
+        label = key_label(target)
+        spoken = spec.spoken if spec is not None else label
+        where = f" ({spoken})" if spoken.lower() != label.lower() else ""
+        if self.wrong > 1 and target == k.SHIFT:
+            return f"Press SHIFT{where} first: the yellow labels are its functions."
+        return f"Not that one. Press [{label}]{where} to continue, or use Show me."
 
-    def advance(self) -> None:
-        if self.step_index < self.total_steps:
-            self.step_index += 1
-            self.last_hint = ""
+    def keys_done(self) -> list[str]:
+        """Every key the lesson has pressed so far (to rebuild the calculator after Back)."""
+        done = [key for step in self.lesson.steps[: self.step_index] for key in step.keys]
+        step = self.current_step
+        if step is not None:
+            done.extend(step.keys[: self.key_index])
+        return done
+
+    def remaining_keys(self) -> list[str]:
+        step = self.current_step
+        if step is None:
+            return []
+        rest = list(step.keys[self.key_index :])
+        rest.extend(key for later in self.lesson.steps[self.step_index + 1 :] for key in later.keys)
+        return rest
 
     def back(self) -> None:
-        if self.step_index > 0:
+        """Go back to the start of this step, or of the step before if this one has not begun."""
+        if self.key_index > 0:
+            self.key_index = 0
+        elif self.step_index > 0:
             self.step_index -= 1
-            self.last_hint = ""
+        self.history = [key_label(key) for key in self.keys_done()]
 
     def restart(self) -> None:
         self.step_index = 0
-        self.last_hint = ""
-
-    def reset(self) -> None:
-        self.step_index = 0
-        self.last_hint = ""
-        self.history.clear()
-
-    def get_hint(self) -> str:
-        step = self.current_step
-        return step.label if step else ""
-
-    def set_lesson(self, lesson_id: str) -> None:
-        if lesson_id in CATALOG:
-            self.lesson_id = lesson_id
-            self.step_index = 0
-            self.last_hint = ""
+        self.key_index = 0
+        self.history = []
+        self.wrong = 0

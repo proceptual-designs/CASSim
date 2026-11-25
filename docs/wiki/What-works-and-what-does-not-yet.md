@@ -9,6 +9,7 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 - Handheld and Computer views, with touch, mouse and keyboard
 - Save and open files, share links, autosave, install and offline use
 - The **Pseudocode & Python** app: run pseudocode, step through a trace table (including inside function calls), and translate between pseudocode and Python (see [[Pseudocode]])
+- In the testing version: **CASSim fx**, a scientific calculator with natural display, statistics, tables and interactive tutorials (see [[Scientific calculator]]). Not yet built there: complex numbers and vectors, and `:` between calculations. Its answers have not yet been checked against a physical calculator
 
 ## Not built yet
 

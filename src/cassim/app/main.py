@@ -83,7 +83,8 @@ class Application:
         available: tuple[str, ...] = bundle.DEVICES,
     ) -> None:
         self.page = page
-        self.options = options or {}
+        # Options the command line left unset arrive as None; they are not options at all.
+        self.options = {key: value for key, value in (options or {}).items() if value is not None}
         self.shell = shell or Shell(page)
         self.bundle_name = bundle_name
         self.available = available
@@ -128,7 +129,8 @@ class Application:
             msg = f"{device.ui}.mount() does not expose start() and unmount()"
             raise TypeError(msg)
         self.active = mounted
-        await mounted.start(**self.options)
+        # `app` chose the device; the device's own start() takes only its view options.
+        await mounted.start(**{key: v for key, v in self.options.items() if key != "app"})
 
     async def show_home(self) -> None:
         if self.active is not None:

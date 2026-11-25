@@ -1,1050 +1,1265 @@
-"""CASSim fx scientific calculator Flet UI application view."""
+"""The CASSim fx view: top bar, calculator and tutorial panel (SDD-14 section 5).
+
+The calculator is drawn from the key table in `keys.py` and the screen model of `state.py`; this
+module only draws them and passes keys on. It scales to the window, so the whole keypad fits on a
+Chromebook screen, and the tutorial panel moves under the calculator when there is no room beside
+it. Keys come from the mouse, touch or the computer keyboard (`keys.COMPUTER`).
+"""
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import dataclasses
 import json
 from typing import TYPE_CHECKING
 
 import flet as ft
 
-from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
-from cassim.devices.scientific.engine import AngleUnit
-from cassim.devices.scientific.state import CalcMode, ScientificState
+from cassim.app.keyboard import key_name
+from cassim.devices.scientific import HELP_PAGE
+from cassim.devices.scientific import keys as k
+from cassim.devices.scientific.examples import EXAMPLES, load_example
+from cassim.devices.scientific.keys import KeySpec
+from cassim.devices.scientific.state import Display, DocumentFileError, ScientificState
 from cassim.devices.scientific.tutorials import (
-    CORE_LESSONS,
+    LESSONS,
+    SPEEDS,
+    TutorialMode,
     TutorialSession,
+    key_label,
 )
+from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
+from cassim.devices.scientific.ui.skins import SKIN_NAMES, SKINS, Skin
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
 
-THEMES: dict[str, Theme] = {
-    "Dark": DARK,
-    "Light": LIGHT,
-    "High contrast": HIGH_CONTRAST,
-}
+AUTOSAVE_KEY = "autosave"
+PREFS_KEY = "prefs"
+BASE_WIDTH = 360.0  # the calculator at scale 1
+BASE_HEIGHT = 700.0  # badge, LCD, top row and eight key rows with their gaps and padding
+BAR_HEIGHT = 48.0
+PANEL_WIDTH = 330.0
+MIN_SCALE = 0.7
+MAX_SCALE = 1.3
+SAVE_DELAY = 0.6
+FLASH_TIME = 0.12
+DEMO_STEP = 0.8  # seconds per key at 1×
+# The legends above a key, as in the design mockup: 8 px bold, inset 2 px from the key's edges.
+LEGEND_SIZE = 8.0
+LEGEND_MIN = 6.5
+LEGEND_INSET = 2.0
+LEGEND_GAP = 3.0
+LEGEND_ADVANCE = 0.62  # a generous average character width of the legend font, in em
 
-LCD_BG = "#1b221d"
-LCD_TEXT = "#a7f3d0"
-LCD_ACCENT = "#34d399"
-LCD_ANN_INACTIVE = "#1e3a2b"
 
-CHASSIS_BG = "#1e2227"
-BEZEL_BG = "#13161a"
-KEY_FN_BG = "#282c34"
-KEY_NUM_BG = "#333842"
-KEY_DEL_BG = "#4b5263"
-KEY_AC_BG = "#b91c1c"
-ACCENT_SHIFT = "#eab308"
-ACCENT_ALPHA = "#f87171"
-ACCENT_TARGET = "#38bdf8"
+def legend_font_size(shift: str, alpha: str, width: float, scale: float) -> float:
+    """The legend text size that keeps both labels inside the key: the design size, shrunk only
+    when the pair (ab/c⇔d/c and Y) would otherwise run past the key's edge."""
+    room = width - 2 * LEGEND_INSET * scale - (LEGEND_GAP * scale if shift and alpha else 0)
+    chars = len(shift) + len(alpha)
+    if not chars:
+        return LEGEND_SIZE * scale
+    fitted = room / (chars * LEGEND_ADVANCE)
+    return max(LEGEND_MIN * scale, min(LEGEND_SIZE * scale, fitted))
 
 
 def _safe_update(control: ft.Control) -> None:
-    with contextlib.suppress(RuntimeError):
+    with contextlib.suppress(RuntimeError, AssertionError):
         control.update()
 
 
+def _shortcut_names() -> dict[str, str]:
+    """For tooltips: the keyboard key that presses each keypad key on its own."""
+    found: dict[str, str] = {}
+    for name, binding in k.COMPUTER.items():
+        presses = k.sequence(binding)
+        if len(presses) == 1 and presses[0] not in found:
+            found[presses[0]] = name.replace("ctrl+", "Ctrl+")
+    return found
+
+
+SHORTCUTS = _shortcut_names()
+
+
 class ScientificApp:
-    """The Flet UI view for CASSim fx scientific calculator."""
+    """The mounted CASSim fx app."""
 
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
         self.page = shell.page
         self.state = ScientificState()
-        self.theme_name = "Dark"
+        self.skin_name = "Dark"
+        self.scale = 1.0
         self.menu_visible = True
-        self.tutorials_visible = True
-
-        # Tutorial management
-        self.lessons = CORE_LESSONS
-        self.current_lesson_index = 0
-        self.tutorial_session = TutorialSession(lesson=self.lessons[0])
-
-        # Key buttons map for dynamic tutorial highlighting: key_id -> ft.Container / button
+        self.panel_open = True
+        self.doc_name = "Untitled"
         self.key_controls: dict[str, ft.Container] = {}
+        self.completed: set[str] = set()
+        self.speed = 1.0
+        self.session: TutorialSession | None = None  # a lesson in progress
+        self.lesson_index = 0
+        self.tutorial_mode: TutorialMode = "guide"
+        self.saved_before_lesson: dict[str, object] | None = None
+        self.demo_run = 0  # bumped to stop a Show me playback
+        self.save_pending = False
+        self.feedback = ""
+        self.feedback_ok = True
+        self._build()
 
-        self._build_ui()
-        self._sync_lcd()
-        self._sync_tutorial()
+    @property
+    def skin(self) -> Skin:
+        return SKINS[self.skin_name]
 
-    def _build_ui(self) -> None:
-        # 1. CASSim Top Menu Bar
+    # ------------------------------------------------------------------------------------------
+    # building
+    # ------------------------------------------------------------------------------------------
+
+    def _build(self) -> None:
         self.update_item = ft.MenuItemButton(
-            content=getattr(self.shell, "update_label", "Check for Updates"),
-            on_click=self.activate_update,
+            content=getattr(self.shell, "update_label", "Check for updates"),
+            on_click=lambda _: self.shell.activate_update(),
+        )
+        home = (
+            [ft.MenuItemButton(content="Home", on_click=lambda _: self._home())]
+            if self.shell.home is not None
+            else []
         )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
-                *(
-                    [ft.MenuItemButton(content="Home", on_click=self.home)]
-                    if getattr(self.shell, "home", None) is not None
-                    else []
+                *home,
+                ft.MenuItemButton(content="Settings…", on_click=lambda _: self.open_settings()),
+                ft.MenuItemButton(content="Appearance…", on_click=lambda _: self.open_appearance()),
+                ft.MenuItemButton(
+                    content="Keyboard shortcuts…", on_click=lambda _: self.open_shortcuts()
                 ),
-                ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
-                ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
                 self.update_item,
-                ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
-                ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
+                ft.MenuItemButton(
+                    content="Help (wiki)…", on_click=lambda _: self.shell.help(HELP_PAGE)
+                ),
+                ft.MenuItemButton(content="About CASSim…", on_click=lambda _: self.shell.about()),
             ],
         )
-
-        examples_menu = self._build_examples_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
                 ft.MenuItemButton(content="Open…", on_click=self.open_file),
                 ft.MenuItemButton(content="Save", on_click=self.save_file),
-                ft.MenuItemButton(content="Save as…", on_click=self.save_file_as),
-                ft.MenuItemButton(content="Share link…", on_click=self.open_share_link),
-                examples_menu,
-                ft.MenuItemButton(content="Reset All", on_click=self.reset_all),
+                ft.MenuItemButton(content="Save as…", on_click=lambda _: self.save_file_as()),
+                ft.MenuItemButton(content="Share link…", on_click=lambda _: self.open_share_link()),
+                ft.SubmenuButton(
+                    content="Examples",
+                    controls=[
+                        ft.MenuItemButton(
+                            content=title, on_click=lambda _, i=index: self.load_example(i)
+                        )
+                        for index, (title, _) in enumerate(EXAMPLES)
+                    ],
+                ),
+                ft.MenuItemButton(content="Reset all…", on_click=lambda _: self.confirm_reset()),
             ],
         )
-
-        # Status Chips
-        self.mode_chip_text = ft.Text("COMP", size=12, weight=ft.FontWeight.W_500)
-        self.mode_chip = ft.Container(
-            content=self.mode_chip_text,
-            padding=ft.Padding.symmetric(horizontal=8, vertical=4),
-            bgcolor=DARK.key,
-            border_radius=4,
-            tooltip="Calculation mode",
-            on_click=self.cycle_mode,
+        self.open_menus: set[str] = set()  # the keyboard drives an open menu, not the keypad
+        for menu in (self.cassim_menu, self.doc_menu, *self.doc_menu.controls):
+            if isinstance(menu, ft.SubmenuButton):
+                name = str(menu.content)
+                menu.on_open = lambda _, name=name: self.open_menus.add(name)
+                menu.on_close = lambda _, name=name: self.open_menus.discard(name)
+        self.mode_chip = self._chip("COMP", "Calculation mode: click for the MODE menu (Ctrl+M)")
+        self.mode_chip.on_click = lambda _: self.on_key(k.MODE)
+        self.angle_chip = self._chip("Deg", "Angle unit: click to change")
+        self.angle_chip.on_click = lambda _: self.cycle_angle()
+        self.io_chip = self._chip(
+            "Math", "Natural display (Math) or linear (Line): click to change"
         )
-        self.angle_chip_text = ft.Text("Deg", size=12, weight=ft.FontWeight.W_500)
-        self.angle_chip = ft.Container(
-            content=self.angle_chip_text,
-            padding=ft.Padding.symmetric(horizontal=8, vertical=4),
-            bgcolor=DARK.key,
-            border_radius=4,
-            tooltip="Angle mode (click to cycle Deg / Rad / Gra)",
-            on_click=self.cycle_angle,
-        )
-        self.math_chip = ft.Container(
-            content=ft.Text("Math", size=12, weight=ft.FontWeight.W_500),
-            padding=ft.Padding.symmetric(horizontal=8, vertical=4),
-            bgcolor=DARK.key,
-            border_radius=4,
-            tooltip="Natural display format",
-        )
-
-        self.hide_menu_button = ft.IconButton(
-            icon=ft.Icons.FULLSCREEN,
-            tooltip="Hide menu (Full-screen presentation mode)",
-            on_click=self.toggle_menu_bar,
-        )
-        self.tutorial_toggle_button = ft.Button(
+        self.io_chip.on_click = lambda _: self.toggle_io()
+        self.panel_button = ft.TextButton(
             "Tutorials",
             icon=ft.Icons.SCHOOL_OUTLINED,
-            on_click=self.toggle_tutorials,
-            style=ft.ButtonStyle(
-                padding=ft.Padding.symmetric(horizontal=10, vertical=6),
-                text_style=ft.TextStyle(size=12),
-            ),
+            on_click=lambda _: self.toggle_panel(),
+            tooltip="Show or hide the tutorials",
         )
-
-        self.top_menu_bar = ft.Container(
-            content=ft.Row(
+        self.hide_button = ft.IconButton(
+            icon=ft.Icons.FULLSCREEN,
+            tooltip="Hide the menu bar for presenting (Esc brings it back)",
+            on_click=lambda _: self.toggle_menu_bar(),
+        )
+        self.top_bar = ft.Container(
+            ft.Row(
                 [
-                    ft.Row(
-                        [
-                            ft.MenuBar(controls=[self.cassim_menu]),
-                            ft.MenuBar(controls=[self.doc_menu]),
-                            self.mode_chip,
-                            self.angle_chip,
-                            self.math_chip,
-                        ],
-                        spacing=8,
-                        tight=True,
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.Row(
-                        [
-                            self.tutorial_toggle_button,
-                            self.hide_menu_button,
-                        ],
-                        spacing=8,
-                        tight=True,
-                        alignment=ft.MainAxisAlignment.END,
-                    ),
+                    ft.MenuBar(controls=[self.cassim_menu, self.doc_menu]),
+                    self.mode_chip,
+                    self.angle_chip,
+                    self.io_chip,
+                    ft.Container(expand=True),
+                    self.panel_button,
+                    self.hide_button,
                 ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                spacing=8,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding.symmetric(horizontal=12, vertical=4),
-            bgcolor=DARK.background,
-            border=ft.Border(bottom=ft.BorderSide(1, DARK.key_edge)),
-            visible=self.menu_visible,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            height=BAR_HEIGHT,
         )
-
-        # Floating button when top menu is hidden
-        self.restore_menu_button = ft.Container(
-            content=ft.IconButton(
+        self.restore_button = ft.Container(
+            ft.IconButton(
                 icon=ft.Icons.FULLSCREEN_EXIT,
-                tooltip="Show Menu",
-                icon_color="white",
-                bgcolor="#374151",
-                on_click=self.toggle_menu_bar,
+                tooltip="Show the menu bar (Esc)",
+                on_click=lambda _: self.toggle_menu_bar(),
             ),
-            top=10,
-            right=10,
-            visible=not self.menu_visible,
+            top=6,
+            right=6,
+            visible=False,
         )
-
-        # 2. LCD Screen View
-        self.ann_s = ft.Text("S", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_a = ft.Text("A", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_m = ft.Text("M", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_sto = ft.Text("STO", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_rcl = ft.Text("RCL", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_stat = ft.Text("STAT", size=10, weight=ft.FontWeight.BOLD, color=LCD_ANN_INACTIVE)
-        self.ann_angle = ft.Text("D", size=10, weight=ft.FontWeight.BOLD, color=LCD_TEXT)
-        self.ann_math = ft.Text("Math", size=10, weight=ft.FontWeight.BOLD, color=LCD_TEXT)
-        self.ann_up = ft.Text("▲", size=9, color=LCD_ANN_INACTIVE)
-        self.ann_down = ft.Text("▼", size=9, color=LCD_ANN_INACTIVE)
-
-        annunciator_row = ft.Row(
-            [
-                self.ann_s,
-                self.ann_a,
-                self.ann_m,
-                self.ann_sto,
-                self.ann_rcl,
-                self.ann_stat,
-                self.ann_angle,
-                self.ann_math,
-                ft.Container(expand=True),
-                self.ann_up,
-                self.ann_down,
-            ],
-            spacing=8,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        )
-
-        self.lcd_expr = ft.Text(
-            "",
-            size=18,
-            font_family="monospace",
-            color=LCD_TEXT,
-            selectable=True,
-            overflow=ft.TextOverflow.ELLIPSIS,
-            max_lines=2,
-        )
-        self.lcd_result = ft.Text(
-            "0",
-            size=26,
-            font_family="monospace",
-            weight=ft.FontWeight.BOLD,
-            color=LCD_TEXT,
-            text_align=ft.TextAlign.RIGHT,
-            selectable=True,
-        )
-
-        self.lcd_screen = ft.Container(
-            content=ft.Column(
-                [
-                    annunciator_row,
-                    ft.Container(self.lcd_expr, height=44, alignment=ft.Alignment.TOP_LEFT),
-                    ft.Container(self.lcd_result, height=40, alignment=ft.Alignment.BOTTOM_RIGHT),
-                ],
-                spacing=4,
-                tight=True,
-            ),
-            bgcolor=LCD_BG,
-            border_radius=8,
-            padding=12,
-            border=ft.Border.all(3, "#0f172a"),
-            width=360,
-            shadow=ft.BoxShadow(spread_radius=1, blur_radius=6, color="#00000088"),
-        )
-
-        # 3. Keypad Matrix View
-        keypad_column = self._build_keypad()
-
-        # Calculator Handheld Chassis
-        self.calculator_chassis = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Text(
-                                "CASSIM fx",
-                                size=13,
-                                weight=ft.FontWeight.BOLD,
-                                color="#94a3b8",
-                            ),
-                            ft.Text(
-                                "NATURAL DISPLAY",
-                                size=9,
-                                weight=ft.FontWeight.W_600,
-                                color="#64748b",
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    ),
-                    self.lcd_screen,
-                    ft.Container(height=6),
-                    keypad_column,
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                tight=True,
-                spacing=6,
-            ),
-            width=380,
-            padding=14,
-            bgcolor=CHASSIS_BG,
-            border_radius=20,
-            border=ft.Border.all(1.5, "#334155"),
-            shadow=ft.BoxShadow(spread_radius=2, blur_radius=16, color="#000000aa"),
-        )
-
-        # 4. Tutorial Sidebar
-        self.tutorial_sidebar = self._build_tutorial_sidebar()
-
-        # Main Layout
-        self.content_area = ft.Row(
-            [
-                ft.Container(self.calculator_chassis, alignment=ft.Alignment.TOP_CENTER),
-                self.tutorial_sidebar,
-            ],
+        self.calculator = ft.Container()
+        self.panel = ft.Container(width=PANEL_WIDTH)
+        self.body = ft.Row(
+            [self.calculator, self.panel],
+            wrap=True,
+            spacing=20,
+            run_spacing=16,
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.START,
-            spacing=24,
+        )
+        self.content = ft.Column(
+            [ft.Container(self.body, padding=12)],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-
-        self.root = ft.Column(
-            [
-                self.top_menu_bar,
-                ft.Container(self.content_area, expand=True, padding=12),
-            ],
+        self.root = ft.Stack(
+            [ft.Column([self.top_bar, self.content], expand=True, spacing=0), self.restore_button],
             expand=True,
-            spacing=0,
         )
 
-        self.page.views.clear()
-        self.page.views.append(
-            ft.View(
-                route="/scientific",
-                controls=[
-                    ft.Stack(
-                        [
-                            self.root,
-                            self.restore_menu_button,
-                        ],
-                        expand=True,
-                    )
-                ],
-                padding=0,
-                spacing=0,
-            )
-        )
-        self.page.update()
-
-    def _build_examples_menu(self) -> ft.SubmenuButton:
-        return ft.SubmenuButton(
-            content="Examples",
-            controls=[
-                ft.MenuItemButton(
-                    content="1. Mixed Fractions: 2 1/3 + 5/6",
-                    on_click=lambda _: self.load_example("2+1/3+5/6"),
-                ),
-                ft.MenuItemButton(
-                    content="2. Trigonometry: sin(30°) + cos(60°)",
-                    on_click=lambda _: self.load_example("sin(30)+cos(60)"),
-                ),
-                ft.MenuItemButton(
-                    content="3. Australian 1-VAR Stats: {12, 15, 18, 22, 25}",
-                    on_click=lambda _: self.load_stat_example(),
-                ),
-                ft.MenuItemButton(
-                    content="4. DMS: 12°34'56\" to Decimal",
-                    on_click=lambda _: self.load_dms_example(),
-                ),
-                ft.MenuItemButton(
-                    content="5. Polar to Rectangular: Rec(5, 53.13°)",
-                    on_click=lambda _: self.load_example("Rec(5, 53.13)"),
-                ),
-                ft.MenuItemButton(
-                    content="6. Prime Factorisation: 360",
-                    on_click=lambda _: self.load_prime_example(),
-                ),
-            ],
+    def _chip(self, text: str, tooltip: str) -> ft.Container:
+        return ft.Container(
+            ft.Text(text, size=12, weight=ft.FontWeight.W_600),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            border_radius=6,
+            tooltip=tooltip,
+            ink=False,  # not focusable: Tab and Enter must not land on it
         )
 
-    def _build_keypad(self) -> ft.Column:
-        rows: list[ft.Control] = []
+    # ---- the calculator ----
 
-        # Row 1: Function Modifiers & Navigation
-        # SHIFT, ALPHA, D-PAD (Up, Down, Left, Right), MODE, ON
-        dpad = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [self._make_key("UP", "▲", width=36, height=22, is_fn=True)],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                    ),
-                    ft.Row(
-                        [
-                            self._make_key("LEFT", "◀", width=36, height=22, is_fn=True),
-                            ft.Container(width=4),
-                            self._make_key("RIGHT", "▶", width=36, height=22, is_fn=True),
-                        ],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                    ),
-                    ft.Row(
-                        [self._make_key("DOWN", "▼", width=36, height=22, is_fn=True)],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                    ),
-                ],
-                spacing=1,
-                tight=True,
-                alignment=ft.MainAxisAlignment.CENTER,
-            ),
-            width=88,
-            height=72,
-            alignment=ft.Alignment.CENTER,
+    def _build_calculator(self) -> None:
+        s = self.scale
+        skin = self.skin
+        self.key_controls = {}
+        inner = (BASE_WIDTH - 28) * s
+        self.lcd = ft.Container(
+            height=112 * s,
+            bgcolor=skin.lcd,
+            border_radius=8 * s,
+            border=ft.Border.all(3 * s, skin.lcd_edge),
+            padding=ft.Padding.symmetric(horizontal=8 * s, vertical=4 * s),
+            width=inner,
         )
-
-        r1 = ft.Row(
+        rows: list[ft.Control] = [self._first_row(inner)]
+        for row in k.ROWS:
+            rows.append(self._key_row(row, inner))
+        badge = ft.Row(
             [
-                ft.Column(
-                    [
-                        self._make_key(
-                            "SHIFT", "SHIFT", width=48, height=32, accent=ACCENT_SHIFT, is_fn=True
-                        ),
-                        self._make_key(
-                            "ALPHA", "ALPHA", width=48, height=32, accent=ACCENT_ALPHA, is_fn=True
-                        ),
-                    ],
-                    spacing=6,
-                ),
-                dpad,
-                ft.Column(
-                    [
-                        self._make_key("MODE", "MODE", width=48, height=32, is_fn=True),
-                        self._make_key("ON", "ON", width=48, height=32, is_fn=True),
-                    ],
-                    spacing=6,
+                ft.Text("CASSim fx", size=13 * s, weight=ft.FontWeight.BOLD, color=skin.badge),
+                ft.Text(
+                    "NATURAL DISPLAY", size=9 * s, weight=ft.FontWeight.W_600, color=skin.badge_sub
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            width=inner,
         )
-        rows.append(r1)
+        self.calculator.content = ft.Column(
+            [badge, self.lcd, ft.Container(height=4 * s), *rows],
+            spacing=6 * s,
+            tight=True,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        self.calculator.width = BASE_WIDTH * s
+        self.calculator.padding = 14 * s
+        self.calculator.bgcolor = skin.chassis
+        self.calculator.border_radius = 22 * s
+        self.calculator.border = ft.Border.all(1.5, skin.chassis_edge)
+        self.calculator.shadow = ft.BoxShadow(spread_radius=1, blur_radius=14, color="#00000066")
 
-        # Row 2: Abs, x³, x⁻¹, x!
-        rows.append(
+    def _colours(self, spec: KeySpec) -> tuple[str, str]:  # noqa: PLR0911
+        skin = self.skin
+        match spec.style:
+            case "num":
+                return skin.num
+            case "nav":
+                return skin.nav
+            case "del":
+                return skin.delete
+            case "ac":
+                return skin.clear
+            case "eq":
+                return skin.equals
+            case "mod_shift":
+                return (skin.fn[0], skin.shift_key)
+            case "mod_alpha":
+                return (skin.fn[0], skin.alpha_key)
+        return skin.fn
+
+    def _key(self, spec: KeySpec, w: float, h: float, *, legends: bool = True) -> ft.Control:
+        s = self.scale
+        skin = self.skin
+        fill, text = self._colours(spec)
+        shortcut = SHORTCUTS.get(spec.id)
+        tip = spec.spoken + (f" (keyboard: {shortcut})" if shortcut else "")
+        if spec.shift or spec.alpha:
+            tip += "".join(
+                f"\n{layer}: {label}"
+                for layer, label in (("SHIFT", spec.shift), ("ALPHA", spec.alpha))
+                if label
+            )
+        face = ft.Container(
+            ft.Text(
+                spec.label,
+                size=(12 if len(spec.label) > 3 else 14) * s,  # noqa: PLR2004
+                weight=ft.FontWeight.W_600,
+                color=text,
+                no_wrap=True,
+                font_family=FONT if spec.style in ("num", "eq") else None,
+                style=ft.TextStyle(font_family_fallback=FALLBACK),
+            ),
+            width=w,
+            height=h,
+            alignment=ft.Alignment.CENTER,
+            bgcolor=fill,
+            border_radius=7 * s,
+            border=ft.Border.all(1, skin.key_edge),
+            on_click=lambda _, key=spec.id: self.on_key(key),
+            ink=False,  # not focusable: Tab and Enter must not land on it
+            tooltip=tip,
+        )
+        self.key_controls[spec.id] = face
+        spoken = ft.Semantics(content=face, label=spec.spoken, button=True)
+        if not legends:
+            return spoken
+        # As in the design mockup: SHIFT's legend at the key's left and ALPHA's at its right (a
+        # lone legend at the left), inset from the edges, bold, and clipped there so nothing runs
+        # into the next key.
+        size = legend_font_size(spec.shift, spec.alpha, w, s)
+        legend = ft.Container(
             ft.Row(
                 [
-                    self._make_key("Abs", "Abs", sub_s="", sub_a="", is_fn=True),
-                    self._make_key("x^3", "x³", sub_s="", sub_a="", is_fn=True),
-                    self._make_key("x^-1", "x⁻¹", sub_s="", sub_a="", is_fn=True),
-                    self._make_key("x!", "x!", sub_s="", sub_a="", is_fn=True),
+                    ft.Text(
+                        text,
+                        size=size,
+                        color=colour,
+                        weight=ft.FontWeight.BOLD,
+                        no_wrap=True,
+                        style=ft.TextStyle(font_family_fallback=FALLBACK),
+                    )
+                    for text, colour in (
+                        ((spec.shift, skin.shift), (spec.alpha, skin.alpha))
+                        if spec.shift
+                        else ((spec.alpha, skin.alpha), ("", skin.shift))  # a lone legend: left
+                    )
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
+                spacing=LEGEND_GAP * s,
+                vertical_alignment=ft.CrossAxisAlignment.END,
+            ),
+            width=w,
+            height=12 * s,
+            padding=ft.Padding.symmetric(horizontal=LEGEND_INSET * s),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            alignment=ft.Alignment.BOTTOM_LEFT,
+        )
+        return ft.Column([legend, spoken], spacing=1 * s, tight=True)
+
+    def _key_row(self, row: tuple[KeySpec, ...], inner: float) -> ft.Row:
+        s = self.scale
+        gap = 5 * s
+        w = (inner - gap * (len(row) - 1)) / len(row)
+        return ft.Row(
+            [self._key(spec, w, 34 * s) for spec in row],
+            spacing=gap,
+            width=inner,
+            alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        # Row 3: ■/□, √, x², x■, log, ln
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("FRAC", "■/□", sub_s="a b/c", sub_a="", is_fn=True),
-                    self._make_key("sqrt", "√", sub_s="³√", sub_a="", is_fn=True),
-                    self._make_key("x^2", "x²", sub_s="", sub_a="", is_fn=True),
-                    self._make_key("x^y", "x■", sub_s="x√", sub_a="", is_fn=True),
-                    self._make_key("log", "log", sub_s="10■", sub_a="", is_fn=True),
-                    self._make_key("ln", "ln", sub_s="e■", sub_a="", is_fn=True),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 4: (-), ° ' ", hyp, sin, cos, tan
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("(-)", "(-)", sub_s="", sub_a="A", is_fn=True),
-                    self._make_key("DMS", "° ' \"", sub_s="FACT", sub_a="B", is_fn=True),
-                    self._make_key("hyp", "hyp", sub_s="", sub_a="C", is_fn=True),
-                    self._make_key("sin", "sin", sub_s="sin⁻¹", sub_a="D", is_fn=True),
-                    self._make_key("cos", "cos", sub_s="cos⁻¹", sub_a="E", is_fn=True),
-                    self._make_key("tan", "tan", sub_s="tan⁻¹", sub_a="F", is_fn=True),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 5: RCL, ENG, (, ), S⇔D, M+
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("RCL", "RCL", sub_s="STO", sub_a="", is_fn=True),
-                    self._make_key("ENG", "ENG", sub_s="←", sub_a="", is_fn=True),
-                    self._make_key("(", "(", sub_s="%", sub_a="", is_fn=True),
-                    self._make_key(")", ")", sub_s=",", sub_a="X", is_fn=True),
-                    self._make_key("S<=>D", "S⇔D", sub_s="a b/c⇔d/c", sub_a="Y", is_fn=True),
-                    self._make_key("M+", "M+", sub_s="M-", sub_a="M", is_fn=True),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 6 (Numeric Block 1): 7, 8, 9, DEL, AC
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("7", "7", sub_s="", sub_a=""),
-                    self._make_key("8", "8", sub_s="", sub_a=""),
-                    self._make_key("9", "9", sub_s="CLR", sub_a=""),
-                    self._make_key("DEL", "DEL", sub_s="INS", sub_a="", bg=KEY_DEL_BG),
-                    self._make_key("AC", "AC", sub_s="OFF", sub_a="", bg=KEY_AC_BG),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 7: 4, 5, 6, ×, ÷
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("4", "4", sub_s="", sub_a=""),
-                    self._make_key("5", "5", sub_s="", sub_a=""),
-                    self._make_key("6", "6", sub_s="", sub_a=""),
-                    self._make_key("*", "×", sub_s="nPr", sub_a="GCD"),
-                    self._make_key("/", "÷", sub_s="nCr", sub_a="LCM"),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 8: 1, 2, 3, +, −
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("1", "1", sub_s="STAT", sub_a=""),
-                    self._make_key("2", "2", sub_s="", sub_a=""),
-                    self._make_key("3", "3", sub_s="", sub_a=""),
-                    self._make_key("+", "+", sub_s="Pol", sub_a=""),
-                    self._make_key("-", "−", sub_s="Rec", sub_a=""),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        # Row 9: 0, ·, ×10ˣ, Ans, =
-        rows.append(
-            ft.Row(
-                [
-                    self._make_key("0", "0", sub_s="Rnd", sub_a=""),
-                    self._make_key(".", "·", sub_s="Ran#", sub_a="RanInt"),
-                    self._make_key("EXP", "×10ˣ", sub_s="π", sub_a="e"),
-                    self._make_key("Ans", "Ans", sub_s="DRG▶", sub_a=""),
-                    self._make_key("=", "=", sub_s="", sub_a="", bg="#2563eb"),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-        )
-
-        return ft.Column(rows, spacing=7, tight=True)
-
-    def _make_key(  # noqa: PLR0913, PLR0917
-        self,
-        key_id: str,
-        label: str,
-        sub_s: str = "",
-        sub_a: str = "",
-        width: int = 56,
-        height: int = 36,
-        accent: str | None = None,
-        is_fn: bool = False,
-        bg: str | None = None,
-    ) -> ft.Container:
-        bg_color = bg or (KEY_FN_BG if is_fn else KEY_NUM_BG)
-        text_color = accent or ("#f1f5f9" if is_fn else "#ffffff")
-
-        # Optional secondary label headers
-        labels: list[ft.Control] = []
-        if sub_s or sub_a:
-            labels.append(
+    def _first_row(self, inner: float) -> ft.Row:
+        s = self.scale
+        side = 56 * s
+        h = 30 * s
+        up, left, right, down = k.DPAD
+        nav_w, nav_h = 40 * s, 24 * s
+        dpad = ft.Column(
+            [
+                self._key(up, nav_w, nav_h, legends=False),
                 ft.Row(
                     [
-                        ft.Text(sub_s, size=8, color=ACCENT_SHIFT, weight=ft.FontWeight.BOLD),
-                        ft.Text(sub_a, size=8, color=ACCENT_ALPHA, weight=ft.FontWeight.BOLD),
+                        self._key(left, nav_w, nav_h, legends=False),
+                        ft.Container(width=14 * s),
+                        self._key(right, nav_w, nav_h, legends=False),
                     ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    spacing=2 * s,
                     tight=True,
+                ),
+                self._key(down, nav_w, nav_h, legends=False),
+            ],
+            spacing=2 * s,
+            tight=True,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        return ft.Row(
+            [
+                ft.Column(
+                    [self._key(spec, side, h) for spec in k.ROW1_LEFT], spacing=0, tight=True
+                ),
+                dpad,
+                ft.Column(
+                    [self._key(spec, side, h) for spec in k.ROW1_RIGHT], spacing=0, tight=True
+                ),
+            ],
+            width=inner,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    # ---- the screen ----
+
+    def _draw_lcd(self) -> None:
+        s = self.scale
+        skin = self.skin
+        state = self.state
+        shown = state.display()
+        lit = state.annunciators()
+        ink = skin.lcd_text
+        width = (BASE_WIDTH - 28) * s - 22 * s
+        renderer = Renderer(ink, ink)
+        ann_names = ("S", "A", "M", "STO", "RCL", "STAT", "D", "R", "G", "FIX", "SCI", "Math")
+        annunciators = ft.Row(
+            [
+                ft.Text(
+                    name,
+                    size=9 * s,
+                    weight=ft.FontWeight.BOLD,
+                    color=ink if lit.get(name) else skin.lcd_dim,
+                )
+                for name in ann_names
+                if name not in ("D", "R", "G") or lit.get(name)
+            ]
+            + [
+                ft.Container(expand=True),
+                ft.Text("▲", size=9 * s, color=ink if lit["▲"] else skin.lcd_dim),
+                ft.Text("▼", size=9 * s, color=ink if lit["▼"] else skin.lcd_dim),
+            ],
+            spacing=5 * s,
+            height=12 * s,
+        )
+        body: ft.Control
+        if shown.kind == "off":
+            self.lcd.bgcolor = skin.lcd_dim
+            self.lcd.content = None
+            _safe_update(self.lcd)
+            return
+        self.lcd.bgcolor = skin.lcd
+        if shown.kind == "menu":
+            body = self._menu_body(shown, ink)
+        elif shown.kind == "grid":
+            body = self._grid_body(shown, renderer, width)
+        elif shown.kind == "message":
+            body = ft.Column(
+                [
+                    ft.Text(shown.title, size=15 * s, color=ink, font_family=FONT),
+                    ft.Text(shown.footer, size=11 * s, color=ink, font_family=FONT),
+                ],
+                spacing=6 * s,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                expand=True,
+            )
+        else:
+            title = (
+                [ft.Text(shown.title, size=11 * s, color=ink, font_family=FONT)]
+                if shown.title
+                else []
+            )
+            body = ft.Column(
+                [
+                    *title,
+                    ft.Container(
+                        renderer.line(shown.input, 17 * s, width),
+                        expand=True,
+                        alignment=ft.Alignment.TOP_LEFT,
+                    ),
+                    ft.Container(
+                        renderer.line(shown.result, 22 * s, width, keep="shrink"),
+                        alignment=ft.Alignment.BOTTOM_RIGHT,
+                    ),
+                ],
+                spacing=0,
+                expand=True,
+            )
+        self.lcd.content = ft.Column([annunciators, body], spacing=2 * s, expand=True)
+        _safe_update(self.lcd)
+
+    def _menu_body(self, shown: Display, ink: str) -> ft.Control:
+        s = self.scale
+        options = list(shown.options)
+        half = (len(options) + 1) // 2 if len(options) > 4 else len(options)  # noqa: PLR2004
+        columns = [options[:half], options[half:]] if len(options) > 4 else [options]  # noqa: PLR2004
+        size = (12 if len(options) > 6 else 13) * s  # noqa: PLR2004
+        title = (
+            [ft.Text(shown.title, size=12 * s, color=ink, font_family=FONT)] if shown.title else []
+        )
+        return ft.Column(
+            [
+                *title,
+                ft.Row(
+                    [
+                        ft.Column(
+                            [ft.Text(o, size=size, color=ink, font_family=FONT) for o in column],
+                            spacing=0,
+                            expand=True,
+                        )
+                        for column in columns
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    expand=True,
+                ),
+            ],
+            spacing=2 * s,
+            expand=True,
+        )
+
+    def _grid_body(self, shown: Display, renderer: Renderer, width: float) -> ft.Control:
+        s = self.scale
+        skin = self.skin
+        ink = skin.lcd_text
+        grid = shown.grid
+        assert grid is not None
+        size = 12 * s
+        number_w = 18 * s
+        cell_w = (width - number_w) / max(1, len(grid.headers))
+
+        def cell(text: str, *, selected: bool, bold: bool = False) -> ft.Container:
+            return ft.Container(
+                ft.Text(
+                    text,
+                    size=size,
+                    color=skin.lcd if selected else ink,
+                    font_family=FONT,
+                    no_wrap=True,
+                    weight=ft.FontWeight.BOLD if bold else None,
+                ),
+                width=cell_w,
+                bgcolor=skin.lcd_select if selected else None,
+                alignment=ft.Alignment.CENTER_RIGHT,
+                padding=ft.Padding.only(right=3 * s),
+            )
+
+        lines: list[ft.Control] = [
+            ft.Row(
+                [ft.Container(width=number_w)]
+                + [cell(h, selected=False, bold=True) for h in grid.headers],
+                spacing=0,
+            )
+        ]
+        for index, row in enumerate(grid.rows):
+            lines.append(
+                ft.Row(
+                    [
+                        ft.Text(
+                            str(grid.first_row + index),
+                            size=10 * s,
+                            color=ink,
+                            width=number_w,
+                            font_family=FONT,
+                        )
+                    ]
+                    + [
+                        cell(text, selected=grid.cursor == (index, col))
+                        for col, text in enumerate(row)
+                    ],
+                    spacing=0,
                 )
             )
-
-        btn = ft.Container(
-            content=ft.Text(label, size=13, weight=ft.FontWeight.W_600, color=text_color),
-            alignment=ft.Alignment.CENTER,
-            width=width,
-            height=height,
-            bgcolor=bg_color,
-            border_radius=6,
-            border=ft.Border.all(1, "#475569"),
-            on_click=lambda _: self.on_key_press(key_id),
-            ink=True,
-        )
-
-        wrapper = ft.Container(
-            content=ft.Column(
-                [*labels, btn],
-                spacing=1,
-                tight=True,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
-            padding=0,
-        )
-        self.key_controls[key_id] = btn
-        return wrapper
-
-    def _build_tutorial_sidebar(self) -> ft.Container:
-        lesson_dropdown = ft.Dropdown(
-            label="Lesson",
-            options=[
-                ft.DropdownOption(key=str(idx), text=f"{lesson.id}: {lesson.title}")
-                for idx, lesson in enumerate(self.lessons)
-            ],
-            value=str(self.current_lesson_index),
-            on_select=self.on_lesson_selected,
-            width=320,
-        )
-
-        self.tut_title = ft.Text(
-            self.tutorial_session.lesson.title,
-            size=15,
-            weight=ft.FontWeight.BOLD,
-            color="#f8fafc",
-        )
-        self.tut_category = ft.Text(
-            self.tutorial_session.lesson.category,
-            size=11,
-            color="#94a3b8",
-            weight=ft.FontWeight.W_500,
-        )
-        self.tut_step_badge_text = ft.Text(
-            "Step 1/1", size=11, weight=ft.FontWeight.BOLD, color="#0284c7"
-        )
-        self.tut_step_badge = ft.Container(
-            content=self.tut_step_badge_text,
-            bgcolor="#e0f2fe",
-            padding=ft.Padding.symmetric(horizontal=8, vertical=2),
-            border_radius=12,
-        )
-
-        self.tut_prompt = ft.Text(
-            "",
-            size=13,
-            color="#cbd5e1",
-            selectable=True,
-        )
-        self.tut_target_key = ft.Text(
-            "",
-            size=13,
-            weight=ft.FontWeight.BOLD,
-            color="#38bdf8",
-        )
-        self.tut_expected_screen_text = ft.Text(
-            "",
-            size=12,
-            font_family="monospace",
-            color=LCD_TEXT,
-        )
-        self.tut_expected_screen = ft.Container(
-            content=self.tut_expected_screen_text,
-            bgcolor=LCD_BG,
-            padding=8,
-            border_radius=4,
-            border=ft.Border.all(1, "#334155"),
-            width=320,
-        )
-
-        self.tut_history = ft.Text(
-            "Keystrokes: (none)",
-            size=11,
-            color="#64748b",
-            font_family="monospace",
-        )
-        self.tut_feedback = ft.Text(
-            "",
-            size=12,
-            weight=ft.FontWeight.W_500,
-            color="#10b981",
-        )
-
-        tut_controls = ft.Row(
-            [
-                ft.TextButton("Back", on_click=self.on_tut_back),
-                ft.TextButton("Skip Step", on_click=self.on_tut_skip),
-                ft.TextButton("Reset Lesson", on_click=self.on_tut_reset),
-            ],
-            spacing=4,
-        )
-
-        return ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Icon(ft.Icons.SCHOOL, size=18, color="#38bdf8"),
-                            ft.Text("Interactive Tutorial", size=14, weight=ft.FontWeight.BOLD),
-                            ft.Container(expand=True),
-                            ft.IconButton(
-                                icon=ft.Icons.CLOSE,
-                                icon_size=16,
-                                tooltip="Close tutorial",
-                                on_click=self.toggle_tutorials,
-                            ),
-                        ],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                    lesson_dropdown,
-                    ft.Row([self.tut_category, ft.Container(expand=True), self.tut_step_badge]),
-                    self.tut_title,
-                    ft.Divider(height=1, color="#334155"),
-                    ft.Text("Instruction:", size=11, weight=ft.FontWeight.BOLD, color="#94a3b8"),
-                    self.tut_prompt,
-                    ft.Row(
-                        [
-                            ft.Text("Required Action: ", size=11, color="#94a3b8"),
-                            self.tut_target_key,
-                        ]
-                    ),
-                    ft.Text(
-                        "Expected Calculator Readout:",
-                        size=11,
-                        weight=ft.FontWeight.BOLD,
-                        color="#94a3b8",
-                    ),
-                    self.tut_expected_screen,
-                    self.tut_history,
-                    self.tut_feedback,
-                    ft.Divider(height=1, color="#334155"),
-                    tut_controls,
-                ],
-                spacing=8,
-                tight=True,
-                width=340,
-            ),
-            padding=16,
-            bgcolor="#1e293b",
-            border_radius=12,
-            border=ft.Border.all(1, "#334155"),
-            visible=self.tutorials_visible,
-        )
-
-    # ---------------------------------------------------------------------------
-    # Sync and Update Logic
-    # ---------------------------------------------------------------------------
-
-    def _sync_lcd(self) -> None:
-        """Update LCD screen elements according to calculator state."""
-        self.ann_s.color = ACCENT_SHIFT if self.state.shift_active else LCD_ANN_INACTIVE
-        self.ann_a.color = ACCENT_ALPHA if self.state.alpha_active else LCD_ANN_INACTIVE
-        has_m = self.state.variables.get("M", 0.0) != 0.0
-        self.ann_m.color = LCD_TEXT if has_m else LCD_ANN_INACTIVE
-        self.ann_sto.color = ACCENT_SHIFT if self.state.sto_active else LCD_ANN_INACTIVE
-        self.ann_rcl.color = LCD_TEXT if self.state.rcl_active else LCD_ANN_INACTIVE
-        self.ann_stat.color = LCD_TEXT if self.state.mode == "STAT" else LCD_ANN_INACTIVE
-
-        angle_abbr = {"DEG": "D", "RAD": "R", "GRA": "G"}.get(self.state.angle_unit, "D")
-        self.ann_angle.value = angle_abbr
-
-        self.lcd_expr.value = self.state.expr + ("_" if self.state.cursor_visible else "")
-        self.lcd_result.value = self.state.result
-
-        self.mode_chip_text.value = self.state.mode
-        self.angle_chip_text.value = self.state.angle_unit.title()
-
-        _safe_update(self.lcd_screen)
-        _safe_update(self.mode_chip)
-        _safe_update(self.angle_chip)
-
-    def _sync_tutorial(self) -> None:
-        """Update tutorial sidebar and target key focus outline."""
-        # Clear previous key focus highlights
-        for key_btn in self.key_controls.values():
-            key_btn.border = ft.Border.all(1, "#475569")
-            _safe_update(key_btn)
-
-        if not self.tutorials_visible or self.tutorial_session.is_complete:
-            self.tut_step_badge_text.value = "Complete ✓"
-            self.tut_step_badge.bgcolor = "#dcfce7"
-            self.tut_step_badge_text.color = "#15803d"
-            self.tut_prompt.value = (
-                "Lesson complete! You have successfully completed this interactive tutorial."
+        if shown.input:
+            lines.append(
+                ft.Container(
+                    renderer.line(shown.input, 13 * s, width), alignment=ft.Alignment.CENTER_RIGHT
+                )
             )
-            self.tut_target_key.value = "(Finished)"
-            self.tut_feedback.value = "Excellent work."
-            _safe_update(self.tutorial_sidebar)
-            return
+        return ft.Column(lines, spacing=0, expand=True)
 
-        step = self.tutorial_session.current_step
-        assert step is not None
-
-        # Highlight current target key
-        target_btn = self.key_controls.get(step.key)
-        if target_btn:
-            target_btn.border = ft.Border.all(2.5, ACCENT_TARGET)
-            _safe_update(target_btn)
-
-        # Update text labels
-        current_idx = self.tutorial_session.current_step_index + 1
-        total_steps = len(self.tutorial_session.lesson.steps)
-        self.tut_step_badge_text.value = f"Step {current_idx}/{total_steps}"
-        self.tut_step_badge.bgcolor = "#e0f2fe"
-        self.tut_step_badge_text.color = "#0284c7"
-
-        self.tut_title.value = self.tutorial_session.lesson.title
-        self.tut_category.value = self.tutorial_session.lesson.category
-        self.tut_prompt.value = step.instruction
-        self.tut_target_key.value = f"[{step.key}]"
-        self.tut_expected_screen_text.value = step.expected_screen
-
-        history_str = " ".join(self.tutorial_session.history[-6:])
-        self.tut_history.value = f"Keystrokes: {history_str if history_str else '(none)'}"
-        _safe_update(self.tutorial_sidebar)
-
-    # ---------------------------------------------------------------------------
-    # Event Handlers
-    # ---------------------------------------------------------------------------
-
-    def on_key_press(self, key_id: str) -> None:
-        """Handle physical or mouse click on calculator button."""
-        # 1. Update calculator engine
-        self.state.press(key_id)
-        self._sync_lcd()
-
-        # 2. Check tutorial progress
-        if self.tutorials_visible and not self.tutorial_session.is_complete:
-            matched = self.tutorial_session.press(key_id)
-            if matched:
-                self.tut_feedback.value = "Step completed! Moving to next step."
-                self.tut_feedback.color = "#10b981"
+    def _paint_keys(self) -> None:
+        """Modifier keys light up while waiting; the tutorial's next key glows."""
+        skin = self.skin
+        target = self._target_key()
+        for key, face in self.key_controls.items():
+            spec = k.KEYS_BY_ID[key]
+            fill, _ = self._colours(spec)
+            if key == k.SHIFT and self.state.shift:
+                fill = skin.shift
+            elif key == k.ALPHA and self.state.alpha:
+                fill = skin.alpha
+            face.bgcolor = fill
+            if key == target:
+                face.border = ft.Border.all(3 * self.scale, skin.target)
+                face.shadow = ft.BoxShadow(spread_radius=1, blur_radius=10, color=skin.target)
             else:
-                hint = self.tutorial_session.get_hint()
-                self.tut_feedback.value = f"Press [{hint}] to continue."
-                self.tut_feedback.color = "#f59e0b"
-            self._sync_tutorial()
+                face.border = ft.Border.all(1, skin.key_edge)
+                face.shadow = None
+            _safe_update(face)
 
-    def cycle_mode(self, _: object) -> None:
-        modes: list[CalcMode] = ["COMP", "STAT", "TABLE"]
-        idx = (modes.index(self.state.mode) + 1) % len(modes) if self.state.mode in modes else 0
-        self.state.mode = modes[idx]
-        self._sync_lcd()
+    def _paint_bar(self) -> None:
+        skin = self.skin
+        self.top_bar.bgcolor = skin.bar
+        self.top_bar.border = ft.Border(bottom=ft.BorderSide(1, skin.chassis_edge))
+        state = self.state
+        for chip, text in (
+            (self.mode_chip, state.mode),
+            (self.angle_chip, {"DEG": "Deg", "RAD": "Rad", "GRA": "Gra"}[state.setup.angle]),
+            (self.io_chip, "Math" if state.setup.input == "math" else "Line"),
+        ):
+            chip.bgcolor = skin.chip
+            chip.border = ft.Border.all(1, "#4d5563")
+            label = chip.content
+            assert isinstance(label, ft.Text)
+            label.value = text
+            label.color = skin.bar_text
+            _safe_update(chip)
+        for item in (self.panel_button, self.hide_button):
+            if isinstance(item, ft.IconButton):
+                item.icon_color = skin.bar_text
+            else:
+                item.style = ft.ButtonStyle(color=skin.bar_text)
+            _safe_update(item)
+        _safe_update(self.top_bar)
 
-    def cycle_angle(self, _: object) -> None:
-        units: list[AngleUnit] = ["DEG", "RAD", "GRA"]
-        idx = (units.index(self.state.angle_unit) + 1) % len(units)
-        self.state.angle_unit = units[idx]
-        self._sync_lcd()
-
-    def toggle_menu_bar(self, _: object) -> None:
-        self.menu_visible = not self.menu_visible
-        self.top_menu_bar.visible = self.menu_visible
-        self.restore_menu_button.visible = not self.menu_visible
-        _safe_update(self.top_menu_bar)
-        _safe_update(self.restore_menu_button)
-
-    def toggle_tutorials(self, _: object) -> None:
-        self.tutorials_visible = not self.tutorials_visible
-        self.tutorial_sidebar.visible = self.tutorials_visible
-        _safe_update(self.tutorial_sidebar)
-        if self.tutorials_visible:
-            self._sync_tutorial()
-
-    def on_lesson_selected(self, e: ft.Event[ft.Dropdown]) -> None:
-        value = e.control.value
-        if value is None:
+    def refresh(self) -> None:
+        if not self.key_controls:
+            self.fit()  # builds the calculator, then refreshes
             return
-        try:
-            idx = int(value)
-            if 0 <= idx < len(self.lessons):
-                self.current_lesson_index = idx
-                self.tutorial_session = TutorialSession(lesson=self.lessons[idx])
-                self.state.reset()
-                self._sync_lcd()
-                self._sync_tutorial()
-        except Exception:
-            pass
+        self._draw_lcd()
+        self._paint_keys()
+        self._paint_bar()
+        self._draw_panel()
 
-    def on_tut_back(self, _: ft.Event[ft.TextButton]) -> None:
-        self.tutorial_session.back()
-        self._sync_tutorial()
+    # ------------------------------------------------------------------------------------------
+    # start, stop, size
+    # ------------------------------------------------------------------------------------------
 
-    def on_tut_skip(self, _: ft.Event[ft.TextButton]) -> None:
-        self.tutorial_session.advance()
-        self._sync_tutorial()
+    async def start(self, **_options: object) -> None:
+        self.page.title = "CASSim fx"
+        self.page.fonts = {**(self.page.fonts or {}), **FONTS}
+        self.page.padding = 0
+        self.page.on_keyboard_event = self.on_keyboard
+        self.page.on_resize = lambda _: self.fit()
+        self.shell.changed = self.on_bridge
+        await self._load_prefs()
+        await self._load_state()
+        self.page.controls.clear()
+        self.page.add(self.root)
+        self.apply_skin(self.skin_name, save=False)
 
-    def on_tut_reset(self, _: ft.Event[ft.TextButton]) -> None:
-        self.tutorial_session.reset()
-        self.state.reset()
-        self._sync_lcd()
-        self._sync_tutorial()
+    def unmount(self) -> None:
+        self.demo_run += 1
+        self.page.on_keyboard_event = None
+        self.page.on_resize = None
+        self.shell.changed = lambda: None
+        self.page.controls.clear()
 
-    # ---------------------------------------------------------------------------
-    # Examples and State Actions
-    # ---------------------------------------------------------------------------
+    def on_bridge(self) -> None:
+        self.update_item.content = getattr(self.shell, "update_label", "Check for updates")
+        _safe_update(self.update_item)
 
-    def load_example(self, expr: str) -> None:
-        self.state.reset()
-        self.state.expr = expr
-        self.state.press("=")
-        self._sync_lcd()
+    def fit(self) -> None:
+        """Scale the calculator so all of it fits the window (FR-FX-DSP-001)."""
+        page_w = float(getattr(self.page, "width", 0) or 1200)
+        page_h = float(getattr(self.page, "height", 0) or 800)
+        bar = BAR_HEIGHT if self.menu_visible else 0
+        tall = (page_h - bar - 32) / BASE_HEIGHT
+        wide = (page_w - 28) / BASE_WIDTH
+        scale = max(MIN_SCALE, min(MAX_SCALE, tall, wide))
+        if abs(scale - self.scale) > 0.02 or not self.key_controls:  # noqa: PLR2004
+            self.scale = scale
+            self._build_calculator()
+        self.panel.width = min(PANEL_WIDTH, page_w - 28)
+        self.body.width = page_w - 24  # a wrapping row needs a width to centre and to wrap in
+        self.refresh()
+        _safe_update(self.body)
 
-    def load_stat_example(self) -> None:
-        self.state.reset()
-        self.state.mode = "STAT"
-        self.state.stat_1var = [(12, 1), (15, 1), (18, 1), (22, 1), (25, 1)]
-        self.state.expr = "1-VAR Stats Loaded (n=5)"
-        self.state.result = "x̄=18.4, sx=5.18"
-        self._sync_lcd()
+    def apply_skin(self, name: str, *, save: bool = True) -> None:
+        self.skin_name = name if name in SKINS else "Dark"
+        skin = self.skin
+        self.page.bgcolor = skin.page
+        self.page.theme_mode = (
+            ft.ThemeMode.LIGHT if self.skin_name == "Light" else ft.ThemeMode.DARK
+        )
+        self.key_controls = {}
+        self.fit()
+        _safe_update(self.page)
+        if save:
+            self._save_prefs()
 
-    def load_dms_example(self) -> None:
-        self.state.reset()
-        self.state.expr = "12°34'56\""
-        self.state.result = "12.58222222"
-        self._sync_lcd()
+    # ------------------------------------------------------------------------------------------
+    # keys
+    # ------------------------------------------------------------------------------------------
 
-    def load_prime_example(self) -> None:
-        self.state.reset()
-        self.state.expr = "360"
-        self.state.variables["Ans"] = 360.0
-        self.state.prime_factorise()
-        self._sync_lcd()
+    def on_key(self, key: str, *, from_demo: bool = False) -> None:
+        """A keypad key, from a click, the keyboard, or a tutorial demonstration."""
+        self.open_menus.clear()  # any key that got here means no menu is open
+        session = self.session
+        if session is not None and not from_demo:
+            if self.tutorial_mode == "show":
+                self.stop_demo()
+            elif self.tutorial_mode == "guide" and not session.is_complete:
+                if not session.press(key):
+                    self.feedback, self.feedback_ok = session.hint(), False
+                    self._draw_panel()
+                    return
+                self.feedback, self.feedback_ok = "", True
+        self.state.press(key)
+        if session is not None and session.is_complete and self.tutorial_mode != "test":
+            self._lesson_done()
+        self.refresh()
+        self._flash(key)
+        self._schedule_save()
 
-    def reset_all(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.state.reset(all_settings=True)
-        self._sync_lcd()
-        self.shell.notice("Reset Complete", "Calculator cleared to factory settings.")
+    def _flash(self, key: str) -> None:
+        face = self.key_controls.get(key)
+        if face is None:
+            return
+        face.opacity = 0.55
+        _safe_update(face)
 
-    # ---------------------------------------------------------------------------
-    # Shell Menu Handlers
-    # ---------------------------------------------------------------------------
+        async def restore() -> None:
+            await asyncio.sleep(FLASH_TIME)
+            face.opacity = 1.0
+            _safe_update(face)
 
-    def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
+        self.page.run_task(restore)
+
+    def _dialog_open(self) -> bool:
+        """A dialog or a menu has the keyboard (Flet's open-dialog stack, read defensively)."""
+        if self.open_menus:
+            return True
+        stack = getattr(self.page, "_dialogs", None)
+        return any(getattr(d, "open", False) for d in getattr(stack, "controls", []) or [])
+
+    def on_keyboard(self, event: ft.KeyboardEvent) -> None:
+        if self._dialog_open():
+            return
+        raw = event.key
+        if raw.startswith("Numpad ") and raw[-1].isdigit():
+            raw = raw[-1]
+        name = key_name(raw, shift=event.shift, ctrl=event.ctrl, alt=event.alt, meta=event.meta)
+        if name is None:
+            return
+        if name == "Escape" and not self.menu_visible:
+            self.toggle_menu_bar()
+            return
+        if name == "=" and self.state.mode == "VERIFY":
+            self.on_key(k.REL_EQ)
+            return
+        binding = k.COMPUTER.get(name)
+        if binding is None:
+            return
+        if binding.action == "copy":
+            self.shell.copy(self.state.answer_text())
+            return
+        for key in k.sequence(binding):
+            self.on_key(key)
+
+    def cycle_angle(self) -> None:
+        order = ("DEG", "RAD", "GRA")
+        self.state.set_angle(order[(order.index(self.state.setup.angle) + 1) % 3])
+        self.refresh()
+        self._schedule_save()
+
+    def toggle_io(self) -> None:
+        setup = self.state.setup
+        setup.input = "line" if setup.input == "math" else "math"
+        setup.output = setup.input
+        self.refresh()
+        self._schedule_save()
+
+    def toggle_menu_bar(self) -> None:
+        self.menu_visible = not self.menu_visible
+        self.top_bar.visible = self.menu_visible
+        self.restore_button.visible = not self.menu_visible
+        _safe_update(self.top_bar)
+        _safe_update(self.restore_button)
+        self.fit()
+
+    def toggle_panel(self) -> None:
+        self.panel_open = not self.panel_open
+        self._draw_panel()
+        self._save_prefs()
+
+    def _home(self) -> None:
         if self.shell.home is not None:
             self.shell.home()
 
-    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.activate_update()
+    # ------------------------------------------------------------------------------------------
+    # tutorials (FR-FX-TUT-001 to -006)
+    # ------------------------------------------------------------------------------------------
 
-    def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.help()
+    def _target_key(self) -> str | None:
+        session = self.session
+        if session is None or self.tutorial_mode == "test":
+            return None
+        return session.target_key
 
-    def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.about()
+    def _panel_text(
+        self, text: str, *, size: float = 13, muted: bool = False, bold: bool = False
+    ) -> ft.Text:
+        skin = self.skin
+        return ft.Text(
+            text,
+            size=size,
+            color=skin.panel_muted if muted else skin.panel_text,
+            weight=ft.FontWeight.BOLD if bold else None,
+            selectable=True,
+        )
 
-    def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Calculator Settings"),
-                content=ft.Column(
-                    [
-                        ft.Text("Calculation Format: Natural Display (MthIO)"),
-                        ft.Text(f"Current Angle Unit: {self.state.angle_unit}"),
-                        ft.Text(f"Current Mode: {self.state.mode}"),
-                    ],
-                    tight=True,
-                    spacing=8,
+    def _draw_panel(self) -> None:
+        skin = self.skin
+        self.panel.visible = self.panel_open
+        if not self.panel_open:
+            _safe_update(self.panel)
+            return
+        lesson = LESSONS[self.lesson_index]
+        picker = ft.Dropdown(
+            value=lesson.id,
+            options=[
+                ft.DropdownOption(
+                    key=item.id,
+                    text=("✓ " if item.id in self.completed else "")
+                    + f"{item.category}: {item.title}",
+                )
+                for item in LESSONS
+            ],
+            on_select=self._pick_lesson,
+            width=self.panel.width - 32 if self.panel.width else PANEL_WIDTH - 32,
+            dense=True,
+            disabled=self.session is not None,
+            text_style=ft.TextStyle(color=skin.panel_text, size=13),
+        )
+        modes = ft.Row(
+            [
+                self._mode_button("guide", "Guide me"),
+                self._mode_button("show", "Show me"),
+                self._mode_button("test", "Test me"),
+            ],
+            spacing=6,
+        )
+        controls: list[ft.Control] = [
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.SCHOOL_OUTLINED, size=18, color=skin.target),
+                    self._panel_text("Tutorials", size=15, bold=True),
+                    ft.Container(expand=True),
+                    self._panel_text(
+                        f"{len(self.completed)} of {len(LESSONS)} done", size=11, muted=True
+                    ),
+                    ft.IconButton(
+                        ft.Icons.CLOSE,
+                        icon_size=16,
+                        icon_color=skin.panel_muted,
+                        tooltip="Hide the tutorials",
+                        on_click=lambda _: self.toggle_panel(),
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            picker,
+            modes,
+        ]
+        if self.tutorial_mode == "show":
+            controls.append(
+                ft.Row(
+                    [self._panel_text("Speed", size=12, muted=True)]
+                    + [self._speed_button(speed) for speed in SPEEDS],
+                    spacing=4,
+                )
+            )
+        session = self.session
+        if session is None:
+            controls.append(self._panel_text(lesson.problem))
+            label = {"guide": "Start lesson", "show": "Play lesson", "test": "Start test"}
+            controls.append(
+                ft.Button(
+                    label[self.tutorial_mode],
+                    icon=ft.Icons.PLAY_ARROW,
+                    on_click=lambda _: self.start_lesson(),
+                )
+            )
+            controls.append(
+                self._panel_text(
+                    "Your calculation is put aside during a lesson and comes back when it ends.",
+                    size=11,
+                    muted=True,
+                )
+            )
+        elif self.tutorial_mode == "test":
+            controls.extend(
+                [
+                    self._panel_text("Your problem", size=12, muted=True, bold=True),
+                    self._panel_text(lesson.challenge.prompt, bold=True),
+                    self._panel_text(
+                        "No keys are highlighted. Work it out, then check.", size=12, muted=True
+                    ),
+                    ft.Row(
+                        [
+                            ft.Button("Check my answer", on_click=lambda _: self.check_test()),
+                            ft.TextButton("End test", on_click=lambda _: self.stop_lesson()),
+                        ]
+                    ),
+                ]
+            )
+        else:
+            controls.extend(self._step_controls(session))
+        if self.feedback:
+            controls.append(
+                ft.Text(
+                    self.feedback,
+                    size=12,
+                    color="#22c55e" if self.feedback_ok else "#f59e0b",
+                    weight=ft.FontWeight.W_600,
+                )
+            )
+        self.panel.content = ft.Column(controls, spacing=10, tight=True)
+        self.panel.padding = 16
+        self.panel.bgcolor = skin.panel
+        self.panel.border = ft.Border.all(1, skin.panel_edge)
+        self.panel.border_radius = 12
+        _safe_update(self.panel)
+
+    def _step_controls(self, session: TutorialSession) -> list[ft.Control]:
+        skin = self.skin
+        lesson = session.lesson
+        total = len(lesson.steps)
+        if session.is_complete:
+            body: list[ft.Control] = [
+                self._panel_text("Lesson complete", size=15, bold=True),
+                self._panel_text(
+                    f"Answer: {lesson.answer}" if lesson.answer else "All steps done."
                 ),
-                actions=[
-                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
-        )
-
-    def open_appearance(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        choice = ft.SegmentedButton(
-            selected=[self.theme_name],
-            segments=[ft.Segment(value=name, label=name) for name in THEMES],
-        )
-
-        def save(_: ft.Event[ft.TextButton]) -> None:
-            selected = choice.selected[0] if choice.selected else self.theme_name
-            if selected in THEMES:
-                self.theme_name = selected
-            self.page.pop_dialog()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Appearance"),
-                content=choice,
-                actions=[
-                    ft.TextButton("Apply", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
-        )
-
-    def open_share_link(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        url = self.shell.link(self.state.encode_share_fragment())
-
-        def copy_link(_: ft.Event[ft.TextButton]) -> None:
-            self.shell.copy(url)
-            self.page.pop_dialog()
-            self.shell.notice("Link Copied", "Calculator share URL copied to clipboard.")
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Share Calculator State"),
-                content=ft.Column(
-                    [
-                        ft.Text(
-                            "Share your current calculations, memory registers, and statistical "
-                            "data using this URL:",
-                            size=13,
-                        ),
-                        ft.TextField(value=url, read_only=True, dense=True),
-                    ],
-                    tight=True,
-                    spacing=8,
+            ]
+        else:
+            step = session.current_step
+            assert step is not None
+            target = session.target_key
+            body = [
+                self._panel_text(f"Step {session.step_index + 1} of {total}", size=12, muted=True),
+                self._panel_text(step.instruction, size=14, bold=True),
+            ]
+            if step.why:
+                body.append(self._panel_text(step.why, size=12, muted=True))
+            if target is not None:
+                body.append(
+                    ft.Row(
+                        [
+                            self._panel_text("Next key", size=12, muted=True),
+                            ft.Container(
+                                ft.Text(
+                                    key_label(target),
+                                    size=13,
+                                    color=skin.target,
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                                border=ft.Border.all(1.5, skin.target),
+                                border_radius=6,
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
+                            ),
+                        ]
+                    )
+                )
+        expected = session.expected_screen()
+        body.extend(
+            [
+                self._panel_text("The screen should then show", size=12, muted=True),
+                ft.Container(
+                    ft.Text(
+                        expected or "(an empty entry line)",
+                        size=12,
+                        color=skin.lcd_text,
+                        font_family=FONT,
+                    ),
+                    bgcolor=skin.lcd,
+                    padding=8,
+                    border_radius=6,
+                    width=PANEL_WIDTH - 32,
                 ),
-                actions=[
-                    ft.TextButton("Copy URL", on_click=copy_link),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
+                self._panel_text(
+                    "Keys so far: " + (" ".join(session.history[-8:]) or "none"),
+                    size=11,
+                    muted=True,
+                ),
+                ft.Row(
+                    [
+                        ft.TextButton("Back", on_click=lambda _: self.lesson_back()),
+                        ft.TextButton("Skip step", on_click=lambda _: self.lesson_skip()),
+                        ft.TextButton("Restart", on_click=lambda _: self.start_lesson()),
+                        ft.TextButton("End", on_click=lambda _: self.stop_lesson()),
+                    ],
+                    spacing=0,
+                    wrap=True,
+                ),
+            ]
+        )
+        return body
+
+    def _mode_button(self, mode: TutorialMode, label: str) -> ft.Control:
+        skin = self.skin
+        chosen = self.tutorial_mode == mode
+        return ft.Container(
+            ft.Text(label, size=12, color=skin.page if chosen else skin.panel_text),
+            bgcolor=skin.target if chosen else None,
+            border=ft.Border.all(1, skin.target),
+            border_radius=14,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            on_click=lambda _: self.set_tutorial_mode(mode),
+            ink=False,  # not focusable: Tab and Enter must not land on it
+            disabled=self.session is not None and not chosen,
+        )
+
+    def _speed_button(self, speed: float) -> ft.Control:
+        skin = self.skin
+        chosen = self.speed == speed
+        return ft.Container(
+            ft.Text(f"{speed:g}×", size=12, color=skin.page if chosen else skin.panel_text),
+            bgcolor=skin.target if chosen else None,
+            border_radius=10,
+            padding=ft.Padding.symmetric(horizontal=8, vertical=2),
+            on_click=lambda _: self.set_speed(speed),
+            ink=False,  # not focusable: Tab and Enter must not land on it
+        )
+
+    def set_speed(self, speed: float) -> None:
+        self.speed = speed
+        self._draw_panel()
+        self._save_prefs()
+
+    def set_tutorial_mode(self, mode: TutorialMode) -> None:
+        if self.session is not None:
+            return
+        self.tutorial_mode = mode
+        self.feedback = ""
+        self._draw_panel()
+
+    def _pick_lesson(self, event: ft.Event[ft.Dropdown]) -> None:
+        value = event.control.value
+        for index, lesson in enumerate(LESSONS):
+            if lesson.id == value:
+                self.lesson_index = index
+        self.feedback = ""
+        self._draw_panel()
+
+    def start_lesson(self) -> None:
+        """Put the student's calculation aside, set the calculator up and begin."""
+        self.stop_demo()
+        lesson = LESSONS[self.lesson_index]
+        if self.saved_before_lesson is None:
+            self.saved_before_lesson = self.state.to_dict()
+        lesson.prepare(self.state)
+        self.session = TutorialSession(lesson, mode=self.tutorial_mode)
+        self.feedback = ""
+        self.refresh()
+        if self.tutorial_mode == "show":
+            self.page.run_task(self._play)
+
+    def stop_lesson(self) -> None:
+        self.stop_demo()
+        self.session = None
+        self.feedback = ""
+        if self.saved_before_lesson is not None:
+            with contextlib.suppress(DocumentFileError):
+                self.state.from_dict(self.saved_before_lesson)
+            self.saved_before_lesson = None
+        self.refresh()
+
+    def _lesson_done(self) -> None:
+        session = self.session
+        if session is None:
+            return
+        if self.tutorial_mode == "guide":
+            self.completed.add(session.lesson.id)
+            self._save_prefs()
+        self.feedback, self.feedback_ok = "Well done: every step is complete.", True
+
+    def lesson_back(self) -> None:
+        session = self.session
+        if session is None:
+            return
+        self.stop_demo()
+        session.back()
+        self._replay_session()
+
+    def lesson_skip(self) -> None:
+        """Press the rest of this step's keys for the student."""
+        session = self.session
+        if session is None or session.is_complete:
+            return
+        step_index = session.step_index
+        while not session.is_complete and session.step_index == step_index:
+            key = session.target_key
+            assert key is not None
+            session.press(key)
+            self.state.press(key)
+        self.feedback = ""
+        self.refresh()
+
+    def _replay_session(self) -> None:
+        session = self.session
+        if session is None:
+            return
+        session.lesson.prepare(self.state)
+        for key in session.keys_done():
+            self.state.press(key)
+        self.feedback = ""
+        self.refresh()
+
+    def stop_demo(self) -> None:
+        self.demo_run += 1
+
+    async def _play(self) -> None:
+        """Show me: press the lesson's keys one by one, each glowing first."""
+        run = self.demo_run
+        session = self.session
+        while session is not None and not session.is_complete and run == self.demo_run:
+            self.refresh()
+            await asyncio.sleep(DEMO_STEP / self.speed)
+            if run != self.demo_run or self.session is not session:
+                return
+            key = session.target_key
+            assert key is not None
+            session.press(key)
+            self.on_key(key, from_demo=True)
+        if session is not None and session.is_complete and run == self.demo_run:
+            self.feedback, self.feedback_ok = "That is the whole lesson. Try Guide me next.", True
+            self._draw_panel()
+
+    def check_test(self) -> None:
+        session = self.session
+        if session is None:
+            return
+        challenge = session.lesson.challenge
+        if challenge.check(self.state):
+            self.completed.add(session.lesson.id)
+            self._save_prefs()
+            self.feedback, self.feedback_ok = "Correct. Well done.", True
+        else:
+            self.feedback = (
+                f"Not yet. Check your keys and try again (the answer is {challenge.answer})."
             )
+            self.feedback_ok = False
+        self._draw_panel()
+
+    # ------------------------------------------------------------------------------------------
+    # storage, files and links (FR-FX-SHR-001 to -006)
+    # ------------------------------------------------------------------------------------------
+
+    def _schedule_save(self) -> None:
+        if self.session is not None or self.save_pending:
+            return  # a lesson never overwrites the student's own work
+        self.save_pending = True
+
+        async def save() -> None:
+            await asyncio.sleep(SAVE_DELAY)
+            self.save_pending = False
+            if self.session is None:
+                self.shell.write(AUTOSAVE_KEY, self.state.dumps(self.doc_name, compact=True))
+
+        self.page.run_task(save)
+
+    async def _load_state(self) -> None:
+        route = self.shell.route or ""
+        fragment = route.lstrip("/")
+        if fragment.startswith("doc="):
+            try:
+                if self.state.open_fragment(fragment):
+                    return
+            except DocumentFileError as error:
+                self.shell.notice("Share link", f"The link could not be opened: {error}.")
+        saved = await self.shell.read(AUTOSAVE_KEY)
+        if saved:
+            try:
+                self.doc_name = self.state.loads(saved)
+            except DocumentFileError:
+                self.state = ScientificState()
+
+    async def _load_prefs(self) -> None:
+        text = await self.shell.read(PREFS_KEY)
+        if not text:
+            return
+        try:
+            prefs = json.loads(text)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(prefs, dict):
+            return
+        if prefs.get("theme") in SKINS:
+            self.skin_name = prefs["theme"]
+        done = prefs.get("completed")
+        if isinstance(done, list):
+            self.completed = {item for item in done if isinstance(item, str)}
+        if isinstance(prefs.get("panel"), bool):
+            self.panel_open = prefs["panel"]
+        if prefs.get("speed") in SPEEDS:
+            self.speed = prefs["speed"]
+
+    def _save_prefs(self) -> None:
+        self.shell.write(
+            PREFS_KEY,
+            json.dumps(
+                {
+                    "theme": self.skin_name,
+                    "completed": sorted(self.completed),
+                    "panel": self.panel_open,
+                    "speed": self.speed,
+                }
+            ),
         )
 
     async def open_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        text = await self.shell.pick_file(("json", "fx"), "Open calculation")
-        if text:
-            try:
-                data = json.loads(text)
-                if isinstance(data, dict):
-                    self.state.from_dict(data)
-                    self._sync_lcd()
-                    self.shell.notice("Loaded", "Calculation state restored.")
-            except Exception as exc:
-                self.shell.notice("Error", f"Failed to open file: {exc}")
+        try:
+            text = await self.shell.pick_file(("json",), "Open a calculation")
+        except UnicodeDecodeError:
+            self.shell.notice("Open", "That file is not a CASSim document.")
+            return
+        if text is None:
+            return
+        self.stop_lesson()
+        trial = ScientificState()
+        try:
+            name = trial.loads(text)
+        except DocumentFileError as error:
+            self.shell.notice("Open", f"The file could not be opened: {error}.")
+            return
+        self.state.from_dict(trial.to_dict())
+        self.doc_name = name
+        self.refresh()
+        self._schedule_save()
 
-    async def save_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        content = json.dumps(self.state.to_dict(), indent=2)
-        await self.shell.save_file("calculation.fx.json", content, "Save calculation")
+    async def save_file(self, _: object = None) -> None:
+        await self.shell.save_file(
+            f"{self.doc_name}.cassim.json", self.state.dumps(self.doc_name), "Save calculation"
+        )
 
-    def save_file_as(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        name_tf = ft.TextField(label="File name", value="calculation.fx.json")
+    def save_file_as(self) -> None:
+        field = ft.TextField(label="Name", value=self.doc_name, autofocus=True)
 
-        async def save(_: ft.Event[ft.TextButton]) -> None:
-            name = str(name_tf.value or "").strip()
-            if name:
-                content = json.dumps(self.state.to_dict(), indent=2)
-                await self.shell.save_file(name, content, "Save calculation")
+        async def save(_: object) -> None:
+            name = str(field.value or "").strip() or "Untitled"
+            self.doc_name = name
             self.page.pop_dialog()
+            await self.save_file()
+            self._schedule_save()
 
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text("Save calculation as"),
-                content=name_tf,
+                title=ft.Text("Save as"),
+                content=field,
                 actions=[
                     ft.TextButton("Save", on_click=save),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
@@ -1052,34 +1267,223 @@ class ScientificApp:
             )
         )
 
-    async def start(self, **options: object) -> None:
-        """Start the scientific app view."""
-        self.page.title = "CASSim fx"
-        if not self.page.views or self.page.views[-1].route != "/scientific":
-            self.page.views.clear()
-            self.page.views.append(
-                ft.View(
-                    route="/scientific",
-                    controls=[
-                        ft.Stack(
-                            [
-                                self.root,
-                                self.restore_menu_button,
-                            ],
-                            expand=True,
-                        )
-                    ],
-                    padding=0,
-                    spacing=0,
-                )
+    def open_share_link(self) -> None:
+        try:
+            url = self.shell.link(self.state.share_fragment(self.doc_name))
+        except ValueError:
+            self.shell.notice(
+                "Share link",
+                "This calculation is too big for a link. Use Doc ▸ Save and share the file.",
             )
-            self.page.update()
+            return
 
-    def unmount(self) -> None:
-        """Cleanup when unmounting the device."""
-        self.page.views.clear()
+        def copy(_: object) -> None:
+            self.shell.copy(url)
+            self.page.pop_dialog()
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Share link"),
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            "Anyone who opens this link gets this calculator: its settings, "
+                            "memories, STAT data and table. It stays in the link and is never "
+                            "sent to a server.",
+                            size=13,
+                        ),
+                        ft.TextField(value=url, read_only=True, dense=True, multiline=True),
+                    ],
+                    tight=True,
+                    width=420,
+                ),
+                actions=[
+                    ft.TextButton("Copy link", on_click=copy),
+                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
+                ],
+            )
+        )
+
+    def load_example(self, index: int) -> None:
+        self.stop_lesson()
+        load_example(self.state, index)
+        self.refresh()
+        self._schedule_save()
+
+    def confirm_reset(self) -> None:
+        async def reset() -> None:
+            self.stop_lesson()
+            self.state.reset()
+            self.doc_name = "Untitled"
+            self.refresh()
+            self._schedule_save()
+
+        self.shell.confirm(
+            "Reset all",
+            "Clear every setting, memory, STAT data and the table? This cannot be undone.",
+            "Reset",
+            reset,
+        )
+
+    # ------------------------------------------------------------------------------------------
+    # dialogs
+    # ------------------------------------------------------------------------------------------
+
+    def open_settings(self) -> None:
+        """The SETUP choices as a form (FR-FX-CFG-001 to -005)."""
+        setup = self.state.setup
+        io = "line" if setup.input == "line" else ("math" if setup.output == "math" else "mathline")
+        angle = ft.RadioGroup(
+            ft.Row(
+                [
+                    ft.Radio(value=v, label=label)
+                    for v, label in (("DEG", "Deg"), ("RAD", "Rad"), ("GRA", "Gra"))
+                ]
+            ),
+            value=setup.angle,
+        )
+        display = ft.RadioGroup(
+            ft.Column(
+                [
+                    ft.Radio(value="math", label="MthIO, MathO (natural input and answers)"),
+                    ft.Radio(
+                        value="mathline", label="MthIO, LineO (natural input, decimal answers)"
+                    ),
+                    ft.Radio(value="line", label="LineIO (all on one line)"),
+                ],
+                spacing=0,
+            ),
+            value=io,
+        )
+        number = ft.Dropdown(
+            value=f"{setup.disp} {setup.digits}",
+            options=[ft.DropdownOption(key=f"Norm {n}", text=f"Norm {n}") for n in (1, 2)]
+            + [
+                ft.DropdownOption(key=f"Fix {n}", text=f"Fix {n} (decimal places)")
+                for n in range(10)
+            ]
+            + [
+                ft.DropdownOption(key=f"Sci {n}", text=f"Sci {n} (significant figures)")
+                for n in range(10)
+            ],
+            width=260,
+            dense=True,
+        )
+        fraction = ft.RadioGroup(
+            ft.Row(
+                [
+                    ft.Radio(value="d/c", label="d/c (improper)"),
+                    ft.Radio(value="ab/c", label="a b/c (mixed)"),
+                ]
+            ),
+            value=setup.fraction,
+        )
+        frequency = ft.Switch(label="STAT frequency column", value=setup.frequency)
+
+        def apply(_: object) -> None:
+            new = dataclasses.replace(setup)
+            new.angle = "RAD" if angle.value == "RAD" else "GRA" if angle.value == "GRA" else "DEG"
+            choice = display.value or "math"
+            new.input = "line" if choice == "line" else "math"
+            new.output = "math" if choice == "math" else "line"
+            disp, digits = (number.value or "Norm 1").split()
+            new.disp = "Fix" if disp == "Fix" else "Sci" if disp == "Sci" else "Norm"
+            new.digits = int(digits)
+            new.fraction = "ab/c" if fraction.value == "ab/c" else "d/c"
+            self.state.set_frequency(on=bool(frequency.value))
+            new.frequency = self.state.setup.frequency
+            self.state.setup = new
+            self.page.pop_dialog()
+            self.refresh()
+            self._schedule_save()
+
+        def heading(text: str) -> ft.Text:
+            return ft.Text(text, weight=ft.FontWeight.BOLD, size=13)
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Calculator settings"),
+                content=ft.Column(
+                    [
+                        heading("Angle unit"),
+                        angle,
+                        heading("Input and output"),
+                        display,
+                        heading("Number format"),
+                        number,
+                        heading("Fraction answers"),
+                        fraction,
+                        frequency,
+                        ft.Text("These are the SETUP menu's choices (SHIFT then MODE).", size=12),
+                    ],
+                    tight=True,
+                    spacing=6,
+                    scroll=ft.ScrollMode.AUTO,
+                    width=420,
+                ),
+                actions=[
+                    ft.TextButton("Apply", on_click=apply),
+                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                ],
+            )
+        )
+
+    def open_appearance(self) -> None:
+        choice = ft.RadioGroup(
+            ft.Column(
+                [ft.Radio(value=name, label=label) for name, label in SKIN_NAMES.items()],
+                tight=True,
+            ),
+            value=self.skin_name,
+        )
+
+        def apply(_: object) -> None:
+            self.page.pop_dialog()
+            self.apply_skin(choice.value or "Dark")
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Appearance"),
+                content=choice,
+                actions=[
+                    ft.TextButton("Apply", on_click=apply),
+                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                ],
+            )
+        )
+
+    def open_shortcuts(self) -> None:
+        rows = [
+            ft.Row(
+                [
+                    ft.Container(ft.Text(keys, weight=ft.FontWeight.BOLD, size=13), width=170),
+                    ft.Text(what, size=13, expand=True),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+            for keys, what in k.SHORTCUT_HELP
+        ]
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Keyboard shortcuts"),
+                content=ft.Column(
+                    [
+                        *rows,
+                        ft.Text(
+                            "Hover over a key to see its own shortcut. The keypad works with a "
+                            "mouse or touch as well.",
+                            size=12,
+                        ),
+                    ],
+                    tight=True,
+                    spacing=4,
+                    scroll=ft.ScrollMode.AUTO,
+                    width=460,
+                ),
+                actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
+            )
+        )
 
 
 def mount(shell: Shell) -> ScientificApp:
-    """Mount and return a new ScientificApp view."""
     return ScientificApp(shell)

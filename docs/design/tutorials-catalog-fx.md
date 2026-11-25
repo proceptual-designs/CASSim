@@ -1,6 +1,6 @@
 # CASSim fx: Built-in Interactive Tutorials Catalog
 
-Status: Complete syllabus and step-by-step instructional design for the CASSim fx User-Driven Tutorial Engine.
+Status: The lesson plan for the CASSim fx tutorial engine. Twelve lessons are built (`src/cassim/devices/scientific/tutorials.py`; SDD-14 section 7); the answers below were checked by running them on CASSim fx (2026-11-25), and the tests keep them in step.
 Curriculum Alignment: Australian Curriculum Mathematics (Years 7–10), VCE General Mathematics (Units 1–4), VCE Mathematical Methods (Units 1–2), HSC Standard Mathematics (Stages 6), HSC Advanced Mathematics.
 Core Reference: How-Do-I...fx82-and-fx-100AU Guide, Casio fx-82AU PLUS II User's Guide, Abacus SX-II MATRIXn Manual, and "How To Maths" HSC Standard Calculator Skills.
 
@@ -8,7 +8,7 @@ Core Reference: How-Do-I...fx82-and-fx-100AU Guide, Casio fx-82AU PLUS II User's
 
 ## 1. Pedagogical Architecture: User-Driven vs Passive Playback
 
-Existing online emulators (such as `fx-82au-emu.pages.dev`) provide "autoplay" walkthroughs where the keypad is locked (`isKeypadLocked = true`) and a timer automatically clicks buttons while the student passively observes. 
+Walkthroughs that lock the keypad and press the keys on a timer leave the student watching. 
 
 In classroom practice, passive observation fails to develop calculator fluency and muscle memory. **CASSim fx introduces the User-Driven Tutorial Engine**:
 
@@ -90,7 +90,7 @@ These 6 core tutorials form the flagship interactive starter pack, covering the 
   13. `[ = ]`: Compute mean. **Result**: `18.4`.
   14. `[SHIFT]` `[ 1 ]` `[ 4 ]`: Re-open Var menu.
   15. `[ 4 ]` (`sx`): Select Sample Standard Deviation.
-  16. `[ = ]`: Compute sample SD. **Result**: `5.176871642...`.
+  16. `[ = ]`: Compute sample SD. **Result**: `5.224940191`.
 - **Pedagogical Highlight**: Emphasises the critical difference between $s_x$ ($n-1$, sample SD used in VCE/HSC) and $\sigma_x$ ($n$, population SD).
 
 ### Tutorial YT-4: Generating a Five-Number Summary
@@ -102,7 +102,7 @@ These 6 core tutorials form the flagship interactive starter pack, covering the 
   3. `[ AC ]`: Store data.
   4. `[SHIFT]` `[ 1 ]`: Open STAT menu.
   5. `[ 5 ]` (`MinMax`): Open MinMax menu (`1: minX`, `2: maxX`, `3: Q1`, `4: med`, `5: Q3`).
-  6. Inspect each value:
+  6. Inspect each value, opening the menu again each time (`[SHIFT]` `[ 1 ]` `[ 5 ]`):
      - `[ 1 ]` `[ = ]`: $\min X = 4$
      - `[ 3 ]` `[ = ]`: $Q_1 = 8$ (TI/Australian school median-split: lower half $\{4, 7, 9, 12\}$, median is $\frac{7+9}{2} = 8$).
      - `[ 4 ]` `[ = ]`: $\text{med} = 13$
@@ -118,7 +118,7 @@ These 6 core tutorials form the flagship interactive starter pack, covering the 
   1. Ensure Frequency is ON (via Tutorial YT-2).
   2. `[ MODE ]` `[ 2 ]` `[ 1 ]`: Open 1-VAR table with `X` and `FREQ` columns.
   3. Enter $X$ values: `1 = 2 = 3 = 4 =`.
-  4. Use D-pad `[ ▲ ]` `[ ▲ ]` `[ ▲ ]` `[ ► ]` to move to top of `FREQ` column.
+  4. Use D-pad `[ ▲ ]` four times, then `[ ► ]`, to move to the top of the `FREQ` column (after the fourth value the cursor is on the empty fifth row).
   5. Enter frequencies: `5 = 12 = 8 = 3 =`.
   6. `[ AC ]` `[SHIFT]` `[ 1 ]` `[ 4 ]` `[ 1 ]` `[ = ]`: Check sample size $n = 28$.
   7. `[SHIFT]` `[ 1 ]` `[ 4 ]` `[ 2 ]` `[ = ]`: Check mean $\bar{x} = 2.3214...$.
@@ -135,10 +135,10 @@ These 6 core tutorials form the flagship interactive starter pack, covering the 
   6. `[SHIFT]` `[ 1 ]`: Open STAT menu. Note that item `[ 6 ]` (`Reg`) is now active!
   7. `[ 6 ]` (`Reg`): Opens Regression menu (`1: A`, `2: B`, `3: r`, `4: x̂`, `5: ŷ`).
   8. `[ 3 ]` (`r`) `[ = ]`: Compute Pearson's $r$. **Result**: `0.9972...` (very strong positive linear relationship).
-  9. `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 1 ]` `[ = ]`: Intercept $A = 1.3$.
-  10. `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 2 ]` `[ = ]`: Slope $B = 1.88$. Line is $y = 1.3 + 1.88x$.
+  9. `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 1 ]` `[ = ]`: Intercept $A = 1.2$.
+  10. `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 2 ]` `[ = ]`: Slope $B = 1.9$. Line is $y = 1.2 + 1.9x$.
   11. Prediction: Predict $y$ when $x = 7$:
-      - Type `7` `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 5 ]` (`ŷ`) `[ = ]`. **Result**: `14.46`.
+      - Type `7` `[SHIFT]` `[ 1 ]` `[ 6 ]` `[ 5 ]` (`ŷ`) `[ = ]`. **Result**: `14.5`.
 
 ---
 
@@ -156,9 +156,9 @@ Organized into 10 structured progressive modules:
 
 ### Strand 2: Fractions, Decimals & Basic Arithmetic (Lessons 7–14)
 7. **Basic Natural Entry**: Using brackets, negative key `[(-)]` vs subtraction `[-]`.
-8. **Entering Fractions**: The fraction template `[믐]`, navigating numerator and denominator with D-Pad.
+8. **Entering Fractions**: The fraction template `[■/□]`, navigating numerator and denominator with D-Pad.
 9. **Fractions & Decimals Toggle**: Converting answers between exact surd/fraction and decimal using `[S⇔D]`.
-10. **Mixed Numbers**: Entering $a\frac{b}{c}$ using `[SHIFT] + [믐]`.
+10. **Mixed Numbers**: Entering $a\frac{b}{c}$ using `[SHIFT] + [■/□]`.
 11. **Improper Fraction Toggle**: `[SHIFT] + [S⇔D]` ($a\frac{b}{c} \Leftrightarrow \frac{d}{c}$).
 12. **Percentages**: Calculating percentages with `[SHIFT] + [(]` (`%`).
 13. **Percentage Increase & Decrease**: Markup and discount calculations.
@@ -275,7 +275,7 @@ Every tutorial in CASSim fx is specified declaratively in `catalog.json`:
     }
   ],
   "completionVerification": {
-    "expectedResult": "5.176871642",
+    "expectedResult": "5.224940191",
     "badgeTitle": "Standard Deviation Master"
   }
 }

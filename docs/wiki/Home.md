@@ -22,6 +22,7 @@ Each site keeps its own saved work: a document made on one site is not on the ot
 - [[Nspire calculator|Nspire]]: the TI-Nspire CX CAS simulator
 - [[Pseudocode & Python|Pseudocode]]: run pseudocode, trace tables, translate to Python
 - [[Pseudocode syntax]]: everything the pseudocode app accepts
+- [[CASSim fx (scientific)|Scientific calculator]]: the scientific calculator, with tutorials (testing version)
 - [[The two views]]: Handheld and Computer
 - [[Keys and shortcuts]]
 - [[Menus]]
