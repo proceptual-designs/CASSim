@@ -201,10 +201,17 @@ def test_sampling_splits_undefined_points_and_vertical_asymptotes() -> None:
 
 
 def test_sampling_skips_non_real_values_from_fractional_powers() -> None:
-    function = compile_function(expression("x^(1/3)"), expression("x"))
+    function = compile_function(expression("x^(3/2)"), expression("x"))
     curves = sample_function(function, Viewport(Window(-1, 1, -1, 1), 40, 40))
     assert curves
     assert all(x >= 20 for curve in curves for x, _ in curve.points)
+
+
+def test_an_odd_root_is_real_for_negative_x() -> None:
+    """R6-A10: the device draws x^(1/3) for x<0 (the real cube root); x^(2/3) is positive."""
+    cube_root = compile_function(expression("x^(1/3)"), expression("x"))
+    assert cube_root(-8.0) == pytest.approx(-2.0)
+    assert compile_function(expression("x^(2/3)"), expression("x"))(-8.0) == pytest.approx(4.0)
 
 
 def test_sampling_splits_step_discontinuities() -> None:

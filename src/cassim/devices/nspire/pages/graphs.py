@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from cassim.core.compat.math_source import compile_math_source
 from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
+from cassim.device.editor import EMPTY_SLOT, Row, row_latex
 from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, graph_compile_op
 from cassim.device.keys import Binding
@@ -27,7 +28,7 @@ from cassim.graph.sampling import (
 from cassim.graph.scene import Align, Dots, Label, Layer, Scene, Segments, Stroke
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from cassim.core.session import Session
     from cassim.doc.document import Page, Problem
@@ -78,6 +79,30 @@ def graph_definition(expression: str) -> str:
     if not value or not _RELATIONS & set(condition):
         return expression
     return f"when({condition},{value})"
+
+
+def label_latex(root: Row, is_defined: Callable[[str], bool]) -> str:
+    """A function's label as the device draws it (emulator run 6, R6-A9): a restriction as a
+    one-row brace, `f9(x)={x², x>0`, and a piecewise template's empty last condition as
+    `Else`, `f10(x)={x+1, x<0 ; x², Else`."""
+    if "|" in root:
+        bar = len(root) - 1 - root[::-1].index("|")
+        condition = _trimmed(root[bar + 1 :])
+        if bar > 0 and any(node in _RELATIONS for node in condition):
+            value = row_latex(_trimmed(root[:bar]), is_defined)
+            return rf"\begin{{cases}}{value}, & {row_latex(condition, is_defined)}\end{{cases}}"
+    shown = row_latex(root, is_defined)
+    return shown.replace(rf", & {EMPTY_SLOT}\end{{cases}}", r", & \mathrm{Else}\end{cases}")
+
+
+def _trimmed(row: Row) -> Row:
+    """A row without spaces at its ends."""
+    start, end = 0, len(row)
+    while start < end and row[start] == " ":
+        start += 1
+    while end > start and row[end - 1] == " ":
+        end -= 1
+    return row[start:end]
 
 
 class GridStyle(StrEnum):
@@ -192,7 +217,7 @@ class Graphs:
             entry.error = "Enter an expression for the function."
             return
         entry.expression = expression
-        entry.latex = editor.latex(cursor=False, is_defined=self.session.is_defined)
+        entry.latex = label_latex(editor.root, self.session.is_defined)
         entry.error = ""
         entry.compiled = None
         entry.source = None

@@ -534,3 +534,64 @@ def test_a_function_set_from_text_keeps_its_templates() -> None:
     assert [t.kind for t in templates] == [Kind.POWER, Kind.FRACTION]
     assert templates[0].slots == [["2"]]
     assert editor.pos == len(editor.root)
+
+
+def test_a_restriction_is_labelled_with_a_brace() -> None:
+    """R6-A9: `x^2|x>0` is labelled `f1(x)={x², x>0`; a `|` substitution is not a brace."""
+    graphs = Graphs(Session())
+    graphs.submit(0, "x^2|x>0")
+    assert graphs.functions[0].latex == r"\begin{cases}x{}^{2}, & x\gt 0\end{cases}"
+    graphs.submit(0, "x^2|x=2")
+    assert r"\begin{cases}" not in graphs.functions[0].latex
+
+
+def test_an_empty_last_condition_of_a_piecewise_is_labelled_else() -> None:
+    """R6-A9: the piecewise template with no last condition reads `Else`."""
+    graphs = Graphs(Session())
+    editor = graphs.functions[0].editing.editor
+    editor.insert_template(Kind.PIECEWISE)
+    template = editor.root[0]
+    assert isinstance(template, Template)
+    template.slots[0][:] = list("x+1")
+    template.slots[1][:] = list("x<0")
+    template.slots[2][:] = list("x")
+    graphs.submit(0, editor.linear())
+    assert graphs.functions[0].latex.endswith(r"x, & \mathrm{Else}\end{cases}")
+
+
+def _curve_xs(graphs: Graphs) -> list[float]:
+    curves = graphs.scene(400, 280).layer("curves")
+    assert curves is not None
+    window, xs = graphs.window, []
+    for shape in curves.shapes:
+        if isinstance(shape, Polyline):
+            xs.extend(
+                window.x_min + x * (window.x_max - window.x_min) / 400 for x, _ in shape.points
+            )
+    return xs
+
+
+@pytest.mark.parametrize(
+    ("expression", "low", "high"),
+    [
+        ("sqrt(x)", 0, 10),
+        ("ln(x)", 0, 10),
+        ("1/sqrt(4-x^2)", -2, 2),
+        ("x^(1/3)", -10, 10),
+    ],
+)
+def test_a_function_is_drawn_only_where_it_is_real(
+    expression: str, low: float, high: float
+) -> None:
+    """R6-A10 and Simon's note 3: no error, no message, and only the real part is drawn;
+    `x^(1/3)` is the real cube root, so it is drawn for x<0 too."""
+    graphs = Graphs(Session())
+    graphs.submit(0, expression)
+    assert graphs.functions[0].error == ""
+    xs = _curve_xs(graphs)
+    assert xs
+    step = (graphs.window.x_max - graphs.window.x_min) / 400
+    assert min(xs) >= low - step
+    assert max(xs) <= high + step
+    if expression == "x^(1/3)":
+        assert min(xs) < -9
