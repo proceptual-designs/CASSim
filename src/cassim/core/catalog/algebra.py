@@ -21,7 +21,13 @@ def _rewrite(function: Callable[[Raw], Raw]) -> Callable[[Host, list[Value]], Va
     return run
 
 
-eager("expand", 1, 2, cas=True)(_rewrite(cas.expand))
+@eager("expand", 1, 2, cas=True)
+def expand(host: Host, args: list[Value]) -> Value:
+    """`expand(expr[, var])`: with a variable, a quotient is also divided out in it."""
+    variable = raw_of(args[1]) if len(args) > 1 else None
+    return map_value(lambda value: Expr(cas.expand(raw_of(value), variable)), args[0])
+
+
 eager("factor", 1, 2)(_rewrite(cas.factor))
 eager("comDenom", 1, 2)(_rewrite(cas.common_denominator))
 eager("cFactor", 1, 2, cas=True)(_rewrite(cas.factor_over_gaussian_integers))

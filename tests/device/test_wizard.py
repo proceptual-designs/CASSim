@@ -324,3 +324,12 @@ def test_inverse_binomial_dialogs_have_a_matrix_form_box_and_run() -> None:
         assert (last.label, last.toggle, last.default) == ("Matrix Form", True, "0")
         entry = _calculator(_finish(name, **values)).history[-1]
         assert (entry.text, entry.result.text) == (text, result)
+
+
+def test_a_ticked_matrix_form_box_pastes_a_last_argument_one() -> None:
+    """Run 6, R6-D1: Matrix Form adds `,1` and the answer is a matrix."""
+    entry = _calculator(_finish("invBinom", c="0.9", n="10", p="0.5", matrix="1")).history[-1]
+    assert entry.text == "invBinom(0.9,10,0.5,1)"
+    assert entry.result.text == "[6,0.828125;7,0.9453125]"
+    entry = _calculator(_finish("invBinomN", c="0.9", p="0.5", x="5", matrix="1")).history[-1]
+    assert entry.text == "invBinomN(0.9,0.5,5,1)"

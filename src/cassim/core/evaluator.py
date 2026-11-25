@@ -63,6 +63,8 @@ _TAKE_EMPTY = frozenset(
 )
 # How many user-function calls may be open at once. Each takes several Python frames.
 _MAX_CALL_DEPTH = 50
+# Commands whose second argument names the variables they solve for (`|` leaves those alone)
+_SOLVERS = frozenset({"solve", "csolve", "zeros", "czeros", "nsolve", "linsolve"})
 
 
 def _unsupported(what: str) -> TIError:
@@ -595,7 +597,20 @@ class Evaluator:
             self._substitutions.pop()
         # Then into the result: `impDif(eqn,x,y)|x=4 and y=-2` differentiates first, and a user
         # function's result `eq(z)|a=-8` has the Problem's `a` in it (emulator check 6, K5, K6).
-        return _apply_bindings(bindings, value)
+        # A variable a solving command solves for is its own: `solve(x^2=4,x)|x=2` is
+        # `x=-2 or x=2` (emulator run 6, R6-B7).
+        own = self._solved_for(node.left)
+        return _apply_bindings({k: v for k, v in bindings.items() if k not in own}, value)
+
+    def _solved_for(self, node: ast.Expr) -> set[str]:
+        """The variables a call to a solving command names (its second argument)."""
+        if not (isinstance(node, ast.Call) and node.func.casefold() in _SOLVERS):
+            return set()
+        if len(node.args) < 2:  # noqa: PLR2004 (the expression, then the variables)
+            return set()
+        second = node.args[1]
+        names = second.items if isinstance(second, ast.ListLit) else (second,)
+        return {self._key(name.text) for name in names if isinstance(name, ast.Name)}
 
     def _binary(self, node: ast.Binary) -> Value:
         if node.op == "|":

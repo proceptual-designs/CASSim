@@ -256,6 +256,14 @@ Sizes are rough effort (S ≈ days, M ≈ 1–2 weeks, L ≈ several weeks). Eac
 - 1e `cassim` REPL and script runner, tab-completion from the catalog.
 - Exit: Tier 1 corpus passes (canonical at minimum), strict types on `core/`, coverage matrix published.
 - **Status: done (2026-11-02).** See `docs/decisions/0007` to `0011`.
+- **Run 6 follow-ups (2026-11-25, `docs/testing/emulator-check6-run6-plan.md` 1.1). Done 2026-11-25** (`tests/unit/test_cas_run6.py`):
+  1. Arbitrary constants (decision 0034 item 4): the Session holds one `c` and one `n` counter per Problem, restarting in a new Problem; new constants are numbered from them through a context variable in the adapter, and only the numbers an answer shows are used up (a recalled `ans` keeps its names). `solve(sin(x)=0,x)` is `x=n1·π` (evenly spaced families merge), `domain(tan(x),x)` is `x≠(2·n1-1)·π/2`, and `fMin`/`fMax` of a periodic function whose f'=0 is one family is `x=(4·n1-3)·π/4 and (-1)^n1>0` (otherwise the decimal search, as before). `deSolve` constants share the `c` counter (Reference Guide; to confirm in run 7, J1g).
+  2. Display forms: `x=-(c1-3)/3` (free parameters factored); an arbitrary integer before π (`2·n1·π`); a shared exponential taken out of a derivative, `(1-x)·ⅇ^(-x)`, while different exponentials stay apart; a negated factor gives its sign to the product (`-y·(x-1)`, was `y·-(x-1)`).
+  3. Exact definite integrals: logarithms of numbers are combined before the length test (limit 25 operations), so `∫₀² 1/(x³+x+2)dx` stays exact with `ln(9/2)/8` and the K7 integral stays a decimal. A logarithm of a fraction stays whole in any number (`ln(9/2)`, `ln(1/2)` is `-ln(2)`; to confirm in run 7, J1h).
+  4. `tCollect` multiplies a sum of squares out when that ends shorter (`41-40·cos(3·t/2)`; a sum with no bare variable is led by a positive term); `expand(…,x)` divides a quotient out in `x`; `|x=value` is not put into the answer for the variable a solving command solves for.
+  5. A single frequency of 0 is a Domain error.
+  6. `invBinom` and `invBinomN` take a 4th argument 1 (Matrix Form) and give the matrix of the value before the answer and the answer with their cumulative probabilities; the dialogs' box pastes it.
+  Still different: `expand` lists its terms in CASSim's order (the device puts the fraction first), and `expand` with no variable does not divide out (run 5 K6 #1, xfail); the order of the B5 integral's terms.
 
 **M2 — GUI shell: keyboard, pages, settings (L)**
 
@@ -274,7 +282,7 @@ Still open, each waiting on something:
 1. Runs on Safari (macOS and iOS) and a Chromebook, which are primary targets (NFR-PORT-001). No devices are available; only Chromium has been driven by the tests (`docs/testing/browsers.md`).
 2. Typed-character capture on non-US keyboard layouts (2d, decision 0024). Needs such a keyboard.
 3. Tablet mode (FR-DEV-003, Should) has no code yet.
-4. The 2f/2g items still to check on the simulator (0022, 0023; `docs/testing/emulator-templates-results.md`).
+4. The 2f/2g items still to check on the simulator (0022, 0023; `docs/testing/emulator-templates-results.md`). Run 6 confirmed Clear History and its undo, `ans` on a new page, Backspace against del after a template, and the history deletes by Backspace and del; the rest are in `docs/testing/simulator-todo.md`, section J.
 5. A one-off review of FR-DEV-007: `app/state.py` imports `profiles.nspire` directly as its default profile, which is acceptable only if everything else comes through the `Profile` object.
 6. Emulator check 3 (`docs/testing/emulator-history-results.md`, a partial run on 2026-11-10): fixed 2026-11-12 except the history layout, which Simon chose to keep (a thin rule between pairs, not grey banding). Built to match the emulator: undo and redo cross evaluations and deletes (a store is not undone) and, once a page has nothing left to undo, the page insert; Del or Backspace on an empty entry line does nothing; Enter on an empty line runs the last entry again, with or without `Ans`; `ans` in a history line is shown as the value it had (14 digits, bracketed unless a plain number), while a saved file and the repeat keep `ans`; `Ans` follows the history after an undo or delete; Home with a history line picked goes to the first line; an error leaves its entry in the history with the message as a quoted string. Not run on the emulator: the mouse (H3), keypad ctrl and shift layers, most of H7 and H8, scrolling and spacing. Not copied: the long-input ▸ cut-off (CASSim wraps), the redo that re-shows an error dialog.
 
@@ -312,6 +320,13 @@ navigation. Apply the same editor to Graphs and verify repeat when Graphs is int
 - 3d Data & Statistics page (done; PR #152 merged): live Problem lists, numeric dot/box/histogram/normal-probability/scatter/XY plots, General Maths categorical dot/bar/pie charts, summary and split categories, regression/residual overlays, Plot Function/Value, histogram settings, windows and Zoom–Data. The UI follow-up removes placeholder labeling and the top toolbar, places clickable X/Y selectors on the axes (including none), moves plot selection into Menu, enlarges marks, supports point selection/context menus plus drag-editing numeric scatter and dot data, and keeps the page sorter accessible from Statistics. Uses backend-neutral scenes and persists only view settings. Emulator checks for drag behavior and some visualization context-menu targets remain in `docs/testing/simulator-todo.md` (G1–G2).
 - 3e Quick Graph for a named list; Summary Plot with Split Page or New Page; CSV and basic XLSX import/export, with formulas preserved in XLSX and displayed values in CSV (done; PR #154 merged). openpyxl and et-xmlfile are included in the web app archive. Python CI checks pass (6,470 passed, 84 skipped, 59 deselected, 27 xfailed), coverage floors pass, and the required browser checks are green. Quick Graph/Summary Plot defaults and save/reload behavior remain for Cowork simulator investigation; implementation choices are documented in SDD-07.
 - Finance: the Finance Solver was built in 2f; beginning/end payment and `amortTbl` examples were captured in `corpus/seed/037_check6_run4.yaml` (D19; transcription awaits human review).
+- **Run 6 follow-ups (2026-11-25, `docs/testing/emulator-check6-run6-plan.md` 1.3), to do:**
+  1. Stats input for 2-Sample z Test (σ1, σ2, x̄1, n1, x̄2, n2), 2-Sample t Test and 2-Sample t Interval (x̄1, Sx1, n1, x̄2, Sx2, n2, Pooled No) in `sheet_inference.py`; Esc in a test's fields goes back to the Data Input Method box.
+  2. A dragged data point stores a rounded value (the device stored `6.949`, three places, on a small window; the rule for other windows is run 7, J3a), not 15 significant figures (`_input_number` in `pages/statistics.py`).
+  3. Tests with the run 6 values: the t Test rows in the sheet (t 1.3228757, PVal 0.22745282), 2-Sample t Interval (CLower -0.601090871756, CUpper 1.80109087176, df 19.9803265276) and Linear Reg t Test (the row order Title, Alternate Hyp, RegEqn, t, PVal, df, a, b, s, SESlope, r², r, Resid).
+  4. Tests for Fill from one cell (relative formulas, one ctrl+Z removes the fill), Insert Cell moving the cells below down, Insert Cell grey in a results column, and Insert Row leaving the test results where they are.
+  5. Compare the Statistics menus with the run 6 lists to their ends (`emulator-stats5-results.md` S3) and fix any order differences.
+  6. Wheel and pinch zoom on Data & Statistics plots: M4, Simon's note 4.
 - Greyed, not built: the movable line, Data Capture, Multiple Regression, ANOVA 2-Way and Custom Split. A page holds up to four panes (decision 0034 item 2): Quick Graph, Summary Plot, Shade P Value and Shade area add one, going from halves to three panes to 2×2.
 - Exit: General Maths spreadsheet and live-data workflows run headlessly and in the browser; timings are reported in decision 0031. These flows are hand-worked examples, not simulator captures or a claim that every cas-solver workflow has been reproduced.
 
@@ -331,6 +346,19 @@ navigation. Apply the same editor to Graphs and verify repeat when Graphs is int
   3. Restrict each function's plotted domain to where it is real: `sqrt(x)` currently crashes the app ("The application encountered an error: must be real number, not complex"). Non-real or failed samples must be dropped as gaps, never raise; add `sqrt(x)`, `ln(x)`, `sqrt(4-x^2)` and `x^(1/3)` as page-level tests, not only sampler tests.
   4. Pinch zoom, and mouse-wheel or two-finger-scroll zoom about the pointer, on Graphs **and** Data & Statistics pages (decision 0034, item 1: standard affordances that do not clash). Check trackpad two-finger scroll on Chromebook and Mac, which arrives as wheel events.
   (Simon's fifth note, the second click in the Calculator history, is decision 0034 item 6.)
+  Run 6 (S1, Simon, 2026-11-25): on the device the wheel and a two-finger scroll only move the pointer on a Graphs page and do nothing on a Data & Statistics plot. Note 4 stands: Graphs pages already zoom; Data & Statistics plots do not yet (`ui/statistics_view.py` has no scroll or scale handler).
+- **Run 6 follow-ups (2026-11-25, `docs/testing/emulator-check6-run6-plan.md` 1.2), to do:**
+  1. The zoom pointer moves 1/160 of the plot a press (about 2 handheld px), not 1/80 (`_POINTER_STEPS` in `pages/graph_tools.py`).
+  2. Minimum and Maximum with the turning point outside the bounds return the bound point, labelled as usual (`(0.943, 0.89)`), not "no turning point" (`_EDGE` in `pages/graph_analyze.py`).
+  3. "No zero found within the specified bounds" (and the other no-result messages) as a dialog with OK, not the page prompt.
+  4. Labels: a restricted function as a one-row brace, `f9(x)={x², x>0`; the piecewise template with an empty last condition shows `Else` (`f10(x)={x+1, x<0 ; x², Else`).
+  5. Page-level tests that `x^(1/3)` is drawn for x<0 (real cube root, Real mode) and `√x`, `ln(x)`, `1/√(4-x²)` only on their domains, with no message (with note 3).
+  6. Axis drag in the Handheld view: a drag on a tick of either axis rescales both axes about the origin by (distance before)/(distance after), keeping the aspect. The Computer view and off-centre windows are run 7 (J2a, J2b).
+  7. Enter during a trace leaves a point labelled `(0.3, 0.591)` (no name); Esc ends the trace and the point stays (4c).
+  8. Zoom – Fit with scatter plots (with 4d): alone, x and y are the data ranges padded 10%; with functions, x is probably the union of the window and the data range, padded 10% (run 7, J2d).
+  9. Slow functions (`nInt`) draw coarse to fine: sparse points first, then filled in (about 5 to 6 s on the device), and the page can be left while they draw.
+  10. With 4e, ctrl+T: Table Start 0, step 1, Independent and Dependent Auto; rows scroll above the start; ctrl+T again closes it with the window unchanged. With 4d, the entry defaults: Parametric and Polar 0 to 6.28 step 0.13; Sequence n 1 to 99 step 1 with Initial Terms; Diff Eq `y1'=` with `(x0,y10)`.
+  11. Trace Up and Down: run 5 and run 6 disagree (run 6: Up from f1 went to f2, Down f1 → f3 → f2). Leave the code until run 7, J2c.
 - Greyed, not built: Plane Geometry, 3D Graphing and the Geometry menu.
 - Exit: scene snapshot tests green; pan and zoom timed on a mid-range phone and a Chromebook and reported (FR-GRAPH-007).
 

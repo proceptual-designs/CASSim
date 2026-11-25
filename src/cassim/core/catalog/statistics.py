@@ -37,7 +37,10 @@ def _numbers(value: Value) -> list[Fraction]:
 
 
 def _frequencies(value: Value, length: int) -> list[int]:
-    """A frequency list, or a single number meaning that frequency for every value."""
+    """A frequency list, or a single number meaning that frequency for every value. A single 0
+    is a Domain error (emulator run 6, R6-B9: `LinRegtTest xs,ys,0`)."""
+    if not isinstance(value, ListValue) and _fraction(value) == 0:
+        raise TIError(errors.DOMAIN)
     counts = (
         [_fraction(item) for item in value.items]
         if isinstance(value, ListValue)
