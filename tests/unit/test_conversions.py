@@ -366,7 +366,7 @@ def test_and_or_on_a_decimal_is_a_data_type_error():
 
 
 def test_the_family_of_solutions_uses_an_integer_parameter():
-    assert text("solve(sin(x)=1/2,x)") == "x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6"
+    assert text("solve(sin(x)=1/2,x)") == "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6"
 
 
 def test_dms_leaves_out_zero_minutes_and_seconds():

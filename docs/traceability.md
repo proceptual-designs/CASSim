@@ -120,7 +120,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-EVAL-006 | Must | `tests/device/test_engine.py` |
 | FR-SCOPE-001 | Must | `tests/unit/test_scope.py` |
 | FR-SCOPE-002 | Must | `tests/device/test_document.py` |
-| FR-CAT-001 | Must | `tests/unit/test_calculus.py`, `tests/unit/test_cas_papers.py`, `tests/unit/test_catalog.py` and 2 more |
+| FR-CAT-001 | Must | `tests/unit/test_calculus.py`, `tests/unit/test_cas_papers.py`, `tests/unit/test_cas_run6.py` and 3 more |
 | FR-CAT-002 | Should | `tests/unit/test_conversions.py` |
 | FR-CAT-004 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
 | FR-CAT-005 | Must | `tests/unit/test_ref_matrix.py` |
