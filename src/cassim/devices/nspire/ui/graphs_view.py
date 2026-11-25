@@ -32,6 +32,7 @@ def graph_colours(theme: Theme) -> dict[str, str]:
         "ink": theme.screen_text,
         "axis": theme.sheet_axis,
         "grid": theme.sheet_grid,
+        "paper": theme.screen,
     }
     colours.update((name, getattr(theme, name)) for name in FUNCTION_COLOURS if name != "ink")
     return colours
