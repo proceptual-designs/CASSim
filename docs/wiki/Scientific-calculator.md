@@ -1,10 +1,15 @@
-# CASSim Scientific (scientific calculator)
+# Scientific calculator
 
-CASSim Scientific is a natural-display scientific calculator of the kind used in Australian schools for Years 7–10, VCE General Mathematics and the non-CAS parts of Methods and Specialist. It has the familiar 50-key layout, so what students practise here carries over to their own calculator. It is in the testing version of CASSim while it is being built: open it from the Home screen, or go straight to it with `#/app/scientific` after the site address.
+CASSim Scientific is a natural-display scientific calculator of the kind used in Australian schools for Years 7–10, VCE General Mathematics and the non-CAS parts of Methods and Specialist. Its keys can follow the Casio fx-82 series (the default), the Abacus SX-II series, the Sharp EL-531 series or the HP 10s series, so what students practise here carries over to their own calculator: see [[Choosing your calculator]].
+
+Open it from the Home screen of <https://cassim-app.pages.dev/>, or use its own site, <https://cassim-sci.pages.dev/>, which opens straight into it.
 
 > CASSim Scientific is an independent simulator. It is not an approved exam calculator. Its behaviour has not yet been compared key for key with a physical calculator; see [[What works and what does not yet]].
 
 ## The keypad
+
+This page describes the fx-82 series keys. On the other calculators the keys and some sequences differ: [[Choosing your calculator]] lists the differences.
+
 
 Each key does what its face says. The small yellow label above a key is its **SHIFT** function and the red label is its **ALPHA** function: press SHIFT or ALPHA first, then the key. S or A lights at the top of the screen while one is waiting.
 
@@ -33,7 +38,7 @@ Press MODE, 3. Type f(X) (ALPHA then ) types X), press =, then enter the start, 
 
 ## Tutorials
 
-The **Tutorials** panel teaches twelve skills: resetting the calculator, the frequency column, mean and standard deviation, five-number summaries, frequency tables, regression, fractions, exact trigonometry, percentages, memories, prime factorisation and tables.
+The **Tutorials** panel teaches the skills students need, in the keys of the calculator you chose. On the fx-82 keys there are twelve: resetting the calculator, the frequency column, mean and standard deviation, five-number summaries, frequency tables, regression, fractions, exact trigonometry, percentages, memories, prime factorisation and tables. The SX-II, EL-531 and 10s have their own lists ([[Choosing your calculator]]).
 
 - **Guide me**: you press every key. The next key glows; a wrong key gives a hint and changes nothing.
 - **Show me**: the lesson plays itself, at a speed you choose.
@@ -65,33 +70,6 @@ Your own calculation is put aside during a lesson and comes back when the lesson
 | Ctrl+C | Copy the answer |
 
 Hover over a key to see its shortcut, or open **CASSim ▸ Keyboard shortcuts**.
-
-## Choose your calculator's keys
-
-**CASSim ▸ Appearance ▸ Calculator** shows the keys of the calculator you use, so you can find them in the same places: the Casio fx-82 series (the default), the Abacus SX-II series, the Sharp EL-531 series or the HP 10s series. The title on the calculator says which, for example CASSim Scientific (SX-II). The key names, the labels above the keys and the arrangement follow that calculator, and so do the key sequences: the menus, clearing, entering statistics and getting the results work as they do on that calculator, so you can practise on your own model. The look is CASSim's own. The tutorials are written in that calculator's keys.
-
-Those calculators do differ in what they can do, and CASSim follows them:
-
-| | fx-82 series | SX-II series | EL-531 series | 10s series |
-|---|---|---|---|---|
-| SHIFT key is called | SHIFT | 2nd | 2ndF | SHIFT |
-| Display | natural (textbook) | natural ("Math") | two lines, linear | two lines, linear |
-| Modes | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIF | NORMAL, STAT (SD, LINE and other fits) | COMP, SD, REG |
-| Settings | SHIFT MODE (SETUP) | 2nd SET UP | SET UP, and DRG for the angle | MODE, pressed again for each page |
-| Clearing | SHIFT 9 (CLR) | 2nd CLR | 2ndF M-CLR, 2ndF CA | SHIFT MODE (CLR) |
-| Exact or decimal | S⇔D | F↔D | a b/c after an answer | a b/c after an answer |
-| Entering STAT data | the data table | the data table | x (x,y) f DATA | x ; f DT, or x , y DT |
-| STAT results | SHIFT 1 menus | 2nd STATVAR menus | RCL then the key (RCL x̄) | SHIFT S-SUM, SHIFT S-VAR |
-| Q1, median, Q3 | yes | yes | no | no |
-| Prime factors (FACT) | yes | yes | no | no |
-
-- On a linear calculator a fraction shows as 2⌟3 and a surd as a decimal. Choosing the EL-531 or 10s keys switches SETUP to linear display; you can switch it back in SETUP.
-- The EL-531 keys also show base-n and logic functions; CASSim Scientific does not do those, so the keys do nothing.
-- The tutorials offer only what your calculator can do, in its own keys: the HP 10s and EL-531 have no frequency setting, five-number summary, prime factorisation or table lessons, but they have lessons of their own: rounding with Fix (or FIX and TAB), changing the angle unit, percentage change on the HP 10s, and converting angles with DRG▸ on the EL-531.
-- On the HP 10s, % works out the whole calculation as the fx-82MS family does: 250 × 15 SHIFT % gives 37.5, and + straight after gives 287.5. On the EL-531, 250 + 15 2ndF % gives 287.5.
-- The computer keyboard types the fx-82's keys, so F1 then Ctrl+M is SETUP on the fx-82 but CLR on the HP 10s, as SHIFT MODE is on each.
-- The EL-531's M-CLR menu, CA and STAT VAR have not yet been checked against a real calculator.
-- Older fx-82 models (such as the fx-82MS) have a linear display and no VERIFY or TABLE.
 
 ## Saving and sharing
 
