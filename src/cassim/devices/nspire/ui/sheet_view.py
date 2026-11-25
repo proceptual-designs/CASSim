@@ -18,13 +18,13 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app.context_menu import context_menu_region
+from cassim.app.entry_line import EntryLine, row_height
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
 from cassim.device.editor import Template, format_target
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
-from cassim.devices.nspire.ui.entry import EntryLine, row_height
 from cassim.graph.scene import Layer
 
 BAR = 22  # the bar under the grid, in the handheld's pixels

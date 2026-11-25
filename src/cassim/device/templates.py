@@ -5,7 +5,7 @@ a grid, how Left and Right walk it, the TI text the parser reads for it, its LaT
 is read back from (the bridge in `editor_ast.py`). A function-like kind gives its call once and the
 linear text comes from that, so writing a template and reading it back cannot drift apart.
 
-Drawing as controls belongs to a UI (`devices/nspire/ui/entry.py`); a test checks that it draws
+Drawing as controls belongs to a UI (`app/entry_line.py`); a test checks that it draws
 every kind declared here.
 """
 

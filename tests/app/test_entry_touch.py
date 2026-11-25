@@ -5,11 +5,11 @@ from collections.abc import Callable, Iterator, Sequence
 
 import flet as ft
 
+from cassim.app.entry_line import SELECTION, EntryLine, row_height
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor, Kind
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.calculator import calculator_on
-from cassim.devices.nspire.ui.entry import SELECTION, EntryLine, row_height
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import CalculatorView
 
