@@ -76,6 +76,11 @@ cassim/
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
     pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
+    scientific/             DEVICE (SDD-14); CASSim Scientific scientific calculator: keys.py (keypad and keyboard),
+                            layouts.py (other calculators' keypads),
+                            values.py, layout.py, editor.py, parser.py (Pratt; no eval), display.py,
+                            engine.py (statistics), state.py, tutorials.py, examples.py;
+                            ui/ (FLET: app.py, render.py, skins.py; the only part that imports Flet)
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M5b, built)
   tests/  unit/  corpus/  device/  e2e/
@@ -117,7 +122,7 @@ device interface, Nspire move, all-in-one Home chooser and bundle-aware build ca
 | Device model | Key-layer, menu and screen-buffer framework | Keymap, menu tree, skin, presets (e.g. the VCE settings) |
 | Evidence | Corpus format and replay tool | `corpus/<device>/` cases captured from that device's oracle |
 
-Layout: `src/cassim/devices/nspire/`, `.../classpad/`, `.../pseudocode/`, `.../prime/` (each a plug-in, section 15), with `core/` keeping the shared parts. Today's TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) move under `devices/nspire/` in M8a, when the ClassPad shows what is shared (decision 0032 item 7, agreed 2026-11-13; M2x moved everything else); the Nspire corpus is the safety net, and the refactor is done when every Nspire case replays unchanged. The Nspire symbol and statistics conventions (SRS C-4, C-5) stay the Nspire profile's; other profiles take theirs from their own oracle.
+Layout: `src/cassim/devices/nspire/`, `.../scientific/`, `.../classpad/`, `.../pseudocode/`, `.../prime/` (each a plug-in, section 15), with `core/` keeping the shared parts. Today's TI-specific parts of `core/` (grammar tables, catalogue, error table, display conventions) move under `devices/nspire/` in M8a, when the ClassPad shows what is shared (decision 0032 item 7, agreed 2026-11-13; M2x moved everything else); the Nspire corpus is the safety net, and the refactor is done when every Nspire case replays unchanged. The Nspire symbol and statistics conventions (SRS C-4, C-5) stay the Nspire profile's; other profiles take theirs from their own oracle.
 
 **Runtime for Python and pseudocode** (`src/cassim/runtime/`). A small `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, cancel. Two implementations:
 - *Python*: CPython from Pyodide in a **dedicated worker**, separate from the CAS engine. A runaway script is cancelled by terminating its worker (as in decision 0005) without touching CAS state. The goal is no network and no host-page access for user code; how that is enforced (CSP, removing the `js` bridge, or both) is a spike before the build, and any gap that cannot be closed is documented rather than hidden.
@@ -464,7 +469,7 @@ Notes:
 
 Simon's direction, now implemented for the first two devices: `cassim-app` (stable) and
 `cassim-calc` (testing) are **all-in-one** apps that always open to a Home chooser.
-Nspire and Pseudocode & Python are enabled; ClassPad, Prime, Scientific and later devices remain
+Nspire, Pseudocode & Python and Scientific are enabled; ClassPad, Prime and later devices remain
 visible in Home when not built. Home renders before a device UI loads. Each built device can also be
 published as its own **bundle** on its own site, so someone who needs one device downloads only that
 one. The Nspire bundle's cold start is still dominated by Pyodide, SymPy and the Flet app; the
@@ -475,9 +480,10 @@ the SRS.
 
 | Device id (package `devices/<id>/`) | Bundle | Product name | Site (Cloudflare Pages project) | When |
 |---|---|---|---|---|
-| every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire and Pseudocode & Python |
+| every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire, Pseudocode & Python and Scientific |
 | `nspire` | `tin` | CASSim-TIN | `cassim-tin` | M2x |
-| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; single-device build exists, site release wiring remains |
+| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; deploys with each release (wired 2026-11-25) |
+| `scientific` | `sci` | CASSim-Sci | `cassim-sci` | SDD-14; deploys with each release (wired 2026-11-25) |
 | `classpad` | `cp` | CASSim-CP | `cassim-cp` | M8 |
 | `prime` | `prime` | CASSim-Prime | `cassim-prime` | M9, if go |
 
@@ -485,7 +491,7 @@ the SRS.
 - Single-device sites are **stable only**: they deploy on a release, like `cassim-app`. Testing happens on `cassim-calc`, which holds every device.
 - Single-device bundle icons should include a device-specific modifier (for example, TIN, CP or Pseudo) when those bundles are built, so they are distinct from the all-in-one app.
 - The help site (`cassim-wiki`) stays one site, with a section per device, and lists every site.
-- All seven Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13); a single-device site has no content until its bundle is first built.
+- All eight Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13, and cassim-sci on 2026-11-25); a single-device site has no content until its bundle is first built.
 
 ### 15.2 Architecture: pluggable modules, separable UIs
 

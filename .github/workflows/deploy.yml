@@ -1,8 +1,10 @@
 name: Deploy
-# Cloudflare Pages, three projects (PLAN.md section 14):
+# Cloudflare Pages projects (PLAN.md sections 14 and 15):
 #   cassim-calc  testing: a push to main (one per batch merge) that changes the app, or a manual run
 #   cassim-app   stable: a published GitHub release, or a manual run with target "stable"
 #   cassim-tin   the Nspire alone (bundle tin), stable only: with cassim-app (decision 0032)
+#   cassim-pseudo  Pseudocode & Python alone (bundle pseudo), stable only: with cassim-app
+#   cassim-sci   the Scientific calculator alone (bundle sci), stable only: with cassim-app
 #   cassim-wiki  help pages: a push to main that changes docs/wiki or its tool, or a manual run
 # Needs the repository secrets CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit) and
 # CLOUDFLARE_ACCOUNT_ID.
@@ -96,6 +98,18 @@ jobs:
       - if: steps.target.outputs.project == 'cassim-app'
         run: >-
           $WRANGLER pages deploy build/tin --project-name cassim-tin
+          --branch main --commit-hash ${{ github.sha }}
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: uv run python -m tools.publish --bundle pseudo --source CASSim-pseudo --dist build/pseudo
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: >-
+          $WRANGLER pages deploy build/pseudo --project-name cassim-pseudo
+          --branch main --commit-hash ${{ github.sha }}
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: uv run python -m tools.publish --bundle sci --source CASSim-Sci --dist build/sci
+      - if: steps.target.outputs.project == 'cassim-app'
+        run: >-
+          $WRANGLER pages deploy build/sci --project-name cassim-sci
           --branch main --commit-hash ${{ github.sha }}
 
   wiki:

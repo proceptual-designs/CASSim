@@ -181,6 +181,46 @@ def test_selecting_an_app_loads_only_its_ui_and_records_nothing(
     assert shell.writes == []
 
 
+def test_unset_command_line_options_still_open_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`cassim --web` passes app=None, view=None and settings=None. They are not options: Home
+    opens (it used to open the Nspire, whose start() then refused the `app` keyword)."""
+    shell = FakeShell()
+    monkeypatch.setattr("cassim.app.main.Home", FakeHome)
+    monkeypatch.setattr("cassim.app.main.devices.load", lambda _: pytest.fail("device loaded"))
+    app = Application(
+        shell.page,
+        options={"app": None, "view": None, "settings": None},
+        shell=cast(Any, shell),
+        available=("nspire", "scientific"),
+    )
+    FakeHome.started = 0
+    asyncio.run(app.start())
+    assert FakeHome.started == 1
+
+
+def test_the_app_option_chooses_the_device_but_is_not_passed_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`cassim --app scientific`: the device opens and its start() gets only view options."""
+    shell = FakeShell()
+    mounted = FakeMounted()
+    device = SimpleNamespace(id="scientific", ui="cassim.devices.scientific.ui")
+    monkeypatch.setattr("cassim.app.main.devices.load", lambda _item: device)
+    monkeypatch.setattr(
+        "cassim.app.main.import_module",
+        lambda name: SimpleNamespace(mount=lambda selected: mounted),
+    )
+    app = Application(
+        shell.page,
+        options={"app": "scientific", "view": None},
+        shell=cast(Any, shell),
+        available=("nspire", "scientific"),
+    )
+    asyncio.run(app.start())
+    assert shell.device is device
+    assert mounted.options == {}
+
+
 def test_a_direct_debug_launch_is_not_remembered(monkeypatch: pytest.MonkeyPatch) -> None:
     shell = FakeShell()
     shell.route = "/debug"
