@@ -3,10 +3,10 @@
 
 import pytest
 
+from cassim.app.entry_line import DRAWN_KINDS, EntryLine
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor
 from cassim.device.templates import Kind
-from cassim.devices.nspire.ui.entry import DRAWN_KINDS, EntryLine
 
 
 def test_every_declared_kind_has_a_drawing() -> None:

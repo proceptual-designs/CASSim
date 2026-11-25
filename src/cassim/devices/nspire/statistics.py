@@ -139,8 +139,8 @@ TESTS = (
             Field("x2", "X2 List"),
             Field("freq1", "Frequency List 1", "1"),
             Field("freq2", "Frequency List 2", "1"),
-            POOLED,
             ALTERNATIVE,
+            POOLED,
         ),
     ),
     (
@@ -176,7 +176,7 @@ TESTS = (
             Field("df", "df"),
         ),
     ),
-    ("χ² 2-Way Test", "χ²2way", "8", (Field("observed", "Observed Matrix"),)),
+    ("χ² 2-way Test", "χ²2way", "8", (Field("observed", "Observed Matrix"),)),
     (
         "2-Sample F Test",
         "FTest_2Samp",
@@ -197,7 +197,6 @@ TESTS = (
             Field("x", "X List"),
             Field("y", "Y List"),
             FREQUENCY,
-            Field("slope", "Slope", "0"),
             ALTERNATIVE,
         ),
     ),

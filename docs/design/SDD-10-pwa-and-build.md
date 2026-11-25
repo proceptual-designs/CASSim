@@ -1,6 +1,6 @@
 # SDD-10. Build, offline site and deploy
 
-Status: describes `tools/publish.py` and the CI workflow at 2026-11-16. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
+Status: describes `tools/publish.py` and the CI workflow at 2026-11-16; the bundles and the CI and deploy triggers were brought up to date on 2026-11-25. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
 
 ## Goal
 
@@ -8,11 +8,11 @@ A folder of static files that any free host can serve at the root (the default, 
 
 ## Pipeline
 
-`python -m tools.publish [--dist DIR] [--base-url CASSim] [--cdn]` (default output `build/web`) runs `build()`:
+`python -m tools.publish [--bundle all|tin|pseudo|sci] [--dist DIR] [--base-url CASSim] [--cdn]` (default output `build/web`) runs `build()`. A bundle is the shell and a list of devices (decision 0032 item 8): `all` holds every built device and Home, and each single-device bundle holds one device for its own site.
 
 | Step | What it does | Why |
 |---|---|---|
-| `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the symbols font and a generated `pyproject.toml` that names only `flet`. | `flet publish` reads a self-contained app folder. The staged `main.py` imports `cassim.app.main.main` and starts it; it never imports SymPy (0027). |
+| `stage` | Copies the `cassim` package (without `assets`) and a generated `main.py` into a temp folder (`%TEMP%/cassim_web_app`), with `src/assets` holding the app's assets (fonts, CodeMirror, the local-run icons, without the desktop window's `.ico`) and a generated `pyproject.toml` that names only `flet`. | `flet publish` reads a self-contained app folder. The staged `main.py` imports `cassim.app.main.main` and starts it; it never imports SymPy (0027). |
 | `flet publish src/main.py --distpath DIST [--base-url B] [--no-cdn]` | Flet's static web build: Flutter app, CanvasKit, Pyodide core, Python worker. | The base build (decision 0002). |
 | `patch_index` | Adds the manifest and meta tags, loading screen and browser status, install and fullscreen bridge to `index.html`. | FR-PWA-001, FR-PWA-003. |
 | `disable_unused_rive` | Disables the unused Rive initializer in Flet 1.0.5's JavaScript CanvasKit build, and fails the build if its expected version or generated code changes. | FR-PWA-002: no Rive CDN request. |
@@ -20,7 +20,7 @@ A folder of static files that any free host can serve at the root (the default, 
 | `write_app_archive` | Replaces Flet's `app.tar.gz` with one holding `main.py`, `cassim` and, under `__pypackages__`, Flet, repath and six, compiled to bytecode. | No micropip and no compiling at start-up (0027). |
 | `vendor_fallback_fonts` | Copies `tools/fallback_fonts/` into `assets/fonts/`. | Flutter fetches Noto fallback fonts for glyphs Roboto lacks; they are committed so the build needs no Google request. |
 | `write_engine_zip` | Zips `cassim` without the UI, plus SymPy and mpmath, compiled to bytecode, as `cassim.zip`. | The engine worker boots its own Pyodide and unpacks it, with no `loadPackage` (SDD-02, 0027). |
-| `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork, text set in a Noto Sans Bold subset kept in `tools/icon_font/` with its OFL licence) and writes `manifest.webmanifest`. | FR-PWA-001. |
+| `write_icons`, `write_manifest` | Draws the icons (Pillow, CASSim's own artwork, text set in a Noto Sans Bold subset kept in `tools/icon_font/` with its OFL licence) and writes `manifest.webmanifest`. `write_icons` replaces every icon file Flet's web client ships (the tab icon, the installed and maskable icons, the iOS icon and the loading image). A local run (`cassim`, `cassim --web`) draws nothing, so the plain artwork and the desktop window's `icons/cassim.ico` are committed in `src/cassim/app/assets`; `python -m tools.publish --dev-icons` redraws them after the artwork changes. | FR-PWA-001. |
 | `add_offline_cache` | Writes `version.json`, `precache.json` and a service worker with the SHA-256 of each offline asset. | FR-PWA-002. |
 
 Wheels are downloaded once into `%TEMP%/cassim_wheels`. Bytecode is written only when the build's Python has Pyodide's minor version (otherwise source ships and the browser compiles it). The build prints the file count and size; `python -m tools.loadtime [--build]` times start-up (0027). With `--cdn` the vendoring steps are skipped (Pyodide and CanvasKit then come from CDNs), and offline readiness is not offered.
@@ -71,7 +71,7 @@ disconnecting.
 
 ## Hosting requirements
 
-One build of the whole app exists today. Single-device bundles (`--bundle`, one archive per device, per-device precaching) are planned in PLAN.md section 15 and FR-PROF-008; this document is updated when they are built.
+The `all` bundle and the single-device bundles `tin`, `pseudo` and `sci` are built and deployed (`--bundle`, FR-PROF-008, PLAN.md section 15). Loading each device's files only on first use inside the `all` bundle (FR-PROF-005) is still to do.
 
 - Any static host that serves `.mjs` as `text/javascript` and `.wasm` correctly. No special headers are needed (COOP and COEP are deliberately not used, SDD-02).
 - Built with the default `--base-url ''` the site is served at the root; with `--base-url CASSim` it must be served under `/CASSim/`.
@@ -79,7 +79,7 @@ One build of the whole app exists today. Single-device bundles (`--bundle`, one 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, the traceability check, and the offline/failing-host and update browser tests. The other e2e tests are run locally. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: `main` to the testing site and the help pages, a GitHub release to the stable site (PLAN.md section 14).
+The gate is `uv run python -m tools.local_ci`, run locally before a branch merges into `main` (AGENTS.md, "Development workflow"): Ruff, Ty, pytest with coverage, the coverage floors, the traceability check and the browser tests. `.github/workflows/ci.yml` runs the same groups once per batch pull request, when it is marked ready for review, and on manual dispatch; it does not run on drafts or on pushes to `main`, and it skips the browser job for a batch that cannot affect the browser. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: a push to `main` that changes the app goes to the testing site (`cassim-calc`), one that changes `docs/wiki` to the help pages, and a GitHub release to the stable site (`cassim-app`) and the single-device sites (`cassim-tin`, `cassim-pseudo`, `cassim-sci`) (PLAN.md sections 14 and 15).
 
 ## Measured (decisions 0002, 0016 and 0027)
 

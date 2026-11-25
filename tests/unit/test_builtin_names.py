@@ -31,7 +31,7 @@ def test_the_app_imports_without_sympy() -> None:
     """The browser's UI worker never has SymPy: importing it there took 4 s on every start."""
     code = (
         "import sys, cassim.app.main, cassim.devices.nspire.ui.app\n"
-        "import cassim.devices.nspire.ui.views, cassim.devices.nspire.ui.entry\n"
+        "import cassim.devices.nspire.ui.views, cassim.app.entry_line\n"
         "heavy = sorted(m for m in sys.modules if m.split('.')[0] in ('sympy', 'mpmath', 'yaml')"
         " or m.startswith(('cassim.core.session', 'cassim.core.catalog')))\n"
         "print(heavy)\n"

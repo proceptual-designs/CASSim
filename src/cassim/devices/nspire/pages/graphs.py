@@ -11,11 +11,12 @@ from typing import TYPE_CHECKING, Any
 from cassim.core.compat.math_source import compile_math_source
 from cassim.core.values import Expr
 from cassim.device.clipboard import Clipboard
+from cassim.device.editor import EMPTY_SLOT, Row, row_latex
 from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, graph_compile_op
+from cassim.device.entry_session import EntrySession
 from cassim.device.keys import Binding
 from cassim.devices.nspire.pages import graph_analyze, graph_tools
-from cassim.devices.nspire.pages.calculator import Calculator
 from cassim.doc.document import PageType
 from cassim.graph.sampling import (
     CompiledFunction,
@@ -27,7 +28,7 @@ from cassim.graph.sampling import (
 from cassim.graph.scene import Align, Dots, Label, Layer, Scene, Segments, Stroke
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from cassim.core.session import Session
     from cassim.doc.document import Page, Problem
@@ -80,6 +81,59 @@ def graph_definition(expression: str) -> str:
     return f"when({condition},{value})"
 
 
+def label_latex(root: Row, is_defined: Callable[[str], bool]) -> str:
+    """A function's label as the device draws it (emulator run 6, R6-A9): a restriction as a
+    one-row brace, `f9(x)={x², x>0`, and a piecewise template's empty last condition as
+    `Else`, `f10(x)={x+1, x<0 ; x², Else`."""
+    if "|" in root:
+        bar = len(root) - 1 - root[::-1].index("|")
+        condition = _trimmed(root[bar + 1 :])
+        if bar > 0 and any(node in _RELATIONS for node in condition):
+            value = row_latex(_trimmed(root[:bar]), is_defined)
+            return rf"\begin{{cases}}{value}, & {row_latex(condition, is_defined)}\end{{cases}}"
+    shown = row_latex(root, is_defined)
+    return shown.replace(rf", & {EMPTY_SLOT}\end{{cases}}", r", & \mathrm{Else}\end{cases}")
+
+
+AXIS_REACH = 6.0  # pixels from an axis at which a drag takes the axis, not the plane
+_AXIS_ORIGIN_GAP = 10.0  # pixels round the origin where a drag stays a pan
+
+
+def axis_grabbed(origin: tuple[float, float], start: tuple[float, float]) -> str | None:
+    """Which axis a drag starting at `start` takes: "x" on the x axis, "y" on the y axis,
+    None for the plane (a pan). Near the origin the distance to it means nothing, so a pan."""
+    dx, dy = start[0] - origin[0], start[1] - origin[1]
+    if abs(dy) <= AXIS_REACH and abs(dx) > _AXIS_ORIGIN_GAP:
+        return "x"
+    if abs(dx) <= AXIS_REACH and abs(dy) > _AXIS_ORIGIN_GAP:
+        return "y"
+    return None
+
+
+def axis_drag_factor(
+    axis: str, origin: tuple[float, float], before: tuple[float, float], after: tuple[float, float]
+) -> float:
+    """The zoom an axis drag makes about the origin, on both axes at once: the distance from the
+    origin before over the distance after. Dragging a tick away from the origin zooms in, toward
+    it zooms out (emulator run 6, R6-A1, Handheld view: x 50 px out took -10..10 to -4.18..4.18
+    and y with it). A drag across the origin does nothing."""
+    index = 0 if axis == "x" else 1
+    old, new = before[index] - origin[index], after[index] - origin[index]
+    if old == 0 or new == 0 or (old > 0) != (new > 0):
+        return 1.0
+    return old / new
+
+
+def _trimmed(row: Row) -> Row:
+    """A row without spaces at its ends."""
+    start, end = 0, len(row)
+    while start < end and row[start] == " ":
+        start += 1
+    while end > start and row[end - 1] == " ":
+        end -= 1
+    return row[start:end]
+
+
 class GridStyle(StrEnum):
     NONE = "none"
     DOT = "dot"
@@ -89,7 +143,7 @@ class GridStyle(StrEnum):
 @dataclass
 class FunctionEntry:
     name: str
-    editing: Calculator = field(repr=False)
+    editing: EntrySession = field(repr=False)  # no `Ans` in front of an operator typed first
     expression: str = ""
     latex: str = ""
     visible: bool = True
@@ -130,7 +184,7 @@ class Graphs:
         return self._viewport_width, self._viewport_height
 
     def _entry(self, name: str) -> FunctionEntry:
-        return FunctionEntry(name, Calculator(self.session, self.clipboard))
+        return FunctionEntry(name, EntrySession(self.clipboard))
 
     def _next_function_name(self, reserved: tuple[str, ...]) -> str:
         numbers = [
@@ -192,7 +246,7 @@ class Graphs:
             entry.error = "Enter an expression for the function."
             return
         entry.expression = expression
-        entry.latex = editor.latex(cursor=False, is_defined=self.session.is_defined)
+        entry.latex = label_latex(editor.root, self.session.is_defined)
         entry.error = ""
         entry.compiled = None
         entry.source = None
@@ -295,6 +349,15 @@ class Graphs:
 
     def zoom(self, factor: float) -> None:
         self.gesture(0, 0, factor, self._viewport_width / 2, self._viewport_height / 2)
+
+    def keep_trace_point(self) -> None:
+        """Enter during a trace leaves the traced point on the page with its coordinates; it
+        stays after Esc and moves with the function (emulator run 6, R6-A3)."""
+        state = self.tools
+        if state.trace_x is None or not 0 <= state.trace_index < len(self.functions):
+            return
+        name = self.functions[state.trace_index].name
+        self.objects.append(graph_analyze.AnalysisObject("point", (name,), (state.trace_x,)))
 
     def gesture(self, dx: float, dy: float, factor: float, x: float, y: float) -> None:
         """Pan in screen pixels and zoom around a screen-space focal point."""

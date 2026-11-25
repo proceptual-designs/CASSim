@@ -52,6 +52,9 @@ class DummyShell:
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
 
+    def write(self, key: str, text: str) -> None:
+        """Storage is not kept here (StoringShell keeps it)."""
+
 
 def typed(app: CodeApp, text: str, selection_end: int | None) -> SimpleNamespace:
     """Send the fallback editor a change, with the selection Python last heard about, and
@@ -826,3 +829,82 @@ def test_a_condition_inside_a_function_is_not_a_main_table_column() -> None:
     assert app.condition_labels() == ()
     _, columns, _ = app.update_vertical_trace()
     assert not [key for key, _, _ in columns if key.startswith("condition:")]
+
+
+class StoringShell(DummyShell):
+    """A shell with storage, a file picker and dialogs, for Open, Save, Import and Export."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stored: dict[str, str] = {}
+        self.downloads: list[tuple[str, str]] = []
+        self.picked: str | None = None
+        self.dialogs: list[Any] = []
+        self.tasks: list[Any] = []
+        self.page = SimpleNamespace(
+            width=1000,
+            show_dialog=self.dialogs.append,
+            pop_dialog=lambda: self.dialogs.pop() if self.dialogs else None,
+            run_task=lambda handler, *args: self.tasks.append(handler(*args)),
+        )
+
+    async def read(self, key: str) -> str | None:
+        return self.stored.get(key)
+
+    def write(self, key: str, text: str) -> None:
+        self.stored[key] = text
+
+    def remove(self, key: str) -> None:
+        self.stored.pop(key, None)
+
+    def confirm(self, title: str, message: str, action: str, accept) -> None:
+        asyncio.run(accept())
+
+    async def save_file(self, name: str, text: str, title: str = "") -> None:
+        self.downloads.append((name, text))
+
+    async def pick_file(self, extensions: tuple[str, ...], title: str = "") -> str | None:
+        return self.picked
+
+    def run_tasks(self) -> None:
+        tasks, self.tasks = self.tasks, []
+        for task in tasks:
+            asyncio.run(task)
+
+
+def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None:
+    """FR-EDT-002, FR-EDT-003, FR-DOC-010 (decision 0033): Save and Open keep programs by name
+    in the app's storage with their language; only Import and Export touch a file."""
+    shell = StoringShell()
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    labels = [str(getattr(item, "content", "")) for item in app.doc_menu.controls]
+    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    app.saved.fresh()
+    app.set_source("x ← 1\nprint x\n")
+    assert app.saved.dirty()
+
+    app.saved.save()  # never saved: asks for a name
+    dialog = shell.dialogs[-1]
+    dialog.content.controls[1].value = "First steps"
+    dialog.actions[0].on_click(None)
+    shell.run_tasks()
+    assert not shell.downloads  # nothing was downloaded
+    assert '"language": "pseudocode"' in shell.stored["doc:First steps"]
+    assert shell.notices[-1][0] == "Saved"
+    assert not app.saved.dirty()
+
+    app.set_source("y ← 2\n")
+    app.saved.open()  # the list of saved programs; the open one has changes, so it asks first
+    shell.dialogs[-1].content.controls[0].on_click(None)
+    shell.run_tasks()
+    assert app.source() == "x ← 1\nprint x\n"
+    assert app.saved.name == "First steps"
+
+    asyncio.run(app.export_file())
+    assert shell.downloads[-1] == ("First steps.pseudo.txt", "x ← 1\nprint x\n")
+
+    shell.picked = "z ← 3\n"
+    app.import_file()
+    shell.run_tasks()
+    assert app.source() == "z ← 3\n"
+    assert app.saved.current.stored is None  # an imported file is saved nowhere here yet

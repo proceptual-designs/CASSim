@@ -1,6 +1,6 @@
 # SDD-14. Scientific Calculator (CASSim Scientific)
 
-Status: Design and functional requirements for CASSim Scientific, a natural-display scientific calculator of the class used in Australian schools (fx-82AU PLUS II / fx-100AU PLUS / Abacus SX-II MATRIXn). Built in `src/cassim/devices/scientific/` (device id `scientific`, bundle and site `fx`). Section 8 records what is built and what is not.
+Status: Design for CASSim Scientific, a natural-display scientific calculator of the class used in Australian schools (fx-82AU PLUS II / fx-100AU PLUS / Abacus SX-II MATRIXn). Requirements: FR-FX-MOD, -CFG, -DSP, -MEM, -FNC, -STA, -TUT, -SHR and -UI in SRS section 4.12 (section 3 maps them to this document). Built in `src/cassim/devices/scientific/` (device id `scientific`, bundle `sci`, site `cassim-sci`; `fx` in file names and requirement IDs is the working name it started with). Section 8 records what is built and what is not.
 Author: CASSim Team (Simon Tyler).
 Conventions: Clean room boundary (decision 0028, NFR-LEG-008, NFR-LEG-009). Pure Python core, headless device state, Flet UI rendering, Pyodide offline execution. Numbered SDD-14 because SRS appendix A reserves SDD-12 for device profiles (first written as SDD-12, renamed 2026-11-25).
 
@@ -37,108 +37,20 @@ Behaviour that has not been checked against a real device is marked as such in s
 
 ---
 
-## 3. Functional Requirements (FRs)
+## 3. Requirements
 
-Priority follows MoSCoW: **M** (Must), **S** (Should), **C** (Could), **W** (Won't for initial release).
-Verification: **T** (Unit/Corpus Test), **E** (Playwright E2E), **I** (Inspection), **D** (Demonstration).
-The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceability.md`.
+The requirements are in `docs/SRS.md` section 4.12 ("CASSim Scientific") and nowhere else, so the two documents cannot drift apart; `docs/traceability.md` traces them to tests. This document designs for them:
 
-### 3.1 Operating Modes & System Configuration
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-MOD-001** | Support `COMP` mode (Mode 1) for general arithmetic, functions, fraction simplification, and trigonometry. | M | T, E |
-| **FR-FX-MOD-002** | Support `STAT` mode (Mode 2) with 1-variable (`1: 1-VAR`) and 2-variable regression options (`2: A+BX`, `3: _+CX^2`, `4: ln X`, `5: e^X`, `6: A*B^X`, `7: A*X^B`, `8: 1/X`). | M | T, E |
-| **FR-FX-MOD-003** | Support `TABLE` mode (Mode 3) for generating a table of values for $f(x)$ given Start, End, and Step parameters. | M | T, E |
-| **FR-FX-MOD-004** | Support `VERIFY` mode (Mode 4 / fx-82AU submode) evaluating relational equality/inequality expressions to `TRUE` or `FALSE`. | S | T, E |
-| **FR-FX-MOD-005** | (fx-100 extension) Support `CMPLX` mode (Complex numbers $a+bi$ and $r\angle\theta$) and `VECTOR` mode (2D/3D vectors). | C | T |
-| **FR-FX-CFG-001** | Support Setup selection of display format: `MthIO` (MathO natural output or LineO linear output) vs `LineIO`. | M | T, E |
-| **FR-FX-CFG-002** | Support Angle unit configuration: Degrees (`Deg`), Radians (`Rad`), Gradians (`Gra`). Active unit indicated on screen annunciator. | M | T, E |
-| **FR-FX-CFG-003** | Support Numerical display rounding modes: `Norm 1` / `Norm 2` (exponential threshold), `Fix 0..9` (fixed decimal places), `Sci 0..9` (scientific significant figures). | M | T, E |
-| **FR-FX-CFG-004** | Support Fraction result format: Mixed number $a\frac{b}{c}$ vs Improper fraction $\frac{d}{c}$. | M | T, E |
-| **FR-FX-CFG-005** | Support `STAT` frequency table toggle in Setup (`Shift+MODE` $\to$ `▼` $\to$ `STAT` $\to$ `1: ON`, `2: OFF`). | M | T, E |
-| **FR-FX-CFG-006** | Support Initialisation/Reset via `Shift+9 (CLR)` with options: `1: Setup`, `2: Memory`, `3: All`. Reset restores factory defaults and clears memories. | M | T, E |
-
-### 3.2 Display & Mathematical Input (Natural Display / MthIO)
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-DSP-001** | Screen simulates a two-line LCD: a natural-display input line and an answer line, with the whole calculator scaled to fit the window. | M | E, D |
-| **FR-FX-DSP-002** | Render top annunciator status icons: `S` (Shift), `A` (Alpha), `M` (Independent memory active), `STO` (Store), `RCL` (Recall), `STAT` (Stat mode), `D`/`R`/`G` (Angle unit), `FIX` (Fixed d.p.), `SCI` (Scientific), `Math` (MthIO active), `▲▼` (Replay history available). | M | E, I |
-| **FR-FX-DSP-003** | Natural input editing: fractions $\frac{\Box}{\Box}$, mixed numbers $\Box\frac{\Box}{\Box}$, square root $\sqrt{\Box}$, cube root $\sqrt[3]{\Box}$, $n$-th root $\sqrt[\Box]{\Box}$, power $x^\Box$, absolute value $\|\Box\|$, logarithmic with base $\log_{\Box}(\Box)$. | M | T, E |
-| **FR-FX-DSP-004** | 4-way D-pad navigation: cursor movement through slots and nested templates, history navigation (`▲`/`▼`), and multi-statement browsing. | M | T, E |
-| **FR-FX-DSP-005** | `S⇔D` button toggles result between exact symbolic form (surd, $\pi$-multiple, exact fraction) and decimal representation. | M | T, E |
-| **FR-FX-DSP-006** | `Shift + S⇔D` toggles between mixed number ($a\frac{b}{c}$) and improper fraction ($\frac{d}{c}$). | M | T, E |
-| **FR-FX-DSP-007** | `ENG` key adjusts decimal exponent down by 3 ($10^{-3}, 10^{-6}$); `Shift + ENG` ($\leftarrow$) adjusts exponent up by 3 ($10^3, 10^6$). | M | T |
-| **FR-FX-DSP-008** | DMS key (`° ' "`) inputs sexagesimal angles and converts decimal degrees to degrees, minutes, and seconds on result. | M | T |
-| **FR-FX-DSP-009** | `Shift + ° ' "` (`FACT`) performs prime factorisation of integer results (e.g. $1050 \to 2 \times 3 \times 5^2 \times 7$). | M | T |
-
-### 3.3 Memory Registers
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-MEM-001** | Automatic `Ans` register stores the result of the last completed calculation and updates on `=`. | M | T |
-| **FR-FX-MEM-002** | 9 variable registers: `A, B, C, D, E, F, M, X, Y`. Stored via `Shift+RCL (STO)` + variable key; recalled via `RCL` + key or typed via `ALPHA` + key in expressions. | M | T |
-| **FR-FX-MEM-003** | Independent memory `M`: `M+` adds current value to $M$; `Shift+M+ (M-)` subtracts current value from $M$. Annunciator `M` lights when $M \ne 0$. | M | T |
-| **FR-FX-MEM-004** | (fx-100 extension) `PreAns` memory holds the second-to-last answer for recurrence relations. | C | T |
-
-### 3.4 Scientific & Syllabus Mathematical Functions
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-FNC-001** | Standard trigonometry: $\sin, \cos, \tan$ and inverses $\sin^{-1}, \cos^{-1}, \tan^{-1}$ respecting active angle unit (`Deg`, `Rad`, `Gra`). | M | T |
-| **FR-FX-FNC-002** | Hyperbolic functions via `hyp`: $\sinh, \cosh, \tanh, \sinh^{-1}, \cosh^{-1}, \tanh^{-1}$. | M | T |
-| **FR-FX-FNC-003** | Powers and roots: $x^2, x^3, x^{-1}, x^y, \sqrt{\Box}, \sqrt[3]{\Box}, \sqrt[y]{x}$. | M | T |
-| **FR-FX-FNC-004** | Logarithms and exponentials: natural $\ln, e^x$, common $\log, 10^x$, and arbitrary base $\log_a(b)$. | M | T |
-| **FR-FX-FNC-005** | Combinatorics & Probability: Permutations $n\text{Pr}$, Combinations $n\text{Cr}$, Factorial $n!$, Random decimal $\text{Ran\#} \in [0, 1)$, Random integer $\text{RanInt\#}(a, b) \in [a, b]$. | M | T |
-| **FR-FX-FNC-006** | Coordinate conversions: $\text{Pol}(x, y)$ returns $(r, \theta)$ with $r$ in $X$ and $\theta$ in $Y$; $\text{Rec}(r, \theta)$ returns $(x, y)$. | M | T |
-| **FR-FX-FNC-007** | Number theory: $\text{GCD}(a, b)$ (Greatest Common Divisor) and $\text{LCM}(a, b)$ (Least Common Multiple). | M | T |
-| **FR-FX-FNC-008** | Percent calculations (`%`): basic percent, percentage increase, percentage decrease. | M | T |
-| **FR-FX-FNC-009** | Rounding function `Rnd(x)`: rounds argument to current display precision (`Fix` or `Sci`). | M | T |
-
-### 3.5 Australian School Statistics Engine
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-STA-001** | Data entry grid: 1-VAR single column (or two-column with FREQ enabled); 2-VAR bivariate two-column (X, Y) (or three-column with FREQ). | M | T, E |
-| **FR-FX-STA-002** | Single-variable summary statistics: $n, \bar{x}, \sum x, \sum x^2, s_x, \sigma_x$. | M | T |
-| **FR-FX-STA-003** | 5-number summary: $\min X, Q_1, \text{med}, Q_3, \max X$. Quartiles strictly computed using TI/Australian school median-split convention (median excluded when $n$ is odd). | M | T |
-| **FR-FX-STA-004** | Bivariate linear regression: $y = A + Bx$, calculating $A$ (intercept), $B$ (gradient), Pearson's correlation coefficient $r$. | M | T |
-| **FR-FX-STA-005** | Regression estimation: predicting $\hat{x}$ for given $y$, and $\hat{y}$ for given $x$. | M | T |
-| **FR-FX-STA-006** | Statistical variables menu (`Shift+1 (STAT)`): `1: Type`, `2: Data`, `3: Sum`, `4: Var`, `5: MinMax`, `6: Reg` (Reg for two-variable types only). | M | T, E |
-
-### 3.6 Interactive User-Driven Tutorial Engine
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-TUT-001** | **User-Driven Execution**: The tutorial does not lock the keypad or advance on an automatic timer. The user must press the highlighted key or enter the required input on the keypad (or the computer keyboard) to progress. | M | E, D |
-| **FR-FX-TUT-002** | **Spotlight & Hinting**: The target key is outlined with a calm accent glow. When a multi-key sequence is required (e.g. `Shift` then `MODE`), the immediate next key is highlighted. | M | E, D |
-| **FR-FX-TUT-003** | **Validation & Error Correction**: If the student presses an incorrect key, the system gives an immediate non-punitive hint naming the right key, and the wrong key does not change the calculator. | M | E, D |
-| **FR-FX-TUT-004** | **Step-by-Step Explanation**: Each step shows the key to press, the reason for it, and what the screen should then show (computed by running the lesson, never written by hand). | M | E, I |
-| **FR-FX-TUT-005** | **Three Instructional Modes**: <br>1. *Guide Me (Interactive)*: Step-by-step user-driven execution with key highlights.<br>2. *Show Me (Demonstration)*: Automated playback at 0.5×–2× for a stuck student or a whiteboard.<br>3. *Test Me (Challenge)*: Practical problem prompt with key highlights disabled; verifies the student's final screen and result. | M | E, D |
-| **FR-FX-TUT-006** | **Offline & Private**: Tutorials and student progress run 100% locally in browser storage without network calls or telemetry. | M | T |
-
-### 3.7 Browser Persistence & URL State Sharing
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-SHR-001** | **Automatic Browser Persistence**: Calculator state is saved to browser storage (the shell's storage, under the device prefix `scientific.`) shortly after each key press. On reload the mode, settings, variables, STAT data, table and recent history are restored. A tutorial never overwrites the student's own saved work. | M | T, E |
-| **FR-FX-SHR-002** | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim Scientific by its `device`. | M | T, E |
-| **FR-FX-SHR-003** | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. A link holds key names and numbers only; nothing in it is executed. | M | I, T |
-| **FR-FX-SHR-004** | **Compact Link Budget**: A typical calculator link is 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`); history is left out of links and default settings are omitted. | M | T |
-| **FR-FX-SHR-005** | **Teacher Pre-Populated Problem Sets**: Teachers can share a single link that pre-loads a data set (e.g. a 25-row bivariate table) or a TABLE-mode function, so students begin solving immediately. | S | D, E |
-| **FR-FX-SHR-006** | **Named State Snapshots**: Users can save and open named `.cassim.json` files (Doc ▸ Save, Save as, Open), the one CASSim file format (FR-DOC-006). | S | T, E |
-
-### 3.8 Shell integration and keyboard (added 2026-11-25)
-
-| ID | Description | MoSCoW | Verif |
-|---|---|---|---|
-| **FR-FX-UI-001** | **Top bar**: the CASSim and Doc menus of every CASSim app (section 5.1) and status chips for the mode, angle unit and input mode, readable in every theme. Clicking a chip opens MODE, changes the angle unit, or switches MthIO/LineIO. | M | T, E |
-| **FR-FX-UI-002** | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
-| **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
-| **FR-FX-UI-004** | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
-| **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
-| **FR-FX-UI-006** | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T, E |
+| IDs | Area | Designed in |
+|---|---|---|
+| FR-FX-MOD-001 to 005, FR-FX-CFG-001 to 006 | Modes (COMP, STAT, TABLE, VERIFY; CMPLX and VECTOR later), SETUP and CLR | sections 4.2, 6 and 8 |
+| FR-FX-DSP-001 to 009 | The two-line display, annunciators, natural input, S⇔D, ENG, DMS, FACT | sections 4, 5 and 6 |
+| FR-FX-MEM-001 to 004 | Ans, the nine variables, M+ and M−, PreAns | sections 4 and 8 |
+| FR-FX-FNC-001 to 009 | Functions: trigonometry, hyperbolics, powers, logarithms, nPr and nCr, Pol and Rec, GCD and LCM, %, Rnd | section 4 |
+| FR-FX-STA-001 to 006 | Statistics: data entry, summaries, school quartiles, regression, the STAT menu | sections 4.2 and 6 |
+| FR-FX-TUT-001 to 006 | Tutorials: Guide me, Show me, Test me | sections 5.1 and 7 |
+| FR-FX-SHR-001 to 006 | Autosave, share links and files | section 6 |
+| FR-FX-UI-001 to 007 | Top bar, presentation mode, tutorial panel, computer keyboard, calculator layouts, phones | sections 4.1, 4.2 and 5.1 |
 
 ---
 
@@ -208,6 +120,7 @@ Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, 
 | d, D | ° ' " and FACT |
 | m, M | M+ and M− |
 | p, e, a, x, y | π, e, Ans, X, Y |
+| o | ON: switches the calculator on after SHIFT AC (OFF); the EL-531's ON/C does too |
 | < > | relations |
 | Ctrl+C | copy the answer |
 
@@ -221,7 +134,7 @@ A layout is data: rows of keys, each with its face, its legends and, for each la
 
 Each layout names a **dialect**, the way the device state runs its menus (`state.py`):
 
-- `casio` (fx-82): as sections 3 and 4.1. The two-variable STAT menu is 1 Type, 2 Data, 3 Sum, 4 Var, 5 Reg, 6 MinMax (corrected 2026-11-25; Reg was 6).
+- `casio` (fx-82): as the SRS rows (FR-FX-MOD, -CFG, -STA) and section 4.1 describe. The two-variable STAT menu is 1 Type, 2 Data, 3 Sum, 4 Var, 5 Reg, 6 MinMax (corrected 2026-11-25; Reg was 6).
 - `sx2` (SX-II): as `casio`, but HYP opens a menu (1 sinh … 6 tanh⁻¹), the VERIFY menu is = ≠ > < ≥ ≤, and Norm 2 is the default.
 - `ms` (the fx-82MS family the HP 10s follows): MODE shows COMP, SD, REG, and MODE again shows Deg/Rad/Gra, then Fix/Sci/Norm, then Disp (a b/c or d/c). SHIFT MODE is CLR: 1 Scl (in SD/REG) or Mcl, 2 Mode, 3 All, then =. SD and REG take data on the calculation screen: x DT, x ; f DT, x , y DT, and DT alone repeats the last entry. SHIFT 1 (S-SUM) and SHIFT 2 (S-VAR) are menus of pages turned with ◀ ▶ (S-VAR: x̄, xσn, xσn-1; ȳ, yσn, yσn-1; A, B, r; x̂, ŷ). % works out the whole entry: A × B % is B% of A, and + or − straight after adds it on or takes it off; A ÷ B %, A + B % and A − B % are the ratio, the total and the change as a percentage of B. a b/c types a fraction mark (2⌟3, 1⌟2⌟3) and, after an answer, switches between a fraction and a decimal. Defaults: LineIO, Norm 2, mixed numbers.
 - `sharp` (EL-531): MODE 0 is NORMAL and MODE 1 n is STAT (0 SD, 1 LINE, 2 QUAD, 3 EXP, 4 LOG, 5 PWR, 6 INV), with data typed as x DATA, x (x,y) f DATA or x (x,y) y DATA; RCL and a statistics key shows its value. SET UP 0 n sets FIX, SCI, ENG, NORM1, NORM2 and SET UP 1 n sets TAB. DRG cycles the angle unit and 2ndF DRG▸ converts the answer into the next unit. 2ndF % works out the entry (125 + 10 % is 137.5). a b/c as for `ms`. 2ndF CA clears the answer and the statistics; 2ndF M-CLR offers 0 (memories) and 1 (reset, then =). Defaults: LineIO, mixed numbers.
@@ -259,10 +172,10 @@ The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 des
 
 1. **Top bar (FR-FX-UI-001)**:
    - **CASSim menu**: Home, Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…, Check for updates, Help (wiki)…, About CASSim….
-   - **Doc menu**: Open…, Save, Save as…, Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
+   - **Doc menu**: Open…, Save, Save as… (calculations kept by name in the app's storage: `cassim.app.saved`, decision 0033), Import file…, Export file… (`.cassim.json`), Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
    - **Status chips**: mode, angle unit, input mode; clickable.
 2. **Presentation mode (FR-FX-UI-002)**: the full-screen button hides the bar; a floating button or Esc restores it.
-3. **Tutorial panel (FR-FX-UI-003)**: lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
+3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Show/Hide tutorials; lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
 
 ---
 
@@ -307,8 +220,10 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | Multi-statement `:` | Not built. |
 | PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it: none of the four calculators' manuals shows a PreAns key. |
 | Tutorials | Twelve lessons on the fx-82 keys (eleven on the SX-II), and lessons written in the HP 10s's and EL-531's own keys; Guide, Show and Test modes; progress kept in browser storage per calculator. |
-| Files, links, autosave | Built; links and files use the CASSim document envelope. |
-| Keyboard | Built (section 4.1). |
-| Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the makers' keypad pictures. Checked in Chrome on 2026-11-25. |
+| Files, links, autosave | Built; links and files use the CASSim document envelope. Open, Save and Save as keep calculations by name in the app's storage and files are Import and Export, as in every CASSim app (changed 2026-11-25; they used to download and pick files). |
+| Keyboard | Built (section 4.1). `o` is ON, so the calculator can be switched on again from the keyboard. |
+| Phones (FR-FX-UI-007) | Built 2026-11-25: the calculator fills a phone's width and its keys stretch to its height (scale down to 0.4 on a landscape phone); tutorials start hidden; dialogs size to the window; Avoid cutout in the installed app. Simulated phone tests (`test_scientific_ui.py`: 360 × 640, 390 × 844, 412 × 915 and 844 × 390) check that the calculator and every dialog fit. Flet draws to a canvas, so the browser tests cannot see overflow; these layout tests stand in for them. |
+| Drawing (`ui/render.py`) | √ and its vinculum are one stroke sized to the argument (a √ character and a separate line did not meet). A mixed-number answer's fraction follows its whole part directly, as in the typed entry (it had a whole character's space). |
+| Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the keypad pictures in the makers' manuals (`references/`; no screenshots are kept, see `docs/design/reference/scientific/README.md`). Checked in Chrome on 2026-11-25. |
 | Browser (E) verification | Checked by hand in Chrome on 2026-11-25 (layout at 1366 × 650 and 1920 × 935, keyboard input, natural display, Guide and Show modes, themes). No Playwright test yet. |
 | Device verification | None of the behaviour has been compared with a physical calculator. The emulator check (`docs/testing/emulator-scientific-capture.md`) covers the fx-82AU PLUS II and SX-II: Norm thresholds, the default output, ENG on whole numbers, mixed-number display, the clearing of STAT data on leaving STAT mode and the keypad legends. The HP 10s and EL-531 sequences come from their manuals only. |

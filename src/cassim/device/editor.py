@@ -22,7 +22,18 @@ from cassim.core.parser import COMMANDS
 from cassim.device.accents import next_accent
 from cassim.device.templates import GRIDS, SPECS, WALKED, Kind
 
-__all__ = ["GRIDS", "MARK", "WALKED", "Editor", "Kind", "Node", "Row", "Template"]
+__all__ = [
+    "EMPTY_SLOT",
+    "GRIDS",
+    "MARK",
+    "WALKED",
+    "Editor",
+    "Kind",
+    "Node",
+    "Row",
+    "Template",
+    "row_latex",
+]
 
 MARK = "▮"  # in text for `insert_linear`: where to leave the cursor
 
@@ -33,7 +44,8 @@ type Node = str | Template
 _TERM_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZπⅇⅈ_")
 # What the fraction template takes as its numerator: terms and products, not sums (0017).
 _NUMERATOR_CHARS = _TERM_CHARS | {"*"}
-# An operator typed first on an empty line is applied to the last answer, as on the handheld.
+# An operator typed first on an empty line is applied to the last answer, as on the handheld
+# (when the editor's `ans_prefix` is on).
 _ANS_OPERATORS = frozenset("+-*/^")
 
 
@@ -57,7 +69,10 @@ class Template:
 class Editor:
     """One entry line being edited."""
 
-    def __init__(self, text: str = "") -> None:
+    def __init__(self, text: str = "", *, ans_prefix: bool = False) -> None:
+        # An operator typed first on an empty line gets `Ans` in front (the Calculator's entry
+        # line only: a graph or a cell entry line does not do it). See `device.entry_session`.
+        self.ans_prefix = ans_prefix
         self.root: Row = []
         self.path: list[tuple[int, int]] = []
         self.pos = 0
@@ -127,6 +142,15 @@ class Editor:
         or a run of term characters) and `√(…)` is a root, so `x^2+1` is x² + 1, not x^(2+1).
         `mark`, if given, is a character in `text` where the cursor is left."""
         self._unselect(replace=True)
+        if not mark and not self.in_string and any(char in text for char in "^√"):
+            from cassim.device.editor_ast import pasted_row  # noqa: PLC0415 (it imports this module)
+
+            nodes = pasted_row(text)
+            if nodes is not None:
+                row = self.row()
+                row[self.pos : self.pos] = nodes
+                self.pos += len(nodes)
+                return
         spot = self._paste_linear(text, mark)
         if spot is not None:
             self.path, self.pos = spot
@@ -163,7 +187,7 @@ class Editor:
         if char == "," and not quoted and self.path and self._parent().kind is Kind.LIST:
             self._split_list_cell()
             return
-        if char in _ANS_OPERATORS and not self.root:
+        if self.ans_prefix and char in _ANS_OPERATORS and not self.root:
             self.root.extend("Ans")
             self.pos = 3
         if char == "^" and not quoted:
@@ -702,10 +726,11 @@ class Editor:
         selected (run 5, H3 k). A drop inside the selection, or in another row, changes nothing."""
         if self.anchor is None or list(path) != self.path:
             return
+        row = self.row()
+        pos = max(0, min(pos, len(row)))  # a stale drop target never leaves the row
         low, high = self.span
         if low <= pos <= high:
             return
-        row = self.row()
         moved = row[low:high]
         del row[low:high]
         at = pos - len(moved) if pos > high else pos
@@ -793,6 +818,11 @@ class Editor:
         names are upright and names `is_defined` accepts are bold (`name_styles`)."""
         place = (self.path, self.pos, self.span) if cursor else None
         return _latex(self.root, place, [], is_defined)
+
+
+def row_latex(row: Row, is_defined: Callable[[str], bool] = lambda _: False) -> str:
+    """LaTeX for a row with no cursor; an empty slot is `EMPTY_SLOT`."""
+    return _latex(row, None, [], is_defined)
 
 
 _CLOSERS = {"(": ")", "[": "]", "{": "}"}
@@ -942,6 +972,27 @@ def estimated_width(row: Row) -> float:
     return sum(_node_width(node) for node in row)
 
 
+def cursor_offset(editor: Editor) -> float:
+    """How far the cursor is from the left of the line's drawing, in ems (an estimate, as
+    `estimated_width` is): what a long line scrolls by to keep its cursor in view."""
+    return _offset(editor.root, editor.path, editor.pos)
+
+
+def _offset(row: Row, path: Sequence[tuple[int, int]], pos: int) -> float:
+    if not path:
+        return estimated_width(row[:pos])
+    index, slot = path[0]
+    node = _template(row[index])
+    inner = _offset(node.slots[slot], path[1:], pos)
+    if node.kind in (Kind.FRACTION, Kind.POWER):
+        lead = _SCRIPT * inner
+    elif node.kind is Kind.ROOT:
+        lead = 0.83 + inner
+    else:  # about: the slots before this one, then the place in it
+        lead = 0.5 + sum(estimated_width(s) or 0.6 for s in node.slots[:slot]) + inner
+    return estimated_width(row[:index]) + min(lead, _node_width(node))
+
+
 _WIDE = {**dict.fromkeys("+-−", 1.22), **dict.fromkeys("=<>≤≥≠", 1.33), "*": 0.72, " ": 0.25}
 _NARROW = {**dict.fromkeys(".,:;'!|", 0.28), **dict.fromkeys("()[]{}", 0.39)}
 _SCRIPT = 0.7  # a fraction's parts and an exponent, set at script size
@@ -991,9 +1042,11 @@ def _unit(path: list[tuple[int, int]], pos: int, shared: int) -> tuple[int, int]
 
 
 def _operand(text: str, start: int, *, root: bool) -> tuple[str, int]:
-    """The operand of a `^` or `√` at `start`, and the index after it. A bracketed group loses its
-    brackets; otherwise a sign and a run of term characters (a root without brackets takes the
-    same run)."""
+    """The operand of a `^` or `√` at `start`, and the index after it, as the parser reads it. A
+    bracketed group loses its brackets. Otherwise an exponent is a sign, then one number (`x^2x`
+    is x²·x) or one name, then any postfix signs (`!`) and a further `^` with its own operand
+    (`2^-x^2` is 2 to the −x², not (2^−x)²). A root without brackets takes a run of term
+    characters."""
     if start < len(text) and text[start] == "(":
         depth = 0
         for end in range(start, len(text)):
@@ -1001,10 +1054,27 @@ def _operand(text: str, start: int, *, root: bool) -> tuple[str, int]:
             if depth == 0:
                 return text[start + 1 : end], end + 1
         return text[start + 1 :], len(text)  # unbalanced: the rest
-    end = start + (not root and start < len(text) and text[start] == "-")
-    while end < len(text) and text[end] in _TERM_CHARS:
+    if root:
+        end = start
+        while end < len(text) and text[end] in _TERM_CHARS:
+            end += 1
+        return text[start:end], end
+    end = start + (start < len(text) and text[start] == "-")
+    number = _NUMBER.match(text, end)
+    if number is not None:
+        end = number.end()
+    else:
+        while end < len(text) and text[end] in _TERM_CHARS:
+            end += 1
+    while end < len(text) and text[end] in _POSTFIX_SIGNS:
         end += 1
+    if end > start and end < len(text) and text[end] == "^":
+        _, end = _operand(text, end + 1, root=False)  # right-associative: it is in this exponent
     return text[start:end], end
+
+
+_NUMBER = re.compile(r"(\d+\.?\d*|\.\d+)(ᴇ-?\d+)?")
+_POSTFIX_SIGNS = frozenset("!°ʳᵍᵀ'")
 
 
 def _template(node: Node) -> Template:
@@ -1056,6 +1126,7 @@ def _linear(row: Row) -> str:
 _CURSOR = r"{\color{#4da3ff}\rule[-0.15em]{0.06em}{0.8em}}"
 _CURSOR_IN_SELECTION = r"{\color{#0b3d78}\rule[-0.15em]{0.06em}{0.8em}}"  # darker on the highlight
 _EMPTY_SLOT = r"\square"
+EMPTY_SLOT = _EMPTY_SLOT  # public: how `row_latex` draws an empty slot
 _SELECTION = "#7fb2e8"
 _SYMBOLS = {
     "*": r"\cdot ",

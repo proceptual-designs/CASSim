@@ -9,17 +9,18 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 - Handheld and Computer views, with touch, mouse and keyboard
 - Save and open files, share links, autosave, install and offline use
 - The **Pseudocode & Python** app: run pseudocode, step through a trace table (including inside function calls), and translate between pseudocode and Python (see [[Pseudocode]])
-- In the testing version: **CASSim Scientific**, a scientific calculator with natural display, statistics, tables and interactive tutorials (see [[Scientific calculator]]). Not yet built there: complex numbers and vectors, and `:` between calculations. Its answers have not yet been checked against a physical calculator
+- The **Scientific** app: natural display, statistics, tables and interactive tutorials, with the keys and key sequences of the fx-82, SX-II, EL-531 or 10s series (see [[Scientific calculator]] and [[Choosing your calculator]]). Not built there: complex numbers and vectors (they need an fx-100 series layout), and `:` between calculations. Its answers have not yet been checked key for key against a physical calculator
+- A site of its own for each app, as well as the all-in-one site (see [[Which site to use]])
 
-## Not built yet
+## Not built yet (Nspire)
 
 - Graphs, Lists & Spreadsheet, Data & Statistics and Notes pages (see below)
 - TI-Basic programs and the library functions (`mm_`, `sm_`, `gm_`)
 - Importing and exporting `.tns` files (not planned for now)
 - Python and pseudocode pages inside an Nspire document (the separate Pseudocode & Python app works now)
-- Other calculators, the Casio ClassPad and the HP Prime (planned, later). Each will also get its own smaller site
+- Other calculators, the Casio ClassPad and the HP Prime (planned, later). Each will also get its own site
 
-## Being built next
+## Being built next (Nspire)
 
 You can already insert these pages, but each one only says it is not built yet.
 
@@ -30,8 +31,8 @@ You can already insert these pages, but each one only says it is not built yet.
 
 As on the handheld, the pages of a Problem will share their data. A list typed on the Calculator page can be a spreadsheet column and a plot, and a change on one page shows on the others.
 
-## Differences from the handheld
+## Differences from the real calculators
 
-CASSim is a simulator, not a copy. It aims to give answers and a layout close enough not to confuse a student or teacher. An answer may be written in a different but equal form (for example an exact angle in degrees). Where it matters, results are checked against the TI-Nspire CX CAS software, but check anything important on the real device.
+CASSim is a simulator, not a copy. It aims to give answers and a layout close enough not to confuse a student or teacher. An answer may be written in a different but equal form (for example an exact angle in degrees). Where it matters, Nspire results are checked against the TI-Nspire CX CAS software, and Scientific key sequences follow the makers' manuals, but check anything important on the real device.
 
 It is **not** an approved exam calculator.

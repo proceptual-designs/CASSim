@@ -11,6 +11,8 @@ from cassim.devices.nspire.pages.graphs import (
     FUNCTION_COLOURS,
     Graphs,
     GridStyle,
+    axis_drag_factor,
+    axis_grabbed,
     function_colour,
     graphs_of,
 )
@@ -220,6 +222,28 @@ def test_graph_editor_uses_calculator_bindings_and_submits_a_template() -> None:
     assert entry.compiled is not None
     assert entry.compiled(6) == 3
     assert state.document.problems[0].session.is_function("f1")
+
+
+def test_an_operator_typed_first_in_a_graph_entry_gets_no_ans() -> None:
+    """FR-GRAPH-001: `-x` typed into a function entry is `-x`, not `Ans-x` (PLAN.md M4 notes, 1);
+    the Calculator's `Ans` prefix stays on the Calculator's entry line."""
+    state = AppState()
+    state.run_action("insert", "5")
+    state.run_action("enter", "")  # an answer exists on the Problem
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    state.run_action("insert", "-")
+    state.run_action("insert", "x")
+    state.run_action("enter", "")
+
+    entry = graphs.functions[0]
+    assert entry.expression == "-x"
+    assert entry.compiled is not None
+    assert entry.compiled(2) == -2
+
+    graphs.functions[1].editing.perform(Binding("power", "2"))
+    assert graphs.functions[1].editing.editor.linear() == "^(2)"
 
 
 def test_graph_editor_accepts_keyboard_and_keypad_navigation() -> None:
@@ -534,3 +558,110 @@ def test_a_function_set_from_text_keeps_its_templates() -> None:
     assert [t.kind for t in templates] == [Kind.POWER, Kind.FRACTION]
     assert templates[0].slots == [["2"]]
     assert editor.pos == len(editor.root)
+
+
+def test_a_restriction_is_labelled_with_a_brace() -> None:
+    """R6-A9: `x^2|x>0` is labelled `f1(x)={x², x>0`; a `|` substitution is not a brace."""
+    graphs = Graphs(Session())
+    graphs.submit(0, "x^2|x>0")
+    assert graphs.functions[0].latex == r"\begin{cases}x{}^{2}, & x\gt 0\end{cases}"
+    graphs.submit(0, "x^2|x=2")
+    assert r"\begin{cases}" not in graphs.functions[0].latex
+
+
+def test_an_empty_last_condition_of_a_piecewise_is_labelled_else() -> None:
+    """R6-A9: the piecewise template with no last condition reads `Else`."""
+    graphs = Graphs(Session())
+    editor = graphs.functions[0].editing.editor
+    editor.insert_template(Kind.PIECEWISE)
+    template = editor.root[0]
+    assert isinstance(template, Template)
+    template.slots[0][:] = list("x+1")
+    template.slots[1][:] = list("x<0")
+    template.slots[2][:] = list("x")
+    graphs.submit(0, editor.linear())
+    assert graphs.functions[0].latex.endswith(r"x, & \mathrm{Else}\end{cases}")
+
+
+def _curve_xs(graphs: Graphs) -> list[float]:
+    curves = graphs.scene(400, 280).layer("curves")
+    assert curves is not None
+    window, xs = graphs.window, []
+    for shape in curves.shapes:
+        if isinstance(shape, Polyline):
+            xs.extend(
+                window.x_min + x * (window.x_max - window.x_min) / 400 for x, _ in shape.points
+            )
+    return xs
+
+
+@pytest.mark.parametrize(
+    ("expression", "low", "high"),
+    [
+        ("sqrt(x)", 0, 10),
+        ("ln(x)", 0, 10),
+        ("1/sqrt(4-x^2)", -2, 2),
+        ("x^(1/3)", -10, 10),
+    ],
+)
+def test_a_function_is_drawn_only_where_it_is_real(
+    expression: str, low: float, high: float
+) -> None:
+    """R6-A10 and Simon's note 3: no error, no message, and only the real part is drawn;
+    `x^(1/3)` is the real cube root, so it is drawn for x<0 too."""
+    graphs = Graphs(Session())
+    graphs.submit(0, expression)
+    assert graphs.functions[0].error == ""
+    xs = _curve_xs(graphs)
+    assert xs
+    step = (graphs.window.x_max - graphs.window.x_min) / 400
+    assert min(xs) >= low - step
+    assert max(xs) <= high + step
+    if expression == "x^(1/3)":
+        assert min(xs) < -9
+
+
+def _graphs_state(*expressions: str) -> tuple[AppState, Graphs]:
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    for index, expression in enumerate(expressions):
+        graphs.submit(index, expression)
+    return state, graphs
+
+
+def test_an_operator_typed_first_in_a_graph_entry_takes_no_ans() -> None:
+    """Simon's note 1 (2026-11-22): the Calculator's `Ans` prefix stays out of graph entries."""
+    state, graphs = _graphs_state()
+    state.key_event("-")
+    state.key_event("x")
+    assert graphs.functions[graphs.active_index].editing.editor.linear() == "-x"
+
+
+def test_tab_opens_the_first_empty_function() -> None:
+    """Simon's note 2: Tab on a Graphs page opens the entry line on the first empty fN, as
+    ctrl+G does."""
+    state, graphs = _graphs_state("x^2", "x+1")
+    graphs.select_function(0)
+    state.key_event("Tab")
+    assert graphs.functions[graphs.active_index].name == "f3"
+
+
+def test_a_drag_on_an_axis_rescales_both_axes_about_the_origin() -> None:
+    """R6-A1 (Handheld view): a drag starting on either axis is a rescale about the origin,
+    not a pan; away from the origin zooms in, toward it zooms out. Off the axes it pans."""
+    origin = (159.0, 106.0)
+    assert axis_grabbed(origin, (175.0, 108.0)) == "x"
+    assert axis_grabbed(origin, (157.0, 80.0)) == "y"
+    assert axis_grabbed(origin, (200.0, 150.0)) is None
+    assert axis_grabbed(origin, (161.0, 107.0)) is None  # at the origin: a pan
+    assert axis_drag_factor("x", origin, (175.0, 108.0), (195.0, 108.0)) == pytest.approx(16 / 36)
+    assert axis_drag_factor("y", origin, (157.0, 80.0), (157.0, 93.0)) == pytest.approx(26 / 13)
+    assert axis_drag_factor("x", origin, (175.0, 108.0), (140.0, 108.0)) == 1.0  # across: none
+    graphs = Graphs(Session())
+    graphs.scene(318, 212)  # the plot size the gesture works in
+    before = graphs.window
+    graphs.gesture(0, 0, 0.5, 159.0, 106.0)
+    assert graphs.window.x_max == pytest.approx(before.x_max / 2)
+    assert graphs.window.y_max == pytest.approx(before.y_max / 2)

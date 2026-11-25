@@ -37,7 +37,10 @@ def _numbers(value: Value) -> list[Fraction]:
 
 
 def _frequencies(value: Value, length: int) -> list[int]:
-    """A frequency list, or a single number meaning that frequency for every value."""
+    """A frequency list, or a single number meaning that frequency for every value. A single 0
+    is a Domain error (emulator run 6, R6-B9: `LinRegtTest xs,ys,0`)."""
+    if not isinstance(value, ListValue) and _fraction(value) == 0:
+        raise TIError(errors.DOMAIN)
     counts = (
         [_fraction(item) for item in value.items]
         if isinstance(value, ListValue)
@@ -124,6 +127,15 @@ def _decimal(number: float | Fraction) -> Expr:
     return Expr(cas.from_float(float(number)))
 
 
+# A result row: (label, short `stat.` name, value). A text value such as the Alternate Hyp
+# row has no name and so no `stat.` variable of its own.
+type _Row = tuple[str, str, float | Fraction | Str]
+
+
+def _cell(value: float | Fraction | Str) -> Cell:
+    return value if isinstance(value, Str) else _decimal(value)
+
+
 def _store(host: Host, name: str, value: Value | Function) -> None:
     host.scope.define(f"stat.{name}".casefold(), value)
 
@@ -147,6 +159,8 @@ def _equation(equation: str, coefficients: Mapping[str, float | Fraction]) -> Fu
 # TI's labels, letter for letter: a combining macron, subscript digits and Greek sigmas.
 _MEAN_X, _MEAN_Y = "x̄", "ȳ"
 _SUM, _SIGMA = "Σ", "σ"
+_SAMPLE_DEVIATION = "sx := sn-1x"
+_RHO = chr(0x3C1)  # Greek rho, as the device writes it
 _GOF_ARGUMENT_COUNT = 3
 
 
@@ -155,18 +169,19 @@ class _Results:
     """Statistics in the order TI lists them: (label, short stat. name, value)."""
 
     title: str
-    rows: list[tuple[str, str, float | Fraction]] = field(default_factory=list)
+    rows: list[_Row] = field(default_factory=list)
 
-    def add(self, label: str, name: str, value: float | Fraction) -> None:
+    def add(self, label: str, name: str, value: float | Fraction | Str) -> None:
         self.rows.append((label, name, value))
 
     def store(self, host: Host) -> None:
         cells: list[tuple[Cell, ...]] = [(Str("Title"), Str(self.title))]
         for label, name, value in self.rows:
-            cells.append((Str(label), _decimal(value)))
-            _store(host, name, _decimal(value))
+            cells.append((Str(label), _cell(value)))
+            if name:
+                _store(host, name, _cell(value))
         _store(host, "results", MatrixValue(tuple(cells)))
-        values: tuple[Cell, ...] = (Str(self.title), *(_decimal(v) for _, _, v in self.rows))
+        values: tuple[Cell, ...] = (Str(self.title), *(_cell(v) for _, _, v in self.rows))
         # One column, title first, so element k is `stat.values[k,1]` (emulator check 6, D24).
         _store(host, "values", MatrixValue(tuple((value,) for value in values)))
 
@@ -303,9 +318,7 @@ def _list_argument(
     return expanded
 
 
-def _inference_result(
-    host: Host, title: str, rows: list[tuple[str, str, float | Fraction]]
-) -> Value:
+def _inference_result(host: Host, title: str, rows: list[_Row]) -> Value:
     results = _Results(title)
     for label, name, value in rows:
         results.add(label, name, value)
@@ -325,11 +338,13 @@ class _IntervalResult:
     count: int | None = None
 
 
-def _interval_rows(interval: _IntervalResult) -> list[tuple[str, str, float | Fraction]]:
-    rows = [
-        (interval.estimate_label, interval.estimate_name, interval.estimate),
+def _interval_rows(interval: _IntervalResult) -> list[_Row]:
+    """CLower and CUpper, then the estimate and ME, as the device lists them (catalog 2 and
+    sheet 2 captures; emulator run 6, S2)."""
+    rows: list[_Row] = [
         ("CLower", "CLower", interval.lower),
         ("CUpper", "CUpper", interval.upper),
+        (interval.estimate_label, interval.estimate_name, interval.estimate),
         ("ME", "ME", interval.margin),
     ]
     if interval.degrees is not None:
@@ -346,11 +361,20 @@ class _TestResult:
     statistic: float
     p_value: float
     degrees: float | None = None
-    rows: tuple[tuple[str, str, float | Fraction], ...] = ()
+    rows: tuple[_Row, ...] = ()
+    hypothesis: str = ""  # the Alternate Hyp row, such as "μ ≠ μ0"
 
 
-def _test_rows(test: _TestResult) -> list[tuple[str, str, float | Fraction]]:
-    result = [
+def _hypothesis(left: str, right: str, alternative: int) -> str:
+    """The Alternate Hyp row's text: `μ ≠ μ0` for 0, `>` above 0 and `<` below (emulator
+    run 6, R6-C2 and S2)."""
+    relation = ">" if alternative > 0 else "<" if alternative < 0 else "≠"
+    return f"{left} {relation} {right}"
+
+
+def _test_rows(test: _TestResult) -> list[_Row]:
+    result: list[_Row] = [("Alternate Hyp", "", Str(test.hypothesis))] if test.hypothesis else []
+    result += [
         (test.statistic_label, test.statistic_name, test.statistic),
         ("PVal", "PVal", test.p_value),
     ]
@@ -400,7 +424,11 @@ def t_interval(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _inference_result(
         host,
         "t Interval",
-        _interval_rows(_IntervalResult("x̄", "x̄", mean, lower, upper, margin, count - 1, count)),
+        [
+            *_interval_rows(_IntervalResult("x̄", "x̄", mean, lower, upper, margin, count - 1)),
+            (_SAMPLE_DEVIATION, "sx", deviation),
+            ("n", "n", count),
+        ],
     )
 
 
@@ -427,14 +455,53 @@ def z_interval(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     )
 
 
+def _two_sample_means(
+    host: Host, args: tuple[ast.Expr, ...]
+) -> tuple[infer.Sample, infer.Sample, int]:
+    """The two samples of a two-sample t command, from `List1,List2[,Freq1[,Freq2` or from
+    the summary statistics `x̄1,sx1,n1,x̄2,sx2,n2`, and the index of the argument after them."""
+    if _has_list(host, args, 0):
+        first, second = _two_samples(host, args)
+        summary1, summary2 = stats.summarise(first), stats.summarise(second)
+        return (
+            infer.Sample(float(summary1.mean), summary1.sample_deviation, len(first)),
+            infer.Sample(float(summary2.mean), summary2.sample_deviation, len(second)),
+            4,
+        )
+    return (
+        infer.Sample(
+            _number_at(host, args, 0, 0),
+            _number_at(host, args, 1, 0),
+            _integer_at(host, args, 2, 0),
+        ),
+        infer.Sample(
+            _number_at(host, args, 3, 0),
+            _number_at(host, args, 4, 0),
+            _integer_at(host, args, 5, 0),
+        ),
+        6,
+    )
+
+
+def _two_sample_rows(sample1: infer.Sample, sample2: infer.Sample) -> list[_Row]:
+    """The rows after df of a two-sample t result (emulator run 6, S2)."""
+    return [
+        ("x̄1", "x̄1", sample1.mean),
+        ("x̄2", "x̄2", sample2.mean),
+        ("sx1", "sx1", sample1.deviation),
+        ("sx2", "sx2", sample2.deviation),
+        ("n1", "n1", sample1.count),
+        ("n2", "n2", sample2.count),
+    ]
+
+
 @command("tInterval_2Samp")
 def t_interval_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
-    first, second = _two_samples(host, args)
-    summary1, summary2 = stats.summarise(first), stats.summarise(second)
-    sample1 = infer.Sample(float(summary1.mean), summary1.sample_deviation, len(first))
-    sample2 = infer.Sample(float(summary2.mean), summary2.sample_deviation, len(second))
-    level = _number_at(host, args, 4, 0.95)
-    pooled = _integer_at(host, args, 5, 0) != 0
+    """`tInterval_2Samp List1,List2[,Freq1[,Freq2[,CLevel[,Pooled]]]]` or
+    `tInterval_2Samp x̄1,sx1,n1,x̄2,sx2,n2[,CLevel[,Pooled]]`."""
+    sample1, sample2, after = _two_sample_means(host, args)
+    level = _number_at(host, args, after, 0.95)
+    pooled = _integer_at(host, args, after + 1, 0) != 0
     try:
         lower, upper, margin, degrees = infer.two_sample_mean_interval(
             sample1, sample2, level, pooled=pooled
@@ -445,9 +512,12 @@ def t_interval_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _inference_result(
         host,
         "2-Sample t Interval",
-        _interval_rows(
-            _IntervalResult("x̄Diff", "x̄Diff", difference, lower, upper, margin, degrees)
-        ),
+        [
+            *_interval_rows(
+                _IntervalResult("x̄Diff", "x̄Diff", difference, lower, upper, margin, degrees)
+            ),
+            *_two_sample_rows(sample1, sample2),
+        ],
     )
 
 
@@ -507,6 +577,7 @@ def z_test_one_proportion(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 statistic,
                 p_value,
                 rows=(("p̂", "p̂", estimate), ("n", "n", count)),
+                hypothesis=_hypothesis("prop", "p0", alternative),
             )
         ),
     )
@@ -524,7 +595,13 @@ def z_test_two_proportions(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     except ValueError:
         raise TIError(errors.DOMAIN) from None
     return _inference_result(
-        host, "2-Prop z Test", _test_rows(_TestResult("z", "z", statistic, p_value))
+        host,
+        "2-Prop z Test",
+        _test_rows(
+            _TestResult(
+                "z", "z", statistic, p_value, hypothesis=_hypothesis("p1", "p2", alternative)
+            )
+        ),
     )
 
 
@@ -558,7 +635,12 @@ def t_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 statistic,
                 p_value,
                 sample.count - 1,
-                (("x̄", "x̄", sample.mean), ("n", "n", sample.count)),
+                (
+                    ("x̄", "x̄", sample.mean),
+                    (_SAMPLE_DEVIATION, "sx", sample.deviation),
+                    ("n", "n", sample.count),
+                ),
+                _hypothesis("μ", "μ0", alternative),
             )
         ),
     )
@@ -588,6 +670,7 @@ def z_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 statistic,
                 p_value,
                 rows=(("x̄", "x̄", sample.mean), ("n", "n", sample.count)),
+                hypothesis=_hypothesis("μ", "μ0", alternative),
             )
         ),
     )
@@ -595,12 +678,12 @@ def z_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 @command("tTest_2Samp")
 def t_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
-    first, second = _two_samples(host, args)
-    first_summary, second_summary = stats.summarise(first), stats.summarise(second)
-    sample1 = infer.Sample(float(first_summary.mean), first_summary.sample_deviation, len(first))
-    sample2 = infer.Sample(float(second_summary.mean), second_summary.sample_deviation, len(second))
-    pooled = _integer_at(host, args, 4, 0) != 0
-    alternative = _integer_at(host, args, 5, 0)
+    """`tTest_2Samp List1,List2[,Freq1[,Freq2[,Hypoth[,Pooled]]]]` or
+    `tTest_2Samp x̄1,sx1,n1,x̄2,sx2,n2[,Hypoth[,Pooled]]` (Reference Guide order: Hypoth before
+    Pooled)."""
+    sample1, sample2, after = _two_sample_means(host, args)
+    alternative = _integer_at(host, args, after, 0)
+    pooled = _integer_at(host, args, after + 1, 0) != 0
     try:
         statistic, p_value, degrees = infer.two_sample_mean_test(
             sample1, sample2, 0, pooled=pooled, alternative=alternative
@@ -610,7 +693,17 @@ def t_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     return _inference_result(
         host,
         "2-Sample t Test",
-        _test_rows(_TestResult("t", "t", statistic, p_value, degrees)),
+        _test_rows(
+            _TestResult(
+                "t",
+                "t",
+                statistic,
+                p_value,
+                degrees,
+                tuple(_two_sample_rows(sample1, sample2)),
+                _hypothesis("μ1", "μ2", alternative),
+            )
+        ),
     )
 
 
@@ -649,22 +742,45 @@ def z_interval_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 @command("zTest_2Samp")
 def z_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`zTest_2Samp σ1,σ2,List1,List2[,Freq1[,Freq2[,Hypoth]]]` or
+    `zTest_2Samp σ1,σ2,x̄1,n1,x̄2,n2[,Hypoth]`."""
     sigma1, sigma2 = _number_at(host, args, 0, 0), _number_at(host, args, 1, 0)
-    first = _list_argument(host, args, 2, 4)
-    second = _list_argument(host, args, 3, 5)
-    summary1, summary2 = stats.summarise(first), stats.summarise(second)
-    count1, count2 = len(first), len(second)
+    if _has_list(host, args, 2):
+        first = _list_argument(host, args, 2, 4)
+        second = _list_argument(host, args, 3, 5)
+        mean1, mean2 = float(stats.summarise(first).mean), float(stats.summarise(second).mean)
+        count1, count2 = len(first), len(second)
+    else:
+        mean1, count1 = _number_at(host, args, 2, 0), _integer_at(host, args, 3, 0)
+        mean2, count2 = _number_at(host, args, 4, 0), _integer_at(host, args, 5, 0)
+    if sigma1 < 0 or sigma2 < 0 or count1 < 1 or count2 < 1:
+        raise TIError(errors.DOMAIN)
     standard_error = math.sqrt(sigma1**2 / count1 + sigma2**2 / count2)
+    alternative = _integer_at(host, args, 6, 0)
     try:
         statistic, p_value = infer.mean_test(
-            infer.Sample(float(summary1.mean) - float(summary2.mean), standard_error, 1),
-            0,
-            alternative=_integer_at(host, args, 6, 0),
+            infer.Sample(mean1 - mean2, standard_error, 1), 0, alternative=alternative
         )
     except ValueError:
         raise TIError(errors.DOMAIN) from None
     return _inference_result(
-        host, "2-Sample z Test", _test_rows(_TestResult("z", "z", statistic, p_value))
+        host,
+        "2-Sample z Test",
+        _test_rows(
+            _TestResult(
+                "z",
+                "z",
+                statistic,
+                p_value,
+                rows=(
+                    ("x̄1", "x̄1", mean1),
+                    ("x̄2", "x̄2", mean2),
+                    ("n1", "n1", count1),
+                    ("n2", "n2", count2),
+                ),
+                hypothesis=_hypothesis("μ1", "μ2", alternative),
+            )
+        ),
     )
 
 
@@ -689,6 +805,7 @@ def f_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 statistic,
                 p_value,
                 rows=(("dfNumer", "dfNumer", df1), ("dfDenom", "dfDenom", df2)),
+                hypothesis=_hypothesis("σ1", "σ2", alternative),
             )
         ),
     )
@@ -758,18 +875,21 @@ def chi_square_two_way(host: Host, args: tuple[ast.Expr, ...]) -> Value:
 
 @command("LinRegtTest")
 def linear_regression_t_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
+    """`LinRegtTest X,Y[,Freq[,Hypoth]]`: a t test of slope 0 (Reference Guide)."""
     xs = [float(value) for value in _list_argument(host, args, 0, 2)]
     ys = [float(value) for value in _list_argument(host, args, 1, 2)]
-    null_slope = _number_at(host, args, 3, 0)
-    alternative = _integer_at(host, args, 4, 0)
+    alternative = _integer_at(host, args, 3, 0)
     try:
         statistic, p_value, degrees, intercept, slope, residual_deviation = (
-            infer.regression_slope_test(xs, ys, null_slope, alternative=alternative)
+            infer.regression_slope_test(xs, ys, alternative=alternative)
         )
     except ValueError:
         raise TIError(errors.DOMAIN) from None
     slope_error = residual_deviation / math.sqrt(sum((x - sum(xs) / len(xs)) ** 2 for x in xs))
-    rows = _test_rows(
+    correlation = stats.correlation([Fraction(x) for x in xs], [Fraction(y) for y in ys])
+    # Title, Alternate Hyp, RegEqn, t, PVal, df, a, b, s, SESlope, r², r, Resid (emulator
+    # run 6, S2; calc 7, B9).
+    statistic_rows = _test_rows(
         _TestResult(
             "t",
             "t",
@@ -781,12 +901,20 @@ def linear_regression_t_test(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 ("b", "b", slope),
                 ("s", "s", residual_deviation),
                 ("SESlope", "SESlope", slope_error),
+                ("r²", "r²", correlation**2),
+                ("r", "r", correlation),
+                ("Resid", "", Str("{...}")),
             ),
         )
     )
-    result = _inference_result(host, "Linear Regression t Test", rows)
+    hypothesis: _Row = ("Alternate Hyp", "", Str(_hypothesis(f"β & {_RHO}", "0", alternative)))
+    result = _inference_result(
+        host, "Linear Reg t Test", [hypothesis, ("RegEqn", "", Str("a+b·x")), *statistic_rows]
+    )
     # The fitted line, so the sheet's `CopyVar stat.RegEqn,f1` can graph it (plan B11).
     _store(host, "regeqn", _equation("a+b*x", {"a": intercept, "b": slope}))
+    residuals = [y - (intercept + slope * x) for x, y in zip(xs, ys, strict=True)]
+    _store(host, "resid", list_of([cas.from_float(r) for r in residuals]))
     return result
 
 

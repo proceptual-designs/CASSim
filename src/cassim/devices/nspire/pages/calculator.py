@@ -1,7 +1,9 @@
 """The Calculator page model (FR-CALC-004, FR-DEV-001): an entry line, a history and a session.
 
 It has no Flet and no key names: a `Binding` from a keymap says what to do, `perform` does it.
-Behaviour follows the emulator runs in `docs/testing/` (decision 0017).
+The entry line's editing, undo and clipboard are an `EntrySession`; the page adds the history,
+recall of a picked row, Enter and `Ans`. Behaviour follows the emulator runs in `docs/testing/`
+(decision 0017).
 """
 
 from __future__ import annotations
@@ -14,9 +16,7 @@ from typing import TYPE_CHECKING, Literal
 from cassim.core.results import Result
 from cassim.device.clipboard import Clipboard
 from cassim.device.editor import (
-    MARK,
     Editor,
-    Kind,
     Node,
     Template,
     linear_text,
@@ -28,13 +28,14 @@ from cassim.device.editor import (
 from cassim.device.editor import Row as EditorRow
 from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, local_session
+from cassim.device.entry_session import EntryRules, EntrySession
 from cassim.device.recall import full_selection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from cassim.core.session import Session
-    from cassim.device.keys import Action, Binding
+    from cassim.device.keys import Binding
     from cassim.doc.document import Page
 
 type Row = Literal["entry", "result"]
@@ -50,20 +51,6 @@ _RECALL_MOVES = frozenset(
 
 # `ans` as a word of its own, as the entry line spells it (`Ans`, typed `ans`)
 _ANS_WORD = re.compile(r"(?<![\w.])ans(?![\w(])", re.IGNORECASE)
-
-_OPERAND_CHARS = frozenset("0123456789.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_πⅇⅈ")
-
-
-@dataclass
-class Snapshot:
-    """The entry line at one moment, for undo and redo."""
-
-    root: EditorRow
-    path: list[tuple[int, int]]
-    pos: int
-    selected: bool
-    anchor: int | None
-    history: tuple[Entry, ...] = ()  # undo goes back over evaluations and deletes too
 
 
 @dataclass(frozen=True)
@@ -94,8 +81,16 @@ class Calculator:
     ) -> None:
         self.session = session if session is not None else local_session()
         self.clipboard = clipboard if clipboard is not None else Clipboard()
-        self.editor = Editor()
         self.history: list[Entry] = []
+        # The entry line. Its undo steps carry the history too, so undo goes back over
+        # evaluations, Clear History and deleted pairs; an operator typed first gets `Ans`.
+        self.entry: EntrySession[tuple[Entry, ...]] = EntrySession(
+            self.clipboard,
+            EntryRules(ans_prefix=True),
+            keep=lambda: tuple(self.history),
+            restore=self._restore_history,
+            on_key=self._unpick,
+        )
         self.error: str | None = None  # a dialog waiting for a key press
         self.error_title = "Error"  # the dialog's title ("Warning" for Show Warning Info)
         self.recall: tuple[int, Row] | None = None  # the history row Up has selected
@@ -103,13 +98,20 @@ class Calculator:
         # A picked result at full precision: what Enter and copy take (the row shows `text`)
         self._recalled_full: EditorRow | None = None
         self.recall_touched = False  # a key or click has moved inside the picked row
-        self._undo: list[Snapshot] = []
-        self._redo: list[Snapshot] = []
-        self._group: str | None = None  # the kind of edit in progress, for undo grouping
         self._synced: Entry | None = None  # the entry the session's `Ans` was last set from
         # With a deferred session (the maths runs in another worker) Enter only queues the entry;
         # the app evaluates it and calls `finish` (or `abort` after a Cancel).
         self.pending: Pending | None = None
+        self._own = self._own_actions()
+
+    @property
+    def editor(self) -> Editor:
+        """The entry line's editor."""
+        return self.entry.editor
+
+    @editor.setter
+    def editor(self, editor: Editor) -> None:
+        self.entry.editor = editor
 
     # ---- actions ----------------------------------------------------------------------------
 
@@ -120,88 +122,59 @@ class Calculator:
         if self.error is not None:
             self.error, self.error_title = None, "Error"
             return
-        action = self._actions().get(binding.action)
-        if action is None:
+        own = self._own.get(binding.action)
+        if own is not None and own(binding.arg):
+            return
+        if not self.entry.perform(binding):
             msg = f"unknown action {binding.action!r}"
             raise ValueError(msg)
-        action(binding.arg)
 
-    def _actions(self) -> dict[Action, Callable[[str], None]]:
-        move: dict[Action, Callable[[], None]] = {
-            "left": self.editor.left,
-            "right": self.editor.right,
-            "tab": self.editor.tab,
-            "shift_tab": self.editor.shift_tab,
-            "home": self.editor.home,
-            "end": self.editor.end,
-            "select_left": self.editor.select_left,
-            "select_right": self.editor.select_right,
-            "select_all": self.editor.select_all,
-            "select_word_left": self.editor.select_word_left,
-            "select_word_right": self.editor.select_word_right,
-            "select_to_start": self.editor.select_to_start,
-            "select_to_end": self.editor.select_to_end,
-            "word_left": self.editor.word_left,
-            "word_right": self.editor.word_right,
-        }
-        actions: dict[Action, Callable[[str], None]] = {
-            name: self._recall_move(name) for name in move
+    def handles(self, action: str) -> bool:
+        """Whether `action` is one the Calculator page knows."""
+        return action in self._own or self.entry.handles(action)
+
+    def _own_actions(self) -> dict[str, Callable[[str], bool]]:
+        """The page's own keys: the history, recall and Enter. Each says whether it took the
+        key; one it does not take goes to the entry line (`EntrySession`)."""
+        actions: dict[str, Callable[[str], bool]] = {
+            name: self._recall_move(name) for name in _RECALL_MOVES
         }
         actions.update(
             {
-                "insert": self._insert,
-                "insert_linear": lambda text: self._edit(
-                    "other", lambda: self.editor.insert_linear(text, MARK)
-                ),
-                "template": self._template,
-                "power": self._power,
-                "accent": lambda _: self._edit("operand", self.editor.cycle_accent),
-                "backspace": lambda arg: self._delete(self._backspace(arg), forward=False),
-                "delete": lambda _: self._delete(self.editor.delete, forward=True),
-                "clear": lambda arg: (
-                    self.clear_history()
-                    if arg == "history"
-                    else self._edit("other", self.editor.clear)
-                ),
-                "copy": lambda _: self._copy(),
-                "cut": lambda _: self._cut(),
-                "paste": self._paste,
-                "up": lambda _: self._vertical(up=True),
-                "down": lambda _: self._vertical(up=False),
-                "enter": lambda _: self._enter(approximate=False),
-                "approximate": lambda _: self._enter(approximate=True),
-                "undo": lambda _: self._step(self._undo, self._redo),
-                "redo": lambda _: self._step(self._redo, self._undo),
-                "escape": lambda _: self._mover(lambda: None)(""),
-                "home_key": lambda arg: (
-                    self._first_line() if self.recall else self._recall_move("home")(arg)
-                ),
-                "first_line": lambda _: self._first_line(),
-                "last_line": lambda _: self._mover(lambda: None)(""),  # ctrl+1: entry line
-                "recall_at": self._recall_at,
-                "select_cells": self._select_cells,
-                "place": lambda arg: self._place(arg, extend=False),
-                "extend": lambda arg: self._place(arg, extend=True),
-                "recall_place": lambda arg: self._recall_place(arg, extend=False),
-                "recall_extend": lambda arg: self._recall_place(arg, extend=True),
-                "recall_token": self._recall_token,
-                "select_token": lambda arg: self._at_target(arg, self.editor.select_token),
-                "drop": self._drop,
+                "home_key": lambda _: self.recall is not None and _done(self._first_line()),
+                "backspace": lambda _: self._delete_pair(forward=False),
+                "delete": lambda _: self._delete_pair(forward=True),
+                "clear": lambda arg: arg == "history" and _done(self.clear_history()),
+                "copy": lambda _: self.recall is not None and _done(self._copy_recalled()),
+                "cut": lambda _: self.recall is not None and _done(self._copy_recalled()),
+                "up": lambda _: _done(self._vertical(up=True)),
+                "down": lambda _: _done(self._vertical(up=False)),
+                "enter": lambda _: _done(self._enter(approximate=False)),
+                "approximate": lambda _: _done(self._enter(approximate=True)),
+                "undo": lambda _: _done(self._step(undo=True)),
+                "redo": lambda _: _done(self._step(undo=False)),
+                "first_line": lambda _: _done(self._first_line()),
+                "last_line": lambda _: _done(self._last_line()),
+                "recall_at": lambda arg: _done(self._recall_at(arg)),
+                "recall_place": lambda arg: _done(self._recall_place(arg, extend=False)),
+                "recall_extend": lambda arg: _done(self._recall_place(arg, extend=True)),
+                "recall_token": lambda arg: _done(self._recall_token(arg)),
             }
         )
         return actions
 
-    def _mover(self, method: Callable[[], None]) -> Callable[[str], None]:
-        def move(_: str) -> None:
-            self.recall = None
-            self._group = None
-            method()
+    def _unpick(self) -> None:
+        """An edit or a move in the entry line leaves the picked history row."""
+        self.recall = None
 
-        return move
+    def _last_line(self) -> None:
+        """ctrl+1: back to the entry line."""
+        self.recall = None
+        self.entry.end_group()
 
     @property
     def can_redo(self) -> bool:
-        return bool(self._redo)
+        return self.entry.can_redo
 
     def _first_line(self) -> None:
         """ctrl+7: pick the first history row (emulator runs S5 b, H2 c)."""
@@ -242,48 +215,17 @@ class Calculator:
             return full_selection(picked, self._recalled_full)
         return picked.selection() or copy.deepcopy(picked.root)
 
-    def _recall_move(self, name: str) -> Callable[[str], None]:
-        """A movement key: inside the picked row while one is picked, else in the entry line."""
-        entry_move = self._mover(getattr(self.editor, name))
+    def _recall_move(self, name: str) -> Callable[[str], bool]:
+        """A movement key inside the picked row while one is picked; else the entry line's."""
 
-        def move(arg: str) -> None:
-            if self.recall is None or name not in _RECALL_MOVES:
-                entry_move(arg)
-            else:
-                self.recall_touched = True
-                getattr(self._recalled, name)()
+        def move(_: str) -> bool:
+            if self.recall is None:
+                return False
+            self.recall_touched = True
+            getattr(self._recalled, name)()
+            return True
 
         return move
-
-    def _backspace(self, arg: str) -> Callable[[], None]:
-        """Backspace, or the keypad's del (`whole`), which takes a template just before the
-        cursor away in one press (run 5, F3) where Backspace highlights it first (0017)."""
-        editor = self.editor
-
-        def whole() -> None:
-            row = editor.row()
-            before = row[editor.pos - 1] if editor.pos and editor.anchor is None else None
-            if isinstance(before, Template) and not editor.selected:
-                editor.backspace()  # highlights it
-            editor.backspace()
-
-        return whole if arg == "whole" else editor.backspace
-
-    def _at_target(self, target: str, act: Callable[[list[tuple[int, int]], int], None]) -> None:
-        """Do `act` at a click's target in the entry line (a double-click selects a token)."""
-        try:
-            path, pos = parse_target(target)
-        except ValueError:
-            return
-        self._mover(lambda: act(path, pos))("")
-
-    def _drop(self, target: str) -> None:
-        """Selected text dragged to `target` in the entry line moves there (H3 k); undoable."""
-        try:
-            path, pos = parse_target(target)
-        except ValueError:
-            return
-        self._edit("other", lambda: self.editor.move_selection(path, pos))
 
     def _recall_token(self, target: str) -> None:
         """A double-click in the picked history row selects the token there (H3 b)."""
@@ -313,11 +255,10 @@ class Calculator:
         Undo afterwards; CASSim keeps undo, which brings the history back."""
         if not self.history:
             return
-        self._undo.append(self._snapshot())
-        self._redo.clear()
+        self.entry.remember()
         self.history.clear()
         self._pick(None)
-        self._group = None
+        self.entry.end_group()
         self._sync_ans()
 
     def warning_info(self) -> str | None:
@@ -333,97 +274,40 @@ class Calculator:
         if info is not None:
             self.error, self.error_title = info, "Warning"
 
-    def _delete(self, remove_in_entry: Callable[[], None], *, forward: bool) -> None:
-        """Del or Backspace: on a picked history row it deletes that entry and its result, and
-        undo brings them back; on an empty entry line it does nothing (emulator check 3, H5 c);
-        otherwise it edits the entry line.
+    def _delete_pair(self, *, forward: bool) -> bool:
+        """Del or Backspace on a picked history row deletes that entry and its result, and undo
+        brings them back. False with no row picked: the key is the entry line's, where on an
+        empty line it does nothing (emulator check 3, H5 c).
 
         After a delete the input of the pair that takes its place is picked, as a text editor
         moves: Delete picks the next pair, Backspace (and the keypad's del) the previous one, and
         either takes the other side at an end of the history (run 5, H5 a, b, e, f, g, j)."""
         if self.recall is None:
-            if not self.editor.is_empty:
-                self._edit("other", remove_in_entry)
-            return
-        self._undo.append(self._snapshot())
-        self._redo.clear()
+            return False
+        self.entry.remember()
         index = self.recall[0]
         del self.history[index]
-        self._group = None
+        self.entry.end_group()
         self._sync_ans()
         if not self.history:
             self._pick(None)
-            return
+            return True
         after = index < len(self.history)  # a pair moved up into the deleted one's place
         before = index > 0
         self._pick((index if after and (forward or not before) else index - 1, "entry"))
+        return True
 
-    # ---- editing, with undo groups ----------------------------------------------------------
-
-    def _insert(self, text: str) -> None:
-        kind = "operand" if all(char in _OPERAND_CHARS for char in text) else "operator"
-        self._edit(kind, lambda: self.editor.insert_text(text))
-
-    def _template(self, spec: str) -> None:
-        """A `Kind` name, with `:ROWS,COLS` for a matrix or `:ROWS` for a piecewise or system
-        template (`fraction`, `matrix:2,3`, `system:2`)."""
-        kind, _, shape = spec.partition(":")
-        rows, _, cols = shape.partition(",")
-        size = (int(rows), int(cols or 1)) if shape else (2, 2)
-        if kind == Kind.LIST:  # `list:3` is three elements
-            size = (1, int(rows) if shape else 3)
-        self._edit("other", lambda: self.editor.insert_template(Kind(kind), size))
-
-    def _power(self, exponent: str) -> None:
-        """A key that opens an exponent already holding `exponent` (x squared)."""
-        self._edit("other", lambda: self._insert_power(exponent))
-
-    def _insert_power(self, exponent: str) -> None:
-        self.editor.insert("^")
-        self.editor.insert_text(exponent)
-
-    def _edit(self, kind: str, change: Callable[[], None]) -> None:
-        """Run an edit. Undo steps back one group: a run of operands, or one operator."""
-        self.recall = None
-        if self.editor.anchor is not None:
-            kind = "other"  # typing over a selection is a step of its own
-        if kind != self._group or kind != "operand":
-            self._undo.append(self._snapshot())
-            self._redo.clear()
-        self._group = kind
-        change()
-
-    def _copy(self) -> None:
-        """Copy the selection in the entry line or, with a history row picked, the selected part
-        of that row (all of it if nothing in it is selected), at full precision for a result."""
-        nodes = self._recall_nodes() if self.recall is not None else self.editor.selection()
+    def _copy_recalled(self) -> None:
+        """Copy (or cut: history is not edited by cutting) with a history row picked: the
+        selected part of that row (all of it if nothing in it is selected), at full precision
+        for a result."""
+        nodes = self._recall_nodes()
         if nodes:
             self.clipboard.nodes = nodes
 
-    def _cut(self) -> None:
-        if self.recall is not None:  # history is not edited by cutting: it is a copy
-            self._copy()
-        elif self.editor.selection():
-            self._edit("other", lambda: setattr(self.clipboard, "nodes", self.editor.cut()))
-
-    def _paste(self, text: str) -> None:
-        """Paste the clipboard's nodes, or `text` from the system clipboard if it differs."""
-        if text and text != self.clipboard.text:
-            self._edit("other", lambda: self.editor.insert_linear(" ".join(text.split())))
-        elif self.clipboard.nodes:
-            self._edit("other", lambda: self.editor.paste(self.clipboard.nodes))
-
-    def _snapshot(self) -> Snapshot:
-        e = self.editor
-        saved = copy.deepcopy(Snapshot(e.root, e.path, e.pos, e.selected, e.anchor))
-        saved.history = tuple(self.history)
-        return saved
-
     def forget_undo(self) -> None:
         """Drop the undo and redo history (after a document is loaded)."""
-        self._undo.clear()
-        self._redo.clear()
-        self._group = None
+        self.entry.forget_undo()
 
     def _ans_entry(self) -> Entry | None:
         """The last entry that gave `Ans` a value (not an error, and not a bare `Done`)."""
@@ -439,32 +323,19 @@ class Calculator:
             self._synced = entry
             self.session.set_ans(None if entry is None else entry.result.full or entry.result.text)
 
-    def _restore(self, snapshot: Snapshot) -> None:
-        e = self.editor
-        saved = copy.deepcopy(snapshot)
-        saved.history = snapshot.history
-        self.history[:] = saved.history
+    def _restore_history(self, history: tuple[Entry, ...]) -> None:
+        """An undo or redo step puts back the history it was taken with."""
+        self.history[:] = history
         self.recall = None
-        e.cell_sel = None
-        e.root, e.path, e.pos, e.selected, e.anchor = (
-            saved.root,
-            saved.path,
-            saved.pos,
-            saved.selected,
-            saved.anchor,
-        )
 
     @property
     def can_undo(self) -> bool:
         """There is typing, an evaluation or a delete to undo on this page."""
-        return bool(self._undo)
+        return self.entry.can_undo
 
-    def _step(self, source: list[Snapshot], target: list[Snapshot]) -> None:
-        if source:
-            target.append(self._snapshot())
-            self._restore(source.pop())
+    def _step(self, *, undo: bool) -> None:
+        if self.entry.step(undo=undo):
             self._sync_ans()
-        self._group = None
 
     # ---- history ----------------------------------------------------------------------------
 
@@ -474,7 +345,7 @@ class Calculator:
             up and self.editor.is_empty and not self.editor.path and self.history
         )
         if not walking:
-            self._group = None
+            self.entry.end_group()
             (self.editor.up if up else self.editor.down)()
             return
         rows: list[tuple[int, Row]] = [
@@ -483,19 +354,6 @@ class Calculator:
         at = rows.index(self.recall) if self.recall in rows else len(rows)
         at = max(at - 1, 0) if up else at + 1
         self._pick(rows[at] if at < len(rows) else None)
-
-    def _select_cells(self, spec: str) -> None:
-        """`row:-1`, `row:1`, `col:-1` or `col:1`: select (then grow) a matrix's rows or columns."""
-        axis, _, step = spec.partition(":")
-        self._mover(lambda: self.editor.select_cells(axis, int(step or 0)))("")
-
-    def _place(self, target: str, *, extend: bool) -> None:
-        """A click in the entry line (`place`) or a shift+click (`extend`): see `Editor.place`."""
-        try:
-            path, pos = parse_target(target)
-        except ValueError:
-            return
-        self._mover(lambda: self.editor.place(path, pos, extend=extend))("")
 
     def _recall_at(self, spec: str) -> None:
         """A click on a history row (`INDEX:entry` or `INDEX:result`, with `@EMS` when the click
@@ -541,7 +399,7 @@ class Calculator:
             elif last.nodes:
                 self.editor.paste(list(last.nodes))
             else:
-                self.editor.insert_text(last.text)
+                self.editor.insert_linear(last.text)
             text = self.editor.linear()
         if not text:
             return
@@ -573,10 +431,9 @@ class Calculator:
             self.error = result.error
             result = Result(f'"{result.error}"', "", None, result.error)
         # undo goes back to the entry as typed, cursor at its end
-        before = self._snapshot()
+        before = self.entry.snapshot()
         before.path, before.pos, before.selected, before.anchor = [], len(before.root), False, None
-        self._undo.append(before)
-        self._redo.clear()
+        self.entry.remember(before)
         # the entry is kept as written on paper: π, √ and ⅇ^ for pi, sqrt( and exp(, Catalog
         # names in the Catalog's case, and `ans` shown as the value it had. Names are bold only
         # on the entry line: the history draws a defined name italic again (check 4, A4).
@@ -597,7 +454,12 @@ class Calculator:
         if result.error is None and result.text not in ("", "Done"):
             self._synced = entry
         self.editor.clear()
-        self._group = None
+        self.entry.end_group()
+
+
+def _done(_: object = None) -> bool:
+    """For an action table: the key was taken (whatever the action returned)."""
+    return True
 
 
 def _has_empty_template(row: EditorRow) -> bool:

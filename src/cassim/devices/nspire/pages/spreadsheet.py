@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from cassim.device.editor import MARK, Editor, Kind, Row, Template, linear_text, parse_target
 from cassim.device.engine import RemoteSession
+from cassim.device.entry_session import EntryRules, EntrySession
 from cassim.device.keys import Action, Binding
 from cassim.device.menu import MenuItem
 from cassim.device.sheet_link import SheetLink, link_for
@@ -362,6 +363,9 @@ class Spreadsheet:
         self.whole: Literal["row", "column"] | None = None
         self.top, self.left = 1, 0  # the first data row and column on show
         self.rows_shown, self.columns_shown = 5, 4  # set by the view from its size
+        # The cell being edited: `editor` is the entry session's editor while a cell is open.
+        # The sheet keeps no undo inside a cell, and an operator typed first gets no `Ans`.
+        self._entry = EntrySession(clipboard, EntryRules(cells_paste=True, undo=False))
         self.editor: Editor | None = None
         self.entry_nodes: dict[tuple[Key, str], Row] = {}
         self.selected = False  # the whole of `editing` is selected: a key typed replaces it
@@ -633,6 +637,7 @@ class Spreadsheet:
         graph = bool(self.quick_graph_lists())
         kind = self.selection_kind()
         menu = root.label == "Menu"
+        in_results = self.cursor[0] in self.results_columns()
 
         def visit(item: MenuItem) -> MenuItem:
             items = tuple(visit(child) for child in item.items)
@@ -640,6 +645,8 @@ class Spreadsheet:
             key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
             if item.action == "sheet" and item.arg == "quick_graph":
                 enabled = graph
+            elif item.action == "sheet" and item.arg == "insert_cell" and in_results:
+                enabled = False  # grey in a results column (run 6, R6-C8)
             elif menu and key in MENU_ENABLED_FOR and item is not root:
                 enabled = enabled and kind in MENU_ENABLED_FOR[key]
             if items == item.items and enabled == item.enabled:
@@ -647,6 +654,16 @@ class Spreadsheet:
             return replace(item, items=items, enabled=enabled)
 
         return visit(root)
+
+    def results_columns(self) -> set[int]:
+        """The label and value columns of a Stat Calculations, interval or test result: `Title`
+        in row 1 beside a column formula."""
+        found: set[int] = set()
+        for column in range(COLUMNS - 1):
+            cell = self.cells.get((column, 1))
+            if cell is not None and cell[1].strip('"') == "Title" and self.columns[column + 1][2]:
+                found |= {column, column + 1}
+        return found
 
     def _span(self) -> tuple[int, int, int, int]:
         """The selection, or the cursor's cell."""
@@ -858,7 +875,7 @@ class Spreadsheet:
             "end": lambda _: self._move_editor("end"),
             "backspace": lambda _: self._erase(before=True),
             "delete": lambda _: self._erase(before=False),
-            "clear": lambda _: self._set_text(""),
+            "clear": lambda _: self._clear_text(),
             "escape": lambda _: self.cancel_edit(),
             "enter": lambda _: self.commit(then=(0, 1)),
             "select": lambda _: self.commit(then=(0, 1)),
@@ -1187,7 +1204,7 @@ class Spreadsheet:
     def begin_edit(self, text: str, *, selected: bool = False) -> None:
         """Edit the cursor's cell. `selected`: its content starts selected, so the first key
         typed replaces it (run 4, S16: Return on a filled cell)."""
-        self.editor = Editor()
+        self.editor = self._entry.reset()
         saved = self.entry_nodes.get((self.cursor, text))
         if saved is not None:
             self.editor.root = copy.deepcopy(saved)
@@ -1207,21 +1224,21 @@ class Spreadsheet:
         self.begin_edit("")
         self._insert(text)
 
-    def _insert(self, text: str, *, linear: bool = False) -> None:
+    def _typing(self) -> EntrySession:
+        """The open cell's entry session, after typing ends any reference pointing and the
+        whole-content selection."""
         assert self.editor is not None
         self.reference = None
         self.reference_mode = None
         self.selected = False
+        return self._entry
+
+    def _insert(self, text: str, *, linear: bool = False) -> None:
+        entry = self._typing()
         if linear or MARK in text:
-            self.editor.insert_linear(text, MARK)
-        elif self.editor.is_empty and text.startswith("^"):
-            self.editor.insert_template(Kind.POWER)
-            self._insert(text[1:])
-        elif self.editor.is_empty and text and text[0] in "+-*/":
-            self.editor.insert_linear(text[:1])
-            self._insert(text[1:])
+            entry.insert_linear(text)
         else:
-            self.editor.insert_text(text)
+            entry.insert(text)
 
     def _start_template(self, spec: str) -> None:
         self.begin_edit("")
@@ -1232,70 +1249,41 @@ class Spreadsheet:
         self._power(exponent)
 
     def _template(self, spec: str) -> None:
-        assert self.editor is not None
-        kind, _, shape = spec.partition(":")
-        rows, _, cols = shape.partition(",")
-        size = (int(rows), int(cols or 1)) if shape else (2, 2)
-        if kind == Kind.LIST:
-            size = (1, int(rows) if shape else 3)
-        self.reference = None
-        self.reference_mode = None
-        self.selected = False
-        self.editor.insert_template(Kind(kind), size)
+        self._typing().template(spec)
 
     def _power(self, exponent: str) -> None:
-        self._insert("^")
-        self._insert(exponent)
+        self._typing().power(exponent)
 
     def _accent(self) -> None:
         """The accent key on the letter before the caret (see `device.accents`)."""
         assert self.editor is not None
-        self.editor.cycle_accent()
+        self._entry.accent()
 
-    def _set_text(self, text: str) -> None:
-        self.editor = Editor()
-        self.editor.insert_linear(text)
+    def _clear_text(self) -> None:
+        self._typing().clear()
+
+    def _moving(self) -> EntrySession:
+        """The open cell's entry session, after a move ends any reference pointing (and does
+        not choose it again from the formula at the caret)."""
+        assert self.editor is not None
         self.selected = False
         self.reference = None
-        self.reference_mode = None
+        self.reference_mode = False
+        return self._entry
 
     def _move_editor(self, action: str) -> None:
-        assert self.editor is not None
-        self.selected = False
-        self.reference = None
-        self.reference_mode = False
-        moves = {
-            "left": self.editor.left,
-            "right": self.editor.right,
-            "up": self.editor.up,
-            "down": self.editor.down,
-            "home": self.editor.home,
-            "end": self.editor.end,
-            "select_left": self.editor.select_left,
-            "select_right": self.editor.select_right,
-            "select_to_start": self.editor.select_to_start,
-            "select_to_end": self.editor.select_to_end,
-            "word_left": self.editor.word_left,
-            "word_right": self.editor.word_right,
-            "select_word_left": self.editor.select_word_left,
-            "select_word_right": self.editor.select_word_right,
-        }
-        moves[action]()
+        self._moving().move(action)
 
     def _place(self, target: str, *, extend: bool) -> None:
-        assert self.editor is not None
-        path, pos = parse_target(target)
-        self.selected = False
-        self.reference = None
-        self.reference_mode = False
-        self.editor.place(path, pos, extend=extend)
+        parse_target(target)  # a target that does not parse is an error here
+        self._moving().place(target, extend=extend)
 
     def _tab(self, *, back: bool) -> None:
         assert self.editor is not None
         if self.editor.path:
             self.reference = None
             self.reference_mode = False
-            (self.editor.shift_tab if back else self.editor.tab)()
+            self._entry.move("shift_tab" if back else "tab")
         else:
             self.commit(then=(-1 if back else 1, 0))
 
@@ -1304,10 +1292,11 @@ class Spreadsheet:
         if self.reference is not None:
             self.editor.anchor = self.reference.start
             self.editor.pos = self.reference.end
-        self.reference = None
-        self.reference_mode = None
-        self.selected = False
-        (self.editor.backspace if before else self.editor.delete)()
+        entry = self._typing()
+        if before:
+            entry.backspace()
+        else:
+            entry.delete()
 
     def _delete_selection(self) -> bool:
         assert self.editor is not None
@@ -1324,23 +1313,11 @@ class Spreadsheet:
             self.editor.pos = self.reference.end
             self.reference = None
             self.reference_mode = False
-        nodes = self.editor.cut() if cut else self.editor.selection()
-        if not nodes:
-            return
-        self.clipboard.nodes = nodes
-        self.selected = False
+        if self._entry.cut() if cut else self._entry.copy():
+            self.selected = False
 
     def _paste_editing(self, text: str) -> None:
-        assert self.editor is not None
-        self.reference = None
-        self.reference_mode = None
-        self.selected = False
-        if text and (text != self.clipboard.text or not self.clipboard.nodes):
-            self.editor.insert_linear(text)
-        elif self.clipboard.nodes:
-            self.editor.paste(self.clipboard.nodes)
-        elif self.clipboard.text:
-            self.editor.insert_linear(self.clipboard.text)
+        self._typing().paste(text)
 
     def cancel_edit(self) -> None:
         self.editor = None
@@ -1620,6 +1597,10 @@ class Spreadsheet:
         if name in ("insert_row", "delete_row", "insert_column", "delete_column"):
             verb, what = name.split("_")
             self._send(verb, what=what, column=column, row=max(row, 1))
+        elif name == "insert_cell" and (
+            column in self.results_columns() or self.selection() is not None
+        ):
+            pass  # grey in a results column and with a range selected (run 6, R6-C8)
         elif name in ("insert_cell", "delete_cell"):
             self._send(name.split("_", maxsplit=1)[0], what="cell", column=column, row=max(row, 1))
         elif name == "delete_cells":
@@ -1969,7 +1950,8 @@ class Spreadsheet:
             args = {"formula": formula, "column": target.column, "choose": {}, "confirm": False}
             return [Binding("sheet_op", json.dumps({"action": "inference", "args": args}))]
 
-        return Wizard(found.title, tuple(fields), steps=steps)
+        back = (Binding("sheet", f"inference:{command}"),) if found.method else ()
+        return Wizard(found.title, tuple(fields), steps=steps, back=back)
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(

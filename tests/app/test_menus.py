@@ -360,7 +360,7 @@ def _assert_action_dispatches(
         if calculator is not None:
 
             def calculator_action(candidate: Binding) -> None:
-                assert candidate.action in calculator._actions(), candidate
+                assert calculator.handles(candidate.action), candidate
                 handled.append("calculator")
 
             patch.setattr(calculator, "perform", calculator_action)
@@ -406,7 +406,7 @@ def test_profile_actions_reach_handlers(
 
 
 def test_missing_page_handler_fails_dispatch_check(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Calculator, "_actions", lambda self: {})
+    monkeypatch.setattr(Calculator, "handles", lambda self, action: False)
     with pytest.raises(AssertionError):
         _assert_action_dispatches(Binding("insert", "x"), sheet_page=False, monkeypatch=monkeypatch)
 

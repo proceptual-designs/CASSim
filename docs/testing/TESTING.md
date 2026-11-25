@@ -17,7 +17,13 @@ uv run python -m tools.local_ci --status    # has HEAD's tree passed?
 ```
 
 `tools.local_ci` holds the one list of browser tests CI runs; CI calls it for each job. The
-pre-push hook (`uv run pre-commit install`) refuses a push whose tree has not passed.
+pre-push hook (`uv run pre-commit install`) refuses a push whose tree has not passed. Only one
+run goes at a time on the machine, from any worktree or clone: a second run waits on the lock
+`%LOCALAPPDATA%\CASSim\local_ci.lock` and says which run holds it, because two at once make the
+time-based tests fail. The holder's folder, process and start time are in `local_ci.holder`
+beside it (Windows will not let another process read the locked file); the note is left behind
+after a run and is harmless. On Linux and macOS the lock is in `$XDG_STATE_HOME/CASSim/`, or
+`~/.local/state/CASSim/` when that is unset.
 
 While working, also run `uv run pytest tests/flows/` and the affected test directories or files
 from this map:
@@ -30,7 +36,7 @@ from this map:
 | `doc/`, autosave or storage | matching app/device document tests | autosave/reload e2e and relevant PWA/offline e2e |
 | `sheet/`, `graph/` or `stats/` | matching unit and device tests | corresponding sheet/statistics browser test when rendering or controls change |
 | `runtime/` | matching `tests/runtime/` file | browser coverage when the Code UI is involved |
-| `devices/scientific/` (CASSim Scientific) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, ui) | a manual browser check until an fx e2e test exists |
+| `devices/scientific/` (CASSim Scientific) | `tests/devices/scientific/` (keys, values, calc, stat, files, tutorials, layouts, ui; `test_scientific_ui.py` also lays the app out at four simulated phone sizes and checks the calculator and every dialog fit) | a manual browser check until an fx e2e test exists; Flet draws to a canvas, so overflow is tested in the layout tests, not the browser |
 | publishing, PWA, worker or Pyodide | matching tool/unit tests | full e2e suite |
 
 Run a single e2e file when the browser path is local, for example:

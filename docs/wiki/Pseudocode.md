@@ -2,9 +2,13 @@
 
 The Pseudocode & Python app runs VCE Maths pseudocode in your browser, shows each step in a trace table, and translates between pseudocode and Python. Nothing is sent anywhere: programs run on your device.
 
-Open it from the Home screen, or go straight to it: <https://cassim-app.pages.dev/#/app/pseudocode>
+Open it from the Home screen of <https://cassim-app.pages.dev/>, or use its own site, <https://cassim-pseudo.pages.dev/>, which opens straight into it.
 
 - [[Pseudocode syntax]]: everything the app accepts, with the Python for each
+
+## Save and open
+
+**Doc ▸ Save** keeps your program under a name in this browser, and **Doc ▸ Open** lists the programs you have saved, as in the other CASSim apps. Saved programs live on this device and browser only. To keep a copy elsewhere, **Doc ▸ Export file…** downloads the program as a text file (`.pseudo.txt`, or `.py` for Python) and **Import file…** opens one. Nothing you open or import runs until you press Run.
 
 ## Write and run
 

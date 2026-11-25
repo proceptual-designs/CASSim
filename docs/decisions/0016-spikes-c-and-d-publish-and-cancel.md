@@ -1,6 +1,7 @@
 # 0016. Spikes C and D: publishing under a project path, offline use, and cancel with restore
 
 Date: 2026-11-06. Status: **GO for both, with the build steps and limits below.** Real GitHub Pages was not used (see "Not tested").
+Since changed (note added 2026-11-25): Cancel by terminating the worker and restoring from the journal stands (SDD-02). The build steps were replaced by `tools/publish.py` (SDD-10): packages ship as archives with no micropip or lock-file patching (0027), the service worker is versioned and checks each file's hash, and the site is on Cloudflare Pages at the root, not GitHub Pages under `/CASSim/` (PLAN.md section 14). The boot times here are from before 0027.
 Code: `spikes/spike7_web/` (the shell: Flet app plus the real `cassim.core` in an engine worker), `spikes/run_web_spike7.py` (D), `spikes/run_web_spike8.py` (C), `spikes/make_cassim_zip.py`. Flet 1.0.5, Pyodide 314.0.7, headless Edge, Windows.
 
 ## Spike D: cancel and restore with the real engine

@@ -4,6 +4,8 @@
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+
 from cassim.app.theme import DARK
 from cassim.core.session import Session
 from cassim.devices.nspire.pages.statistics import (
@@ -46,6 +48,20 @@ def test_dragging_a_scatter_point_updates_its_shared_source_lists() -> None:
 
     assert statistics.plot_data().x == (1.0, 2.5, 3.0)
     assert statistics.plot_data().y == (2.0, 5.25, 6.0)
+
+
+def test_a_dragged_point_stores_three_decimal_places() -> None:
+    """FR-STAT-005 (emulator run 6, S1): the point (3,5) dragged up stored ys[3] as 6.949."""
+    session = Session()
+    _eval(session, "xs:={1,2,3,4,5,6}")
+    _eval(session, "ys:={2,3,5,4,6,8}")
+    statistics = Statistics(session)
+    statistics.perform("x:xs")
+    statistics.perform("y:ys")
+
+    expression = statistics.drag_expression(2, 3.0000000001, 6.94912345678)
+    assert expression == "xs[3]:=3:ys[3]:=6.949"
+    assert statistics.drag_expression(2, 3, -0.0001) == "xs[3]:=3:ys[3]:=0"
 
 
 def test_dragging_a_dot_plot_point_updates_its_source_list() -> None:
@@ -377,3 +393,69 @@ def test_a_right_click_finds_the_mark_under_it() -> None:
     view.refresh(statistics, 320, 220)
     box = next(shape for shape in data_shapes() if isinstance(shape, Box))
     assert right_click(box.x + 2, box.y + 2) == "statistics_context_box"
+
+
+def _scatter(session: Session) -> Statistics:
+    _eval(session, "time:={1,2,3,4}")
+    _eval(session, "distance:={2,4,6,8}")
+    statistics = Statistics(session)
+    statistics.perform("x:time")
+    statistics.perform("y:distance")
+    return statistics
+
+
+def test_zooming_a_scatter_plot_keeps_the_point_under_the_pointer() -> None:
+    """Simon's note 4 (2026-11-25): the wheel and a pinch zoom a plot about the pointer; the
+    device has no wheel zoom (run 6 S1), so this is CASSim's own (decision 0034 item 1)."""
+    statistics = _scatter(Session())
+    point = statistics.plotted_points(320, 200)[2]
+    before = statistics.drag_value_at(320, 200, point.screen_x, point.screen_y)
+    statistics.perform(f"zoom:320,200,0.5,{point.screen_x},{point.screen_y}")
+    assert statistics.window is not None
+    after = statistics.drag_value_at(320, 200, point.screen_x, point.screen_y)
+    assert before is not None
+    assert after is not None
+    assert after[0] == pytest.approx(before[0])
+    assert after[1] == pytest.approx(before[1])
+    xmin, xmax, ymin, ymax = statistics.window
+    assert statistics.message == ""
+    statistics.perform("zoom:320,200,2,160,100")
+    assert statistics.window[1] - statistics.window[0] == pytest.approx(2 * (xmax - xmin))
+    assert statistics.window[3] - statistics.window[2] == pytest.approx(2 * (ymax - ymin))
+
+
+def test_a_one_variable_plot_zooms_along_x_only() -> None:
+    session = Session()
+    _eval(session, "scores:={1,2,3,9}")
+    statistics = Statistics(session)
+    statistics.perform("zoom:320,200,0.5,160,100")
+    assert statistics.window is not None
+    statistics.perform("zoom:320,200,2,160,100")
+    xmin, xmax, _, _ = statistics.window
+    assert xmax - xmin == pytest.approx(9 - 1 + 0.8)  # the 5% padding each side, back again
+
+
+def test_the_wheel_and_a_pinch_send_a_zoom_and_one_finger_still_drags() -> None:
+    statistics = _scatter(Session())
+    actions: list[tuple[str, str]] = []
+    view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
+    view.refresh(statistics, 320, 220)
+    view._scroll(
+        cast(
+            Any,
+            SimpleNamespace(
+                scroll_delta=SimpleNamespace(y=-120), local_position=SimpleNamespace(x=100, y=50)
+            ),
+        )
+    )
+    assert actions[-1][0] == "statistics"
+    assert actions[-1][1].startswith("zoom:")
+    pinch = SimpleNamespace(pointer_count=2, local_focal_point=SimpleNamespace(x=100, y=50))
+    view._scale_start(cast(Any, pinch))
+    view._scale_update(cast(Any, SimpleNamespace(**vars(pinch), scale=2.0)))
+    assert actions[-1][1].startswith("zoom:")
+    view._scale_end(cast(Any, None))
+    point = statistics.plotted_points(view._width, view._chart_height)[1]
+    at = SimpleNamespace(x=point.screen_x, y=point.screen_y)
+    view._scale_start(cast(Any, SimpleNamespace(pointer_count=1, local_focal_point=at)))
+    assert view._drag_index == 1

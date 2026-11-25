@@ -165,11 +165,16 @@ def test_right_leaves_the_numerator():
 
 
 def test_an_operator_first_on_an_empty_line_takes_ans():
-    assert Editor("/3").linear() == "Ans/3"
-    assert Editor("-3").linear() == "Ans-3"
-    assert Editor("^2").linear() == "Ans^(2)"
-    assert Editor("x+1").linear() == "x+1"
+    assert Editor("/3", ans_prefix=True).linear() == "Ans/3"
+    assert Editor("-3", ans_prefix=True).linear() == "Ans-3"
+    assert Editor("^2", ans_prefix=True).linear() == "Ans^(2)"
+    assert Editor("x+1", ans_prefix=True).linear() == "x+1"
     assert keys("F").linear() == "(()/())"  # the template leaves an empty numerator
+
+
+def test_without_ans_prefix_an_operator_first_is_typed_as_it_is():
+    assert Editor("-3").linear() == "-3"
+    assert Editor("^2").linear() == "^(2)"
 
 
 def test_backspace_at_the_start_of_a_slot_dissolves_the_template():
@@ -293,7 +298,7 @@ class TestLatex:
         assert r"\rule[-0.15em]{0.06em}{0.8em}" in keys("1F2").latex()
 
     def test_a_leading_power_is_valid_latex(self):
-        assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")  # after the inserted Ans
+        assert keys("^2").latex(cursor=False).endswith(r"{}^{2}")
 
     def test_nested_templates(self):
         # brackets round a root grow with it (decision 0035)

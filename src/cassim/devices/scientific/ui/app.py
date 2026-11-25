@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.keyboard import key_name
+from cassim.app.saved import SavedDocuments
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
@@ -44,6 +45,16 @@ BAR_HEIGHT = 48.0
 PANEL_WIDTH = 330.0
 MIN_SCALE = 0.7
 MAX_SCALE = 1.3
+# A phone: a short side below this (as the Nspire app's NARROW, decision 0013 item 3). There the
+# calculator fills the screen, its keys grow to use the height, and the tutorials start hidden.
+NARROW = 600
+PHONE_MAX_SCALE = 2.0
+PHONE_MIN_SCALE = 0.4  # a landscape phone: smaller keys rather than a calculator cut off
+# An AlertDialog keeps 40 px either side of it and pads its content by 24 px: a dialog's content
+# may be no wider than the window less these, or it runs off a phone's screen.
+DIALOG_MARGIN = 2 * 40 + 2 * 24
+DIALOG_TEXT = 14  # a dialog's radio and switch labels
+MAX_STRETCH = 1.8  # how much taller the keys may grow on a phone
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
 DEMO_STEP = 2.0  # seconds per key at 1×: slow enough to talk through
@@ -105,7 +116,18 @@ class ScientificApp:
         self.scale = 1.0
         self.menu_visible = True
         self.panel_open = True
+        self.stretch = 1.0  # the keys' height over their width's, above 1 on a tall phone
+        self.use_cutout = True  # an installed phone draws under its camera cutout unless avoided
         self.doc_name = "Untitled"
+        self.saved = SavedDocuments(
+            self.page,
+            shell,
+            dump=self._dump,
+            load=self._load_saved,
+            changed=self._saved_changed,
+            said=lambda text: shell.notice("Saved", text),
+            noun="calculation",
+        )
         self.key_controls: dict[str, ft.Container] = {}
         self.completed: set[str] = set()
         self.speed = 1.0
@@ -141,10 +163,18 @@ class ScientificApp:
             if self.shell.home is not None
             else []
         )
+        self.tutorials_item = ft.MenuItemButton(
+            content="Hide tutorials", on_click=lambda _: self.toggle_panel()
+        )
+        self.cutout_item = ft.MenuItemButton(
+            content="Avoid cutout", on_click=lambda _: self.toggle_cutout(), visible=False
+        )
         self.cassim_menu = ft.SubmenuButton(
             content="CASSim",
             controls=[
                 *home,
+                self.tutorials_item,
+                self.cutout_item,
                 ft.MenuItemButton(content="Settings…", on_click=lambda _: self.open_settings()),
                 ft.MenuItemButton(content="Appearance…", on_click=lambda _: self.open_appearance()),
                 ft.MenuItemButton(
@@ -160,9 +190,11 @@ class ScientificApp:
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
-                ft.MenuItemButton(content="Open…", on_click=self.open_file),
-                ft.MenuItemButton(content="Save", on_click=self.save_file),
-                ft.MenuItemButton(content="Save as…", on_click=lambda _: self.save_file_as()),
+                ft.MenuItemButton(content="Open…", on_click=self.open_saved),
+                ft.MenuItemButton(content="Save", on_click=self.save),
+                ft.MenuItemButton(content="Save as…", on_click=self.save_as),
+                ft.MenuItemButton(content="Import file…", on_click=self.import_file),
+                ft.MenuItemButton(content="Export file…", on_click=self.export_file),
                 ft.MenuItemButton(content="Share link…", on_click=lambda _: self.open_share_link()),
                 ft.SubmenuButton(
                     content="Examples",
@@ -250,14 +282,21 @@ class ScientificApp:
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
+        self.body_frame = ft.Container(self.body, padding=12)
         self.content = ft.Column(
-            [ft.Container(self.body, padding=12)],
+            [self.body_frame],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        self.root = ft.Stack(
-            [ft.Column([self.top_bar, self.content], expand=True, spacing=0), self.restore_button],
+        self.root = ft.Container(
+            ft.Stack(
+                [
+                    ft.Column([self.top_bar, self.content], expand=True, spacing=0),
+                    self.restore_button,
+                ],
+                expand=True,
+            ),
             expand=True,
         )
 
@@ -279,7 +318,7 @@ class ScientificApp:
         self.key_controls = {}
         inner = (BASE_WIDTH - 28) * s
         self.lcd = ft.Container(
-            height=112 * s,
+            height=112 * s * (1 + (self.stretch - 1) / 2),
             bgcolor=skin.lcd,
             border_radius=8 * s,
             border=ft.Border.all(3 * s, skin.lcd_edge),
@@ -439,11 +478,11 @@ class ScientificApp:
         return ft.Row(controls, spacing=gap, width=width, tight=True)
 
     def _key_row(self, row: tuple[Cell, ...], inner: float) -> ft.Row:
-        return self._cells(row, inner, 34 * self.scale)
+        return self._cells(row, inner, 34 * self.scale * self.stretch)
 
     def _dpad(self) -> ft.Column:
         s = self.scale
-        nav_w, nav_h = 40 * s, 24 * s
+        nav_w, nav_h = 40 * s, 24 * s * self.stretch
         up, left, right, down = layouts.DPAD_KEYS
         return ft.Column(
             [
@@ -468,7 +507,7 @@ class ScientificApp:
         """The keys beside the D-pad: either side of it, or all to its left."""
         s = self.scale
         layout = self.shown_layout
-        h = 30 * s
+        h = 30 * s * self.stretch
         dpad_w = 100 * s
         gap = 6 * s
         if layout.dpad == "right":
@@ -498,6 +537,11 @@ class ScientificApp:
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    def key_height(self) -> float:
+        """The part of `layout_height` that is key faces (what grows on a tall phone)."""
+        layout = self.shown_layout
+        return len(layout.rows) * 34.0 + max(len(layout.top) * 30.0, 72.0) + 56.0
 
     def layout_height(self) -> float:
         """The calculator's height at scale 1 for the shown layout."""
@@ -757,6 +801,8 @@ class ScientificApp:
         self.page.on_resize = lambda _: self.fit()
         self.shell.changed = self.on_bridge
         await self._load_prefs()
+        if self.phone:
+            self.panel_open = False  # a phone starts with the whole screen for the calculator
         await self._load_state()
         layout = self.layout
         self.state.use_layout(
@@ -774,22 +820,57 @@ class ScientificApp:
         self.page.controls.clear()
 
     def on_bridge(self) -> None:
+        """The page reported a change (an update, installing, the safe area)."""
         self.update_item.content = getattr(self.shell, "update_label", "Check for updates")
         _safe_update(self.update_item)
+        if self.key_controls:
+            self.fit()
+
+    @property
+    def phone(self) -> bool:
+        """A phone-sized window: its short side is narrow."""
+        sides = [side for side in (self.page.width, self.page.height) if side]
+        return bool(sides) and min(sides) < NARROW
+
+    def _safe_area(self) -> tuple[float, float, float, float]:
+        """The inset kept clear of a phone's camera cutout, when the user asks for it (installed
+        app only, as in the Nspire app)."""
+        offers = getattr(self.shell, "offers", None)
+        if offers is not None and self.phone and offers.installed and not self.use_cutout:
+            return offers.safe_area
+        return (0.0, 0.0, 0.0, 0.0)
+
+    def toggle_cutout(self) -> None:
+        self.use_cutout = not self.use_cutout
+        self.fit()
 
     def fit(self) -> None:
-        """Scale the calculator so all of it fits the window (FR-FX-DSP-001)."""
-        page_w = float(getattr(self.page, "width", 0) or 1200)
-        page_h = float(getattr(self.page, "height", 0) or 800)
+        """Scale the calculator so all of it fits the window (FR-FX-DSP-001). On a phone it fills
+        the width and its keys grow to use the height, unless the tutorials are open below it."""
+        phone = self.phone
+        top, right, bottom, left = self._safe_area()
+        self.root.padding = ft.Padding.only(top=top, right=right, bottom=bottom, left=left)
+        page_w = float(getattr(self.page, "width", 0) or 1200) - left - right
+        page_h = float(getattr(self.page, "height", 0) or 800) - top - bottom
         bar = BAR_HEIGHT if self.menu_visible else 0
-        tall = (page_h - bar - 32) / self.layout_height()
-        wide = (page_w - 28) / BASE_WIDTH
-        scale = max(MIN_SCALE, min(MAX_SCALE, tall, wide))
-        if abs(scale - self.scale) > 0.02 or not self.key_controls:  # noqa: PLR2004
-            self.scale = scale
+        margin = 8 if phone else 28
+        room = page_h - bar - (12 if phone else 32)
+        tall = room / self.layout_height()
+        wide = (page_w - margin) / BASE_WIDTH
+        smallest = PHONE_MIN_SCALE if phone else MIN_SCALE
+        scale = max(smallest, min(PHONE_MAX_SCALE if phone else MAX_SCALE, tall, wide))
+        stretch = 1.0
+        if phone and not self.panel_open:
+            spare = room - self.layout_height() * scale
+            stretch = min(MAX_STRETCH, 1 + max(0.0, spare) / (self.key_height() * scale))
+        changed = abs(scale - self.scale) > 0.02 or abs(stretch - self.stretch) > 0.02  # noqa: PLR2004
+        if changed or not self.key_controls:
+            self.scale, self.stretch = scale, stretch
             self._build_calculator()
-        self.panel.width = min(PANEL_WIDTH, page_w - 28)
-        self.body.width = page_w - 24  # a wrapping row needs a width to centre and to wrap in
+        self.body_frame.padding = 2 if phone else 12
+        self.panel.width = min(PANEL_WIDTH, page_w - margin)
+        self.body.width = page_w - (4 if phone else 24)  # a wrapping row needs a width
+        self._phone_bar(phone=phone)
         self.refresh()
         _safe_update(self.body)
 
@@ -940,9 +1021,25 @@ class ScientificApp:
         self.fit()
 
     def toggle_panel(self) -> None:
+        """Show or hide the tutorials (the Tutorials button, or CASSim ▸ Show/Hide tutorials). On a
+        phone the calculator gives up its stretch to make room for them below it."""
         self.panel_open = not self.panel_open
         self._draw_panel()
-        self._save_prefs()
+        if not self.phone:
+            self._save_prefs()  # a phone always starts with them hidden; keep the saved choice
+        self.fit()
+
+    def _phone_bar(self, *, phone: bool) -> None:
+        """The menu bar on a phone: the model and mode chips stay; the angle and display chips
+        and the Tutorials button go (CASSim ▸ Show tutorials has it). The menu's own labels
+        follow the state."""
+        for item in (self.angle_chip, self.io_chip, self.panel_button):
+            item.visible = not phone
+        self.tutorials_item.content = "Hide tutorials" if self.panel_open else "Show tutorials"
+        offers = getattr(self.shell, "offers", None)
+        self.cutout_item.visible = bool(phone and offers is not None and offers.installed)
+        self.cutout_item.content = "Avoid cutout" if self.use_cutout else "Use cutout"
+        _safe_update(self.top_bar)
 
     def _home(self) -> None:
         if self.shell.home is not None:
@@ -1377,11 +1474,13 @@ class ScientificApp:
         self.page.run_task(save)
 
     async def _load_state(self) -> None:
+        await self.saved.start()
         route = self.shell.route or ""
         fragment = route.lstrip("/")
         if fragment.startswith("doc="):
             try:
                 if self.state.open_fragment(fragment):
+                    self.saved.unsaved()  # a link's calculator is saved nowhere here yet
                     return
             except DocumentFileError as error:
                 self.shell.notice("Share link", f"The link could not be opened: {error}.")
@@ -1391,6 +1490,11 @@ class ScientificApp:
                 self.doc_name = self.state.loads(saved)
             except DocumentFileError:
                 self.state = ScientificState()
+                self.saved.fresh()
+            else:
+                self.doc_name = self.saved.current.stored or self.doc_name
+        else:
+            self.saved.fresh()  # a first visit: nothing to lose yet
 
     async def _load_prefs(self) -> None:
         text = await self.shell.read(PREFS_KEY)
@@ -1428,50 +1532,65 @@ class ScientificApp:
             ),
         )
 
-    async def open_file(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    # Open, Save and Save as keep calculations by name in this app's storage (`self.saved`,
+    # decision 0033); a file on disk comes in and goes out through Import and Export.
+
+    def _dump(self, name: str) -> str:
+        return self.state.dumps(name or "Untitled", compact=True)
+
+    def _load_saved(self, text: str, name: str) -> None:
+        trial = ScientificState()
+        trial.loads(text)  # raises DocumentFileError before anything is replaced
+        self.state.from_dict(trial.to_dict())
+        self.doc_name = name
+
+    def _saved_changed(self) -> None:
+        self.doc_name = self.saved.name
+        self.refresh()
+        self._schedule_save()
+
+    def open_saved(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.open()
+
+    def save(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.save()
+
+    def save_as(self, _: object = None) -> None:
+        self.stop_lesson()
+        self.saved.save_as()
+
+    def import_file(self, _: object = None) -> None:
+        """Import file…: open a `.cassim.json` file, asking first if work would be lost."""
+        self.stop_lesson()
+        self.saved.ask_discard(lambda: self.page.run_task(self._import_file))
+
+    async def _import_file(self) -> None:
         try:
-            text = await self.shell.pick_file(("json",), "Open a calculation")
+            text = await self.shell.pick_file(("json",), "Import a calculation")
         except UnicodeDecodeError:
-            self.shell.notice("Open", "That file is not a CASSim document.")
+            self.shell.notice("Import file", "That file is not a CASSim document.")
             return
         if text is None:
             return
-        self.stop_lesson()
         trial = ScientificState()
         try:
             name = trial.loads(text)
         except DocumentFileError as error:
-            self.shell.notice("Open", f"The file could not be opened: {error}.")
+            self.shell.notice("Import file", f"The file could not be opened: {error}.")
             return
         self.state.from_dict(trial.to_dict())
+        self.saved.unsaved()  # not in this app's storage until it is saved
         self.doc_name = name
         self.refresh()
         self._schedule_save()
 
-    async def save_file(self, _: object = None) -> None:
+    async def export_file(self, _: object = None) -> None:
+        """Export file…: download the calculation as `.cassim.json`."""
+        self.stop_lesson()
         await self.shell.save_file(
-            f"{self.doc_name}.cassim.json", self.state.dumps(self.doc_name), "Save calculation"
-        )
-
-    def save_file_as(self) -> None:
-        field = ft.TextField(label="Name", value=self.doc_name, autofocus=True)
-
-        async def save(_: object) -> None:
-            name = str(field.value or "").strip() or "Untitled"
-            self.doc_name = name
-            self.page.pop_dialog()
-            await self.save_file()
-            self._schedule_save()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Save as"),
-                content=field,
-                actions=[
-                    ft.TextButton("Save", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
+            f"{self.doc_name}.cassim.json", self.state.dumps(self.doc_name), "Export calculation"
         )
 
     def open_share_link(self) -> None:
@@ -1480,7 +1599,7 @@ class ScientificApp:
         except ValueError:
             self.shell.notice(
                 "Share link",
-                "This calculation is too big for a link. Use Doc ▸ Save and share the file.",
+                "This calculation is too big for a link. Use Doc ▸ Export file… and share that.",
             )
             return
 
@@ -1502,7 +1621,7 @@ class ScientificApp:
                         ft.TextField(value=url, read_only=True, dense=True, multiline=True),
                     ],
                     tight=True,
-                    width=420,
+                    width=self.dialog_width(420),
                 ),
                 actions=[
                     ft.TextButton("Copy link", on_click=copy),
@@ -1518,6 +1637,8 @@ class ScientificApp:
             self.shell.notice("Examples", reason)
             return
         load_example(self.state, index)
+        self.saved.unsaved()  # an example is not the saved calculation any more
+        self.doc_name = "Untitled"
         self.refresh()
         self._schedule_save()
 
@@ -1526,6 +1647,7 @@ class ScientificApp:
             self.stop_lesson()
             self.state.reset()
             self.doc_name = "Untitled"
+            self.saved.fresh()
             self.refresh()
             self._schedule_save()
 
@@ -1540,44 +1662,72 @@ class ScientificApp:
     # dialogs
     # ------------------------------------------------------------------------------------------
 
+    def dialog_width(self, preferred: float) -> float:
+        """A dialog's content width: what it would like, or what a narrow window leaves."""
+        page_w = float(getattr(self.page, "width", 0) or 1200)
+        return max(200.0, min(preferred, page_w - DIALOG_MARGIN))
+
+    @staticmethod
+    def _choice(value: str, label: str, group: list[ft.RadioGroup]) -> ft.Control:
+        """A radio button whose label wraps (a Radio's own label does not, so a long one runs
+        off a phone). Tapping the label chooses it too."""
+
+        def pick(_: object) -> None:
+            if group:
+                group[0].value = value
+                _safe_update(group[0])
+
+        return ft.Row(
+            [
+                ft.Radio(value=value),
+                ft.Container(
+                    ft.Text(label, size=DIALOG_TEXT), expand=True, on_click=pick, ink=False
+                ),
+            ],
+            spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
     def open_settings(self) -> None:
-        """The SETUP choices as a form (FR-FX-CFG-001 to -005)."""
+        """The SETUP choices as a form (FR-FX-CFG-001 to -005), sized to fit a phone."""
         setup = self.state.setup
+        dialect = self.state.dialect
+        width = self.dialog_width(420)
         io = "line" if setup.input == "line" else ("math" if setup.output == "math" else "mathline")
         angle = ft.RadioGroup(
             ft.Row(
                 [
                     ft.Radio(value=v, label=label)
                     for v, label in (("DEG", "Deg"), ("RAD", "Rad"), ("GRA", "Gra"))
-                ]
+                ],
+                wrap=True,
             ),
             value=setup.angle,
         )
+        display_group: list[ft.RadioGroup] = []
         display = ft.RadioGroup(
             ft.Column(
                 [
-                    ft.Radio(value="math", label="MthIO, MathO (natural input and answers)"),
-                    ft.Radio(
-                        value="mathline", label="MthIO, LineO (natural input, decimal answers)"
+                    self._choice("math", "MthIO, MathO: natural input and answers", display_group),
+                    self._choice(
+                        "mathline", "MthIO, LineO: natural input, linear answers", display_group
                     ),
-                    ft.Radio(value="line", label="LineIO (all on one line)"),
+                    self._choice("line", "LineIO: all on one line", display_group),
                 ],
                 spacing=0,
             ),
             value=io,
         )
+        display_group.append(display)
+        formats = [("Norm", n, f"Norm {n}") for n in (1, 2)]
+        formats += [("Fix", n, f"Fix {n} (decimal places)") for n in range(10)]
+        formats += [("Sci", n, f"Sci {n} (significant figures)") for n in range(10)]
+        if dialect == "sharp" or setup.disp == "Eng":
+            formats += [("Eng", n, f"ENG {n} (powers of 1000)") for n in range(10)]
         number = ft.Dropdown(
             value=f"{setup.disp} {setup.digits}",
-            options=[ft.DropdownOption(key=f"Norm {n}", text=f"Norm {n}") for n in (1, 2)]
-            + [
-                ft.DropdownOption(key=f"Fix {n}", text=f"Fix {n} (decimal places)")
-                for n in range(10)
-            ]
-            + [
-                ft.DropdownOption(key=f"Sci {n}", text=f"Sci {n} (significant figures)")
-                for n in range(10)
-            ],
-            width=260,
+            options=[ft.DropdownOption(key=f"{d} {n}", text=text) for d, n, text in formats],
+            width=min(260, width),
             dense=True,
         )
         fraction = ft.RadioGroup(
@@ -1585,11 +1735,27 @@ class ScientificApp:
                 [
                     ft.Radio(value="d/c", label="d/c (improper)"),
                     ft.Radio(value="ab/c", label="a b/c (mixed)"),
-                ]
+                ],
+                wrap=True,
             ),
             value=setup.fraction,
         )
+        point = ft.RadioGroup(
+            ft.Row(
+                [
+                    ft.Radio(value="dot", label="Dot (1.5)"),
+                    ft.Radio(value="comma", label="Comma (1,5)"),
+                ],
+                wrap=True,
+            ),
+            value="comma" if setup.comma else "dot",
+        )
         frequency = ft.Switch(label="STAT frequency column", value=setup.frequency)
+        where = {
+            "ms": "These are the choices on the MODE pages (MODE, pressed again for each page).",
+            "sharp": "These are the SET UP menu's choices; DRG also changes the angle unit.",
+            "sx2": "These are the SET UP menu's choices (2nd then MODE).",
+        }.get(dialect, "These are the SETUP menu's choices (SHIFT then MODE).")
 
         def apply(_: object) -> None:
             new = dataclasses.replace(setup)
@@ -1598,9 +1764,13 @@ class ScientificApp:
             new.input = "line" if choice == "line" else "math"
             new.output = "math" if choice == "math" else "line"
             disp, digits = (number.value or "Norm 1").split()
-            new.disp = "Fix" if disp == "Fix" else "Sci" if disp == "Sci" else "Norm"
+            new.disp = (
+                "Fix" if disp == "Fix" else "Sci" if disp == "Sci" else "Eng" if disp == "Eng"
+                else "Norm"
+            )  # fmt: skip
             new.digits = int(digits)
             new.fraction = "ab/c" if fraction.value == "ab/c" else "d/c"
+            new.comma = point.value == "comma"
             self.state.set_frequency(on=bool(frequency.value))
             new.frequency = self.state.setup.frequency
             self.state.setup = new
@@ -1624,13 +1794,15 @@ class ScientificApp:
                         number,
                         heading("Fraction answers"),
                         fraction,
+                        heading("Decimal point in answers"),
+                        point,
                         frequency,
-                        ft.Text("These are the SETUP menu's choices (SHIFT then MODE).", size=12),
+                        ft.Text(where, size=12),
                     ],
                     tight=True,
                     spacing=6,
                     scroll=ft.ScrollMode.AUTO,
-                    width=420,
+                    width=width,
                 ),
                 actions=[
                     ft.TextButton("Apply", on_click=apply),
@@ -1645,7 +1817,7 @@ class ScientificApp:
             label="Calculator",
             value=self.layout.id,
             options=[ft.DropdownOption(key=layout.id, text=layout.title) for layout in LAYOUTS],
-            width=320,
+            width=self.dialog_width(320),
             dense=True,
         )
         choice = ft.RadioGroup(
@@ -1679,7 +1851,7 @@ class ScientificApp:
                     ],
                     tight=True,
                     spacing=10,
-                    width=360,
+                    width=self.dialog_width(360),
                 ),
                 actions=[
                     ft.TextButton("Apply", on_click=apply),
@@ -1711,10 +1883,14 @@ class ScientificApp:
             self._save_prefs()
 
     def open_shortcuts(self) -> None:
+        width = self.dialog_width(460)
         rows = [
             ft.Row(
                 [
-                    ft.Container(ft.Text(keys, weight=ft.FontWeight.BOLD, size=13), width=170),
+                    ft.Container(
+                        ft.Text(keys, weight=ft.FontWeight.BOLD, size=13),
+                        width=min(170, width * 0.4),
+                    ),
                     ft.Text(what, size=13, expand=True),
                 ],
                 vertical_alignment=ft.CrossAxisAlignment.START,
@@ -1736,7 +1912,7 @@ class ScientificApp:
                     tight=True,
                     spacing=4,
                     scroll=ft.ScrollMode.AUTO,
-                    width=460,
+                    width=width,
                 ),
                 actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
             )

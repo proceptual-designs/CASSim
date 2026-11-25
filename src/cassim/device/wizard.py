@@ -69,6 +69,9 @@ class Wizard:
     store: Callable[[Mapping[str, str]], dict[str, float]] | None = None
     # Checks across the fields (Window Settings: XMin below XMax); messages for the user
     check: Callable[[Mapping[str, str]], list[str]] | None = None
+    # Key actions Esc replays: the dialog before this one, such as the Data Input Method box
+    # (emulator run 6, R6-C3). Empty: Esc just closes, like Cancel.
+    back: tuple[Binding, ...] = ()
 
     def defaults(self) -> dict[str, str]:
         return {field.name: field.default for field in self.fields}

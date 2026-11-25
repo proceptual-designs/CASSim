@@ -1,8 +1,8 @@
 # CASSim
 
 A free, installable family of calculator and programming apps that runs entirely in your browser.
-The current all-in-one build contains Nspire and Pseudocode & Python apps, with ClassPad and Prime
-available as future choices.
+The current all-in-one build contains Nspire, Pseudocode & Python and Scientific apps, with
+ClassPad and Prime available as future choices.
 
 **Try it: <https://cassim-app.pages.dev/>** (installable as an app; works offline after setup).
 
@@ -58,8 +58,11 @@ projects. Wolfram Language and Mathematica are trademarks of Wolfram Research.
 - **Private and offline.** No server, no telemetry, no account. Wait for “Offline: Ready” in the CASSim menu
   before disconnecting. Documents are saved in browser storage or as files
   or shared as a link that carries the document in the URL fragment.
-- **Files.** Nspire Open and Save use CASSim's own `.cassim.json` format. TI's `.tns` files cannot
-  be opened or saved; if that is ever added it will be under Import and Export, not Open and Save.
+- **Open and Save, Import and Export.** In every app, Open, Save and Save As keep your work by
+  name inside the app (browser storage, or the desktop app's own storage), with no file dialog.
+  Import and Export are the only menu items that read or write a file: CASSim's own
+  `.cassim.json` for calculator documents, `.py` and `.pseudo.txt` for code. TI's `.tns` files
+  cannot be opened or saved; if that is ever added it will be under Import and Export.
 
 ## Related software
 

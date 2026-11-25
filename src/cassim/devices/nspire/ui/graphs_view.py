@@ -8,13 +8,19 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.context_menu import context_menu_region
+from cassim.app.entry_line import EntryLine, row_height
 from cassim.app.scene_canvas import COLOURS, canvas
 from cassim.app.theme import Theme
 from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
 from cassim.device.keys import Action
-from cassim.devices.nspire.pages.graphs import FUNCTION_COLOURS, Graphs, function_colour
-from cassim.devices.nspire.ui.entry import EntryLine, row_height
+from cassim.devices.nspire.pages.graphs import (
+    FUNCTION_COLOURS,
+    Graphs,
+    axis_drag_factor,
+    axis_grabbed,
+    function_colour,
+)
 from cassim.graph.sampling import Window
 
 _FUNCTION_HEIGHT = 52
@@ -32,6 +38,7 @@ def graph_colours(theme: Theme) -> dict[str, str]:
         "ink": theme.screen_text,
         "axis": theme.sheet_axis,
         "grid": theme.sheet_grid,
+        "paper": theme.screen,
     }
     colours.update((name, getattr(theme, name)) for name in FUNCTION_COLOURS if name != "ink")
     return colours
@@ -56,6 +63,9 @@ class GraphsView:
         self._plot_height = 100.0
         self._gesture_scale = 1.0
         self._tool_active = False
+        self._origin = (160.0, 50.0)  # the origin on the plot, in pixels
+        self._axis: str | None = None  # the axis a drag holds (R6-A1)
+        self._axis_at = (0.0, 0.0)
         self.functions = ft.Column(spacing=0)
         self.plot = ft.Container(expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
         self._context_region = context_menu_region()
@@ -169,6 +179,7 @@ class GraphsView:
         self.functions.controls = controls
         self.functions.spacing = _CONTROL_SPACING * scale
         self._plot_height = max(self._height - controls_height, 100)
+        self._origin = graphs.window.to_screen(0, 0, self._width, self._plot_height)
         scene = graphs.scene(self._width, self._plot_height)
         colours = graph_colours(self.theme)
         drawing = canvas(scene, colours)
@@ -235,10 +246,21 @@ class GraphsView:
     def _place(self, index: int, path: Sequence[tuple[int, int]], pos: int, extend: bool) -> None:
         self._act("extend" if extend else "place", f"{index}:{format_target(path, pos)}")
 
-    def _scale_start(self, _: ft.ScaleStartEvent) -> None:
+    def _scale_start(self, event: ft.ScaleStartEvent) -> None:
         self._gesture_scale = 1.0
+        start = (event.local_focal_point.x, event.local_focal_point.y)
+        one = event.pointer_count <= 1 and not self._tool_active
+        self._axis = axis_grabbed(self._origin, start) if one else None
+        self._axis_at = start
 
     def _scale_update(self, event: ft.ScaleUpdateEvent) -> None:
+        if self._axis is not None and event.pointer_count <= 1:
+            # A drag on an axis rescales both axes about the origin (R6-A1)
+            at = (event.local_focal_point.x, event.local_focal_point.y)
+            factor = axis_drag_factor(self._axis, self._origin, self._axis_at, at)
+            self._axis_at = at
+            self._gesture(0, 0, factor, *self._origin)
+            return
         if not math.isfinite(event.scale) or event.scale <= 0:
             return
         factor = self._gesture_scale / event.scale

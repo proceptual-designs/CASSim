@@ -153,9 +153,9 @@ def test_solving_in_degree_mode_reads_trig_in_degrees():
 
 
 def test_a_periodic_equation_gives_the_family_of_solutions():
-    assert text("solve(sin(x)=1/2,x)") == "x=2*π*@n1+π/6 or x=2*π*@n1+5*π/6"
+    assert text("solve(sin(x)=1/2,x)") == "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6"
     same("solve(sin(x)=1/2,x)", "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6")
-    same("solve(cos(x)=0,x)", "x=2*@n1*π+π/2 or x=2*@n1*π+3*π/2")
+    same("solve(cos(x)=0,x)", "x=@n1*π+π/2")  # evenly spaced families merge (run 6, R6-B3)
 
 
 def test_a_family_in_degree_mode_is_in_degrees():
@@ -268,5 +268,5 @@ def test_relations_with_a_symbol_are_not_decided_for_it():
 
 def test_trig_equal_to_a_parameter_gives_the_general_solution():
     session = Session()
-    assert session.eval("solve(sin(x)=y,x)").text == "x=2*π*@n1+sin⁻¹(y) or x=2*π*@n1-sin⁻¹(y)+π"
+    assert session.eval("solve(sin(x)=y,x)").text == "x=2*@n1*π+sin⁻¹(y) or x=2*@n1*π-sin⁻¹(y)+π"
     assert session.eval("solve(cos(x)=a,x)").error is None

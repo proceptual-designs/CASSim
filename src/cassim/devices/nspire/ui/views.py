@@ -13,11 +13,13 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app import scene_canvas
+from cassim.app.entry_line import EntryLine
 from cassim.app.theme import DARK, Theme
 from cassim.app.warning import warning_mark
 from cassim.core.results import latex_for_markdown
 from cassim.core.settings import Angle, Ascii, Calc, Case, Domain, updated
-from cassim.device.editor import format_target
+from cassim.device.editor import Editor, cursor_offset, estimated_width, format_target
+from cassim.device.editor_ast import text_ems
 from cassim.device.keys import Action
 from cassim.device.menu import MenuView, Panel, Row
 from cassim.device.pointer import Pointer
@@ -26,7 +28,6 @@ from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.spreadsheet import AreaPane, ShadePane, Spreadsheet, pane_boxes
 from cassim.devices.nspire.screen import Line, Screen, Tile
 from cassim.devices.nspire.statistics_plot import area_scene, p_value_scene
-from cassim.devices.nspire.ui.entry import EntryLine
 from cassim.devices.nspire.ui.graphs_view import GraphsView
 from cassim.devices.nspire.ui.layout import COMPUTER_COLUMN_PADDING, SCREEN_H
 from cassim.devices.nspire.ui.sheet_view import SheetView
@@ -47,38 +48,75 @@ MULTI_CLICK = 0.45  # seconds between the clicks of a double or triple click
 _ANY_PLACE = "*"  # a click that the next one counts with wherever it lands
 
 
-def text_width(text: str) -> int:
-    """A line's width in characters, about: fractions, powers, roots and matrices weigh double."""
-    return len(text) + sum(text.count(char) for char in "/^√[")
-
-
 def history_band(theme: Theme) -> str:
     """The light band behind every other history pair: a faint wash of the theme's screen text
     colour, so it follows every theme (Dark is the default)."""
     return "#14" + theme.screen_text[1:]
 
 
+WIDTH_SLACK = 1.06  # drawn maths against its estimated width: a little room to spare
+LINE_PADDING = 12  # a history row's padding, left and right together
+PAIR_GAP = 1.5  # ems kept between an entry and its result on one line
+SCROLL_MARGIN = 3.0  # ems the cursor is kept from a cut edge, so what is next to it shows
+TO_END = -1.0  # a scroll offset: the end of the line
+
+
+def scroll_offset(offset: float, cursor: float, total: float, view: float, margin: float) -> float:
+    """Where a long line is scrolled to, in pixels, so its cursor (`cursor` pixels from the
+    line's left) stays `margin` inside a window `view` wide. The line moves only when the cursor
+    comes that near an edge, and never past its own ends."""
+    margin = min(margin, view / 3)
+    if cursor - offset < margin:
+        offset = cursor - margin
+    elif cursor - offset > view - margin:
+        offset = cursor - view + margin
+    return max(0.0, min(offset, total - view))
+
+
+class Strip:
+    """A long line that scrolls sideways: its scrolling row, kept between redraws so it keeps
+    its place, where it is scrolled to in pixels, and whether that is still to be applied."""
+
+    def __init__(self) -> None:
+        self.row = ft.Row(scroll=ft.ScrollMode.HIDDEN, tight=True, expand=True)
+        self.offset = 0.0
+        self.due = False
+
+
 def cut_off(
-    content: ft.Control, theme: Theme, size: float, *, left: bool, right: bool
+    content: ft.Control,
+    theme: Theme,
+    size: float,
+    *,
+    left: bool,
+    right: bool,
 ) -> ft.Control:
-    """`content` on one line, cut at the screen's edges and scrolled to its end when
-    `right` is False; ◂ and ▸ mark the sides that have more."""
+    return cut_strip(Strip(), content, theme, size, more=(left, right))
 
-    def mark(sign: str) -> ft.Control:
-        return ft.Text(sign, size=size * 0.6, color=theme.screen_text, no_wrap=True)
 
-    strip = ft.Row(
-        [content],
-        scroll=ft.ScrollMode.HIDDEN,
-        auto_scroll=not right,
-        tight=True,
-        expand=True,
-    )
+def cut_strip(
+    strip: Strip, content: ft.Control, theme: Theme, size: float, *, more: tuple[bool, bool]
+) -> ft.Control:
+    """`content` on one line, cut at the screen's edges; ◂ and ▸ mark the sides that have
+    `more` (left, right). Both marks keep their room when not shown, so the line does not shift
+    as they come and go."""
+
+    def mark(sign: str, shown: bool) -> ft.Control:
+        return ft.Text(
+            sign, size=size * 0.6, color=theme.screen_text, no_wrap=True, opacity=1 if shown else 0
+        )
+
+    strip.row.controls = [content]
     return ft.Row(
-        [*([mark("◂")] if left else []), strip, *([mark("▸")] if right else [])],
+        [mark("◂", more[0]), strip.row, mark("▸", more[1])],
         spacing=2,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
+
+
+def mark_width(size: float) -> float:
+    """The room one ◂ or ▸ takes beside a cut line, with its gap."""
+    return size * 0.6 * 0.6 + 2
 
 
 def label_text(text: str, **style: object) -> ft.Text:
@@ -319,6 +357,10 @@ STUB_HELP = (
 class CalculatorView:
     """The screen: title bar, history, entry line and the error dialog."""
 
+    _strips: dict[str, Strip]  # long lines scrolled sideways: "entry", "recall"
+    # "row:kind" -> the row's text and the height it was drawn at as LaTeX
+    _row_heights: dict[str, tuple[str, float]]
+
     def __init__(
         self,
         state: AppState,
@@ -367,12 +409,13 @@ class CalculatorView:
         self._keep: float | None = None  # the scroll offset when that click was made
         self._tapped: str | None = None  # a line whose maths took a tap its line may see too
         self._to_end = False  # after this redraw, scroll the history to its end (the entry line)
+        self._strips, self._row_heights = {}, {}
         self._last_drawn: tuple[object, ...] | None = None  # what the last Calculator redraw showed
         self._line_sizes: dict[str, tuple[float, float]] = {}  # "row:entry" -> width, height
         self._side_by_side: dict[int, bool] = {}  # history row -> entry and result on one line
         self._history_page: object | None = None
         self._history_rows: dict[
-            int, tuple[tuple[Line, Line, float, float, Theme], ft.Control, bool]
+            int, tuple[tuple[Line, Line, float, float, Theme, float], ft.Control, bool]
         ] = {}
         self._scroll: float | None = None  # the history's scroll offset, once reported
         self._shown = 1  # lines the deepest open panel shows
@@ -879,11 +922,17 @@ class CalculatorView:
         due, to the picked line, or, for a line picked by a click, back where the view was."""
         to_end, self._to_end = self._to_end and self._calculator_shown, False
         keep = self._keep if self._held is not None and not self._follow else None
-        if not (to_end or self._follow or keep is not None):
+        due = [strip for strip in self._strips.values() if strip.due]
+        if not (to_end or self._follow or keep is not None or due):
             return
         try:
             page = self.history.page
         except RuntimeError:  # not on a page yet (Flet raises rather than give None)
+            return
+        for strip in due:  # long lines: sideways, to where their cursors are
+            strip.due = False
+            page.run_task(strip.row.scroll_to, offset=strip.offset, duration=0)
+        if not (to_end or self._follow or keep is not None):
             return
         if to_end:
             page.run_task(self._scroll_to_end)
@@ -922,12 +971,9 @@ class CalculatorView:
         )
         line.drop = self._drop
         built = line.build(calculator.editor)
-        editor = calculator.editor
-        if text_width(editor.linear()) > self._room:
-            # a long entry does not wrap: it scrolls sideways, ◂ and ▸ saying there is more
-            # (run 5, H3 f); the view keeps to the end while the cursor is there
-            at_end = not editor.path and editor.pos == len(editor.root)
-            built = cut_off(built, self.theme, self.state.math_size, left=True, right=not at_end)
+        # a long entry does not wrap: it scrolls sideways, ◂ and ▸ saying there is more
+        # (run 5, H3 f), and follows the cursor as it nears either end
+        built = self._follow_cursor("entry", built, calculator.editor, self._line_room)
         return ft.GestureDetector(
             built,
             on_secondary_tap_down=lambda _: self._context_entry(),
@@ -992,15 +1038,50 @@ class CalculatorView:
         self.on_action("extend", format_target(path, pos))
 
     @property
-    def _room(self) -> float:
-        """About how many characters fit across the screen. LaTeX cannot be measured here."""
-        return self.state.px(300) / (0.62 * self.state.math_size)
+    def _line_room(self) -> float:
+        """The width a history row or the entry line has for its maths, in pixels: the screen
+        as it is drawn now (the Handheld's, or the Computer view's pane), less the padding."""
+        return self.body_size()[0] - LINE_PADDING
+
+    def _drawn(self, ems: float) -> float:
+        """About how wide maths of `ems` ems is drawn, in pixels, with a little to spare. The
+        canvas gives no layout to measure, so the width comes from the maths itself."""
+        return ems * self.state.math_size * WIDTH_SLACK
+
+    def _line_width(self, line: Line) -> float:
+        return self._drawn(line.width or text_ems(line.text))
 
     def _fits(self, entry: Line, result: Line) -> bool:
-        """Whether an entry and its result are short enough to share a line: this counts
-        characters (fractions, powers and roots weigh double) against the screen width, with
-        room to spare."""
-        return text_width(entry.text) + text_width(result.text) + 3 <= self._room
+        """Whether an entry and its result share a line, the entry at the left and the result
+        at the right: their drawn widths and a gap against the screen's width (run 5, H9 b)."""
+        gap = PAIR_GAP * self.state.math_size + LINE_PADDING
+        return self._line_width(entry) + self._line_width(result) + gap <= self._line_room
+
+    def _follow_cursor(
+        self, name: str, built: ft.Control, editor: Editor, room: float
+    ) -> ft.Control:
+        """`built` (the drawing of `editor`) as it is if it fits in `room` pixels; else cut at
+        the edges and scrolled so the cursor stays in view. The offset is kept by `name` between
+        redraws and applied after the page update (`follow_selection`)."""
+        size = self.state.math_size
+        total = self._drawn(estimated_width(editor.root))
+        if total <= room:
+            self._strips.pop(name, None)
+            return built
+        view = room - 2 * mark_width(size)
+        strip = self._strips.setdefault(name, Strip())
+        at_end = not editor.path and editor.pos == len(editor.root)
+        at_start = not editor.path and editor.pos == 0
+        cursor = self._drawn(cursor_offset(editor))
+        before = total - view if strip.offset == TO_END else strip.offset  # where it is now
+        offset = scroll_offset(before, cursor, total, view, SCROLL_MARGIN * size)
+        if at_end:
+            offset = TO_END  # exactly the end, whatever the estimate says
+        elif at_start:
+            offset = 0.0
+        strip.offset, strip.due = offset, True
+        more_right = offset != TO_END and offset + view < total - 1
+        return cut_strip(strip, built, self.theme, size, more=(offset != 0, more_right))
 
     def _pair(self, entry: Line, result: Line, number: int) -> ft.Control:
         """An entry and its result: one line if both are short, else the result on a line of its
@@ -1025,7 +1106,7 @@ class CalculatorView:
     def _history_pair(self, entry: Line, result: Line, number: int) -> ft.Control:
         if self.measuring:
             return self._pair(entry, result, number)
-        key = (entry, result, self.state.scale, self.state.math_size, self.theme)
+        key = (entry, result, self.state.scale, self.state.math_size, self.theme, self._line_room)
         old = self._history_rows.get(number)
         if old is not None and old[0] == key:
             self._side_by_side[number // 2] = old[2]
@@ -1033,6 +1114,12 @@ class CalculatorView:
         control = self._pair(entry, result, number)
         self._history_rows[number] = (key, control, self._side_by_side[number // 2])
         return control
+
+    def _row_sized(self, spec: str, text: str) -> Callable[[ft.LayoutSizeChangeEvent], None]:
+        def store(event: ft.LayoutSizeChangeEvent) -> None:
+            self._row_heights[spec] = (text, event.height)
+
+        return store
 
     def _line(self, line: Line, number: int, *, own_line: bool = False) -> ft.GestureDetector:
         """One history row. A picked row is highlighted as TI does: only the item, same size and
@@ -1045,9 +1132,15 @@ class CalculatorView:
         if editor is not None and calculator is not None:
             # a line clicked or moved into is drawn as an editor, so a click places its cursor
             # and a double- or triple-click selects (run 5, H3 a, b)
-            body: ft.Control = EntryLine(
+            recalled = EntryLine(
                 self.theme, self.state.math_size, self._recall_click, calculator.session.is_defined
-            ).build(editor)
+            )
+            recalled.inline = True  # as the history draws the row, so it keeps its size
+            body: ft.Control = recalled.build(editor)
+            drawn = self._row_heights.get(spec)
+            if drawn is not None and drawn[0] == line.text:
+                # held at the height the row had as LaTeX: the rows under it do not move
+                body = ft.Container(body, height=drawn[1])
         elif line.error:
             body = ft.Text(
                 line.text,
@@ -1062,6 +1155,9 @@ class CalculatorView:
             bgcolor=self.theme.selection if line.selected and not line.part else None,
             # a tap on the maths itself says where: the cursor goes near it
             on_tap_down=None if editor is not None else lambda event: self._tap_line(spec, event),
+            # a row drawn as LaTeX says how tall it came out, once (rows are kept between
+            # redraws), so it can keep that height when the cursor moves into it
+            on_size_change=None if editor is not None else self._row_sized(spec, line.text),
         )
         if line.warnings:  # the triangle sits at the left of the entry (FR-CALC-007)
             mark = warning_mark(line.warnings, self.state.px(14))
@@ -1071,7 +1167,9 @@ class CalculatorView:
                 tight=True,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
-        if text_width(line.text) > self._room:
+        if editor is not None:  # a long row follows its cursor, as the entry line does
+            shown = self._follow_cursor("recall", shown, editor, self._line_room)
+        elif self._line_width(line) > self._line_room:
             shown = cut_off(shown, self.theme, self.state.math_size, left=False, right=True)
         # A right-click picks the line (if it is not picked already) and opens its context menu;
         # the context-menu cursor tells the page to keep the browser's own menu away (H3 j)
@@ -1603,6 +1701,28 @@ def field_box(
     )
 
 
+class _WizardClosing:
+    """Tells OK and Cancel from Esc (or a click outside): Esc goes back to the dialog before
+    this one where there is one, as a test's fields go back to its Data Input Method box
+    (emulator run 6, R6-C3)."""
+
+    def __init__(
+        self, page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
+    ) -> None:
+        self.page, self.state, self.wizard, self.on_change = page, state, wizard, on_change
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+        self.page.pop_dialog()
+
+    def dismissed(self) -> None:
+        if not self.closed and self.wizard.back:
+            self.closed = True
+            self.state.escape_wizard(self.wizard)
+            self.on_change()
+
+
 def wizard_dialog(
     page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
 ) -> ft.AlertDialog:
@@ -1664,12 +1784,14 @@ def wizard_dialog(
         state.store_wizard(wizard, values())
         page.update()
 
+    closing = _WizardClosing(page, state, wizard, on_change)
+
     def ok() -> None:
         found = wizard.problems(values())
         if found:
             report("\n".join(found))
             return
-        page.pop_dialog()
+        closing.close()
         state.finish_wizard(wizard, values())
         on_change()
 
@@ -1683,7 +1805,7 @@ def wizard_dialog(
     )
     actions: list[ft.Control] = [
         ft.TextButton("OK", on_click=lambda _: ok()),
-        ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+        ft.TextButton("Cancel", on_click=lambda _: closing.close()),
     ]
     if live is not None:
         actions.insert(0, ft.TextButton("Calculate", on_click=lambda _: calculate(focused[0])))
@@ -1691,6 +1813,7 @@ def wizard_dialog(
         title=ft.Text(wizard.title),
         content=ft.Column([*hint, *boxes.values(), problems], tight=True, spacing=10),
         actions=actions,
+        on_dismiss=closing.dismissed,
     )
     page.show_dialog(dialog)
     return dialog

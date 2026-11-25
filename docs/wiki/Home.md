@@ -1,34 +1,40 @@
 # CASSim
 
-CASSim is a simulator of handheld Computer Algebra Systems (CAS), made for educational purposes. It is free, runs in your browser and simulates the TI-Nspire CX CAS. It also runs VCE Maths pseudocode and Python, with trace tables. It is made for VCE Mathematical Methods and Specialist Mathematics, and works on a laptop, Chromebook, tablet or phone. There is nothing to sign up for, and your work stays on your device.
+CASSim is a set of free calculator simulators for school maths, made for educational purposes. It runs in your browser on a laptop, Chromebook, tablet or phone. There is nothing to sign up for, and your work stays on your device. It has three apps:
 
-> **CASSim is an independent educational simulator.** It is not affiliated with, endorsed by or sponsored by Texas Instruments. It is not an approved exam calculator and must not be used in assessments that require an approved device. TI-Nspire is a trademark of Texas Instruments.
+| App | What it is | Help |
+|---|---|---|
+| **Nspire** | A simulator of the TI-Nspire CX CAS, for VCE Mathematical Methods and Specialist Mathematics | [[Nspire]] |
+| **Pseudocode & Python** | Run VCE Maths pseudocode with trace tables, and translate it to and from Python | [[Pseudocode]] |
+| **Scientific** | A scientific calculator with the keys of the fx-82, SX-II, EL-531 or 10s series, and interactive tutorials | [[Scientific calculator]] |
+
+> **CASSim is an independent educational simulator.** It is not affiliated with, endorsed by or sponsored by Texas Instruments, Casio, Abacus, Sharp or HP, and it is not an approved exam calculator: do not use it in an assessment that requires an approved device. TI-Nspire is a trademark of Texas Instruments; the other calculator names belong to their makers and are used only to say which keys a layout follows.
 
 CASSim is still being built. See [[What works and what does not yet]] before you rely on it.
 
 ## Where to find CASSim
 
+The **all-in-one site** opens to a Home screen where you choose an app. Each app also has **its own site**, which opens straight into that app and installs as its own icon.
+
 | Site | Address | What it is |
 |---|---|---|
-| CASSim | <https://cassim-app.pages.dev/> | The released version. Use this one. |
-| CASSim testing | <https://cassim-calc.pages.dev/> | The newest changes, for trying things early. It may break. |
-| Help | <https://cassim-wiki.pages.dev/> | These pages. |
+| CASSim | <https://cassim-app.pages.dev/> | All three apps. The released version. |
+| CASSim Nspire | <https://cassim-tin.pages.dev/> | The Nspire app alone |
+| CASSim Pseudocode & Python | <https://cassim-pseudo.pages.dev/> | The Pseudocode & Python app alone |
+| CASSim Scientific | <https://cassim-sci.pages.dev/> | The Scientific app alone |
+| CASSim testing | <https://cassim-calc.pages.dev/> | All three apps with the newest changes, for trying things early. It may break. |
+| Help | <https://cassim-wiki.pages.dev/> | These pages |
 
-Each site keeps its own saved work: a document made on one site is not on the other. To move it, export it to a file or copy a share link (see [[Documents and sharing]]).
+[[Which site to use]] explains the difference, and how the icons tell the sites apart.
 
-## Pages
+## Help pages
 
-- [[Getting started]]: open it, install it, and your first calculation
-- [[Nspire calculator|Nspire]]: the TI-Nspire CX CAS simulator
-- [[Pseudocode & Python|Pseudocode]]: run pseudocode, trace tables, translate to Python
-- [[Pseudocode syntax]]: everything the pseudocode app accepts
-- [[CASSim Scientific (scientific)|Scientific calculator]]: the scientific calculator, with tutorials (testing version)
-- [[The two views]]: Handheld and Computer
-- [[Keys and shortcuts]]
-- [[Menus]]
-- [[Settings]]: Document Settings and Handheld Setup
-- [[Documents and sharing]]: pages, saving, opening and share links
-- [[What works and what does not yet]]
-- [[Other calculators and CAS software]]: the makers' own apps, emulators and free CAS programs
-- [[Text interface]]: for people who like a terminal
-- [[Reporting a problem]]
+**Getting going:** [[Getting started]], [[Which site to use]], [[What works and what does not yet]], [[Reporting a problem]]
+
+**Nspire:** [[Nspire calculator|Nspire]], [[The two views]], [[Keys and shortcuts]], [[Menus]], [[Settings]], [[Documents and sharing]], [[Text interface]]
+
+**Pseudocode & Python:** [[Pseudocode & Python|Pseudocode]], [[Pseudocode syntax]]
+
+**Scientific:** [[Scientific calculator]], [[Choosing your calculator]]
+
+**More:** [[Other calculators and CAS software]]: the makers' own apps, emulators and free CAS programs

@@ -1,8 +1,8 @@
 """The CASSim Scientific view, run headless against a stand-in shell.
 
 Requirements: FR-FX-DSP-001, FR-FX-DSP-002, FR-FX-SHR-001, FR-FX-SHR-002, FR-FX-TUT-001,
-FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004.
-Cited: FR-FX-UI-001 FR-FX-UI-002 FR-FX-UI-003 FR-FX-UI-004 FR-FX-TUT-003.
+FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004, FR-FX-UI-007 (phones).
+Cited: FR-FX-UI-001 FR-FX-UI-002 FR-FX-UI-003 FR-FX-UI-004 FR-FX-UI-007 FR-FX-TUT-003.
 """
 
 from __future__ import annotations
@@ -14,13 +14,17 @@ from types import SimpleNamespace
 from typing import Any
 
 import flet as ft
+import flet.canvas as cv
 import pytest
 
+from cassim.app.shell import BrowserOffers
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
+from cassim.devices.scientific.layout import Frac, Sqrt, Text
 from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
+from cassim.devices.scientific.ui import render
 from cassim.devices.scientific.ui.app import BASE_WIDTH, ScientificApp
 from cassim.devices.scientific.ui.skins import SKINS
 
@@ -86,6 +90,9 @@ class FakeShell:
 
     def write(self, key: str, text: str) -> None:
         self.store[key] = text
+
+    def remove(self, key: str) -> None:
+        self.store.pop(key, None)
 
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
@@ -211,8 +218,8 @@ def test_the_calculator_scales_to_the_window() -> None:
         app.set_layout(layout.id)
         assert app.layout_height() * app.scale <= page.height - ui.BAR_HEIGHT, layout.id
         page.drop_tasks()
-    small, _, _ = started(FakePage(360, 500))
-    assert small.scale == ui.MIN_SCALE  # then the page scrolls
+    small, _, _ = started(FakePage(360, 500))  # a phone: smaller keys rather than scrolling
+    assert small.layout_height() * small.scale <= 500 - ui.BAR_HEIGHT
     big, _, _ = started(FakePage(2560, 1400))
     assert big.scale == ui.MAX_SCALE
     assert BASE_WIDTH * big.scale > BASE_WIDTH
@@ -351,24 +358,75 @@ def test_share_link_opens_on_start() -> None:
     assert broken.state.mode == "COMP"
 
 
-def test_share_dialog_and_files() -> None:
+def save_under(page: FakePage, name: str) -> None:
+    """Type `name` into the Save as dialog and press Save."""
+    dialog: Any = page.dialogs[-1]
+    dialog.content.controls[1].value = name
+    dialog.actions[0].on_click(None)
+    page.run_tasks()
+
+
+def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None:
+    """FR-FX-SHR-006, FR-DOC-010 (decision 0033): Save and Open keep calculations by name in
+    the app's storage; only Import file and Export file touch a file on disk."""
     app, shell, page = started()
+    labels = [str(item.content) for item in app.doc_menu.controls]
+    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    assert not app.saved.dirty()  # a first visit has nothing to lose
     for key in ("5", k.EQ):
         app.on_key(key)
+    assert app.saved.dirty()
     app.open_share_link()
     assert page.dialogs
-    asyncio.run(app.save_file())
+
+    app.save()  # never saved: asks for a name
+    save_under(page, "Homework")
+    assert not shell.saved  # nothing was downloaded
+    assert "doc:Homework" in shell.store
+    assert shell.notices[-1][0] == "Saved"
+    assert app.doc_name == "Homework"
+    assert not app.saved.dirty()
+
+    for key in (k.AC, "9", k.EQ):
+        app.on_key(key)
+    app.save_as()
+    save_under(page, "Other")
+    app.open_saved()  # the saved calculations, newest first
+    rows: Any = page.dialogs[-1]
+    assert [row.title.value for row in rows.content.controls] == ["Other", "Homework"]
+    rows.content.controls[1].on_click(None)
+    page.run_tasks()
+    assert app.doc_name == "Homework"
+    assert app.state.answer_text() == "5"
+
+    asyncio.run(app.export_file())
     name, text = shell.saved[-1]
-    assert name == "Untitled.cassim.json"
-    shell.picked = text.replace('"Untitled"', '"Homework"')
-    other = ScientificApp(shell)
-    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
-    assert other.doc_name == "Homework"
-    assert other.state.answer_text() == "5"
+    assert name == "Homework.cassim.json"
+
+    shell.picked = text.replace('"Homework"', '"From a file"')
+    app.import_file()
+    page.run_tasks()
+    assert app.doc_name == "From a file"
+    assert app.saved.current.stored is None  # an imported file is saved nowhere here yet
+    assert app.state.answer_text() == "5"
     shell.picked = json.dumps({"format": "cassim-document", "schema": 5, "device": "nspire"})
-    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
+    app.import_file()
+    page.run_tasks()
     assert "nspire" in shell.notices[-1][1]
     page.drop_tasks()
+
+
+def test_the_saved_name_survives_a_reload() -> None:
+    """FR-FX-SHR-001, FR-DOC-010: the autosave keeps which saved calculation is open."""
+    app, shell, page = started()
+    app.on_key("5")
+    app.save()
+    save_under(page, "Homework")
+    again, _, other_page = started(store=shell.store)
+    assert again.doc_name == "Homework"
+    assert again.saved.name == "Homework"
+    page.drop_tasks()
+    other_page.drop_tasks()
 
 
 def test_reset_all_and_examples() -> None:
@@ -447,7 +505,7 @@ def test_test_me() -> None:
 
 def test_dialogs_open() -> None:
     app, _, page = started()
-    for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_file_as):
+    for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_as):
         opener()
     assert len(page.dialogs) == 4
 
@@ -610,3 +668,179 @@ def test_model_chip_and_title_cycle_the_calculators() -> None:
     assert app.model_label.value == LAYOUTS[1].series
     assert f"CASSim Scientific ({LAYOUTS[1].series})" in _texts(app.calculator)
     page.drop_tasks()
+
+
+def test_a_phone_hides_the_tutorials_and_fills_the_screen() -> None:
+    """On a phone the tutorials start hidden (whatever was saved), the calculator fills the
+    width and its keys grow to use the height; CASSim ▸ Show tutorials brings them back below."""
+    store = {"prefs": json.dumps({"panel": True})}
+    app, shell, page = started(FakePage(390, 844), store=store)
+    assert app.phone
+    assert not app.panel_open
+    assert not app.panel.visible
+    assert app.calculator.width == pytest.approx(390 - 8, abs=2)  # the width, less a thin margin
+    assert app.stretch > 1.2
+    assert not app.angle_chip.visible
+    assert not app.panel_button.visible
+    assert app.tutorials_item.content == "Show tutorials"
+    app.tutorials_item.on_click(None)
+    assert app.panel_open
+    assert app.panel.visible
+    assert app.stretch == 1.0  # room for the tutorials below the calculator
+    assert app.tutorials_item.content == "Hide tutorials"
+    assert json.loads(shell.store["prefs"])["panel"] is True  # a phone keeps the saved choice
+    page.drop_tasks()
+
+
+def test_tutorials_show_and_hide_from_the_menu_on_a_computer() -> None:
+    app, shell, page = started()
+    assert not app.phone
+    assert app.panel_open
+    assert app.tutorials_item.content == "Hide tutorials"
+    app.tutorials_item.on_click(None)
+    assert not app.panel.visible
+    assert app.tutorials_item.content == "Show tutorials"
+    assert json.loads(shell.store["prefs"])["panel"] is False
+    page.drop_tasks()
+
+
+def test_an_installed_phone_can_avoid_the_cutout() -> None:
+    """As in the Nspire app: an installed phone draws under the camera cutout until CASSim ▸
+    Avoid cutout keeps the calculator inside the safe area."""
+    app, shell, page = started(FakePage(390, 844))
+    assert not app.cutout_item.visible  # not installed
+    shell.offers = BrowserOffers(installed=True, safe_area=(40, 0, 20, 0))
+    app.on_bridge()
+    assert app.cutout_item.visible
+    assert app.cutout_item.content == "Avoid cutout"
+    assert app.root.padding.top == 0
+    app.cutout_item.on_click(None)
+    assert app.cutout_item.content == "Use cutout"
+    assert app.root.padding.top == 40
+    assert app.root.padding.bottom == 20
+    page.drop_tasks()
+
+
+# ---- phones (simulated): the app laid out at real phone sizes -------------------------------
+
+PHONES = {
+    "small-360x640": (360, 640),
+    "iphone-390x844": (390, 844),
+    "pixel-412x915": (412, 915),
+    "landscape-844x390": (844, 390),
+}
+
+
+def _walk(control: object):
+    yield control
+    for name in ("content", "controls", "actions", "title"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child] if child is not None else []:
+            if isinstance(item, ft.Control):
+                yield from _walk(item)
+
+
+def _too_wide(dialog: ft.AlertDialog, room: float) -> list[str]:
+    """What in a dialog would run off a screen `room` wide: a fixed width over it, a row of
+    radio buttons that cannot wrap, or a radio label (they do not wrap) longer than fits."""
+    problems = []
+    for control in _walk(dialog.content):
+        fixed = getattr(control, "width", None)
+        if isinstance(fixed, (int, float)) and fixed > room + 0.5:
+            problems.append(f"{type(control).__name__} width {fixed} > {room}")
+        if isinstance(control, ft.Row) and not control.wrap:
+            radios = [c for c in control.controls if isinstance(c, ft.Radio)]
+            if len(radios) > 1:
+                problems.append(f"a row of {len(radios)} radios that cannot wrap")
+        if isinstance(control, ft.Radio) and control.label:
+            label = control.label if isinstance(control.label, str) else ""
+            if 48 + len(label) * ui.DIALOG_TEXT * 0.55 > room:
+                problems.append(f"radio label {label!r} is too long")
+    return problems
+
+
+@pytest.mark.parametrize("size", PHONES.values(), ids=PHONES.keys())
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+def test_phone_calculator_fits_the_screen(size: tuple[int, int], layout) -> None:
+    """On a phone the calculator fills the width without running past it, and with the
+    tutorials hidden all of it fits the height."""
+    app, _, page = started(FakePage(*size))
+    app.set_layout(layout.id)
+    width, height = size
+    drawn = BASE_WIDTH * app.scale
+    assert drawn <= width - 4
+    tall = (app.layout_height() + (app.stretch - 1) * app.key_height()) * app.scale
+    assert tall <= height - ui.BAR_HEIGHT + 1
+    # it fills the width, or (a short or landscape screen) the height
+    assert drawn >= width - 16 or tall >= height - ui.BAR_HEIGHT - 30
+    page.drop_tasks()
+
+
+@pytest.mark.parametrize("size", PHONES.values(), ids=PHONES.keys())
+@pytest.mark.parametrize("dialog", ["settings", "appearance", "shortcuts", "share"])
+def test_phone_dialogs_fit_the_screen(size: tuple[int, int], dialog: str) -> None:
+    """Every dialog fits a phone: the settings once had a 420 px column and rows of radio
+    buttons with long labels, which ran off the screen."""
+    app, _, page = started(FakePage(*size))
+    for key in ("1", k.ADD, "2", k.EQ):
+        app.on_key(key)
+    {
+        "settings": app.open_settings,
+        "appearance": app.open_appearance,
+        "shortcuts": app.open_shortcuts,
+        "share": app.open_share_link,
+    }[dialog]()
+    shown = page.dialogs[-1]
+    assert isinstance(shown, ft.AlertDialog)
+    room = size[0] - ui.DIALOG_MARGIN
+    assert _too_wide(shown, room) == []
+    page.drop_tasks()
+
+
+def test_phone_settings_change_the_decimal_point() -> None:
+    app, _, page = started(FakePage(390, 844))
+    app.open_settings()
+    dialog = page.dialogs[-1]
+    groups = [c for c in _walk(dialog.content) if isinstance(c, ft.RadioGroup)]
+    point = next(g for g in groups if g.value in ("dot", "comma"))
+    point.value = "comma"
+    apply = next(b for b in dialog.actions if isinstance(b, ft.TextButton) and b.content == "Apply")
+    apply.on_click(None)
+    assert app.state.setup.comma
+    page.drop_tasks()
+
+
+# ---- the natural display's drawing --------------------------------------------------------
+
+
+def test_square_root_is_one_stroke_that_reaches_its_vinculum() -> None:
+    """√ is drawn as one path, the sign then the vinculum, sized to the argument: the √
+    character and a separate line did not meet, least of all over a fraction."""
+    renderer = render.Renderer("#000", "#000")
+    for arg in ((Text("8"),), (Frac((Text("1"),), (Text("2"),)),)):
+        drawn = renderer.node(Sqrt(arg), 20)
+        assert isinstance(drawn, cv.Canvas)
+        path = drawn.shapes[0]
+        assert isinstance(path, cv.Path)
+        points = [
+            (e.x, e.y) for e in path.elements if isinstance(e, (cv.Path.MoveTo, cv.Path.LineTo))
+        ]
+        sign_top, line_end = points[-2], points[-1]
+        assert sign_top[1] == line_end[1]  # the sign's top is where the vinculum starts
+        assert line_end[0] == drawn.width == render.node_width(Sqrt(arg), 20)
+        assert points[2][1] > (drawn.height or 0) * 0.9  # the stroke reaches the baseline
+    tall = renderer.node(Sqrt((Frac((Text("1"),), (Text("2"),)),)), 20)
+    short = renderer.node(Sqrt((Text("8"),)), 20)
+    assert isinstance(tall, cv.Canvas)
+    assert isinstance(short, cv.Canvas)
+    assert (tall.height or 0) > (short.height or 0)  # the sign grows with a fraction under it
+
+
+def test_mixed_number_answer_is_spaced_like_the_entry() -> None:
+    """The answer 1 3/4 had a whole character's space before the fraction; it now has the
+    small gap the typed mixed number has."""
+    answer = (Text("1 "), Frac((Text("3"),), (Text("4"),)))
+    typed = (Text("1"), Frac((Text("3"),), (Text("4"),)))
+    gap = render.width(answer, 20) - render.width(typed, 20)
+    assert gap == pytest.approx(render.MIXED_GAP * 20)
+    assert gap == 0  # the fraction follows the whole part directly, as in the entry
