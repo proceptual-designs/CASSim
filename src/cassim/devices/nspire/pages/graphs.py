@@ -95,6 +95,35 @@ def label_latex(root: Row, is_defined: Callable[[str], bool]) -> str:
     return shown.replace(rf", & {EMPTY_SLOT}\end{{cases}}", r", & \mathrm{Else}\end{cases}")
 
 
+AXIS_REACH = 6.0  # pixels from an axis at which a drag takes the axis, not the plane
+_AXIS_ORIGIN_GAP = 10.0  # pixels round the origin where a drag stays a pan
+
+
+def axis_grabbed(origin: tuple[float, float], start: tuple[float, float]) -> str | None:
+    """Which axis a drag starting at `start` takes: "x" on the x axis, "y" on the y axis,
+    None for the plane (a pan). Near the origin the distance to it means nothing, so a pan."""
+    dx, dy = start[0] - origin[0], start[1] - origin[1]
+    if abs(dy) <= AXIS_REACH and abs(dx) > _AXIS_ORIGIN_GAP:
+        return "x"
+    if abs(dx) <= AXIS_REACH and abs(dy) > _AXIS_ORIGIN_GAP:
+        return "y"
+    return None
+
+
+def axis_drag_factor(
+    axis: str, origin: tuple[float, float], before: tuple[float, float], after: tuple[float, float]
+) -> float:
+    """The zoom an axis drag makes about the origin, on both axes at once: the distance from the
+    origin before over the distance after. Dragging a tick away from the origin zooms in, toward
+    it zooms out (emulator run 6, R6-A1, Handheld view: x 50 px out took -10..10 to -4.18..4.18
+    and y with it). A drag across the origin does nothing."""
+    index = 0 if axis == "x" else 1
+    old, new = before[index] - origin[index], after[index] - origin[index]
+    if old == 0 or new == 0 or (old > 0) != (new > 0):
+        return 1.0
+    return old / new
+
+
 def _trimmed(row: Row) -> Row:
     """A row without spaces at its ends."""
     start, end = 0, len(row)

@@ -11,6 +11,8 @@ from cassim.devices.nspire.pages.graphs import (
     FUNCTION_COLOURS,
     Graphs,
     GridStyle,
+    axis_drag_factor,
+    axis_grabbed,
     function_colour,
     graphs_of,
 )
@@ -622,3 +624,22 @@ def test_tab_opens_the_first_empty_function() -> None:
     graphs.select_function(0)
     state.key_event("Tab")
     assert graphs.functions[graphs.active_index].name == "f3"
+
+
+def test_a_drag_on_an_axis_rescales_both_axes_about_the_origin() -> None:
+    """R6-A1 (Handheld view): a drag starting on either axis is a rescale about the origin,
+    not a pan; away from the origin zooms in, toward it zooms out. Off the axes it pans."""
+    origin = (159.0, 106.0)
+    assert axis_grabbed(origin, (175.0, 108.0)) == "x"
+    assert axis_grabbed(origin, (157.0, 80.0)) == "y"
+    assert axis_grabbed(origin, (200.0, 150.0)) is None
+    assert axis_grabbed(origin, (161.0, 107.0)) is None  # at the origin: a pan
+    assert axis_drag_factor("x", origin, (175.0, 108.0), (195.0, 108.0)) == pytest.approx(16 / 36)
+    assert axis_drag_factor("y", origin, (157.0, 80.0), (157.0, 93.0)) == pytest.approx(26 / 13)
+    assert axis_drag_factor("x", origin, (175.0, 108.0), (140.0, 108.0)) == 1.0  # across: none
+    graphs = Graphs(Session())
+    graphs.scene(318, 212)  # the plot size the gesture works in
+    before = graphs.window
+    graphs.gesture(0, 0, 0.5, 159.0, 106.0)
+    assert graphs.window.x_max == pytest.approx(before.x_max / 2)
+    assert graphs.window.y_max == pytest.approx(before.y_max / 2)
