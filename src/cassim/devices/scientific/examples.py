@@ -7,6 +7,7 @@ calculator: whatever it shows is what the calculator really does. Pure data: no 
 from __future__ import annotations
 
 from cassim.devices.scientific import keys as k
+from cassim.devices.scientific.layouts import Layout
 from cassim.devices.scientific.state import ScientificState
 
 
@@ -59,9 +60,31 @@ EXAMPLES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+def missing(index: int, layout: Layout) -> str:
+    """Why the calculator behind these keys cannot show the example ("" when it can)."""
+    title = EXAMPLES[index][0]
+    if title.startswith("Table") and "TABLE" not in layout.modes:
+        return f"The {layout.title} has no TABLE mode."
+    linear = layout.dialect in ("ms", "sharp")
+    if linear and title.startswith("Five-number"):
+        return f"The {layout.title} has no quartiles."
+    if linear and title.startswith("Prime"):
+        return f"The {layout.title} has no prime factorisation."
+    return ""
+
+
 def load_example(state: ScientificState, index: int) -> None:
-    """Reset the calculator and press the example's keys."""
+    """Reset the calculator and press the example's keys. They are the fx-82's keys, so they are
+    pressed on its menus and the calculator then goes back to its own (STAT data typed into the
+    fx-82's table stays, for a calculator that enters it with DT or DATA)."""
     _, presses = EXAMPLES[index]
+    dialect = state.dialect
     state.reset()
-    for key in presses:
-        state.press(key)
+    state.dialect = "casio"
+    try:
+        for key in presses:
+            state.press(key)
+    finally:
+        state.dialect = dialect
+    if dialect in ("ms", "sharp") and state.screen == "stat_editor":
+        state.screen = "calc"

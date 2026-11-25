@@ -23,7 +23,7 @@ from cassim.devices.scientific.layout import (
     Text,
 )
 
-FONT = "CASSim fx LCD"
+FONT = "CASSim LCD"
 FONT_FILE = "fonts/RobotoMono-Regular.ttf"
 FALLBACK = ["CASSim Math", "CASSim Symbols"]
 FONTS = {

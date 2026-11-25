@@ -33,10 +33,11 @@ class Setup:
     input: Literal["math", "line"] = "math"  # MthIO or LineIO
     output: Literal["math", "line"] = "math"  # MathO or LineO (LineIO always shows LineO)
     angle: AngleUnit = "DEG"
-    disp: Literal["Norm", "Fix", "Sci"] = "Norm"
-    digits: int = 1  # Norm 1 or 2, Fix 0-9, Sci 0-9
+    disp: Literal["Norm", "Fix", "Sci", "Eng"] = "Norm"  # Eng: the EL-531's ENG display mode
+    digits: int = 1  # Norm 1 or 2, Fix 0-9, Sci 0-9, Eng 0-9 (decimal places)
     fraction: Literal["d/c", "ab/c"] = "d/c"
     frequency: bool = False
+    comma: bool = False  # Disp: a decimal comma in answers (a dot is always typed)
 
     @property
     def natural_output(self) -> bool:
@@ -51,6 +52,7 @@ class Setup:
             "digits": self.digits,
             "fraction": self.fraction,
             "frequency": self.frequency,
+            "comma": self.comma,
         }
 
     @classmethod
@@ -64,7 +66,7 @@ class Setup:
             setup.output = data["output"]
         if data.get("angle") in ("DEG", "RAD", "GRA"):
             setup.angle = data["angle"]
-        if data.get("disp") in ("Norm", "Fix", "Sci"):
+        if data.get("disp") in ("Norm", "Fix", "Sci", "Eng"):
             setup.disp = data["disp"]
         digits = data.get("digits")
         if isinstance(digits, int) and 0 <= digits <= 9:  # noqa: PLR2004
@@ -74,6 +76,7 @@ class Setup:
         if data.get("fraction") in ("d/c", "ab/c"):
             setup.fraction = data["fraction"]
         setup.frequency = data.get("frequency") is True
+        setup.comma = data.get("comma") is True
         return setup
 
 
@@ -110,7 +113,7 @@ def _scientific(d: Decimal, digits: int, *, trim: bool, exponent: int | None = N
     return (Text(text), Text("×10"), Sup((Text(str(exp).replace("-", "−")),)))
 
 
-def decimal(x: float, setup: Setup, eng: int | None = None) -> Seq:
+def decimal(x: float, setup: Setup, eng: int | None = None) -> Seq:  # noqa: PLR0911
     """x in the current Norm, Fix or Sci setting; `eng` is the ENG exponent when ENG was pressed."""
     d = Decimal(repr(x))
     if eng is not None:
@@ -120,6 +123,8 @@ def decimal(x: float, setup: Setup, eng: int | None = None) -> Seq:
         return (Text(_fixed(Decimal(0), places)),)
     if setup.disp == "Sci":
         return _scientific(d, setup.digits or SIGNIFICANT, trim=False)
+    if setup.disp == "Eng":
+        return _engineering(d, setup.digits)
     rounded = _significant(d, SIGNIFICANT)
     low = Decimal("0.01") if setup.digits == 1 else Decimal("1e-9")
     if d != 0 and (abs(rounded) >= SCI_ABOVE or (setup.disp == "Norm" and abs(rounded) < low)):
@@ -127,6 +132,29 @@ def decimal(x: float, setup: Setup, eng: int | None = None) -> Seq:
     if setup.disp == "Fix":
         return (Text(_fixed(d, setup.digits)),)
     return (Text(_plain(rounded)),)
+
+
+def _engineering(d: Decimal, places: int) -> Seq:
+    """The EL-531's ENG display: a power of ten that is a multiple of 3, `places` decimals."""
+    if d == 0:
+        return (Text(_fixed(Decimal(0), places)),)
+    exp = math.floor(d.adjusted() / 3) * 3
+    mantissa = d.scaleb(-exp).quantize(Decimal(1).scaleb(-places), ROUND_HALF_UP)
+    if abs(mantissa) >= 1000:  # noqa: PLR2004  rounded up into the next group
+        exp += 3
+        mantissa = d.scaleb(-exp).quantize(Decimal(1).scaleb(-places), ROUND_HALF_UP)
+    return (
+        Text(_plain(mantissa, trim=False)),
+        Text("×10"),
+        Sup((Text(str(exp).replace("-", "−")),)),
+    )
+
+
+def with_comma(seq: Seq) -> Seq:
+    """An answer with a decimal comma (SETUP Disp: Comma)."""
+    return tuple(
+        Text(node.text.replace(".", ",")) if isinstance(node, Text) else node for node in seq
+    )
 
 
 def _fixed(d: Decimal, places: int) -> str:
@@ -148,6 +176,11 @@ def rnd(value: Number, setup: Setup) -> Number:
         rounded = d.quantize(Decimal(1).scaleb(-setup.digits), ROUND_HALF_UP)
     elif setup.disp == "Sci":
         rounded = _significant(d, setup.digits or SIGNIFICANT)
+    elif setup.disp == "Eng":
+        exp = math.floor(d.adjusted() / 3) * 3 if d else 0
+        rounded = (
+            d.scaleb(-exp).quantize(Decimal(1).scaleb(-setup.digits), ROUND_HALF_UP).scaleb(exp)
+        )
     else:
         rounded = _significant(d, SIGNIFICANT)
     return v.rational(Fraction(rounded))

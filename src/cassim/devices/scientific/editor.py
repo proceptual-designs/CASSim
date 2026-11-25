@@ -32,7 +32,7 @@ MAX_ITEMS = 99  # the most input items one entry holds
 
 TokKind = Literal[
     "digit", "dot", "op", "neg", "lparen", "rparen", "comma", "func", "const", "var",
-    "statvar", "estimator", "postfix", "rel", "store",
+    "statvar", "estimator", "postfix", "rel", "store", "sep", "fracsep",
 ]  # fmt: skip
 
 
@@ -63,7 +63,7 @@ def _tokens() -> dict[str, Token]:
         table[name] = Token("var", name)
     for name in (
         "n", "x̄", "σx", "sx", "ȳ", "σy", "sy", "Σx", "Σx²", "Σy", "Σy²", "Σxy", "minX", "maxX",
-        "minY", "maxY", "Q1", "med", "Q3", "r",
+        "minY", "maxY", "Q1", "med", "Q3", "r", "Σx³", "Σx²y", "Σx⁴",
     ):  # fmt: skip
         table[name] = Token("statvar", name)
     for name, text in (("regA", "A"), ("regB", "B"), ("regC", "C")):
@@ -82,6 +82,8 @@ def _tokens() -> dict[str, Token]:
     for rel in ("=", "≠", ">", "≥", "<", "≤"):
         table[rel] = Token("rel", rel)
     table["→"] = Token("store", "→")  # shown after STO (Ans→A); not something to calculate
+    table[";"] = Token("sep", ";")  # the fx-82MS family's frequency mark in x;f DT
+    table["⌟"] = Token("fracsep", "⌟")  # a linear calculator's a b/c mark (2⌟3, 1⌟2⌟3)
     return table
 
 

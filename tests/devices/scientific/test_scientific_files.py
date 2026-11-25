@@ -1,4 +1,4 @@
-"""Saving, opening and sharing CASSim fx calculators.
+"""Saving, opening and sharing CASSim Scientific calculators.
 
 Requirements: FR-FX-SHR-001 to -006, FR-PROF-009, NFR-SEC-001.
 Cited: FR-FX-SHR-001 FR-FX-SHR-002 FR-FX-SHR-003 FR-FX-SHR-004 FR-FX-SHR-005 FR-FX-SHR-006.

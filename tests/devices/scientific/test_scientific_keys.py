@@ -1,4 +1,4 @@
-"""CASSim fx keys: every key on the keypad does something, and the computer keyboard reaches them.
+"""CASSim Scientific keys: every key does something, and the computer keyboard reaches them.
 
 Requirements: FR-FX-DSP-004, FR-FX-UI-004 (keyboard), FR-FX-TUT-001.
 """

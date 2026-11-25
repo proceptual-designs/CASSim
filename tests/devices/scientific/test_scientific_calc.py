@@ -166,7 +166,7 @@ def test_eng() -> None:
         ((), ("0", k.DOT, "0", "0", "1", k.SD), "1×10⁻³"),  # Norm 1
         ((S, k.MODE, "8", "2"), ("0", k.DOT, "0", "0", "1", k.SD), "0.001"),  # Norm 2
         ((), ("9", k.EXP, "1", "0", k.EQ), "9×10¹⁰"),
-        ((S, k.MODE, k.DOWN, "2"), ("7", k.FRAC, "4", k.EQ), "1 3⌟4"),  # ab/c
+        ((S, k.MODE, k.DOWN, "1"), ("7", k.FRAC, "4", k.EQ), "1 3⌟4"),  # ab/c
         ((S, k.MODE, "2"), ("1", k.DIV, "4", k.EQ), "0.25"),  # LineIO: decimals
         ((S, k.MODE, "2"), (k.FRAC, "1", k.RIGHT, "4", k.EQ), "1⌟4"),  # ...unless a fraction
         ((S, k.MODE, "1", "2"), (k.SQRT, "2", k.EQ), "1.414213562"),  # MathIO LineO

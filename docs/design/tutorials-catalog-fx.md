@@ -1,6 +1,6 @@
-# CASSim fx: Built-in Interactive Tutorials Catalog
+# CASSim Scientific: Built-in Interactive Tutorials Catalog
 
-Status: The lesson plan for the CASSim fx tutorial engine. Twelve lessons are built (`src/cassim/devices/scientific/tutorials.py`; SDD-14 section 7); the answers below were checked by running them on CASSim fx (2026-11-25), and the tests keep them in step.
+Status: The lesson plan for the CASSim Scientific tutorial engine. Twelve lessons are built (`src/cassim/devices/scientific/tutorials.py`; SDD-14 section 7); the answers below were checked by running them on CASSim Scientific (2026-11-25), and the tests keep them in step.
 Curriculum Alignment: Australian Curriculum Mathematics (Years 7–10), VCE General Mathematics (Units 1–4), VCE Mathematical Methods (Units 1–2), HSC Standard Mathematics (Stages 6), HSC Advanced Mathematics.
 Core Reference: How-Do-I...fx82-and-fx-100AU Guide, Casio fx-82AU PLUS II User's Guide, Abacus SX-II MATRIXn Manual, and "How To Maths" HSC Standard Calculator Skills.
 
@@ -10,7 +10,7 @@ Core Reference: How-Do-I...fx82-and-fx-100AU Guide, Casio fx-82AU PLUS II User's
 
 Walkthroughs that lock the keypad and press the keys on a timer leave the student watching. 
 
-In classroom practice, passive observation fails to develop calculator fluency and muscle memory. **CASSim fx introduces the User-Driven Tutorial Engine**:
+In classroom practice, passive observation fails to develop calculator fluency and muscle memory. **CASSim Scientific introduces the User-Driven Tutorial Engine**:
 
 ```
 +-------------------------------------------------------------------------------+
@@ -234,7 +234,7 @@ Organized into 10 structured progressive modules:
 
 ## 4. Tutorial Data Schema (JSON)
 
-Every tutorial in CASSim fx is specified declaratively in `catalog.json`:
+Every tutorial in CASSim Scientific is specified declaratively in `catalog.json`:
 
 ```json
 {

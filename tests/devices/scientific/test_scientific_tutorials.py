@@ -13,31 +13,62 @@ import pytest
 
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import tutorials
+from cassim.devices.scientific.editor import TOKENS
 from cassim.devices.scientific.examples import EXAMPLES, load_example
-from cassim.devices.scientific.state import ScientificState
+from cassim.devices.scientific.layouts import LAYOUTS, Layout
+from cassim.devices.scientific.state import SHARP_KEYS, ScientificState
 from cassim.devices.scientific.tutorials import (
     LESSONS,
     TutorialSession,
     expected_screens,
+    layout_state,
+    lessons_for,
     run_lesson,
 )
 
+EVERY_LESSON = [
+    pytest.param(layout, lesson, id=f"{layout.id}-{lesson.id}")
+    for layout in LAYOUTS
+    for lesson in lessons_for(layout)
+]
 
-@pytest.mark.parametrize("lesson", LESSONS, ids=lambda lesson: lesson.id)
-def test_each_lesson_reaches_its_answer(lesson) -> None:
-    """FR-FX-TUT-004: the answer a lesson promises is what the calculator gives."""
-    state = run_lesson(lesson)
+
+@pytest.mark.parametrize(("layout", "lesson"), EVERY_LESSON)
+def test_each_lesson_reaches_its_answer(layout: Layout, lesson) -> None:
+    """FR-FX-TUT-004: the answer a lesson promises is what the calculator gives, on every
+    calculator's own keys."""
+    state = run_lesson(lesson, layout)
     assert state.answer_text() == lesson.answer
-    screens = expected_screens(lesson)
+    screens = expected_screens(lesson, layout)
     assert len(screens) == len(lesson.steps)
 
 
-@pytest.mark.parametrize("lesson", LESSONS, ids=lambda lesson: lesson.id)
-def test_every_step_key_is_a_keypad_key(lesson) -> None:
+@pytest.mark.parametrize(("layout", "lesson"), EVERY_LESSON)
+def test_every_step_key_is_a_keypad_key(layout: Layout, lesson) -> None:
     """The review found a lesson waiting for a key the keypad never sends (SD, not S<=>D)."""
     for step in lesson.steps:
         for key in step.keys:
-            assert key in k.KEYS_BY_ID, (lesson.id, key)
+            valid = (
+                key in k.KEYS_BY_ID
+                or key in (*SHARP_KEYS, "DATA")
+                or (key.startswith("TOK:") and key[4:] in TOKENS)
+            )
+            assert valid, (lesson.id, key)
+
+
+def test_lessons_follow_the_calculator() -> None:
+    """FR-FX-UI-005: a calculator offers only the lessons it can do, in its own keys."""
+    ids = {layout.id: [lesson.id for lesson in lessons_for(layout)] for layout in LAYOUTS}
+    assert ids["fx82"] == [lesson.id for lesson in LESSONS]
+    assert "table" not in ids["sx2"]
+    linear = ["stddev", "freqtable", "linreg", "fractions", "trig", "percent", "memory"]
+    assert set(ids["hp10s"]) == {"reset", *linear, "fix", "angle", "pctchange"}
+    assert set(ids["el531"]) == {"reset", *linear, "fix", "angle", "drgconv"}
+    for layout_id in ("hp10s", "el531"):
+        assert {
+            lesson.dialect
+            for lesson in lessons_for(LAYOUTS[[x.id for x in LAYOUTS].index(layout_id)])
+        } != {"casio"}
 
 
 def test_catalogue_answers_were_corrected() -> None:
@@ -104,8 +135,11 @@ def test_test_me_challenges_can_be_solved() -> None:
     assert not by_id["fractions"].challenge.check(solve("7", k.EQ))
     prime = solve("3", "6", "0", k.EQ, k.SHIFT, k.DMS)
     assert by_id["prime"].challenge.check(prime)
-    reset = solve(k.SHIFT, "9", "3", k.EQ, k.AC, start=by_id["reset"].start)
+    messy = by_id["reset"].challenge.start or ()
+    reset = solve(k.SHIFT, "9", "1", k.EQ, k.AC, start=messy)
     assert by_id["reset"].challenge.check(reset)
+    assert by_id["reset"].challenge.check(solve(k.SHIFT, "9", "1", k.EQ, start=messy))  # no AC
+    assert not by_id["reset"].challenge.check(solve(k.SHIFT, "9", "3", k.EQ, start=messy))
     table = solve(
         k.MODE, "3", "2", k.ALPHA, k.RPAREN, k.ADD, "1", k.EQ, "0", k.EQ, "4", k.EQ, "1", k.EQ,
         k.DOWN, k.DOWN, k.DOWN, k.DOWN,
@@ -133,3 +167,25 @@ def test_examples_load(index: int) -> None:
     load_example(state, index)
     assert state.screen in ("calc", "stat_editor", "table_fx")
     assert state.display().text()
+
+
+def _finished(lesson: tutorials.Lesson, *, test: bool, layout: Layout) -> ScientificState:
+    state = layout_state(layout)
+    lesson.prepare(state, test=test)
+    if not test:
+        for step in lesson.steps:
+            for key in step.keys:
+                state.press(key)
+    return state
+
+
+def test_test_me_is_like_the_lesson_but_not_the_same() -> None:
+    """FR-FX-TUT-005: each Test me problem is a new one. Its starting calculator does not already
+    pass (the frequency column started off, so "turn it off" passed with no keys), and the
+    lesson's own finished calculator does not pass either."""
+    for layout in LAYOUTS:
+        for lesson in lessons_for(layout):
+            challenge = lesson.challenge
+            assert challenge.prompt != lesson.problem, lesson.id
+            assert not challenge.check(_finished(lesson, test=True, layout=layout)), lesson.id
+            assert not challenge.check(_finished(lesson, test=False, layout=layout)), lesson.id

@@ -489,7 +489,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 | Q41 | ~~Exact values in Auto and Exact modes~~ **Answered 2026-11-04, revised 2026-11-07:** first decided as not in the first release; Simon then made it a Should (FR-PSE-012), with the same Approx / Auto / Exact toggle as the CAS. | done |
 | Q42 | ~~Licence terms of the Teacher Software used for corpus capture~~ **Answered 2026-11-12:** the TI-Nspire CX/CX CAS Software EULA (rev20231107), named by the installed 6.0.3.374; recorded in decision 0029. Capture by ordinary use is permitted; screenshots stay in the repository, not the build. | done |
 
-**CASSim fx scientific calculator (SDD-14, added 2026-11-25)**
+**CASSim Scientific scientific calculator (SDD-14, added 2026-11-25)**
 The `scientific` device (FR-PROF-012). The device as a whole is Could; the priorities below rank its parts. Details, the keypad and the keyboard map are in `docs/design/SDD-14-scientific-calculator-fx.md`.
 | ID | Requirement | Pri | Ver |
 |---|---|---|---|
@@ -539,7 +539,7 @@ The `scientific` device (FR-PROF-012). The device as a whole is Could; the prior
 | FR-FX-TUT-005 | **Three Instructional Modes**: <br>1. *Guide Me (Interactive)*: Step-by-step user-driven execution with key highlights.<br>2. *Show Me (Demonstration)*: Automated playback at 0.5×–2× for a stuck student or a whiteboard.<br>3. *Test Me (Challenge)*: Practical problem prompt with key highlights disabled; verifies the student's final screen and result. | M | E, D |
 | FR-FX-TUT-006 | **Offline & Private**: Tutorials and student progress run 100% locally in browser storage without network calls or telemetry. | M | T |
 | FR-FX-SHR-001 | **Automatic Browser Persistence**: Calculator state is saved to browser storage (the shell's storage, under the device prefix `scientific.`) shortly after each key press. On reload the mode, settings, variables, STAT data, table and recent history are restored. A tutorial never overwrites the student's own saved work. | M | T, E |
-| FR-FX-SHR-002 | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim fx by its `device`. | M | T, E |
+| FR-FX-SHR-002 | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim Scientific by its `device`. | M | T, E |
 | FR-FX-SHR-003 | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. A link holds key names and numbers only; nothing in it is executed. | M | I, T |
 | FR-FX-SHR-004 | **Compact Link Budget**: A typical calculator link is 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`); history is left out of links and default settings are omitted. | M | T |
 | FR-FX-SHR-005 | **Teacher Pre-Populated Problem Sets**: Teachers can share a single link that pre-loads a data set (e.g. a 25-row bivariate table) or a TABLE-mode function, so students begin solving immediately. | S | D, E |
@@ -548,6 +548,8 @@ The `scientific` device (FR-PROF-012). The device as a whole is Could; the prior
 | FR-FX-UI-002 | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
 | FR-FX-UI-003 | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
 | FR-FX-UI-004 | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
+| FR-FX-UI-005 | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
+| FR-FX-UI-006 | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T, E |
 
 ---
 
@@ -568,7 +570,7 @@ The `scientific` device (FR-PROF-012). The device as a whole is Could; the prior
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire |
 | `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) |
-| `SDD-14-scientific-calculator-fx.md` | CASSim fx: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links |
+| `SDD-14-scientific-calculator-fx.md` | CASSim Scientific: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links |
 
 ---
 
@@ -589,6 +591,6 @@ A summary, not a substitute for the traceability table (`docs/traceability.md`, 
 | Pseudocode runtime and Code view | 4.12 (FR-RUN-005/006/009, FR-PSE, FR-TRC, FR-SYN-001 to 009) | Built ahead of schedule as M5b; 58 golden programs are green. The standalone device now has editor and file workflows, responsive and resizable panes, Symbols and scrolling/resizable trace tables, settings, typing/display controls, supported-subset Python/Pseudocode translation, examples and console/trace polish. Direct CPython execution and Nspire Code page types remain incomplete. |
 | Python runtime | FR-RUN-002/003 | Not started; the sandbox spike in 5a comes first. |
 | TI-Basic, libraries | 4.8 | Not started (M6, Could). |
-| CASSim fx scientific calculator | FR-FX (4.12) | Built in `devices/scientific` (COMP, STAT with all eight types, TABLE, VERIFY, natural display, exact answers, tutorials, keyboard, files and links); CMPLX/VECTOR, multi-statements and a Playwright test remain; no behaviour has been compared with a physical calculator (SDD-14 section 8). |
+| CASSim Scientific scientific calculator | FR-FX (4.12) | Built in `devices/scientific` (COMP, STAT with all eight types, TABLE, VERIFY, natural display, exact answers, tutorials, keyboard, files and links); CMPLX/VECTOR, multi-statements and a Playwright test remain; no behaviour has been compared with a physical calculator (SDD-14 section 8). |
 | Multi-app shell, ClassPad, HP Prime | FR-PROF, FR-CPD, FR-HPP | Home, device switching, bundle-specific device lists and the Nspire/Pseudocode device boundary are built. Per-device lazy caching is follow-up; ClassPad remains M8 and HP Prime M9. |
 | Non-functional | 5 | Traceability, accessibility notes and per-package coverage floors exist. Primary-browser matrix gaps and the M7 release audits remain open. |

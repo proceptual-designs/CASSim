@@ -76,7 +76,8 @@ cassim/
                             Graphs models); screen.py, runner.py, document.py; ui/ (FLET: app.py joins state.py to views.py,
                             entry.py, layout.py and the Graphs controls; the only part of a device that imports Flet)
     pseudocode/             DEVICE; standalone Code view in ui/ (Flet), backed by runtime/pseudocode/
-    scientific/             DEVICE (SDD-14); CASSim fx scientific calculator: keys.py (keypad and keyboard),
+    scientific/             DEVICE (SDD-14); CASSim Scientific scientific calculator: keys.py (keypad and keyboard),
+                            layouts.py (other calculators' keypads),
                             values.py, layout.py, editor.py, parser.py (Pratt; no eval), display.py,
                             engine.py (statistics), state.py, tutorials.py, examples.py;
                             ui/ (FLET: app.py, render.py, skins.py; the only part that imports Flet)
@@ -482,7 +483,7 @@ the SRS.
 | every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire and Pseudocode & Python |
 | `nspire` | `tin` | CASSim-TIN | `cassim-tin` | M2x |
 | `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; single-device build exists, site release wiring remains |
-| `scientific` | `fx` | CASSim-fx | `cassim-fx` | SDD-14, in development; Pages project not reserved yet |
+| `scientific` | `sci` | CASSim-Sci | `cassim-sci` | SDD-14, in development; Pages project reserved, empty, 2026-11-25 |
 | `classpad` | `cp` | CASSim-CP | `cassim-cp` | M8 |
 | `prime` | `prime` | CASSim-Prime | `cassim-prime` | M9, if go |
 
@@ -490,7 +491,7 @@ the SRS.
 - Single-device sites are **stable only**: they deploy on a release, like `cassim-app`. Testing happens on `cassim-calc`, which holds every device.
 - Single-device bundle icons should include a device-specific modifier (for example, TIN, CP or Pseudo) when those bundles are built, so they are distinct from the all-in-one app.
 - The help site (`cassim-wiki`) stays one site, with a section per device, and lists every site.
-- All seven Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13); a single-device site has no content until its bundle is first built.
+- All eight Cloudflare Pages projects exist (the four single-device ones were reserved, empty, on 2026-11-13, and cassim-sci on 2026-11-25); a single-device site has no content until its bundle is first built.
 
 ### 15.2 Architecture: pluggable modules, separable UIs
 

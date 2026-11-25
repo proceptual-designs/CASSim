@@ -1,4 +1,4 @@
-"""The CASSim fx view, run headless against a stand-in shell.
+"""The CASSim Scientific view, run headless against a stand-in shell.
 
 Requirements: FR-FX-DSP-001, FR-FX-DSP-002, FR-FX-SHR-001, FR-FX-SHR-002, FR-FX-TUT-001,
 FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004.
@@ -17,9 +17,11 @@ import flet as ft
 import pytest
 
 from cassim.devices.scientific import keys as k
+from cassim.devices.scientific import layouts
+from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
-from cassim.devices.scientific.ui.app import BASE_HEIGHT, BASE_WIDTH, ScientificApp
+from cassim.devices.scientific.ui.app import BASE_WIDTH, ScientificApp
 from cassim.devices.scientific.ui.skins import SKINS
 
 
@@ -130,10 +132,11 @@ def keyboard(app: ScientificApp, key: str, **mods: bool) -> None:
 
 def test_mount_and_start() -> None:
     app, _, page = started()
-    assert page.title == "CASSim fx"
+    assert page.title == "CASSim Scientific"
     assert page.controls == [app.root]
     assert page.on_keyboard_event == app.on_keyboard
-    assert set(app.key_controls) == set(k.KEYS_BY_ID)  # FR-FX-DSP-001: every key is drawn
+    drawn = {key.id for key in app.layout.all_keys()}
+    assert set(app.key_controls) == drawn  # FR-FX-DSP-001: every key is drawn
     app.unmount()
     assert page.on_keyboard_event is None
     assert page.controls == []
@@ -150,29 +153,37 @@ def _row_widths(app: ScientificApp) -> list[float]:
                 face = cell.controls[-1] if isinstance(cell, ft.Column) else cell
                 if isinstance(face, ft.Semantics):
                     face = face.content
-                assert isinstance(face, ft.Container)
+                assert isinstance(face, ft.Container)  # a key, or a gap's spacer
                 total += face.width or 0
             total += row.spacing * (len(row.controls) - 1)
             widths.append(total - row.width)
     return widths
 
 
-@pytest.mark.parametrize("scale", [ui.MIN_SCALE, 0.85, 1.0, ui.MAX_SCALE])
-def test_key_legends_stay_inside_their_key(scale: float) -> None:
+def _drawn_keys(app: ScientificApp) -> list[tuple[str, float]]:
+    """(key id, width) of every key face drawn."""
+    return [(key_id, face.width or 0) for key_id, face in app.key_controls.items()]
+
+
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+@pytest.mark.parametrize("size", [(360, 500), (1366, 650), (2560, 1400)])
+def test_key_legends_stay_inside_their_key(layout, size: tuple[int, int]) -> None:
     """Legends such as sin⁻¹ D or ab/c⇔d/c Y ran into the gap between keys. As in the design
     mockup they are inset from the key's edges; a pair that would not fit is made smaller."""
-    inner = (BASE_WIDTH - 28) * scale
-    rows = [(spec, 56 * scale) for spec in (*k.ROW1_LEFT, *k.ROW1_RIGHT)]
-    for row in k.ROWS:
-        width = (inner - 5 * scale * (len(row) - 1)) / len(row)
-        rows.extend((spec, width) for spec in row)
-    for spec, width in rows:
-        size = ui.legend_font_size(spec.shift, spec.alpha, width, scale)
-        needed = (len(spec.shift) + len(spec.alpha)) * ui.LEGEND_ADVANCE * size
-        if spec.shift and spec.alpha:
+    app, _, page = started(FakePage(*size))
+    app.set_layout(layout.id)
+    scale = app.scale
+    for key_id, width in _drawn_keys(app):
+        key = app.shown_layout.key(key_id)
+        if not (key.shift_label or key.alpha_label):
+            continue
+        size_ = ui.legend_font_size(key.shift_label, key.alpha_label, width, scale)
+        needed = (len(key.shift_label) + len(key.alpha_label)) * ui.LEGEND_ADVANCE * size_
+        if key.shift_label and key.alpha_label:
             needed += ui.LEGEND_GAP * scale
-        assert needed <= width - 2 * ui.LEGEND_INSET * scale + 1e-9, (spec.id, scale)
-        assert size >= ui.LEGEND_MIN * scale
+        assert needed <= width - 2 * ui.LEGEND_INSET * scale + 1e-9, (layout.id, key_id, scale)
+        assert size_ >= ui.LEGEND_MIN * scale
+    page.drop_tasks()
 
 
 def test_legends_keep_the_design_size_when_they_fit() -> None:
@@ -184,16 +195,22 @@ def test_legends_keep_the_design_size_when_they_fit() -> None:
 def test_the_keypad_fits_the_calculator(width: float, height: float) -> None:
     """The review's bug: six-key rows were wider than the calculator, so ln, tan and M+ were
     cut off. Every row must fit inside the body at every size."""
-    app, _, _ = started(FakePage(width, height))
-    overflow = _row_widths(app)
-    assert len(overflow) == 8
-    assert all(excess <= 0.5 for excess in overflow), overflow
+    for layout in LAYOUTS:
+        app, _, page = started(FakePage(width, height))
+        app.set_layout(layout.id)
+        overflow = _row_widths(app)
+        assert overflow, layout.id
+        assert all(excess <= 0.5 for excess in overflow), (layout.id, overflow)
+        page.drop_tasks()
 
 
 def test_the_calculator_scales_to_the_window() -> None:
     """FR-FX-DSP-001: the whole calculator fits a Chromebook-sized window."""
-    app, _, page = started(FakePage(1366, 650))
-    assert BASE_HEIGHT * app.scale <= page.height - ui.BAR_HEIGHT
+    for layout in LAYOUTS:
+        app, _, page = started(FakePage(1366, 650))
+        app.set_layout(layout.id)
+        assert app.layout_height() * app.scale <= page.height - ui.BAR_HEIGHT, layout.id
+        page.drop_tasks()
     small, _, _ = started(FakePage(360, 500))
     assert small.scale == ui.MIN_SCALE  # then the page scrolls
     big, _, _ = started(FakePage(2560, 1400))
@@ -387,7 +404,7 @@ def test_guide_me_lesson() -> None:
 
 def test_back_and_skip() -> None:
     app, _, page = started()
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("fractions")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("fractions")
     app.start_lesson()
     app.lesson_skip()
     app.lesson_skip()
@@ -400,9 +417,10 @@ def test_back_and_skip() -> None:
 def test_show_me_plays_the_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
     """FR-FX-TUT-005: Show me presses the keys itself."""
     monkeypatch.setattr(ui, "DEMO_STEP", 0.0)
+    monkeypatch.setattr(ui, "DEMO_NEW_STEP", 0.0)
     app, _, page = started()
     app.set_tutorial_mode("show")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("prime")
     app.start_lesson()
     page.drop_tasks()  # the playback the button scheduled; run it directly
     asyncio.run(app._play())
@@ -414,7 +432,7 @@ def test_test_me() -> None:
     """FR-FX-TUT-005: no glow; Check says right or wrong."""
     app, _, page = started()
     app.set_tutorial_mode("test")
-    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("prime")
     app.start_lesson()
     assert app._target_key() is None
     app.check_test()
@@ -432,3 +450,163 @@ def test_dialogs_open() -> None:
     for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_file_as):
         opener()
     assert len(page.dialogs) == 4
+
+
+def test_appearance_chooses_a_calculator() -> None:
+    """FR-FX-UI-005: the choice draws that calculator's keys, switches a linear calculator's
+    display, and is remembered."""
+    app, shell, page = started()
+    app.set_layout("el531")
+    assert app.shown_layout.id == "el531"
+    assert "SETUP" in app.key_controls  # the SET UP key
+    assert app.state.setup.input == "line"
+    assert json.loads(shell.store["prefs"])["layout"] == "el531"
+    again, _, page2 = started(store=shell.store)
+    assert again.layout.id == "el531"
+    assert "SETUP" in again.key_controls
+    page.drop_tasks()
+    page2.drop_tasks()
+
+
+def test_layout_keys_type_on_the_calculator() -> None:
+    app, _, page = started()
+    app.set_layout("sx2")
+    app.on_layout_key(app.layout.key("FACTORIAL"))  # x! has its own key here
+    assert app.state.display().text() == "!"
+    app.on_key(k.AC)
+    for key_id in ("5", "FACTORIAL", k.EQ):
+        app.on_layout_key(app.layout.key(key_id))
+    assert app.state.answer_text() == "120"
+    page.drop_tasks()
+
+
+def test_guide_me_on_another_keypad() -> None:
+    """FR-FX-TUT-001 to -003: the glow, the wording and the checks follow the chosen keys."""
+    app, _, page = started()
+    app.set_layout("sx2")
+    app.lesson_index = 0  # reset: SHIFT 9 3 = AC
+    app.start_lesson()
+    assert app.shown_layout.id == "sx2"
+    assert app._target_face() == "2nd"
+    app.on_layout_key(app.layout.key("7"))
+    assert not app.feedback_ok
+    assert "2nd" in app.feedback
+    app.on_layout_key(app.layout.key("SHIFT"))
+    assert app._target_face() == "9"
+    for key_id in ("9", "3", k.EQ, k.AC):
+        app.on_layout_key(app.layout.key(key_id))
+    assert app.session is not None
+    assert app.session.is_complete
+    page.drop_tasks()
+
+
+def test_a_modifier_waits_for_the_next_key() -> None:
+    """On the EL-531, 2ndF then x² is x⁻¹: the lesson only judges the pair."""
+    app, _, page = started()
+    app.set_layout("el531")
+    app.on_layout_key(app.layout.key("SHIFT"))
+    assert app.pending == [k.SHIFT]
+    app.on_layout_key(app.layout.key(k.X2))
+    assert app.pending == []
+    assert app.state.display().text() == "⁻¹"
+    page.drop_tasks()
+
+
+def test_a_calculator_offers_only_its_own_lessons() -> None:
+    """FR-FX-UI-005: the HP 10s has no TABLE, so it has no TABLE lesson; its lessons use its keys
+    and stay on them."""
+    app, _, page = started()
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("stddev")
+    app.set_layout("hp10s")
+    assert "table" not in [lesson.id for lesson in app.lessons]
+    assert app.lesson.id == "stddev"  # the same lesson, in the HP's keys
+    app.start_lesson()
+    assert app.shown_layout.id == "hp10s"
+    assert app._target_face() == "MODE"
+    page.drop_tasks()
+
+
+# Test me for "reset" on each calculator, by its keypad (canonical keys, planned on the layout)
+# and by the computer keyboard. The EL-531's M-CLR has no keyboard shortcut.
+RESET_BY_KEYPAD = {
+    "casio": [k.SHIFT, "9", "1", k.EQ, k.AC],
+    "sx2": [k.SHIFT, "9", "1", k.EQ, k.AC],
+    "ms": [k.SHIFT, k.MODE, "2", k.EQ],
+    "sharp": ["MCLR", "0"],
+}
+RESET_BY_KEYBOARD = {
+    "casio": ["F1", "9", "1", "Enter", "Escape"],
+    "sx2": ["F1", "9", "1", "Enter", "Escape"],
+    "ms": ["F1", ("m", {"ctrl": True}), "2", "Enter"],
+}
+
+
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.id)
+@pytest.mark.parametrize("how", ["keypad", "keyboard"])
+def test_reset_test_passes_on_every_calculator_by_keypad_or_keyboard(layout, how: str) -> None:
+    """Test me for "reset" is judged on the calculator, not the keys: it passes on every
+    calculator (a linear one resets to LineIO), whether the keys are clicked or typed."""
+    if how == "keyboard" and layout.dialect not in RESET_BY_KEYBOARD:
+        pytest.skip("M-CLR has no keyboard shortcut")
+    app, _, page = started()
+    app.set_layout(layout.id)
+    app.set_tutorial_mode("test")
+    app.lesson_index = [lesson.id for lesson in app.lessons].index("reset")
+    app.start_lesson()
+    assert float(app.state.variables["A"]) == 5  # the test's own starting mess
+    app.check_test()
+    assert not app.feedback_ok
+    if how == "keyboard":
+        for name in RESET_BY_KEYBOARD[layout.dialect]:
+            key, mods = name if isinstance(name, tuple) else (name, {})
+            keyboard(app, key, **mods)
+    else:
+        steps = layouts.plan(app.shown_layout, RESET_BY_KEYPAD[layout.dialect])
+        assert steps is not None
+        for step in steps:
+            for key in step.presses:
+                app.on_layout_key(key)
+    app.check_test()
+    assert app.feedback_ok, (layout.id, how, app.feedback)
+    page.drop_tasks()
+
+
+def _texts(control: object) -> list[str]:
+    found = []
+    if isinstance(control, ft.Text) and isinstance(control.value, str):
+        found.append(control.value)
+    for name in ("content", "controls"):
+        child = getattr(control, name, None)
+        for item in child if isinstance(child, list) else [child] if child is not None else []:
+            found.extend(_texts(item))
+    return found
+
+
+@pytest.mark.parametrize(
+    ("layout_id", "title"),
+    [("fx82", "fx-82"), ("sx2", "SX-II"), ("el531", "EL-531"), ("hp10s", "10s")],
+)
+def test_calculator_title_names_the_series(layout_id: str, title: str) -> None:
+    """The title on the calculator names the class of calculator its keys follow."""
+    app, _, page = started()
+    app.set_layout(layout_id)
+    assert f"CASSim Scientific ({title})" in _texts(app.calculator)
+    page.drop_tasks()
+
+
+def test_model_chip_and_title_cycle_the_calculators() -> None:
+    """The model chip in the menu bar, and the title on the calculator, step through the
+    calculators in the Appearance list and back to the first."""
+    app, _, page = started()
+    assert app.model_label.value == "fx-82"
+    seen = []
+    for _ in LAYOUTS:
+        app.model_chip.on_click(None)
+        seen.append(app.layout.id)
+    assert seen == [layout.id for layout in (*LAYOUTS[1:], LAYOUTS[0])]
+    title = app.calculator.content.controls[0].controls[0]
+    title.on_click(None)
+    assert app.layout.id == LAYOUTS[1].id
+    assert app.model_label.value == LAYOUTS[1].series
+    assert f"CASSim Scientific ({LAYOUTS[1].series})" in _texts(app.calculator)
+    page.drop_tasks()

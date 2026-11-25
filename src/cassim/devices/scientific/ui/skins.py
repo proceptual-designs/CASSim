@@ -1,5 +1,5 @@
-"""CASSim fx's own colour schemes (SDD-14 section 5): Slate (the Dark theme), Studio Light and
-Classroom High-Contrast. They follow CASSim's theme names so Appearance works as in every app."""
+"""CASSim Scientific's own colour schemes (SDD-14 section 5): Slate (the Dark theme), Studio
+Light and Classroom High-Contrast. They follow CASSim's theme names, as in every app."""
 
 from __future__ import annotations
 

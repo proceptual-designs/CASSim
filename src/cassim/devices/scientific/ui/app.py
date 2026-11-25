@@ -1,4 +1,4 @@
-"""The CASSim fx view: top bar, calculator and tutorial panel (SDD-14 section 5).
+"""The CASSim Scientific view: top bar, calculator and tutorial panel (SDD-14 section 5).
 
 The calculator is drawn from the key table in `keys.py` and the screen model of `state.py`; this
 module only draws them and passes keys on. It scales to the window, so the whole keypad fits on a
@@ -17,17 +17,19 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.keyboard import key_name
-from cassim.devices.scientific import HELP_PAGE
+from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
-from cassim.devices.scientific.keys import KeySpec
+from cassim.devices.scientific.layouts import LAYOUTS, LAYOUTS_BY_ID, Cell, Layout, LKey
 from cassim.devices.scientific.state import Display, DocumentFileError, ScientificState
 from cassim.devices.scientific.tutorials import (
-    LESSONS,
     SPEEDS,
+    Lesson,
     TutorialMode,
     TutorialSession,
-    key_label,
+    expected_screens,
+    lessons_for,
+    wording,
 )
 from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
 from cassim.devices.scientific.ui.skins import SKIN_NAMES, SKINS, Skin
@@ -38,14 +40,14 @@ if TYPE_CHECKING:
 AUTOSAVE_KEY = "autosave"
 PREFS_KEY = "prefs"
 BASE_WIDTH = 360.0  # the calculator at scale 1
-BASE_HEIGHT = 700.0  # badge, LCD, top row and eight key rows with their gaps and padding
 BAR_HEIGHT = 48.0
 PANEL_WIDTH = 330.0
 MIN_SCALE = 0.7
 MAX_SCALE = 1.3
 SAVE_DELAY = 0.6
 FLASH_TIME = 0.12
-DEMO_STEP = 0.8  # seconds per key at 1×
+DEMO_STEP = 2.0  # seconds per key at 1×: slow enough to talk through
+DEMO_NEW_STEP = 2.0  # extra seconds before a new step, to read its instruction
 # The legends above a key, as in the design mockup: 8 px bold, inset 2 px from the key's edges.
 LEGEND_SIZE = 8.0
 LEGEND_MIN = 6.5
@@ -63,6 +65,15 @@ def legend_font_size(shift: str, alpha: str, width: float, scale: float) -> floa
         return LEGEND_SIZE * scale
     fitted = room / (chars * LEGEND_ADVANCE)
     return max(LEGEND_MIN * scale, min(LEGEND_SIZE * scale, fitted))
+
+
+def ink_on(fill: str) -> str:
+    """Near-black or white text, whichever reads better on `fill` (a #rrggbb colour)."""
+    hex_ = fill.lstrip("#")[:6]
+    if len(hex_) != 6:  # noqa: PLR2004
+        return "#ffffff"
+    r, g, b = (int(hex_[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    return "#111111" if 0.299 * r + 0.587 * g + 0.114 * b > 0.55 else "#ffffff"  # noqa: PLR2004
 
 
 def _safe_update(control: ft.Control) -> None:
@@ -84,7 +95,7 @@ SHORTCUTS = _shortcut_names()
 
 
 class ScientificApp:
-    """The mounted CASSim fx app."""
+    """The mounted CASSim Scientific app."""
 
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
@@ -106,6 +117,10 @@ class ScientificApp:
         self.save_pending = False
         self.feedback = ""
         self.feedback_ok = True
+        self.layout: Layout = layouts.DEFAULT  # the calculator chosen in Appearance
+        self.shown_layout: Layout = layouts.DEFAULT  # the keypad drawn (a lesson may differ)
+        self.pending: list[str] = []  # SHIFT or ALPHA pressed, waiting for the next key
+        self.pressed_faces: list[str] = []  # the keys a lesson has seen, as labelled
         self._build()
 
     @property
@@ -167,6 +182,17 @@ class ScientificApp:
                 name = str(menu.content)
                 menu.on_open = lambda _, name=name: self.open_menus.add(name)
                 menu.on_close = lambda _, name=name: self.open_menus.discard(name)
+        self.model_label = ft.Text("fx-82", size=12, weight=ft.FontWeight.W_600)
+        self.model_icon = ft.Icon(ft.Icons.SYNC, size=14)
+        self.model_chip = ft.Container(
+            ft.Row([self.model_icon, self.model_label], spacing=4, tight=True),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            border_radius=6,
+            tooltip="Calculator keys: click for the next calculator "
+            "(" + ", ".join(layout.series for layout in LAYOUTS) + ")",
+            on_click=lambda _: self.cycle_layout(),
+            ink=False,  # not focusable: Tab and Enter must not land on it
+        )
         self.mode_chip = self._chip("COMP", "Calculation mode: click for the MODE menu (Ctrl+M)")
         self.mode_chip.on_click = lambda _: self.on_key(k.MODE)
         self.angle_chip = self._chip("Deg", "Angle unit: click to change")
@@ -190,6 +216,7 @@ class ScientificApp:
             ft.Row(
                 [
                     ft.MenuBar(controls=[self.cassim_menu, self.doc_menu]),
+                    self.model_chip,
                     self.mode_chip,
                     self.angle_chip,
                     self.io_chip,
@@ -248,6 +275,7 @@ class ScientificApp:
     def _build_calculator(self) -> None:
         s = self.scale
         skin = self.skin
+        layout = self.shown_layout
         self.key_controls = {}
         inner = (BASE_WIDTH - 28) * s
         self.lcd = ft.Container(
@@ -258,15 +286,23 @@ class ScientificApp:
             padding=ft.Padding.symmetric(horizontal=8 * s, vertical=4 * s),
             width=inner,
         )
-        rows: list[ft.Control] = [self._first_row(inner)]
-        for row in k.ROWS:
-            rows.append(self._key_row(row, inner))
+        rows: list[ft.Control] = [self._top_block(inner)]
+        rows.extend(self._key_row(row, inner) for row in layout.rows)
+        subtitle = "TWO-LINE DISPLAY" if layout.linear else "NATURAL DISPLAY"
         badge = ft.Row(
             [
-                ft.Text("CASSim fx", size=13 * s, weight=ft.FontWeight.BOLD, color=skin.badge),
-                ft.Text(
-                    "NATURAL DISPLAY", size=9 * s, weight=ft.FontWeight.W_600, color=skin.badge_sub
+                ft.Container(
+                    ft.Text(
+                        f"CASSim Scientific ({layout.series})",
+                        size=13 * s,
+                        weight=ft.FontWeight.BOLD,
+                        color=skin.badge,
+                    ),
+                    tooltip="Click for the next calculator's keys",
+                    on_click=lambda _: self.cycle_layout(),
+                    ink=False,  # not focusable: Tab and Enter must not land on it
                 ),
+                ft.Text(subtitle, size=9 * s, weight=ft.FontWeight.W_600, color=skin.badge_sub),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             width=inner,
@@ -284,9 +320,9 @@ class ScientificApp:
         self.calculator.border = ft.Border.all(1.5, skin.chassis_edge)
         self.calculator.shadow = ft.BoxShadow(spread_radius=1, blur_radius=14, color="#00000066")
 
-    def _colours(self, spec: KeySpec) -> tuple[str, str]:  # noqa: PLR0911
+    def _colours(self, key: LKey) -> tuple[str, str]:  # noqa: PLR0911
         skin = self.skin
-        match spec.style:
+        match key.style:
             case "num":
                 return skin.num
             case "nav":
@@ -298,31 +334,45 @@ class ScientificApp:
             case "eq":
                 return skin.equals
             case "mod_shift":
-                return (skin.fn[0], skin.shift_key)
+                return (skin.fn[0], self._legend_colours()[0] if self._dark() else skin.shift_key)
             case "mod_alpha":
-                return (skin.fn[0], skin.alpha_key)
+                return (skin.fn[0], self._legend_colours()[1] if self._dark() else skin.alpha_key)
         return skin.fn
 
-    def _key(self, spec: KeySpec, w: float, h: float, *, legends: bool = True) -> ft.Control:
+    def _dark(self) -> bool:
+        return self.skin_name != "Light"
+
+    def _legend_colours(self) -> tuple[str, str]:
+        """SHIFT's and ALPHA's legend colours: the layout's own on a dark body, else the theme's."""
+        layout = self.shown_layout
+        skin = self.skin
+        if self._dark() and layout.shift_colour:
+            return layout.shift_colour, layout.alpha_colour or skin.alpha
+        return skin.shift, skin.alpha
+
+    def _key(self, key: LKey, w: float, h: float, *, legends: bool = True) -> ft.Control:
         s = self.scale
         skin = self.skin
-        fill, text = self._colours(spec)
-        shortcut = SHORTCUTS.get(spec.id)
-        tip = spec.spoken + (f" (keyboard: {shortcut})" if shortcut else "")
-        if spec.shift or spec.alpha:
-            tip += "".join(
-                f"\n{layer}: {label}"
-                for layer, label in (("SHIFT", spec.shift), ("ALPHA", spec.alpha))
-                if label
+        layout = self.shown_layout
+        fill, text = self._colours(key)
+        shortcut = SHORTCUTS.get(key.plain[0]) if len(key.plain) == 1 else None
+        tip = key.spoken + (f" (keyboard: {shortcut})" if shortcut else "")
+        tip += "".join(
+            f"\n{layer}: {label}"
+            for layer, label in (
+                (layout.shift_name, key.shift_label),
+                (layout.alpha_name, key.alpha_label),
             )
+            if label
+        )
         face = ft.Container(
             ft.Text(
-                spec.label,
-                size=(12 if len(spec.label) > 3 else 14) * s,  # noqa: PLR2004
+                key.face,
+                size=(12 if len(key.face) > 3 else 14) * s,  # noqa: PLR2004
                 weight=ft.FontWeight.W_600,
                 color=text,
                 no_wrap=True,
-                font_family=FONT if spec.style in ("num", "eq") else None,
+                font_family=FONT if key.style in ("num", "eq") else None,
                 style=ft.TextStyle(font_family_fallback=FALLBACK),
             ),
             width=w,
@@ -331,33 +381,34 @@ class ScientificApp:
             bgcolor=fill,
             border_radius=7 * s,
             border=ft.Border.all(1, skin.key_edge),
-            on_click=lambda _, key=spec.id: self.on_key(key),
+            on_click=lambda _, pressed=key: self.on_layout_key(pressed),
             ink=False,  # not focusable: Tab and Enter must not land on it
             tooltip=tip,
         )
-        self.key_controls[spec.id] = face
-        spoken = ft.Semantics(content=face, label=spec.spoken, button=True)
+        self.key_controls[key.id] = face
+        spoken = ft.Semantics(content=face, label=key.spoken, button=True)
         if not legends:
             return spoken
+        shift_colour, alpha_colour = self._legend_colours()
         # As in the design mockup: SHIFT's legend at the key's left and ALPHA's at its right (a
         # lone legend at the left), inset from the edges, bold, and clipped there so nothing runs
         # into the next key.
-        size = legend_font_size(spec.shift, spec.alpha, w, s)
+        size = legend_font_size(key.shift_label, key.alpha_label, w, s)
         legend = ft.Container(
             ft.Row(
                 [
                     ft.Text(
-                        text,
+                        label,
                         size=size,
                         color=colour,
                         weight=ft.FontWeight.BOLD,
                         no_wrap=True,
                         style=ft.TextStyle(font_family_fallback=FALLBACK),
                     )
-                    for text, colour in (
-                        ((spec.shift, skin.shift), (spec.alpha, skin.alpha))
-                        if spec.shift
-                        else ((spec.alpha, skin.alpha), ("", skin.shift))  # a lone legend: left
+                    for label, colour in (
+                        ((key.shift_label, shift_colour), (key.alpha_label, alpha_colour))
+                        if key.shift_label
+                        else ((key.alpha_label, alpha_colour), ("", shift_colour))
                     )
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -372,24 +423,29 @@ class ScientificApp:
         )
         return ft.Column([legend, spoken], spacing=1 * s, tight=True)
 
-    def _key_row(self, row: tuple[KeySpec, ...], inner: float) -> ft.Row:
+    def _cells(self, cells: tuple[Cell, ...], width: float, height: float) -> ft.Row:
+        """A row of keys sharing `width`; a key may span columns, and None leaves a gap."""
         s = self.scale
         gap = 5 * s
-        w = (inner - gap * (len(row) - 1)) / len(row)
-        return ft.Row(
-            [self._key(spec, w, 34 * s) for spec in row],
-            spacing=gap,
-            width=inner,
-            alignment=ft.MainAxisAlignment.CENTER,
-        )
+        units = sum(cell.span if cell is not None else 1 for cell in cells)
+        unit = (width - gap * (units - 1)) / units
+        controls: list[ft.Control] = []
+        for cell in cells:
+            if cell is None:
+                controls.append(ft.Container(width=unit))
+                continue
+            w = unit * cell.span + gap * (cell.span - 1)
+            controls.append(self._key(cell, w, height))
+        return ft.Row(controls, spacing=gap, width=width, tight=True)
 
-    def _first_row(self, inner: float) -> ft.Row:
+    def _key_row(self, row: tuple[Cell, ...], inner: float) -> ft.Row:
+        return self._cells(row, inner, 34 * self.scale)
+
+    def _dpad(self) -> ft.Column:
         s = self.scale
-        side = 56 * s
-        h = 30 * s
-        up, left, right, down = k.DPAD
         nav_w, nav_h = 40 * s, 24 * s
-        dpad = ft.Column(
+        up, left, right, down = layouts.DPAD_KEYS
+        return ft.Column(
             [
                 self._key(up, nav_w, nav_h, legends=False),
                 ft.Row(
@@ -407,20 +463,49 @@ class ScientificApp:
             tight=True,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    def _top_block(self, inner: float) -> ft.Row:
+        """The keys beside the D-pad: either side of it, or all to its left."""
+        s = self.scale
+        layout = self.shown_layout
+        h = 30 * s
+        dpad_w = 100 * s
+        gap = 6 * s
+        if layout.dpad == "right":
+            side = inner - dpad_w - gap
+            block = ft.Column(
+                [self._cells(row, side, h) for row in layout.top], spacing=6 * s, tight=True
+            )
+            return ft.Row(
+                [block, self._dpad()],
+                width=inner,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        side = (inner - dpad_w) / 2 - gap
+        left_rows, right_rows = [], []
+        for row in layout.top:
+            half = len(row) // 2
+            left_rows.append(self._cells(row[:half], side, h))
+            right_rows.append(self._cells(row[half:], side, h))
         return ft.Row(
             [
-                ft.Column(
-                    [self._key(spec, side, h) for spec in k.ROW1_LEFT], spacing=0, tight=True
-                ),
-                dpad,
-                ft.Column(
-                    [self._key(spec, side, h) for spec in k.ROW1_RIGHT], spacing=0, tight=True
-                ),
+                ft.Column(left_rows, spacing=6 * s, tight=True),
+                self._dpad(),
+                ft.Column(right_rows, spacing=6 * s, tight=True),
             ],
             width=inner,
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    def layout_height(self) -> float:
+        """The calculator's height at scale 1 for the shown layout."""
+        layout = self.shown_layout
+        top = max(len(layout.top) * 49.0 - 6, 76.0)
+        rows = len(layout.rows) * 47.0
+        gaps = 6.0 * (3 + len(layout.rows))
+        return 18 + 112 + 4 + top + rows + gaps + 28
 
     # ---- the screen ----
 
@@ -434,10 +519,11 @@ class ScientificApp:
         width = (BASE_WIDTH - 28) * s - 22 * s
         renderer = Renderer(ink, ink)
         ann_names = ("S", "A", "M", "STO", "RCL", "STAT", "D", "R", "G", "FIX", "SCI", "Math")
+        marks = {"S": self.shown_layout.shift_mark, "A": self.shown_layout.alpha_mark}
         annunciators = ft.Row(
             [
                 ft.Text(
-                    name,
+                    marks.get(name, name),
                     size=9 * s,
                     weight=ft.FontWeight.BOLD,
                     color=ink if lit.get(name) else skin.lcd_dim,
@@ -497,7 +583,12 @@ class ScientificApp:
                 spacing=0,
                 expand=True,
             )
-        self.lcd.content = ft.Column([annunciators, body], spacing=2 * s, expand=True)
+        # SETUP CONT: the characters fade as the contrast is lowered (the default is the darkest
+        # the theme draws, so raising it above 0 changes nothing)
+        opacity = 1.0 + 0.1 * min(0, self.state.contrast)
+        self.lcd.content = ft.Column(
+            [annunciators, body], spacing=2 * s, expand=True, opacity=opacity
+        )
         _safe_update(self.lcd)
 
     def _menu_body(self, shown: Display, ink: str) -> ft.Control:
@@ -591,16 +682,21 @@ class ScientificApp:
 
     def _paint_keys(self) -> None:
         """Modifier keys light up while waiting; the tutorial's next key glows."""
-        skin = self.skin
         target = self._target_key()
+        skin = self.skin
+        shift_colour, alpha_colour = self._legend_colours()
         for key, face in self.key_controls.items():
-            spec = k.KEYS_BY_ID[key]
-            fill, _ = self._colours(spec)
-            if key == k.SHIFT and self.state.shift:
-                fill = skin.shift
-            elif key == k.ALPHA and self.state.alpha:
-                fill = skin.alpha
+            spec = self._layout_key(key)
+            fill, text = self._colours(spec)
+            if spec.plain == (k.SHIFT,) and self.state.shift:
+                fill = shift_colour
+                text = ink_on(fill)
+            elif spec.plain == (k.ALPHA,) and self.state.alpha:
+                fill = alpha_colour
+                text = ink_on(fill)
             face.bgcolor = fill
+            if isinstance(face.content, ft.Text):
+                face.content.color = text  # a lit modifier's own name must stay readable
             if key == target:
                 face.border = ft.Border.all(3 * self.scale, skin.target)
                 face.shadow = ft.BoxShadow(spread_radius=1, blur_radius=10, color=skin.target)
@@ -614,8 +710,9 @@ class ScientificApp:
         self.top_bar.bgcolor = skin.bar
         self.top_bar.border = ft.Border(bottom=ft.BorderSide(1, skin.chassis_edge))
         state = self.state
+        self.mode_chip.tooltip = state.mode_help()
         for chip, text in (
-            (self.mode_chip, state.mode),
+            (self.mode_chip, state.mode_name()),
             (self.angle_chip, {"DEG": "Deg", "RAD": "Rad", "GRA": "Gra"}[state.setup.angle]),
             (self.io_chip, "Math" if state.setup.input == "math" else "Line"),
         ):
@@ -626,6 +723,11 @@ class ScientificApp:
             label.value = text
             label.color = skin.bar_text
             _safe_update(chip)
+        self.model_chip.bgcolor = skin.chip
+        self.model_chip.border = ft.Border.all(1, "#4d5563")
+        self.model_label.value = self.layout.series
+        self.model_label.color = self.model_icon.color = skin.bar_text
+        _safe_update(self.model_chip)
         for item in (self.panel_button, self.hide_button):
             if isinstance(item, ft.IconButton):
                 item.icon_color = skin.bar_text
@@ -648,7 +750,7 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     async def start(self, **_options: object) -> None:
-        self.page.title = "CASSim fx"
+        self.page.title = "CASSim Scientific"
         self.page.fonts = {**(self.page.fonts or {}), **FONTS}
         self.page.padding = 0
         self.page.on_keyboard_event = self.on_keyboard
@@ -656,6 +758,10 @@ class ScientificApp:
         self.shell.changed = self.on_bridge
         await self._load_prefs()
         await self._load_state()
+        layout = self.layout
+        self.state.use_layout(
+            layout.modes, linear=layout.linear, dialect=layout.dialect, switch_display=False
+        )
         self.page.controls.clear()
         self.page.add(self.root)
         self.apply_skin(self.skin_name, save=False)
@@ -676,7 +782,7 @@ class ScientificApp:
         page_w = float(getattr(self.page, "width", 0) or 1200)
         page_h = float(getattr(self.page, "height", 0) or 800)
         bar = BAR_HEIGHT if self.menu_visible else 0
-        tall = (page_h - bar - 32) / BASE_HEIGHT
+        tall = (page_h - bar - 32) / self.layout_height()
         wide = (page_w - 28) / BASE_WIDTH
         scale = max(MIN_SCALE, min(MAX_SCALE, tall, wide))
         if abs(scale - self.scale) > 0.02 or not self.key_controls:  # noqa: PLR2004
@@ -704,24 +810,67 @@ class ScientificApp:
     # keys
     # ------------------------------------------------------------------------------------------
 
+    def _layout_key(self, key_id: str) -> LKey:
+        return self.shown_layout.key(key_id)
+
+    def on_layout_key(self, key: LKey, *, from_demo: bool = False) -> None:
+        """A key of the drawn keypad: it sends the canonical keys of the layer that is waiting."""
+        state = self.state
+        produced = layouts.press(
+            key, shift=state.shift, alpha=state.alpha, waiting=state.sto or state.rcl
+        )
+        self._feed(produced, key, from_demo=from_demo)
+
     def on_key(self, key: str, *, from_demo: bool = False) -> None:
-        """A keypad key, from a click, the keyboard, or a tutorial demonstration."""
+        """A canonical key, from the computer keyboard or a status chip."""
+        drawn = next((c for c in self.shown_layout.all_keys() if c.plain == (key,)), None)
+        self._feed([key], drawn, from_demo=from_demo)
+
+    def _feed(self, produced: list[str], key: LKey | None, *, from_demo: bool) -> None:
+        """Send canonical keys to the calculator; in Guide me, first check that they are what the
+        lesson asks for (FR-FX-TUT-001 to -003). A SHIFT or ALPHA on its own waits for the next
+        key, because what it means depends on that key."""
         self.open_menus.clear()  # any key that got here means no menu is open
         session = self.session
-        if session is not None and not from_demo:
-            if self.tutorial_mode == "show":
-                self.stop_demo()
-            elif self.tutorial_mode == "guide" and not session.is_complete:
-                if not session.press(key):
-                    self.feedback, self.feedback_ok = session.hint(), False
-                    self._draw_panel()
-                    return
-                self.feedback, self.feedback_ok = "", True
-        self.state.press(key)
+        effect = layouts.normalize(layouts.expand(tuple(self.pending + produced)))
+        only_modifiers = bool(effect) and all(c in (k.SHIFT, k.ALPHA) for c in effect)
+        if session is not None and not from_demo and self.tutorial_mode == "show":
+            self.stop_demo()
+        checking = (
+            session is not None
+            and not session.is_complete
+            and (from_demo or self.tutorial_mode == "guide")
+        )
+        if checking and session is not None and not only_modifiers:
+            expected = session.remaining_keys()[: len(effect)]
+            if effect != expected and not from_demo:
+                for modifier in self.pending:
+                    self.state.press(modifier)  # cancel the waiting SHIFT or ALPHA
+                self.pending = []
+                target = self._target_face()
+                self.feedback = (
+                    f"Not that one. Press [{target}] to continue, or use Show me."
+                    if target
+                    else "Not that one: use Show me to see the next key."
+                )
+                self.feedback_ok = False
+                self.refresh()
+                return
+            for canonical in effect:
+                session.press(canonical)
+            self.feedback, self.feedback_ok = "", True
+        if key is not None:
+            self.pressed_faces.append(key.face)
+        for canonical in produced:
+            self.state.press(canonical)
+        self.pending = list(effect) if only_modifiers else []
+        if not (self.state.shift or self.state.alpha):
+            self.pending = []
         if session is not None and session.is_complete and self.tutorial_mode != "test":
             self._lesson_done()
         self.refresh()
-        self._flash(key)
+        if key is not None:
+            self._flash(key.id)
         self._schedule_save()
 
     def _flash(self, key: str) -> None:
@@ -803,12 +952,6 @@ class ScientificApp:
     # tutorials (FR-FX-TUT-001 to -006)
     # ------------------------------------------------------------------------------------------
 
-    def _target_key(self) -> str | None:
-        session = self.session
-        if session is None or self.tutorial_mode == "test":
-            return None
-        return session.target_key
-
     def _panel_text(
         self, text: str, *, size: float = 13, muted: bool = False, bold: bool = False
     ) -> ft.Text:
@@ -827,16 +970,17 @@ class ScientificApp:
         if not self.panel_open:
             _safe_update(self.panel)
             return
-        lesson = LESSONS[self.lesson_index]
+        lessons = self.lessons
+        lesson = self.lesson
         picker = ft.Dropdown(
             value=lesson.id,
             options=[
                 ft.DropdownOption(
                     key=item.id,
-                    text=("✓ " if item.id in self.completed else "")
+                    text=("✓ " if item.key in self.completed else "")
                     + f"{item.category}: {item.title}",
                 )
-                for item in LESSONS
+                for item in lessons
             ],
             on_select=self._pick_lesson,
             width=self.panel.width - 32 if self.panel.width else PANEL_WIDTH - 32,
@@ -859,7 +1003,10 @@ class ScientificApp:
                     self._panel_text("Tutorials", size=15, bold=True),
                     ft.Container(expand=True),
                     self._panel_text(
-                        f"{len(self.completed)} of {len(LESSONS)} done", size=11, muted=True
+                        f"{sum(item.key in self.completed for item in lessons)} of "
+                        f"{len(lessons)} done",
+                        size=11,
+                        muted=True,
                     ),
                     ft.IconButton(
                         ft.Icons.CLOSE,
@@ -937,32 +1084,35 @@ class ScientificApp:
     def _step_controls(self, session: TutorialSession) -> list[ft.Control]:
         skin = self.skin
         lesson = session.lesson
+        layout = self.shown_layout
         total = len(lesson.steps)
+        notes: list[ft.Control] = []
         if session.is_complete:
+            answer = self.state.answer_text()
             body: list[ft.Control] = [
+                *notes,
                 self._panel_text("Lesson complete", size=15, bold=True),
-                self._panel_text(
-                    f"Answer: {lesson.answer}" if lesson.answer else "All steps done."
-                ),
+                self._panel_text(f"Answer: {answer}" if answer else "All steps done."),
             ]
         else:
             step = session.current_step
             assert step is not None
-            target = session.target_key
+            target = self._target_face() if self.tutorial_mode != "test" else ""
             body = [
+                *notes,
                 self._panel_text(f"Step {session.step_index + 1} of {total}", size=12, muted=True),
-                self._panel_text(step.instruction, size=14, bold=True),
+                self._panel_text(wording(step.instruction, layout), size=14, bold=True),
             ]
             if step.why:
-                body.append(self._panel_text(step.why, size=12, muted=True))
-            if target is not None:
+                body.append(self._panel_text(wording(step.why, layout), size=12, muted=True))
+            if target:
                 body.append(
                     ft.Row(
                         [
                             self._panel_text("Next key", size=12, muted=True),
                             ft.Container(
                                 ft.Text(
-                                    key_label(target),
+                                    target,
                                     size=13,
                                     color=skin.target,
                                     weight=ft.FontWeight.BOLD,
@@ -991,7 +1141,7 @@ class ScientificApp:
                     width=PANEL_WIDTH - 32,
                 ),
                 self._panel_text(
-                    "Keys so far: " + (" ".join(session.history[-8:]) or "none"),
+                    "Keys so far: " + (" ".join(self.pressed_faces[-8:]) or "none"),
                     size=11,
                     muted=True,
                 ),
@@ -1049,20 +1199,33 @@ class ScientificApp:
 
     def _pick_lesson(self, event: ft.Event[ft.Dropdown]) -> None:
         value = event.control.value
-        for index, lesson in enumerate(LESSONS):
+        for index, lesson in enumerate(self.lessons):
             if lesson.id == value:
                 self.lesson_index = index
         self.feedback = ""
         self._draw_panel()
 
+    @property
+    def lessons(self) -> tuple[Lesson, ...]:
+        """The chosen calculator's lessons, in its own keys."""
+        return lessons_for(self.layout)
+
+    @property
+    def lesson(self) -> Lesson:
+        lessons = self.lessons
+        return lessons[min(self.lesson_index, len(lessons) - 1)]
+
     def start_lesson(self) -> None:
         """Put the student's calculation aside, set the calculator up and begin."""
         self.stop_demo()
-        lesson = LESSONS[self.lesson_index]
+        lesson = self.lesson
         if self.saved_before_lesson is None:
             self.saved_before_lesson = self.state.to_dict()
-        lesson.prepare(self.state)
+        lesson.prepare(self.state, test=self.tutorial_mode == "test")
         self.session = TutorialSession(lesson, mode=self.tutorial_mode)
+        self.session._screens = expected_screens(lesson, self.shown_layout)
+        self.pending = []
+        self.pressed_faces = []
         self.feedback = ""
         self.refresh()
         if self.tutorial_mode == "show":
@@ -1072,18 +1235,34 @@ class ScientificApp:
         self.stop_demo()
         self.session = None
         self.feedback = ""
+        self.pending = []
         if self.saved_before_lesson is not None:
             with contextlib.suppress(DocumentFileError):
                 self.state.from_dict(self.saved_before_lesson)
             self.saved_before_lesson = None
+        self._show_layout(self.layout, switch_display=False)
         self.refresh()
+
+    def _show_layout(self, layout: Layout, *, switch_display: bool = True) -> None:
+        """Draw this layout's keypad and give the calculator its modes (and display)."""
+        changed = layout is not self.shown_layout
+        self.shown_layout = layout
+        self.state.use_layout(
+            layout.modes,
+            linear=layout.linear,
+            dialect=layout.dialect,
+            switch_display=switch_display,
+        )
+        if changed:
+            self.key_controls = {}
+            self.fit()
 
     def _lesson_done(self) -> None:
         session = self.session
         if session is None:
             return
         if self.tutorial_mode == "guide":
-            self.completed.add(session.lesson.id)
+            self.completed.add(session.lesson.key)
             self._save_prefs()
         self.feedback, self.feedback_ok = "Well done: every step is complete.", True
 
@@ -1106,6 +1285,7 @@ class ScientificApp:
             assert key is not None
             session.press(key)
             self.state.press(key)
+        self.pending = []
         self.feedback = ""
         self.refresh()
 
@@ -1116,25 +1296,49 @@ class ScientificApp:
         session.lesson.prepare(self.state)
         for key in session.keys_done():
             self.state.press(key)
+        self.pending = []
         self.feedback = ""
         self.refresh()
 
     def stop_demo(self) -> None:
         self.demo_run += 1
 
+    def _plan(self) -> list[layouts.Step]:
+        session = self.session
+        if session is None or session.is_complete:
+            return []
+        return layouts.plan(self.shown_layout, session.remaining_keys()) or []
+
+    def _target_key(self) -> str | None:
+        """The drawn key to press next (the one that glows), on the shown layout."""
+        if self.session is None or self.tutorial_mode == "test":
+            return None
+        steps = self._plan()
+        if not steps:
+            return None
+        presses = steps[0].presses
+        if self.pending and len(presses) > 1:
+            return presses[1].id  # SHIFT or ALPHA is already waiting
+        return presses[0].id
+
+    def _target_face(self) -> str:
+        target = self._target_key()
+        return self._layout_key(target).face if target else ""
+
     async def _play(self) -> None:
-        """Show me: press the lesson's keys one by one, each glowing first."""
+        """Show me: press the lesson's keys one by one on the shown keypad, each glowing first."""
         run = self.demo_run
         session = self.session
         while session is not None and not session.is_complete and run == self.demo_run:
             self.refresh()
-            await asyncio.sleep(DEMO_STEP / self.speed)
+            pause = DEMO_STEP + (DEMO_NEW_STEP if session.key_index == 0 else 0)
+            await asyncio.sleep(pause / self.speed)
             if run != self.demo_run or self.session is not session:
                 return
-            key = session.target_key
-            assert key is not None
-            session.press(key)
-            self.on_key(key, from_demo=True)
+            target = self._target_key()
+            if target is None:
+                return
+            self.on_layout_key(self._layout_key(target), from_demo=True)
         if session is not None and session.is_complete and run == self.demo_run:
             self.feedback, self.feedback_ok = "That is the whole lesson. Try Guide me next.", True
             self._draw_panel()
@@ -1145,7 +1349,7 @@ class ScientificApp:
             return
         challenge = session.lesson.challenge
         if challenge.check(self.state):
-            self.completed.add(session.lesson.id)
+            self.completed.add(session.lesson.key)
             self._save_prefs()
             self.feedback, self.feedback_ok = "Correct. Well done.", True
         else:
@@ -1200,6 +1404,8 @@ class ScientificApp:
             return
         if prefs.get("theme") in SKINS:
             self.skin_name = prefs["theme"]
+        if prefs.get("layout") in LAYOUTS_BY_ID:
+            self.layout = self.shown_layout = LAYOUTS_BY_ID[prefs["layout"]]
         done = prefs.get("completed")
         if isinstance(done, list):
             self.completed = {item for item in done if isinstance(item, str)}
@@ -1214,6 +1420,7 @@ class ScientificApp:
             json.dumps(
                 {
                     "theme": self.skin_name,
+                    "layout": self.layout.id,
                     "completed": sorted(self.completed),
                     "panel": self.panel_open,
                     "speed": self.speed,
@@ -1306,6 +1513,10 @@ class ScientificApp:
 
     def load_example(self, index: int) -> None:
         self.stop_lesson()
+        reason = examples.missing(index, self.layout)
+        if reason:
+            self.shell.notice("Examples", reason)
+            return
         load_example(self.state, index)
         self.refresh()
         self._schedule_save()
@@ -1429,6 +1640,14 @@ class ScientificApp:
         )
 
     def open_appearance(self) -> None:
+        """Appearance: the calculator whose keys to show (FR-FX-UI-005) and the colour theme."""
+        calculator = ft.Dropdown(
+            label="Calculator",
+            value=self.layout.id,
+            options=[ft.DropdownOption(key=layout.id, text=layout.title) for layout in LAYOUTS],
+            width=320,
+            dense=True,
+        )
         choice = ft.RadioGroup(
             ft.Column(
                 [ft.Radio(value=name, label=label) for name, label in SKIN_NAMES.items()],
@@ -1439,18 +1658,57 @@ class ScientificApp:
 
         def apply(_: object) -> None:
             self.page.pop_dialog()
+            self.set_layout(calculator.value or layouts.DEFAULT.id, save=False)
             self.apply_skin(choice.value or "Dark")
 
         self.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text("Appearance"),
-                content=choice,
+                content=ft.Column(
+                    [
+                        calculator,
+                        ft.Text(
+                            "The keys are named and arranged like that calculator's, so you can "
+                            "find yours. CASSim Scientific works the same behind them; see Help "
+                            "for what "
+                            "each model does differently.",
+                            size=12,
+                        ),
+                        ft.Text("Theme", weight=ft.FontWeight.BOLD, size=13),
+                        choice,
+                    ],
+                    tight=True,
+                    spacing=10,
+                    width=360,
+                ),
                 actions=[
                     ft.TextButton("Apply", on_click=apply),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
                 ],
             )
         )
+
+    def cycle_layout(self) -> None:
+        """The next calculator's keys (the chip in the menu bar, or the title on the calculator)."""
+        index = next(i for i, layout in enumerate(LAYOUTS) if layout is self.layout)
+        self.set_layout(LAYOUTS[(index + 1) % len(LAYOUTS)].id)
+
+    def set_layout(self, layout_id: str, *, save: bool = True) -> None:
+        """Show another calculator's keys. A lesson in progress ends first."""
+        layout = LAYOUTS_BY_ID.get(layout_id, layouts.DEFAULT)
+        if self.session is not None:
+            self.stop_lesson()
+        lesson_id = self.lesson.id
+        self.layout = layout
+        self.lesson_index = next(
+            (i for i, lesson in enumerate(self.lessons) if lesson.id == lesson_id), 0
+        )
+        self.pending = []
+        self._show_layout(layout)
+        self.refresh()
+        self._schedule_save()
+        if save:
+            self._save_prefs()
 
     def open_shortcuts(self) -> None:
         rows = [

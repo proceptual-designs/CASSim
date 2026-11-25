@@ -1,4 +1,4 @@
-"""The CASSim fx keypad and computer keyboard, as data (SDD-14 section 4).
+"""The CASSim Scientific keypad and computer keyboard, as data (SDD-14 section 4).
 
 One table names every key once. The keypad drawing, the device state, the tutorials and the computer
 keyboard map all use these names, so a key that the drawing shows is a key the state handles
@@ -199,6 +199,7 @@ COMPUTER: dict[str, Binding] = {
     "r": _seq(SQRT),
     "R": _seq(SHIFT, SQRT),
     "q": _seq(X2),
+    "g": _seq(LOGAB),
     "d": _seq(DMS),
     "D": _seq(SHIFT, DMS),
     "m": _seq(MPLUS),
@@ -229,6 +230,7 @@ SHORTCUT_HELP: tuple[tuple[str, str], ...] = (
     ("l n, L N", "log ln, and 10■ e■"),
     ("r, R", "√ and ³√"),
     ("q", "x²"),
+    ("g", "log■□, a logarithm with a base"),
     ("!  %  ,", "x!, %, and the comma"),
     ("d, D", "° ' \" and FACT"),
     ("m, M", "M+ and M−"),

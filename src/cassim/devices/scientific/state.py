@@ -1,4 +1,4 @@
-"""The CASSim fx device: what each key does and what the screen shows (SDD-14 sections 3 and 6).
+"""The CASSim Scientific device: what each key does and what the screen shows (SDD-14 3, 6).
 
 `ScientificState.press(key)` takes the key ids of `keys.py`; `display()` describes the LCD for the
 view (and as text for the tests and the tutorials). The state also reads and writes its part of a
@@ -48,6 +48,7 @@ from cassim.devices.scientific.engine import (
     two_var,
 )
 from cassim.devices.scientific.layout import Seq, to_text
+from cassim.devices.scientific.layouts import Dialect
 from cassim.devices.scientific.parser import Context, Pair, Value, evaluate, number
 from cassim.devices.scientific.values import CalcError, Exact, Number
 
@@ -65,6 +66,14 @@ MAX_DEPTH = 12
 
 CalcMode = Literal["COMP", "STAT", "TABLE", "VERIFY"]
 MODES: tuple[CalcMode, ...] = ("COMP", "STAT", "TABLE", "VERIFY")
+# The fx-82MS family's MODE pages: MODE again shows the next one.
+MS_PAGES = ("ms_mode", "ms_angle", "ms_disp", "ms_more")
+# The EL-531's own keys (layouts.py), which do nothing while a menu is open.
+SHARP_KEYS = ("HOME", "CA", "MCLR", "RANDOM", "DRG", "DRGCONV", "STOXY")
+MS_REG_TYPES: tuple[StatType, ...] = ("A+BX", "ln X", "e^X", "A·X^B", "1/X", "_+CX2")
+SHARP_STAT_TYPES: tuple[StatType, ...] = (
+    "1-VAR", "A+BX", "_+CX2", "e^X", "ln X", "A·X^B", "1/X",
+)  # fmt: skip
 ScreenKind = Literal[
     "calc", "menu", "error", "message", "stat_editor", "table_fx", "table_prompt", "table", "off"
 ]  # fmt: skip
@@ -73,7 +82,7 @@ VARIABLES = ("A", "B", "C", "D", "E", "F", "M", "X", "Y")
 
 
 class DocumentFileError(ValueError):
-    """The text is not a CASSim fx document this version can open."""
+    """The text is not a CASSim Scientific document this version can open."""
 
 
 # ---- what the LCD shows ---------------------------------------------------------------------
@@ -130,6 +139,8 @@ class MenuSpec:
     numbers: str = ""  # keys that choose, when not 1..len(options) (Fix 0~9)
     up: str = ""  # the menu ▲ shows, if any
     down: str = ""
+    left: str = ""  # the page ◀ shows (fx-82MS family's S-SUM and S-VAR pages)
+    right: str = ""
 
 
 @dataclass
@@ -182,6 +193,13 @@ class ScientificState:
     table_top: int = 0
     fact: Seq = ()
     rng: random.Random = field(default_factory=random.Random)
+    allowed_modes: tuple[CalcMode, ...] = MODES  # the modes the chosen keypad layout has
+    linear_layout: bool = False  # the layout's calculator has a linear display
+    dialect: Dialect = "casio"  # whose menus and key sequences (layouts.Dialect)
+    note: str = ""  # a line above the entry (DATA SET)
+    tab: int = 9  # the EL-531's TAB: decimal places for FIX and SCI
+    contrast: int = 0  # SETUP CONT: −4 (lightest) to 4 (darkest)
+    percent_base: Number | None = None  # fx-82MS family: A in A × B %, for a following + or −
 
     # ------------------------------------------------------------------------------------------
     # keys
@@ -204,6 +222,8 @@ class ScientificState:
         self.shift = self.alpha = False
         if self._global(key, shift=shift):
             return
+        if self._pseudo(key):
+            return
         match self.screen:
             case "menu":
                 self._menu_key(key)
@@ -225,7 +245,7 @@ class ScientificState:
             case _:
                 self._calc_key(key, shift=shift, alpha=alpha)
 
-    def _global(self, key: str, *, shift: bool) -> bool:
+    def _global(self, key: str, *, shift: bool) -> bool:  # noqa: PLR0911
         """Keys that work on any screen."""
         if key == k.AC and shift:
             self.screen = "off"
@@ -236,19 +256,43 @@ class ScientificState:
             return True
         if key == k.MODE:
             self.hyp = self.sto = self.rcl = False
-            self.open_menu("setup1" if shift else "mode")
+            self._mode_key(shift=shift)
             return True
-        if shift and key == "9" and self.screen not in ("menu", "message"):
+        casio = self.dialect in ("casio", "sx2")
+        if casio and shift and key == "9" and self.screen not in ("menu", "message"):
             self.open_menu("clr")
             return True
-        if shift and key == "1" and self.mode == "STAT" and self.screen != "menu":
-            self.open_menu("stat")
-            return True
+        if shift and key in ("1", "2") and self.mode == "STAT" and self.screen != "menu":
+            match self.dialect, key:
+                case "ms", _:
+                    self.open_menu("ms_ssum1" if key == "1" else "ms_svar1")
+                    return True
+                case _, "1":
+                    self.open_menu("stat")
+                    return True
         return False
+
+    def _mode_key(self, *, shift: bool) -> None:
+        """MODE, and SHIFT MODE: SETUP on the fx-82 and SX-II; CLR on the fx-82MS family, whose
+        MODE pressed again shows the next settings page; SET UP on the EL-531."""
+        match self.dialect:
+            case "ms":
+                if shift:
+                    self.open_menu("ms_clr")
+                elif self.screen == "menu" and self.menu in MS_PAGES:
+                    self.menu = MS_PAGES[(MS_PAGES.index(self.menu) + 1) % len(MS_PAGES)]
+                else:
+                    self.open_menu(MS_PAGES[0])
+            case "sharp":
+                self.open_menu("sh_setup" if shift else "sh_mode")
+            case _:
+                self.open_menu("setup1" if shift else "mode")
 
     # ---- the calculation screen ----
 
     def _calc_key(self, key: str, *, shift: bool, alpha: bool) -> None:  # noqa: PLR0911, PLR0912, PLR0915
+        if self._dialect_key(key, shift=shift, alpha=alpha):
+            return
         if self.sto or self.rcl:
             storing = self.sto
             self.sto = self.rcl = False
@@ -325,15 +369,23 @@ class ScientificState:
             self.open_menu("rel")
             return
         if key == k.HYP and not alpha:
-            self.hyp = True
+            self._hyp_key()
             return
         self._type(key, shift=shift, alpha=alpha)
+
+    def _hyp_key(self) -> None:
+        """hyp: the next sin, cos or tan is hyperbolic; on the SX-II it opens a menu of them."""
+        if self.dialect == "sx2":
+            self.open_menu("sx_hyp")
+        else:
+            self.hyp = True
 
     def _type(self, key: str, *, shift: bool, alpha: bool) -> None:
         action = key_action(key, shift=shift, alpha=alpha, hyp=self.hyp)
         self.hyp = False
         if action is None:
             return
+        self.note = ""
         if self.showing_result:
             continuing = action_continues(action)
             self.editor = Editor()
@@ -356,8 +408,12 @@ class ScientificState:
         """= : evaluate the entry."""
         if self.editor.is_empty():
             return
+        self.percent_base = None
         try:
-            value = evaluate(self.editor.items, self.context())
+            items = fold_fraction_marks(self.editor.items)
+            value = self._ms_percent(items)
+            if value is None:
+                value = evaluate(items, self.context())
             if not isinstance(value, (Pair, bool)) and math.isnan(float(number(value))):
                 raise v.math_error()
         except CalcError as error:
@@ -468,7 +524,10 @@ class ScientificState:
             return False
         if self.setup.input == "math":
             return True
-        return any(isinstance(item, Tmpl) and item.kind in ("frac", "mixed") for item in items)
+        return any(
+            (isinstance(item, Tmpl) and item.kind in ("frac", "mixed")) or _is_tok(item, "⌟")
+            for item in items
+        )
 
     def _engineering(self, *, up: bool) -> None:
         if self.result is None or isinstance(self.result, (bool, Pair)):
@@ -570,7 +629,8 @@ class ScientificState:
         name = self.menu
         match name:
             case "mode":
-                return MenuSpec("", ("1:COMP", "2:STAT", "3:TABLE", "4:VERIFY"), self._pick_mode)
+                options = tuple(f"{i}:{m}" for i, m in enumerate(self.allowed_modes, start=1))
+                return MenuSpec("", options, self._pick_mode)
             case "stat_type":
                 options = tuple(
                     f"{i}:{STAT_TYPE_LABELS[t]}" for i, t in enumerate(STAT_TYPES, start=1)
@@ -584,7 +644,12 @@ class ScientificState:
                     down="setup2",
                 )
             case "setup2":
-                return MenuSpec("", ("1:STAT", "2:ab/c", "3:d/c"), self._pick_setup2, up="setup1")
+                options = ("1:ab/c", "2:d/c", "3:STAT", "4:Disp", "5:CONT")
+                return MenuSpec("", options, self._pick_setup2, up="setup1")
+            case "disp":
+                return MenuSpec("Disp", ("1:Dot", "2:Comma"), self._pick_point)
+            case "cont":
+                return MenuSpec("CONTRAST", ("◀ LIGHT   DARK ▶",), lambda _: None)
             case "setup_io":
                 return MenuSpec("MthIO", ("1:MathO", "2:LineO"), self._pick_io)
             case "fix":
@@ -600,16 +665,20 @@ class ScientificState:
             case "drg":
                 return MenuSpec("", ("1:°", "2:ʳ", "3:ᵍ"), self._insert_from(("deg", "rad", "gra")))
             case "rel":
-                return MenuSpec(
-                    "",
-                    ("1:=", "2:≠", "3:>", "4:≥", "5:<", "6:≤"),
-                    self._insert_from(("=", "≠", ">", "≥", "<", "≤")),
+                order = (
+                    ("=", "≠", ">", "<", "≥", "≤")
+                    if self.dialect == "sx2"
+                    else ("=", "≠", ">", "≥", "<", "≤")
                 )
+                options = tuple(f"{i}:{rel}" for i, rel in enumerate(order, start=1))
+                return MenuSpec("", options, self._insert_from(order))
             case "stat":
-                options = ["1:Type", "2:Data", "3:Sum", "4:Var", "5:MinMax"]
-                if self.stat_type != "1-VAR":
-                    options.append("6:Reg")
+                options = ["1:Type", "2:Data", "3:Sum", "4:Var"]
+                options += ["5:MinMax"] if self.stat_type == "1-VAR" else ["5:Reg", "6:MinMax"]
                 return MenuSpec("", tuple(options), self._pick_stat)
+        spec = self._dialect_menu(name)
+        if spec is not None:
+            return spec
         tokens = self._stat_menu_tokens(name)
         labels = tuple(f"{i}:{TOKENS[t].text}" for i, t in enumerate(tokens, start=1))
         return MenuSpec("", labels, self._insert_from(tokens))
@@ -618,7 +687,9 @@ class ScientificState:
         two = self.stat_type != "1-VAR"
         match name:
             case "stat_sum":
-                return ("Σx²", "Σx", "Σy²", "Σy", "Σxy") if two else ("Σx²", "Σx")
+                if two:
+                    return ("Σx²", "Σx", "Σy²", "Σy", "Σxy", "Σx³", "Σx²y", "Σx⁴")
+                return ("Σx²", "Σx")
             case "stat_var":
                 return ("n", "x̄", "σx", "sx", "ȳ", "σy", "sy") if two else ("n", "x̄", "σx", "sx")
             case "stat_minmax":
@@ -631,7 +702,7 @@ class ScientificState:
                 return ("regA", "regB", "r", "x̂", "ŷ")
         return ()
 
-    def _menu_key(self, key: str) -> None:
+    def _menu_key(self, key: str) -> None:  # noqa: PLR0911
         spec = self.menu_spec()
         if key in (k.AC,):
             self.screen = self.back if self.back != "menu" else "calc"
@@ -643,6 +714,15 @@ class ScientificState:
             return
         if key == k.UP and spec.up:
             self.menu = spec.up
+            return
+        if self.menu == "cont" and key in (k.LEFT, k.RIGHT):
+            self.contrast = max(-4, min(4, self.contrast + (1 if key == k.RIGHT else -1)))
+            return
+        if key == k.RIGHT and spec.right:
+            self.menu = spec.right
+            return
+        if key == k.LEFT and spec.left:
+            self.menu = spec.left
             return
         if spec.numbers:
             if key in spec.numbers:
@@ -684,7 +764,7 @@ class ScientificState:
         return self.editor
 
     def _pick_mode(self, n: int) -> None:
-        mode = MODES[n - 1]
+        mode = self.allowed_modes[n - 1]
         if mode == "STAT":
             self.back = "calc"
             self.menu = "stat_type"
@@ -732,9 +812,9 @@ class ScientificState:
             case 4:
                 self.menu = "stat_var"
             case 5:
-                self.menu = "stat_minmax"
+                self.menu = "stat_minmax" if self.stat_type == "1-VAR" else "stat_reg"
             case 6:
-                self.menu = "stat_reg"
+                self.menu = "stat_minmax"
 
     def _after_setup(self) -> None:
         if self.mode == "STAT" and self.back == "stat_editor":
@@ -764,10 +844,21 @@ class ScientificState:
         self._after_setup()
 
     def _pick_setup2(self, n: int) -> None:
-        if n == 1:
-            self.menu = "freq"
-            return
-        self.setup.fraction = "ab/c" if n == 2 else "d/c"  # noqa: PLR2004
+        """SETUP page 2, in the order the fx-82AU PLUS II and SX-II manuals give: ab/c, d/c,
+        STAT (the FREQ column), Disp (dot or comma) and CONT (contrast)."""
+        match n:
+            case 1 | 2:
+                self.setup.fraction = "ab/c" if n == 1 else "d/c"
+                self._after_setup()
+            case 3:
+                self.menu = "freq"
+            case 4:
+                self.menu = "disp"
+            case _:
+                self.menu = "cont"
+
+    def _pick_point(self, n: int) -> None:
+        self.setup.comma = n == 2  # noqa: PLR2004
         self._after_setup()
 
     def _pick_io(self, n: int) -> None:
@@ -790,6 +881,9 @@ class ScientificState:
     def set_frequency(self, *, on: bool) -> None:
         if self.setup.frequency == on:
             return
+        if self.dialect in ("ms", "sharp"):
+            self.setup.frequency = on  # the column stays: these calculators always have it
+            return
         self.setup.frequency = on
         for row in self.stat_rows:
             if on:
@@ -800,21 +894,33 @@ class ScientificState:
 
     def _pick_clear(self, n: int) -> None:
         choice = ("setup", "memory", "all")[n - 1]
+        self._ask_clear(choice)
+
+    def _ask_clear(self, choice: str) -> None:
         self.pending = choice
-        question = {"setup": "Reset Setup?", "memory": "Clear Memory?", "all": "Reset All?"}[choice]
+        question = {
+            "setup": "Reset Setup?",
+            "memory": "Clear Memory?",
+            "all": "Reset All?",
+            "scl": "Stat clear?",
+            "mcl": "Memory clear?",
+        }[choice]
         self.message = (question, "[=] :Yes  [AC] :Cancel")
         self.screen = "message"
 
     def _do_clear(self, choice: str) -> None:
-        """CLR (FR-FX-CFG-006): reset the setup, clear the memories, or both."""
+        """CLR (FR-FX-CFG-006): reset the setup, clear the memories, or both. The fx-82MS family
+        also clears just the statistics (Scl), and goes straight back to calculating."""
         if choice in ("setup", "all"):
-            self.setup = Setup()
+            self.setup = self.default_setup()
+            self.tab = 9
             self.mode = "COMP"
-        if choice in ("memory", "all"):
+        if choice in ("memory", "all", "mcl"):
             for name in self.variables:
                 self.variables[name] = v.ZERO
-        if choice == "all":
+        if choice in ("all", "scl"):
             self.stat_rows = []
+        if choice == "all":
             self.table_function = Editor()
             self.table_range = [v.rational(1), v.rational(5), v.rational(1)]
         self.history = []
@@ -823,15 +929,275 @@ class ScientificState:
         self.editor = Editor()
         self.result = None
         self.showing_result = False
+        if self.dialect in ("ms", "sharp"):
+            self._to_calc()
+            return
         done = {"setup": "Reset Setup", "memory": "Clear Memory", "all": "Reset All"}[choice]
         self.message = (done, "Press [AC] Key")
         self.screen = "message"
 
+    # ---- other calculators' key sequences (FR-FX-UI-005; layouts.Dialect) ----
+
+    def _dialect_key(self, key: str, *, shift: bool, alpha: bool) -> bool:
+        """Calculation-screen keys that work differently on the linear calculators: + or − just
+        after A × B % (fx-82MS family: A plus or minus B% of A), a b/c (a fraction mark, or
+        after an answer fraction ⇔ decimal), and 2ndF M+ in STAT on the EL-531 (CD)."""
+        base, self.percent_base = self.percent_base, None
+        if self.dialect not in ("ms", "sharp"):
+            return False
+        plain = not shift and not alpha
+        if base is not None and self.showing_result and plain and key in (k.ADD, k.SUB):
+            try:
+                total = (v.add if key == k.ADD else v.sub)(base, self.variables["Ans"])
+            except CalcError as error:
+                self.error = error.message
+                self.screen = "error"
+                return True
+            self._set_ans(total)
+            self._show(total)
+            return True
+        if key == k.FRAC and plain:
+            if self.showing_result:
+                self._toggle_sd(mixed=False)
+            else:
+                self._insert_token("⌟")
+            return True
+        if key == k.MPLUS and shift and self.dialect == "sharp" and self.mode == "STAT":
+            self._clear_entry()  # CD: clears the data being typed
+            return True
+        return False
+
+    def _ms_percent(self, items: list[Item]) -> Value | None:
+        """The fx-82MS family's %, which works out the whole calculation: A × B % is B% of A,
+        A ÷ B % is A as a percentage of B, A + B % is A + B as a percentage of B, and A − B % is
+        the change from B to A as a percentage of B. None when % is not used that way."""
+        if self.dialect != "ms" or not items or not (_is_tok(items[-1], "%")):
+            return None
+        body = items[:-1]
+        depth = 0
+        split = -1
+        for index in range(len(body) - 1, -1, -1):
+            item = body[index]
+            if _is_tok(item, ")"):
+                depth += 1
+            elif isinstance(item, Tok) and item.id.endswith("("):
+                depth -= 1
+            elif depth == 0 and isinstance(item, Tok) and item.id in ("+", "−", "×", "÷"):
+                split = index
+                break
+        if split <= 0:
+            return None
+        context = self.context()
+        a = number(evaluate(body[:split], context))
+        b = number(evaluate(body[split + 1 :], context))
+        hundred = v.rational(100)
+        match body[split].id:  # ty: ignore[unresolved-attribute]
+            case "×":
+                self.percent_base = a
+                return v.div(v.mul(a, b), hundred)
+            case "÷":
+                return v.mul(v.div(a, b), hundred)
+            case "+":
+                return v.mul(v.div(v.add(a, b), b), hundred)
+            case _:
+                return v.mul(v.div(v.sub(a, b), b), hundred)
+
+    def _enter_stat_calc(self, stat_type: StatType) -> None:
+        """SD, REG (fx-82MS family) or STAT n (EL-531): statistics typed on the calculation
+        screen with DT or DATA; there is no data table to fill in."""
+        self._enter_mode("STAT")
+        self.stat_type = stat_type
+        self.stat_rows = []
+        self.stat_cursor = (0, 0)
+        self.stat_top = 0
+        self.note = ""
+        self._to_calc()
+
+    def _dialect_menu(self, name: str) -> MenuSpec | None:  # noqa: PLR0911, PLR0912
+        two = self.stat_type != "1-VAR"
+        quad = self.stat_type == "_+CX2"
+        match name:
+            case "ms_mode":
+                return MenuSpec("", ("1:COMP", "2:SD", "3:REG"), self._ms_pick_mode)
+            case "ms_angle":
+                return MenuSpec("", ("1:Deg", "2:Rad", "3:Gra"), self._ms_pick_angle)
+            case "ms_disp":
+                return MenuSpec("", ("1:Fix", "2:Sci", "3:Norm"), self._ms_pick_disp)
+            case "ms_more":
+                return MenuSpec("", ("1:Disp",), lambda _: setattr(self, "menu", "ms_frac"))
+            case "ms_frac":
+                return MenuSpec(
+                    "Disp", ("1:a b/c", "2:d/c"), self._ms_pick_fraction, right="ms_point"
+                )
+            case "ms_point":
+                return MenuSpec("Disp", ("1:Dot", "2:Comma"), self._pick_point, left="ms_frac")
+            case "ms_reg":
+                return MenuSpec(
+                    "", ("1:Lin", "2:Log", "3:Exp"), self._ms_pick_reg(0), right="ms_reg2"
+                )
+            case "ms_reg2":
+                return MenuSpec(
+                    "", ("1:Pwr", "2:Inv", "3:Quad"), self._ms_pick_reg(3), left="ms_reg"
+                )
+            case "ms_clr":
+                first = "1:Scl" if self.mode == "STAT" else "1:Mcl"
+                return MenuSpec("", (first, "2:Mode", "3:All"), self._ms_pick_clear)
+            case "ms_ssum1":
+                return self._ms_page(
+                    ("Σx²", "Σx", "n"), ("Σx²", "Σx", "n"), "", "ms_ssum2" if two else ""
+                )
+            case "ms_ssum2":
+                tokens = ("Σy²", "Σy", "Σxy")
+                return self._ms_page(tokens, tokens, "ms_ssum1", "ms_ssum3")
+            case "ms_ssum3":
+                tokens = ("Σx³", "Σx²y", "Σx⁴")
+                return self._ms_page(tokens, tokens, "ms_ssum2", "")
+            case "ms_svar1":
+                return self._ms_page(
+                    ("x̄", "xσn", "xσn-1"), ("x̄", "σx", "sx"), "", "ms_svar2" if two else ""
+                )
+            case "ms_svar2":
+                return self._ms_page(
+                    ("ȳ", "yσn", "yσn-1"), ("ȳ", "σy", "sy"), "ms_svar1", "ms_svar3"
+                )
+            case "ms_svar3":
+                tokens = ("regA", "regB", "regC" if quad else "r")
+                return self._ms_page(
+                    ("A", "B", "C" if quad else "r"), tokens, "ms_svar2", "ms_svar4"
+                )
+            case "ms_svar4":
+                if quad:
+                    return self._ms_page(("x̂1", "x̂2", "ŷ"), ("x̂1", "x̂2", "ŷ"), "ms_svar3", "")
+                return self._ms_page(("x̂", "ŷ"), ("x̂", "ŷ"), "ms_svar3", "")
+            case "sx_hyp":
+                labels = ("sinh", "cosh", "tanh", "sinh⁻¹", "cosh⁻¹", "tanh⁻¹")
+                options = tuple(f"{i}:{label}" for i, label in enumerate(labels, start=1))
+                return MenuSpec("", options, self._sx_pick_hyp)
+            case "sh_mode":
+                return MenuSpec("", ("0:NORMAL", "1:STAT"), self._sh_pick_mode, numbers="01")
+            case "sh_stat":
+                options = ("0:SD", "1:LINE", "2:QUAD", "3:EXP", "4:LOG", "5:PWR", "6:INV")
+                pick = lambda n: self._enter_stat_calc(SHARP_STAT_TYPES[n])  # noqa: E731
+                return MenuSpec("STAT", options, pick, numbers="0123456")
+            case "sh_setup":
+                return MenuSpec("SET UP", ("0:FSE", "1:TAB"), self._sh_pick_setup, numbers="01")
+            case "sh_fse":
+                options = ("0:FIX", "1:SCI", "2:ENG", "3:NORM1", "4:NORM2")
+                return MenuSpec("FSE", options, self._sh_pick_fse, numbers="01234")
+            case "sh_tab":
+                return MenuSpec("TAB 0~9?", (), self._sh_pick_tab, numbers="0123456789")
+            case "sh_mclr":
+                return MenuSpec("", ("0:MEM", "1:RESET"), self._sh_pick_mclr, numbers="01")
+            case "sh_random":
+                options = ("0:RANDOM", "1:DICE", "2:COIN", "3:INTEGER")
+                return MenuSpec("", options, self._sh_pick_random, numbers="0123")
+        return None
+
+    def _ms_page(
+        self, labels: tuple[str, ...], tokens: tuple[str, ...], left: str, right: str
+    ) -> MenuSpec:
+        options = tuple(f"{i}:{label}" for i, label in enumerate(labels, start=1))
+        return MenuSpec("", options, self._insert_from(tokens), left=left, right=right)
+
+    def _ms_pick_mode(self, n: int) -> None:
+        match n:
+            case 1:
+                self._enter_mode("COMP")
+            case 2:
+                self._enter_stat_calc("1-VAR")
+            case _:
+                self.menu = "ms_reg"
+
+    def _ms_pick_reg(self, offset: int) -> Callable[[int], None]:
+        return lambda n: self._enter_stat_calc(MS_REG_TYPES[offset + n - 1])
+
+    def _ms_pick_angle(self, n: int) -> None:
+        self.setup.angle = ("DEG", "RAD", "GRA")[n - 1]
+        self._after_setup()
+
+    def _ms_pick_disp(self, n: int) -> None:
+        self.menu = ("fix", "sci", "norm")[n - 1]
+
+    def _ms_pick_fraction(self, n: int) -> None:
+        self.setup.fraction = "ab/c" if n == 1 else "d/c"
+        self._after_setup()
+
+    def _ms_pick_clear(self, n: int) -> None:
+        first = "scl" if self.mode == "STAT" else "mcl"
+        self._ask_clear((first, "setup", "all")[n - 1])
+
+    def _sx_pick_hyp(self, n: int) -> None:
+        target = self.back if self.back in ("calc", "table_fx", "stat_editor") else "calc"
+        self.screen = target
+        key = (k.SIN, k.COS, k.TAN)[(n - 1) % 3]
+        self.hyp = True
+        if target == "calc":
+            self._type(key, shift=n > 3, alpha=False)  # noqa: PLR2004
+        else:
+            self._edit_key(self._target_editor(), key, shift=n > 3, alpha=False)  # noqa: PLR2004
+
+    def _sh_pick_mode(self, n: int) -> None:
+        if n == 0:
+            self._enter_mode("COMP")
+        else:
+            self.menu = "sh_stat"
+
+    def _sh_pick_setup(self, n: int) -> None:
+        self.menu = "sh_fse" if n == 0 else "sh_tab"
+
+    def _sh_pick_fse(self, n: int) -> None:
+        """FIX, SCI and ENG use TAB places; NORM1 and NORM2 set the exponent range."""
+        match n:
+            case 0:
+                self.setup.disp, self.setup.digits = "Fix", self.tab
+            case 1:
+                self.setup.disp, self.setup.digits = "Sci", (self.tab + 1) % 10
+            case 2:
+                self.setup.disp, self.setup.digits = "Eng", self.tab
+            case 3 | 4:
+                self.setup.disp, self.setup.digits = "Norm", n - 2
+        self._after_setup()
+
+    def _sh_pick_tab(self, n: int) -> None:
+        self.tab = n
+        if self.setup.disp in ("Fix", "Eng"):
+            self.setup.digits = n
+        elif self.setup.disp == "Sci":
+            self.setup.digits = (n + 1) % 10
+        self._after_setup()
+
+    def _sh_pick_mclr(self, n: int) -> None:
+        if n == 0:
+            for name in self.variables:
+                self.variables[name] = v.ZERO
+            self._to_calc()
+        else:
+            self._ask_clear("all")
+
+    def _sh_pick_random(self, n: int) -> None:
+        ranges = {1: ("1", "6"), 2: ("0", "1"), 3: ("0", "9", "9")}
+        self.screen = "calc"
+        if self.showing_result:
+            self.editor = Editor()
+            self.showing_result = False
+            self.result = None
+        if n == 0:
+            self.editor.insert("Ran#")
+            return
+        low, *high = ranges[n]
+        self.editor.insert("RanInt#(", low, ",", *high, ")")
+
     # ---- STAT data editor (FR-FX-STA-001) ----
+
+    @property
+    def has_frequency(self) -> bool:
+        """The FREQ column: a SETUP choice on the fx-82 and SX-II; always there on the fx-82MS
+        family and the EL-531, whose data entry takes a frequency (x ; f DT, x (x,y) f DATA)."""
+        return self.setup.frequency or self.dialect in ("ms", "sharp")
 
     def stat_columns(self) -> tuple[str, ...]:
         base = ("X",) if self.stat_type == "1-VAR" else ("X", "Y")
-        return (*base, "FREQ") if self.setup.frequency else base
+        return (*base, "FREQ") if self.has_frequency else base
 
     def _stat_key(self, key: str, *, shift: bool, alpha: bool) -> None:  # noqa: PLR0911, PLR0912
         entry = self.stat_entry
@@ -880,7 +1246,7 @@ class ScientificState:
                 entry.right()
             return
         if key == k.HYP and not alpha:
-            self.hyp = True
+            self._hyp_key()
             return
         action = key_action(key, shift=shift, alpha=alpha, hyp=self.hyp)
         self.hyp = False
@@ -889,7 +1255,7 @@ class ScientificState:
 
     def _blank_row(self) -> list[Number | None]:
         row: list[Number | None] = [None] * len(self.stat_columns())
-        if self.setup.frequency:
+        if self.has_frequency:
             row[-1] = v.rational(1)
         return row
 
@@ -917,7 +1283,7 @@ class ScientificState:
         for row in self.stat_rows:
             x = row[0]
             y = row[1] if two else v.ZERO
-            freq = row[-1] if self.setup.frequency else v.rational(1)
+            freq = row[-1] if self.has_frequency else v.rational(1)
             if x is None or y is None:
                 continue
             out.append((float(x), float(y), float(freq) if freq is not None else 1.0))
@@ -968,6 +1334,9 @@ class ScientificState:
                 "Σy": two.sum_y,
                 "Σy²": two.sum_y2,
                 "Σxy": two.sum_xy,
+                "Σx³": two.sum_x3,
+                "Σx²y": two.sum_x2y,
+                "Σx⁴": two.sum_x4,
                 "minX": two.min_x,
                 "maxX": two.max_x,
                 "minY": two.min_y,
@@ -1023,7 +1392,7 @@ class ScientificState:
             case k.END:
                 editor.end()
             case k.HYP if not alpha:
-                self.hyp = True
+                self._hyp_key()
             case _:
                 action = key_action(key, shift=shift, alpha=alpha, hyp=self.hyp)
                 self.hyp = False
@@ -1100,8 +1469,209 @@ class ScientificState:
             self.table_top = row - GRID_ROWS + 1
 
     # ------------------------------------------------------------------------------------------
+    # keypad layouts (FR-FX-UI-005; layouts.py)
+    # ------------------------------------------------------------------------------------------
+
+    def default_setup(self) -> Setup:
+        """SETUP's defaults, which follow the calculator's manual: Norm 2 on the fx-82 and SX-II
+        (their manuals also give MthIO-LineO, to be checked on the emulators first); a linear
+        display, Norm 2 and mixed numbers on the HP 10s; a linear display and mixed numbers on
+        the EL-531."""
+        match self.dialect:
+            case "ms":
+                return Setup(input="line", output="line", digits=2, fraction="ab/c")
+            case "sharp":
+                return Setup(input="line", output="line", fraction="ab/c")
+            case _:
+                base = Setup(digits=2)  # Norm 2: the fx-82AU PLUS II and SX-II manuals
+        if self.linear_layout:
+            base.input = base.output = "line"
+        return base
+
+    def use_layout(
+        self,
+        modes: tuple[CalcMode, ...],
+        *,
+        linear: bool,
+        dialect: Dialect = "casio",
+        switch_display: bool = True,
+    ) -> None:
+        """Take on a keypad layout's modes, display and menus. A mode the layout lacks is left for
+        COMP. When the calculator changes, SETUP goes to the new calculator's defaults
+        (`switch_display`; a restored calculator keeps the SETUP it was saved with)."""
+        self.allowed_modes = modes
+        changed = self.linear_layout != linear or self.dialect != dialect
+        self.linear_layout = linear
+        self.dialect = dialect
+        if changed and switch_display:
+            self.setup = self.default_setup()
+        if self.mode not in modes:
+            self._enter_mode("COMP")
+        elif self.screen == "menu" or (self.screen == "stat_editor" and changed):
+            self._to_calc()
+
+    def _pseudo(self, key: str) -> bool:  # noqa: PLR0911, PLR0912
+        """Keys only some layouts have: a token key, a STAT submenu key, DATA, and the EL-531's
+        HOME, CA, M-CLR, DRG, DRG▸, RANDOM and STO-or-(x,y)."""
+        if key.startswith("TOK:"):
+            token = key[4:]
+            if self.rcl and TOKENS.get(token) is not None and TOKENS[token].kind == "statvar":
+                self.rcl = False  # RCL x̄ on the EL-531: the statistic's value
+                self.editor = Editor([Tok(token)])
+                self.execute()
+                return True
+            self.sto = self.rcl = False
+            self._insert_token(token)
+            return True
+        if self.screen == "menu" and key in SHARP_KEYS:
+            return True  # these keys do nothing while a menu is open
+        match key:
+            case "HOME":
+                self._enter_mode("COMP")
+                return True
+            case "CA":
+                self._clear_all_values()
+                return True
+            case "MCLR":
+                self.open_menu("sh_mclr")
+                return True
+            case "RANDOM":
+                self.open_menu("sh_random")
+                return True
+            case "DRG":
+                order = ("DEG", "RAD", "GRA")
+                self.setup.angle = order[(order.index(self.setup.angle) + 1) % 3]
+                return True
+            case "DRGCONV":
+                self._answer_then(self._convert_angle)
+                return True
+            case "STOXY":
+                if self.mode == "STAT" and self.screen == "calc" and not self.showing_result:
+                    self.editor.insert(",")  # (x,y) in STAT mode
+                else:
+                    self.sto, self.rcl = True, False
+                return True
+        if key.startswith("STATSUB:"):
+            if self.mode == "STAT" and self.screen != "menu":
+                self.open_menu("stat")
+                self._menu_key(key.split(":", 1)[1])
+            return True
+        if key == "DATA":
+            if self.mode == "STAT" and self.screen == "calc":
+                self._data_entry()
+            elif self.mode != "STAT":
+                self._memory(minus=False)
+            return True
+        return False
+
+    def _clear_all_values(self) -> None:
+        """The EL-531's CA: the entry, the answer and the statistics data; M stays."""
+        self.stat_rows = []
+        self.variables["Ans"] = v.ZERO
+        self.note = ""
+        self._to_calc()
+
+    def _convert_angle(self) -> None:
+        """The EL-531's DRG▸: the answer from this angle unit into the next, which becomes the
+        unit."""
+        order = ("DEG", "RAD", "GRA")
+        here = self.setup.angle
+        there = order[(order.index(here) + 1) % 3]
+        per_turn = {"DEG": 360.0, "RAD": 2 * math.pi, "GRA": 400.0}
+        value = float(number(self.variables["Ans"])) * per_turn[there] / per_turn[here]
+        self.setup.angle = there
+        self.editor = Editor([Tok("Ans")])
+        converted = _stat_number(value)
+        self._set_ans(converted)
+        self._show(converted)
+
+    def _insert_token(self, token: str) -> None:
+        if token not in TOKENS or self.screen not in ("calc", "table_fx", "stat_editor"):
+            return
+        editor = self._target_editor()
+        if self.screen == "calc" and self.showing_result:
+            self.editor = Editor()
+            if TOKENS[token].kind in ("estimator", "postfix", "op"):
+                self.editor.insert("Ans")
+            self.showing_result = False
+            self.result = None
+            editor = self.editor
+        self.note = ""
+        editor.insert(token)
+
+    def _data_entry(self) -> None:  # noqa: PLR0912
+        """DATA (DT): the entry, x or x,y (and a frequency: x,f or x,y,f on the EL-531, x;f or
+        x,y;f on the fx-82MS family), becomes a new data row; the screen counts the rows. DT with
+        nothing typed enters the last row again."""
+        if len(self.stat_rows) >= MAX_STAT_ROWS:
+            return
+        if self.showing_result or self.editor.is_empty():
+            if self.stat_rows and self.dialect == "ms":
+                self.stat_rows.append(list(self.stat_rows[-1]))
+                self._count_rows()
+            return
+        items = fold_fraction_marks(self.editor.items)
+        frequency: list[Item] | None = None
+        for index, item in enumerate(items):
+            if isinstance(item, Tok) and item.id == ";":
+                items, frequency = items[:index], items[index + 1 :]
+                break
+        parts: list[list[Item]] = [[]]
+        for item in items:
+            if isinstance(item, Tok) and item.id == ",":
+                parts.append([])
+            else:
+                parts[-1].append(item)
+        columns = len(self.stat_columns())
+        try:
+            if not 1 <= len(parts) <= columns or (frequency is not None and not self.has_frequency):
+                raise v.syntax_error()
+            context = self.context(statistics=False)
+            values = [number(evaluate(part, context)) for part in parts]
+            if frequency is not None:
+                if len(values) != columns - 1:
+                    raise v.syntax_error()
+                values.append(number(evaluate(frequency, context)))
+        except CalcError as error:
+            self.error = error.message
+            self.screen = "error"
+            return
+        row = self._blank_row()
+        for index, value in enumerate(values):
+            row[index] = value
+        if self.stat_type != "1-VAR" and len(values) == 1:
+            return  # a pair needs its y
+        self.stat_rows.append(row)
+        self._count_rows()
+
+    def _count_rows(self) -> None:
+        self.editor = Editor()
+        self.note = "n=" if self.dialect == "ms" else "DATA SET="
+        self._show(v.rational(len(self.stat_rows)))
+        self.showing_result = True
+
+    # ------------------------------------------------------------------------------------------
     # the screen
     # ------------------------------------------------------------------------------------------
+
+    def mode_name(self) -> str:
+        """The mode as this calculator names it: SD or REG on the fx-82MS family, NORMAL on the
+        EL-531, VERIF on the SX-II."""
+        match self.dialect, self.mode:
+            case "ms", "STAT":
+                return "SD" if self.stat_type == "1-VAR" else "REG"
+            case "sharp", "COMP":
+                return "NORMAL"
+            case "sx2", "VERIFY":
+                return "VERIF"
+        return self.mode
+
+    def mode_help(self) -> str:
+        """How to get back to calculating, for the mode chip's tooltip."""
+        back = "MODE 0 (NORMAL) or HOME" if self.dialect == "sharp" else "MODE 1 (COMP)"
+        return (
+            f"Calculation mode: click for the MODE menu (Ctrl+M). {back} goes back to calculating."
+        )
 
     def annunciators(self) -> dict[str, bool]:
         """Which status indicators are lit (FR-FX-DSP-002)."""
@@ -1129,7 +1699,7 @@ class ScientificState:
             return ()
         if self.form == "fact":
             return self.fact
-        return fmt.show(
+        shown = fmt.show(
             self.result,
             self.setup,
             self.form,
@@ -1137,6 +1707,7 @@ class ScientificState:
             eng=self.eng,
             prefer_exact=self._prefer_exact(),
         )
+        return fmt.with_comma(shown) if self.setup.comma else shown
 
     def answer_text(self) -> str:
         return to_text(self.answer())
@@ -1175,7 +1746,7 @@ class ScientificState:
                 )
             case "table":
                 return Display("grid", grid=self._table_grid())
-        title = "VERIFY" if self.mode == "VERIFY" else ""
+        title = "VERIFY" if self.mode == "VERIFY" else self.note
         return Display(
             "calc",
             title=title,
@@ -1221,8 +1792,15 @@ class ScientificState:
         self.setup.angle = angle
 
     def reset(self) -> None:
-        """Everything back to its starting state (CLR 3 without the questions)."""
-        fresh = ScientificState(rng=self.rng)
+        """Everything back to its starting state (CLR 3 without the questions), keeping the
+        keypad layout's modes and display."""
+        fresh = ScientificState(
+            rng=self.rng,
+            allowed_modes=self.allowed_modes,
+            linear_layout=self.linear_layout,
+            dialect=self.dialect,
+        )
+        fresh.setup = fresh.default_setup()
         for name in fresh.__dataclass_fields__:
             setattr(self, name, getattr(fresh, name))
 
@@ -1352,7 +1930,7 @@ class ScientificState:
             raise DocumentFileError(msg)
         device = data.get("device", "nspire")
         if device != DEVICE_ID:
-            msg = f"this document is for the {device} app, not CASSim fx"
+            msg = f"this document is for the {device} app, not CASSim Scientific"
             raise DocumentFileError(msg)
         self.from_dict(data.get("calculator"))
         name = data.get("name", "Untitled")
@@ -1573,6 +2151,53 @@ def dump_cell(value: Number | None) -> object:
 
 def load_cell(data: object) -> Number | None:
     return None if data is None else load_number(data)
+
+
+def _is_tok(item: Item, token: str) -> bool:
+    return isinstance(item, Tok) and item.id == token
+
+
+def fold_fraction_marks(items: list[Item]) -> list[Item]:
+    """The linear calculators' a b/c marks as fractions: 2⌟3 is two thirds and 1⌟2⌟3 is one and
+    two thirds. A mark without numbers on both sides is left for the parser to reject."""
+    if not any(_is_tok(item, "⌟") for item in items):
+        return list(items)
+
+    def digit(item: Item) -> bool:
+        return isinstance(item, Tok) and item.id in DIGITS_DOT
+
+    out: list[Item] = []
+    index = 0
+    while index < len(items):
+        item = items[index]
+        if not _is_tok(item, "⌟"):
+            out.append(item)
+            index += 1
+            continue
+        start = len(out)
+        while start > 0 and digit(out[start - 1]):
+            start -= 1
+        first = out[start:]
+        parts = [first]
+        cursor = index
+        while cursor < len(items) and _is_tok(items[cursor], "⌟") and len(parts) < 3:  # noqa: PLR2004
+            cursor += 1
+            run: list[Item] = []
+            while cursor < len(items) and digit(items[cursor]):
+                run.append(items[cursor])
+                cursor += 1
+            parts.append(run)
+        if any(not part for part in parts):
+            out.append(item)
+            index += 1
+            continue
+        del out[len(out) - len(first) :]
+        out.append(Tmpl("frac" if len(parts) == 2 else "mixed", [list(part) for part in parts]))  # noqa: PLR2004
+        index = cursor
+    return out
+
+
+DIGITS_DOT = frozenset("0123456789.")
 
 
 def _is_zero(value: Number) -> bool:
