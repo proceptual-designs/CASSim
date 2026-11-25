@@ -469,7 +469,7 @@ Notes:
 
 Simon's direction, now implemented for the first two devices: `cassim-app` (stable) and
 `cassim-calc` (testing) are **all-in-one** apps that always open to a Home chooser.
-Nspire and Pseudocode & Python are enabled; ClassPad, Prime, Scientific and later devices remain
+Nspire, Pseudocode & Python and Scientific are enabled; ClassPad, Prime and later devices remain
 visible in Home when not built. Home renders before a device UI loads. Each built device can also be
 published as its own **bundle** on its own site, so someone who needs one device downloads only that
 one. The Nspire bundle's cold start is still dominated by Pyodide, SymPy and the Flet app; the
@@ -480,10 +480,10 @@ the SRS.
 
 | Device id (package `devices/<id>/`) | Bundle | Product name | Site (Cloudflare Pages project) | When |
 |---|---|---|---|---|
-| every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire and Pseudocode & Python |
+| every built device, with the Home chooser | `all` | CASSim | `cassim-app` (stable), `cassim-calc` (testing) | live with Nspire, Pseudocode & Python and Scientific |
 | `nspire` | `tin` | CASSim-TIN | `cassim-tin` | M2x |
-| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; single-device build exists, site release wiring remains |
-| `scientific` | `sci` | CASSim-Sci | `cassim-sci` | SDD-14, in development; Pages project reserved, empty, 2026-11-25 |
+| `pseudocode` | `pseudo` | CASSim-pseudo | `cassim-pseudo` | M5; deploys with each release (wired 2026-11-25) |
+| `scientific` | `sci` | CASSim-Sci | `cassim-sci` | SDD-14; deploys with each release (wired 2026-11-25) |
 | `classpad` | `cp` | CASSim-CP | `cassim-cp` | M8 |
 | `prime` | `prime` | CASSim-Prime | `cassim-prime` | M9, if go |
 

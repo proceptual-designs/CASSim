@@ -104,7 +104,7 @@ instead; this works on the published sites and on a local build of `tools.publis
 
 The short forms `#/nspire` and `#/pseudocode` work too, and `cassim-calc` (testing) takes the same
 links. A share link (`#/doc=...`) opens the app its document belongs to. A link naming an app that
-is not in the bundle shows Home; a single-app site (`cassim-tin`, `cassim-pseudo`) ignores the link
+is not in the bundle shows Home; a single-app site (`cassim-tin`, `cassim-pseudo`, `cassim-sci`) ignores the link
 and opens its one app. Developer `#/debug` routes open the first app for the browser tests.
 
 ## Builds
@@ -129,6 +129,8 @@ The sites are Cloudflare Pages projects, deployed by `.github/workflows/deploy.y
 | `cassim-wiki` (help) | `python -m tools.wiki_site`, from `docs/wiki/` | every merge to `main` |
 | `cassim-app` (stable) | `python -m tools.publish --bundle all` | a published GitHub release |
 | `cassim-tin` (the Nspire alone, stable) | `python -m tools.publish --bundle tin` | a published GitHub release |
+| `cassim-pseudo` (Pseudocode & Python alone, stable) | `python -m tools.publish --bundle pseudo` | a published GitHub release |
+| `cassim-sci` (the Scientific calculator alone, stable) | `python -m tools.publish --bundle sci` | a published GitHub release |
 
 **Testing and help.** Merge a pull request into `main` (CI's `check` job must pass). The Deploy
 workflow then builds and publishes both. Edit the help pages in `docs/wiki/`; a `[[Page name]]` link
