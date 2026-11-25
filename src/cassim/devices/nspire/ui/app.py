@@ -486,10 +486,11 @@ class App:
         self.kick()
 
     def show_key_time(self, build: float, send: float) -> None:
-        """The last redraw's cost in the status line: `build` is Python making the controls,
-        `send` is Flet working out what changed and sending it. The browser's own drawing time
-        comes after both and is not in either."""
+        """The last redraw's cost in the status line and the console (`CASSIM: KEY`): `build` is
+        Python making the controls, `send` is Flet working out what changed and sending it. The
+        browser's own drawing time comes after both and is not in either."""
         self.status.value = f"build {build:.0f} ms, send {send:.0f} ms"
+        print(f"CASSIM: KEY build={build:.0f} send={send:.0f}", flush=True)
         with contextlib.suppress(RuntimeError):  # not on a page (the tests' stand-in page)
             self.status.update()
 
