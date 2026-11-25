@@ -98,3 +98,7 @@ Those calculators do differ in what they can do, and CASSim follows them:
 Your calculator is saved in the browser as you go. **Doc ▸ Save** and **Open** use `.cassim.json` files, like the other CASSim apps. **Doc ▸ Share link** makes a link that holds the settings, memories, STAT data and TABLE function, so a teacher can send a class a data set ready to analyse. The link never sends anything to a server. **Doc ▸ Examples** loads ready-made problems.
 
 The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors.
+
+## On a phone
+
+On a phone the calculator fills the screen and its keys grow to use the height. The tutorials start hidden: **CASSim ▸ Show tutorials** brings them back, below the calculator, and **Hide tutorials** puts them away (on a larger screen the same menu item, or the Tutorials button, does the same). The menu bar keeps the calculator and mode chips. In the installed app, **CASSim ▸ Avoid cutout** keeps the calculator clear of the camera cutout, and **Use cutout** draws under it again.
