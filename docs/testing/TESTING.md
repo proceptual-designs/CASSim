@@ -17,7 +17,10 @@ uv run python -m tools.local_ci --status    # has HEAD's tree passed?
 ```
 
 `tools.local_ci` holds the one list of browser tests CI runs; CI calls it for each job. The
-pre-push hook (`uv run pre-commit install`) refuses a push whose tree has not passed.
+pre-push hook (`uv run pre-commit install`) refuses a push whose tree has not passed. Only one
+run goes at a time on the machine, from any worktree or clone: a second run waits on the lock
+`%LOCALAPPDATA%\CASSim\local_ci.lock` and says which run holds it, because two at once make the
+time-based tests fail.
 
 While working, also run `uv run pytest tests/flows/` and the affected test directories or files
 from this map:
