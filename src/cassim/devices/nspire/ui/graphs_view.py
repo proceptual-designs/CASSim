@@ -8,12 +8,13 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.context_menu import context_menu_region
-from cassim.app.entry_line import EntryLine, row_height
+from cassim.app.math_canvas import PAD, MathLine
 from cassim.app.scene_canvas import COLOURS, canvas
 from cassim.app.theme import Theme
 from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
 from cassim.device.keys import Action
+from cassim.device.math_layout import lines
 from cassim.devices.nspire.pages.graphs import (
     FUNCTION_COLOURS,
     Graphs,
@@ -97,9 +98,9 @@ class GraphsView:
             entry = graphs.functions[index]
             function_height = max(
                 _FUNCTION_HEIGHT * scale,
-                row_height(entry.editing.editor.root) * self.math_size() + 8 * scale,
+                lines(entry.editing.editor.root) * self.math_size() + 2 * PAD + 8 * scale,
             )
-            field = EntryLine(
+            field = MathLine(
                 self.theme,
                 self.math_size(),
                 lambda path, pos: self._place(index, path, pos, self.extend_click()),

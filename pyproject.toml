@@ -29,6 +29,7 @@ dev = [
     "types-pyyaml",
     "prompt-toolkit>=3",
     "markdown-it-py>=4.2.0",
+    "fonttools>=4.69.1",
 ]
 test = [
     "pytest",

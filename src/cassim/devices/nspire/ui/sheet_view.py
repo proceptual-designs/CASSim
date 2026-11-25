@@ -18,11 +18,12 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app.context_menu import context_menu_region
-from cassim.app.entry_line import EntryLine, row_height
+from cassim.app.math_canvas import MathLine
 from cassim.app.scene_canvas import layer_shapes
 from cassim.app.theme import Theme
 from cassim.device.editor import Template, format_target
 from cassim.device.keys import Action
+from cassim.device.math_layout import lines
 from cassim.devices.nspire.pages.spreadsheet import Dialog, Spreadsheet
 from cassim.devices.nspire.sheet_scene import ROW, cell_at, context_regions, fit, sheet_scene
 from cassim.graph.scene import Layer
@@ -106,7 +107,7 @@ class SheetView:
         editor = sheet.editor
         bar_height = BAR * scale
         if editor and any(isinstance(node, Template) for node in editor.root):
-            wanted = max(52, 16 + 16 * row_height(editor.root)) * scale
+            wanted = max(52, 16 + 16 * lines(editor.root)) * scale
             bar_height = min(wanted, max(BAR * scale, height - ROW * scale))
         grid_height = max(height - bar_height, ROW * scale)
         rows, columns = fit(width, grid_height, sheet, scale)
@@ -139,7 +140,7 @@ class SheetView:
                 [
                     ft.Row(
                         [
-                            EntryLine(
+                            MathLine(
                                 replace(self.theme, screen_text=self.theme.title_text),
                                 size,
                                 self.click,

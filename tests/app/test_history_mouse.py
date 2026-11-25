@@ -7,11 +7,10 @@ from types import SimpleNamespace
 from typing import cast
 
 import flet as ft
+import flet.canvas as cv
 import pytest
 
-from cassim.app.entry_line import EntryLine
 from cassim.app.theme import DARK
-from cassim.device.editor import Editor
 from cassim.devices.nspire.pages.calculator import calculator_on
 from cassim.devices.nspire.ui import views as views_module
 from cassim.devices.nspire.ui.state import AppState
@@ -74,31 +73,47 @@ def test_shift_click_in_a_history_line_extends() -> None:
     assert actions == [("recall_extend", ":2")]
 
 
+def _shapes(control: ft.Control) -> list[list[tuple[object, ...]]]:
+    """What each canvas in `control` draws: the kind and place of every shape."""
+    return [
+        [(type(s).__name__, getattr(s, "x", 0), getattr(s, "y", 0)) for s in canvas.shapes]
+        for canvas in walk(control)
+        if isinstance(canvas, cv.Canvas)
+    ]
+
+
 def test_a_clicked_history_line_shows_a_cursor_in_the_same_drawing() -> None:
-    """H3 a: no highlight over the item; a cursor in it. The row is still LaTeX, the drawing it
-    had before, so nothing in it changes size or place (decision 0036)."""
+    """H3 a: no highlight over the item; a cursor in it. The row is the same canvas drawing it
+    was before, with a cursor on a layer above, so nothing in it changes size or place
+    (decision 0038)."""
     state = AppState()
     for char in "2+3":
         state.key_event(char)
     state.key_event("Enter")
     view = CalculatorView(state, on_action=state.run_action)
     view.refresh()
-    plain = [c for c in walk(view.history) if isinstance(c, ft.Markdown)]
+    plain = _shapes(view.history)
+    assert not [c for c in walk(view.history) if isinstance(c, ft.Markdown)]  # no LaTeX rows
     state.run_action("recall_at", "0:entry")
     view.refresh()
     calculator = calculator_on(state.document.current)
     assert calculator.recall == (0, "entry")
-    drawn = [c for c in walk(view.history) if isinstance(c, ft.Markdown)]
-    assert len(drawn) == len(plain)
-    assert len([c for c in drawn if "rule" in str(c.value)]) == 1  # the cursor's bar
+    drawn = _shapes(view.history)
+    assert len(drawn) == len(plain) + 1  # the cursor's layer
+    assert all(shapes in drawn for shapes in plain)  # the maths is untouched
+
+    def cursors(canvases: list[list[tuple[object, ...]]]) -> int:
+        return sum([kind for kind, _x, _y in shapes] == ["Rect"] for shapes in canvases)
+
+    assert cursors(drawn) == cursors(plain) + 1  # the entry line's, and now the row's
     highlighted = [
         c for c in walk(view.history) if isinstance(c, ft.Container) and c.bgcolor == DARK.selection
     ]
     assert not highlighted
 
 
-def test_a_tap_in_a_row_with_a_cursor_moves_the_cursor_near_it() -> None:
-    """H3 a, b: the tap's distance from the maths' left edge picks the nearest gap."""
+def test_a_tap_in_a_row_with_a_cursor_moves_the_cursor_to_it() -> None:
+    """H3 a, b: the row takes its own taps, and a tap lands where it was made."""
     state = AppState()
     for char in "2+3":
         state.key_event(char)
@@ -107,37 +122,15 @@ def test_a_tap_in_a_row_with_a_cursor_moves_the_cursor_near_it() -> None:
     actions: list[tuple[str, str]] = []
     view = CalculatorView(state, on_action=lambda action, arg: actions.append((action, arg)))
     view.refresh()
-    taps = [
-        c.on_tap_down
+    row = next(  # the picked row is above the entry line
+        c
         for c in walk(view.history)
-        if isinstance(c, ft.Container) and c.on_tap_down and isinstance(c.content, ft.Markdown)
-    ]
+        if isinstance(c, ft.GestureDetector) and c.on_tap_up is not None
+    )
     size = state.math_size
-    event = cast("ft.TapEvent", SimpleNamespace(local_position=SimpleNamespace(x=0.6 * size, y=5)))
-    tap = cast("Callable[[ft.TapEvent], None]", taps[0])
-    tap(event)  # just right of the `2`, which is half an em wide
-    assert actions == [("recall_place", ":1")]
-
-
-def test_a_selection_drags_and_places_accept_drops() -> None:
-    """H3 k: selected parts are draggable; every place in the line takes a drop."""
-    editor = Editor("1234")
-    editor.place([], 1)
-    editor.place([], 3, extend=True)
-    dropped: list[tuple[tuple[tuple[int, int], ...], int]] = []
-    line = EntryLine(DARK, 20, lambda path, pos: None)
-    line.drop = lambda path, pos: dropped.append((tuple(path), pos))
-    built = line.build(editor)
-    draggables = [c for c in walk(built) if isinstance(c, ft.Draggable)]
-    targets = [c for c in walk(built) if isinstance(c, ft.DragTarget)]
-    assert len(draggables) == 2
-    assert targets
-    for target in targets:
-        handler = cast("Callable[[object], object]", target.on_accept)
-        handler(None)
-    assert ((), 4) in dropped
-    plain = EntryLine(DARK, 20, lambda path, pos: None).build(editor)
-    assert not [c for c in walk(plain) if isinstance(c, (ft.Draggable, ft.DragTarget))]
+    event = cast("ft.TapEvent", SimpleNamespace(local_position=SimpleNamespace(x=0.6 * size, y=9)))
+    cast("Callable[[ft.TapEvent], None]", row.on_tap_up)(event)
+    assert actions == [("recall_place", ":1")]  # just right of the `2`, half an em wide
 
 
 # ---- E5: the history layout (H9) --------------------------------------------------------------

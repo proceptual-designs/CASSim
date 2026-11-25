@@ -2,6 +2,8 @@
 
 Status: built 2026-11-25 at Simon's request (review of the maths entry); the browser checks below are on a desktop only. Builds on 0019 (the entry line drawn from controls) and 0035 (one maths tree, shared renderers).
 
+**Superseded in part by 0038 (2026-11-26):** the rows, the entry line and the picked row are now drawn by our own renderer, so the LaTeX cursor, the near-enough clicks and the control-drawn entry line described below are gone. `EntrySession`, the one-line-or-two rule and the cursor-following scroll stand, now with measured widths.
+
 ## What was wrong
 1. **Three wrappers round one editor.** The Calculator, each Graphs function entry and a spreadsheet cell each wrapped `device/editor.py` in their own way. Graphs used a whole `Calculator` as its edit session, so typing `-x` in a function entry gave `Ans-x`; the spreadsheet had its own copy of insert, template, move and paste, with special cases to dodge the same rule.
 2. **A picked history row changed as the cursor moved into it.** The history is LaTeX; a row the cursor is in is drawn from controls so that clicks can place the cursor (0019, run 5 H3). The two drawings differed: full-size fractions against TeX's small ones, wider operator spacing, a result jumping from the right edge to the left, and a cursor bar that took 2 pixels of the row, so everything after it shifted at each step.
