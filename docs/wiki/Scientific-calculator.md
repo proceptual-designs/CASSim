@@ -15,6 +15,7 @@ Each key does what its face says. The small yellow label above a key is its **SH
 
 - **MODE** chooses COMP (calculations), STAT (statistics), TABLE (a table of values) or VERIFY (true or false). **SHIFT MODE** opens SETUP.
 - **SHIFT 9** (CLR) resets the setup, clears the memories, or both. Press = to confirm or AC to cancel.
+- **SHIFT AC** (OFF) switches the calculator off; **ON** (or `o` on the keyboard) switches it on again.
 - The arrow keys move the cursor through fractions and other templates. After an answer, ▲ and ▼ show earlier calculations and ◀ ▶ let you edit the last one.
 
 ## Answers
@@ -66,6 +67,7 @@ Your own calculation is put aside during a lesson and comes back when the lesson
 | d (D) | ° ' " (FACT) |
 | m (M) | M+ (M−) |
 | p, e, a, x, y | π, e, Ans, X, Y |
+| o | ON: switches the calculator on again after SHIFT AC (OFF) |
 | < > | Relations, in VERIFY mode |
 | Ctrl+C | Copy the answer |
 
@@ -75,7 +77,7 @@ Hover over a key to see its shortcut, or open **CASSim ▸ Keyboard shortcuts**.
 
 Your calculator is saved in the browser as you go. **Doc ▸ Save** and **Open** use `.cassim.json` files, like the other CASSim apps. **Doc ▸ Share link** makes a link that holds the settings, memories, STAT data and TABLE function, so a teacher can send a class a data set ready to analyse. The link never sends anything to a server. **Doc ▸ Examples** loads ready-made problems.
 
-The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors.
+The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors. **CASSim ▸ Settings** sets the same choices as SETUP, including a decimal comma in answers.
 
 ## On a phone
 
