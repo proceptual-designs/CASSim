@@ -8,10 +8,10 @@ from typing import Any
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from cassim.app.entry_line import EntryLine
 from cassim.app.theme import DARK
 from cassim.device.editor import Editor, Kind, Row, Template
 from cassim.device.templates import GRIDS
-from cassim.devices.nspire.ui.entry import EntryLine  # retarget to cassim.app.entry_line on merge
 
 _CHARS = st.sampled_from(list('0123456789abxye+-*/^()., π√"{}[]=;'))
 _SHAPE = st.tuples(st.integers(1, 3), st.integers(1, 3))
