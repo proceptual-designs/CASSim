@@ -79,6 +79,9 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CPD-005 | Could | M8 or M9 (device profiles); only the M2 guard applies now |
 | FR-HPP-001 | Would | M8 or M9 (device profiles); only the M2 guard applies now |
 | FR-HPP-002 | Would | M8 or M9 (device profiles); only the M2 guard applies now |
+| FR-FX-MOD-005 | Could | not built: CMPLX and VECTOR modes are fx-100 extensions (Could); SDD-14 section 8 |
+| FR-FX-MEM-004 | Could | not built: PreAns is held but no key types it (Could); SDD-14 section 8 |
+| FR-FX-UI-006 | Could | not built: an fx-100 series layout is deferred (Could); SDD-14 section 8 |
 | NFR-PERF-001 | Could | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
 | NFR-PERF-002 | Should | measured and reported by tools/loadtime.py (decision 0027), not asserted (SRS: no fixed budgets) |
 | NFR-PERF-003 | Should | measured and reported, not asserted (SRS: no fixed budgets) |
@@ -97,9 +100,6 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-LEG-006 | Must | policy, checked in review: TI terms recorded in decision 0029; Casio and HP before their capture (Q17, Q18) |
 | NFR-LEG-008 | Must | policy, checked in review (decision 0028); behaviour comes only from observed use, as the corpus records |
 | NFR-LEG-009 | Must | policy, checked in review (decision 0028); first audit against both Reference Guides clean on 2026-11-12, repeated before release (PLAN.md section 11 item 10) |
-| FR-FX-MOD-005 | Could | not built: CMPLX and VECTOR modes are fx-100 extensions (Could); SDD-14 section 8 |
-| FR-FX-MEM-004 | Could | not built: PreAns is held but no key types it (Could); SDD-14 section 8 |
-| FR-FX-UI-006 | Could | not built: an fx-100 series layout is deferred (Could); SDD-14 section 8 |
 
 ## Cited
 
@@ -227,25 +227,6 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-SYN-011 | Should | `tests/runtime/test_pseudocode.py` |
 | FR-SYN-013 | Could | `tests/app/test_pseudocode_view.py`, `tests/e2e/test_home_browser.py`, `tests/e2e/test_pseudocode_workspace_browser.py` and 2 more |
 | FR-EDT-006 | Should | `tests/runtime/test_pseudocode_syntax.py` |
-| NFR-PERF-006 | Should | `tests/app/test_key_time.py`, `tests/app/test_sheet_view.py`, `tests/device/test_sheet_scene.py` |
-| NFR-PERF-007 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
-| NFR-PERF-004 | Must | `tests/e2e/test_pwa.py` |
-| NFR-REL-001 | Must | `tests/device/test_serialize.py` |
-| NFR-REL-002 | Must | `tests/device/test_engine.py` |
-| NFR-SEC-001 | Must | `tests/app/test_about.py`, `tests/devices/scientific/test_scientific_files.py` |
-| NFR-SEC-003 | Must | `tests/runtime/test_pseudocode_syntax.py` |
-| NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
-| NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
-| NFR-USE-003 | Should | `tests/app/test_theme_settings.py` |
-| NFR-PORT-002 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py` |
-| NFR-PORT-003 | Should | `tests/app/test_layout.py` |
-| NFR-MAINT-002 | Must | `tests/test_architecture.py` |
-| NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
-| NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |
-| NFR-LEG-002 | Must | `tests/app/test_about.py`, `tests/app/test_stub_pages.py` |
-| NFR-LEG-003 | Must | `tests/app/test_about.py` |
-| NFR-LEG-005 | Must | `tests/app/test_about.py` |
-| NFR-LEG-007 | Must | `corpus/pseudocode/seed.yaml` |
 | FR-FX-MOD-001 | Must | `tests/devices/scientific/test_scientific_calc.py` |
 | FR-FX-MOD-002 | Must | `tests/devices/scientific/test_scientific_layouts.py`, `tests/devices/scientific/test_scientific_stat.py` |
 | FR-FX-MOD-003 | Must | `tests/devices/scientific/test_scientific_stat.py` |
@@ -301,3 +282,22 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-FX-UI-004 | Must | `tests/devices/scientific/test_scientific_keys.py`, `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-005 | Should | `tests/devices/scientific/test_scientific_layouts.py`, `tests/devices/scientific/test_scientific_tutorials.py`, `tests/devices/scientific/test_scientific_ui.py` |
 | FR-FX-UI-007 | Should | `tests/devices/scientific/test_scientific_ui.py` |
+| NFR-PERF-006 | Should | `tests/app/test_key_time.py`, `tests/app/test_sheet_view.py`, `tests/device/test_sheet_scene.py` |
+| NFR-PERF-007 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
+| NFR-PERF-004 | Must | `tests/e2e/test_pwa.py` |
+| NFR-REL-001 | Must | `tests/device/test_serialize.py` |
+| NFR-REL-002 | Must | `tests/device/test_engine.py` |
+| NFR-SEC-001 | Must | `tests/app/test_about.py`, `tests/devices/scientific/test_scientific_files.py` |
+| NFR-SEC-003 | Must | `tests/runtime/test_pseudocode_syntax.py` |
+| NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
+| NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
+| NFR-USE-003 | Should | `tests/app/test_theme_settings.py` |
+| NFR-PORT-002 | Must | `tests/app/test_entry_click.py`, `tests/app/test_entry_touch.py` |
+| NFR-PORT-003 | Should | `tests/app/test_layout.py` |
+| NFR-MAINT-002 | Must | `tests/test_architecture.py` |
+| NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
+| NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |
+| NFR-LEG-002 | Must | `tests/app/test_about.py`, `tests/app/test_stub_pages.py` |
+| NFR-LEG-003 | Must | `tests/app/test_about.py` |
+| NFR-LEG-005 | Must | `tests/app/test_about.py` |
+| NFR-LEG-007 | Must | `corpus/pseudocode/seed.yaml` |

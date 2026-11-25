@@ -1,6 +1,6 @@
 # SDD-05. User interface (Flet)
 
-Status: describes `src/cassim/app/` and the pseudocode teaching workspace at 2026-11-19.
+Status: describes the shell (`src/cassim/app/`), the Nspire UI (`src/cassim/devices/nspire/ui/`, moved out of `app/` by decision 0032) and the pseudocode teaching workspace at 2026-11-19; module locations and storage corrected 2026-11-25. CASSim Scientific's UI is in SDD-14.
 Requirements: FR-DEV-001, FR-DEV-002, FR-DEV-004, FR-DEV-006, FR-DEV-010,
 FR-CALC-003 to FR-CALC-005, FR-RUN-008, FR-RUN-012, FR-XLT-001 to FR-XLT-006,
 FR-TRC-001 to FR-TRC-008, FR-SET-001, FR-SYN-013, FR-THEME-001,
@@ -9,27 +9,30 @@ Decisions: 0004, 0013 (items 2 and 3), 0014, 0015, 0018, 0019, 0022 to 0025, 003
 
 ## Rule
 
-`cassim.app` is a thin renderer. State and behaviour live in `AppState` and the device model (SDD-04); the Flet controls draw `Screen` data and send key names back. Anything that can be decided without Flet is a plain function with a test: `layout.py` (sizes), `keyboard.py` (key names), `entry_line.py` (click targets), `state.py`.
+The UI is a thin renderer. State and behaviour live in `AppState` and the device model (SDD-04); the Flet controls draw `Screen` data and send key names back. Anything that can be decided without Flet is a plain function with a test: `layout.py` (sizes), `keyboard.py` (key names), `entry_line.py` (click targets), `state.py`.
 
 ## Modules
 
+The first group is the Nspire's UI in `devices/nspire/ui/`; the second is the shell in `app/`, which every device shares.
+
 | Module | Role |
 |---|---|
-| `state.py` | `AppState`: the `Document`, the `Mode`, a `Profile`, two `Keyboard`s (keypad and computer), the open menu, caps lock, `System` settings. Drives everything from `press_keypad` and `key_event`. No Flet import. |
-| `keyboard.py` | Browser key events to key names. Flet reports the key, not the typed character, so shifted symbols come from a US/AU layout table. Wrong on other layouts until typed characters are captured (decision 0024). |
-| `layout.py` | Pure sizing: `starting_mode` (a short side under 600 px starts Handheld), `handheld_plan` (fits the 320 x 240 screen and the keypad to the window, scaled together), the splitter range (0.15 to 0.8), zoom (0.5 to 2.0). |
-| `theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
-| `entry_line.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
-| `ui.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, About, Page Sorter, wizards. `math()` draws LaTeX. |
-| `main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
-| `home.py` | The all-in-one Home screen, fixed choice order, unavailable state and shared appearance setting. It imports no device UI. |
-| `shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
-| `web.py` | Browser-only: the engine worker and the page bridge (SDD-02). |
-| `about.py` | The About text (disclaimer, privacy, licence, notices, versions) as data. |
+| `devices/nspire/ui/state.py` | `AppState`: the `Document`, the `Mode`, a `Profile`, two `Keyboard`s (keypad and computer), the open menu, caps lock, `System` settings. Drives everything from `press_keypad` and `key_event`. No Flet import. |
+| `app/keyboard.py` | Browser key events to key names. Flet reports the key, not the typed character, so shifted symbols come from a US/AU layout table. Wrong on other layouts until typed characters are captured (decision 0024). |
+| `devices/nspire/ui/layout.py` | Pure sizing: `starting_mode` (a short side under 600 px starts Handheld), `handheld_plan` (fits the 320 x 240 screen and the keypad to the window, scaled together), the splitter range (0.15 to 0.8), zoom (0.5 to 2.0). |
+| `app/theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
+| `app/entry_line.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
+| `devices/nspire/ui/views.py`, `keypad.py`, `sidebar.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, Page Sorter, wizards. `math()` draws LaTeX. (One module, `app/ui.py`, until decision 0032.) |
+| `devices/nspire/ui/app.py` | Joins `state.py` to the views; `sheet_view.py`, `statistics_view.py` and `graphs_view.py` draw the other page types (SDD-07). |
+| `app/main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
+| `app/home.py` | The all-in-one Home screen, fixed choice order, unavailable state and shared appearance setting. It imports no device UI. |
+| `app/shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
+| `app/web.py` | Browser-only: the engine worker, the page bridge (SDD-02) and the IndexedDB `TextStore`. |
+| `app/about.py` | The About text (disclaimer, privacy, licence, notices, versions) as data. |
 
 ## Views and modes
 
-Two display modes, equal in priority (SRS):
+Two display modes are built, equal in priority (FR-DEV-002, FR-DEV-004); the SRS's third, Tablet/demo (FR-DEV-003, Should), is not built:
 
 - **Handheld:** the 320 x 240 screen and the keypad drawn at natural size and scaled to the window, the keypad under the screen in portrait and beside it in landscape. The keypad is drawn at 0.8 of the screen's scale by default, with a draggable splitter. On a phone the app forces Handheld.
 - **Computer:** a sidebar (page sorter, variables), a large screen, the Doc and Menu chips, and an optional keypad beside the screen.
@@ -62,7 +65,7 @@ verification (`docs/testing/simulator-todo.md`, I1). Colours follow the selected
 
 ## Refresh and persistence
 
-`App.refresh` autosaves, redraws the view, keypad and sidebar, rebuilds the toolbar and calls `kick`, which starts a queued entry or a settings sync when the engine is idle. Autosave writes the document JSON to Flet `SharedPreferences` (browser localStorage, not IndexedDB) when it changed; System Settings are saved under their own key. `recover` reads both on start, then `--course` and `--set` (from `cassim`) replace the document's settings. A damaged autosave is ignored and overwritten.
+`App.refresh` autosaves, redraws the view, keypad and sidebar, rebuilds the toolbar and calls `kick`, which starts a queued entry or a settings sync when the engine is idle. Autosave writes the document JSON when it changed, half a second after the last change and at once when the tab is hidden: to IndexedDB in the browser (`TextStore`; since M3 slice 3.0, FR-DOC-003, SDD-07) and to Flet `SharedPreferences` on the desktop. A copy an earlier build left in localStorage is read until it is next written. System Settings are saved under their own key, and named documents beside the autosave (decision 0033). `recover` reads both on start, then `--course` and `--set` (from `cassim`) replace the document's settings. A damaged autosave is ignored and overwritten.
 
 ## Pseudocode teaching workspace
 
@@ -100,7 +103,7 @@ Dialogs are plain `ft.AlertDialog`s opened with `page.show_dialog`. The device m
 ## Startup
 
 The `all` bundle renders Home on every normal launch; it does not remember the last device. A
-direct route (`#/app/pseudocode`) or a share link opens the bundled device it names. A `tin`, `pseudo`, `cp` or `prime` single-device bundle always mounts its one device.
+direct route (`#/app/pseudocode`) or a share link opens the bundled device it names. A `tin`, `pseudo`, `sci`, `cp` or `prime` single-device bundle always mounts its one device.
 Developer `#/debug` routes also open the first device so existing browser flows can drive it.
 
 `cassim` with no arguments calls `app.main.run`, which starts Flet (a window, or the browser with `--web`). The static site runs the same `main` from a staged entry point (SDD-10). In the browser `make_runner` creates the worker engine and `make_bridge` the page bridge; elsewhere the engine is in-process.
@@ -114,7 +117,7 @@ from `cassim.bundle.DEVICES`, so unbuilt choices stay visible without becoming p
 
 ## Known gaps
 
-- Theme-file import/export and a separate Outline preset (FR-THEME-002) are not built; the three appearance presets can be edited in the app and persist in System Settings.
+- Theme-file import/export and a separate Outline preset (FR-THEME-002) are not built; the three appearance presets (Dark, Light and High contrast, where the SRS names Outline) can be edited in the app and persist in System Settings.
 - Accessibility is unaudited (`docs/accessibility.md`).
 - `app/main.py` (about 650 lines) and `devices/nspire/ui/views.py` (about 780) mix several concerns; the split is a recorded follow-up (PLAN.md A2, A3).
 - Dragging the splitter rebuilds the screen and keys and feels slow (PLAN.md note, 2026-11-08).
