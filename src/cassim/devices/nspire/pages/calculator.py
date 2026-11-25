@@ -541,7 +541,7 @@ class Calculator:
             elif last.nodes:
                 self.editor.paste(list(last.nodes))
             else:
-                self.editor.insert_text(last.text)
+                self.editor.insert_linear(last.text)
             text = self.editor.linear()
         if not text:
             return

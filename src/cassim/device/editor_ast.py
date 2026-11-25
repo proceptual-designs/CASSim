@@ -39,6 +39,32 @@ def row_from_text(text: str) -> Row:
     return editor.root
 
 
+def pasted_row(text: str) -> Row | None:
+    """The tree for pasted text that has a `^` or a `√`, or None to paste it character by
+    character. The text is kept as it was spelled (a `/` stays linear, `2x` stays `2x`, as
+    decision 0035 stage 2 settled) with only the exponents and roots made templates; the parser
+    then checks that the tree still means what the text meant. If it does not, the parser's own
+    tree is used: the value comes before the spelling. Text the parser cannot read (part of an
+    expression, a statement such as `Define`) gives None. A leading `=` (a spreadsheet formula)
+    is kept and the rest checked."""
+    if text.startswith("="):
+        rest = pasted_row(text[1:])
+        return None if rest is None else ["=", *rest]
+    try:
+        wanted = normal_form(parse_expression(text))
+    except TIError, RecursionError:
+        return None
+    editor = Editor()
+    editor._paste_linear(text, "")  # the scan alone, without this check
+    try:
+        if normal_form(parse_expression(linear_text(editor.root))) == wanted:
+            return editor.root
+    except TIError, RecursionError:
+        pass
+    parsed = _parsed(text)
+    return None if parsed is None else parsed[1]
+
+
 # Results SymPy's LaTeX draws closer to the device: `when` and `piecewise` as a brace (emulator
 # calc2 results), and the message `Done`
 _SYMPY_CALLS = frozenset({"when", "piecewise"})

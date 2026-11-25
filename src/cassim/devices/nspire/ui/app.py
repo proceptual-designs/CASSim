@@ -1063,7 +1063,7 @@ class App:
     async def _calculator_command(self, calculator: Calculator, command: str) -> bool:
         saved_editor = calculator.editor
         calculator.editor = Editor()
-        calculator.editor.insert_text(command)
+        calculator.editor.insert_linear(command)
         try:
             calculator.perform(Binding("enter"))
             if calculator.pending is not None:

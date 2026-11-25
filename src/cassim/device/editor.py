@@ -127,6 +127,15 @@ class Editor:
         or a run of term characters) and `√(…)` is a root, so `x^2+1` is x² + 1, not x^(2+1).
         `mark`, if given, is a character in `text` where the cursor is left."""
         self._unselect(replace=True)
+        if not mark and not self.in_string and any(char in text for char in "^√"):
+            from cassim.device.editor_ast import pasted_row  # noqa: PLC0415 (it imports this module)
+
+            nodes = pasted_row(text)
+            if nodes is not None:
+                row = self.row()
+                row[self.pos : self.pos] = nodes
+                self.pos += len(nodes)
+                return
         spot = self._paste_linear(text, mark)
         if spot is not None:
             self.path, self.pos = spot
@@ -991,9 +1000,11 @@ def _unit(path: list[tuple[int, int]], pos: int, shared: int) -> tuple[int, int]
 
 
 def _operand(text: str, start: int, *, root: bool) -> tuple[str, int]:
-    """The operand of a `^` or `√` at `start`, and the index after it. A bracketed group loses its
-    brackets; otherwise a sign and a run of term characters (a root without brackets takes the
-    same run)."""
+    """The operand of a `^` or `√` at `start`, and the index after it, as the parser reads it. A
+    bracketed group loses its brackets. Otherwise an exponent is a sign, then one number (`x^2x`
+    is x²·x) or one name, then any postfix signs (`!`) and a further `^` with its own operand
+    (`2^-x^2` is 2 to the −x², not (2^−x)²). A root without brackets takes a run of term
+    characters."""
     if start < len(text) and text[start] == "(":
         depth = 0
         for end in range(start, len(text)):
@@ -1001,10 +1012,27 @@ def _operand(text: str, start: int, *, root: bool) -> tuple[str, int]:
             if depth == 0:
                 return text[start + 1 : end], end + 1
         return text[start + 1 :], len(text)  # unbalanced: the rest
-    end = start + (not root and start < len(text) and text[start] == "-")
-    while end < len(text) and text[end] in _TERM_CHARS:
+    if root:
+        end = start
+        while end < len(text) and text[end] in _TERM_CHARS:
+            end += 1
+        return text[start:end], end
+    end = start + (start < len(text) and text[start] == "-")
+    number = _NUMBER.match(text, end)
+    if number is not None:
+        end = number.end()
+    else:
+        while end < len(text) and text[end] in _TERM_CHARS:
+            end += 1
+    while end < len(text) and text[end] in _POSTFIX_SIGNS:
         end += 1
+    if end > start and end < len(text) and text[end] == "^":
+        _, end = _operand(text, end + 1, root=False)  # right-associative: it is in this exponent
     return text[start:end], end
+
+
+_NUMBER = re.compile(r"(\d+\.?\d*|\.\d+)(ᴇ-?\d+)?")
+_POSTFIX_SIGNS = frozenset("!°ʳᵍᵀ'")
 
 
 def _template(node: Node) -> Template:
