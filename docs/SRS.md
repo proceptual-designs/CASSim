@@ -1,6 +1,6 @@
 # CASSim: Software Requirements Specification
 
-Status: **DRAFT 0.9** (2026-11-18: milestones resequenced so Python/pseudocode is M5, TI-Basic and extensions are M6, and polish is M7; current implementation status refreshed; spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15: FR-PROF-008 and FR-PROF-009 added, FR-PROF-003, FR-PROF-005 and FR-RUN-009 reworded, Q23 revised, and the device interface comes before M3; earlier the same day: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the later programming and profile scope in 4.12. **The Code part (M5: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `CLAUDE.md`, `docs/decisions/0001-0012`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
+Status: **DRAFT 0.9** (2026-11-25: consistency pass with the design documents: the CASSim Scientific requirements FR-FX moved from after section 10 into 4.12, FR-FX-STA-006 corrected, FR-DOC-009 allows up to four panes (decision 0034), SciPy and NumPy no longer listed as shipped, screenshot locations and appendix A brought up to date; 2026-11-18: milestones resequenced so Python/pseudocode is M5, TI-Basic and extensions are M6, and polish is M7; current implementation status refreshed; spreadsheet navigation, range-selection and formula point-mode requirements FR-SHEET-004 to FR-SHEET-008 added; 2026-11-13: pluggable devices and bundles, PLAN.md section 15: FR-PROF-008 and FR-PROF-009 added, FR-PROF-003, FR-PROF-005 and FR-RUN-009 reworded, Q23 revised, and the device interface comes before M3; earlier the same day: M3 and M4 planned, decision 0031: FR-DOC-008, FR-DOC-009, FR-STAT-005, FR-NOTE-001 and NFR-PERF-006 added, FR-STAT-004 no longer names SciPy; earlier, 2026-11-08: implementation status added as appendix B, storage and editor wording brought into line with what is built; earlier, 2026-11-04; Q1–Q15 answered; Q16–Q41 are new and concern the later programming and profile scope in 4.12. **The Code part (M5: Python and pseudocode, 4.12 Code view, runtime, pseudocode, translation, trace, settings, syntax and editor) is finalised: every question it depends on is answered.** Only the ClassPad and HP Prime questions, Q17, Q18, Q19 and Q22, remain open). Structure follows ISO/IEC/IEEE 29148. Source material: `PLAN.md`, `AGENTS.md`, `docs/decisions/`, `docs/testing/TESTING.md`. Items marked **[Q#]** depend on an open question in section 10. Items marked **[TBC]** are inferred, not yet confirmed.
 
 Requirement IDs are stable (`FR-CAS-012`). Priority is MoSCoW (M/S/C/W). "Mx" is the milestone in PLAN.md section 8. Verification: **T** test (unit/corpus/device), **E** E2E (Playwright), **I** inspection, **D** demonstration, **A** analysis (measurement).
 
@@ -34,12 +34,12 @@ Out of scope: Geometry page; approved-exam-calculator status; TI, Casio and HP R
 | Oracle | The reference implementation a profile's corpus is captured from: the TI simulator for the Nspire; the manufacturer's PC emulator for ClassPad and Prime [Q17, Q18] |
 | Pseudocode | A structured, language-neutral notation for algorithms; CASSim implements one dialect [Q16] |
 | Code view | The standalone Python/pseudocode environment, with no device skin; it is the `pseudocode` device |
-| Bundle | One published build of the app: `all` (every built device, with the switcher) or a single device (`tin`, `pseudo`, `cp`, `prime`), each on its own site (PLAN.md section 15) |
+| Bundle | One published build of the app: `all` (every built device, with the switcher) or a single device (`tin`, `pseudo`, `sci`, `cp`, `prime`), each on its own site (PLAN.md section 15) |
 | Trace table | A table recording variable values as a program runs: **vertical** (one row per executed line) or **horizontal** desk check (code down the side, one column per loop pass) |
 | Syntax file | The user-editable data file that defines which spellings, optional tokens and block terminators the pseudocode parser accepts and which style the printer writes |
 
 ### 1.4 References
-`PLAN.md`; `CLAUDE.md`; `docs/decisions/`; `docs/command_matrix.md`; `docs/testing/TESTING.md`; `references/` (TI Reference Guide, VCE resources, LazyMath guides); `docs/design/reference/` (layout screenshots).
+`PLAN.md`; `AGENTS.md`; `docs/decisions/`; `docs/design/` (the design documents; `docs/design/README.md` says what is kept where); `docs/command_matrix.md`; `docs/testing/TESTING.md`; `references/` (TI Reference Guide, the scientific calculators' manuals, VCE resources, LazyMath guides; not in the repository); `docs/design/reference/<device>/` (layout screenshots of each maker's software, kept locally and not committed).
 
 ### 1.5 Stakeholders
 | Role | Interest |
@@ -84,7 +84,7 @@ Evergreen desktop and mobile browsers. Primary: Chromebooks, Chrome, Safari. Sec
 - C-9 Introducing device profiles must not change any Nspire behaviour (FR-PROF-002).
 
 ### 2.6 Assumptions and dependencies
-Pyodide continues to bundle SymPy and SciPy at compatible versions; Flet static publishing remains viable (fallback: thin custom web front-end over the same engine); simulator access remains available for corpus capture; LazyMath stays Unlicense (to be recorded in a decision before porting). For M8/M9: the manufacturers' PC emulator software for ClassPad and Prime stays available and its terms allow corpus capture [Q17, Q18].
+Pyodide continues to bundle SymPy and mpmath at compatible versions (SciPy is not shipped, decision 0031); Flet static publishing remains viable (fallback: thin custom web front-end over the same engine); simulator access remains available for corpus capture; LazyMath stays Unlicense (to be recorded in a decision before porting). For M8/M9: the manufacturers' PC emulator software for ClassPad and Prime stays available and its terms allow corpus capture [Q17, Q18].
 
 ---
 
@@ -151,7 +151,7 @@ This cross-cuts every functional area.
 | FR-DOC-007 | Share a document as a URL: the document is compressed and encoded into the URL fragment (so nothing reaches any server); opening the link loads it after a confirmation. Documents too large for a link fall back to file export. | S | T/E |
 | FR-DOC-008 | Within a Problem, every page shares one set of variables. A spreadsheet column linked to a list, a plot of that list and a graph of a function are views of the same variable: a change made on one page shows on every other page of the Problem when it is next seen, and nothing crosses between Problems (decision 0031). | M | T |
 | FR-DOC-010 | Documents are saved by name in browser storage: Save (asks for a name the first time), Save As and Open (a list of the saved documents, each of which can be deleted). The title bar shows the page number next to the document name, with `*` appended to the displayed name while there are unsaved changes; the centre stays clear and long names are ellipsized. The autosave keeps the working state (with the name and the marker) but never writes the named copy. New, Open and Import ask before dropping unsaved changes (decision 0033). | S | T |
-| FR-DOC-009 | A page can be split into two panes, each holding one app (side by side, or one above the other), with focus moved between them; Quick Graph, Summary Plot and the Graphs table use it. Custom Split and layouts of three or four panes are greyed. | M | T/D |
+| FR-DOC-009 | A page can be split into two panes, each holding one app (side by side, or one above the other), with focus moved between them; Quick Graph, Summary Plot and the Graphs table use it. Shade P Value and Shade area add a pane, so a page holds up to four (three panes, then 2×2; decision 0034 item 2). Custom Split is greyed. | M | T/D |
 | FR-DOC-005 | Page types in scope: Calculator, Graphs, Lists & Spreadsheet, Data & Statistics, Notes, Program Editor, Python; Pseudocode is added in M5 (FR-RUN-010). Geometry excluded. | M | I |
 | FR-DOC-006 | `.tns` interop, if built, lives under **File ▸ Import…** and **File ▸ Export…**, never under Open/Save. Open and Save work on the documents kept in the browser (FR-DOC-010); files on disk are native `.cassim.json` through Import and Export. The format may be worked out only from public documentation or black-box comparison of `.tns` files Simon created with TI software he is licensed to use, never by decompiling TI software (NFR-LEG-008). An import that cannot be read fails with a clear message. No other feature depends on it. | W | T/D |
 
@@ -234,7 +234,7 @@ This cross-cuts every functional area.
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
 ### 4.12 Programming environments and later device profiles — M5, M8–M9
-M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
+The last table of this section holds the CASSim Scientific requirements (FR-FX, the `scientific` device), which belong to no numbered milestone. M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
 
 **Device profiles (M8)**
 | ID | Requirement | Pri | Ver |
@@ -372,6 +372,69 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 | FR-HPP-001 | A go/no-go review after M8 against oracle availability and terms [Q18], the actual effort of M8, and demand. Nothing else in this specification depends on a "go". | W | I |
 | FR-HPP-002 | If go: an HP Prime profile built by the same recipe as FR-CPD-001 to -005, with its programming language handled as a separate dialect on the FR-RUN-001 interface if wanted. | W | T |
 
+**CASSim Scientific (SDD-14; added 2026-11-25)**
+The `scientific` device (FR-PROF-012). The device as a whole is Could; the priorities below rank its parts. Details, the keypad and the keyboard map are in `docs/design/SDD-14-scientific-calculator-fx.md`.
+| ID | Requirement | Pri | Ver |
+|---|---|---|---|
+| FR-FX-MOD-001 | Support `COMP` mode (Mode 1) for general arithmetic, functions, fraction simplification, and trigonometry. | M | T/E |
+| FR-FX-MOD-002 | Support `STAT` mode (Mode 2) with 1-variable (`1: 1-VAR`) and 2-variable regression options (`2: A+BX`, `3: _+CX^2`, `4: ln X`, `5: e^X`, `6: A*B^X`, `7: A*X^B`, `8: 1/X`). | M | T/E |
+| FR-FX-MOD-003 | Support `TABLE` mode (Mode 3) for generating a table of values for $f(x)$ given Start, End, and Step parameters. | M | T/E |
+| FR-FX-MOD-004 | Support `VERIFY` mode (Mode 4 / fx-82AU submode) evaluating relational equality/inequality expressions to `TRUE` or `FALSE`. | S | T/E |
+| FR-FX-MOD-005 | (fx-100 extension) Support `CMPLX` mode (Complex numbers $a+bi$ and $r\angle\theta$) and `VECTOR` mode (2D/3D vectors). | C | T |
+| FR-FX-CFG-001 | Support Setup selection of display format: `MthIO` (MathO natural output or LineO linear output) vs `LineIO`. | M | T/E |
+| FR-FX-CFG-002 | Support Angle unit configuration: Degrees (`Deg`), Radians (`Rad`), Gradians (`Gra`). Active unit indicated on screen annunciator. | M | T/E |
+| FR-FX-CFG-003 | Support Numerical display rounding modes: `Norm 1` / `Norm 2` (exponential threshold), `Fix 0..9` (fixed decimal places), `Sci 0..9` (scientific significant figures). | M | T/E |
+| FR-FX-CFG-004 | Support Fraction result format: Mixed number $a\frac{b}{c}$ vs Improper fraction $\frac{d}{c}$. | M | T/E |
+| FR-FX-CFG-005 | Support `STAT` frequency table toggle in Setup (`Shift+MODE` $\to$ `▼` $\to$ `STAT` $\to$ `1: ON`, `2: OFF`). | M | T/E |
+| FR-FX-CFG-006 | Support Initialisation/Reset via `Shift+9 (CLR)` with options: `1: Setup`, `2: Memory`, `3: All`. Reset restores factory defaults and clears memories. | M | T/E |
+| FR-FX-DSP-001 | Screen simulates a two-line LCD: a natural-display input line and an answer line, with the whole calculator scaled to fit the window. | M | E/D |
+| FR-FX-DSP-002 | Render top annunciator status icons: `S` (Shift), `A` (Alpha), `M` (Independent memory active), `STO` (Store), `RCL` (Recall), `STAT` (Stat mode), `D`/`R`/`G` (Angle unit), `FIX` (Fixed d.p.), `SCI` (Scientific), `Math` (MthIO active), `▲▼` (Replay history available). | M | E/I |
+| FR-FX-DSP-003 | Natural input editing: fractions $\frac{\Box}{\Box}$, mixed numbers $\Box\frac{\Box}{\Box}$, square root $\sqrt{\Box}$, cube root $\sqrt[3]{\Box}$, $n$-th root $\sqrt[\Box]{\Box}$, power $x^\Box$, absolute value $\|\Box\|$, logarithmic with base $\log_{\Box}(\Box)$. | M | T/E |
+| FR-FX-DSP-004 | 4-way D-pad navigation: cursor movement through slots and nested templates, history navigation (`▲`/`▼`), and multi-statement browsing. | M | T/E |
+| FR-FX-DSP-005 | `S⇔D` button toggles result between exact symbolic form (surd, $\pi$-multiple, exact fraction) and decimal representation. | M | T/E |
+| FR-FX-DSP-006 | `Shift + S⇔D` toggles between mixed number ($a\frac{b}{c}$) and improper fraction ($\frac{d}{c}$). | M | T/E |
+| FR-FX-DSP-007 | `ENG` key adjusts decimal exponent down by 3 ($10^{-3}, 10^{-6}$); `Shift + ENG` ($\leftarrow$) adjusts exponent up by 3 ($10^3, 10^6$). | M | T |
+| FR-FX-DSP-008 | DMS key (`° ' "`) inputs sexagesimal angles and converts decimal degrees to degrees, minutes, and seconds on result. | M | T |
+| FR-FX-DSP-009 | `Shift + ° ' "` (`FACT`) performs prime factorisation of integer results (e.g. $1050 \to 2 \times 3 \times 5^2 \times 7$). | M | T |
+| FR-FX-MEM-001 | Automatic `Ans` register stores the result of the last completed calculation and updates on `=`. | M | T |
+| FR-FX-MEM-002 | 9 variable registers: `A, B, C, D, E, F, M, X, Y`. Stored via `Shift+RCL (STO)` + variable key; recalled via `RCL` + key or typed via `ALPHA` + key in expressions. | M | T |
+| FR-FX-MEM-003 | Independent memory `M`: `M+` adds current value to $M$; `Shift+M+ (M-)` subtracts current value from $M$. Annunciator `M` lights when $M \ne 0$. | M | T |
+| FR-FX-MEM-004 | (fx-100 extension) `PreAns` memory holds the second-to-last answer for recurrence relations. | C | T |
+| FR-FX-FNC-001 | Standard trigonometry: $\sin, \cos, \tan$ and inverses $\sin^{-1}, \cos^{-1}, \tan^{-1}$ respecting active angle unit (`Deg`, `Rad`, `Gra`). | M | T |
+| FR-FX-FNC-002 | Hyperbolic functions via `hyp`: $\sinh, \cosh, \tanh, \sinh^{-1}, \cosh^{-1}, \tanh^{-1}$. | M | T |
+| FR-FX-FNC-003 | Powers and roots: $x^2, x^3, x^{-1}, x^y, \sqrt{\Box}, \sqrt[3]{\Box}, \sqrt[y]{x}$. | M | T |
+| FR-FX-FNC-004 | Logarithms and exponentials: natural $\ln, e^x$, common $\log, 10^x$, and arbitrary base $\log_a(b)$. | M | T |
+| FR-FX-FNC-005 | Combinatorics & Probability: Permutations $n\text{Pr}$, Combinations $n\text{Cr}$, Factorial $n!$, Random decimal $\text{Ran\#} \in [0, 1)$, Random integer $\text{RanInt\#}(a, b) \in [a, b]$. | M | T |
+| FR-FX-FNC-006 | Coordinate conversions: $\text{Pol}(x, y)$ returns $(r, \theta)$ with $r$ in $X$ and $\theta$ in $Y$; $\text{Rec}(r, \theta)$ returns $(x, y)$. | M | T |
+| FR-FX-FNC-007 | Number theory: $\text{GCD}(a, b)$ (Greatest Common Divisor) and $\text{LCM}(a, b)$ (Least Common Multiple). | M | T |
+| FR-FX-FNC-008 | Percent calculations (`%`): basic percent, percentage increase, percentage decrease. | M | T |
+| FR-FX-FNC-009 | Rounding function `Rnd(x)`: rounds argument to current display precision (`Fix` or `Sci`). | M | T |
+| FR-FX-STA-001 | Data entry grid: 1-VAR single column (or two-column with FREQ enabled); 2-VAR bivariate two-column (X, Y) (or three-column with FREQ). | M | T/E |
+| FR-FX-STA-002 | Single-variable summary statistics: $n, \bar{x}, \sum x, \sum x^2, s_x, \sigma_x$. | M | T |
+| FR-FX-STA-003 | 5-number summary: $\min X, Q_1, \text{med}, Q_3, \max X$. Quartiles strictly computed using TI/Australian school median-split convention (median excluded when $n$ is odd). | M | T |
+| FR-FX-STA-004 | Bivariate linear regression: $y = A + Bx$, calculating $A$ (intercept), $B$ (gradient), Pearson's correlation coefficient $r$. | M | T |
+| FR-FX-STA-005 | Regression estimation: predicting $\hat{x}$ for given $y$, and $\hat{y}$ for given $x$. | M | T |
+| FR-FX-STA-006 | Statistical variables menu (`Shift+1 (STAT)`): `1: Type`, `2: Data`, `3: Sum`, `4: Var`, then `5: MinMax` for 1-VAR, or `5: Reg`, `6: MinMax` for the two-variable types (order corrected 2026-11-25; SDD-14 section 4.2). | M | T/E |
+| FR-FX-TUT-001 | **User-Driven Execution**: The tutorial does not lock the keypad or advance on an automatic timer. The user must press the highlighted key or enter the required input on the keypad (or the computer keyboard) to progress. | M | E/D |
+| FR-FX-TUT-002 | **Spotlight & Hinting**: The target key is outlined with a calm accent glow. When a multi-key sequence is required (e.g. `Shift` then `MODE`), the immediate next key is highlighted. | M | E/D |
+| FR-FX-TUT-003 | **Validation & Error Correction**: If the student presses an incorrect key, the system gives an immediate non-punitive hint naming the right key, and the wrong key does not change the calculator. | M | E/D |
+| FR-FX-TUT-004 | **Step-by-Step Explanation**: Each step shows the key to press, the reason for it, and what the screen should then show (computed by running the lesson, never written by hand). | M | E/I |
+| FR-FX-TUT-005 | **Three Instructional Modes**: <br>1. *Guide Me (Interactive)*: Step-by-step user-driven execution with key highlights.<br>2. *Show Me (Demonstration)*: Automated playback at 0.5×–2× for a stuck student or a whiteboard.<br>3. *Test Me (Challenge)*: Practical problem prompt with key highlights disabled; verifies the student's final screen and result. | M | E/D |
+| FR-FX-TUT-006 | **Offline & Private**: Tutorials and student progress run 100% locally in browser storage without network calls or telemetry. | M | T |
+| FR-FX-SHR-001 | **Automatic Browser Persistence**: Calculator state is saved to browser storage (the shell's storage, under the device prefix `scientific.`) shortly after each key press. On reload the mode, settings, variables, STAT data, table and recent history are restored. A tutorial never overwrites the student's own saved work. | M | T/E |
+| FR-FX-SHR-002 | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim Scientific by its `device`. | M | T/E |
+| FR-FX-SHR-003 | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. A link holds key names and numbers only; nothing in it is executed. | M | I/T |
+| FR-FX-SHR-004 | **Compact Link Budget**: A typical calculator link is 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`); history is left out of links and default settings are omitted. | M | T |
+| FR-FX-SHR-005 | **Teacher Pre-Populated Problem Sets**: Teachers can share a single link that pre-loads a data set (e.g. a 25-row bivariate table) or a TABLE-mode function, so students begin solving immediately. | S | D/E |
+| FR-FX-SHR-006 | **Named State Snapshots**: Users can save and open named `.cassim.json` files (Doc ▸ Save, Save as, Open), the one CASSim file format (FR-DOC-004). | S | T/E |
+| FR-FX-UI-001 | **Top bar**: the CASSim and Doc menus of every CASSim app (section 5.1) and status chips for the mode, angle unit and input mode, readable in every theme. Clicking a chip opens MODE, changes the angle unit, or switches MthIO/LineIO. | M | T/E |
+| FR-FX-UI-002 | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T/E |
+| FR-FX-UI-003 | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. CASSim ▸ Show tutorials / Hide tutorials shows or hides it on every screen size. | S | T/D |
+| FR-FX-UI-004 | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T/E |
+| FR-FX-UI-005 | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T/E |
+| FR-FX-UI-006 | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T/E |
+| FR-FX-UI-007 | **Phones**: on a phone-sized window (a short side under 600 px, as the Nspire app) the calculator fills the width and its keys grow taller to use the height, the tutorial panel starts hidden, and the menu bar keeps the model and mode chips. Every dialog fits the screen. In the installed app, CASSim ▸ Avoid cutout / Use cutout keeps the calculator clear of the camera cutout, as in the Nspire app. | S | T/E |
+
 ---
 
 ## 5. Non-functional requirements
@@ -411,19 +474,19 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 - NFR-PORT-004 (W) Native builds of the same app with `flet build`: Windows, macOS and Linux desktop, and Android (APK, AAB) and iOS. The static web site is the only release target until M7 is done; see PLAN.md section 13 for what each build needs.
 
 ### 5.6 Maintainability and quality
-- NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; CI (lint, types, tests, web build, Playwright smoke) green before merge. CI runs on GitHub Actions and is green on `main`.
+- NFR-MAINT-001 (M) Ruff clean; Ty strict on `core/`; the checks (lint, types, tests with coverage, traceability, web build, Playwright) green before merge. They run locally as `tools.local_ci` before a branch merges, and once on GitHub Actions for each batch pull request (AGENTS.md, "Development workflow").
 - NFR-MAINT-002 (M) Core never imports Flet (lint rule); SymPy only in the adapter.
 - NFR-MAINT-003 (M) Conventional commits; small commits; decisions recorded in `docs/decisions/`.
-- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim.app` (Flet UI) is excluded and covered by Playwright. CI fails when a package falls below its floor in `pyproject.toml` (`[tool.cassim.coverage]`, checked by `tools/coverage_check.py`). The floors started just below the figures of 2026-11-09 (core 96.9%, device 96.2%, profiles 98.1%, runtime 91.0%, cli 93.6%) and only rise. `sheet`, `stats` and `graph` have no code yet and get a floor when they do.
+- NFR-MAINT-004 (S) Line and branch coverage of at least 90% on `src/cassim/core/` and 80% on the other non-UI packages (`device`, `doc`, `sheet`, `stats`, `graph`). `cassim.app` (Flet UI) is excluded and covered by Playwright. The checks fail when a package falls below its floor in `pyproject.toml` (`[tool.cassim.coverage]`, checked by `tools/coverage_check.py`): 90 for `core`, `runtime` and `cli`; 80 for `device`, `devices`, `doc`, `sheet`, `stats` and `graph`. Device UI packages (`devices/*/ui`) are excluded with `cassim.app`.
 - NFR-MAINT-006 (M) Every requirement ID appears in at least one test (marker or docstring) or is listed as untested with a reason. A generated traceability table (`docs/traceability.md`) is checked in CI.
 - NFR-MAINT-005 (S) Dependency versions pinned (uv lockfile); Pyodide upgrade procedure documented.
 
 ### 5.7 Legal and licensing
-- NFR-LEG-001 (M) No TI marks, artwork, ROM content or screenshots shipped. Reference screenshots stay in `docs/design/reference/`, not the build.
+- NFR-LEG-001 (M) No TI marks, artwork, ROM content or screenshots shipped. Screenshots of TI software are never in the build: layout references are in `docs/design/reference/nspire/` (kept locally, not committed) and result evidence is in `corpus/shots/` and `docs/testing/*-shots/`.
 - NFR-LEG-002 (M) A visible disclaimer: not affiliated with or endorsed by TI; not an approved exam calculator.
 - NFR-LEG-003 (M) CASSim is released under the Unlicense. Third-party notices (Flet, Pyodide, SymPy BSD, mpmath BSD, and the vendored fonts) ship with the build.
 - NFR-LEG-004 (S) Before porting LazyMath UDFs, record the licence check (LazyMath Unlicense) in `docs/decisions/`.
-- NFR-LEG-005 (M) From M8, the disclaimer in NFR-LEG-002 also covers Casio and HP. No Casio or HP marks, artwork, ROM, firmware or emulator software is shipped; reference screenshots stay in `docs/design/reference/`.
+- NFR-LEG-005 (M) From M8, the disclaimer in NFR-LEG-002 also covers Casio and HP. No Casio or HP marks, artwork, ROM, firmware or emulator software is shipped; their screenshots are kept as in NFR-LEG-001 (`docs/design/reference/<device>/` for layout, `docs/testing/` for evidence), never in the build. The same holds for the scientific calculators that CASSim Scientific follows.
 - NFR-LEG-006 (M for TI, C for Casio and HP) Before capturing a corpus from a manufacturer's emulator software, record its licence terms and why they allow this use in `docs/decisions/` (as NFR-LEG-004 does for LazyMath). Must for TI because a corpus has already been captured from the TI-Nspire CX CAS Premium Teacher Software; the terms are recorded in decision 0029 (Q42): the EULA forbids reverse-compiling and redistributing the program, so capture is by ordinary use; screenshots of results may stay in the repository but never in the build.
 - NFR-LEG-007 (M) Corpus cases taken from VCAA material are marked `third_party: true` and keep their attribution in `source`. They hold the pseudocode listings and CASSim's own answers, never VCAA's question prose, and stay in the public repository (decision 0012, update 2026-11-12); if VCAA objects to any, those cases are removed. The corpus is never part of the app build.
 - NFR-LEG-008 (M) Clean room. Device behaviour is learned only by observing the TI, Casio or HP software and handhelds in normal use (typing inputs, recording outputs and screenshots). No decompiling, disassembly, debugging, unpacking or patching of their binaries, and no inspection of their memory or network traffic. Data tables are never extracted from them. Reference material in `references/` is consulted, not copied (decision 0028).
@@ -432,10 +495,10 @@ M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. M
 ---
 
 ## 6. External interfaces
-- **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/`.
+- **User interface**: three display modes (4.9); own-branded skin; reference screenshots in `docs/design/reference/<device>/`.
 - **Files**: Open and Save work on documents kept by name in the browser; files on disk are the native `.cassim.json` (versioned), through Import and Export (decision 0033). CSV and optionally xlsx come in and go out through Import and Export, which is the general home for foreign formats; `.tns` is deferred and, if built, goes there too (FR-DOC-006).
 - **Browser APIs**: IndexedDB, Service Worker, Web Workers, Clipboard, File System / download, fullscreen, Web App Manifest.
-- **Software**: Pyodide 314.0.7, SymPy 1.14, SciPy 1.18, NumPy 2.4, mpmath, Flet 1.0.x; the 2D editor is CASSim's own template editor drawn from Flet controls (decisions 0015, 0018, 0019); MathLive and MathQuill are not used.
+- **Software**: Pyodide 314.0.7, SymPy 1.14, mpmath, Flet 1.0.x, and openpyxl for xlsx (SciPy and NumPy are not shipped; SciPy only checks the statistics in tests, decision 0031); the 2D editor is CASSim's own template editor drawn from Flet controls (decisions 0015, 0018, 0019); MathLive and MathQuill are not used.
 - **Internal**: engine worker protocol (request/response/cancel/restore); device-model API consumed by Flet; scene format for graphs.
 
 ## 7. Data requirements
@@ -489,93 +552,32 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 | Q41 | ~~Exact values in Auto and Exact modes~~ **Answered 2026-11-04, revised 2026-11-07:** first decided as not in the first release; Simon then made it a Should (FR-PSE-012), with the same Approx / Auto / Exact toggle as the CAS. | done |
 | Q42 | ~~Licence terms of the Teacher Software used for corpus capture~~ **Answered 2026-11-12:** the TI-Nspire CX/CX CAS Software EULA (rev20231107), named by the installed 6.0.3.374; recorded in decision 0029. Capture by ordinary use is permitted; screenshots stay in the repository, not the build. | done |
 
-**CASSim Scientific scientific calculator (SDD-14, added 2026-11-25)**
-The `scientific` device (FR-PROF-012). The device as a whole is Could; the priorities below rank its parts. Details, the keypad and the keyboard map are in `docs/design/SDD-14-scientific-calculator-fx.md`.
-| ID | Requirement | Pri | Ver |
-|---|---|---|---|
-| FR-FX-MOD-001 | Support `COMP` mode (Mode 1) for general arithmetic, functions, fraction simplification, and trigonometry. | M | T, E |
-| FR-FX-MOD-002 | Support `STAT` mode (Mode 2) with 1-variable (`1: 1-VAR`) and 2-variable regression options (`2: A+BX`, `3: _+CX^2`, `4: ln X`, `5: e^X`, `6: A*B^X`, `7: A*X^B`, `8: 1/X`). | M | T, E |
-| FR-FX-MOD-003 | Support `TABLE` mode (Mode 3) for generating a table of values for $f(x)$ given Start, End, and Step parameters. | M | T, E |
-| FR-FX-MOD-004 | Support `VERIFY` mode (Mode 4 / fx-82AU submode) evaluating relational equality/inequality expressions to `TRUE` or `FALSE`. | S | T, E |
-| FR-FX-MOD-005 | (fx-100 extension) Support `CMPLX` mode (Complex numbers $a+bi$ and $r\angle\theta$) and `VECTOR` mode (2D/3D vectors). | C | T |
-| FR-FX-CFG-001 | Support Setup selection of display format: `MthIO` (MathO natural output or LineO linear output) vs `LineIO`. | M | T, E |
-| FR-FX-CFG-002 | Support Angle unit configuration: Degrees (`Deg`), Radians (`Rad`), Gradians (`Gra`). Active unit indicated on screen annunciator. | M | T, E |
-| FR-FX-CFG-003 | Support Numerical display rounding modes: `Norm 1` / `Norm 2` (exponential threshold), `Fix 0..9` (fixed decimal places), `Sci 0..9` (scientific significant figures). | M | T, E |
-| FR-FX-CFG-004 | Support Fraction result format: Mixed number $a\frac{b}{c}$ vs Improper fraction $\frac{d}{c}$. | M | T, E |
-| FR-FX-CFG-005 | Support `STAT` frequency table toggle in Setup (`Shift+MODE` $\to$ `▼` $\to$ `STAT` $\to$ `1: ON`, `2: OFF`). | M | T, E |
-| FR-FX-CFG-006 | Support Initialisation/Reset via `Shift+9 (CLR)` with options: `1: Setup`, `2: Memory`, `3: All`. Reset restores factory defaults and clears memories. | M | T, E |
-| FR-FX-DSP-001 | Screen simulates a two-line LCD: a natural-display input line and an answer line, with the whole calculator scaled to fit the window. | M | E, D |
-| FR-FX-DSP-002 | Render top annunciator status icons: `S` (Shift), `A` (Alpha), `M` (Independent memory active), `STO` (Store), `RCL` (Recall), `STAT` (Stat mode), `D`/`R`/`G` (Angle unit), `FIX` (Fixed d.p.), `SCI` (Scientific), `Math` (MthIO active), `▲▼` (Replay history available). | M | E, I |
-| FR-FX-DSP-003 | Natural input editing: fractions $\frac{\Box}{\Box}$, mixed numbers $\Box\frac{\Box}{\Box}$, square root $\sqrt{\Box}$, cube root $\sqrt[3]{\Box}$, $n$-th root $\sqrt[\Box]{\Box}$, power $x^\Box$, absolute value $\|\Box\|$, logarithmic with base $\log_{\Box}(\Box)$. | M | T, E |
-| FR-FX-DSP-004 | 4-way D-pad navigation: cursor movement through slots and nested templates, history navigation (`▲`/`▼`), and multi-statement browsing. | M | T, E |
-| FR-FX-DSP-005 | `S⇔D` button toggles result between exact symbolic form (surd, $\pi$-multiple, exact fraction) and decimal representation. | M | T, E |
-| FR-FX-DSP-006 | `Shift + S⇔D` toggles between mixed number ($a\frac{b}{c}$) and improper fraction ($\frac{d}{c}$). | M | T, E |
-| FR-FX-DSP-007 | `ENG` key adjusts decimal exponent down by 3 ($10^{-3}, 10^{-6}$); `Shift + ENG` ($\leftarrow$) adjusts exponent up by 3 ($10^3, 10^6$). | M | T |
-| FR-FX-DSP-008 | DMS key (`° ' "`) inputs sexagesimal angles and converts decimal degrees to degrees, minutes, and seconds on result. | M | T |
-| FR-FX-DSP-009 | `Shift + ° ' "` (`FACT`) performs prime factorisation of integer results (e.g. $1050 \to 2 \times 3 \times 5^2 \times 7$). | M | T |
-| FR-FX-MEM-001 | Automatic `Ans` register stores the result of the last completed calculation and updates on `=`. | M | T |
-| FR-FX-MEM-002 | 9 variable registers: `A, B, C, D, E, F, M, X, Y`. Stored via `Shift+RCL (STO)` + variable key; recalled via `RCL` + key or typed via `ALPHA` + key in expressions. | M | T |
-| FR-FX-MEM-003 | Independent memory `M`: `M+` adds current value to $M$; `Shift+M+ (M-)` subtracts current value from $M$. Annunciator `M` lights when $M \ne 0$. | M | T |
-| FR-FX-MEM-004 | (fx-100 extension) `PreAns` memory holds the second-to-last answer for recurrence relations. | C | T |
-| FR-FX-FNC-001 | Standard trigonometry: $\sin, \cos, \tan$ and inverses $\sin^{-1}, \cos^{-1}, \tan^{-1}$ respecting active angle unit (`Deg`, `Rad`, `Gra`). | M | T |
-| FR-FX-FNC-002 | Hyperbolic functions via `hyp`: $\sinh, \cosh, \tanh, \sinh^{-1}, \cosh^{-1}, \tanh^{-1}$. | M | T |
-| FR-FX-FNC-003 | Powers and roots: $x^2, x^3, x^{-1}, x^y, \sqrt{\Box}, \sqrt[3]{\Box}, \sqrt[y]{x}$. | M | T |
-| FR-FX-FNC-004 | Logarithms and exponentials: natural $\ln, e^x$, common $\log, 10^x$, and arbitrary base $\log_a(b)$. | M | T |
-| FR-FX-FNC-005 | Combinatorics & Probability: Permutations $n\text{Pr}$, Combinations $n\text{Cr}$, Factorial $n!$, Random decimal $\text{Ran\#} \in [0, 1)$, Random integer $\text{RanInt\#}(a, b) \in [a, b]$. | M | T |
-| FR-FX-FNC-006 | Coordinate conversions: $\text{Pol}(x, y)$ returns $(r, \theta)$ with $r$ in $X$ and $\theta$ in $Y$; $\text{Rec}(r, \theta)$ returns $(x, y)$. | M | T |
-| FR-FX-FNC-007 | Number theory: $\text{GCD}(a, b)$ (Greatest Common Divisor) and $\text{LCM}(a, b)$ (Least Common Multiple). | M | T |
-| FR-FX-FNC-008 | Percent calculations (`%`): basic percent, percentage increase, percentage decrease. | M | T |
-| FR-FX-FNC-009 | Rounding function `Rnd(x)`: rounds argument to current display precision (`Fix` or `Sci`). | M | T |
-| FR-FX-STA-001 | Data entry grid: 1-VAR single column (or two-column with FREQ enabled); 2-VAR bivariate two-column (X, Y) (or three-column with FREQ). | M | T, E |
-| FR-FX-STA-002 | Single-variable summary statistics: $n, \bar{x}, \sum x, \sum x^2, s_x, \sigma_x$. | M | T |
-| FR-FX-STA-003 | 5-number summary: $\min X, Q_1, \text{med}, Q_3, \max X$. Quartiles strictly computed using TI/Australian school median-split convention (median excluded when $n$ is odd). | M | T |
-| FR-FX-STA-004 | Bivariate linear regression: $y = A + Bx$, calculating $A$ (intercept), $B$ (gradient), Pearson's correlation coefficient $r$. | M | T |
-| FR-FX-STA-005 | Regression estimation: predicting $\hat{x}$ for given $y$, and $\hat{y}$ for given $x$. | M | T |
-| FR-FX-STA-006 | Statistical variables menu (`Shift+1 (STAT)`): `1: Type`, `2: Data`, `3: Sum`, `4: Var`, `5: MinMax`, `6: Reg` (Reg for two-variable types only). | M | T, E |
-| FR-FX-TUT-001 | **User-Driven Execution**: The tutorial does not lock the keypad or advance on an automatic timer. The user must press the highlighted key or enter the required input on the keypad (or the computer keyboard) to progress. | M | E, D |
-| FR-FX-TUT-002 | **Spotlight & Hinting**: The target key is outlined with a calm accent glow. When a multi-key sequence is required (e.g. `Shift` then `MODE`), the immediate next key is highlighted. | M | E, D |
-| FR-FX-TUT-003 | **Validation & Error Correction**: If the student presses an incorrect key, the system gives an immediate non-punitive hint naming the right key, and the wrong key does not change the calculator. | M | E, D |
-| FR-FX-TUT-004 | **Step-by-Step Explanation**: Each step shows the key to press, the reason for it, and what the screen should then show (computed by running the lesson, never written by hand). | M | E, I |
-| FR-FX-TUT-005 | **Three Instructional Modes**: <br>1. *Guide Me (Interactive)*: Step-by-step user-driven execution with key highlights.<br>2. *Show Me (Demonstration)*: Automated playback at 0.5×–2× for a stuck student or a whiteboard.<br>3. *Test Me (Challenge)*: Practical problem prompt with key highlights disabled; verifies the student's final screen and result. | M | E, D |
-| FR-FX-TUT-006 | **Offline & Private**: Tutorials and student progress run 100% locally in browser storage without network calls or telemetry. | M | T |
-| FR-FX-SHR-001 | **Automatic Browser Persistence**: Calculator state is saved to browser storage (the shell's storage, under the device prefix `scientific.`) shortly after each key press. On reload the mode, settings, variables, STAT data, table and recent history are restored. A tutorial never overwrites the student's own saved work. | M | T, E |
-| FR-FX-SHR-002 | **URL Fragment State Sharing**: The calculator is serialised as a CASSim document naming the device, compressed with zlib and URL-safe Base64 into the shared `#/doc=` fragment (decision 0032 item 4). Loading a share link recreates the calculator; the shell routes it to CASSim Scientific by its `device`. | M | T, E |
-| FR-FX-SHR-003 | **Privacy by Construction**: The shared state payload resides strictly in the URL fragment (`#...`), which web browsers never send to an HTTP server (NFR-SEC-001). No student data or teacher problem data is ever uploaded or logged. A link holds key names and numbers only; nothing in it is executed. | M | I, T |
-| FR-FX-SHR-004 | **Compact Link Budget**: A typical calculator link is 80–300 characters, well within the 2,000-character ceiling (`MAX_FRAGMENT`); history is left out of links and default settings are omitted. | M | T |
-| FR-FX-SHR-005 | **Teacher Pre-Populated Problem Sets**: Teachers can share a single link that pre-loads a data set (e.g. a 25-row bivariate table) or a TABLE-mode function, so students begin solving immediately. | S | D, E |
-| FR-FX-SHR-006 | **Named State Snapshots**: Users can save and open named `.cassim.json` files (Doc ▸ Save, Save as, Open), the one CASSim file format (FR-DOC-006). | S | T, E |
-| FR-FX-UI-001 | **Top bar**: the CASSim and Doc menus of every CASSim app (section 5.1) and status chips for the mode, angle unit and input mode, readable in every theme. Clicking a chip opens MODE, changes the angle unit, or switches MthIO/LineIO. | M | T, E |
-| FR-FX-UI-002 | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
-| FR-FX-UI-003 | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. CASSim ▸ Show tutorials / Hide tutorials shows or hides it on every screen size. | S | T, D |
-| FR-FX-UI-004 | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
-| FR-FX-UI-005 | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
-| FR-FX-UI-006 | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T, E |
-| FR-FX-UI-007 | **Phones**: on a phone-sized window (a short side under 600 px, as the Nspire app) the calculator fills the width and its keys grow taller to use the height, the tutorial panel starts hidden, and the menu bar keeps the model and mode chips. Every dialog fits the screen. In the installed app, CASSim ▸ Avoid cutout / Use cutout keeps the calculator clear of the camera cutout, as in the Nspire app. | S | T, E |
+---
+
+## Appendix A. Design-document set (`docs/design/`)
+Six of the fifteen are written (2026-11-25). Until the others are, their material is in the decisions named and in the code. `docs/design/README.md` lists the other files kept in `docs/design/`.
+
+| Doc | Content | Status |
+|---|---|---|
+| `SDD-00-overview.md` | Architecture views, layering, dependency rules, data flow | Not written; PLAN.md section 3 |
+| `SDD-01-engine.md` | Lexer/parser/AST, values, evaluator, scope, SymPy adapter, errors | Not written; decisions 0007 to 0010 |
+| `SDD-02-worker-and-cancel.md` | Pyodide worker protocol, cancel/restore, loading | Written |
+| `SDD-03-display-and-format.md` | Number display rules, layout tree, LaTeX rendering | Not written; decisions 0008, 0014 and 0035 |
+| `SDD-04-device-model.md` | Key layers, menu tree, input editor, screen buffer | Written |
+| `SDD-05-ui-flet.md` | Layout modes, renderer, keypad, themes, 2D editor integration | Written |
+| `SDD-06-document-and-storage.md` | Schema, versioning, IndexedDB, import/export | Not written; decisions 0003 and 0033, SDD-04 "Saving and sharing" |
+| `SDD-07-data-pages.md` | Spreadsheet, statistics, finance | Written |
+| `SDD-08-graphing.md` | Scene format, sampling, analysis tools, performance | Not written; decisions 0004 and 0031 |
+| `SDD-09-programming-and-python.md` | TI-Basic, trust/sandbox model | Not written (M6) |
+| `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy | Written |
+| `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI | Not written; `docs/testing/TESTING.md` |
+| `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire | Not written; decision 0032 and PLAN.md section 15 |
+| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) | Not written; decisions 0020, 0021 and 0036, `docs/pseudocode/` |
+| `SDD-14-scientific-calculator-fx.md` | CASSim Scientific: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links | Written |
 
 ---
 
-## Appendix A. Proposed design-document set (`docs/design/`)
-| Doc | Content |
-|---|---|
-| `SDD-00-overview.md` | Architecture views, layering, dependency rules, data flow |
-| `SDD-01-engine.md` | Lexer/parser/AST, values, evaluator, scope, SymPy adapter, errors |
-| `SDD-02-worker-and-cancel.md` | Pyodide worker protocol, cancel/restore, loading |
-| `SDD-03-display-and-format.md` | Number display rules, layout tree, LaTeX rendering |
-| `SDD-04-device-model.md` | Key layers, menu tree, input editor, screen buffer |
-| `SDD-05-ui-flet.md` | Layout modes, renderer, keypad, themes, 2D editor integration |
-| `SDD-06-document-and-storage.md` | Schema, versioning, IndexedDB, import/export |
-| `SDD-07-data-pages.md` | Spreadsheet, statistics, finance |
-| `SDD-08-graphing.md` | Scene format, sampling, analysis tools, performance |
-| `SDD-09-programming-and-python.md` | TI-Basic, trust/sandbox model |
-| `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy |
-| `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI |
-| `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire |
-| `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) |
-| `SDD-14-scientific-calculator-fx.md` | CASSim Scientific: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links |
-
----
-
-## Appendix B. Implementation status (2026-11-18)
+## Appendix B. Implementation status (2026-11-18; CASSim Scientific row 2026-11-25)
 
 A summary, not a substitute for the traceability table (`docs/traceability.md`, NFR-MAINT-006).
 

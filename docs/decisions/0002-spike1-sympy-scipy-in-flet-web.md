@@ -1,6 +1,7 @@
 # 0002. Spike 1: SymPy + SciPy inside the Flet static build
 
 Date: 2026-10-31. Status: **GO (with offline work scheduled)**.
+Since changed (note added 2026-11-25): the GO stands, but SciPy and NumPy are not shipped (0031), and packages are no longer installed with micropip at start-up: the build ships them as archives (0016, then 0027; SDD-10). The timings and sizes here are the first baseline; current ones are in 0027 and SDD-10.
 Code: `spikes/spike1_web/`, `spikes/run_web_spike.py`, `spikes/run_web_spike2.py`, `spikes/vendor_pyodide_pkgs.py`.
 Environment: Flet 1.0.5, Pyodide 314.0.7 (Python 3.14.2), Edge (headless, Playwright), localhost server, Windows 11.
 

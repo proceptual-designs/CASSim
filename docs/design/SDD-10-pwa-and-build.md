@@ -1,6 +1,6 @@
 # SDD-10. Build, offline site and deploy
 
-Status: describes `tools/publish.py` and the CI workflow at 2026-11-16. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
+Status: describes `tools/publish.py` and the CI workflow at 2026-11-16; the bundles and the CI and deploy triggers were brought up to date on 2026-11-25. Requirements: FR-PWA-001 to FR-PWA-004, NFR-PERF-001 to NFR-PERF-005, NFR-REL-001, NFR-PORT-001, NFR-LEG-003, NFR-MAINT-005. Decisions: 0002, 0016, 0018, 0027. The static site is the only supported build; native builds are a future Would (PLAN.md section 13).
 
 ## Goal
 
@@ -8,7 +8,7 @@ A folder of static files that any free host can serve at the root (the default, 
 
 ## Pipeline
 
-`python -m tools.publish [--dist DIR] [--base-url CASSim] [--cdn]` (default output `build/web`) runs `build()`:
+`python -m tools.publish [--bundle all|tin|pseudo|sci] [--dist DIR] [--base-url CASSim] [--cdn]` (default output `build/web`) runs `build()`. A bundle is the shell and a list of devices (decision 0032 item 8): `all` holds every built device and Home, and each single-device bundle holds one device for its own site.
 
 | Step | What it does | Why |
 |---|---|---|
@@ -71,7 +71,7 @@ disconnecting.
 
 ## Hosting requirements
 
-One build of the whole app exists today. Single-device bundles (`--bundle`, one archive per device, per-device precaching) are planned in PLAN.md section 15 and FR-PROF-008; this document is updated when they are built.
+The `all` bundle and the single-device bundles `tin`, `pseudo` and `sci` are built and deployed (`--bundle`, FR-PROF-008, PLAN.md section 15). Loading each device's files only on first use inside the `all` bundle (FR-PROF-005) is still to do.
 
 - Any static host that serves `.mjs` as `text/javascript` and `.wasm` correctly. No special headers are needed (COOP and COEP are deliberately not used, SDD-02).
 - Built with the default `--base-url ''` the site is served at the root; with `--base-url CASSim` it must be served under `/CASSim/`.
@@ -79,7 +79,7 @@ One build of the whole app exists today. Single-device bundles (`--bundle`, one 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and pull requests: `uv sync --locked --group web`, `ruff format --check`, `ruff check`, `ty check`, `pytest -m "not e2e" --cov=cassim`, the traceability check, and the offline/failing-host and update browser tests. The other e2e tests are run locally. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: `main` to the testing site and the help pages, a GitHub release to the stable site (PLAN.md section 14).
+The gate is `uv run python -m tools.local_ci`, run locally before a branch merges into `main` (AGENTS.md, "Development workflow"): Ruff, Ty, pytest with coverage, the coverage floors, the traceability check and the browser tests. `.github/workflows/ci.yml` runs the same groups once per batch pull request, when it is marked ready for review, and on manual dispatch; it does not run on drafts or on pushes to `main`, and it skips the browser job for a batch that cannot affect the browser. `.github/workflows/deploy.yml` deploys to Cloudflare Pages: a push to `main` that changes the app goes to the testing site (`cassim-calc`), one that changes `docs/wiki` to the help pages, and a GitHub release to the stable site (`cassim-app`) and the single-device sites (`cassim-tin`, `cassim-pseudo`, `cassim-sci`) (PLAN.md sections 14 and 15).
 
 ## Measured (decisions 0002, 0016 and 0027)
 

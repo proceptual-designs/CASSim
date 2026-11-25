@@ -3,6 +3,8 @@
 Date: 2026-11-07, revised 2026-11-08. Status: built and checked against the TI-Nspire CX CAS Premium
 Teacher Software (Claude Cowork run, `docs/testing/emulator-menus-results.md`, screenshots in
 `docs/testing/menu-shots/`). What is still CASSim's own choice is marked **CASSim** below.
+Since changed (note added 2026-11-25): File > Save and Save As no longer download a file. Open and
+Save work on documents kept by name in the browser, and files are Import and Export (0033).
 
 Simon asked for the keyboard and menus to mimic the Nspire closely, menus that work by touch and
 mouse, a syntax hint on menu commands, dialogs for the multi-argument commands, and greyed
