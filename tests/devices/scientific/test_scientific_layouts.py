@@ -325,3 +325,24 @@ def test_el531_eng_display_and_hp_third_sum_page() -> None:
     hp.press("2")
     hp.press(k.EQ)
     assert hp.answer_text() == "20"
+
+
+@pytest.mark.parametrize("layout", L.LAYOUTS, ids=lambda layout: layout.id)
+def test_every_calculator_switches_off_and_on_again(layout: L.Layout) -> None:
+    """OFF is SHIFT (2nd, 2ndF) AC on every layout, and its ON key switches it back on: the
+    EL-531's ON/C sends AC, which the calculator ignored while off."""
+    state = layout_state(layout)
+    shift = next(key for key in layout.all_keys() if key.plain == (k.SHIFT,))
+    off = next(key for key in layout.all_keys() if key.shift_label == "OFF")
+    on = layout.key(k.ON)
+    for lkey in (shift, off):
+        for c in L.press(lkey, shift=state.shift, alpha=state.alpha):
+            state.press(c)
+    assert state.screen == "off"
+    for c in L.press(on, shift=False, alpha=False):
+        state.press(c)
+    assert state.screen == "calc"
+
+
+def test_the_keyboard_switches_the_calculator_on() -> None:
+    assert k.sequence(k.COMPUTER["o"]) == (k.ON,)

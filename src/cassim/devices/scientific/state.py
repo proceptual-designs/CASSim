@@ -208,7 +208,7 @@ class ScientificState:
     def press(self, key: str) -> None:  # noqa: PLR0912
         """One keypad key (or a keyboard key that stands for one)."""
         if self.screen == "off":
-            if key == k.ON:
+            if key == k.ON or (key == k.AC and self.dialect == "sharp"):  # the EL-531's ON/C
                 self.screen = "calc"
                 self._clear_entry()
             return

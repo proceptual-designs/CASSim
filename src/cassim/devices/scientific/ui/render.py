@@ -7,7 +7,10 @@ parts, and how a long entry is scrolled to keep the cursor on screen (◀ ▶ sh
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import flet as ft
+import flet.canvas as cv
 
 from cassim.devices.scientific.layout import (
     Abs,
@@ -34,10 +37,74 @@ FONTS = {
 ADVANCE = 0.6  # Roboto Mono's character width, in em
 SMALL = 0.62  # exponents and root indices
 FRACTION = 0.82  # numerators and denominators
+MIXED_GAP = 0.15  # em between a mixed number's whole part and its fraction, as typed
+RADICAL = 0.55  # the √ sign's width, in em
+
+
+@dataclass(frozen=True)
+class Gap:
+    """Space between drawn parts, in em."""
+
+    em: float
+
+
+def _tight(seq: Seq) -> list[Node | Gap]:
+    """The sequence as drawn: a mixed number's "1 " before its fraction becomes "1" and a small
+    `Gap`, so the answer 1 3/4 is spaced as the typed entry is."""
+    out: list[Node | Gap] = []
+    for index, node in enumerate(seq):
+        following = seq[index + 1] if index + 1 < len(seq) else None
+        if isinstance(node, Text) and node.text.endswith(" ") and isinstance(following, Frac):
+            out.extend((Text(node.text.rstrip(" ")), Gap(MIXED_GAP)))
+        else:
+            out.append(node)
+    return out
 
 
 def width(seq: Seq, size: float) -> float:
-    return sum(node_width(node, size) for node in seq)
+    return sum(
+        part.em * size if isinstance(part, Gap) else node_width(part, size) for part in _tight(seq)
+    )
+
+
+def height(seq: Seq, size: float) -> float:
+    """The drawn height of a row (its tallest part), worked out as `width` is."""
+    return max(
+        (node_height(part, size) for part in _tight(seq) if not isinstance(part, Gap)),
+        default=size,
+    )
+
+
+def _stroke(size: float) -> float:
+    return max(1.0, size * 0.07)
+
+
+def _bar(size: float) -> float:
+    return max(1.5, size * 0.08)
+
+
+def node_height(node: Node, size: float) -> float:  # noqa: PLR0911
+    match node:
+        case Text():
+            return size
+        case Frac(num, den):
+            inner = size * FRACTION
+            return height(num, inner) + height(den, inner) + _bar(size) + 2
+        case Sqrt(arg):
+            return height(arg, size) + 2 * _stroke(size) + 2
+        case Root(index, arg):
+            return max(height(index, size * SMALL) + size * 0.5, node_height(Sqrt(arg), size))
+        case Sup(exp):
+            return height(exp, size * SMALL) + size * 0.6
+        case Sub(arg):
+            return height(arg, size * SMALL) + size * 0.5
+        case Abs(arg):
+            return max(size, height(arg, size))
+        case Box():
+            return size * 0.8
+        case Cursor():
+            return size * 1.1
+    return size
 
 
 def node_width(node: Node, size: float) -> float:  # noqa: PLR0911
@@ -47,9 +114,9 @@ def node_width(node: Node, size: float) -> float:  # noqa: PLR0911
         case Frac(num, den):
             return max(width(num, size * FRACTION), width(den, size * FRACTION)) + 4
         case Sqrt(arg):
-            return ADVANCE * size + width(arg, size) + 2
+            return RADICAL * size + width(arg, size) + 3
         case Root(index, arg):
-            return width(index, size * SMALL) + ADVANCE * size + width(arg, size) + 2
+            return width(index, size * SMALL) + RADICAL * size + width(arg, size) + 3
         case Sup(exp):
             return width(exp, size * SMALL)
         case Sub(arg):
@@ -81,7 +148,12 @@ class Renderer:
 
     def row(self, seq: Seq, size: float) -> ft.Row:
         return ft.Row(
-            [self.node(node, size) for node in seq],
+            [
+                ft.Container(width=part.em * size)
+                if isinstance(part, Gap)
+                else self.node(part, size)
+                for part in _tight(seq)
+            ],
             spacing=0,
             tight=True,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -98,9 +170,7 @@ class Renderer:
                     ft.Column(
                         [
                             self.row(num, inner),
-                            ft.Container(
-                                width=bar, height=max(1.5, size * 0.08), bgcolor=self.color
-                            ),
+                            ft.Container(width=bar, height=_bar(size), bgcolor=self.color),
                             self.row(den, inner),
                         ],
                         spacing=1,
@@ -110,12 +180,7 @@ class Renderer:
                     padding=ft.Padding.symmetric(horizontal=1),
                 )
             case Sqrt(arg):
-                return ft.Row(
-                    [_text("√", size, self.color), self._overline(arg, size)],
-                    spacing=0,
-                    tight=True,
-                    vertical_alignment=ft.CrossAxisAlignment.END,
-                )
+                return self.radical(arg, size)
             case Root(index, arg):
                 return ft.Row(
                     [
@@ -123,8 +188,7 @@ class Renderer:
                             self.row(index, size * SMALL),
                             padding=ft.Padding.only(bottom=size * 0.5),
                         ),
-                        _text("√", size, self.color),
-                        self._overline(arg, size),
+                        self.radical(arg, size),
                     ],
                     spacing=0,
                     tight=True,
@@ -158,11 +222,39 @@ class Renderer:
                 return ft.Container(width=2, height=size * 1.1, bgcolor=self.cursor)
         return ft.Container()
 
-    def _overline(self, arg: Seq, size: float) -> ft.Container:
-        return ft.Container(
-            self.row(arg, size),
-            border=ft.Border(top=ft.BorderSide(max(1.0, size * 0.07), self.color)),
-            padding=ft.Padding.only(left=1, right=1, top=1),
+    def radical(self, arg: Seq, size: float) -> ft.Control:
+        """√ and its vinculum as one stroke, sized to the argument: a short tick, down to the
+        baseline, up to the top, then along over the argument. (A √ character and a separate
+        line meet only by luck, and never over a fraction.)"""
+        stroke = _stroke(size)
+        sign = RADICAL * size
+        top = stroke / 2
+        gap = 2 * stroke + 2  # the argument starts below the vinculum
+        total_w = sign + width(arg, size) + 3
+        total_h = height(arg, size) + gap
+        path = cv.Path(
+            elements=[
+                cv.Path.MoveTo(0, total_h * 0.6),
+                cv.Path.LineTo(sign * 0.25, total_h * 0.52),
+                cv.Path.LineTo(sign * 0.55, total_h - stroke / 2),
+                cv.Path.LineTo(sign - stroke / 2, top),
+                cv.Path.LineTo(total_w, top),
+            ],
+            paint=ft.Paint(
+                color=self.color,
+                stroke_width=stroke,
+                style=ft.PaintingStyle.STROKE,
+                stroke_join=ft.StrokeJoin.ROUND,
+                stroke_cap=ft.StrokeCap.ROUND,
+            ),
+        )
+        return cv.Canvas(
+            shapes=[path],
+            content=ft.Container(
+                self.row(arg, size), padding=ft.Padding.only(left=sign + 2, right=1, top=gap)
+            ),
+            width=total_w,
+            height=total_h,
         )
 
     def line(self, seq: Seq, size: float, available: float, *, keep: str = "cursor") -> ft.Row:

@@ -135,10 +135,11 @@ The same rows are in `docs/SRS.md` section 4.12 and are traced in `docs/traceabi
 |---|---|---|---|
 | **FR-FX-UI-001** | **Top bar**: the CASSim and Doc menus of every CASSim app (section 5.1) and status chips for the mode, angle unit and input mode, readable in every theme. Clicking a chip opens MODE, changes the angle unit, or switches MthIO/LineIO. | M | T, E |
 | **FR-FX-UI-002** | **Presentation mode**: the top bar can be hidden; a floating button or Esc brings it back. | S | T, E |
-| **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. | S | T, D |
+| **FR-FX-UI-003** | **Tutorial panel**: quiet styling, a step counter, the instruction and reason, the expected screen, and a close button; it sits beside the calculator, or below it when the window is narrow. CASSim ▸ Show tutorials / Hide tutorials shows or hides it on every screen size. | S | T, D |
 | **FR-FX-UI-004** | **Computer keyboard**: every key can be reached from the computer keyboard (section 4.1): digits and operators directly, common functions by letter, SHIFT and ALPHA as F1 and F2, MODE as Ctrl+M. Each keypad key's tooltip names its shortcut, and CASSim ▸ Keyboard shortcuts lists them. Keyboard input is ignored while a dialog is open. | M | T, E |
 | **FR-FX-UI-005** | **Calculator layouts**: CASSim ▸ Appearance ▸ Calculator shows the keys of a chosen class of school calculator (Casio fx-82 series, the default; Abacus SX-II series; Sharp EL-531 series; HP 10s series): their names, legends, SHIFT and ALPHA key names and arrangement, in CASSim's own artwork and fonts. The maths behind the keys is the same, but the key sequences are that calculator's own (its MODE and SETUP menus, CLR, STAT data entry and recall, %, fraction keys), so teachers can demonstrate and students can learn their device. A layout lists only the modes that calculator has and starts from its default SETUP, and its lessons are written in its keys; a lesson for something it lacks (TABLE, quartiles, FACT) is not offered. The choice is remembered. | S | T, E |
 | **FR-FX-UI-006** | **fx-100 series layout** (Could; deferred 2026-11-25): a Casio fx-100 series layout (the fx-100AU class), with its keypad and key sequences, whose MODE menu reaches CMPLX and VECTOR (FR-FX-MOD-005). None of the four current calculator classes has those modes, so they wait for this layout. | C | T, E |
+| **FR-FX-UI-007** | **Phones**: on a phone-sized window (a short side under 600 px, as the Nspire app) the calculator fills the width and its keys grow taller to use the height, the tutorial panel starts hidden, and the menu bar keeps the model and mode chips. Every dialog fits the screen. In the installed app, CASSim ▸ Avoid cutout / Use cutout keeps the calculator clear of the camera cutout, as in the Nspire app. | S | T, E |
 
 ---
 
@@ -208,6 +209,7 @@ Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, 
 | d, D | ° ' " and FACT |
 | m, M | M+ and M− |
 | p, e, a, x, y | π, e, Ans, X, Y |
+| o | ON: switches the calculator on after SHIFT AC (OFF); the EL-531's ON/C does too |
 | < > | relations |
 | Ctrl+C | copy the answer |
 
@@ -262,7 +264,7 @@ The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 des
    - **Doc menu**: Open…, Save, Save as…, Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
    - **Status chips**: mode, angle unit, input mode; clickable.
 2. **Presentation mode (FR-FX-UI-002)**: the full-screen button hides the bar; a floating button or Esc restores it.
-3. **Tutorial panel (FR-FX-UI-003)**: lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
+3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Show/Hide tutorials; lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
 
 ---
 
@@ -308,7 +310,9 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it: none of the four calculators' manuals shows a PreAns key. |
 | Tutorials | Twelve lessons on the fx-82 keys (eleven on the SX-II), and lessons written in the HP 10s's and EL-531's own keys; Guide, Show and Test modes; progress kept in browser storage per calculator. |
 | Files, links, autosave | Built; links and files use the CASSim document envelope. |
-| Keyboard | Built (section 4.1). |
+| Keyboard | Built (section 4.1). `o` is ON, so the calculator can be switched on again from the keyboard. |
+| Phones (FR-FX-UI-007) | Built 2026-11-25: the calculator fills a phone's width and its keys stretch to its height (scale down to 0.4 on a landscape phone); tutorials start hidden; dialogs size to the window; Avoid cutout in the installed app. Simulated phone tests (`test_scientific_ui.py`: 360 × 640, 390 × 844, 412 × 915 and 844 × 390) check that the calculator and every dialog fit. Flet draws to a canvas, so the browser tests cannot see overflow; these layout tests stand in for them. |
+| Drawing (`ui/render.py`) | √ and its vinculum are one stroke sized to the argument (a √ character and a separate line did not meet). A mixed-number answer has the same small gap before its fraction as the typed entry. |
 | Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the makers' keypad pictures. Checked in Chrome on 2026-11-25. |
 | Browser (E) verification | Checked by hand in Chrome on 2026-11-25 (layout at 1366 × 650 and 1920 × 935, keyboard input, natural display, Guide and Show modes, themes). No Playwright test yet. |
 | Device verification | None of the behaviour has been compared with a physical calculator. The emulator check (`docs/testing/emulator-scientific-capture.md`) covers the fx-82AU PLUS II and SX-II: Norm thresholds, the default output, ENG on whole numbers, mixed-number display, the clearing of STAT data on leaving STAT mode and the keypad legends. The HP 10s and EL-531 sequences come from their manuals only. |
