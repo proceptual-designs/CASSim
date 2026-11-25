@@ -417,7 +417,7 @@ class AppState:
         elif binding.action in ("enter", "approximate"):
             if graphs.functions:
                 graphs.submit_editor(graphs.active_index)
-        elif binding.action in ("graphs_select", "up", "down", "goto"):
+        elif binding.action in ("graphs_select", "up", "down", "goto", "tab"):
             self._graphs_navigation(graphs, binding)
         elif binding.action in {
             "graphs_toggle",
@@ -466,7 +466,12 @@ class AppState:
             return
         if binding.action == "graphs_select":
             graphs.select_function(int(binding.arg))
-        elif binding.action == "goto":
+        elif binding.action == "goto" or (
+            # Tab opens the entry line on the first empty fN, as ctrl+G does (Simon's note 2);
+            # inside a template it moves between the slots (R6-A9)
+            binding.action == "tab"
+            and not graphs.functions[graphs.active_index].editing.editor.path
+        ):
             graphs.select_empty_function()
         elif graphs.functions[graphs.active_index].editing.editor.path:
             graphs.edit(binding)

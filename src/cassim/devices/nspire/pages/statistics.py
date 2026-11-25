@@ -23,6 +23,7 @@ from cassim.stats.plots import (
     plot_scene,
     scatter_data_at,
     scatter_points,
+    zoomed_window,
 )
 
 if TYPE_CHECKING:
@@ -236,6 +237,8 @@ class Statistics:
             return
         elif name == "clear":
             self._clear()
+        elif name == "zoom":
+            self.zoom(*(float(part) for part in value.split(",")))
         elif not self._set_option(name, value):
             self.message = f"Unsupported Data & Statistics action: {action}"
             return
@@ -520,6 +523,14 @@ class Statistics:
         if not self.y_name and self.plot_type is PlotType.DOT:
             return dot_points(data, width, height)
         return ()
+
+    def zoom(self, width: float, height: float, factor: float, x: float, y: float) -> None:
+        """Zoom by `factor` about a screen point of the plot: the wheel and a pinch (Simon's
+        note 4). The new window is kept, as one set in Window Settings is."""
+        window = zoomed_window(self.plot_data(), (width, height), factor, (x, y))
+        if window is not None:
+            self.window = window
+            self._scene = None
 
     def drag_value_at(
         self, width: float, height: float, screen_x: float, screen_y: float

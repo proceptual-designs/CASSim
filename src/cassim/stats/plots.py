@@ -287,6 +287,59 @@ def dot_data_at(
     return area.xmin + (screen_x - area.left) / (area.right - area.left) * (area.xmax - area.xmin)
 
 
+def _drawn_area(data: PlotData, width: float, height: float) -> tuple[_Area, bool] | None:
+    """The plot's area as `plot_scene` draws it, and whether its y axis zooms too; None for a
+    plot with category axes, a normal probability plot or no data."""
+    width, height = max(width, 120), max(height, 100)
+    categorical = data.force_categorical_x or any(isinstance(value, str) for value in data.x)
+    if categorical or data.plot_type in (
+        PlotType.DOT_CHART,
+        PlotType.BAR,
+        PlotType.PIE,
+        PlotType.NORMAL_PROBABILITY,
+    ):
+        return None
+    values = _finite(data.x)
+    if not values:
+        return None
+    if data.plot_type is PlotType.HISTOGRAM:
+        bins = _histogram_bins(_distribution_data(data))
+        return (_histogram_area(bins, width, height, data), True) if bins else None
+    if data.plot_type is PlotType.BOX:
+        xmin, xmax = data.window[:2] if data.window is not None else _bounds(values)
+        return _Area(48, 16, max(width - 14, 64), max(height - 34, 48), xmin, xmax, 0, 1), False
+    if data.y:
+        rows, area = _scatter_area(data, width, height)
+        return (area, True) if rows else None
+    _, area = _dot_layout(data, width, height)
+    return area, False
+
+
+def zoomed_window(
+    data: PlotData, size: tuple[float, float], factor: float, at: tuple[float, float]
+) -> tuple[float, float, float, float] | None:
+    """The window after zooming by `factor` (below 1 zooms in) about the screen point `at`:
+    the mouse wheel and a pinch on a Data & Statistics plot (Simon, 2026-11-25; the device does
+    not zoom, run 6 S1). One-variable plots zoom along x only. None if the plot does not zoom."""
+    drawn = _drawn_area(data, *size)
+    if drawn is None or not (math.isfinite(factor) and factor > 0):
+        return None
+    area, both = drawn
+    x, y = at
+    across = (x - area.left) / (area.right - area.left)
+    down = (y - area.top) / (area.bottom - area.top)
+    x_anchor = area.xmin + across * (area.xmax - area.xmin)
+    x_span = (area.xmax - area.xmin) * factor
+    xmin = x_anchor - across * x_span
+    ymin, ymax = area.ymin, area.ymax
+    if both:
+        y_anchor = area.ymax - down * (area.ymax - area.ymin)
+        y_span = (area.ymax - area.ymin) * factor
+        ymax = y_anchor + down * y_span
+        ymin = ymax - y_span
+    return xmin, xmin + x_span, ymin, ymax
+
+
 def _empty(width: float, height: float, xname: str, yname: str) -> Scene:
     return Scene(
         width,
@@ -399,8 +452,9 @@ def _dot_plot(data: PlotData, width: float, height: float) -> Scene:
     return Scene(width, height, (axis, Layer("data", tuple(shapes))))
 
 
-def _histogram(data: PlotData, width: float, height: float) -> Scene:
-    """A histogram; with a Summary List, each X value counts as its summary value (R5-Q2)."""
+def _histogram_bins(data: PlotData) -> tuple[tuple[float, float, float], ...]:
+    """The histogram's bins as (left, right, height); with a Summary List, each X value counts
+    as its summary value (R5-Q2)."""
     weighted = [
         (float(value), 1.0 if not data.summary else (data.summary[index] or 0.0))
         for index, value in enumerate(data.x)
@@ -410,7 +464,7 @@ def _histogram(data: PlotData, width: float, height: float) -> Scene:
     ]
     values = tuple(value for value, _ in weighted)
     if not values:
-        return _empty(width, height, data.x_name, "Frequency")
+        return ()
     bin_width = data.histogram_width if data.histogram_width > 0 else 1.0
     start = min(values)
     counts: dict[int, float] = {}
@@ -432,13 +486,26 @@ def _histogram(data: PlotData, width: float, height: float) -> Scene:
         )
         for index, amount in sorted(counts.items())
     )
-    xmax = max(right for _, right, _ in bins)
-    area = _area(
+    return bins
+
+
+def _histogram_area(
+    bins: tuple[tuple[float, float, float], ...], width: float, height: float, data: PlotData
+) -> _Area:
+    return _area(
         (width, height),
-        (start, xmax),
+        (bins[0][0], max(right for _, right, _ in bins)),
         tuple(amount for _, _, amount in bins),
         data.window,
     )
+
+
+def _histogram(data: PlotData, width: float, height: float) -> Scene:
+    """A histogram; with a Summary List, each X value counts as its summary value (R5-Q2)."""
+    bins = _histogram_bins(data)
+    if not bins:
+        return _empty(width, height, data.x_name, "Frequency")
+    area = _histogram_area(bins, width, height, data)
     shapes: list[Shape] = []
     for left, right, amount in bins:
         x0, y0 = area.point(left, 0)

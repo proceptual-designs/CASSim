@@ -26,6 +26,7 @@ _MATH_NAMES = frozenset(
         "fabs",
         "floor",
         "ceil",
+        "copysign",
         "min",
         "max",
         "pi",

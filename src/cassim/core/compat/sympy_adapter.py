@@ -505,6 +505,10 @@ class _GraphMathPrinter:
             return "(" + " * ".join(self.emit(part) for part in raw.args) + ")"
         if raw.is_Pow:
             base, exponent = raw.args
+            if exponent.is_Rational and not exponent.is_Integer and exponent.q % 2:
+                # The real odd root, as Real mode has it: x^(1/3) is drawn for x<0 too (R6-A10)
+                size = f"(math.fabs({self.emit(base)}) ** {self.emit(exponent)})"
+                return f"math.copysign({size}, {self.emit(base)})" if exponent.p % 2 else size
             return f"({self.emit(base)} ** {self.emit(exponent)})"
         return None
 
