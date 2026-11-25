@@ -1,154 +1,411 @@
-# Requirements traced here: FR-FX-UI-001, FR-FX-UI-002, FR-FX-UI-003, FR-FX-TUT-001
-"""Unit and headless UI tests for CASSim fx Flet view and user interactions."""
+"""The CASSim fx view, run headless against a stand-in shell.
 
-from collections.abc import Callable
+Requirements: FR-FX-DSP-001, FR-FX-DSP-002, FR-FX-SHR-001, FR-FX-SHR-002, FR-FX-TUT-001,
+FR-FX-TUT-002, FR-FX-TUT-005, FR-FX-UI-001 to -004.
+Cited: FR-FX-UI-001 FR-FX-UI-002 FR-FX-UI-003 FR-FX-UI-004 FR-FX-TUT-003.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from collections.abc import Callable, Coroutine
 from types import SimpleNamespace
+from typing import Any
 
-from cassim.devices.scientific.ui import mount
-from cassim.devices.scientific.ui.app import ScientificApp
+import flet as ft
+import pytest
+
+from cassim.devices.scientific import keys as k
+from cassim.devices.scientific.state import ScientificState
+from cassim.devices.scientific.ui import app as ui
+from cassim.devices.scientific.ui.app import BASE_HEIGHT, BASE_WIDTH, ScientificApp
+from cassim.devices.scientific.ui.skins import SKINS
 
 
-class DummyPage:
-    def __init__(self) -> None:
-        self.views: list[object] = []
-        self.dialog: object = None
+class FakePage:
+    def __init__(self, width: float = 1366, height: float = 650) -> None:
+        self.width = width
+        self.height = height
+        self.fonts: dict[str, str] = {}
+        self.controls: list[ft.Control] = []
+        self.tasks: list[Coroutine[Any, Any, Any]] = []
+        self.dialogs: list[object] = []
+        self._dialogs = SimpleNamespace(controls=[])
+        self.title = ""
+        self.padding = 0
+        self.bgcolor = ""
+        self.theme_mode = None
+        self.on_keyboard_event: Callable[..., None] | None = None
+        self.on_resize: Callable[..., None] | None = None
+
+    def add(self, control: ft.Control) -> None:
+        self.controls.append(control)
 
     def update(self) -> None:
         pass
 
-    def show_dialog(self, dlg: object) -> None:
-        self.dialog = dlg
+    def run_task(self, handler: Callable[..., Coroutine[Any, Any, Any]], *args: object) -> None:
+        self.tasks.append(handler(*args))
+
+    def run_tasks(self) -> None:
+        tasks, self.tasks = self.tasks, []
+        for task in tasks:
+            asyncio.run(task)
+
+    def drop_tasks(self) -> None:
+        for task in self.tasks:
+            task.close()
+        self.tasks = []
+
+    def show_dialog(self, dialog: object) -> None:
+        self.dialogs.append(dialog)
 
     def pop_dialog(self) -> None:
-        self.dialog = None
+        if self.dialogs:
+            self.dialogs.pop()
 
 
-class DummyShell:
-    def __init__(self) -> None:
-        self.page = DummyPage()
-        self.update_label = "Check for Updates"
-        self.changed = lambda: None
+class FakeShell:
+    def __init__(self, page: FakePage, route: str = "") -> None:
+        self.page = page
+        self.route = route
         self.home: Callable[[], None] | None = lambda: None
+        self.update_label = "Check for updates"
+        self.changed: Callable[[], None] = lambda: None
+        self.store: dict[str, str] = {}
         self.notices: list[tuple[str, str]] = []
+        self.copied: list[str] = []
+        self.saved: list[tuple[str, str]] = []
+        self.picked: str | None = None
+
+    async def read(self, key: str) -> str | None:
+        return self.store.get(key)
+
+    def write(self, key: str, text: str) -> None:
+        self.store[key] = text
 
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
 
-    def activate_update(self) -> None:
-        pass
-
-    def help(self) -> None:
-        pass
-
-    def about(self) -> None:
-        pass
-
-    async def pick_file(self, *args: object, **kwargs: object) -> str | None:
-        return None
-
-    async def save_file(self, *args: object, **kwargs: object) -> None:
-        pass
-
     def copy(self, text: str) -> None:
-        pass
+        self.copied.append(text)
 
     def link(self, fragment: str) -> str:
         return f"https://example.test/#/{fragment}"
 
+    async def save_file(self, name: str, text: str, title: str = "") -> None:
+        self.saved.append((name, text))
 
-def test_mount_scientific_app() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
-    assert isinstance(app, ScientificApp)
-    assert len(shell.page.views) == 1
-    assert app.menu_visible is True
-    assert app.tutorials_visible is True
-    assert app.state.mode == "COMP"
-    assert app.lcd_result.value == "0"
+    async def pick_file(self, extensions: tuple[str, ...], title: str = "") -> str | None:
+        return self.picked
 
+    def confirm(self, title: str, message: str, action: str, accept) -> None:
+        asyncio.run(accept())
 
-def test_toggle_menu_bar() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
-
-    # Toggle menu off
-    app.toggle_menu_bar(SimpleNamespace())
-    assert app.menu_visible is False
-    assert app.top_menu_bar.visible is False
-    assert app.restore_menu_button.visible is True
-
-    # Toggle menu back on
-    app.toggle_menu_bar(SimpleNamespace())
-    assert app.menu_visible is True
-    assert app.top_menu_bar.visible is True
-    assert app.restore_menu_button.visible is False
+    def help(self, page: str = "") -> None: ...
+    def about(self) -> None: ...
+    def activate_update(self) -> None: ...
 
 
-def test_toggle_tutorials() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
-
-    # Toggle off
-    app.toggle_tutorials(SimpleNamespace())
-    assert app.tutorials_visible is False
-    assert app.tutorial_sidebar.visible is False
-
-    # Toggle on
-    app.toggle_tutorials(SimpleNamespace())
-    assert app.tutorials_visible is True
-    assert app.tutorial_sidebar.visible is True
+def started(page: FakePage | None = None, route: str = "", store: dict[str, str] | None = None):
+    page = page or FakePage()
+    shell = FakeShell(page, route)
+    shell.store.update(store or {})
+    app = ScientificApp(shell)  # ty: ignore[invalid-argument-type]
+    asyncio.run(app.start())
+    return app, shell, page
 
 
-def test_keypad_click_and_calculation() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
-
-    app.on_key_press("4")
-    app.on_key_press("*")
-    app.on_key_press("5")
-    app.on_key_press("=")
-
-    assert app.state.result == "20"
-    assert app.lcd_result.value == "20"
+def keyboard(app: ScientificApp, key: str, **mods: bool) -> None:
+    event = SimpleNamespace(
+        key=key,
+        shift=mods.get("shift", False),
+        ctrl=mods.get("ctrl", False),
+        alt=mods.get("alt", False),
+        meta=mods.get("meta", False),
+    )
+    app.on_keyboard(event)  # ty: ignore[invalid-argument-type]
 
 
-def test_cycle_mode_and_angle() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
+def test_mount_and_start() -> None:
+    app, _, page = started()
+    assert page.title == "CASSim fx"
+    assert page.controls == [app.root]
+    assert page.on_keyboard_event == app.on_keyboard
+    assert set(app.key_controls) == set(k.KEYS_BY_ID)  # FR-FX-DSP-001: every key is drawn
+    app.unmount()
+    assert page.on_keyboard_event is None
+    assert page.controls == []
 
-    # Cycle mode COMP -> STAT -> TABLE -> COMP
-    assert app.state.mode == "COMP"
-    app.cycle_mode(SimpleNamespace())
+
+def _row_widths(app: ScientificApp) -> list[float]:
+    column = app.calculator.content
+    assert isinstance(column, ft.Column)
+    widths = []
+    for row in column.controls:
+        if isinstance(row, ft.Row) and row.width and len(row.controls) >= 4:
+            total = 0.0
+            for cell in row.controls:
+                face = cell.controls[-1] if isinstance(cell, ft.Column) else cell
+                if isinstance(face, ft.Semantics):
+                    face = face.content
+                assert isinstance(face, ft.Container)
+                total += face.width or 0
+            total += row.spacing * (len(row.controls) - 1)
+            widths.append(total - row.width)
+    return widths
+
+
+@pytest.mark.parametrize(("width", "height"), [(1366, 650), (1920, 935), (800, 600), (390, 760)])
+def test_the_keypad_fits_the_calculator(width: float, height: float) -> None:
+    """The review's bug: six-key rows were wider than the calculator, so ln, tan and M+ were
+    cut off. Every row must fit inside the body at every size."""
+    app, _, _ = started(FakePage(width, height))
+    overflow = _row_widths(app)
+    assert len(overflow) == 8
+    assert all(excess <= 0.5 for excess in overflow), overflow
+
+
+def test_the_calculator_scales_to_the_window() -> None:
+    """FR-FX-DSP-001: the whole calculator fits a Chromebook-sized window."""
+    app, _, page = started(FakePage(1366, 650))
+    assert BASE_HEIGHT * app.scale <= page.height - ui.BAR_HEIGHT
+    small, _, _ = started(FakePage(360, 500))
+    assert small.scale == ui.MIN_SCALE  # then the page scrolls
+    big, _, _ = started(FakePage(2560, 1400))
+    assert big.scale == ui.MAX_SCALE
+    assert BASE_WIDTH * big.scale > BASE_WIDTH
+
+
+def test_keypad_clicks_and_annunciators() -> None:
+    """FR-FX-DSP-002."""
+    app, _, page = started()
+    for key in (k.SHIFT,):
+        app.on_key(key)
+    assert app.state.annunciators()["S"]
+    for key in ("9", k.AC, "2", k.FRAC, "3", k.EQ):
+        app.on_key(key)
+    assert app.state.answer_text() == "2⌟3"
+    page.drop_tasks()
+
+
+def test_keyboard_input() -> None:
+    """FR-FX-UI-004: typing, shortcuts and the modifier keys."""
+    app, shell, page = started()
+    keyboard(app, "2")
+    keyboard(app, "Slash", ctrl=True)
+    keyboard(app, "3")
+    keyboard(app, "Arrow Right")
+    keyboard(app, "Equal", shift=True)  # +
+    keyboard(app, "r")
+    keyboard(app, "2")
+    keyboard(app, "Enter")
+    assert app.state.display().text() == "2⌟3+√2\n(2+3√2)⌟3"
+    keyboard(app, "c", ctrl=True)
+    assert shell.copied == ["(2+3√2)⌟3"]
+    keyboard(app, "F1")
+    keyboard(app, "9")
+    assert app.state.menu == "clr"
+    keyboard(app, "Escape")
+    assert app.state.screen == "calc"
+    keyboard(app, "Numpad 7")
+    assert app.state.display().text() == "7"
+    page.drop_tasks()
+
+
+def test_keyboard_in_verify_mode_types_equals() -> None:
+    app, _, page = started()
+    for key in (k.MODE, "4", "2"):
+        app.on_key(key)
+    keyboard(app, "Equal")
+    keyboard(app, "2")
+    keyboard(app, "Enter")
+    assert app.state.answer_text() == "TRUE"
+    page.drop_tasks()
+
+
+def test_keys_are_ignored_while_a_dialog_is_open() -> None:
+    app, _, page = started()
+    page._dialogs.controls.append(SimpleNamespace(open=True))
+    keyboard(app, "5")
+    assert app.state.display().text() == ""
+
+
+def test_keys_are_ignored_while_a_menu_is_open() -> None:
+    """An arrow key that moves through the Doc menu must not also move the entry's cursor."""
+    app, _, page = started()
+    opened, closed = app.doc_menu.on_open, app.doc_menu.on_close
+    assert callable(opened)
+    assert callable(closed)
+    opened(None)
+    keyboard(app, "5")
+    assert app.state.display().text() == ""
+    closed(None)
+    keyboard(app, "5")
+    assert app.state.display().text() == "5"
+    page.drop_tasks()
+
+
+def test_hide_menu_bar_and_escape() -> None:
+    """FR-FX-UI-002: presentation mode, with Esc bringing the bar back."""
+    app, _, page = started()
+    app.toggle_menu_bar()
+    assert not app.top_bar.visible
+    assert app.restore_button.visible
+    keyboard(app, "Escape")
+    assert app.top_bar.visible
+    page.drop_tasks()
+
+
+def test_status_chips() -> None:
+    """FR-FX-UI-001: the chips show the mode, angle and input, and change them."""
+    app, _, page = started()
+    app.cycle_angle()
+    assert app.state.setup.angle == "RAD"
+    label = app.angle_chip.content
+    assert isinstance(label, ft.Text)
+    assert label.value == "Rad"
+    app.toggle_io()
+    assert app.state.setup.input == "line"
+    app.on_key(k.MODE)  # what the chip's click does
+    assert app.state.menu == "mode"
+    page.drop_tasks()
+
+
+@pytest.mark.parametrize("name", list(SKINS))
+def test_appearance(name: str) -> None:
+    app, shell, page = started()
+    app.apply_skin(name)
+    assert page.bgcolor == SKINS[name].page
+    assert json.loads(shell.store["prefs"])["theme"] == name
+    again, _, page2 = started(store=shell.store)
+    assert page2.bgcolor == SKINS[name].page
+    assert again.skin_name == name
+
+
+def test_autosave_and_restore() -> None:
+    """FR-FX-SHR-001: the calculator comes back after a reload."""
+    app, shell, page = started()
+    for key in (k.SHIFT, k.MODE, "4", "7", k.MPLUS, "3", k.ADD, "4", k.EQ):
+        app.on_key(key)
+    page.run_tasks()
+    assert "autosave" in shell.store
+    again, _, _ = started(store=shell.store)
+    assert again.state.setup.angle == "RAD"
+    assert float(again.state.variables["M"]) == 7
+    assert again.state.display().text() == "3+4\n7"
+
+
+def test_share_link_opens_on_start() -> None:
+    """FR-FX-SHR-002: a link fills the calculator and wins over the autosave."""
+    shared = ScientificState()
+    for key in (k.MODE, "2", "1", "4", k.EQ, "6", k.EQ):
+        shared.press(key)
+    fragment = shared.share_fragment()
+    app, _, _ = started(route=f"/{fragment}", store={"autosave": ScientificState().dumps()})
     assert app.state.mode == "STAT"
-    app.cycle_mode(SimpleNamespace())
-    assert app.state.mode == "TABLE"
-    app.cycle_mode(SimpleNamespace())
-    assert app.state.mode == "COMP"
-
-    # Cycle angle DEG -> RAD -> GRA -> DEG
-    assert app.state.angle_unit == "DEG"
-    app.cycle_angle(SimpleNamespace())
-    assert app.state.angle_unit == "RAD"
-    app.cycle_angle(SimpleNamespace())
-    assert app.state.angle_unit == "GRA"
-    app.cycle_angle(SimpleNamespace())
-    assert app.state.angle_unit == "DEG"
+    assert len(app.state.stat_rows) == 2
+    broken, shell, _ = started(route="/doc=broken!!")
+    assert shell.notices
+    assert broken.state.mode == "COMP"
 
 
-def test_load_examples() -> None:
-    shell = DummyShell()
-    app = mount(shell)  # ty: ignore[invalid-argument-type]
+def test_share_dialog_and_files() -> None:
+    app, shell, page = started()
+    for key in ("5", k.EQ):
+        app.on_key(key)
+    app.open_share_link()
+    assert page.dialogs
+    asyncio.run(app.save_file())
+    name, text = shell.saved[-1]
+    assert name == "Untitled.cassim.json"
+    shell.picked = text.replace('"Untitled"', '"Homework"')
+    other = ScientificApp(shell)
+    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
+    assert other.doc_name == "Homework"
+    assert other.state.answer_text() == "5"
+    shell.picked = json.dumps({"format": "cassim-document", "schema": 5, "device": "nspire"})
+    asyncio.run(other.open_file(None))  # ty: ignore[invalid-argument-type]
+    assert "nspire" in shell.notices[-1][1]
+    page.drop_tasks()
 
-    app.load_example("sin(30)")
-    assert app.state.result in ("0.5", "1/2")
 
-    app.load_stat_example()
+def test_reset_all_and_examples() -> None:
+    app, _, page = started()
+    app.load_example(0)
     assert app.state.mode == "STAT"
-    assert len(app.state.stat_1var) == 5
+    app.confirm_reset()
+    assert app.state.mode == "COMP"
+    page.drop_tasks()
 
-    app.load_dms_example()
-    assert app.state.expr == "12°34'56\""
-    assert app.state.result == "12.58222222"
 
-    app.load_prime_example()
-    assert app.state.result == "2³×3²×5"
+def test_guide_me_lesson() -> None:
+    """FR-FX-TUT-001 to -003 in the view: the keypad is not locked, a wrong key only hints."""
+    app, shell, page = started()
+    for key in ("4", "2"):
+        app.on_key(key)
+    app.lesson_index = 0  # reset
+    app.start_lesson()
+    assert app._target_key() == k.SHIFT
+    app.on_key("7")
+    assert not app.feedback_ok
+    assert app.state.display().text() != "7"
+    for key in (k.SHIFT, "9", "3", k.EQ, k.AC):
+        app.on_key(key)
+    assert app.session is not None
+    assert app.session.is_complete
+    assert "reset" in app.completed
+    assert "autosave" not in shell.store or "42" in shell.store["autosave"]
+    app.stop_lesson()
+    assert app.state.display().text() == "42"  # the student's work is back
+    page.drop_tasks()
+
+
+def test_back_and_skip() -> None:
+    app, _, page = started()
+    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("fractions")
+    app.start_lesson()
+    app.lesson_skip()
+    app.lesson_skip()
+    assert app.state.display().text() == "2⌟□"
+    app.lesson_back()
+    assert app.state.display().text() == "□⌟□"
+    page.drop_tasks()
+
+
+def test_show_me_plays_the_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-FX-TUT-005: Show me presses the keys itself."""
+    monkeypatch.setattr(ui, "DEMO_STEP", 0.0)
+    app, _, page = started()
+    app.set_tutorial_mode("show")
+    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.start_lesson()
+    page.drop_tasks()  # the playback the button scheduled; run it directly
+    asyncio.run(app._play())
+    page.drop_tasks()
+    assert app.state.answer_text() == "2×3×5²×7"
+
+
+def test_test_me() -> None:
+    """FR-FX-TUT-005: no glow; Check says right or wrong."""
+    app, _, page = started()
+    app.set_tutorial_mode("test")
+    app.lesson_index = [lesson.id for lesson in ui.LESSONS].index("prime")
+    app.start_lesson()
+    assert app._target_key() is None
+    app.check_test()
+    assert not app.feedback_ok
+    for key in ("3", "6", "0", k.EQ, k.SHIFT, k.DMS):
+        app.on_key(key)
+    app.check_test()
+    assert app.feedback_ok
+    assert "prime" in app.completed
+    page.drop_tasks()
+
+
+def test_dialogs_open() -> None:
+    app, _, page = started()
+    for opener in (app.open_settings, app.open_appearance, app.open_shortcuts, app.save_file_as):
+        opener()
+    assert len(page.dialogs) == 4

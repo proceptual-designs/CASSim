@@ -1,450 +1,332 @@
-"""Headless calculation engine for CASSim fx (Scientific Calculator).
+"""Statistics and number theory for CASSim fx (FR-FX-STA-002 to -005, FR-FX-DSP-009).
 
-Handles exact fractions, mixed numbers, powers, roots, scientific/engineering notation,
-DMS (degrees, minutes, seconds), trigonometry, coordinate conversions, number theory (GCD, LCM,
-prime factorisation), combinatorics, and Australian curriculum statistics (median-split quartiles,
-sample sx vs population σx, Pearson's r, and linear regression).
+Quartiles follow the school convention CASSim uses everywhere (AGENTS.md): Q1 and Q3 are the
+medians of the lower and upper halves, leaving the median out when n is odd; numpy's interpolated
+quartiles are not used. Sample sd divides by n-1 (sx), population sd by n (σx). Regressions are
+least squares, on transformed data for the curved types (ln X, eˣ, A·Bˣ, A·X^B, 1/X), so r is the
+correlation of the transformed data.
 
-Pure Python: zero Flet imports. Tested headless.
+Pure Python: no Flet, no NumPy.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from fractions import Fraction
 from typing import Literal
 
-AngleUnit = Literal["DEG", "RAD", "GRA"]
+from cassim.devices.scientific.layout import Seq, Sup, Text
+from cassim.devices.scientific.values import CalcError
+
 FIRST_PRIME = 2
-MIN_PAIRS = 2
-SECONDS_PER_MINUTE = 60
-MINUTES_PER_DEGREE = 60
+MAX_FACTOR_INPUT = 10**10
+
+StatType = Literal["1-VAR", "A+BX", "_+CX2", "ln X", "e^X", "A·B^X", "A·X^B", "1/X"]
+STAT_TYPES: tuple[StatType, ...] = (
+    "1-VAR",
+    "A+BX",
+    "_+CX2",
+    "ln X",
+    "e^X",
+    "A·B^X",
+    "A·X^B",
+    "1/X",
+)
+STAT_TYPE_LABELS: dict[StatType, str] = {
+    "1-VAR": "1-VAR",
+    "A+BX": "A+BX",
+    "_+CX2": "_+CX²",
+    "ln X": "ln X",
+    "e^X": "e^X",
+    "A·B^X": "A·B^X",
+    "A·X^B": "A·X^B",
+    "1/X": "1/X",
+}
 
 
-def to_degrees(val: float, unit: AngleUnit) -> float:
-    """Convert an angle from the active unit to degrees."""
-    if unit == "DEG":
-        return val
-    if unit == "RAD":
-        return math.degrees(val)
-    if unit == "GRA":
-        return val * 0.9
-    return val
+def _math() -> CalcError:
+    return CalcError("Math")
 
 
-def from_degrees(deg: float, unit: AngleUnit) -> float:
-    """Convert degrees to the active angle unit."""
-    if unit == "DEG":
-        return deg
-    if unit == "RAD":
-        return math.radians(deg)
-    if unit == "GRA":
-        return deg / 0.9
-    return deg
-
-
-def to_radians(val: float, unit: AngleUnit) -> float:
-    """Convert an angle from the active unit to radians."""
-    if unit == "RAD":
-        return val
-    if unit == "DEG":
-        return math.radians(val)
-    if unit == "GRA":
-        return math.radians(val * 0.9)
-    return val
-
-
-# ---------------------------------------------------------------------------
-# Number Theory & Combinatorics
-# ---------------------------------------------------------------------------
+# ---- prime factors --------------------------------------------------------------------------
 
 
 def prime_factors(n: int) -> list[tuple[int, int]]:
-    """Prime factorisation of positive integer n as list of (prime, exponent) pairs."""
-    if n <= 1:
-        return []
+    """The prime factorisation of n > 1 as (prime, exponent) pairs."""
     factors: list[tuple[int, int]] = []
-    d = 2
-    temp = n
-    while d * d <= temp:
-        if temp % d == 0:
+    d = FIRST_PRIME
+    rest = n
+    while d * d <= rest:
+        if rest % d == 0:
             count = 0
-            while temp % d == 0:
+            while rest % d == 0:
                 count += 1
-                temp //= d
+                rest //= d
             factors.append((d, count))
         d += 1 if d == FIRST_PRIME else 2
-    if temp > 1:
-        factors.append((temp, 1))
+    if rest > 1:
+        factors.append((rest, 1))
     return factors
 
 
-def format_prime_factors(n: int) -> str:
-    """Format prime factorisation string (e.g. '2×3×5²×7')."""
-    if n <= 1:
-        return str(n)
-    sup = {
-        "0": "⁰",
-        "1": "¹",
-        "2": "²",
-        "3": "³",
-        "4": "⁴",
-        "5": "⁵",
-        "6": "⁶",
-        "7": "⁷",
-        "8": "⁸",
-        "9": "⁹",
-    }
-    parts: list[str] = []
-    for p, exp in prime_factors(n):
-        if exp == 1:
-            parts.append(str(p))
-        else:
-            exp_str = "".join(sup.get(ch, ch) for ch in str(exp))
-            parts.append(f"{p}{exp_str}")
-    return "×".join(parts)
+def factor_layout(n: int) -> Seq:
+    """FACT: n as a product of prime powers, e.g. 2²×3²×5 (FR-FX-DSP-009). Only for whole numbers
+    from 2 up to ten digits; others are a Math ERROR."""
+    if n < FIRST_PRIME or n >= MAX_FACTOR_INPUT:
+        raise _math()
+    nodes: list[Text | Sup] = []
+    for index, (p, exp) in enumerate(prime_factors(n)):
+        if index:
+            nodes.append(Text("×"))
+        nodes.append(Text(str(p)))
+        if exp > 1:
+            nodes.append(Sup((Text(str(exp)),)))
+    return tuple(nodes)
 
 
-def gcd(a: int, b: int) -> int:
-    return math.gcd(a, b)
-
-
-def lcm(a: int, b: int) -> int:
-    if a == 0 or b == 0:
-        return 0
-    return abs(a * b) // math.gcd(a, b)
-
-
-def nPr(n: int, r: int) -> int:
-    if r < 0 or r > n:
-        return 0
-    return math.perm(n, r)
-
-
-def nCr(n: int, r: int) -> int:
-    if r < 0 or r > n:
-        return 0
-    return math.comb(n, r)
-
-
-def factorial(n: int) -> int:
-    return math.factorial(n)
-
-
-# ---------------------------------------------------------------------------
-# Sexagesimal (Degrees, Minutes, Seconds)
-# ---------------------------------------------------------------------------
-
-
-def to_dms(decimal_deg: float) -> tuple[int, int, float]:
-    """Convert decimal degrees to (degrees, minutes, seconds)."""
-    sign = -1 if decimal_deg < 0 else 1
-    val = abs(decimal_deg)
-    d = int(val)
-    val = (val - d) * 60.0
-    m = int(val)
-    s = (val - m) * 60.0
-    return sign * d, m, round(s, 5)
-
-
-def from_dms(d: float, m: float = 0.0, s: float = 0.0) -> float:
-    """Convert (degrees, minutes, seconds) to decimal degrees."""
-    sign = -1 if d < 0 else 1
-    return sign * (abs(d) + m / 60.0 + s / 3600.0)
-
-
-def format_dms(decimal_deg: float) -> str:
-    """Format as D°M'S\"."""
-    d, m, s = to_dms(decimal_deg)
-    s_int = round(s)
-    if s_int == SECONDS_PER_MINUTE:
-        s_int = 0
-        m += 1
-    if m == MINUTES_PER_DEGREE:
-        m = 0
-        d += 1
-    return f"{d}°{m}'{s_int}\""
-
-
-# ---------------------------------------------------------------------------
-# Coordinate Conversions
-# ---------------------------------------------------------------------------
-
-
-def pol_to_rec(r: float, theta: float, unit: AngleUnit = "DEG") -> tuple[float, float]:
-    """Rec(r, θ) -> (x, y)."""
-    rad = to_radians(theta, unit)
-    x = r * math.cos(rad)
-    y = r * math.sin(rad)
-    return round(x, 10), round(y, 10)
-
-
-def rec_to_pol(x: float, y: float, unit: AngleUnit = "DEG") -> tuple[float, float]:
-    """Pol(x, y) -> (r, θ)."""
-    r = math.hypot(x, y)
-    rad = math.atan2(y, x)
-    deg = math.degrees(rad)
-    theta = from_degrees(deg, unit)
-    return round(r, 10), round(theta, 10)
-
-
-to_polar = rec_to_pol
-to_rectangular = pol_to_rec
-
-
-# ---------------------------------------------------------------------------
-# Australian School Statistics Engine
-# ---------------------------------------------------------------------------
+# ---- one variable ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
-class Stat1VarSummary:
-    n: int
+class OneVar:
+    n: float
     mean: float
     sum_x: float
     sum_x2: float
-    sx: float  # sample SD (n-1)
-    sigma_x: float  # population SD (n)
+    sx: float  # sample sd (n-1)
+    sigma_x: float  # population sd (n)
     min_x: float
     q1: float
     median: float
     q3: float
     max_x: float
 
-    @property
-    def med(self) -> float:
-        return self.median
+
+def _median(values: list[float]) -> float:
+    m = len(values)
+    mid = m // 2
+    return values[mid] if m % 2 else (values[mid - 1] + values[mid]) / 2
 
 
-def calculate_1var_stats(rows: list[tuple[float, int]]) -> Stat1VarSummary:
-    """Calculate single-variable summary statistics under Australian curriculum rules.
-
-    Quartiles follow the TI/school convention:
-    - Sort values.
-    - Median is middle element (or mean of two middle elements).
-    - If n is odd, median is excluded when splitting into lower and upper halves.
-    - If n is even, lower half is first n/2, upper half is last n/2.
-    - Q1 is median of lower half; Q3 is median of upper half.
-    - Sample SD uses (n - 1) divisor; population SD uses n divisor.
-    """
+def one_var(rows: list[tuple[float, float]]) -> OneVar:
+    """Summary statistics of (x, frequency) rows. Frequencies must be whole and not negative."""
     expanded: list[float] = []
     for x, freq in rows:
-        if freq > 0:
-            expanded.extend([float(x)] * freq)
-
+        if freq < 0 or freq != int(freq):
+            raise _math()
+        expanded.extend([x] * int(freq))
     if not expanded:
-        return Stat1VarSummary(0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-
+        raise _math()
     expanded.sort()
     n = len(expanded)
-    sum_x = sum(expanded)
-    sum_x2 = sum(x * x for x in expanded)
+    sum_x = math.fsum(expanded)
     mean = sum_x / n
-
-    if n > 1:
-        var_sample = sum((x - mean) ** 2 for x in expanded) / (n - 1)
-        sx = math.sqrt(max(0.0, var_sample))
-    else:
-        sx = 0.0
-
-    var_pop = sum((x - mean) ** 2 for x in expanded) / n
-    sigma_x = math.sqrt(max(0.0, var_pop))
-
-    def _median_of(vals: list[float]) -> float:
-        m = len(vals)
-        if m == 0:
-            return 0.0
-        mid = m // 2
-        if m % 2 != 0:
-            return vals[mid]
-        return (vals[mid - 1] + vals[mid]) / 2.0
-
-    median = _median_of(expanded)
+    squares = math.fsum((x - mean) ** 2 for x in expanded)
     half = n // 2
-    if n % 2 == 0:
-        lower_half = expanded[:half]
-        upper_half = expanded[half:]
-    else:
-        lower_half = expanded[:half]
-        upper_half = expanded[half + 1 :]
-
-    q1 = _median_of(lower_half) if lower_half else expanded[0]
-    q3 = _median_of(upper_half) if upper_half else expanded[-1]
-
-    return Stat1VarSummary(
-        n=n,
-        mean=round(mean, 10),
-        sum_x=round(sum_x, 10),
-        sum_x2=round(sum_x2, 10),
-        sx=round(sx, 10),
-        sigma_x=round(sigma_x, 10),
+    lower = expanded[:half]
+    upper = expanded[half + (n % 2) :]
+    return OneVar(
+        n=float(n),
+        mean=mean,
+        sum_x=sum_x,
+        sum_x2=math.fsum(x * x for x in expanded),
+        sx=math.sqrt(squares / (n - 1)) if n > 1 else math.nan,
+        sigma_x=math.sqrt(squares / n),
         min_x=expanded[0],
-        q1=q1,
-        median=median,
-        q3=q3,
+        q1=_median(lower) if lower else expanded[0],
+        median=_median(expanded),
+        q3=_median(upper) if upper else expanded[-1],
         max_x=expanded[-1],
     )
 
 
+# ---- two variables --------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
-class LinearRegressionSummary:
-    n: int
-    mean_x: float
-    mean_y: float
+class TwoVar:
+    n: float
     sum_x: float
     sum_x2: float
     sum_y: float
     sum_y2: float
     sum_xy: float
+    mean_x: float
+    mean_y: float
+    sigma_x: float
+    sigma_y: float
     sx: float
     sy: float
-    a: float  # y-intercept
-    b: float  # slope
-    r: float  # Pearson correlation coefficient
-
-    def predict_y(self, x: float) -> float:
-        """Estimate y for given x."""
-        return self.a + self.b * x
-
-    def predict_x(self, y: float) -> float:
-        """Estimate x for given y."""
-        if self.b == 0.0:
-            return 0.0
-        return (y - self.a) / self.b
-
-    estimate_y = predict_y
-    estimate_x = predict_x
+    min_x: float
+    max_x: float
+    min_y: float
+    max_y: float
 
 
-def calculate_linear_regression(pairs: list[tuple[float, float]]) -> LinearRegressionSummary:
-    """Calculate bivariate linear regression y = A + Bx and Pearson's r."""
-    n = len(pairs)
-    if n < MIN_PAIRS:
-        return LinearRegressionSummary(
-            n, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        )
-
-    sum_x = sum(p[0] for p in pairs)
-    sum_y = sum(p[1] for p in pairs)
-    sum_x2 = sum(p[0] ** 2 for p in pairs)
-    sum_y2 = sum(p[1] ** 2 for p in pairs)
-    sum_xy = sum(p[0] * p[1] for p in pairs)
-
-    mean_x = sum_x / n
-    mean_y = sum_y / n
-
-    denom_b = n * sum_x2 - sum_x**2
-    if denom_b != 0:
-        b = (n * sum_xy - sum_x * sum_y) / denom_b
-        a = mean_y - b * mean_x
-    else:
-        b = 0.0
-        a = mean_y
-
-    denom_r_sq = (n * sum_x2 - sum_x**2) * (n * sum_y2 - sum_y**2)
-    r = (n * sum_xy - sum_x * sum_y) / math.sqrt(denom_r_sq) if denom_r_sq > 0 else 0.0
-
-    var_sx = sum((p[0] - mean_x) ** 2 for p in pairs) / (n - 1)
-    var_sy = sum((p[1] - mean_y) ** 2 for p in pairs) / (n - 1)
-
-    return LinearRegressionSummary(
+def two_var(rows: list[tuple[float, float, float]]) -> TwoVar:
+    """Sums and spreads of (x, y, frequency) rows."""
+    if not rows:
+        raise _math()
+    for _, _, f in rows:
+        if f < 0 or f != int(f):
+            raise _math()
+    n = math.fsum(f for _, _, f in rows)
+    if n <= 0:
+        raise _math()
+    sum_x = math.fsum(x * f for x, _, f in rows)
+    sum_y = math.fsum(y * f for _, y, f in rows)
+    mean_x, mean_y = sum_x / n, sum_y / n
+    ssx = math.fsum(f * (x - mean_x) ** 2 for x, _, f in rows)
+    ssy = math.fsum(f * (y - mean_y) ** 2 for _, y, f in rows)
+    used = [(x, y) for x, y, f in rows if f > 0]
+    return TwoVar(
         n=n,
-        mean_x=round(mean_x, 10),
-        mean_y=round(mean_y, 10),
-        sum_x=round(sum_x, 10),
-        sum_x2=round(sum_x2, 10),
-        sum_y=round(sum_y, 10),
-        sum_y2=round(sum_y2, 10),
-        sum_xy=round(sum_xy, 10),
-        sx=round(math.sqrt(max(0.0, var_sx)), 10),
-        sy=round(math.sqrt(max(0.0, var_sy)), 10),
-        a=round(a, 10),
-        b=round(b, 10),
-        r=round(r, 10),
+        sum_x=sum_x,
+        sum_x2=math.fsum(f * x * x for x, _, f in rows),
+        sum_y=sum_y,
+        sum_y2=math.fsum(f * y * y for _, y, f in rows),
+        sum_xy=math.fsum(f * x * y for x, y, f in rows),
+        mean_x=mean_x,
+        mean_y=mean_y,
+        sigma_x=math.sqrt(ssx / n),
+        sigma_y=math.sqrt(ssy / n),
+        sx=math.sqrt(ssx / (n - 1)) if n > 1 else math.nan,
+        sy=math.sqrt(ssy / (n - 1)) if n > 1 else math.nan,
+        min_x=min(x for x, _ in used),
+        max_x=max(x for x, _ in used),
+        min_y=min(y for _, y in used),
+        max_y=max(y for _, y in used),
     )
 
 
-# ---------------------------------------------------------------------------
-# General Expression Evaluator (Safe mathematical parsing)
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Regression:
+    """A fitted model of one of the STAT types. `r` is NaN for the quadratic, which has none."""
+
+    kind: StatType
+    a: float
+    b: float
+    c: float
+    r: float
+
+    def predict_y(self, x: float) -> float:  # noqa: PLR0911
+        a, b, c = self.a, self.b, self.c
+        match self.kind:
+            case "A+BX":
+                return a + b * x
+            case "_+CX2":
+                return a + b * x + c * x * x
+            case "ln X":
+                if x <= 0:
+                    raise _math()
+                return a + b * math.log(x)
+            case "e^X":
+                return a * math.exp(b * x)
+            case "A·B^X":
+                return a * b**x
+            case "A·X^B":
+                if x <= 0:
+                    raise _math()
+                return a * x**b
+            case "1/X":
+                if x == 0:
+                    raise _math()
+                return a + b / x
+        raise _math()
+
+    def predict_x(self, y: float, root: int = 1) -> float:  # noqa: PLR0911
+        """x̂ for a value of y; for the quadratic, root 1 or 2 is x̂₁ or x̂₂."""
+        a, b, c = self.a, self.b, self.c
+        try:
+            match self.kind:
+                case "A+BX":
+                    return (y - a) / b
+                case "_+CX2":
+                    disc = b * b - 4 * c * (a - y)
+                    if c == 0 or disc < 0:
+                        raise _math()
+                    sign = 1 if root == 1 else -1
+                    return (-b + sign * math.sqrt(disc)) / (2 * c)
+                case "ln X":
+                    return math.exp((y - a) / b)
+                case "e^X":
+                    return math.log(y / a) / b
+                case "A·B^X":
+                    return math.log(y / a) / math.log(b)
+                case "A·X^B":
+                    return (y / a) ** (1 / b)
+                case "1/X":
+                    return b / (y - a)
+        except ZeroDivisionError, ValueError:
+            raise _math() from None
+        raise _math()
 
 
-def safe_eval(
-    expr: str,
-    angle_unit: AngleUnit = "DEG",
-    variables: dict[str, float] | None = None,
-) -> float | str:
-    """Evaluate a mathematical expression string within an isolated math namespace."""
-    vars_map = variables or {}
-    clean = expr.replace("×", "*").replace("÷", "/").replace("−", "-").replace("·", ".")
-    clean = clean.replace("^", "**")
+def _line(points: list[tuple[float, float, float]]) -> tuple[float, float, float]:
+    """Least-squares intercept, slope and r of weighted points."""
+    stats = two_var(points)
+    sxx = stats.sum_x2 - stats.sum_x**2 / stats.n
+    syy = stats.sum_y2 - stats.sum_y**2 / stats.n
+    sxy = stats.sum_xy - stats.sum_x * stats.sum_y / stats.n
+    if sxx <= 0:
+        raise _math()
+    slope = sxy / sxx
+    intercept = stats.mean_y - slope * stats.mean_x
+    r = sxy / math.sqrt(sxx * syy) if syy > 0 else math.nan
+    return intercept, slope, r
 
-    # Safe math namespace
-    ns: dict[str, object] = {
-        "pi": math.pi,
-        "e": math.e,
-        "sin": lambda x: math.sin(to_radians(x, angle_unit)),
-        "cos": lambda x: math.cos(to_radians(x, angle_unit)),
-        "tan": lambda x: math.tan(to_radians(x, angle_unit)),
-        "asin": lambda x: from_degrees(math.degrees(math.asin(x)), angle_unit),
-        "acos": lambda x: from_degrees(math.degrees(math.acos(x)), angle_unit),
-        "atan": lambda x: from_degrees(math.degrees(math.atan(x)), angle_unit),
-        "sinh": math.sinh,
-        "cosh": math.cosh,
-        "tanh": math.tanh,
-        "sqrt": math.sqrt,
-        "log": math.log10,
-        "ln": math.log,
-        "abs": abs,
-        "gcd": gcd,
-        "lcm": lcm,
-        "nPr": nPr,
-        "nCr": nCr,
-    }
-    ns.update(vars_map)
 
+def _solve3(m: list[list[float]], rhs: list[float]) -> list[float]:
+    """Gaussian elimination for the 3×3 normal equations of the quadratic."""
+    size = 3
+    a = [[*row, value] for row, value in zip(m, rhs, strict=True)]
+    for col in range(size):
+        pivot = max(range(col, size), key=lambda r: abs(a[r][col]))
+        if abs(a[pivot][col]) < 1e-12:  # noqa: PLR2004
+            raise _math()
+        a[col], a[pivot] = a[pivot], a[col]
+        for row in range(size):
+            if row != col:
+                factor = a[row][col] / a[col][col]
+                a[row] = [x - factor * y for x, y in zip(a[row], a[col], strict=True)]
+    return [a[i][size] / a[i][i] for i in range(size)]
+
+
+def regression(kind: StatType, rows: list[tuple[float, float, float]]) -> Regression:
+    """Fit a STAT type to (x, y, frequency) rows (FR-FX-MOD-002, FR-FX-STA-004)."""
+    if kind == "_+CX2":
+        n = math.fsum(f for _, _, f in rows)
+        if n < 3:  # noqa: PLR2004
+            raise _math()
+        sums = [math.fsum(f * x**k for x, _, f in rows) for k in range(5)]
+        ys = [math.fsum(f * y * x**k for x, y, f in rows) for k in range(3)]
+        a, b, c = _solve3(
+            [[sums[0], sums[1], sums[2]], [sums[1], sums[2], sums[3]], [sums[2], sums[3], sums[4]]],
+            ys,
+        )
+        return Regression(kind, a, b, c, math.nan)
     try:
-        res = eval(clean, {"__builtins__": {}}, ns)
-        if isinstance(res, (int, float)):
-            return float(res)
-        return str(res)
-    except Exception as exc:
-        return f"Error: {exc}"
-
-
-def to_exact_or_decimal(val: float) -> tuple[str, str]:
-    """Return a tuple of (exact_string, decimal_string).
-
-    For example, 0.75 -> ('3/4', '0.75').
-    """
-    dec_str = f"{val:.10g}"
-    try:
-        frac = Fraction(dec_str).limit_denominator(10000)
-        if frac.denominator != 1:
-            exact_str = f"{frac.numerator}/{frac.denominator}"
-            return exact_str, dec_str
-    except ValueError, OverflowError:
-        pass
-    return dec_str, dec_str
-
-
-def to_mixed_fraction(frac_str: str) -> str:
-    """Convert an improper fraction like '7/4' to mixed fraction '1 3/4'."""
-    if "/" not in frac_str:
-        return frac_str
-    try:
-        parts = frac_str.split("/")
-        num, den = int(parts[0]), int(parts[1])
-        if den == 0:
-            return frac_str
-        sign = "-" if (num < 0) ^ (den < 0) else ""
-        abs_num = abs(num)
-        abs_den = abs(den)
-        whole = abs_num // abs_den
-        rem = abs_num % abs_den
-        if whole != 0 and rem != 0:
-            return f"{sign}{whole} {rem}/{abs_den}"
-        return frac_str
-    except ValueError:
-        return frac_str
+        match kind:
+            case "A+BX":
+                points = rows
+            case "ln X":
+                points = [(math.log(x), y, f) for x, y, f in rows]
+            case "1/X":
+                points = [(1 / x, y, f) for x, y, f in rows]
+            case "e^X" | "A·B^X":
+                points = [(x, math.log(y), f) for x, y, f in rows]
+            case "A·X^B":
+                points = [(math.log(x), math.log(y), f) for x, y, f in rows]
+            case _:
+                raise _math()
+    except ValueError, ZeroDivisionError:
+        raise _math() from None
+    intercept, slope, r = _line(points)
+    match kind:
+        case "e^X":
+            return Regression(kind, math.exp(intercept), slope, 0.0, r)
+        case "A·B^X":
+            return Regression(kind, math.exp(intercept), math.exp(slope), 0.0, r)
+        case "A·X^B":
+            return Regression(kind, math.exp(intercept), slope, 0.0, r)
+    return Regression(kind, intercept, slope, 0.0, r)
