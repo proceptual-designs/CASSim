@@ -1,7 +1,9 @@
 """Validate corpus YAML files against corpus/schema.json and check basic invariants.
 
-Usage:  uv run python corpus/validate.py [paths...]     (default: corpus/**/*.yaml)
-Exit code 1 on any problem. No engine required. Add --check-evidence to check that each
+Usage:  uv run python corpus/validate.py [paths...]     (default: corpus/seed/*.yaml)
+Exit code 1 on any problem. No engine required. The schema is for the calculator corpus in
+corpus/seed/; corpus/pseudocode/ and corpus/flows/ have their own formats and loaders
+(tests/runtime/test_pseudocode_corpus.py, tools/flows.py). Add --check-evidence to check that each
 evidence screenshot exists in the evidence repository (decision 0039), when that is present.
 """
 
@@ -73,7 +75,7 @@ def evidence_corpus_dir() -> Path | None:
 def main(argv: list[str]) -> int:
     check_evidence = "--check-evidence" in argv
     argv = [a for a in argv if a != "--check-evidence"]
-    paths = [Path(a) for a in argv] or sorted(ROOT.rglob("*.yaml"))
+    paths = [Path(a) for a in argv] or sorted((ROOT / "seed").glob("*.yaml"))
     seen: set[str] = set()
     problems: list[str] = []
     for p in paths:
