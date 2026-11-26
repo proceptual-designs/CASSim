@@ -673,28 +673,57 @@ def download_pyodide(url: str) -> bytes:
     raise RuntimeError("Pyodide download exhausted its retries")
 
 
+def verified(data: bytes, sha256: str, file_name: str) -> bytes:
+    """`data` if its SHA-256 is the expected one. A wheel that fails is never put in a site."""
+    found = hashlib.sha256(data).hexdigest()
+    if found != sha256:
+        raise RuntimeError(f"{file_name}: SHA-256 is {found}, expected {sha256}; not used")
+    return data
+
+
+def locked_wheel_sha256(file_name: str) -> str:
+    """The SHA-256 that `uv.lock` records for a wheel, so a download is checked against the lock."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    for package in lock["package"]:
+        for wheel in package.get("wheels", []):
+            if wheel["url"].rsplit("/", 1)[-1] == file_name:
+                return wheel["hash"].removeprefix("sha256:")
+    raise RuntimeError(f"{file_name} is not in uv.lock, so its download cannot be checked")
+
+
 def pyodide_wheel(dist: Path, name: str) -> Path:
-    """A package from Pyodide's own distribution, downloaded once into `WHEELS`."""
-    file_name = lock_file(dist)["packages"][name]["file_name"]
+    """A package from Pyodide's own distribution, downloaded once into `WHEELS`.
+
+    Checked against the SHA-256 in the Pyodide lock file that Flet ships, on every use.
+    """
+    package = lock_file(dist)["packages"][name]
+    file_name = package["file_name"]
     version = pyodide_version(dist)
     target = WHEELS / file_name
     if not target.exists():
         WHEELS.mkdir(parents=True, exist_ok=True)
         url = f"https://cdn.jsdelivr.net/pyodide/v{version}/full/{file_name}"
-        target.write_bytes(download_pyodide(url))
+        target.write_bytes(verified(download_pyodide(url), package["sha256"], file_name))
+    verified(target.read_bytes(), package["sha256"], file_name)
     return target
 
 
 def pypi_wheel(name: str, version: str) -> Path:
-    """A pure-Python wheel from PyPI, downloaded once into `WHEELS`."""
+    """A pure-Python wheel from PyPI, downloaded once into `WHEELS`.
+
+    Checked against the SHA-256 in `uv.lock`, on every use.
+    """
     found = sorted(WHEELS.glob(f"{name}-{version}-*.whl"))
     if found:
+        verified(found[0].read_bytes(), locked_wheel_sha256(found[0].name), found[0].name)
         return found[0]
     WHEELS.mkdir(parents=True, exist_ok=True)
     meta = json.loads(urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json").read())
     wheel = next(u for u in meta["urls"] if u["packagetype"] == "bdist_wheel")
-    target = WHEELS / wheel["filename"]
-    target.write_bytes(urllib.request.urlopen(wheel["url"]).read())
+    file_name = wheel["filename"]
+    data = urllib.request.urlopen(wheel["url"]).read()
+    target = WHEELS / file_name
+    target.write_bytes(verified(data, locked_wheel_sha256(file_name), file_name))
     return target
 
 
