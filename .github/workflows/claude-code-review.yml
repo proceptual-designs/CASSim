@@ -12,6 +12,9 @@ on:
 
 jobs:
   claude-review:
+    # Only the repository owner's pull requests and pushes are reviewed: a review uses the
+    # owner's Claude subscription, and anyone can open a pull request on a public repository.
+    if: github.actor == github.repository_owner && github.event.pull_request.user.login == github.repository_owner
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
