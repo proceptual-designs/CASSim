@@ -32,7 +32,7 @@ The first group is the Nspire's UI in `devices/nspire/ui/`; the second is the sh
 
 ## Views and modes
 
-Two display modes are built, equal in priority (FR-DEV-002, FR-DEV-004); the SRS's third, Tablet/demo (FR-DEV-003, Should), is not built:
+Two display modes are built, equal in priority (FR-DEV-002, FR-DEV-004); the SRS's third, Tablet/demo (FR-DEV-003, Should), is not built. SDD-15 section 8 defines Tablet as Handheld in two columns, and sets the menus, themes and dialogs every app shares.
 
 - **Handheld:** the 320 x 240 screen and the keypad drawn at natural size and scaled to the window, the keypad under the screen in portrait and beside it in landscape. The keypad is drawn at 0.8 of the screen's scale by default, with a draggable splitter. On a phone the app forces Handheld.
 - **Computer:** a sidebar (page sorter, variables), a large screen, the Doc and Menu chips, and an optional keypad beside the screen.

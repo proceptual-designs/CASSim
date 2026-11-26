@@ -1,0 +1,238 @@
+# SDD-15. Shared interface (CASSim's own menus, themes, views and dialogs)
+
+Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet.
+Applies to: the Home screen and every app (Nspire, Pseudocode & Python, Scientific, and later ClassPad and Prime).
+Requirements: FR-DEV-002, FR-DEV-003, FR-DEV-004, FR-DEV-006, FR-DEV-008, FR-DEV-010, FR-THEME-001, FR-THEME-002, FR-DOC-010, FR-PROF-010 to FR-PROF-013, NFR-PORT-002, NFR-PORT-003.
+Decisions: 0028 (clean room), 0032 (device interface and shell), 0033 (named documents).
+Related: SDD-05 (the shell and the Nspire UI), SDD-14 (Scientific).
+
+## 1. Scope
+
+Every CASSim app has two kinds of interface, and they follow different rules.
+
+| Kind | Examples | Rule |
+|---|---|---|
+| Follows the device | The Nspire Calculator Menu and Doc menu, its keypad and key labels, Document Settings; the Scientific key legends and modes | The device's order, numbering, structure and vocabulary (FR-DEV-005, FR-DEV-008, decision 0028). This document only sets their case (section 9.2). |
+| CASSim's own | The CASSim menu; the Doc menu of an app that has no device Doc menu; Open and Save; Import, Export and Share link; themes; views; install and update; toolbars; tutorials; trace tables; Home | This document. The same words, order, look and behaviour in every app. |
+
+Where the two meet, the device's structure wins and CASSim's items fit into it. For example, CASSim's Import, Export and Share link items go at the end of the Nspire's own File menu.
+
+## 2. Principles
+
+1. **Build it once, in the shell.** Menus, dialogs, the theme choice, update and view logic, and the size constants live in `cassim.app`. An app passes in its own items; it does not re-implement the menu or the dialog.
+2. **Fixed sections and positions.** The CASSim and Doc menus have the same sections in the same order in every app. What is in a section can differ between apps. An item that can't be used right now is greyed, not hidden, so positions and Nspire menu numbers never move. Only a fact fixed when the app is built (Home exists in this bundle, this app has a keypad) can leave an item out.
+3. **One setting, everywhere.** A choice made once, such as the theme or Start in, applies in Home and in every app. A choice that only one app has, such as the Scientific calculator model, sits beside it in the same dialog.
+4. **State is visible.** A toggle shows whether it is on, the same way everywhere. A control that cycles shows its current value.
+5. **Ask before losing work.** New, Open, Import, an example, Reset all and a reload for an update ask first when the work is unsaved.
+6. **Touch everywhere.** Every view must work by touch as well as by mouse and keyboard, because many computers have touch screens (section 8.3).
+7. **Material Design** (Material 3, which Flet implements) is the default for anything this document does not settle.
+
+## 3. The top bar
+
+The **CASSim** button comes first and the **Doc** button second, in every app and on Home. The CASSim button's label is `about.product_name()`, so it reads CASSim, or CASSimᵝ on the testing site. In the Nspire's Handheld and Tablet views, the keypad's CASSim key opens the same menu.
+
+When `BrowserOffers.needs_attention` is true, the CASSim button (and the Nspire's CASSim key) shows a dot in the theme's `attention` colour. That happens when an update is ready or offline setup has failed. Its tooltip then reads "CASSim menu: update ready" or "CASSim menu: offline setup failed".
+
+## 4. CASSim menu
+
+### 4.1 Sections, in this order
+
+| Section | Items | Notes |
+|---|---|---|
+| 1. Navigate | Home | All-in-one bundle only. |
+| 2. View | The app's views as a one-of choice: Computer view, Tablet view, Handheld view. Then the app's panels as on/off items: Keypad, Tutorials, Sidebar. Then Fullscreen, or Avoid cutout on an installed phone. | One-of items show ● on the current view; on/off items show ✓ when on (section 6). An app with one view shows no view items. An app leaves out a panel item only when it has no such panel. |
+| 3. Set up | Settings…, Appearance…, Keyboard shortcuts… | Settings… opens a dialog titled "Settings". Appearance… is described in section 7.3. |
+| 4. The app | Install CASSim… or Uninstall CASSim…; the update item; the offline status | Section 5. |
+| 5. Help | Help (wiki)…, About CASSim… | Use `about.product_name()` in the label, not a literal. |
+
+Sections are separated by a divider in a menu bar, and by a thin rule in the Nspire's numbered menu panel. "Retry offline setup" is not a separate item: when offline setup has failed, choosing the offline status offers Retry in its notice, so the Nspire's numbers do not shift.
+
+Home shows the same menu with its own subset: Settings…, Appearance…, the app section, and Help.
+
+### 4.2 Form
+
+Pseudocode and Scientific use `ft.MenuBar`. The Nspire draws its menus as numbered device-style panels, so its CASSim menu is one too, numbered 1–9 then A–Z. A shell function builds the item list once from the sections above plus the app's own items. Each app then renders that list: the menu bar, the Nspire panel, or Home.
+
+## 5. Update, offline and install items
+
+**The update item** has one label at a time, from `BrowserOffers.update_label`. Choosing it calls `Shell.activate_update`. No app writes its own label or fallback.
+
+| Label | When | Choosing it |
+|---|---|---|
+| Check for updates | Nothing is known | Asks the site, then shows the answer in a notice titled "Check for updates". |
+| Fetching update… | A new version is downloading | Checks again. |
+| Reload to update | A new version is ready; the attention dot shows | Reloads. With unsaved work it first asks "Reload CASSim?" [Cancel] [Reload]. |
+
+The unsaved-work question belongs in `Shell.activate_update`. The app passes in a callback that says whether it has unsaved work (`SavedDocuments` already knows).
+
+**Offline status** reads "Offline: preparing", "Offline: ready", "Offline: unavailable", "Offline: unknown" or "Update failed". Choosing it shows the details; when setup failed, the notice has a [Retry] action. Every app shows it, because every app is part of the same installed site.
+
+**Install CASSim…** is greyed unless the browser offers to install. Once CASSim is installed, the item becomes **Uninstall CASSim…**, which asks first and then explains the steps (`Shell.uninstall`).
+
+## 6. Toggles and choices
+
+| Kind | Use for | Looks | Label and tooltip |
+|---|---|---|---|
+| On/off menu item | Showing a panel; Fullscreen; Avoid cutout | ✓ before the label when on | A fixed noun: "Keypad", "Tutorials", "Fullscreen". The label never swaps (not "Show tutorials" and "Hide tutorials"). |
+| One-of menu items | Views | ● before the current one | "Computer view", "Tablet view", "Handheld view". A shortcut picks its view; it does not toggle. |
+| Toolbar toggle button | The same panels, on a toolbar | `accent` fill when on, `key` fill when off; the same label both ways | The tooltip says what a click does ("Hide the keypad"). Screen readers announce it as a toggle with its state. |
+| Segmented choice | Two to four named options seen together: Handheld \| Computer, Pseudocode \| Python, Guide me \| Show me \| Test me | The selected segment has the `accent` fill and no tick icon | Each segment is a word. |
+| Cycle chip | A mode with a short value: Rad/Deg, Auto/Approx, Math/Line, Trace | Shows the current value as an outlined chip | Tooltip: "Angle: radian. Click for degree." It must take keyboard focus. |
+
+A setting appears in one place only. Remembered states:
+
+| Remembered per browser | Saved in the document | Not remembered |
+|---|---|---|
+| The theme and colour changes; Start in; which panels show (keypad, tutorials, sidebar), except on a phone; column splits and zoom; editor preferences; the calculator model | Maths settings (angle, number mode, display format); trace orientation; which page is open | Fullscreen; open menus; collapsed panes; a view chosen during a session |
+
+## 7. Colour schemes
+
+### 7.1 One theme for CASSim
+
+There is one theme choice for the whole of CASSim, saved shell-wide as `theme_name` under `cassim.system`, which Home already writes. Every app reads it when it starts and whenever it changes. No app keeps its own list of theme names. The presets are Dark (the default, FR-THEME-001), Light and High contrast, and Outline when FR-THEME-002 adds it. Flet's `ThemeMode` is LIGHT for Light and DARK for the rest, set in one shell function.
+
+### 7.2 Tokens
+
+- `cassim.app.theme.Theme` holds the shared tokens: page, panels, text, accent, menus, error, attention, warning, success and focus.
+- An app's own tokens go in a skin derived from the shared theme under the same preset names. That covers Scientific's chassis, LCD and key faces, and the Nspire's key styles.
+- No literal colours in UI code: every colour comes from a token. The tokens to add first are `attention`, `warning`, `success`, `chip_edge` and `line_highlight` (section 10).
+- The whole app follows the theme, including its toolbars and top bar.
+- A test checks every token with `contrast()` in each preset: at least 4.5 : 1 for text and 3 : 1 for borders and focus rings.
+
+### 7.3 Appearance dialog
+
+One dialog, built in the shell. It opens from CASSim ▸ Appearance… everywhere, on Home too.
+
+1. **Theme:** a segmented choice, Dark | Light | High contrast.
+2. **The app's own look**, if it has one: Scientific's Calculator model drop-down, supplied by the app.
+3. **Customise colours:** the Nspire's editor for each token (a swatch, a `#RRGGBB` box, the error "Use #RRGGBB"). It is folded away by default and available in every app. Changes are saved per preset. Theme files to import and export (FR-THEME-002) attach here later.
+4. **Buttons:** [Reset preset] on the left; [Cancel] [Save] on the right (section 9.1). Changes preview live, and Cancel puts the previous look back.
+
+## 8. Views and screen sizes
+
+### 8.1 Views (chosen)
+
+| View | What it is | Nspire | Pseudocode & Python | Scientific |
+|---|---|---|---|---|
+| Computer | Keyboard and mouse first: the toolbar, side panels, resizable columns, a large work area | Sidebar, workspace, optional keypad | Code and Console beside Run controls, Symbols and Trace, with a splitter | Calculator beside the tutorials, with menu bar and chips |
+| Tablet | Handheld with two columns side by side, with targets sized for touch | Display beside keypad | The two columns, without the splitter | Calculator beside the tutorials |
+| Handheld | One column: the device as it looks, scaled to fit | Display above keypad | Columns stacked in reading order | Calculator only, with tutorials below |
+
+All three views work by touch, mouse and keyboard. An app that cannot sensibly offer a view leaves it out of the menu.
+
+### 8.2 Screen sizes (found)
+
+| Size | Test | Effect |
+|---|---|---|
+| Phone | Shorter side under 600 px | Handheld in portrait, Tablet in landscape. Computer view is greyed with the hint "Not on a phone". Optional chips hide. Margins are small. Which panels show is not saved. |
+| Narrow | Width under 900 px | Computer view stacks its columns, as in Handheld. |
+| Installed phone | `offers.installed` on a phone | Avoid cutout replaces Fullscreen. |
+
+The constants, the tests and the dialog width rule (`clamp(280, preferred, window − 48)`) live in one shared module in `cassim.app`.
+
+### 8.3 Touch in every view
+
+- Every control works by tap. Nothing needs hover, right-click or a modifier key: a hover hint also shows on long press, and a context menu also opens on long press.
+- Touch targets are at least 48 px in Tablet and Handheld (Material), and at least 40 px in Computer, where the hit area may be larger than what is drawn. That includes splitters, resize grips and drag handles.
+- Typing in a text box on a touch screen brings up the on-screen keyboard (the Nspire's `soft_keys.py` does this today).
+
+### 8.4 Choosing the view
+
+On the first visit the screen size picks the view, and keeps picking it on resize until the person chooses one. After that, Settings ▸ Start in decides which view each launch opens in. A view chosen during a session lasts until the app is closed and is not saved.
+
+## 9. Dialogs and wording
+
+### 9.1 Dialog buttons (Material 3)
+
+- Actions are text buttons at the bottom right. The confirming action is last (rightmost) and the dismissive action (Cancel) comes just before it. A third, neutral action (Reset preset) goes at the left.
+- The confirming button's label is the verb for what happens: Save, Replace, Delete, Discard, Reload, Open, Copy link. A notice with one button uses OK. A read-only panel (Keyboard shortcuts, About) uses Close.
+- Change `Shell.confirm` and `Shell.notice` once, and every app follows.
+
+### 9.2 Words
+
+| Rule | Do | Not |
+|---|---|---|
+| Sentence case everywhere: CASSim's labels, titles, notices, and the device menus' labels | Save as…, New document, Settings & status, Check for updates | Save As…, Check for Updates |
+| Ellipsis when the item opens a dialog that asks for something more | Settings…, Open…, Uninstall CASSim… | Settings, Open Document |
+| Write menu paths with ▸ | Doc ▸ Export file… | Doc > File > Save to file |
+| A confirmation title is a question | Reset all?, Replace saved program? | Reset all |
+| Names go in curly quotes | Delete “Quadratics”? | Delete "Quadratics"? |
+| Say where things are kept the same way everywhere | Saved in this app, on this device. | Saved in this browser. |
+| A dialog's title matches the item that opened it | Settings… opens "Settings" | Handheld Setup… opens "System Settings" |
+| A command CASSim does not do yet | Greyed, with the hint "Not in CASSim yet" | Hidden |
+| Shortcuts: each key capitalised, joined with + | Ctrl+O, Alt+Shift+C | ctrl+O |
+| The product name comes from `about.product_name()` | About CASSimᵝ… on the testing site | A literal "About CASSim…"; the page title "CASSim-pseudocode" |
+
+Sentence case changes only the capital letters of a device menu's labels. Their words, order and numbering still follow the device. Command names keep their spelling (`completeSquare`, `solve`).
+
+### 9.3 Shared dialogs
+
+These come from `cassim.app` (`saved.py`, `shell.py`, `warning.py`):
+
+- Open, Save as, Replace, Delete, Discard changes and Saved
+- Import, Export and Share link
+- About, Warning, Check for updates and Uninstall
+
+The app supplies only its noun ("document", "program", "calculation") and its file types.
+
+### 9.4 Doc menu
+
+**Sections, in this order:**
+
+1. **Document:** New, Open…, Save, Save as…
+2. **Files:** Import file…, Export file…, Share link…
+3. **The app's own sections**, such as Examples ▸, or the Nspire's Edit and Settings & status
+4. **Clear:** Reset all…, only where the app has settings or memory to clear (Scientific)
+
+**What New does:** the Nspire opens a new document. Pseudocode opens a blank program. Scientific clears the calculation and keeps the settings, unlike Reset all.
+
+**Asking first:** New, Open, Import and an example all ask "Discard changes?" first when the work is unsaved.
+
+**Device Doc menus:** a CAS calculator with its own Doc menu (the Nspire now, ClassPad and Prime later) keeps the device's sections and numbers. CASSim's Import file…, Export file… and Share link… go at the end of its File section.
+
+### 9.5 Running code
+
+The Pseudocode & Python runner is fully sandboxed in its worker, so Run runs at once, with no permission prompt (Simon, 2026-11-26). Code that arrives from Open, Import, an example or a share link never runs by itself: it waits for Run. Stop must end a run within 1 s.
+
+FR-PY-002, FR-RUN-004 and the AGENTS.md line "must prompt before running" still describe a prompt. They need updating to match.
+
+## 10. Where the code differs (2026-11-26)
+
+Paths are under `src/cassim/`; line numbers are approximate. The list is ordered by what to fix first.
+
+| # | Gap | Where | Change |
+|---|---|---|---|
+| 1 | Pseudocode doesn't save its theme and starts Dark every time; its toolbar always uses Dark colours | `devices/pseudocode/ui/app.py:252, 615` | Read the shell theme; style the toolbar from the current theme. |
+| 2 | Scientific and Pseudocode ignore the theme chosen on Home; the theme names are copied in three places | `app/home.py:91`, `devices/pseudocode/ui/app.py:245`, `devices/scientific/ui/skins.py:138` | One shell-wide theme setting and name list (7.1). |
+| 3 | Four different Appearance dialogs, with different controls, buttons and saving | `devices/nspire/ui/theme_settings.py`, `devices/pseudocode/ui/app.py:2116`, `devices/scientific/ui/app.py:1814`, `app/home.py:292` | One shell dialog (7.3). |
+| 4 | Home's CASSim menu is a dialog with other items, and its theme setting is inside Settings | `app/home.py:246` | The shared menu with the Home subset, including Appearance… (4.1). |
+| 5 | Install, Uninstall, Fullscreen and the offline status are only in the Nspire | `devices/nspire/ui/app.py:135` | Build the CASSim menu once in the shell (4.2). |
+| 6 | The optional Home and Retry items shift the Nspire's numbers | `devices/nspire/ui/app.py:135` | Fold Retry into the offline status (4.1). |
+| 7 | The attention dot and the unsaved-work question before a reload are Nspire-only, and the dot is a literal colour | `devices/nspire/ui/app.py:966, 1165`, `devices/nspire/ui/keypad.py:120` | Move both into the shell (3, 5). |
+| 8 | The Nspire has its own Open and Save as, and its wording has drifted ("Saved in this browser.", ">") | `devices/nspire/ui/app.py:1272`, `app/saved.py` | Use `SavedDocuments` (9.3). |
+| 9 | A stale message: "Use Doc > File > Save to file instead" | `devices/nspire/ui/app.py:1444` | "Use Doc ▸ Export file… instead." |
+| 10 | Dialog buttons have the confirming action first | `app/shell.py:304`, `app/saved.py`, `devices/scientific/ui/app.py` | Material order (9.1). |
+| 11 | Settings naming: the Nspire toolbar's Settings opens Document Settings; Handheld Setup… opens System Settings; Scientific's Settings… opens "Calculator settings" | `devices/nspire/ui/app.py:1003`, `devices/nspire/ui/views.py:1653`, `devices/scientific/ui/app.py:1786` | Each label names what it opens; CASSim ▸ Settings… opens "Settings" (4.1, 9.2). |
+| 12 | Panel and view items swap labels; Alt+Shift+C and Alt+Shift+H both toggle | `devices/scientific/ui/app.py:172`, `devices/nspire/ui/app.py:135`, `devices/nspire/keymap.py:141` | ✓ and ● items; each shortcut picks its view (6). |
+| 13 | Only Computer and Handheld exist; the Nspire's landscape Handheld is what this document calls Tablet | `devices/nspire/ui/state.py:75`, `devices/nspire/ui/layout.py` | Add Tablet as a view; Handheld becomes one column (8.1). |
+| 14 | Pseudocode and Scientific have no Doc ▸ New; Pseudocode has no Share link | `devices/pseudocode/ui/app.py:412`, `devices/scientific/ui/app.py:190` | Add both (9.4). |
+| 15 | Pseudocode: Number mode and Angle are both on the toolbar and in Settings, and saved in neither; examples replace work without asking | `devices/pseudocode/ui/app.py:390, 972, 1999` | Toolbar only, saved in the document; ask first (6, 9.4). |
+| 16 | Title Case in the update labels, the Nspire's device menus and other titles; "ctrl+O" next to "Alt+Shift+C" | `app/shell.py:46`, `devices/scientific/ui/app.py:158, 824`, `devices/nspire/menus.py` | Sentence case (9.2). |
+| 17 | Literal colours outside the theme: `#e53935`, `#f5c518`, `#4d5563`, `#22c55e`, `#f59e0b`, the Material `SECONDARY_CONTAINER` line highlight, and a top bar that stays dark in Light | `app/warning.py:14`, `devices/scientific/ui/app.py:764, 1170`, `devices/scientific/ui/skins.py:101`, `devices/pseudocode/ui/app.py:337` | New tokens (7.2). |
+| 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
+| 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
+| 20 | Literal "About CASSim…" and the page title "CASSim-pseudocode" | `devices/scientific/ui/app.py:189`, `devices/pseudocode/ui/app.py:610` | Use `about.product_name()`. |
+| 21 | The SRS and AGENTS.md still require a prompt before running code | `docs/SRS.md` (FR-PY-002, FR-RUN-004), `AGENTS.md` | Update them to 9.5. |
+
+## 11. Checklist for a new extra
+
+Before a CASSim-own feature, panel or app merges, check that:
+
+- [ ] Its menu items are in the right section of the CASSim or Doc menu, in sentence case, with an ellipsis if they open a dialog, and greyed (not hidden) when they can't be used.
+- [ ] It uses the shell's menus, dialogs, Open and Save, theme, update and size helpers, and adds none of its own.
+- [ ] Every colour comes from a theme token. A new token has a value in every preset and a contrast test.
+- [ ] It works in each view the app has (Computer, Tablet, Handheld), by touch, at phone size (360 px wide, in both orientations; NFR-PORT-003).
+- [ ] Its toggles and choices use the kinds in section 6, and its remembered states fit the table there.
+- [ ] It asks before discarding work.
+- [ ] It can be reached by keyboard, with a visible focus ring. Any gaps are listed in `docs/accessibility.md`.
+- [ ] Its help page in `docs/wiki/` and this document are updated in the same change.
