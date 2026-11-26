@@ -219,7 +219,7 @@
               "type": "string"
             },
             "evidence": {
-              "description": "Screenshot path(s) under corpus/shots/",
+              "description": "Screenshot path(s) under corpus/shots/ in the evidence repository",
               "oneOf": [
                 {
                   "type": "string"
@@ -356,7 +356,7 @@
               "type": "string"
             },
             "evidence": {
-              "description": "Screenshot path(s) under corpus/shots/",
+              "description": "Screenshot path(s) under corpus/shots/ in the evidence repository",
               "oneOf": [
                 {
                   "type": "string"

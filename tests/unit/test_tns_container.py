@@ -1,11 +1,11 @@
 """Spike 2: pin what we know about the .tns container (decision 0003)."""
 
 import zipfile
-from pathlib import Path
 
 import pytest
+from tools.evidence import evidence_path
 
-REFS = Path(__file__).resolve().parents[2] / "references"
+REFS = evidence_path("references")
 MAGIC = b"*TIMLP"  # then a four-digit version: 0601 (libraries), 0500, 0703
 ENTRY_SIGNATURE = bytes.fromhex("0fced8d28106865b")  # first 8 bytes of every entry payload
 

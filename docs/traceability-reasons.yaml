@@ -75,7 +75,7 @@ NFR-MAINT-003: "a process rule (conventional commits, decisions recorded); not t
 NFR-MAINT-005: "uv.lock pins versions; the Pyodide upgrade procedure is not written yet"
 NFR-LEG-001: "checked by review; no TI marks or artwork are in the repo or build"
 NFR-LEG-004: "no LazyMath port exists yet; the licence check goes in docs/decisions/ first"
-NFR-LEG-006: "policy, checked in review: TI terms recorded in decision 0029; Casio and HP before their capture (Q17, Q18)"
+NFR-LEG-006: "policy, checked in review: TI terms recorded in decision 0029, kept with the evidence (decision 0039); Casio and HP before their capture (Q17, Q18)"
 NFR-LEG-008: "policy, checked in review (decision 0028); behaviour comes only from observed use, as the corpus records"
 NFR-LEG-009: "policy, checked in review (decision 0028); first audit against both Reference Guides clean on 2026-11-12, repeated before release (PLAN.md section 11 item 10)"
 FR-FX-MOD-005: "not built: CMPLX and VECTOR modes are fx-100 extensions (Could); SDD-14 section 8"

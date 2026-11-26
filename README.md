@@ -77,6 +77,11 @@ A corpus of 186 and counting calculator cases was tested on the TI-Nspire CX CAS
 and every case replays against the engine in CASSim. See `python -m tools.replay` for
 progress and [docs/testing/TESTING.md](docs/testing/TESTING.md) for the method.
 
+This repository holds the cases and the written results. The simulator screenshots they were
+transcribed from are kept in a separate evidence repository; a screenshot path named in a case
+or a results file refers to that repository
+([docs/decisions/0039-evidence-repository.md](docs/decisions/0039-evidence-repository.md)).
+
 ## Try it
 
 You need [uv](https://docs.astral.sh/uv/). Python 3.14 is installed by uv.

@@ -2,6 +2,10 @@
 
 Status: draft 1 (2026-10-31). Covers what must exist before M1 coding starts: the golden corpus, how it is replayed, how comparison works, and how cases are captured from the real simulator. Companion files: `corpus/schema.json`, `corpus/validate.py`, `corpus/seed/001_core.yaml` (20 seed cases).
 
+## Where the evidence is
+
+The results files in this folder and the corpus cases are the written record: what was typed, what the simulator showed, and how CASSim compares. The screenshots they were transcribed from (`corpus/shots/`, `docs/testing/*-shots/` other than `app-shots/`), the capture briefs and run plans (`emulator-*-capture.md`, `*-brief.md`, `*-plan.md`, `*-remaining.md`) and `simulator-todo.md` are kept in the separate evidence repository at the same relative paths (decision 0039). Where a file here names one of those paths, it means the file in the evidence repository. `uv run python corpus/validate.py --check-evidence` checks the corpus screenshots when that repository is present.
+
 ## Development and pre-merge test selection
 
 CI runs once per batch PR (AGENTS.md, "Development workflow"), so the complete checks run locally.
@@ -152,7 +156,7 @@ Use Simon's `vce-cas-solver` workflow (TI-Nspire CX CAS Premium Teacher Software
 1. Open or reuse a document; set Document Settings for the course (section 3). Check the title bar shows DEG or RAD.
 2. New Problem per case (`new_problem` steps insert another Problem inside the same case).
 3. Enter each `in` line in short chunks (about 9 characters). Beware simulator typing quirks that are properties of the keyboard, not the CAS: `^` swallows everything after it as the exponent; a line starting with an operator gets `Ans` in front; ASCII `e` and `i` are plain variables (use `e^(...)` template, `exp()`, `√(-1)`).
-4. Screenshot the result region (about 455x303 px) and save as `corpus/shots/<case-id>[-<step>].png`.
+4. Screenshot the result region (about 455x303 px) and save as `corpus/shots/<case-id>[-<step>].png` in the evidence repository.
 5. Transcribe the displayed result into `out`, upgrade `provenance` to `source: simulator` with `simulator_version`, `captured`, `evidence`, `reviewed_by`, and set `status: pending` until the engine passes it.
 6. Run `python corpus/validate.py`.
 
