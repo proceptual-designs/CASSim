@@ -72,7 +72,6 @@ NFR-PORT-001: "Chromium is tested; Safari, iOS and Chromebook have not been run 
 NFR-PORT-004: "not built yet (pages with user code, text-size setting, localisation, native builds)"
 NFR-MAINT-001: "enforced by CI itself (ruff, ty, pytest, Playwright), not by a test"
 NFR-MAINT-003: "a process rule (conventional commits, decisions recorded); not testable"
-NFR-MAINT-005: "uv.lock pins versions; the Pyodide upgrade procedure is not written yet"
 NFR-LEG-001: "checked by review; no TI marks or artwork are in the repo or build"
 NFR-LEG-004: "no LazyMath port exists yet; the licence check goes in docs/decisions/ first"
 NFR-LEG-006: "policy, checked in review: TI terms recorded in decision 0029, kept with the evidence (decision 0039); Casio and HP before their capture (Q17, Q18)"
