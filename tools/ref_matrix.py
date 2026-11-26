@@ -25,9 +25,10 @@ import yaml
 
 from cassim.core import catalog
 from cassim.core.parser import COMMANDS
+from tools.evidence import evidence_path
 
 ROOT = Path(__file__).resolve().parents[1]
-REF = ROOT / "references"
+REF = evidence_path("references")
 CAS_GUIDE = REF / "TI-NspireCAS_ReferenceGuide_EN_3.2.pdf"
 NUM_GUIDE = REF / "TI-Nspire_ReferenceGuide_EN_4.5.pdf"
 BOOKS = {

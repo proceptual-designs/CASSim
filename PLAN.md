@@ -90,9 +90,10 @@ cassim/
   src/cassim/bundle.py       the devices in this build; tools.publish writes its own copy (M2x step 5)
   src/cassim/runtime/        pseudocode lexer, parser, interpreter, trace, syntax file, printer (M5b, built)
   tests/  unit/  corpus/  device/  e2e/
-  corpus/                   golden cases (YAML) + simulator screenshots as evidence
+  corpus/                   golden cases (YAML); their simulator screenshots are in CASSim-evidence
   tools/                    capture + replay tooling for the simulator corpus
-  docs/  references/  spikes/
+  docs/  spikes/
+  ../CASSim-evidence/       separate repository: screenshots, capture briefs, references/ (0039)
 ```
 
 ### 3.1 Key design decisions
@@ -402,7 +403,7 @@ Decisions (from the SRS review, 2026-11-02; do not re-litigate):
 
 1. **Fidelity:** canonical equality first, exact text per area as the corpus grows; "close enough not to confuse" is the bar.
 2. **Performance and size:** no hard budgets. Cold start (baseline 15 s vendored, 35 s CDN) and download (22 MB CDN, 95 MB vendored) are measured and reported with a progress screen. Tier 1 operations aim for 1 s or less after import; SciPy first use 5 s or less and shown as busy; Cancel within 1 s.
-3. **Licensing:** CASSim and LazyMath are both Unlicense. TI marks, artwork and ROM are never shipped; reference screenshots stay in `docs/design/reference/<device>/` (kept locally) and evidence screenshots in `corpus/shots/` and `docs/testing/`, never in the build. IP boundary and clean-room rule per decision 0028: layout, menus, names and syntax may match the device; artwork, prose and code may not, and behaviour is learned by observation only.
+3. **Licensing:** CASSim and LazyMath are both Unlicense. TI marks, artwork and ROM are never shipped; reference screenshots (`docs/design/reference/<device>/`) and evidence screenshots (`corpus/shots/`, `docs/testing/*-shots/`) are kept in the separate evidence repository (decision 0039), never in the build. IP boundary and clean-room rule per decision 0028: layout, menus, names and syntax may match the device; artwork, prose and code may not, and behaviour is learned by observation only.
 4. **Appropriate use:** teaching, practice and demonstration. Not an approved exam calculator, and the UI says so.
 5. **Python 3.14, no Geometry page, no `.tns` for now.** If `.tns` is ever built, it is File > Import/Export only (FR-DOC-006).
 6. **Sequencing and priorities (updated 2026-11-19):** CASSim is now an all-in-one shell with the Nspire and Pseudocode & Python app choices. Finish the Nspire page set through M4 and the Code runtime/UI as Should work (M5), then TI-Basic and library extensions as Could (M6), and polish as M7. The multi-app boundary and chooser are accepted and built; Casio ClassPad follows as a device in that shell (M8), and HP Prime is Would behind a go/no-go review (M9). The M2 guard, M2x profile boundary and M5 sandbox spike remain accepted.
