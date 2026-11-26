@@ -8,7 +8,6 @@ PACKAGES = [
     "cassim.core.compat.sympy_adapter",
     "cassim.core.session",
     "cassim.cli",
-    "cassim_app",
 ]
 
 
