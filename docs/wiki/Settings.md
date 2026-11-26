@@ -23,8 +23,10 @@ Doc, Settings & Status, **Handheld Setup**. These belong to your device, not the
 - **Maths size:** how large the maths is drawn
 - **Zoom:** scales everything on screen
 - **Keypad letters:** ABC or QWERTY
-- **Appearance:** choose Dark, Light or High contrast; changes take effect when saved.
-  Tap a colour swatch to choose from the palette, or enter a six-digit `#RRGGBB` value.
+- **Appearance:** choose Dark, Light or High contrast. The choice is shared by Home and every
+  CASSim app, and **CASSim ▸ Appearance…** opens the same dialog. You see a theme as soon as
+  you choose it; **Save** keeps it and **Cancel** goes back. Open **Customise colours** to
+  change single colours: tap a colour swatch to choose from the palette, or enter a six-digit `#RRGGBB` value.
   Edits are remembered separately for each preset on this device. **Reset preset** restores
   the selected preset's defaults; **Cancel** discards the edits made in that dialog.
   Custom colours can reduce contrast, so check that text and controls remain easy to see.

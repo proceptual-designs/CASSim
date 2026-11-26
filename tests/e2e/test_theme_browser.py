@@ -32,9 +32,9 @@ def test_saved_custom_theme_is_applied_after_reload(
     app.page.get_by_role("button", name="Appearance…").focus()
     app.page.keyboard.press("Enter")
     app.page.wait_for_timeout(800)
-    app.page.mouse.click(600, 150)  # Theme dropdown
+    app.page.get_by_role("button", name="Light", exact=True).click()
+    app.page.get_by_role("button", name="Customise colours").click()
     app.page.wait_for_timeout(500)
-    app.page.mouse.click(450, 265)  # Light
     background = app.page.get_by_label("Background", exact=True)
 
     def swatch_is(colour: tuple[int, int, int]) -> bool:
@@ -57,7 +57,7 @@ def test_saved_custom_theme_is_applied_after_reload(
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
             const read = request.result.transaction('texts').objectStore('texts')
-                .get('cassim.system');
+                .get('cassim.appearance');
             read.onsuccess = () => resolve(read.result);
             read.onerror = () => reject(read.error);
         };

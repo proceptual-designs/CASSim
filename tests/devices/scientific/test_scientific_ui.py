@@ -17,7 +17,9 @@ import flet as ft
 import flet.canvas as cv
 import pytest
 
+from cassim.app.appearance import APPEARANCE_KEY, Appearance, load_appearance
 from cassim.app.shell import BrowserOffers
+from cassim.app.theme import THEMES, contrast
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
 from cassim.devices.scientific.layout import Frac, Sqrt, Text
@@ -84,9 +86,24 @@ class FakeShell:
         self.copied: list[str] = []
         self.saved: list[tuple[str, str]] = []
         self.picked: str | None = None
+        self.shared: dict[str, str] = {}  # shell-wide keys, such as the shared theme
+        self.appearance = Appearance()
+        self.appearance_saved = False
 
     async def read(self, key: str) -> str | None:
         return self.store.get(key)
+
+    async def load_appearance(self) -> str:
+        async def read_global(key: str) -> str | None:
+            return self.shared.get(key)
+
+        loaded = await load_appearance(read_global)
+        self.appearance, self.appearance_saved = loaded.appearance, loaded.saved
+        return loaded.error
+
+    def save_appearance(self, appearance: Appearance) -> None:
+        self.appearance, self.appearance_saved = appearance, True
+        self.shared[APPEARANCE_KEY] = appearance.dumps()
 
     def write(self, key: str, text: str) -> None:
         self.store[key] = text
@@ -117,10 +134,16 @@ class FakeShell:
     def activate_update(self) -> None: ...
 
 
-def started(page: FakePage | None = None, route: str = "", store: dict[str, str] | None = None):
+def started(
+    page: FakePage | None = None,
+    route: str = "",
+    store: dict[str, str] | None = None,
+    shared: dict[str, str] | None = None,
+):
     page = page or FakePage()
     shell = FakeShell(page, route)
     shell.store.update(store or {})
+    shell.shared.update(shared or {})
     app = ScientificApp(shell)  # ty: ignore[invalid-argument-type]
     asyncio.run(app.start())
     return app, shell, page
@@ -321,14 +344,55 @@ def test_status_chips() -> None:
 
 
 @pytest.mark.parametrize("name", list(SKINS))
-def test_appearance(name: str) -> None:
+def test_appearance_follows_the_shared_theme(name: str) -> None:
+    """SDD-15 section 7.1: the theme chosen in any app (or on Home) is the one drawn here,
+    and the page, bar and chips use the shared theme's colours."""
     app, shell, page = started()
-    app.apply_skin(name)
-    assert page.bgcolor == SKINS[name].page
-    assert json.loads(shell.store["prefs"])["theme"] == name
-    again, _, page2 = started(store=shell.store)
-    assert page2.bgcolor == SKINS[name].page
-    assert again.skin_name == name
+    dialog = app.open_appearance()
+    dialog.select(name)
+    assert page.bgcolor == THEMES[name].background  # previewed before Save
+    dialog.save.on_click(None)
+    assert json.loads(shell.shared[APPEARANCE_KEY])["theme_name"] == name
+    assert "theme" not in json.loads(shell.store["prefs"])
+    again, _, page2 = started(shared=shell.shared)
+    assert page2.bgcolor == THEMES[name].background
+    assert again.appearance.theme_name == name
+    assert again.skin.lcd == SKINS[name].lcd  # the calculator keeps its own colours
+    page.drop_tasks()
+    page2.drop_tasks()
+
+
+def test_cancel_puts_the_saved_theme_back() -> None:
+    app, shell, page = started()
+    dialog = app.open_appearance()
+    dialog.select("Light")
+    assert page.bgcolor == THEMES["Light"].background
+    dialog.cancel.on_click(None)
+    assert page.bgcolor == THEMES["Dark"].background
+    assert APPEARANCE_KEY not in shell.shared
+    page.drop_tasks()
+
+
+def test_an_older_scientific_theme_becomes_the_shared_one_once() -> None:
+    """Before SDD-15 this app saved its own theme; with no shared theme saved, it is kept."""
+    store = {"prefs": json.dumps({"theme": "Light"})}
+    app, shell, page = started(store=store)
+    assert app.appearance.theme_name == "Light"
+    assert json.loads(shell.shared[APPEARANCE_KEY])["theme_name"] == "Light"
+    shared = {APPEARANCE_KEY: Appearance("High contrast").dumps()}
+    again, _, page2 = started(store=store, shared=shared)
+    assert again.appearance.theme_name == "High contrast"  # a shared choice wins
+    page.drop_tasks()
+    page2.drop_tasks()
+
+
+@pytest.mark.parametrize("name", list(THEMES))
+def test_light_menu_bar_follows_the_theme(name: str) -> None:
+    """SDD-15 gap 17: the bar was dark even in Light."""
+    app, _, page = started(shared={APPEARANCE_KEY: Appearance(name).dumps()})
+    assert app.top_bar.bgcolor == THEMES[name].background
+    assert contrast(app.skin.bar_text, app.top_bar.bgcolor) >= 4.5
+    page.drop_tasks()
 
 
 def test_autosave_and_restore() -> None:

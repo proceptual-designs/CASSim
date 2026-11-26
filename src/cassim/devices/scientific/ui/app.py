@@ -16,8 +16,10 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from cassim.app.appearance import Appearance, AppearanceDialog, appearance_dialog
 from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
+from cassim.app.theme import DEFAULT_THEME
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
@@ -33,10 +35,11 @@ from cassim.devices.scientific.tutorials import (
     wording,
 )
 from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
-from cassim.devices.scientific.ui.skins import SKIN_NAMES, SKINS, Skin
+from cassim.devices.scientific.ui.skins import SKINS, Skin, skin_for
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
+    from cassim.app.theme import Theme
 
 AUTOSAVE_KEY = "autosave"
 PREFS_KEY = "prefs"
@@ -112,7 +115,8 @@ class ScientificApp:
         self.shell = shell
         self.page = shell.page
         self.state = ScientificState()
-        self.skin_name = "Dark"
+        # the shared theme, or one the Appearance dialog previews (a test's shell may have none)
+        self.appearance: Appearance = getattr(shell, "appearance", None) or Appearance()
         self.scale = 1.0
         self.menu_visible = True
         self.panel_open = True
@@ -147,7 +151,11 @@ class ScientificApp:
 
     @property
     def skin(self) -> Skin:
-        return SKINS[self.skin_name]
+        return skin_for(self.appearance)
+
+    @property
+    def theme(self) -> Theme:
+        return self.appearance.theme
 
     # ------------------------------------------------------------------------------------------
     # building
@@ -379,7 +387,7 @@ class ScientificApp:
         return skin.fn
 
     def _dark(self) -> bool:
-        return self.skin_name != "Light"
+        return self.appearance.theme_name != "Light"
 
     def _legend_colours(self) -> tuple[str, str]:
         """SHIFT's and ALPHA's legend colours: the layout's own on a dark body, else the theme's."""
@@ -761,14 +769,14 @@ class ScientificApp:
             (self.io_chip, "Math" if state.setup.input == "math" else "Line"),
         ):
             chip.bgcolor = skin.chip
-            chip.border = ft.Border.all(1, "#4d5563")
+            chip.border = ft.Border.all(1, self.theme.chip_edge)
             label = chip.content
             assert isinstance(label, ft.Text)
             label.value = text
             label.color = skin.bar_text
             _safe_update(chip)
         self.model_chip.bgcolor = skin.chip
-        self.model_chip.border = ft.Border.all(1, "#4d5563")
+        self.model_chip.border = ft.Border.all(1, self.theme.chip_edge)
         self.model_label.value = self.layout.series
         self.model_label.color = self.model_icon.color = skin.bar_text
         _safe_update(self.model_chip)
@@ -800,6 +808,7 @@ class ScientificApp:
         self.page.on_keyboard_event = self.on_keyboard
         self.page.on_resize = lambda _: self.fit()
         self.shell.changed = self.on_bridge
+        error = await self.shell.load_appearance()
         await self._load_prefs()
         if self.phone:
             self.panel_open = False  # a phone starts with the whole screen for the calculator
@@ -810,7 +819,9 @@ class ScientificApp:
         )
         self.page.controls.clear()
         self.page.add(self.root)
-        self.apply_skin(self.skin_name, save=False)
+        self.apply_theme()
+        if error:
+            self.shell.notice("Appearance", error)
 
     def unmount(self) -> None:
         self.demo_run += 1
@@ -874,18 +885,14 @@ class ScientificApp:
         self.refresh()
         _safe_update(self.body)
 
-    def apply_skin(self, name: str, *, save: bool = True) -> None:
-        self.skin_name = name if name in SKINS else "Dark"
-        skin = self.skin
-        self.page.bgcolor = skin.page
-        self.page.theme_mode = (
-            ft.ThemeMode.LIGHT if self.skin_name == "Light" else ft.ThemeMode.DARK
-        )
+    def apply_theme(self, appearance: Appearance | None = None) -> None:
+        """Draw in the shared theme, or in `appearance` while the dialog previews it."""
+        self.appearance = appearance or self.shell.appearance
+        self.page.bgcolor = self.skin.page
+        self.page.theme_mode = self.appearance.mode
         self.key_controls = {}
         self.fit()
         _safe_update(self.page)
-        if save:
-            self._save_prefs()
 
     # ------------------------------------------------------------------------------------------
     # keys
@@ -1167,7 +1174,7 @@ class ScientificApp:
                 ft.Text(
                     self.feedback,
                     size=12,
-                    color="#22c55e" if self.feedback_ok else "#f59e0b",
+                    color=self.theme.success if self.feedback_ok else self.theme.warning,
                     weight=ft.FontWeight.W_600,
                 )
             )
@@ -1506,8 +1513,9 @@ class ScientificApp:
             return
         if not isinstance(prefs, dict):
             return
-        if prefs.get("theme") in SKINS:
-            self.skin_name = prefs["theme"]
+        old = prefs.get("theme")  # this app's own theme, before every app shared one
+        if old in SKINS and old != DEFAULT_THEME and not self.shell.appearance_saved:
+            self.shell.save_appearance(Appearance(old))
         if prefs.get("layout") in LAYOUTS_BY_ID:
             self.layout = self.shown_layout = LAYOUTS_BY_ID[prefs["layout"]]
         done = prefs.get("completed")
@@ -1523,7 +1531,6 @@ class ScientificApp:
             PREFS_KEY,
             json.dumps(
                 {
-                    "theme": self.skin_name,
                     "layout": self.layout.id,
                     "completed": sorted(self.completed),
                     "panel": self.panel_open,
@@ -1811,7 +1818,7 @@ class ScientificApp:
             )
         )
 
-    def open_appearance(self) -> None:
+    def open_appearance(self) -> AppearanceDialog:
         """Appearance: the calculator whose keys to show (FR-FX-UI-005) and the colour theme."""
         calculator = ft.Dropdown(
             label="Calculator",
@@ -1820,44 +1827,25 @@ class ScientificApp:
             width=self.dialog_width(320),
             dense=True,
         )
-        choice = ft.RadioGroup(
-            ft.Column(
-                [ft.Radio(value=name, label=label) for name, label in SKIN_NAMES.items()],
-                tight=True,
-            ),
-            value=self.skin_name,
+        note = ft.Text(
+            "The keys are named and arranged like that calculator's, so you can find yours. "
+            "CASSim Scientific works the same behind them; see Help for what each model does "
+            "differently.",
+            size=12,
         )
 
-        def apply(_: object) -> None:
-            self.page.pop_dialog()
+        def save(appearance: Appearance) -> None:
+            self.shell.save_appearance(appearance)
             self.set_layout(calculator.value or layouts.DEFAULT.id, save=False)
-            self.apply_skin(choice.value or "Dark")
+            self.apply_theme()
+            self._save_prefs()
 
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Appearance"),
-                content=ft.Column(
-                    [
-                        calculator,
-                        ft.Text(
-                            "The keys are named and arranged like that calculator's, so you can "
-                            "find yours. CASSim Scientific works the same behind them; see Help "
-                            "for what "
-                            "each model does differently.",
-                            size=12,
-                        ),
-                        ft.Text("Theme", weight=ft.FontWeight.BOLD, size=13),
-                        choice,
-                    ],
-                    tight=True,
-                    spacing=10,
-                    width=self.dialog_width(360),
-                ),
-                actions=[
-                    ft.TextButton("Apply", on_click=apply),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
+        return appearance_dialog(
+            self.page,
+            self.shell.appearance,
+            save,
+            extra=[calculator, note],
+            on_preview=self.apply_theme,
         )
 
     def cycle_layout(self) -> None:

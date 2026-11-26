@@ -9,6 +9,8 @@ from typing import Any, cast
 import flet as ft
 import pytest
 
+from cassim.app.appearance import Appearance
+from cassim.app.theme import DARK, HIGH_CONTRAST
 from cassim.devices.pseudocode.ui.app import (
     BISECTION,
     CONDITION_COLUMN_WIDTH,
@@ -433,7 +435,7 @@ def highlighted(window: CallWindow) -> list[str]:
     found: list[str] = []
 
     def walk(control: object) -> None:
-        if isinstance(control, ft.Container) and control.bgcolor == ft.Colors.SECONDARY_CONTAINER:
+        if isinstance(control, ft.Container) and control.bgcolor == DARK.line_highlight:
             found.extend(texts(control))
         for name in ("content", "controls"):
             child = getattr(control, name, None)
@@ -908,3 +910,56 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     shell.run_tasks()
     assert app.source() == "z ← 3\n"
     assert app.saved.current.stored is None  # an imported file is saved nowhere here yet
+
+
+class ThemedShell(DummyShell):
+    """A shell with the shared theme (SDD-15 section 7.1)."""
+
+    def __init__(self, appearance: Appearance) -> None:
+        super().__init__()
+        self.appearance = appearance
+        self.saved_appearances: list[Appearance] = []
+        self.dialogs: list[ft.AlertDialog] = []
+        self.page = SimpleNamespace(
+            update=lambda: None,
+            show_dialog=self.dialogs.append,
+            pop_dialog=self.dialogs.pop,
+            width=1000,
+            height=700,
+        )
+
+    def save_appearance(self, appearance: Appearance) -> None:
+        self.appearance = appearance
+        self.saved_appearances.append(appearance)
+
+
+def test_the_toolbar_and_page_follow_the_shared_theme() -> None:
+    """SDD-15 gaps 1 and 2: the toolbar was drawn in Dark's colours whatever the theme, and
+    the theme chosen elsewhere was not used."""
+    shell = ThemedShell(Appearance("High contrast", {"High contrast": {"key": "#101010"}}))
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.apply_theme()
+    assert shell.page.bgcolor == HIGH_CONTRAST.background
+    for button in app.styled_buttons():
+        assert button.style is not None
+        fills = button.style.bgcolor
+        assert isinstance(fills, dict)
+        assert fills[ft.ControlState.DEFAULT] == "#101010"
+    assert app.line_band.bgcolor == HIGH_CONTRAST.line_highlight
+
+
+def test_appearance_is_saved_for_every_app() -> None:
+    """SDD-15 gap 1: Appearance… was applied but never saved, so a reload was Dark again."""
+    shell = ThemedShell(Appearance())
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.open_appearance(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    (shown,) = shell.dialogs
+    assert shown.title.value == "Appearance"  # ty: ignore[unresolved-attribute]
+    choice = next(c for c in shown.content.controls if isinstance(c, ft.SegmentedButton))  # ty: ignore[unresolved-attribute]
+    choice.selected = ["Light"]
+    choice.on_change(None)
+    assert shell.page.theme_mode == ft.ThemeMode.LIGHT  # previewed
+    save = shown.actions[-1].controls[-1]  # ty: ignore[unresolved-attribute]
+    save.on_click(None)
+    assert [a.theme_name for a in shell.saved_appearances] == ["Light"]
+    assert app.appearance.theme_name == "Light"

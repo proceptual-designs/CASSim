@@ -13,8 +13,9 @@ from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
+from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.saved import SavedDocuments
-from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT, Theme
+from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
     convert_region,
@@ -242,24 +243,20 @@ EDITOR_SETTINGS_KEY = "editor"
 CODE_FONT = "CASSim Code"
 MATH_FONT = "CASSim Math"
 SYMBOL_FONT = "Symbols"
-THEMES: dict[str, Theme] = {
-    "Dark": DARK,
-    "Light": LIGHT,
-    "High contrast": HIGH_CONTRAST,
-}
 
 
-def _control_style() -> ft.ButtonStyle:
+def _control_style(theme: Theme = DARK) -> ft.ButtonStyle:
+    """The toolbar's and the run controls' buttons, in the current theme."""
     return ft.ButtonStyle(
         bgcolor={
-            ft.ControlState.SELECTED: DARK.accent,
-            ft.ControlState.DEFAULT: DARK.key,
+            ft.ControlState.SELECTED: theme.accent,
+            ft.ControlState.DEFAULT: theme.key,
         },
         color={
-            ft.ControlState.SELECTED: DARK.accent_text,
-            ft.ControlState.DEFAULT: DARK.key_text,
+            ft.ControlState.SELECTED: theme.accent_text,
+            ft.ControlState.DEFAULT: theme.key_text,
         },
-        side=ft.BorderSide(1, DARK.key_edge),
+        side=ft.BorderSide(1, theme.key_edge),
         shape=ft.RoundedRectangleBorder(radius=6),
         padding=ft.Padding.symmetric(horizontal=8, vertical=6),
         text_style=ft.TextStyle(size=12),
@@ -303,7 +300,8 @@ class CodeApp:
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
         self.angle_mode: AngleMode = "radian"
-        self.theme_name = "Dark"
+        # the shared theme, or one the dialog previews (a test may pass a shell without one)
+        self.appearance: Appearance = getattr(shell, "appearance", None) or Appearance()
         self.cm = None
         self.cm_change_proxy = None
         self.editor_width = 0.0  # drawn width, reported by the box around the editor
@@ -334,7 +332,7 @@ class CodeApp:
         self.highlighted_line = 0  # the source line the trace has reached (0: none)
         self.line_band = ft.Container(
             left=0, right=0, top=0, height=ROW_HEIGHT, visible=False,
-            bgcolor=ft.Colors.SECONDARY_CONTAINER, border_radius=3,
+            bgcolor=DARK.line_highlight, border_radius=3,
         )  # fmt: skip
         self.line_number_gutter = ft.Text(
             self._line_numbers_for(EXAMPLE),
@@ -612,7 +610,10 @@ class CodeApp:
         self.page.on_resize = self.on_resize
         self.page.on_keyboard_event = self.on_keyboard
         self.page.add(self.root)
-        self.apply_theme("Dark")
+        error = await self.shell.load_appearance()
+        self.apply_theme()
+        if error:
+            self.shell.notice("Appearance", error)
         self.arrange()
         if self._has_browser_dom():
             await self.start_codemirror()
@@ -707,13 +708,40 @@ class CodeApp:
         self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
         _safe_update(self.update_item)
 
-    def apply_theme(self, name: str) -> None:
-        theme = THEMES[name]
-        self.theme_name = name
-        self.page.theme_mode = ft.ThemeMode.LIGHT if name == "Light" else ft.ThemeMode.DARK
+    @property
+    def theme(self) -> Theme:
+        return self.appearance.theme
+
+    @property
+    def codemirror_theme(self) -> str:
+        return "default" if self.appearance.theme_name == "Light" else "dracula"
+
+    def styled_buttons(self) -> list[ft.Button | ft.SegmentedButton]:
+        """The buttons drawn in the theme's key and accent colours."""
+        return [
+            self.number_button,
+            self.angle_button,
+            self.language_switch,
+            self.trace_layout,
+            self.run_button,
+            self.stop_button,
+            self.step_button,
+            self.start_button,
+            self.end_button,
+        ]
+
+    def apply_theme(self, appearance: Appearance | None = None) -> None:
+        """Draw in the shared theme, or in `appearance` while the dialog previews it."""
+        self.appearance = appearance or self.shell.appearance
+        theme = self.theme
+        self.page.theme_mode = self.appearance.mode
         self.page.bgcolor = theme.background
+        style = _control_style(theme)
+        for button in self.styled_buttons():
+            button.style = style
+        self.line_band.bgcolor = theme.line_highlight
         if self.cm is not None:
-            self.cm.setOption("theme", "default" if name == "Light" else "dracula")
+            self.cm.setOption("theme", self.codemirror_theme)
             self.cm.refresh()
         self.page.update()
 
@@ -1210,7 +1238,7 @@ if (!window.CASSimPseudocodeModeDefined) {
                 {
                     "value": self.current_source,
                     "mode": "pseudocode" if self.language == "pseudocode" else "python",
-                    "theme": "dracula",
+                    "theme": self.codemirror_theme,
                     "lineNumbers": self.line_numbers_visible,
                     "lineWrapping": True,
                     "indentUnit": 2,
@@ -1794,7 +1822,7 @@ window.CASSimTypingAids = function(editor, change) {
                         ],
                         spacing=8,
                     ),
-                    bgcolor=ft.Colors.SECONDARY_CONTAINER if number == current else None,
+                    bgcolor=self.theme.line_highlight if number == current else None,
                     padding=ft.Padding.symmetric(horizontal=4, vertical=1),
                 )
                 for number, text in source
@@ -1819,9 +1847,11 @@ window.CASSimTypingAids = function(editor, change) {
 
         controls = ft.Row(
             [
-                ft.Button("Step", on_click=lambda _: go(shown[0] + 1), style=_control_style()),
-                ft.Button("First", on_click=lambda _: go(0), style=_control_style()),
-                ft.Button("Last", on_click=lambda _: go(total), style=_control_style()),
+                ft.Button(
+                    "Step", on_click=lambda _: go(shown[0] + 1), style=_control_style(self.theme)
+                ),
+                ft.Button("First", on_click=lambda _: go(0), style=_control_style(self.theme)),
+                ft.Button("Last", on_click=lambda _: go(total), style=_control_style(self.theme)),
                 counter,
             ],
             spacing=8,
@@ -2114,27 +2144,13 @@ window.CASSimTypingAids = function(editor, change) {
         )
 
     def open_appearance(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        choice = ft.SegmentedButton(
-            selected=[self.theme_name],
-            segments=[ft.Segment(value=name, label=name) for name in THEMES],
-        )
+        """CASSim > Appearance…: the theme shared with Home and every app (SDD-15 section 7.3)."""
 
-        def save(_: ft.Event[ft.TextButton]) -> None:
-            selected = choice.selected[0] if choice.selected else self.theme_name
-            if selected in THEMES:
-                self.apply_theme(selected)
-            self.page.pop_dialog()
+        def save(appearance: Appearance) -> None:
+            self.shell.save_appearance(appearance)
+            self.apply_theme()
 
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Appearance"),
-                content=choice,
-                actions=[
-                    ft.TextButton("Apply", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
-        )
+        appearance_dialog(self.page, self.shell.appearance, save, on_preview=self.apply_theme)
 
     def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
         self.shell.activate_update()

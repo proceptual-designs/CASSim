@@ -161,8 +161,8 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DEV-002 | Must | `tests/app/test_computer_columns.py`, `tests/e2e/test_sidebar_browser.py` |
 | FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_history_cache.py`, `tests/app/test_layout.py` and 7 more |
 | FR-DEV-005 | Should | `tests/app/test_history_cache.py`, `tests/app/test_keypad_refresh.py`, `tests/app/test_keypad_shapes.py` and 4 more |
-| FR-THEME-001 | Must | `tests/app/test_theme_settings.py`, `tests/e2e/test_theme_browser.py` |
-| FR-THEME-002 | Should | `tests/app/test_theme_settings.py`, `tests/e2e/test_theme_browser.py` |
+| FR-THEME-001 | Must | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py` |
+| FR-THEME-002 | Should | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py` |
 | FR-DEV-006 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_state.py` |
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
 | FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
@@ -290,7 +290,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-SEC-003 | Must | `tests/runtime/test_pseudocode_syntax.py` |
 | NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
 | NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
-| NFR-USE-003 | Should | `tests/app/test_theme_settings.py` |
+| NFR-USE-003 | Should | `tests/app/test_appearance.py` |
 | NFR-PORT-002 | Must | `tests/app/test_math_canvas.py` |
 | NFR-PORT-003 | Should | `tests/app/test_layout.py` |
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |

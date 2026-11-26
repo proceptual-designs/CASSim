@@ -18,6 +18,7 @@ from datetime import datetime
 import flet as ft
 
 from cassim.app import about
+from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.keyboard import (
     ARROW_KEYS,
     REPEAT_DELAY,
@@ -25,7 +26,6 @@ from cassim.app.keyboard import (
     repeat_interval,
 )
 from cassim.app.shell import BrowserOffers, Shell
-from cassim.app.theme import themed
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
@@ -71,7 +71,6 @@ from cassim.devices.nspire.ui.state import (
     Mode,
     System,
 )
-from cassim.devices.nspire.ui.theme_settings import theme_settings_dialog
 from cassim.devices.nspire.ui.views import (
     POINTER_TICK,
     SYMBOL_FONT,
@@ -300,6 +299,7 @@ class App:
         state.show_wizard = self.show_wizard
         state.request_paste = self.request_paste
         self.typing_dialog: ft.AlertDialog | None = None  # its text boxes take the keyboard
+        self.appearance_error = ""  # a saved theme that could not be read
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
         self.save_at = 0.0  # when the waiting autosave runs (time.monotonic)
         self.save_waiting = False  # a save task is waiting for that time
@@ -338,8 +338,8 @@ class App:
                 on_key_up=lambda e: self.keyboard_up(e.key),
             )
         )
-        if self.state.system.theme_error:
-            self.notice("Appearance settings", self.state.system.theme_error)
+        if self.appearance_error:
+            self.notice("Appearance", self.appearance_error)
         print("CASSIM: UI", flush=True)  # the first screen is on its way (tools/loadtime.py)
         if self.runner is not None:
             self.status.value = "Starting the calculator engine..."
@@ -409,6 +409,7 @@ class App:
         """Reopen the saved System Settings, if any, and pick the view to start in. A phone is
         always in Handheld, whatever start view was saved; with nothing saved, the window's size
         picks the view (and keeps picking it as the window changes, until a view is chosen)."""
+        self.appearance_error = await self.shell.load_appearance()
         saved = await self.shell.read(SYSTEM_KEY)
         if saved is not None:
             self.state.system = System.loads(saved)
@@ -972,7 +973,7 @@ class App:
             cassim.content = ft.Row(
                 [
                     label_text(about.product_name(), size=13, color=theme.accent_text),
-                    ft.Icon(ft.Icons.CIRCLE, size=8, color="#e53935"),
+                    ft.Icon(ft.Icons.CIRCLE, size=8, color=self.theme.attention),
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=4,
@@ -1484,16 +1485,30 @@ class App:
         self.refresh()
 
     def open_appearance(self) -> None:
-        self.typing_dialog = theme_settings_dialog(
-            self.page, self.state.system, self.on_system_change
-        )
+        """CASSim's shared Appearance dialog; its colour boxes take the keyboard."""
 
-    def apply_theme(self) -> None:
-        system = self.state.system
-        theme = themed(system.theme_name, system.theme_overrides.get(system.theme_name, {}))
-        self.page.theme_mode = (
-            ft.ThemeMode.LIGHT if system.theme_name == "Light" else ft.ThemeMode.DARK
-        )
+        def save(appearance: Appearance) -> None:
+            self.shell.save_appearance(appearance)
+            self.on_appearance_change()
+
+        def preview(appearance: Appearance) -> None:
+            self.apply_theme(appearance)
+            self.refresh()
+
+        self.typing_dialog = appearance_dialog(
+            self.page, self.shell.appearance, save, on_preview=preview
+        ).dialog
+
+    def on_appearance_change(self) -> None:
+        self.apply_theme()
+        self.arrange()
+        self.refresh()
+
+    def apply_theme(self, appearance: Appearance | None = None) -> None:
+        """Draw in the shared theme, or in `appearance` while the dialog previews it."""
+        appearance = appearance or self.shell.appearance
+        theme = appearance.theme
+        self.page.theme_mode = appearance.mode
         self.page.bgcolor = theme.background
         self.status.color = theme.status_text
         if theme == self.theme:

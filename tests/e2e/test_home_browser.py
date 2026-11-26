@@ -61,7 +61,8 @@ def test_home_chooses_an_app_and_a_reload_returns_home(browser: Browser, site) -
 
 
 def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> None:
-    """FR-PROF-017: Home Settings does not need a device UI."""
+    """FR-PROF-017: Home's Appearance (the theme every app shares, SDD-15 section 7) does
+    not need a device UI."""
     page = browser.new_page(viewport={"width": 1100, "height": 760})
     logs: list[str] = []
     page.on(
@@ -73,11 +74,10 @@ def test_home_settings_share_the_cassim_appearance(browser: Browser, site) -> No
         assert wait_for_log(page, logs, "CASSIM: HOME"), "Home never drew"
         enable_semantics(page)
         page.get_by_role("button", name=re.compile("^CASSim")).click()
-        page.get_by_role("button", name=re.compile("^Settings")).click()
-        expect(page.get_by_text("Appearance")).to_be_attached()
-        page.get_by_role("alertdialog").get_by_role("button").first.click()
-        page.get_by_text("Light", exact=True).click()
-        page.get_by_role("button", name="Save").click()
+        page.get_by_role("button", name="Appearance…").click()
+        expect(page.get_by_text("Customise colours")).to_be_attached()
+        page.get_by_role("button", name="Light", exact=True).click()
+        page.get_by_role("button", name="Save", exact=True).click()
         nspire = page.get_by_role("button", name=re.compile("Nspire"))
         expect(nspire).to_be_attached()
         bounds = nspire.bounding_box()

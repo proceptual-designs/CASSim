@@ -20,12 +20,13 @@ The first group is the Nspire's UI in `devices/nspire/ui/`; the second is the sh
 | `devices/nspire/ui/state.py` | `AppState`: the `Document`, the `Mode`, a `Profile`, two `Keyboard`s (keypad and computer), the open menu, caps lock, `System` settings. Drives everything from `press_keypad` and `key_event`. No Flet import. |
 | `app/keyboard.py` | Browser key events to key names. Flet reports the key, not the typed character, so shifted symbols come from a US/AU layout table. Wrong on other layouts until typed characters are captured (decision 0024). |
 | `devices/nspire/ui/layout.py` | Pure sizing: `starting_mode` (a short side under 600 px starts Handheld), `handheld_plan` (fits the 320 x 240 screen and the keypad to the window, scaled together), the splitter range (0.15 to 0.8), zoom (0.5 to 2.0). |
-| `app/theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. Appearance overrides are saved per preset in System Settings. |
+| `app/theme.py` | `Theme`, Dark, Light and High contrast presets, colour validation and contrast calculation. |
+| `app/appearance.py` | The theme every app shares (SDD-15 section 7): `Appearance` (the preset and its changed colours), saved shell-wide under `cassim.appearance` through `Shell.load_appearance` and `Shell.save_appearance`, and the one Appearance dialog. A browser with nothing saved there takes the theme the Nspire's System Settings held before. |
 | `app/entry_line.py` | The entry line drawn from controls: every character, empty slot and template is its own control with invisible click halves, so a click maps to an editor target (decision 0019). `Hit` and `target_*` keep the mapping as data. |
 | `devices/nspire/ui/views.py`, `keypad.py`, `sidebar.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, Page Sorter, wizards. `math()` draws LaTeX. (One module, `app/ui.py`, until decision 0032.) |
 | `devices/nspire/ui/app.py` | Joins `state.py` to the views; `sheet_view.py`, `statistics_view.py` and `graphs_view.py` draw the other page types (SDD-07). |
 | `app/main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
-| `app/home.py` | The all-in-one Home screen, fixed choice order, unavailable state and shared appearance setting. It imports no device UI. |
+| `app/home.py` | The all-in-one Home screen, fixed choice order, unavailable state and CASSim ▸ Appearance…. It imports no device UI. |
 | `app/shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
 | `app/web.py` | Browser-only: the engine worker, the page bridge (SDD-02) and the IndexedDB `TextStore`. |
 | `app/about.py` | The About text (disclaimer, privacy, licence, notices, versions) as data. |
@@ -117,7 +118,7 @@ from `cassim.bundle.DEVICES`, so unbuilt choices stay visible without becoming p
 
 ## Known gaps
 
-- Theme-file import/export and a separate Outline preset (FR-THEME-002) are not built; the three appearance presets (Dark, Light and High contrast, where the SRS names Outline) can be edited in the app and persist in System Settings.
+- Theme-file import/export and a separate Outline preset (FR-THEME-002) are not built; the three appearance presets (Dark, Light and High contrast, where the SRS names Outline) can be edited in the shared Appearance dialog and persist shell-wide (SDD-15 section 7).
 - Accessibility is unaudited (`docs/accessibility.md`).
 - `app/main.py` (about 650 lines) and `devices/nspire/ui/views.py` (about 780) mix several concerns; the split is a recorded follow-up (PLAN.md A2, A3).
 - Dragging the splitter rebuilds the screen and keys and feels slow (PLAN.md note, 2026-11-08).

@@ -36,7 +36,11 @@ def recovered_mode(width: float, height: float, saved: Mode | None) -> Mode:
     async def read(key: str) -> str | None:
         return System(start_mode=saved).dumps() if saved and key == "system" else None
 
+    async def nothing_shared(_key: str) -> str | None:
+        return None  # no shared theme (SDD-15 section 7) saved either
+
     app.shell.read = read  # ty: ignore[invalid-assignment]
+    app.shell.read_global = nothing_shared  # ty: ignore[invalid-assignment]
     asyncio.run(app.recover_system())
     return app.state.mode
 
