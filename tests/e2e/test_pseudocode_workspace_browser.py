@@ -62,7 +62,7 @@ def test_code_workspace_is_responsive_in_both_themes(
             page.get_by_role("button", name=re.compile("^CASSim")).click()
             page.get_by_role("button", name="Appearance…").click()
             page.get_by_role("button", name="Light", exact=True).click()
-            page.get_by_role("button", name="Apply", exact=True).click()
+            page.get_by_role("button", name="Save", exact=True).click()
 
         expect(page.get_by_text("Code", exact=True)).to_be_attached()
         expect(page.get_by_text("Console", exact=True)).to_be_attached()
