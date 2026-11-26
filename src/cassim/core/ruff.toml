@@ -1,4 +1,4 @@
 extend = "../../../pyproject.toml"
 
 [lint.flake8-tidy-imports.banned-api]
-"flet".msg = "cassim.core must not import Flet; UI code lives in cassim_app."
+"flet".msg = "cassim.core must not import Flet; UI code lives in cassim.app and the device packages."
