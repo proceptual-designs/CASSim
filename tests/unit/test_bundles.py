@@ -259,3 +259,58 @@ def test_missing_bootstrap_assets_reject_offline_build(tmp_path: Path) -> None:
     """FR-PWA-002: a partial build must not be presented as an offline installation."""
     with pytest.raises(SystemExit, match="missing required assets"):
         publish.check_offline_assets(tmp_path)
+
+
+def test_a_download_with_the_wrong_hash_is_refused() -> None:
+    """NFR-MAINT-005: a wheel that does not match its recorded SHA-256 never reaches a site."""
+    good = hashlib.sha256(b"wheel").hexdigest()
+    assert publish.verified(b"wheel", good, "a.whl") == b"wheel"
+    with pytest.raises(RuntimeError, match="SHA-256 is"):
+        publish.verified(b"tampered", good, "a.whl")
+
+
+def test_pyodide_wheel_is_checked_against_the_pyodide_lock(tmp_path: Path) -> None:
+    """NFR-MAINT-005: a Pyodide package is checked on download and again when the cache is used."""
+    lock = {
+        "packages": {"six": {"file_name": "six.whl", "sha256": hashlib.sha256(b"six").hexdigest()}}
+    }
+    with (
+        patch.object(publish, "WHEELS", tmp_path),
+        patch.object(publish, "lock_file", return_value=lock),
+        patch.object(publish, "pyodide_version", return_value="1.0"),
+        patch.object(publish, "download_pyodide", return_value=b"other"),
+        pytest.raises(RuntimeError, match="SHA-256 is"),
+    ):
+        publish.pyodide_wheel(tmp_path, "six")
+    assert not (tmp_path / "six.whl").exists()
+    with (
+        patch.object(publish, "WHEELS", tmp_path),
+        patch.object(publish, "lock_file", return_value=lock),
+        patch.object(publish, "pyodide_version", return_value="1.0"),
+        patch.object(publish, "download_pyodide", return_value=b"six"),
+    ):
+        assert publish.pyodide_wheel(tmp_path, "six").read_bytes() == b"six"
+        (tmp_path / "six.whl").write_bytes(b"changed on disk")
+        with pytest.raises(RuntimeError, match="SHA-256 is"):
+            publish.pyodide_wheel(tmp_path, "six")
+
+
+def test_pypi_wheels_have_hashes_in_uv_lock() -> None:
+    """NFR-MAINT-005: every wheel the build takes from PyPI can be checked against uv.lock."""
+    lock = publish.tomllib.loads((publish.ROOT / "uv.lock").read_text(encoding="utf-8"))
+    names = {
+        wheel["url"].rsplit("/", 1)[-1]
+        for package in lock["package"]
+        for wheel in package.get("wheels", [])
+    }
+    for prefix in (
+        f"flet-{publish.flet_version()}-",
+        f"repath-{publish.REPATH_VERSION}-",
+        f"openpyxl-{publish.package_version('openpyxl')}-",
+        f"et_xmlfile-{publish.package_version('et_xmlfile')}-",
+    ):
+        found = [name for name in names if name.startswith(prefix)]
+        assert found, prefix
+        assert len(publish.locked_wheel_sha256(found[0])) == 64
+    with pytest.raises(RuntimeError, match="not in uv"):
+        publish.locked_wheel_sha256("nothing-0.0-py3-none-any.whl")
