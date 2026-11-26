@@ -95,7 +95,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-MAINT-005 | Should | uv.lock pins versions; the Pyodide upgrade procedure is not written yet |
 | NFR-LEG-001 | Must | checked by review; no TI marks or artwork are in the repo or build |
 | NFR-LEG-004 | Should | no LazyMath port exists yet; the licence check goes in docs/decisions/ first |
-| NFR-LEG-006 | Must | policy, checked in review: TI terms recorded in decision 0029; Casio and HP before their capture (Q17, Q18) |
+| NFR-LEG-006 | Must | policy, checked in review: TI terms recorded in decision 0029, kept with the evidence (decision 0039); Casio and HP before their capture (Q17, Q18) |
 | NFR-LEG-008 | Must | policy, checked in review (decision 0028); behaviour comes only from observed use, as the corpus records |
 | NFR-LEG-009 | Must | policy, checked in review (decision 0028); first audit against both Reference Guides clean on 2026-11-12, repeated before release (PLAN.md section 11 item 10) |
 
