@@ -14,6 +14,7 @@ What is kept in `docs/design/`, and where each kind of file goes. The requiremen
 | `SDD-07-data-pages.md` | Lists & Spreadsheet, Data & Statistics, Finance | Nspire |
 | `SDD-10-pwa-and-build.md` | Build, bundles, offline site, CI and deploy | all |
 | `SDD-14-scientific-calculator-fx.md` | CASSim Scientific | Scientific |
+| `SDD-15-shared-interface.md` | CASSim's own menus, themes, views, toggles and dialogs, the same in every app | shell, Home and every device |
 
 ## Supporting notes
 

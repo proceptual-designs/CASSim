@@ -555,7 +555,7 @@ Q1-Q15 are answered and folded into the text above. Q16-Q41 were added on 2026-1
 ---
 
 ## Appendix A. Design-document set (`docs/design/`)
-Six of the fifteen are written (2026-11-25). Until the others are, their material is in the decisions named and in the code. `docs/design/README.md` lists the other files kept in `docs/design/`.
+Seven of the sixteen are written (2026-11-26). Until the others are, their material is in the decisions named and in the code. `docs/design/README.md` lists the other files kept in `docs/design/`.
 
 | Doc | Content | Status |
 |---|---|---|
@@ -574,6 +574,7 @@ Six of the fifteen are written (2026-11-25). Until the others are, their materia
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire | Not written; decision 0032 and PLAN.md section 15 |
 | `SDD-13-runtime-python-pseudocode.md` | `Interpreter` interface, Python worker and sandbox, pseudocode dialect and interpreter, translation, trace engine and tables, settings bar, configurable syntax file, page-type integration (the variable bridge is a later Could) | Not written; decisions 0020, 0021 and 0037, `docs/pseudocode/` |
 | `SDD-14-scientific-calculator-fx.md` | CASSim Scientific: modes, natural display, exact values, statistics, tutorials, keypad and keyboard, files and links | Written |
+| `SDD-15-shared-interface.md` | CASSim's own interface in every app: CASSim and Doc menus, themes and Appearance, toggles, update and install items, views and touch, dialogs and wording | Written |
 
 ---
 
