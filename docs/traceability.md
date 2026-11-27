@@ -127,7 +127,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-CALC-004 | Must | `tests/app/test_history_cache.py`, `tests/app/test_history_mouse.py`, `tests/app/test_math_canvas.py` and 19 more |
 | FR-CALC-005 | Must | `tests/app/test_calculator_menus.py`, `tests/app/test_history_mouse.py`, `tests/app/test_menus.py` and 5 more |
 | FR-CALC-006 | Should | `tests/device/test_calculator.py`, `tests/device/test_history_run5.py` |
-| FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py`, `tests/unit/test_cas_papers.py` |
+| FR-CALC-007 | Should | `corpus/seed/034_real_complex_setting.yaml`, `tests/device/test_warning_triangle.py`, `tests/unit/test_cas_papers.py` and 1 more |
 | FR-DOC-001 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_documents.py`, `tests/app/test_history_cache.py` and 9 more |
 | FR-DOC-002 | Must | `tests/app/test_documents.py`, `tests/device/test_document.py` |
 | FR-DOC-003 | Must | `tests/app/test_autosave.py`, `tests/app/test_stub_pages.py`, `tests/device/test_serialize.py` and 3 more |

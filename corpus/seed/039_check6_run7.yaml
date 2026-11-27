@@ -1,0 +1,294 @@
+# Emulator check 6 run 7: the Calculator rows of parts A and D (R7-A1 to R7-A10, R7-D1). Captured
+# on the simulator 2026-11-27 by Claude Cowork; build 6.0.3.374, handheld page size, Radian, Auto,
+# Rectangular, Float 8 unless a case says otherwise. Transcribed from
+# docs/testing/emulator-calc8-results.md (in the evidence repository, decision 0039). Each case is
+# one Problem, so the n and c counters start at 1. Warning triangles are checked in
+# tests/unit/test_cas_run7.py, since a case cannot say whether a row has one. Human review pending.
+schema_version: 1
+cases:
+- id: c6r7.cas.derivative-quotient
+  course: specialist
+  settings: &spec
+    angle: radian
+    calc: auto
+    domain: rectangular
+    digits: float8
+  tier: 2
+  tags:
+  - calculus
+  steps:
+  - in: derivative((x+1)/(x-1),x)
+    out: -2/(x-1)^2
+    compare: text
+    note: TI shows the warning triangle (domain of the result).
+  provenance: &prov
+    source: simulator
+    simulator_version: TI-Nspire CX CAS Premium Teacher Software 6.0.3.374, handheld page size (emulator
+      check 6, run 7)
+    captured: '2026-11-27'
+    reviewed_by: claude (transcribed from docs/testing/emulator-calc8-results.md); human review pending
+    evidence: ../docs/testing/pages-shots-7/R7-A1-derivative-result.png
+  status: pass
+- id: c6r7.cas.tcollect-dot-product
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - trigonometry
+  steps:
+  - in: tCollect(dotP([5cos(t)-4cos(5t/2),5sin(t)-4sin(5t/2)],[5cos(t)-4cos(5t/2),5sin(t)-4sin(5t/2)]))
+    out: 41-40*cos(3*t/2)
+    compare: text
+    note: TI shows the warning triangle (domain of the result).
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A1-tcollect-result.png
+  status: pass
+- id: c6r7.cas.typed-quotient-cancels
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - algebra
+  steps:
+  - in: (x^2-1)/(x-1)
+    out: x+1
+    compare: text
+    note: TI shows the warning triangle (domain of the result). Seen in run 5 (H9h).
+  provenance:
+    <<: *prov
+    captured: '2026-11-20'
+    evidence: ../docs/testing/pages-shots-6/R5-H9h-warning-triangle-left-of-input.png
+  status: pass
+- id: c6r7.cas.solve-with-a-condition
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - solve
+  steps:
+  - in: solve(x^2=4,x)|x>0
+    out: x=2
+    compare: text
+  - in: solve(x^2=4,x)|x=2
+    out: x=-2 or x=2
+    compare: text
+    note: An equality condition on the unknown is ignored.
+  - in: solve(x^2=4,x)|x=3
+    out: x=-2 or x=2
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A2-solve-conditions.png
+  status: pass
+- id: c6r7.cas.integral-three-terms
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - calculus
+  steps:
+  - in: integral(1/(x^3+x+2),x,0,2)
+    out: 3*√(7)*tan⁻¹(3*√(7)/7)/28+3*√(7)*tan⁻¹(√(7)/7)/28+ln(9/2)/8
+    compare: canonical
+    note: The same three terms; TI puts the tan⁻¹(3√7/7) term first, CASSim second.
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A3-integral-start.png, ../docs/testing/pages-shots-7/R7-A3-integral-end.png
+  status: pass
+- id: c6r7.cas.expand-with-and-without-variable
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - algebra
+  steps:
+  - in: expand((x^2+a)/(b*x+c))
+    out: a/(b*x+c)+c^2/(b^2*(b*x+c))+x/b-c/b^2
+    compare: canonical
+    note: TI shows the warning triangle here and not with the variable; its term order differs a
+      little from CASSim's.
+  - in: expand((x^2+a)/(b*x+c),x)
+    out: (a*b^2+c^2)/(b^2*(b*x+c))+x/b-c/b^2
+    compare: canonical
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A4-expand.png
+  status: pass
+- id: c6r7.cas.trig-families-in-one-problem
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - solve
+  - trigonometry
+  steps:
+  - in: solve(cos(x)=0,x)
+    out: x=(2*@n1-1)*π/2
+    compare: text
+  - in: solve(tan(x)=1,x)
+    out: x=@n2*π+π/4
+    compare: text
+  - in: solve(sin(x)=1/2,x)
+    out: x=2*@n3*π+π/6 or x=2*@n3*π+5*π/6
+    compare: text
+  - in: zeros(sin(x),x)
+    out: '{@n4*π}'
+    compare: text
+  - in: fMax(sin(x),x)
+    out: x=(4*@n5+1)*π/2
+    compare: text
+    note: No (-1)^n condition, unlike fMin(sin(x)+cos(x),x) in run 6.
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A5-cos-tan.png, ../docs/testing/pages-shots-7/R7-A5-sin-zeros.png,
+      ../docs/testing/pages-shots-7/R7-A5-fmax.png
+  status: pass
+- id: c6r7.cas.fmin-unbounded
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - calculus
+  steps:
+  - in: fMin(x^3,x)
+    out: x=-∞
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A6-fmin-cube.png
+  status: pass
+- id: c6r7.cas.constants-shared-with-desolve
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - solve
+  steps:
+  - in: solve(2x+y+z=1 and x-y=2,x,y,z)
+    out: x=-(c1-3)/3 and y=-(c1+3)/3 and z=c1
+    compare: text
+  - in: deSolve(y''=-y,x,y)
+    out: y=c2*cos(x)+c3*sin(x)
+    compare: text
+  - in: deSolve(y'=y,x,y)
+    out: y=c4*ⅇ^x
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A7-constants.png
+  status: pass
+- id: c6r7.cas.logarithm-forms
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - logarithms
+  steps:
+  - in: ln(9/2)
+    out: ln(9/2)
+    compare: text
+  - in: ln(4)
+    out: 2*ln(2)
+    compare: text
+  - in: ln(1/2)
+    out: -ln(2)
+    compare: text
+  - in: ln(3)/4-ln(2)/8
+    out: ln(9/2)/8
+    compare: text
+  - in: solve(100=300-295*@e^(-t/150),t)
+    out: t=150*ln(59/40)
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A8-ln-first4.png, ../docs/testing/pages-shots-7/R7-A8-ln-solve.png
+  status: pass
+- id: c6r7.cas.invbinom-edges
+  course: methods
+  settings: *spec
+  tier: 2
+  tags:
+  - probability
+  steps:
+  - in: invBinom(0.0001,10,0.5,1)
+    out: '[0,0.00097656]'
+    compare: text
+  - in: invBinomN(0.99,0.5,0,1)
+    out: '[0,1.;1,0.5]'
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A9-invbinom.png
+  status: pass
+- id: c6r7.cas.extrema-of-sine-and-cosine
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - calculus
+  - trigonometry
+  steps:
+  - in: fMin(sin(x),x)
+    out: x=(4*@n1-1)*π/2
+    compare: text
+  - in: fMax(cos(x),x)
+    out: x=2*@n2*π
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A10-fmin-fmax.png
+  status: pass
+- id: c6r7.cas.fmin-cosine-squared
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - calculus
+  - trigonometry
+  steps:
+  - in: fMin(cos(x)^2,x)
+    out: x=-∞ or x=(2*@n1-1)*π/2 or x=∞
+    compare: text
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-A10-fmin-fmax.png
+  status: xfail
+  xfail_reason: TI adds x=-∞ and x=∞ to the family for cos(x)²; the rule is not known from one
+    example, so CASSim gives the family alone
+- id: c6r7.stats.t-and-chi-square-cdf
+  course: methods
+  settings:
+    angle: radian
+    calc: auto
+    domain: real
+    digits: float12
+  tier: 2
+  tags:
+  - probability
+  steps:
+  - in: tCdf(-infinity,1,5)
+    out: '0.818391266162'
+    compare: numeric
+  - in: χ²Cdf(0,2,3)
+    out: '0.427593295297'
+    compare: numeric
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-D1-tcdf-result.png, ../docs/testing/pages-shots-7/R7-D1-chi2cdf-result.png
+  status: pass
+- id: c6r7.cas.solve-system-dialog
+  course: specialist
+  settings: *spec
+  tier: 2
+  tags:
+  - solve
+  steps:
+  - in: solve({x+y=3,x-y=1},{x,y})
+    out: x=2 and y=1
+    compare: text
+    note: What the Solve System of Equations dialog pastes and gives.
+  provenance:
+    <<: *prov
+    evidence: ../docs/testing/pages-shots-7/R7-D1-solve-system.png
+  status: pass
