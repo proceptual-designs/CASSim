@@ -394,6 +394,21 @@ Still open:
 - The device's 2-Sample z Test p-value differs from the exact value in the 7th figure (0.52708913 against 0.52708926); CASSim keeps the exact value.
 - Delete Row through a results table, Insert Cell and whole-column paste were seen but not compared.
 
+### Check 6, run 7: Graphs (2026-11-27)
+
+Results in `emulator-graphs7-results.md`.
+- **Confirmed** what CASSim already did:
+  - axis drags scale both axes about the origin;
+  - Graph Trace's Up and Down follow the list order;
+  - Zoom Square keeps x and scales y about the x axis;
+  - Zoom Fit keeps x and pads y by a tenth (x², 2·sin(x) and x+1 on 0 to 10 give about -12.2 to 110.2);
+  - Bounded Area asks for no graph when only two are plotted;
+  - a kept trace point, and an analysis result, follow a redefined function.
+- **Now followed:**
+  - `Ans` in a graph's entry line is refused on Enter (CASSim's own wording), and the text stays.
+  - The var list types a function with both brackets and the cursor between them (`f9()`).
+- **New features, on their own branch:** Attributes, Equation Templates' empty forms, Text, Coordinates and Equations, Calculate, and dragging a curve to translate it.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).
