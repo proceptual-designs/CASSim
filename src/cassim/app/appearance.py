@@ -101,6 +101,7 @@ class Loaded(NamedTuple):
     appearance: Appearance
     error: str  # a message for the person, empty unless the saved text was unreadable
     saved: bool  # a theme was saved in this browser (so an app's own older choice is not used)
+    migrated: bool = False  # it came from the Nspire's old settings and is not yet in its own key
 
 
 async def load_appearance(read: Callable[[str], Awaitable[str | None]]) -> Loaded:
@@ -121,7 +122,7 @@ async def load_appearance(read: Callable[[str], Awaitable[str | None]]) -> Loade
     found = Appearance.from_data(data)
     if found is None:
         return Loaded(Appearance(), INVALID, saved=True)
-    return Loaded(found, "", saved=True)
+    return Loaded(found, "", saved=True, migrated=legacy)
 
 
 def dialog_width(page: ft.Page, preferred: float) -> float:
