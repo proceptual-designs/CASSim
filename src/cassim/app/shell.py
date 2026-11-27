@@ -243,6 +243,9 @@ class Shell:
         when the saved theme was unreadable (Dark is used), else an empty string."""
         loaded = await load_appearance(self.read_global)
         self.appearance, self.appearance_saved = loaded.appearance, loaded.saved
+        if loaded.migrated:
+            # The Nspire's settings no longer hold the theme, so its next write would drop it.
+            self.write_global(APPEARANCE_KEY, loaded.appearance.dumps())
         return loaded.error
 
     def save_appearance(self, appearance: Appearance) -> None:

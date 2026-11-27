@@ -23,6 +23,7 @@ from cassim.app.appearance import (
     appearance_dialog,
     load_appearance,
 )
+from cassim.app.shell import Shell
 from cassim.app.theme import DEFAULT_THEME, THEME_NAMES, THEMES, contrast, theme_colours, themed
 from cassim.devices.nspire.ui.keypad import Keypad
 from cassim.devices.nspire.ui.state import AppState, System
@@ -179,6 +180,28 @@ def test_a_theme_chosen_before_sdd_15_is_read_from_the_nspire_settings():
     loaded = asyncio.run(load_appearance(read_from(store)))
     assert loaded.appearance.theme_name == "Light"
     assert loaded.saved
+    assert loaded.migrated
+
+
+def test_a_theme_from_the_nspire_settings_is_saved_under_the_shared_key():
+    """The Nspire's settings no longer keep the theme, so the first load must copy it across."""
+    store = {LEGACY_KEY: json.dumps({"theme_name": "Light", "theme_overrides": {}})}
+    shell = SimpleNamespace(read_global=read_from(store), write_global=store.__setitem__)
+    assert asyncio.run(Shell.load_appearance(shell)) == ""  # ty: ignore[invalid-argument-type]
+    assert json.loads(store[APPEARANCE_KEY])["theme_name"] == "Light"
+    # A later load reads the shared key, even after the Nspire rewrites its own settings.
+    store[LEGACY_KEY] = System().dumps()
+    again = asyncio.run(load_appearance(read_from(store)))
+    assert again.appearance.theme_name == "Light"
+    assert not again.migrated
+
+
+def test_a_theme_already_under_the_shared_key_is_not_written_again():
+    store = {APPEARANCE_KEY: Appearance(theme_name="Light").dumps()}
+    written: dict[str, str] = {}
+    shell = SimpleNamespace(read_global=read_from(store), write_global=written.__setitem__)
+    asyncio.run(Shell.load_appearance(shell))  # ty: ignore[invalid-argument-type]
+    assert written == {}
 
 
 @pytest.mark.parametrize(
@@ -188,7 +211,7 @@ def test_a_theme_chosen_before_sdd_15_is_read_from_the_nspire_settings():
 )
 def test_nothing_saved_is_dark_without_a_message(store: dict[str, str]):
     loaded = asyncio.run(load_appearance(read_from(store)))
-    assert loaded == (Appearance(), "", False)
+    assert loaded == (Appearance(), "", False, False)  # nothing saved, nothing to move
 
 
 @pytest.mark.parametrize(
