@@ -117,7 +117,13 @@ class Keypad:
                         color=self.theme.title_text,
                     ),
                     *(
-                        [ft.Icon(ft.Icons.CIRCLE, size=self.state.kpx(7), color="#e53935")]
+                        [
+                            ft.Icon(
+                                ft.Icons.CIRCLE,
+                                size=self.state.kpx(7),
+                                color=self.theme.attention,
+                            )
+                        ]
                         if self.needs_attention
                         else []
                     ),

@@ -158,11 +158,11 @@ Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the f
 
 ## 5. Visual Styling & Original CASSim Themes
 
-To avoid trade dress mimicry, CASSim Scientific does **not** reproduce physical hardware shells, branded badges, or proprietary manufacturing finishes. It keeps the functional 50-key layout and applies CASSim's own flat design. The themes use CASSim's names, so Appearance works as in the other apps (`ui/skins.py`):
+To avoid trade dress mimicry, CASSim Scientific does **not** reproduce physical hardware shells, branded badges, or proprietary manufacturing finishes. It keeps the functional 50-key layout and applies CASSim's own flat design. The theme is CASSim's shared one (SDD-15 section 7): Dark, Light or High contrast, chosen in CASSim ▸ Appearance… here, on Home or in any app. `ui/skins.py` gives the calculator's own colours for each preset; the page, the menu bar, its chips and the panel text come from the shared theme, so customised colours apply there too:
 
-1. **CASSim Slate (Dark, the default)**: chassis `#1e2229`; function keys `#282c35` with `#f0f2f5` labels; number keys `#363c48`; SHIFT amber `#e5a93c` and ALPHA coral (`#ef7b7b`, lighter than the first draft's `#e05d5d` for contrast on the dark body); DEL and AC emerald `#43a047` / `#2e7d32`; sage LCD `#dce5d3` with `#121810` characters.
-2. **Classroom high contrast**: charcoal chassis `#121316` with white keys and black labels; AC `#c62828`, DEL `#37474f`; paper LCD `#f4f6f8` with black characters. The legends above the keys sit on the dark body, so they are light gold `#ffb020` and light blue `#7cc0ff`; the draft's `#d48800` and `#0050b3` are used where they sit on white (the SHIFT and ALPHA key labels).
-3. **Studio Light**: chassis `#e9ecef` with a `#ced4da` edge; function keys `#495057`, number keys `#f8f9fa`; LCD `#e8edf2` with `#1a202c` characters.
+1. **Dark (the default)**: chassis `#1e2229`; function keys `#282c35` with `#f0f2f5` labels; number keys `#363c48`; SHIFT amber `#e5a93c` and ALPHA coral (`#ef7b7b`, lighter than the first draft's `#e05d5d` for contrast on the dark body); DEL and AC emerald `#43a047` / `#2e7d32`; sage LCD `#dce5d3` with `#121810` characters.
+2. **High contrast**: charcoal chassis `#121316` with white keys and black labels; AC `#c62828`, DEL `#37474f`; paper LCD `#f4f6f8` with black characters. The legends above the keys sit on the dark body, so they are light gold `#ffb020` and light blue `#7cc0ff`; the draft's `#d48800` and `#0050b3` are used where they sit on white (the SHIFT and ALPHA key labels).
+3. **Light**: chassis `#e9ecef` with a `#ced4da` edge; function keys `#495057`, number keys `#f8f9fa`; LCD `#e8edf2` with `#1a202c` characters.
 
 The badge on every theme reads **`CASSim Scientific`** with the subtitle **`NATURAL DISPLAY`**. The LCD uses Roboto Mono (bundled), whose fixed character width lets fraction bars and scrolling be laid out without measuring text; symbols fall back to the bundled Noto fonts so nothing is fetched at run time.
 

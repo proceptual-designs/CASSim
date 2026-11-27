@@ -1,6 +1,6 @@
 # SDD-15. Shared interface (CASSim's own menus, themes, views and dialogs)
 
-Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet.
+Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17.
 Applies to: the Home screen and every app (Nspire, Pseudocode & Python, Scientific, and later ClassPad and Prime).
 Requirements: FR-DEV-002, FR-DEV-003, FR-DEV-004, FR-DEV-006, FR-DEV-008, FR-DEV-010, FR-THEME-001, FR-THEME-002, FR-DOC-010, FR-PROF-010 to FR-PROF-013, NFR-PORT-002, NFR-PORT-003.
 Decisions: 0028 (clean room), 0032 (device interface and shell), 0033 (named documents).
@@ -198,14 +198,11 @@ FR-PY-002, FR-RUN-004 and the AGENTS.md line "must prompt before running" still 
 
 ## 10. Where the code differs (2026-11-26)
 
-Paths are under `src/cassim/`; line numbers are approximate. The list is ordered by what to fix first.
+Paths are under `src/cassim/`; line numbers are approximate. The list is ordered by what to fix first. A row is deleted when its gap is closed, so the numbers are not consecutive.
 
 | # | Gap | Where | Change |
 |---|---|---|---|
-| 1 | Pseudocode doesn't save its theme and starts Dark every time; its toolbar always uses Dark colours | `devices/pseudocode/ui/app.py:252, 615` | Read the shell theme; style the toolbar from the current theme. |
-| 2 | Scientific and Pseudocode ignore the theme chosen on Home; the theme names are copied in three places | `app/home.py:91`, `devices/pseudocode/ui/app.py:245`, `devices/scientific/ui/skins.py:138` | One shell-wide theme setting and name list (7.1). |
-| 3 | Four different Appearance dialogs, with different controls, buttons and saving | `devices/nspire/ui/theme_settings.py`, `devices/pseudocode/ui/app.py:2116`, `devices/scientific/ui/app.py:1814`, `app/home.py:292` | One shell dialog (7.3). |
-| 4 | Home's CASSim menu is a dialog with other items, and its theme setting is inside Settings | `app/home.py:246` | The shared menu with the Home subset, including Appearance… (4.1). |
+| 4 | Home's CASSim menu is a dialog with other items (it has Appearance… since 2026-11-27) | `app/home.py:246` | The shared menu with the Home subset (4.1). |
 | 5 | Install, Uninstall, Fullscreen and the offline status are only in the Nspire | `devices/nspire/ui/app.py:135` | Build the CASSim menu once in the shell (4.2). |
 | 6 | The optional Home and Retry items shift the Nspire's numbers | `devices/nspire/ui/app.py:135` | Fold Retry into the offline status (4.1). |
 | 7 | The attention dot and the unsaved-work question before a reload are Nspire-only, and the dot is a literal colour | `devices/nspire/ui/app.py:966, 1165`, `devices/nspire/ui/keypad.py:120` | Move both into the shell (3, 5). |
@@ -218,7 +215,7 @@ Paths are under `src/cassim/`; line numbers are approximate. The list is ordered
 | 14 | Pseudocode and Scientific have no Doc ▸ New; Pseudocode has no Share link | `devices/pseudocode/ui/app.py:412`, `devices/scientific/ui/app.py:190` | Add both (9.4). |
 | 15 | Pseudocode: Number mode and Angle are both on the toolbar and in Settings, and saved in neither; examples replace work without asking | `devices/pseudocode/ui/app.py:390, 972, 1999` | Toolbar only, saved in the document; ask first (6, 9.4). |
 | 16 | Title Case in the update labels, the Nspire's device menus and other titles; "ctrl+O" next to "Alt+Shift+C" | `app/shell.py:46`, `devices/scientific/ui/app.py:158, 824`, `devices/nspire/menus.py` | Sentence case (9.2). |
-| 17 | Literal colours outside the theme: `#e53935`, `#f5c518`, `#4d5563`, `#22c55e`, `#f59e0b`, the Material `SECONDARY_CONTAINER` line highlight, and a top bar that stays dark in Light | `app/warning.py:14`, `devices/scientific/ui/app.py:764, 1170`, `devices/scientific/ui/skins.py:101`, `devices/pseudocode/ui/app.py:337` | New tokens (7.2). |
+| 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, and the swatch palette | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
 | 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
 | 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
 | 20 | Literal "About CASSim…" and the page title "CASSim-pseudocode" | `devices/scientific/ui/app.py:189`, `devices/pseudocode/ui/app.py:610` | Use `about.product_name()`. |

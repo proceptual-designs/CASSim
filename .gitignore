@@ -50,6 +50,7 @@ docs/design/reference/**/*.jpeg
 # (decision 0039, tools/evidence.py). docs/testing/app-shots/ shows CASSim itself and stays.
 /corpus/shots/
 /docs/testing/*-shots/
+/docs/testing/*-shots-*/
 !/docs/testing/app-shots/
 /docs/testing/emulator-*-capture.md
 /docs/testing/*-remaining.md

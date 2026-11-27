@@ -1,9 +1,14 @@
-"""CASSim Scientific's own colour schemes (SDD-14 section 5): Slate (the Dark theme), Studio
-Light and Classroom High-Contrast. They follow CASSim's theme names, as in every app."""
+"""CASSim Scientific's own colours for each of CASSim's themes (SDD-14 section 5): the
+calculator's body, screen and keys. The page, the menu bar, its chips and the panel text come
+from the shared theme, so Home's and every app's choice applies here (SDD-15 section 7.2)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cassim.app.appearance import Appearance
 
 
 @dataclass(frozen=True)
@@ -136,8 +141,17 @@ CLASSROOM = Skin(
 )
 
 SKINS: dict[str, Skin] = {"Dark": SLATE, "Light": STUDIO_LIGHT, "High contrast": CLASSROOM}
-SKIN_NAMES: dict[str, str] = {
-    "Dark": "CASSim Slate (dark)",
-    "Light": "Studio Light",
-    "High contrast": "Classroom high contrast",
-}
+
+
+def skin_for(appearance: Appearance) -> Skin:
+    """The calculator's colours for the shared theme, with the parts outside the calculator
+    (page, menu bar, chips, panel text) taken from the theme and its customised colours."""
+    theme = appearance.theme
+    return replace(
+        SKINS.get(appearance.theme_name, SLATE),
+        page=theme.background,
+        bar=theme.background,
+        bar_text=theme.panel_text,
+        chip=theme.home_card,
+        panel_text=theme.panel_text,
+    )

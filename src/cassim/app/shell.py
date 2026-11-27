@@ -17,6 +17,7 @@ import flet as ft
 
 from cassim import bundle
 from cassim.app import about
+from cassim.app.appearance import APPEARANCE_KEY, Appearance, load_appearance
 from cassim.app.theme import DARK
 
 if TYPE_CHECKING:
@@ -153,6 +154,8 @@ class Shell:
         self.home: Callable[[], None] | None = None
         self.open_device_callback: Callable[[str], object] | None = None
         self.theme = DARK
+        self.appearance = Appearance()  # the shared theme choice; `load_appearance` reads it
+        self.appearance_saved = False  # a theme was saved in this browser
         # Set by the device's UI: called when what the browser offers changes (Install appears).
         self.changed: Callable[[], None] = lambda: None
         self.bridge = make_bridge(self._offers_changed)
@@ -232,6 +235,24 @@ class Shell:
         if self.texts is not None:
             await self.texts.delete(full)
         await self.prefs.remove(full)
+
+    # ---- the shared theme (SDD-15 section 7) ----------------------------------------------------
+
+    async def load_appearance(self) -> str:
+        """Read the theme every app shares into `appearance`. Returns a message for the person
+        when the saved theme was unreadable (Dark is used), else an empty string."""
+        loaded = await load_appearance(self.read_global)
+        self.appearance, self.appearance_saved = loaded.appearance, loaded.saved
+        if loaded.migrated:
+            # The Nspire's settings no longer hold the theme, so its next write would drop it.
+            self.write_global(APPEARANCE_KEY, loaded.appearance.dumps())
+        return loaded.error
+
+    def save_appearance(self, appearance: Appearance) -> None:
+        """Keep `appearance` as the theme for Home and every app."""
+        self.appearance = appearance
+        self.appearance_saved = True
+        self.write_global(APPEARANCE_KEY, appearance.dumps())
 
     # ---- the system clipboard -----------------------------------------------------------------
 

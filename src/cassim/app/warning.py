@@ -11,7 +11,9 @@ from collections.abc import Sequence
 
 import flet as ft
 
-COLOUR = "#f5c518"
+from cassim.app.theme import DARK
+
+COLOUR = DARK.warning  # the device's yellow, drawn on the screen in every theme
 
 
 def warning_dialog(messages: Sequence[str]) -> ft.AlertDialog:

@@ -12,7 +12,7 @@ NFR-USE-002 (Should) asks for keyboard-only operation in Computer mode and visib
 | Touch targets | Handheld keys are sized by the layout code to fit the window; the smallest size on a 360 px phone is **not measured** (NFR-PORT-003 is tested for fit, not target size). |
 | Tooltips | Keys, status items and the splitter have tooltips (`devices/nspire/ui/keypad.py`, `views.py`). |
 | CASSim Scientific | Every keypad key can be pressed from the keyboard (SDD-14 section 4.1; CASSim ▸ Keyboard shortcuts); keys carry a tooltip with their spoken name and shortcut, and a `Semantics` label and button role. The keys are deliberately not focusable (Tab must not land on a key that Enter would also press), so Tab reaches only the menus and panel buttons. The calculator scales to the window (0.7× to 1.3×). Three themes, including Classroom high contrast; the SHIFT and ALPHA legends on the dark body were lightened for contrast. Contrast ratios, the LCD's natural-display text for screen readers, and Tab order are **not checked**. |
-| Theme | Dark, Light and High contrast presets are selectable in Handheld Setup > Appearance. Individual colours can be edited per preset and reset; user-edited colours can reduce contrast. Theme-file import and export remain unbuilt (FR-THEME-002). |
+| Theme | Dark, Light and High contrast presets are selectable in CASSim ▸ Appearance… on Home and in every app (and in the Nspire's Handheld Setup), and the choice applies everywhere. Individual colours can be edited per preset and reset; user-edited colours can reduce contrast. Theme-file import and export remain unbuilt (FR-THEME-002). |
 
 ## Known gaps
 

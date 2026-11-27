@@ -77,7 +77,7 @@ Hover over a key to see its shortcut, or open **CASSim ▸ Keyboard shortcuts**.
 
 Your calculator is saved in the browser as you go. **Doc ▸ Save** keeps the calculator under a name in this browser, and **Doc ▸ Open** lists what you have saved, as in the other CASSim apps. To move one to another computer, **Doc ▸ Export file…** downloads a `.cassim.json` file and **Import file…** opens one. **Doc ▸ Share link** makes a link that holds the settings, memories, STAT data and TABLE function, so a teacher can send a class a data set ready to analyse. The link never sends anything to a server. **Doc ▸ Examples** loads ready-made problems.
 
-The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors. **CASSim ▸ Settings** sets the same choices as SETUP, including a decimal comma in answers.
+The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors; the choice is shared with Home and the other CASSim apps. **CASSim ▸ Settings** sets the same choices as SETUP, including a decimal comma in answers.
 
 ## On a phone
 

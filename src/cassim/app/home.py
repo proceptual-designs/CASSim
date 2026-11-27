@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -10,13 +9,13 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app import about
-from cassim.app.theme import DARK, HIGH_CONTRAST, LIGHT
+from cassim.app.appearance import Appearance, appearance_dialog
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
+    from cassim.app.theme import Theme
 
 WELCOME = "Hi! Choose a CAS Calculator or other tool to start"
-SYSTEM_KEY = "cassim.system"  # the Nspire shell's existing, device-prefixed system settings
 APP_CHOICES = ("nspire", "classpad", "prime", "pseudocode", "scientific")
 APP_NAMES = {
     "nspire": "Nspire",
@@ -68,29 +67,23 @@ class Home:
         self.shell = shell
         self.choose = choose
         self.page = shell.page
-        self.theme = DARK
-        self.theme_name = "Dark"
+        self.appearance = shell.appearance  # the shared theme, or a preview of another
         self.symbol_font = "Symbols"
         self.control: ft.Control | None = None
         self.update_button: ft.TextButton | None = None
         shell.changed = self.on_bridge
 
     async def start(self) -> None:
-        saved = await self.shell.read_global(SYSTEM_KEY)
-        if saved is not None:
-            try:
-                data = json.loads(saved)
-                name = data.get("theme_name", "Dark") if isinstance(data, dict) else "Dark"
-                self._set_theme(name if isinstance(name, str) else "Dark")
-            except TypeError, ValueError:
-                self._set_theme("Dark")
+        error = await self.shell.load_appearance()
+        self.appearance = self.shell.appearance
         self.draw()
+        if error:
+            self.shell.notice("Appearance", error)
         print("CASSIM: HOME", flush=True)
 
-    def _set_theme(self, name: str) -> None:
-        themes = {"Dark": DARK, "Light": LIGHT, "High contrast": HIGH_CONTRAST}
-        self.theme_name = name if name in themes else "Dark"
-        self.theme = themes[self.theme_name]
+    @property
+    def theme(self) -> Theme:
+        return self.appearance.theme
 
     def _card(self, choice: HomeChoice) -> ft.Control:
         title = self.theme.panel_text if choice.available else self.theme.menu_disabled
@@ -171,7 +164,7 @@ class Home:
         self.card_width = min(560, self.content_width)
         page.title = about.product_name()
         page.fonts = {self.symbol_font: "fonts/NotoSansSymbols2-Regular.ttf"}
-        page.theme_mode = ft.ThemeMode.LIGHT if self.theme_name == "Light" else ft.ThemeMode.DARK
+        page.theme_mode = self.appearance.mode
         page.bgcolor = self.theme.background
         page.padding = 0
         page.on_keyboard_event = None
@@ -254,10 +247,7 @@ class Home:
                 title=ft.Text("CASSim"),
                 content=ft.Column(
                     [
-                        ft.TextButton(
-                            "Settings",
-                            on_click=lambda _: self.page.run_task(self.open_settings),
-                        ),
+                        ft.TextButton("Appearance…", on_click=self.open_appearance),
                         update,
                         ft.TextButton("Help (wiki)…", on_click=self.open_help),
                         ft.TextButton(f"About {about.product_name()}…", on_click=self.open_about),
@@ -289,51 +279,17 @@ class Home:
         self.update_button = None
         self.shell.about()
 
-    async def open_settings(self) -> None:
+    def open_appearance(self, _: ft.Event[ft.TextButton]) -> None:
+        """CASSim > Appearance…: the theme for Home and every app (SDD-15 section 7.3)."""
         self.update_button = None
         self.page.pop_dialog()
-        saved = await self.shell.read_global(SYSTEM_KEY)
-        data: dict[str, object] = {}
-        if saved is not None:
-            try:
-                parsed = json.loads(saved)
-                if isinstance(parsed, dict):
-                    data = parsed
-            except TypeError, ValueError:
-                pass
 
-        theme = ft.Dropdown(
-            label="Appearance",
-            value=self.theme_name,
-            options=[ft.DropdownOption(name) for name in ("Dark", "Light", "High contrast")],
-            width=280,
-        )
-
-        def save(_: object) -> None:
-            value = theme.value if isinstance(theme.value, str) else "Dark"
-            data.setdefault("start_mode", "computer")
-            data.setdefault("math_size", 20)
-            data["theme_name"] = value
-            self.shell.write_global(SYSTEM_KEY, json.dumps(data))
-            self._set_theme(value)
-            self.page.pop_dialog()
+        def preview(appearance: Appearance) -> None:
+            self.appearance = appearance
             self.draw()
 
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Settings"),
-                content=ft.Column(
-                    [
-                        ft.Text("Appearance", size=13, weight=ft.FontWeight.W_600),
-                        theme,
-                        ft.Text("Each app opens directly on later visits.", size=12),
-                    ],
-                    tight=True,
-                    spacing=12,
-                ),
-                actions=[
-                    ft.TextButton("Save", on_click=save),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
-        )
+        def save(appearance: Appearance) -> None:
+            self.shell.save_appearance(appearance)
+            preview(appearance)
+
+        appearance_dialog(self.page, self.shell.appearance, save, on_preview=preview)

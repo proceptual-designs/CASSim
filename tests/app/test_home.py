@@ -18,6 +18,7 @@ import pytest
 from tests.app.test_splitter_drag import handheld_app
 
 from cassim.app import main as app_main
+from cassim.app.appearance import Appearance
 from cassim.app.home import WELCOME, Home, HomeChoice, home_choices
 from cassim.app.main import Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
@@ -77,9 +78,9 @@ def test_light_home_cards_are_not_coloured_like_dark_keypad_keys() -> None:
     home.card_width = 560
     choice = HomeChoice("nspire", "Nspire", "Handheld graphing and CAS", True)
 
-    home.theme = DARK
+    home.appearance = Appearance("Dark")
     dark = cast(ft.Button, home._card(choice))
-    home.theme = LIGHT
+    home.appearance = Appearance("Light")
     light = cast(ft.Button, home._card(choice))
 
     assert dark.style is not None
@@ -135,6 +136,7 @@ class FakeShell:
         self.available_devices: tuple[str, ...] = ()
         self.home: Any = None
         self.device: object | None = None
+        self.appearance = Appearance()
 
     async def read_global(self, key: str) -> str | None:
         pytest.fail(f"startup read {key}")
@@ -289,3 +291,17 @@ def test_nspire_dispatches_home_without_importing_app_selection() -> None:
     app.show_dialog("home")
 
     assert selected == [True]
+
+
+def test_home_menu_offers_appearance_for_every_app() -> None:
+    """SDD-15 section 4.1: Home's CASSim menu has Appearance… (the shared theme), and no
+    Settings that wrote another app's settings."""
+    shell = FakeShell()
+    cast(Any, shell).update_label = "Check for updates"
+    home = Home(cast(Any, shell), lambda _item: None)
+    shown: list[ft.AlertDialog] = []
+    cast(Any, home.page).show_dialog = shown.append
+    home.open_cassim_menu()
+    labels = [b.content for b in shown[-1].content.controls]  # ty: ignore[unresolved-attribute]
+    assert "Appearance…" in labels
+    assert "Settings" not in labels

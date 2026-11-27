@@ -42,6 +42,11 @@ class Theme:
     sheet_edit: str = "#ffffff"
     menu_hint: str = "#a9c4e0"
     menu_disabled: str = "#7d8894"  # a menu placeholder for a command CASSim does not have yet
+    attention: str = "#e53935"  # the dot on the CASSim button (SDD-15 section 3)
+    warning: str = "#f5c518"  # the warning triangle; a lesson's "not yet" feedback
+    success: str = "#22c55e"  # a lesson's "well done" feedback
+    chip_edge: str = "#6b7482"  # the outline of a status chip
+    line_highlight: str = "#2f3f55"  # the current line in a code view
     # Graphs page function colours in the device's order (f1 blue, f2 red, f3 black = the
     # screen text, then magenta, green, orange, brown), drawn on the screen colour.
     graph_blue: str = "#1f4fe0"
@@ -86,6 +91,11 @@ LIGHT = replace(
     home_card="#ffffff",
     panel_text="#14161a",
     panel_accent="#245c96",
+    attention="#c62828",
+    warning="#965200",
+    success="#1e7b1e",
+    chip_edge="#7d8894",
+    line_highlight="#dbe7f4",
 )
 HIGH_CONTRAST = replace(
     DARK,
@@ -97,6 +107,11 @@ HIGH_CONTRAST = replace(
     key_edge="#ffffff",
     status_text="#ffffff",
     home_card="#000000",
+    attention="#ff5252",
+    warning="#ffd600",
+    success="#00e676",
+    chip_edge="#ffffff",
+    line_highlight="#003a70",
     key_styles={
         "digit": ("#000000", "#ffffff"),
         "fn": ("#000000", "#ffffff"),
@@ -108,6 +123,8 @@ HIGH_CONTRAST = replace(
     },
 )
 THEMES: dict[str, Theme] = {"Dark": DARK, "Light": LIGHT, "High contrast": HIGH_CONTRAST}
+THEME_NAMES = tuple(THEMES)  # the presets, in the order every Appearance dialog shows them
+DEFAULT_THEME = "Dark"  # FR-THEME-001
 COLOUR_FIELDS = tuple(item.name for item in fields(Theme) if item.name != "key_styles")
 STYLE_FIELDS = tuple(f"{style}.{part}" for style in DARK.key_styles for part in ("fill", "text"))
 THEME_FIELDS = (*COLOUR_FIELDS, *STYLE_FIELDS)
