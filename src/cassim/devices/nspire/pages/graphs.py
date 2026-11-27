@@ -16,7 +16,7 @@ from cassim.device.editor_ast import row_from_text
 from cassim.device.engine import RemoteSession, graph_compile_op
 from cassim.device.entry_session import EntrySession
 from cassim.device.keys import Binding
-from cassim.devices.nspire.pages import graph_analyze, graph_tools
+from cassim.devices.nspire.pages import graph_actions, graph_analyze, graph_tools
 from cassim.doc.document import PageType
 from cassim.graph.sampling import (
     CompiledFunction,
@@ -177,6 +177,9 @@ class Graphs:
         self.tools = graph_tools.ToolState()
         # Analyze Graph results kept on the page, worked out again at each draw (R5-D32)
         self.objects: list[graph_analyze.AnalysisObject] = []
+        # Actions (emulator run 7, R7-B8, R7-B10): each graph's attributes by name, and text
+        self.attributes: dict[str, graph_actions.Attributes] = {}
+        self.texts: list[graph_actions.TextObject] = []
 
     @property
     def viewport_size(self) -> tuple[float, float]:
@@ -402,16 +405,13 @@ class Graphs:
                 Layer(
                     "curves",
                     tuple(
-                        curve
+                        shape
                         for entry in self.functions
                         if entry.visible and entry.compiled is not None
-                        for curve in sample_function(
-                            entry.compiled,
-                            viewport,
-                            stroke=Stroke(function_colour(entry.name), 2),
-                        )
+                        for shape in self._curve_shapes(entry, viewport)
                     ),
                 ),
+                Layer("text", self._text_shapes(viewport)),
                 Layer("analysis", graph_analyze.object_shapes(self, viewport)),
                 Layer(
                     "tool",
@@ -423,6 +423,69 @@ class Graphs:
             ),
         )
         return scene
+
+    def _curve_shapes(self, entry: FunctionEntry, viewport: Viewport) -> tuple[Shape, ...]:
+        """A graph drawn with its attributes: weight, style, discrete points, and its label once
+        a label style has been chosen for it (emulator run 7, R7-B8)."""
+        compiled = entry.compiled
+        if compiled is None:
+            return ()
+        found = self.attributes.get(entry.name)
+        colour = function_colour(entry.name)
+        if found is None:
+            return sample_function(compiled, viewport, stroke=Stroke(colour, 2))
+        window = viewport.window
+        shapes: list[Shape] = []
+        if found.discrete:
+            step = found.step or (window.x_max - window.x_min) / (found.points + 1)
+            dots = []
+            for n in range(1, found.points + 1):
+                x = window.x_min + n * step
+                try:
+                    y = float(compiled(x))
+                except ArithmeticError, TypeError, ValueError:
+                    continue
+                if math.isfinite(y):
+                    dots.append(window.to_screen(x, y, viewport.width, viewport.height))
+            shapes.append(Dots(tuple(dots), colour, 2 + 2 * found.weight))
+        else:
+            stroke = Stroke(
+                colour,
+                graph_actions.WEIGHT_PIXELS[found.weight],
+                dashed=found.style == 2,  # noqa: PLR2004 (Dashed)
+                dotted=found.style == 1,
+            )
+            shapes.extend(sample_function(compiled, viewport, stroke=stroke))
+        label = self._label(entry, found, viewport)
+        if label is not None:
+            shapes.append(label)
+        return tuple(shapes)
+
+    def _label(
+        self, entry: FunctionEntry, found: graph_actions.Attributes, viewport: Viewport
+    ) -> Label | None:
+        """The graph's label near the right of the window, in its label style."""
+        compiled = entry.compiled
+        window = viewport.window
+        x = window.x_min + 0.8 * (window.x_max - window.x_min)
+        try:
+            y = float(compiled(x)) if compiled is not None else math.nan
+        except ArithmeticError, TypeError, ValueError:
+            return None
+        if not math.isfinite(y):
+            return None
+        sx, sy = window.to_screen(x, y, viewport.width, viewport.height)
+        if not 0 <= sy <= viewport.height:
+            return None
+        text = graph_actions.label_text(entry, found.label)
+        return Label(sx, max(sy - 20, 0), text, 12, function_colour(entry.name), Align.RIGHT)
+
+    def _text_shapes(self, viewport: Viewport) -> tuple[Shape, ...]:
+        window = viewport.window
+        return tuple(
+            Label(*window.to_screen(item.x, item.y, viewport.width, viewport.height), item.text, 13)
+            for item in self.texts
+        )
 
 
 def _grid_shapes(viewport: Viewport, style: GridStyle) -> list[Shape]:
@@ -544,6 +607,8 @@ def dump_graphs(graphs: Graphs) -> dict[str, Any]:
         "show_end_values": graphs.show_end_values,
         "grid_style": graphs.grid_style.value,
         "objects": [item.dump() for item in graphs.objects],
+        "attributes": {name: found.dump() for name, found in graphs.attributes.items()},
+        "texts": [item.dump() for item in graphs.texts],
         "active": graphs.active_index,
         "functions": [
             {
@@ -563,6 +628,15 @@ def _load_objects(graphs: Graphs, data: dict[str, Any]) -> None:
     if isinstance(objects, list):
         loaded = (graph_analyze.AnalysisObject.load(item) for item in objects)
         graphs.objects = [item for item in loaded if item is not None]
+    attributes = data.get("attributes")
+    if isinstance(attributes, dict):
+        graphs.attributes = {
+            str(name): graph_actions.Attributes.load(found) for name, found in attributes.items()
+        }
+    texts = data.get("texts")
+    if isinstance(texts, list):
+        kept = (graph_actions.TextObject.load(item) for item in texts)
+        graphs.texts = [item for item in kept if item is not None]
 
 
 def _load_active(graphs: Graphs, data: dict[str, Any]) -> None:

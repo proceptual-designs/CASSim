@@ -187,6 +187,7 @@ This cross-cuts every functional area.
 | FR-GRAPH-005 | Sliders; Table view of graph functions. | S | D |
 | FR-GRAPH-006 | The graph engine emits a backend-neutral scene; one `Points` canvas shape per curve (decision 0004). | M | I |
 | FR-GRAPH-007 | Pan/zoom of a 2000-point curve stays interactive on a mid-range phone and a Chromebook. | S | A |
+| FR-GRAPH-008 | Graphs Actions menu, numbered as on the device: Attributes (line weight, line style, label style, continuous or discrete with its number of points), Text, Coordinates and Equations, and Calculate; a curve dragged by the pointer is translated (`2·sin(x)` becomes `2·sin(x-0.91)-0.044`). Graph Entry/Edit lists every entry type and Equation Template in its place; those CASSim cannot plot yet are greyed (emulator check 6, run 7). | S | T/D |
 
 ### 4.7a Notes — M4
 | ID | Requirement | Pri | Ver |
