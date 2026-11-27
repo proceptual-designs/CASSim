@@ -304,6 +304,9 @@ class Graphs:
     def update(self) -> None:
         if not isinstance(self.session, RemoteSession):
             return
+        calculated, self.session.graph_calc_inbox[:] = list(self.session.graph_calc_inbox), []
+        for reply in calculated:
+            graph_actions.place_calculation(self, reply["index"], reply["text"])
         for entry in self.functions:
             replies = self.session.graph_inbox.pop(entry.name, [])
             if not replies:

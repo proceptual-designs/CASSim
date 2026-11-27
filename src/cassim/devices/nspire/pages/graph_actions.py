@@ -21,6 +21,8 @@ from cassim.device.wizard import Field, Wizard
 from cassim.graph.sampling import Viewport
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from cassim.devices.nspire.pages.graphs import FunctionEntry, Graphs
 
 WEIGHTS = ("Thin", "Medium", "Thick")
@@ -161,7 +163,8 @@ def text_at(graphs: Graphs, x: float, y: float) -> int | None:
 
 # ---- dragging a curve -----------------------------------------------------------------------
 
-_X = re.compile(r"(?<![A-Za-z0-9_.])x(?![A-Za-z0-9_(])")
+# x as a variable: not part of a name (max, x1), but after a digit (2x is 2·x)
+_X = re.compile(r"(?<![A-Za-z_.])x(?![A-Za-z0-9_(])")
 
 
 def _short(value: float) -> str:
@@ -236,21 +239,31 @@ def attributes_wizard(entry: FunctionEntry, found: Attributes) -> Wizard:
     )
 
 
-def apply_attributes(graphs: Graphs, name: str, values: dict[str, str]) -> list[str]:
-    """Keep the attributes a dialog gave; the problems, if a field will not do."""
-    found = graphs.attributes.get(name, Attributes())
+def attributes_problems(values: Mapping[str, str]) -> list[str]:
+    """What is wrong with the Attributes dialog's fields, shown before it closes."""
     try:
-        points = int(values.get("points", str(found.points)))
+        points = int(values.get("points", str(DEFAULT_POINTS)))
     except ValueError:
         return ["Number of points must be a whole number."]
     if not 1 <= points <= 1000:  # noqa: PLR2004
         return ["Number of points must be from 1 to 1000."]
+    return []
+
+
+def apply_attributes(graphs: Graphs, name: str, values: Mapping[str, str]) -> list[str]:
+    """Keep the attributes a dialog gave (and a discrete step loaded with the document); the
+    problems instead, if a field will not do."""
+    problems = attributes_problems(values)
+    if problems:
+        return problems
+    found = graphs.attributes.get(name, Attributes())
     graphs.attributes[name] = Attributes(
         weight=_index(_int(values.get("weight")), len(WEIGHTS)),
         style=_index(_int(values.get("style")), len(STYLES)),
         label=min(max(_int(values.get("label")) or DEFAULT_LABEL_STYLE, 1), LABEL_STYLES),
         discrete=values.get("discrete") == "1",
-        points=points,
+        points=int(values.get("points", str(found.points))),
+        step=found.step,
     )
     return []
 
@@ -286,11 +299,27 @@ def marked_points(graphs: Graphs) -> list[tuple[float, float]]:
     return graph_analyze.marked_points(graphs)
 
 
-def calculate(graphs: Graphs, index: int) -> str | None:
-    """Calculate on a text object: its text worked out in the Problem (R7-B10: `12` gives 12)."""
+def calculate(graphs: Graphs, index: int) -> None:
+    """Calculate on a text object: its text worked out in the Problem (R7-B10: `12` gives 12),
+    shown beside it. In the browser the engine works it out, and the answer is placed when its
+    reply comes back (`Graphs.update`)."""
+    from cassim.device.engine import RemoteSession, graph_calc, graph_calc_op  # noqa: PLC0415
+
     if not 0 <= index < len(graphs.texts):
-        return None
-    result = graphs.session.eval(graphs.texts[index].text)
-    if result.error is not None:
-        return None
-    return result.text
+        return
+    session = graphs.session
+    line = graphs.texts[index].text
+    if isinstance(session, RemoteSession):
+        session.outbox.append(graph_calc_op(index, line))
+        return
+    place_calculation(graphs, index, graph_calc(session, index, line)["text"])
+
+
+def place_calculation(graphs: Graphs, index: int, value: str | None) -> None:
+    """Show Calculate's answer for text object `index` just after it (nothing if it did not
+    work out)."""
+    if value is None or not 0 <= index < len(graphs.texts):
+        return
+    item = graphs.texts[index]
+    width = graphs.window.x_max - graphs.window.x_min
+    graphs.texts.append(TextObject(item.x + width * 0.06 * len(item.text), item.y, value))

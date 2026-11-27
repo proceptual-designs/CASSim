@@ -328,6 +328,9 @@ def _simplest_number(raw: Raw) -> Raw:
     return sp.expand(raw.xreplace(turned), log=False)
 
 
+_MAX_COMBINED_LOG_BITS = 4096  # the combined argument's rough size in bits
+
+
 def _logs_combined(raw: Raw) -> Raw:
     """`a·ln(p)+b·ln(q)` with rational a, b, p and q as `ln(p^(a·d)·q^(b·d))/d`, d the least common
     denominator of a and b. Other terms stay as they are."""
@@ -344,6 +347,11 @@ def _logs_combined(raw: Raw) -> Raw:
     if len(logs) < 2:  # noqa: PLR2004 (one logarithm has nothing to combine with)
         return raw
     denominator = math.lcm(*(int(c.q) for c, _ in logs))
+    size = sum(
+        abs(c * denominator) * (int(q.p).bit_length() + int(q.q).bit_length()) for c, q in logs
+    )
+    if size > _MAX_COMBINED_LOG_BITS:  # ln(2)/1000003+ln(3)/999983 would build a huge power
+        return raw
     argument = sp.Mul(*(q ** (c * denominator) for c, q in logs))
     if argument == 1:
         return sp.Add(*rest)

@@ -812,6 +812,7 @@ class ScientificApp:
         self.page.on_keyboard_event = self.on_keyboard
         self.page.on_resize = lambda _: self.fit()
         self.shell.changed = self.on_bridge
+        self.shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
         error = await self.shell.load_appearance()
         await self._load_prefs()
         if self.phone:
@@ -832,6 +833,7 @@ class ScientificApp:
         self.page.on_keyboard_event = None
         self.page.on_resize = None
         self.shell.changed = lambda: None
+        self.shell.has_unsaved = lambda: False
         self.page.controls.clear()
 
     def on_bridge(self) -> None:
@@ -1570,6 +1572,12 @@ class ScientificApp:
             self._save_prefs()
         return layouts.modes_for(layout, table=self.extra_table)
 
+    def _set_table(self, *, on: bool) -> None:
+        """Settings switched the TABLE extra; off leaves TABLE mode, which would switch it back."""
+        self.extra_table = on
+        if not on:
+            self.state.leave_table()
+
     def _save_prefs(self) -> None:
         self.shell.write(
             PREFS_KEY,
@@ -1839,7 +1847,7 @@ class ScientificApp:
             new.surds = bool(surds.value) if natural else setup.surds
             self.state.setup = new
             if natural:
-                self.extra_table = bool(table.value)
+                self._set_table(on=bool(table.value))
             self.hyp_names = bool(hyp_names.value)
             self.page.pop_dialog()
             self._show_layout(self.layout, switch_display=False)  # TABLE joins or leaves MODE

@@ -799,6 +799,11 @@ class ScientificState:
             return
         self._enter_mode(mode)
 
+    def leave_table(self) -> None:
+        """CASSim's TABLE extra was switched off: TABLE mode goes back to COMP (decision 0041)."""
+        if self.mode == "TABLE":
+            self._enter_mode("COMP")
+
     def _enter_mode(self, mode: CalcMode) -> None:
         if self.mode == "STAT" and mode != "STAT":
             self.stat_rows = []  # leaving STAT clears its data, as the device does

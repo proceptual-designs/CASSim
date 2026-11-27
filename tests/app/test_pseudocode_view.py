@@ -48,6 +48,7 @@ class DummyShell:
         self.page = SimpleNamespace()
         self.update_label = "Check for Updates"
         self.changed = lambda: None
+        self.has_unsaved: Callable[[], bool] = lambda: False
         self.home: Callable[[], None] | None = None
         self.notices: list[tuple[str, str]] = []
         self.confirmed: list[str] = []
@@ -1085,3 +1086,22 @@ def test_a_share_link_opens_its_program_without_running_it() -> None:
     assert other.angle_mode == "degree"
     assert other.result is None  # loaded, not run
     assert other.saved.current.stored is None
+
+
+def test_python_console_keeps_a_method_call_that_changes_a_list() -> None:
+    """`lst.append(3)` is a statement: it is kept for the next line, not printed as a value."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.submit_python_console("lst = [1, 2]") == ""
+    assert app.submit_python_console("lst.append(3)") == ""
+    assert app.submit_python_console("print(lst)") == "[1, 2, 3]"
+
+
+def test_reload_to_update_asks_about_an_unsaved_program() -> None:
+    """SDD-15 section 5: the shell asks before a reload while the program is not saved, and stops
+    asking about it once the app is left."""
+    shell = DummyShell()
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    assert shell.has_unsaved == app.saved.dirty
+    shell.page.controls = []  # what unmount clears
+    app.unmount()
+    assert shell.has_unsaved() is False

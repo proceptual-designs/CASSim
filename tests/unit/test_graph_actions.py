@@ -11,6 +11,7 @@ import json
 import pytest
 
 from cassim.core.session import Session
+from cassim.device.engine import EngineCore, RemoteSession
 from cassim.devices.nspire.pages import graph_actions, graph_tools
 from cassim.devices.nspire.pages.graphs import Graphs, dump_graphs
 from cassim.devices.nspire.ui.state import AppState
@@ -35,6 +36,7 @@ def graphs_with(*expressions: str) -> Graphs:
         ("x", -0.5, 2, "x+0.5+2"),
         ("exp(x)+x", 2, 0, "exp(x-2)+(x-2)"),
         ("max(x,1)", 0, 3, "max(x,1)+3"),
+        ("2x+1", 1, 0, "2(x-1)+1"),  # an x after a digit moves too
     ],
 )
 def test_a_dragged_curve_is_translated(expression: str, dx: float, dy: float, moved: str) -> None:
@@ -114,7 +116,7 @@ def test_the_graphs_menu_has_actions_and_graph_entry_numbered_as_on_the_device()
         ("2", "Select", True),
         ("3", "Hide/Show", False),
         ("4", "Attributes", True),
-        ("5", "Set Conditions", False),
+        ("5", "Set conditions", False),
         ("6", "Delete all", False),
         ("7", "Text", True),
         ("8", "Coordinates and Equations", True),
@@ -122,7 +124,7 @@ def test_the_graphs_menu_has_actions_and_graph_entry_numbered_as_on_the_device()
         ("A", "Redefine", False),
     ]
     templates = entry.items[2]
-    assert templates.label == "Equation Templates"
+    assert templates.label == "Equation templates"
     assert [(item.label, len(item.items)) for item in templates.items] == [
         ("Line", 3),
         ("Parabola", 4),
@@ -131,3 +133,39 @@ def test_the_graphs_menu_has_actions_and_graph_entry_numbered_as_on_the_device()
         ("Hyperbola", 2),
         ("Conic", 1),
     ]
+
+
+def test_calculate_in_the_browser_goes_through_the_engine() -> None:
+    """R7-B10 in the browser: the page's session is remote, so Calculate sends the text to the
+    engine and places the answer when the reply comes back (it once called `eval` and failed)."""
+    remote = RemoteSession(0)
+    engine = EngineCore()
+    graphs = Graphs(remote)
+    graphs.window = Window(-10, 10, -10, 10)
+    graphs.scene(400, 400)
+    graph_tools.perform(graphs, "text:5.0,5.0:3+4")
+    graph_tools.perform(graphs, "tool:calculate")
+    graph_tools.perform(graphs, "tap:300,100")
+    assert [item.text for item in graphs.texts] == ["3+4"]  # not yet: the engine is working
+    sent = remote.take()
+    remote.accept(sent, engine.apply(0, sent))
+    graphs.update()
+    assert [item.text for item in graphs.texts] == ["3+4", "7"]
+    assert all(op["op"] != "graph_calc" for op in remote.journal)  # a replay leaves it out
+
+
+def test_attributes_problems_show_in_the_dialog_and_a_loaded_step_is_kept() -> None:
+    """A bad Number of points is reported before the dialog closes, and changing another
+    attribute keeps the discrete step the document was saved with."""
+    assert graph_actions.attributes_problems({"points": "abc"}) == [
+        "Number of points must be a whole number."
+    ]
+    assert graph_actions.attributes_problems({"points": "5000"}) == [
+        "Number of points must be from 1 to 1000."
+    ]
+    assert graph_actions.attributes_problems({"points": "40"}) == []
+    graphs = graphs_with("x^2")
+    graphs.attributes["f1"] = graph_actions.Attributes(discrete=True, step=0.5)
+    graph_actions.apply_attributes(graphs, "f1", {"weight": "2", "discrete": "1", "points": "40"})
+    assert graphs.attributes["f1"].step == 0.5
+    assert graphs.attributes["f1"].weight == 2

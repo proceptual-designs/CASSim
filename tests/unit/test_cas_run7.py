@@ -64,3 +64,15 @@ def test_a_condition_that_is_not_a_constant_bound_warns() -> None:
         assert errors.CONSTRAINT_IGNORED in result.warnings
     assert warnings_of("solve(x^2=4,x)|x>0") == ()
     assert warnings_of("solve(x^2=4,x)|0<x<5") == ()
+
+
+def test_logarithms_with_huge_denominators_are_not_combined() -> None:
+    """Combining ln(2)/1000003+ln(3)/999983 would build a power with millions of digits; the sum
+    is left as it is, and answers at once."""
+    import time  # noqa: PLC0415
+
+    start = time.monotonic()
+    result = Session().eval("ln(2)/1000003+ln(3)/999983")
+    assert result.error is None
+    assert time.monotonic() - start < 5
+    assert Session().eval("ln(2)/2+ln(3)/3").error is None

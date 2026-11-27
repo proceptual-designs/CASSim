@@ -287,6 +287,7 @@ class CodeApp:
             said=lambda text: shell.notice("Saved", text),
             noun="program",
         )
+        shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -686,6 +687,7 @@ class CodeApp:
             if host:
                 host.remove()
         self.shell.changed = lambda: None
+        self.shell.has_unsaved = lambda: False
         self.page.on_keyboard_event = None
         self.page.on_resize = None
         self.page.controls.clear()
@@ -1220,7 +1222,9 @@ class CodeApp:
             and isinstance(call.func, ast.Name)
             and call.func.id == "print"
         )
-        expression = call is not None and not is_print
+        # A method call (lst.append(3)) changes what it is called on: a statement to keep
+        method = isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+        expression = call is not None and not is_print and not method
         line = f"print({stripped})" if expression else stripped
         settings = replace(self.settings(), seed=self.python_console_seed)
         earlier = self.python_console_lines
