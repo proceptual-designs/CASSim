@@ -361,6 +361,24 @@ Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays
 
 Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the simulator prints negative parameters as `+-` / `--`.
 
+### Check 6, run 7 (`039_check6_run7.yaml`, 2026-11-27)
+
+Results in `emulator-calc8-results.md`. What CASSim now follows:
+- **Warning triangles** (CASSim's own wording; tested in `tests/unit/test_cas_run7.py`):
+  - *Domain of the result*: shown when putting the result over one denominator cancels a factor in a variable. The device appears to use the product of the denominators, so `(x²-1)/(x-1)` (now `x+1`) and `d/dx((x+1)/(x-1))` warn, and `d/dx(ln(x²-1))` does not. Also on `expand` without a variable when it divides a term out, and on `tCollect` when it multiplies a sum out first. The rule comes from about ten examples, triangle or none; more may break it.
+  - *More solutions*: on a `solve` that returns unsolved.
+  - *Condition*: on a solving command whose `|` condition is not a variable compared with a constant (`|0<x<h/2`).
+- **Families:** a family that merges two (cos(x)=0) is written `(2·n1-1)·π/2`; one family keeps the sum form (`n1·π+π/4`).
+- **fMin and fMax:**
+  - Of a single sine or cosine, they solve f = its extreme value, with no `(-1)^n` condition: `(4·n1+1)·π/2`, `2·n1·π`.
+  - A sum such as sin+cos keeps the condition (run 6).
+  - An extremum approached towards ±∞ is `x=-∞`. `fMax(x^2,x)` giving `x=-∞ or x=∞` follows from that and is not seen on the device.
+- **Logarithms:** logs of fractions in a sum are combined (`ln(9/2)/8`), and so is an equation's number side (`t=150·ln(59/40)`).
+- **Still different:**
+  - `fMin(cos(x)^2,x)`: the device adds `x=-∞ or … or x=∞` (xfail).
+  - The order of the three terms of `∫₀² 1/(x³+x+2)dx` and of `expand`'s terms.
+  - The unsolved equation is echoed; the device rearranges it.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).

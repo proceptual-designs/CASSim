@@ -1,6 +1,6 @@
 """Emulator check 1 (2026-11-26 and 27): what the makers' own PC emulators showed, as tests.
 
-Rows are named as in the evidence repository's `docs/testing/emulator-scientific-results.md` and
+Rows are named as in `docs/testing/emulator-scientific-results.md` and the evidence repository's
 `docs/handoff/acceptance-cases.csv` (FX: the fx-82AU PLUS II 2nd edition emulator, SX: the SX-II
 MATRIXn emulator). Each starts from Reset All, as the captures did, unless it says otherwise.
 Decided by Simon on 2026-11-27 (decision 0041): follow the emulators by default; exact surds and

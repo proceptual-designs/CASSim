@@ -78,6 +78,14 @@ _MESSAGES = {
 NON_REAL_CALCULATION = "Non-real calculation"
 # CASSim's own wording (the device's text is not reused): solve gave decimals found by a search.
 NUMERIC_SOLUTION = "Solved numerically: there may be other solutions"
+# CASSim's own wording for three more of the device's warnings (emulator check 6, runs 5 to 7):
+# a simplification that cancels a factor in a variable; solve returning an equation it could not
+# solve; and a `|` condition that is not a variable compared with a constant.
+DOMAIN_WIDER = "The result may be defined for values where the input is not"
+MORE_SOLUTIONS = "Not solved: there may be solutions; try a guess or bounds"
+CONSTRAINT_IGNORED = (
+    "The condition may not have been used: compare the variable with a number, as in x>0 and x<5"
+)
 
 
 class TIError(Exception):

@@ -4,7 +4,7 @@ Status: accepted 2026-11-27 (Simon). Requirements: FR-FX-CFG-001, FR-FX-DSP-005,
 
 ## Context
 
-Emulator check 1 (2026-11-26 and 27) ran the brief `docs/testing/emulator-scientific-capture.md` on the makers' own PC emulators of the four calculators behind CASSim's layouts: the fx-82AU PLUS II 2nd edition, the SX-II MATRIXn, the HP 10s and the EL-531TH. The results, about 300 screenshots and a handoff are in the evidence repository (`docs/testing/emulator-scientific-results.md`, `docs/handoff/`; decision 0039). Where the emulators and CASSim differed, the fx-82AU PLUS II manual was checked too. It agreed with the emulators on every point below.
+Emulator check 1 (2026-11-26 and 27) ran the brief `docs/testing/emulator-scientific-capture.md` on the makers' own PC emulators of the four calculators behind CASSim's layouts: the fx-82AU PLUS II 2nd edition, the SX-II MATRIXn, the HP 10s and the EL-531TH. The results are in `docs/testing/emulator-scientific-results.md`; the screenshots (about 340) and Cowork's handoff are in the evidence repository (`docs/testing/scientific-shots/`, `docs/handoff/`; decision 0039). Where the emulators and CASSim differed, the fx-82AU PLUS II manual was checked too. It agreed with the emulators on every point below.
 
 ## Decision
 
@@ -32,7 +32,7 @@ Emulator check 1 (2026-11-26 and 27) ran the brief `docs/testing/emulator-scient
    - on the fx-82 and SX-II a trig key picks from the menu, as its new name says, and hyp pressed again cancels.
 
    This is a learning aid that changes appearance, not the maths. It is on by default and can be switched off in Settings (remembered in the browser). No calculator renames its keys, so it is CASSim's own (SDD-15 section 1).
-5. **Ran#** keeps CASSim's current behaviour, a three-place decimal, pending Simon's answer on following the device. The fx-82 in MathO shows thousandths as a fraction (581/1000).
+5. **Ran#** is always a three-place decimal, in MathO as well (Simon, 2026-11-27). The fx-82 in MathO shows thousandths as a fraction (581/1000); CASSim does not follow it there. S⇔D still turns the decimal into a fraction, as it does for any decimal.
 
 The rule for later work: toggles, assists and hints are on by default; extra functionality and extra menus are opt-in.
 
