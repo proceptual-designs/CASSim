@@ -138,6 +138,9 @@ class ScientificApp:
             noun="calculation",
         )
         self.key_controls: dict[str, ft.Container] = {}
+        self.legend_controls: dict[str, ft.Text] = {}  # each key's SHIFT legend, by key id
+        self.extra_table = False  # CASSim's TABLE mode for the fx-82 and SX-II (decision 0041)
+        self.hyp_names = True  # the trig keys read sinh, cosh, tanh while hyp waits (FR-FX-UI-008)
         self.completed: set[str] = set()
         self.speed = 1.0
         self.session: TutorialSession | None = None  # a lesson in progress
@@ -302,6 +305,7 @@ class ScientificApp:
         skin = self.skin
         layout = self.shown_layout
         self.key_controls = {}
+        self.legend_controls = {}
         inner = (BASE_WIDTH - 28) * s
         self.lcd = ft.Container(
             height=112 * s * (1 + (self.stretch - 1) / 2),
@@ -419,23 +423,26 @@ class ScientificApp:
         # lone legend at the left), inset from the edges, bold, and clipped there so nothing runs
         # into the next key.
         size = legend_font_size(key.shift_label, key.alpha_label, w, s)
+        texts = [
+            ft.Text(
+                label,
+                size=size,
+                color=colour,
+                weight=ft.FontWeight.BOLD,
+                no_wrap=True,
+                style=ft.TextStyle(font_family_fallback=FALLBACK),
+            )
+            for label, colour in (
+                ((key.shift_label, shift_colour), (key.alpha_label, alpha_colour))
+                if key.shift_label
+                else ((key.alpha_label, alpha_colour), ("", shift_colour))
+            )
+        ]
+        if key.shift_label:
+            self.legend_controls[key.id] = texts[0]
         legend = ft.Container(
             ft.Row(
-                [
-                    ft.Text(
-                        label,
-                        size=size,
-                        color=colour,
-                        weight=ft.FontWeight.BOLD,
-                        no_wrap=True,
-                        style=ft.TextStyle(font_family_fallback=FALLBACK),
-                    )
-                    for label, colour in (
-                        ((key.shift_label, shift_colour), (key.alpha_label, alpha_colour))
-                        if key.shift_label
-                        else ((key.alpha_label, alpha_colour), ("", shift_colour))
-                    )
-                ],
+                list[ft.Control](texts),
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 spacing=LEGEND_GAP * s,
                 vertical_alignment=ft.CrossAxisAlignment.END,
@@ -548,7 +555,9 @@ class ScientificApp:
         ink = skin.lcd_text
         width = (BASE_WIDTH - 28) * s - 22 * s
         renderer = Renderer(ink, ink)
-        ann_names = ("S", "A", "M", "STO", "RCL", "STAT", "D", "R", "G", "FIX", "SCI", "Math")
+        ann_names = (
+            "S", "A", "M", "STO", "RCL", "hyp", "STAT", "D", "R", "G", "FIX", "SCI", "Math"
+        )  # fmt: skip
         marks = {"S": self.shown_layout.shift_mark, "A": self.shown_layout.alpha_mark}
         annunciators = ft.Row(
             [
@@ -711,10 +720,12 @@ class ScientificApp:
         return ft.Column(lines, spacing=0, expand=True)
 
     def _paint_keys(self) -> None:
-        """Modifier keys light up while waiting; the tutorial's next key glows."""
+        """Modifier keys light up while waiting; hyp too, and while it waits the trig keys are
+        named sinh, cosh, tanh (FR-FX-UI-008, a setting); the tutorial's next key glows."""
         target = self._target_key()
         skin = self.skin
         shift_colour, alpha_colour = self._legend_colours()
+        hyp = self.state.hyp_waiting
         for key, face in self.key_controls.items():
             spec = self._layout_key(key)
             fill, text = self._colours(spec)
@@ -724,9 +735,13 @@ class ScientificApp:
             elif spec.plain == (k.ALPHA,) and self.state.alpha:
                 fill = alpha_colour
                 text = ink_on(fill)
+            elif spec.plain == (k.HYP,) and hyp:
+                fill = shift_colour
+                text = ink_on(fill)
             face.bgcolor = fill
             if isinstance(face.content, ft.Text):
                 face.content.color = text  # a lit modifier's own name must stay readable
+                self._rename_trig(key, spec, face.content, renamed=hyp and self.hyp_names)
             if key == target:
                 face.border = ft.Border.all(3 * self.scale, skin.target)
                 face.shadow = ft.BoxShadow(spread_radius=1, blur_radius=10, color=skin.target)
@@ -734,6 +749,17 @@ class ScientificApp:
                 face.border = ft.Border.all(1, skin.key_edge)
                 face.shadow = None
             _safe_update(face)
+
+    def _rename_trig(self, key: str, spec: LKey, face: ft.Text, *, renamed: bool) -> None:
+        """sin, cos and tan (and their SHIFT legends) read sinh, cosh, tanh while hyp waits."""
+        names = layouts.hyperbolic_names(spec)
+        if names is None:
+            return
+        face.value = names[0] if renamed else spec.face
+        legend = self.legend_controls.get(key)
+        if legend is not None:
+            legend.value = names[1] if renamed else spec.shift_label
+            _safe_update(legend)
 
     def _paint_bar(self) -> None:
         skin = self.skin
@@ -793,7 +819,7 @@ class ScientificApp:
         await self._load_state()
         layout = self.layout
         self.state.use_layout(
-            layout.modes, linear=layout.linear, dialect=layout.dialect, switch_display=False
+            self._modes(layout), linear=layout.linear, dialect=layout.dialect, switch_display=False
         )
         self.page.controls.clear()
         self.page.add(self.root)
@@ -1318,7 +1344,7 @@ class ScientificApp:
     @property
     def lessons(self) -> tuple[Lesson, ...]:
         """The chosen calculator's lessons, in its own keys."""
-        return lessons_for(self.layout)
+        return lessons_for(self.layout, table=self.extra_table)
 
     @property
     def lesson(self) -> Lesson:
@@ -1358,7 +1384,7 @@ class ScientificApp:
         changed = layout is not self.shown_layout
         self.shown_layout = layout
         self.state.use_layout(
-            layout.modes,
+            self._modes(layout),
             linear=layout.linear,
             dialect=layout.dialect,
             switch_display=switch_display,
@@ -1531,6 +1557,18 @@ class ScientificApp:
             self.panel_open = prefs["panel"]
         if prefs.get("speed") in SPEEDS:
             self.speed = prefs["speed"]
+        if isinstance(prefs.get("table"), bool):
+            self.extra_table = prefs["table"]
+        if isinstance(prefs.get("hyp_names"), bool):
+            self.hyp_names = prefs["hyp_names"]
+
+    def _modes(self, layout: Layout) -> tuple[layouts.CalcModeName, ...]:
+        """The layout's modes, with TABLE when the extra is on. A calculation saved or shared in
+        TABLE mode switches the extra on, so the table it holds can still be used."""
+        if self.state.mode == "TABLE" and layouts.offers_table(layout) and not self.extra_table:
+            self.extra_table = True
+            self._save_prefs()
+        return layouts.modes_for(layout, table=self.extra_table)
 
     def _save_prefs(self) -> None:
         self.shell.write(
@@ -1541,6 +1579,8 @@ class ScientificApp:
                     "completed": sorted(self.completed),
                     "panel": self.panel_open,
                     "speed": self.speed,
+                    "table": self.extra_table,
+                    "hyp_names": self.hyp_names,
                 }
             ),
         )
@@ -1625,7 +1665,7 @@ class ScientificApp:
 
     def load_example(self, index: int) -> None:
         """Doc > Examples: load one, asking first if work would be lost (SDD-15 section 9.4)."""
-        reason = examples.missing(index, self.layout)
+        reason = examples.missing(index, self.layout, self._modes(self.layout))
         if reason:
             self.shell.notice("Examples", reason)
             return
@@ -1767,6 +1807,13 @@ class ScientificApp:
             value="comma" if setup.comma else "dot",
         )
         frequency = ft.Switch(label="STAT frequency column", value=setup.frequency)
+        natural = dialect in ("casio", "sx2")  # the extras are for the natural-display calculators
+        surds = ft.Switch(label="Exact surds and π in MathO answers", value=setup.surds)
+        table = ft.Switch(label="TABLE mode (MODE 4)", value=self.extra_table)
+        hyp_names = ft.Switch(
+            label="Show sinh, cosh and tanh on the keys after hyp", value=self.hyp_names
+        )
+        extras: list[ft.Control] = [surds, table] if natural else []
         where = {
             "ms": "These are the choices on the MODE pages (MODE, pressed again for each page).",
             "sharp": "These are the SET UP menu's choices; DRG also changes the angle unit.",
@@ -1789,9 +1836,15 @@ class ScientificApp:
             new.comma = point.value == "comma"
             self.state.set_frequency(on=bool(frequency.value))
             new.frequency = self.state.setup.frequency
+            new.surds = bool(surds.value) if natural else setup.surds
             self.state.setup = new
+            if natural:
+                self.extra_table = bool(table.value)
+            self.hyp_names = bool(hyp_names.value)
             self.page.pop_dialog()
+            self._show_layout(self.layout, switch_display=False)  # TABLE joins or leaves MODE
             self.refresh()
+            self._save_prefs()
             self._schedule_save()
 
         def heading(text: str) -> ft.Text:
@@ -1814,6 +1867,14 @@ class ScientificApp:
                         point,
                         frequency,
                         ft.Text(where, size=12),
+                        heading("CASSim extras"),
+                        *extras,
+                        hyp_names,
+                        ft.Text(
+                            "Extras the calculator itself does not have start off. Exact "
+                            "answers apply in MathO; TABLE joins the MODE menu.",
+                            size=12,
+                        ),
                     ],
                     tight=True,
                     spacing=6,

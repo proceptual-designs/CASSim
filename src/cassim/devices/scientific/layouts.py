@@ -516,6 +516,27 @@ HP10S = Layout(
 LAYOUTS: tuple[Layout, ...] = (FX82, SX2, EL531, HP10S)
 
 
+TRIG_KEYS = (k.SIN, k.COS, k.TAN)
+
+
+def hyperbolic_label(label: str) -> str:
+    """A trig key's name while hyp waits: sin becomes sinh, SIN⁻¹ becomes SINH⁻¹ (decision 0041,
+    FR-FX-UI-008). A CASSim learning aid: no calculator renames its keys."""
+    for name in ("sin", "cos", "tan"):
+        for spelt in (name, name.upper()):
+            if label.startswith(spelt):
+                h = "H" if spelt.isupper() else "h"
+                return spelt + h + label[len(spelt) :]
+    return label
+
+
+def hyperbolic_names(key: LKey) -> tuple[str, str] | None:
+    """The face and SHIFT legend a sin, cos or tan key shows while hyp waits, else None."""
+    if key.plain not in ((trig,) for trig in TRIG_KEYS):
+        return None
+    return hyperbolic_label(key.face), hyperbolic_label(key.shift_label)
+
+
 def offers_table(layout: Layout) -> bool:
     """TABLE is a CASSim extra for the natural-display calculators: the fx-82AU PLUS II and the
     SX-II list only COMP, STAT and VERIF (their manuals and emulators, check 1; decision 0041)."""

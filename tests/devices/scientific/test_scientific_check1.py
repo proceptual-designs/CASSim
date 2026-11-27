@@ -266,3 +266,15 @@ def test_other_functions() -> None:
     assert state.display().text() == "Ans→A\n5"
     assert on(state, "7", k.MPLUS, k.RCL, k.MPLUS) == "7"
     assert on(state, "1", k.DIV, "0", k.EQ) == "Math ERROR"
+
+
+@pytest.mark.parametrize("layout", L.LAYOUTS)
+def test_every_layout_names_its_trig_keys_hyperbolic(layout: L.Layout) -> None:
+    """FR-FX-UI-008: each calculator's sin, cos and tan keys (and their SHIFT legends) have
+    hyperbolic names, in the key's own case (SIN becomes SINH on the SX-II)."""
+    names = [L.hyperbolic_names(key) for key in layout.all_keys()]
+    found = [name for name in names if name is not None]
+    assert len(found) == 3
+    for face, legend in found:
+        assert face[:4].lower() in ("sinh", "cosh", "tanh")
+        assert legend.lower().endswith("h⁻¹")
