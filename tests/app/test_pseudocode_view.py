@@ -385,13 +385,43 @@ def test_fixed_trace_column_widths_are_precomputed() -> None:
 
 
 def test_python_console_accepts_print_and_expressions() -> None:
-    app = object.__new__(CodeApp)
-    app.python_console_namespace = {"__name__": "cassim_console"}
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
 
-    assert app.submit_python_console("50 * 'hi'") == "hi" * 50
-    assert app.submit_python_console("print(50 * 'hi')") == "hi" * 50
+    assert app.submit_python_console("50 * 2") == "100"
+    assert app.submit_python_console("print('hi')") == "hi"
     assert app.submit_python_console("x = 6") == ""
     assert app.submit_python_console("x + 1") == "7"
+
+
+def test_python_console_keeps_random_values_between_lines() -> None:
+    """Earlier lines run again before each new one, with the session's own seed."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.submit_python_console("r = randint(1, 1000000)") == ""
+    first = app.submit_python_console("r")
+    assert app.submit_python_console("r") == first
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "import os",
+        "from js import fetch",
+        "__import__('os').system('echo hi')",
+        "(1).__class__",
+        "open('notes.txt').read()",
+        "eval('1 + 1')",
+        "exec('x = 1')",
+        "getattr(1, 'real')",
+        "globals()",
+    ],
+)
+def test_python_console_is_sandboxed(line: str) -> None:
+    """SDD-15 section 9.5: a Console line is never executed as Python. It goes through the
+    same translator and interpreter as Run, which have no imports, attributes, files, eval or
+    network, so each of these is refused with an error and nothing else happens."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.submit_python_console(line).startswith("Error:")
+    assert app.python_console_lines == []
 
 
 def test_pseudocode_console_accepts_print_and_bare_expressions() -> None:

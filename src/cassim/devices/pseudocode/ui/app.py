@@ -5,10 +5,11 @@ from __future__ import annotations
 import ast
 import asyncio
 import contextlib
-import io
 import json
+import random
 import re
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 import flet as ft
@@ -301,7 +302,9 @@ class CodeApp:
         self.code_style = "monospace"
         self.symbol_style = "unicode"
         self.console_inputs: list[str] = []
-        self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
+        # the Python Console's statements so far, run again before each line (sandboxed)
+        self.python_console_lines: list[str] = []
+        self.python_console_seed = random.randrange(2**31)
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
         self.angle_mode: AngleMode = "radian"
@@ -1200,34 +1203,40 @@ class CodeApp:
                 _safe_update(self.run_button)
 
     def submit_python_console(self, text: str) -> str:
-        """Execute a Python console line or expression in a persistent namespace."""
+        """A Python Console line, run as Run runs a program: translated to pseudocode and run by
+        CASSim's own interpreter, never executed as Python, so it cannot reach the page, the
+        network, storage or the computer (SDD-15 section 9.5). Statements are kept and run again
+        before the next line, with the session's own random seed, so `x = 6` then `x + 1` gives
+        7; a bare expression is printed."""
+        stripped = text.strip()
         try:
-            parsed = ast.parse(text, mode="exec")
-            is_print_call = (
-                len(parsed.body) == 1
-                and isinstance(parsed.body[0], ast.Expr)
-                and isinstance(parsed.body[0].value, ast.Call)
-                and isinstance(parsed.body[0].value.func, ast.Name)
-                and parsed.body[0].value.func.id == "print"
-            )
-            if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr) and not is_print_call:
-                parsed = ast.Expression(parsed.body[0].value)
-                value = eval(
-                    compile(parsed, "<console>", "eval"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-                return str(value)
-            buffer = io.StringIO()
-            with contextlib.redirect_stdout(buffer):
-                exec(
-                    compile(parsed, "<console>", "exec"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-            return buffer.getvalue().rstrip("\n")
-        except Exception as error:
-            return f"Error: {type(error).__name__}: {error}"
+            parsed = ast.parse(stripped, mode="exec")
+        except SyntaxError as error:
+            return f"Error: SyntaxError: {error.msg}"
+        body = parsed.body
+        call = body[0].value if len(body) == 1 and isinstance(body[0], ast.Expr) else None
+        is_print = (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Name)
+            and call.func.id == "print"
+        )
+        expression = call is not None and not is_print
+        line = f"print({stripped})" if expression else stripped
+        settings = replace(self.settings(), seed=self.python_console_seed)
+        earlier = self.python_console_lines
+        try:
+            before = python_to_pseudocode("\n".join(earlier) + "\n") if earlier else ""
+            now = python_to_pseudocode("\n".join([*earlier, line]) + "\n")
+        except (SyntaxError, TranslationError) as error:
+            return f"Error: {error}"
+        shown = len(run(before, settings).output) if before else 0
+        result = run(now, settings)
+        output = list(result.output[shown:])
+        if result.error:
+            return "\n".join([*output, f"Error: {result.error}"])
+        if not expression and not is_print:
+            self.python_console_lines.append(stripped)  # a statement the next line can use
+        return "\n".join(output)
 
     def pseudocode_console_source(self, source: str, text: str) -> str:
         """Turn a console line into valid pseudocode in the selected language."""

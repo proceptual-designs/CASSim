@@ -1,6 +1,6 @@
 # SDD-15. Shared interface (CASSim's own menus, themes, views and dialogs)
 
-Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17; the shared CASSim menu (sections 3 to 6) closed gaps 4 to 7 and 12; dialogs and wording (section 9) closed 9 to 11, 16 and 20 and narrowed 8; the Doc menu (section 9.4) closed 14 and 15.
+Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17; the shared CASSim menu (sections 3 to 6) closed gaps 4 to 7 and 12; dialogs and wording (section 9) closed 9 to 11, 16 and 20 and narrowed 8; the Doc menu (section 9.4) closed 14 and 15; decision 0040 closed 21.
 Applies to: the Home screen and every app (Nspire, Pseudocode & Python, Scientific, and later ClassPad and Prime).
 Requirements: FR-DEV-002, FR-DEV-003, FR-DEV-004, FR-DEV-006, FR-DEV-008, FR-DEV-010, FR-THEME-001, FR-THEME-002, FR-DOC-010, FR-PROF-010 to FR-PROF-013, NFR-PORT-002, NFR-PORT-003.
 Decisions: 0028 (clean room), 0032 (device interface and shell), 0033 (named documents).
@@ -192,9 +192,7 @@ The app supplies only its noun ("document", "program", "calculation") and its fi
 
 ### 9.5 Running code
 
-The Pseudocode & Python runner is fully sandboxed in its worker, so Run runs at once, with no permission prompt (Simon, 2026-11-26). Code that arrives from Open, Import, an example or a share link never runs by itself: it waits for Run. Stop must end a run within 1 s.
-
-FR-PY-002, FR-RUN-004 and the AGENTS.md line "must prompt before running" still describe a prompt. They need updating to match.
+The Pseudocode & Python runner is sandboxed, so Run runs at once, with no permission prompt (decision 0040). No user code runs as Python: a Pseudocode program, a Python program (translated to pseudocode first) and a Console line all go through CASSim's own interpreter. Code that arrives from Open, Import, an example or a share link never runs by itself: it waits for Run. Stop must end a run within 1 s.
 
 ## 10. Where the code differs (2026-11-26)
 
@@ -207,7 +205,6 @@ Paths are under `src/cassim/`; line numbers are approximate. The list is ordered
 | 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, and the swatch palette | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
 | 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
 | 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
-| 21 | The SRS and AGENTS.md still require a prompt before running code | `docs/SRS.md` (FR-PY-002, FR-RUN-004), `AGENTS.md` | Update them to 9.5. |
 
 ## 11. Checklist for a new extra
 

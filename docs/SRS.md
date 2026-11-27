@@ -199,7 +199,7 @@ This cross-cuts every functional area.
 | FR-PROG-001 | TI-Basic interpreter: `Prgm`/`Func`, control flow, `Disp`/`Request`/`Text`, `Try`, `Local`. | C | T |
 | FR-PROG-002 | Program Editor page; `Define LibPub` libraries and `lib\fn` namespace. | C | T |
 | FR-PY-001 | A `py("script","fn",args)` call from the CAS and a small `cassim` API (read/write Problem variables, evaluate TI expressions). **Changed 2026-11-02:** the Python page itself is FR-RUN-010 (M5); this bridge is a later extra, not part of M5, and not something the handheld does (see FR-RUN-011). | C (later, after M5) | T |
-| FR-PY-002 | If Python pages are built (FR-RUN-010): scripts run sandboxed in the browser; the user is prompted before any run; scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
+| FR-PY-002 | If Python pages are built (FR-RUN-010): scripts run sandboxed in the browser, with no permission prompt (decision 0040); scripts in loaded documents or shared links never auto-run. | M (conditional) | T/E |
 | FR-LIB-001 | Native Python ports of `mm_`, `sm_`, `gm_` UDFs registered as `lib\fn`, each checked against the simulator with the library installed. LazyMath is also Unlicense, so redistribution is permitted. | C | T |
 
 ### 4.9 Device model and display modes — M2
@@ -234,7 +234,7 @@ This cross-cuts every functional area.
 | FR-PWA-004 | App shows its version and offers update when a new service worker is available. | S | E |
 
 ### 4.12 Programming environments and later device profiles — M5, M8–M9
-The last table of this section holds the CASSim Scientific requirements (FR-FX, the `scientific` device), which belong to no numbered milestone. M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the trust prompt) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
+The last table of this section holds the CASSim Scientific requirements (FR-FX, the `scientific` device), which belong to no numbered milestone. M5 starts after the M0–M4 core page set; M6 extensions and M7 polish follow. Multi-device profile implementation remains M8–M9, with the M2 guard FR-DEV-007 and the device interface and bundle build (FR-PROF-001, FR-PROF-002, FR-PROF-008) already completed early through M2x. M5 adds only the minimal Nspire/Pseudocode selector needed for FR-RUN-009 and its own Code site; M8 generalises it into the lazy-loading profile switcher of FR-PROF-003 to FR-PROF-005. **Priorities confirmed 2026-11-02:** Python and pseudocode (Code view and page types) are Should; the ClassPad and the profile infrastructure that exists to serve it are Could; HP Prime is Would (not planned). Order: Code, TI-Basic/extensions, polish, then ClassPad and possibly HP. Question numbers refer to section 10. FR-PY-002 (the sandbox; no prompt since decision 0040) applies to every Python and pseudocode page, and the Python page itself is FR-RUN-010 (M5).
 
 **Device profiles (M8)**
 | ID | Requirement | Pri | Ver |
@@ -263,8 +263,8 @@ The last table of this section holds the CASSim Scientific requirements (FR-FX, 
 |---|---|---|---|
 | FR-RUN-001 | A language-neutral `Interpreter` interface: run source against an I/O context, stream output, accept input, report errors with line and column, and cancel. Python and pseudocode implement it, and so does the Nspire Python page (FR-RUN-010). | S | I/T |
 | FR-RUN-002 | Python runs on CPython in Pyodide in a dedicated worker, separate from the CAS engine. Cancel terminates that worker within 1 s (NFR-PERF-004) and leaves CAS state intact. | S | T/E |
-| FR-RUN-003 | Python environment: the standard library plus only the libraries that are needed (SymPy is shipped for the CAS; numpy and scipy are not assumed); plotting options are decided by a spike (Q21). User code has no network access and no access to the host page. How this is enforced is settled by a spike before the build; any gap that cannot be closed is documented in the SDD and shown in the trust prompt. | S | T/E |
-| FR-RUN-004 | The prompt-before-run rule of FR-PY-002 applies to pseudocode as well as Python; code from documents, imports or links never auto-runs (C-7, NFR-SEC-002). | M (conditional) | T/E |
+| FR-RUN-003 | Python environment: the standard library plus only the libraries that are needed (SymPy is shipped for the CAS; numpy and scipy are not assumed); plotting options are decided by a spike (Q21). User code has no network access and no access to the host page. How this is enforced is settled by a spike before the build; any gap that cannot be closed is documented in the SDD and told to the user before the build ships, since there is no run prompt (decision 0040). | S | T/E |
+| FR-RUN-004 | The sandbox rule of FR-PY-002 applies to pseudocode as well as Python: Run runs at once, without a prompt (decision 0040); code from documents, imports or links never auto-runs (C-7, NFR-SEC-002). | M (conditional) | T/E |
 | FR-RUN-005 | **Pseudocode** interpreter: own tokenizer, parser and interpreter (no regexes, no translation by string substitution) implementing the dialect in `docs/pseudocode/dialect.md` (VCAA pseudocode as extended by the author's conventions document); errors reported in pseudocode terms, not Python tracebacks; an execution-step limit that stops runaway programs with a clear message. | S | T |
 | FR-RUN-006 | The golden programs in `corpus/pseudocode/seed.yaml` (VCAA and the author's examples, each with a reference Python translation and an expected output) are replayed in CI; known failures are `xfail(strict=True)` as for the CAS corpus (FID-3, FID-4). | S | T |
 | FR-RUN-007 | Step-through or trace of a pseudocode run, with a variables panel, for teaching: specified in full by FR-TRC-001 to -008. | S | D |
@@ -457,7 +457,7 @@ The `scientific` device (FR-PROF-012). The device as a whole is Could; the prior
 
 ### 5.3 Security and privacy
 - NFR-SEC-001 (M) No server component; **no telemetry or analytics of any kind**; no student data leaves the device. Share links carry data in the URL fragment, which browsers do not send to servers.
-- NFR-SEC-002 (M) User Python and pseudocode run in the browser sandbox with a trust prompt; imported documents and share links never auto-run code (Python, pseudocode or programs).
+- NFR-SEC-002 (M) User Python and pseudocode run in a sandbox that cannot reach the network, the page, storage or the computer (decision 0040: CASSim's own interpreter, no permission prompt); imported documents and share links never auto-run code (Python, pseudocode or programs).
 - NFR-SEC-003 (M) Imported `.cassim.json` files and share links are schema-validated and size-limited; malformed input is rejected without side effects.
 - NFR-SEC-004 (S) No eval of document-supplied strings outside the engine's parser/interpreter.
 
@@ -568,7 +568,7 @@ Seven of the sixteen are written (2026-11-26). Until the others are, their mater
 | `SDD-06-document-and-storage.md` | Schema, versioning, IndexedDB, import/export | Not written; decisions 0003 and 0033, SDD-04 "Saving and sharing" |
 | `SDD-07-data-pages.md` | Spreadsheet, statistics, finance | Written |
 | `SDD-08-graphing.md` | Scene format, sampling, analysis tools, performance | Not written; decisions 0004 and 0031 |
-| `SDD-09-programming-and-python.md` | TI-Basic, trust/sandbox model | Not written (M6) |
+| `SDD-09-programming-and-python.md` | TI-Basic, sandbox model (decision 0040) | Not written (M6) |
 | `SDD-10-pwa-and-build.md` | Build pipeline, vendoring, service worker, deploy | Written |
 | `SDD-11-test-strategy.md` | Corpus, replay, device and E2E tests, CI | Not written; `docs/testing/TESTING.md` |
 | `SDD-12-device-profiles.md` | Profile interface, shared vs per-profile layers, storage namespaces, lazy loading, refactor plan for the Nspire | Not written; decision 0032 and PLAN.md section 15 |
