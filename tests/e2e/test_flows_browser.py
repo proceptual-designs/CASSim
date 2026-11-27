@@ -152,7 +152,9 @@ def run_flow(app: AppPage, flow: dict) -> None:
                 f"SHEET {wanted}",
             )
         if "plot_x" in step:
-            expect(app.page.get_by_role("button", name=step["plot_x"], exact=True)).to_be_visible(
+            # no variable yet ('') shows the axis boxes' prompt instead of a list's name
+            name = step["plot_x"] or "Click to add variable"
+            expect(app.page.get_by_role("button", name=name, exact=True).first).to_be_visible(
                 timeout=30000
             )
 

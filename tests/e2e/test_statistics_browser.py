@@ -55,7 +55,10 @@ def test_sorter_switches_between_calculator_and_statistics(
     expect(app.page.get_by_role("button", name="Page sorter 1.2")).to_be_attached()
     app.press("Tab")  # a new page has no variable yet: Tab opens the x axis's list
     app.page.get_by_role("button", name="scores", exact=True).click(force=True)
-    app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
+    # until the x axis shows scores, both axes still ask for a variable
+    add = app.page.get_by_role("button", name="Click to add variable", exact=True)
+    expect(add).to_have_count(1)
+    add.click(force=True)
     app.page.get_by_role("button", name="time", exact=True).click(force=True)
     app.page.get_by_role("button", name="Page manager", exact=True).click()
     close = app.page.get_by_role("button", name="Close the sorter (enter or esc)")
