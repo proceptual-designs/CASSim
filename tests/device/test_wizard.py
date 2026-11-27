@@ -353,13 +353,13 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
     lists = {
         item.label: [(child.key, child.label) for child in item.items] for item in statistics.items
     }
-    regressions = ["Linear Regression (mx+b)", "Linear Regression (a+bx)", "Median-Median Line"]
-    regressions += [f"{kind} Regression" for kind in ("Quadratic", "Cubic", "Quartic", "Power")]
-    regressions += [f"{kind} Regression" for kind in ("Exponential", "Logarithmic", "Sinusoidal")]
-    regressions += ["Logistic Regression (d=0)", "Logistic Regression (d≠0)"]
+    regressions = ["Linear regression (mx+b)", "Linear regression (a+bx)", "Median-median line"]
+    regressions += [f"{kind} regression" for kind in ("Quadratic", "Cubic", "Quartic", "Power")]
+    regressions += [f"{kind} regression" for kind in ("Exponential", "Logarithmic", "Sinusoidal")]
+    regressions += ["Logistic regression (d=0)", "Logistic regression (d≠0)"]
     calculations = [
-        "One-Variable Statistics…",
-        "Two-Variable Statistics…",
+        "One-variable statistics…",
+        "Two-variable statistics…",
         *(f"{label}…" for label in regressions),
         "Multiple linear regression…",
         "Correlation matrix",
@@ -370,7 +370,7 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
     assert [key for key, _ in lists["Distributions"]] == list(keys)
     assert (distributions[0], distributions[12], distributions[-1]) == (
         "Normal Pdf…",
-        "Inverse Binomial N…",
+        "Inverse binomial N…",
         "Poisson Cdf…",
     )
     assert [label for _, label in lists["Confidence intervals"]] == [
@@ -399,7 +399,7 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
                 "Linear Reg t Test…",
                 "Multiple reg tests…",
                 "ANOVA…",
-                "ANOVA 2-Way…",
+                "ANOVA 2-way…",
             ],
             strict=False,
         )

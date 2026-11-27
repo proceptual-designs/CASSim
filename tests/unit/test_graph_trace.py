@@ -64,12 +64,12 @@ def test_trace_menu_is_numbered_as_on_the_device() -> None:
     assert state.menu is not None
     rows = state.menu.view().rows
     assert [(row.key, row.label, row.enabled) for row in rows] == [
-        ("1", "Graph Trace", True),
-        ("2", "Trace All", True),
-        ("3", "Trace Step…", True),
-        ("4", "Path Plot", False),
-        ("5", "Geometry Trace", False),
-        ("6", "Erase Geometry Trace", False),
+        ("1", "Graph trace", True),
+        ("2", "Trace all", True),
+        ("3", "Trace step…", True),
+        ("4", "Path plot", False),
+        ("5", "Geometry trace", False),
+        ("6", "Erase Geometry trace", False),
     ]
 
 
@@ -186,7 +186,7 @@ def test_trace_step_dialog_has_automatic_and_enter_value() -> None:
     state, graphs, shown = traced("x^2")
     pick(state, "5", "3")
     wizard = shown[0]
-    assert wizard.title == "Trace Step"
+    assert wizard.title == "Trace step"
     assert wizard.fields[0].choices == (("auto", "Automatic"), ("value", "Enter Value…"))
     assert wizard.defaults()["mode"] == "auto"
     assert state.finish_wizard(wizard, {"mode": "value", "value": "0"}) == [

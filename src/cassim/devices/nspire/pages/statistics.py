@@ -339,7 +339,7 @@ class Statistics:
                         Field("xmax", "XMax", _format(xmax)),
                         Field("ymax", "YMax", _format(ymax)),
                     )
-                    return Wizard("Window Settings", fields)
+                    return Wizard("Window settings", fields)
                 xmin, xmax, ymin, ymax = self.window or self._default_window()
                 fields = tuple(
                     Field(name, label, _format(value))
@@ -350,16 +350,16 @@ class Statistics:
                         ("ymax", "YMax", ymax),
                     )
                 )
-                return Wizard("Window Settings", fields)
+                return Wizard("Window settings", fields)
             case "function":
                 return Wizard(
-                    "Plot Function", (Field("expression", "f(x)", self.function_text or "x"),)
+                    "Plot function", (Field("expression", "f(x)", self.function_text or "x"),)
                 )
             case "value":
-                return Wizard("Plot Value", (Field("x", "x", self.plot_value_text or "0"),))
+                return Wizard("Plot value", (Field("x", "x", self.plot_value_text or "0"),))
             case "bin-width":
                 return Wizard(
-                    "Equal Bin Width Settings",
+                    "Equal bin width settings",
                     (Field("width", "Width", _format(self.histogram_width)),),
                 )
         raise ValueError(f"unknown statistics dialog: {action}")

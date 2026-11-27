@@ -632,8 +632,8 @@ def test_placeholders_keep_the_handheld_numbering() -> None:
     state.key_event("3")  # Algebra
     rows = _menu(state).rows
     assert [row.key for row in rows] == list("123456789ABCD")
-    assert (rows[4].label, rows[4].enabled) == ("Complete the Square", True)
-    assert rows[5].label == "Numerical Solve"
+    assert (rows[4].label, rows[4].enabled) == ("Complete the square", True)
+    assert rows[5].label == "Numerical solve"
     assert rows[5].enabled
 
 
