@@ -140,6 +140,10 @@ class GridStyle(StrEnum):
     LINED = "lined"
 
 
+_ANS = re.compile(r"\bans\b", re.IGNORECASE)
+GRAPH_ANS = "Ans cannot be used in a graph: type the value or expression instead."
+
+
 @dataclass
 class FunctionEntry:
     name: str
@@ -244,6 +248,11 @@ class Graphs:
             entry.editing.forget_undo()
         if not expression:
             entry.error = "Enter an expression for the function."
+            return
+        if _ANS.search(expression):
+            # offered by the Catalog and the ans key, but refused on Enter (emulator run 7,
+            # R7-B11); the text stays to be edited. CASSim's own wording.
+            entry.error = GRAPH_ANS
             return
         entry.expression = expression
         entry.latex = label_latex(editor.root, self.session.is_defined)

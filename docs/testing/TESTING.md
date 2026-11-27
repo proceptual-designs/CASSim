@@ -361,6 +361,21 @@ Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays
 
 Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the simulator prints negative parameters as `+-` / `--`.
 
+### Check 6, run 7: Graphs (2026-11-27)
+
+Results in `emulator-graphs7-results.md`.
+- **Confirmed** what CASSim already did:
+  - axis drags scale both axes about the origin;
+  - Graph Trace's Up and Down follow the list order;
+  - Zoom Square keeps x and scales y about the x axis;
+  - Zoom Fit keeps x and pads y by a tenth (x², 2·sin(x) and x+1 on 0 to 10 give about -12.2 to 110.2);
+  - Bounded Area asks for no graph when only two are plotted;
+  - a kept trace point, and an analysis result, follow a redefined function.
+- **Now followed:**
+  - `Ans` in a graph's entry line is refused on Enter (CASSim's own wording), and the text stays.
+  - The var list types a function with both brackets and the cursor between them (`f9()`).
+- **New features, on their own branch:** Attributes, Equation Templates' empty forms, Text, Coordinates and Equations, Calculate, and dragging a curve to translate it.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).

@@ -1192,8 +1192,13 @@ class AppState:
                     ),
                 ),
             )
+        # On a Graphs entry line a function comes with both brackets and the cursor between
+        # them, `f9()` (emulator run 7, R7-B11).
+        call = (lambda name: ("insert_linear", f"{name}({MARK})")) if graphs else None
         items = tuple(
-            MenuItem(row.text, "insert", f"{row.name}(", hint="function")
+            MenuItem(row.text, *call(row.name), hint="function")
+            if row.is_function and call is not None
+            else MenuItem(row.text, "insert", f"{row.name}(", hint="function")
             if row.is_function
             else MenuItem(row.name, "insert", row.name, hint=f"{row.name} = {row.text}")
             for row in rows
