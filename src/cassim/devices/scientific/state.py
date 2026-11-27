@@ -65,7 +65,8 @@ GRID_ROWS = 3  # data rows the LCD shows at once
 MAX_DEPTH = 12
 
 CalcMode = Literal["COMP", "STAT", "TABLE", "VERIFY"]
-MODES: tuple[CalcMode, ...] = ("COMP", "STAT", "TABLE", "VERIFY")
+MODES: tuple[CalcMode, ...] = ("COMP", "STAT", "VERIFY")  # the fx-82's; TABLE is an extra
+ALL_MODES: tuple[CalcMode, ...] = (*MODES, "TABLE")  # a saved calculation may be in TABLE
 # The fx-82MS family's MODE pages: MODE again shows the next one.
 MS_PAGES = ("ms_mode", "ms_angle", "ms_disp", "ms_more")
 # The EL-531's own keys (layouts.py), which do nothing while a menu is open.
@@ -226,7 +227,8 @@ class ScientificState:
             return
         match self.screen:
             case "menu":
-                self._menu_key(key)
+                if not (self.menu == "hyp" and self._hyp_menu_key(key, shift=shift)):
+                    self._menu_key(key)
             case "message":
                 if key in (k.AC, k.ON):
                     self._to_calc()
@@ -374,11 +376,30 @@ class ScientificState:
         self._type(key, shift=shift, alpha=alpha)
 
     def _hyp_key(self) -> None:
-        """hyp: the next sin, cos or tan is hyperbolic; on the SX-II it opens a menu of them."""
-        if self.dialect == "sx2":
-            self.open_menu("sx_hyp")
+        """hyp: on the fx-82 and SX-II it opens a menu of the six hyperbolic functions (both
+        emulators, check 1); on the 10s and EL-531 the next sin, cos or tan is hyperbolic. Pressed
+        again, it cancels (decision 0041: the keys show sinh, cosh, tanh while it waits)."""
+        if self.dialect in ("casio", "sx2"):
+            self.open_menu("hyp")
         else:
-            self.hyp = True
+            self.hyp = not self.hyp
+
+    @property
+    def hyp_waiting(self) -> bool:
+        """hyp has been pressed and sin, cos or tan will give a hyperbolic function: the keypad
+        lights hyp and names the trig keys sinh, cosh, tanh (FR-FX-UI-008)."""
+        return self.hyp or (self.screen == "menu" and self.menu == "hyp")
+
+    def _hyp_menu_key(self, key: str, *, shift: bool) -> bool:
+        """In the hyp menu, hyp closes it and sin, cos or tan (or SHIFT and one) picks its
+        hyperbolic function, as the relabelled keys say."""
+        if key == k.HYP:
+            self._menu_key(k.AC)
+            return True
+        if key in (k.SIN, k.COS, k.TAN):
+            self._sx_pick_hyp((k.SIN, k.COS, k.TAN).index(key) + 1 + (3 if shift else 0))
+            return True
+        return False
 
     def _type(self, key: str, *, shift: bool, alpha: bool) -> None:
         action = key_action(key, shift=shift, alpha=alpha, hyp=self.hyp)
@@ -429,6 +450,8 @@ class ScientificState:
         del self.history[:-MAX_HISTORY]
         self.history_index = len(self.history) - 1
         self._show(value)
+        if not isinstance(value, (Pair, bool)) and _sexagesimal(items):
+            self.form = "dms"
 
     def _set_ans(self, value: Number) -> None:
         self.variables["PreAns"] = self.variables["Ans"]
@@ -517,12 +540,13 @@ class ScientificState:
         )
 
     def _prefer_exact(self) -> bool:
-        """Natural display shows exact answers, except for an angle typed in ° ' "; LineIO shows a
-        fraction only when the entry has one."""
+        """MthIO-MathO shows exact answers first, except for an angle typed in ° ' ". MthIO-LineO
+        (the fx-82's and SX-II's default) and LineIO show a decimal first, or a fraction when the
+        entry has one (emulator check 1: 1÷200 is 0.005, 1/3+1/4 is 7/12)."""
         items = self.editor.items
         if any(isinstance(item, Tok) and item.id == "dms" for item in items):
             return False
-        if self.setup.input == "math":
+        if self.setup.natural_output:
             return True
         return any(
             (isinstance(item, Tmpl) and item.kind in ("frac", "mixed")) or _is_tok(item, "⌟")
@@ -615,6 +639,7 @@ class ScientificState:
             rnd=lambda value: fmt.rnd(value, self.setup),
             rng=self.rng,
             relations=self.mode == "VERIFY",
+            percent_addon=self.dialect not in ("casio", "sx2"),
         )
 
     # ---- menus ----
@@ -629,7 +654,10 @@ class ScientificState:
         name = self.menu
         match name:
             case "mode":
-                options = tuple(f"{i}:{m}" for i, m in enumerate(self.allowed_modes, start=1))
+                names = {"VERIFY": "VERIF"}  # as the fx-82's and SX-II's MODE menus spell it
+                options = tuple(
+                    f"{i}:{names.get(m, m)}" for i, m in enumerate(self.allowed_modes, start=1)
+                )
                 return MenuSpec("", options, self._pick_mode)
             case "stat_type":
                 options = tuple(
@@ -1069,7 +1097,7 @@ class ScientificState:
                 if quad:
                     return self._ms_page(("x̂1", "x̂2", "ŷ"), ("x̂1", "x̂2", "ŷ"), "ms_svar3", "")
                 return self._ms_page(("x̂", "ŷ"), ("x̂", "ŷ"), "ms_svar3", "")
-            case "sx_hyp":
+            case "hyp":
                 labels = ("sinh", "cosh", "tanh", "sinh⁻¹", "cosh⁻¹", "tanh⁻¹")
                 options = tuple(f"{i}:{label}" for i, label in enumerate(labels, start=1))
                 return MenuSpec("", options, self._sx_pick_hyp)
@@ -1473,10 +1501,9 @@ class ScientificState:
     # ------------------------------------------------------------------------------------------
 
     def default_setup(self) -> Setup:
-        """SETUP's defaults, which follow the calculator's manual: Norm 2 on the fx-82 and SX-II
-        (their manuals also give MthIO-LineO, to be checked on the emulators first); a linear
-        display, Norm 2 and mixed numbers on the HP 10s; a linear display and mixed numbers on
-        the EL-531."""
+        """SETUP's defaults, which follow the calculator's manual: MthIO-LineO and Norm 2 on the
+        fx-82 and SX-II (both seen on their emulators, check 1); a linear display, Norm 2 and
+        mixed numbers on the HP 10s; a linear display and mixed numbers on the EL-531."""
         match self.dialect:
             case "ms":
                 return Setup(input="line", output="line", digits=2, fraction="ab/c")
@@ -1656,13 +1683,13 @@ class ScientificState:
 
     def mode_name(self) -> str:
         """The mode as this calculator names it: SD or REG on the fx-82MS family, NORMAL on the
-        EL-531, VERIF on the SX-II."""
+        EL-531, VERIF on the fx-82 and SX-II."""
         match self.dialect, self.mode:
             case "ms", "STAT":
                 return "SD" if self.stat_type == "1-VAR" else "REG"
             case "sharp", "COMP":
                 return "NORMAL"
-            case "sx2", "VERIFY":
+            case "casio" | "sx2", "VERIFY":
                 return "VERIF"
         return self.mode
 
@@ -1682,6 +1709,7 @@ class ScientificState:
             "M": float(self.variables["M"]) != 0,
             "STO": self.sto,
             "RCL": self.rcl,
+            "hyp": self.hyp_waiting,  # CASSim's own mark: hyp is waiting (FR-FX-UI-008)
             "STAT": self.mode == "STAT",
             "D": self.setup.angle == "DEG",
             "R": self.setup.angle == "RAD",
@@ -1853,7 +1881,7 @@ class ScientificState:
         try:
             fresh.setup = Setup.from_dict(data.get("setup"))
             mode = data.get("mode", "COMP")
-            fresh.mode = mode if mode in MODES else "COMP"
+            fresh.mode = mode if mode in ALL_MODES else "COMP"
             stat_type = data.get("stat_type", "1-VAR")
             fresh.stat_type = stat_type if stat_type in STAT_TYPES else "1-VAR"
             saved = data.get("variables", {})
@@ -2198,6 +2226,24 @@ def fold_fraction_marks(items: list[Item]) -> list[Item]:
 
 
 DIGITS_DOT = frozenset("0123456789.")
+
+
+_SEXAGESIMAL_KINDS = frozenset({"digit", "dot", "op", "neg", "lparen", "rparen"})
+
+
+def _sexagesimal(items: list[Item]) -> bool:
+    """An entry of ° ' " values joined by + − × ÷ and brackets, whose answer the fx-82 shows in
+    degrees, minutes and seconds (manual: Degree, Minute, Second Calculations; 12°34'56" =
+    stays 12°34'56", emulator check 1, B6). A function such as sin( gives a decimal."""
+    has_dms = False
+    for item in items:
+        if not isinstance(item, Tok):
+            return False
+        if item.id == "dms":
+            has_dms = True
+        elif item.id in ("nPr", "nCr") or TOKENS[item.id].kind not in _SEXAGESIMAL_KINDS:
+            return False
+    return has_dms
 
 
 def _is_zero(value: Number) -> bool:

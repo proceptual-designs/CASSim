@@ -10,7 +10,7 @@ Those calculators differ in what they can do and in the keys you press, and CASS
 |---|---|---|---|---|
 | SHIFT key is called | SHIFT | 2nd | 2ndF | SHIFT |
 | Display | natural (textbook) | natural ("Math") | two lines, linear | two lines, linear |
-| Modes | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIF | NORMAL, STAT (SD, LINE and other fits) | COMP, SD, REG |
+| Modes | COMP, STAT, VERIF (TABLE as a CASSim extra) | COMP, STAT, VERIF (TABLE as a CASSim extra) | NORMAL, STAT (SD, LINE and other fits) | COMP, SD, REG |
 | Settings | SHIFT MODE (SETUP) | 2nd SET UP | SET UP, and DRG for the angle | MODE, pressed again for each page |
 | Clearing | SHIFT 9 (CLR) | 2nd CLR | 2ndF M-CLR, 2ndF CA | SHIFT MODE (CLR) |
 | Exact or decimal | S⇔D | F↔D | a b/c after an answer | a b/c after an answer |
@@ -24,6 +24,8 @@ Those calculators differ in what they can do and in the keys you press, and CASS
 - On a linear calculator a fraction shows as 2⌟3 and a surd as a decimal. Choosing the EL-531 or 10s keys switches SETUP to linear display; you can switch it back in SETUP.
 - The EL-531 keys also show base-n and logic functions; CASSim Scientific does not do those, so the keys do nothing.
 - The tutorials offer only what your calculator can do, in its own keys: the HP 10s and EL-531 have no frequency setting, five-number summary, prime factorisation or table lessons, but they have lessons of their own: rounding with Fix (or FIX and TAB), changing the angle unit, percentage change on the HP 10s, and converting angles with DRG▸ on the EL-531.
+- On the fx-82 and SX-II, % just divides by 100: 250 + 15% is 250.15, so a 15% increase is typed 250 + 250 × 15%.
+- On the fx-82 and SX-II, hyp opens a list of the six hyperbolic functions; on the EL-531 and 10s it waits for sin, cos or tan. On all four, CASSim lights hyp and names the trig keys sinh, cosh and tanh while it waits.
 - On the HP 10s, % works out the whole calculation as the fx-82MS family does: 250 × 15 SHIFT % gives 37.5, and + straight after gives 287.5. On the EL-531, 250 + 15 2ndF % gives 287.5.
 - The computer keyboard types the fx-82's keys, so F1 then Ctrl+M is SETUP on the fx-82 but CLR on the HP 10s, as SHIFT MODE is on each.
 - The EL-531's M-CLR menu, CA and STAT VAR have not yet been checked against a real calculator.

@@ -22,6 +22,7 @@ from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import THEMES, contrast
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
+from cassim.devices.scientific.examples import EXAMPLES
 from cassim.devices.scientific.layout import Frac, Sqrt, Text
 from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
@@ -273,9 +274,9 @@ def test_keyboard_input() -> None:
     keyboard(app, "r")
     keyboard(app, "2")
     keyboard(app, "Enter")
-    assert app.state.display().text() == "2⌟3+√2\n(2+3√2)⌟3"
+    assert app.state.display().text() == "2⌟3+√2\n2.080880229"  # surds are decimals
     keyboard(app, "c", ctrl=True)
-    assert shell.copied == ["(2+3√2)⌟3"]
+    assert shell.copied == ["2.080880229"]
     keyboard(app, "F1")
     keyboard(app, "9")
     assert app.state.menu == "clr"
@@ -288,7 +289,7 @@ def test_keyboard_input() -> None:
 
 def test_keyboard_in_verify_mode_types_equals() -> None:
     app, _, page = started()
-    for key in (k.MODE, "4", "2"):
+    for key in (k.MODE, "3", "2"):
         app.on_key(key)
     keyboard(app, "Equal")
     keyboard(app, "2")
@@ -971,4 +972,85 @@ def test_an_example_asks_before_replacing_unsaved_work() -> None:
     app.load_example(0)
     assert asked == ["Discard changes?"]
     assert app.state.display().text() == before
+    page.drop_tasks()
+
+
+# ---- CASSim extras and the hyp key (decision 0041, FR-FX-UI-008) --------------------------
+
+
+def _face(app: ScientificApp, key_id: str) -> str:
+    content = app.key_controls[key_id].content
+    assert isinstance(content, ft.Text)
+    return str(content.value)
+
+
+def test_hyp_lights_and_renames_the_trig_keys() -> None:
+    """FR-FX-UI-008: while hyp waits it is lit and sin, cos, tan read sinh, cosh, tanh (their
+    SHIFT legends too); a setting turns the names off; hyp is not lit afterwards."""
+    app, _, page = started()
+    plain_fill = app.key_controls[k.HYP].bgcolor
+    app.on_key(k.HYP)
+    assert app.state.hyp_waiting
+    assert app.key_controls[k.HYP].bgcolor != plain_fill
+    assert [_face(app, key) for key in (k.SIN, k.COS, k.TAN)] == ["sinh", "cosh", "tanh"]
+    assert app.legend_controls[k.SIN].value == "sinh⁻¹"
+    app.on_key(k.SIN)  # picks sinh from the menu
+    assert not app.state.hyp_waiting
+    assert _face(app, k.SIN) == "sin"
+    assert app.legend_controls[k.SIN].value == "sin⁻¹"
+    assert app.key_controls[k.HYP].bgcolor == plain_fill
+    app.hyp_names = False
+    app.on_key(k.AC)
+    app.on_key(k.HYP)
+    assert _face(app, k.SIN) == "sin"  # still lit, but the names stay
+    assert app.key_controls[k.HYP].bgcolor != plain_fill
+    page.drop_tasks()
+
+
+def test_settings_extras_are_remembered() -> None:
+    """Exact surds go in the calculation's SETUP; TABLE and the hyp names are remembered in this
+    browser, and TABLE joins the MODE menu as 4."""
+    app, shell, page = started()
+    app.open_settings()
+    dialog = page.dialogs[-1]
+    switches = {c.label: c for c in _walk(dialog.content) if isinstance(c, ft.Switch)}
+    switches["Exact surds and π in MathO answers"].value = True
+    switches["TABLE mode (MODE 4)"].value = True
+    switches["Show sinh, cosh and tanh on the keys after hyp"].value = False
+    apply = next(b for b in dialog.actions if isinstance(b, ft.TextButton) and b.content == "Apply")
+    apply.on_click(None)
+    assert app.state.setup.surds
+    assert app.state.allowed_modes[-1] == "TABLE"
+    prefs = json.loads(shell.store["prefs"])
+    assert prefs["table"] is True
+    assert prefs["hyp_names"] is False
+    assert "table" in [lesson.id for lesson in app.lessons]
+    page.drop_tasks()
+    again, _, page = started(store=shell.store)
+    assert again.extra_table
+    assert not again.hyp_names
+    page.drop_tasks()
+
+
+def test_a_calculation_in_table_mode_switches_the_extra_on() -> None:
+    """A shared or saved calculation in TABLE mode brings the TABLE extra with it."""
+    sender = ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE"))
+    for key in (k.MODE, "4", k.ALPHA, k.RPAREN, k.X2):
+        sender.press(key)
+    app, shell, page = started(route=f"/{sender.share_fragment()}")
+    assert app.state.mode == "TABLE"
+    assert app.extra_table
+    assert "TABLE" in app.state.allowed_modes
+    assert json.loads(shell.store["prefs"])["table"] is True
+    page.drop_tasks()
+
+
+def test_table_example_asks_for_the_extra() -> None:
+    app, shell, page = started()
+    index = next(i for i, (title, _) in enumerate(EXAMPLES) if title.startswith("Table"))
+    app.load_example(index)
+    assert shell.notices[-1] == (
+        "Examples",
+        "TABLE is an extra mode: switch it on in CASSim ▸ Settings first.",
+    )
     page.drop_tasks()

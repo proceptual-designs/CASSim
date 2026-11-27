@@ -7,7 +7,7 @@ calculator: whatever it shows is what the calculator really does. Pure data: no 
 from __future__ import annotations
 
 from cassim.devices.scientific import keys as k
-from cassim.devices.scientific.layouts import Layout
+from cassim.devices.scientific.layouts import Layout, offers_table
 from cassim.devices.scientific.state import ScientificState
 
 
@@ -45,13 +45,13 @@ EXAMPLES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     (
         "Table of values: f(X) = 2X² − 3X + 1, X = 1 to 5",
-        (k.MODE, "3", "2", k.ALPHA, k.RPAREN, k.X2, k.SUB, "3", k.ALPHA, k.RPAREN, k.ADD, "1"),
+        (k.MODE, "4", "2", k.ALPHA, k.RPAREN, k.X2, k.SUB, "3", k.ALPHA, k.RPAREN, k.ADD, "1"),
     ),
     (
         "Mixed numbers: 2⅓ + 5/6",
         (k.SHIFT, k.FRAC, "2", k.RIGHT, "1", k.DOWN, "3", k.RIGHT, k.ADD, k.FRAC, "5", k.DOWN, "6"),
     ),
-    ("Exact trigonometry: sin 60°", (k.SIN, "6", "0", k.RPAREN)),
+    ("Trigonometry: sin 60°", (k.SIN, "6", "0", k.RPAREN)),
     (
         "Degrees, minutes and seconds: 12°34'56\"",
         ("1", "2", k.DMS, "3", "4", k.DMS, "5", "6", k.DMS),
@@ -60,10 +60,13 @@ EXAMPLES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def missing(index: int, layout: Layout) -> str:
-    """Why the calculator behind these keys cannot show the example ("" when it can)."""
+def missing(index: int, layout: Layout, modes: tuple[str, ...] | None = None) -> str:
+    """Why the calculator behind these keys cannot show the example ("" when it can). `modes`
+    are the modes switched on (the layout's own, and TABLE when that extra is on)."""
     title = EXAMPLES[index][0]
-    if title.startswith("Table") and "TABLE" not in layout.modes:
+    if title.startswith("Table") and "TABLE" not in (layout.modes if modes is None else modes):
+        if offers_table(layout):
+            return "TABLE is an extra mode: switch it on in CASSim ▸ Settings first."
         return f"The {layout.title} has no TABLE mode."
     linear = layout.dialect in ("ms", "sharp")
     if linear and title.startswith("Five-number"):

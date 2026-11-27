@@ -59,8 +59,10 @@ def test_every_step_key_is_a_keypad_key(layout: Layout, lesson) -> None:
 def test_lessons_follow_the_calculator() -> None:
     """FR-FX-UI-005: a calculator offers only the lessons it can do, in its own keys."""
     ids = {layout.id: [lesson.id for lesson in lessons_for(layout)] for layout in LAYOUTS}
-    assert ids["fx82"] == [lesson.id for lesson in LESSONS]
-    assert "table" not in ids["sx2"]
+    assert ids["fx82"] == [lesson.id for lesson in LESSONS if lesson.id != "table"]
+    assert "table" not in ids["sx2"]  # TABLE is an extra mode (decision 0041)
+    with_table = [lesson.id for lesson in lessons_for(LAYOUTS[0], table=True)]
+    assert with_table == [lesson.id for lesson in LESSONS]
     linear = ["stddev", "freqtable", "linreg", "fractions", "trig", "percent", "memory"]
     assert set(ids["hp10s"]) == {"reset", *linear, "fix", "angle", "pctchange"}
     assert set(ids["el531"]) == {"reset", *linear, "fix", "angle", "drgconv"}
@@ -116,7 +118,7 @@ def test_expected_screen_follows_the_steps() -> None:
 
 
 def solve(*keys: str, start: tuple[str, ...] = ()) -> ScientificState:
-    state = ScientificState()
+    state = ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE"))
     for key in (*start, *keys):
         state.press(key)
     return state
@@ -141,7 +143,7 @@ def test_test_me_challenges_can_be_solved() -> None:
     assert by_id["reset"].challenge.check(solve(k.SHIFT, "9", "1", k.EQ, start=messy))  # no AC
     assert not by_id["reset"].challenge.check(solve(k.SHIFT, "9", "3", k.EQ, start=messy))
     table = solve(
-        k.MODE, "3", "2", k.ALPHA, k.RPAREN, k.ADD, "1", k.EQ, "0", k.EQ, "4", k.EQ, "1", k.EQ,
+        k.MODE, "4", "2", k.ALPHA, k.RPAREN, k.ADD, "1", k.EQ, "0", k.EQ, "4", k.EQ, "1", k.EQ,
         k.DOWN, k.DOWN, k.DOWN, k.DOWN,
     )  # fmt: skip
     assert by_id["table"].challenge.check(table)

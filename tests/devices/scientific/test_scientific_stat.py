@@ -25,6 +25,11 @@ def press(*keys: str, state: ScientificState | None = None) -> ScientificState:
     return state
 
 
+def table_state() -> ScientificState:
+    """A calculator with the TABLE extra on (MODE 4; decision 0041)."""
+    return ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE"))
+
+
 def column(*numbers: str) -> list[str]:
     out: list[str] = []
     for number in numbers:
@@ -190,7 +195,7 @@ def test_leaving_stat_clears_its_data() -> None:
 
 def test_table_mode() -> None:
     """FR-FX-MOD-003: f(X), Start, End, Step, then the table."""
-    state = press(k.MODE, "3", A, k.RPAREN, k.X2, k.SUB, "3", k.EQ)
+    state = press(k.MODE, "4", A, k.RPAREN, k.X2, k.SUB, "3", k.EQ, state=table_state())
     assert state.display().text().startswith("Start?")
     press(k.NEG, "2", k.EQ, "2", k.EQ, k.EQ, state=state)  # step stays 1
     assert [float(x) for x, _ in state.table_rows] == [-2, -1, 0, 1, 2]
@@ -202,9 +207,12 @@ def test_table_mode() -> None:
 
 
 def test_table_range_and_errors() -> None:
-    state = press(k.MODE, "3", "1", k.DIV, A, k.RPAREN, k.EQ, k.NEG, "1", k.EQ, "1", k.EQ, k.EQ)
+    keys = (k.MODE, "4", "1", k.DIV, A, k.RPAREN, k.EQ, k.NEG, "1", k.EQ, "1", k.EQ, k.EQ)
+    state = press(*keys, state=table_state())
     assert [cell for _, cell in state.table_rows][1] == "ERROR"  # 1/0 at X = 0
-    big = press(k.MODE, "3", A, k.RPAREN, k.EQ, "1", k.EQ, "1", "0", "0", k.EQ, k.EQ)
+    big = press(
+        k.MODE, "4", A, k.RPAREN, k.EQ, "1", k.EQ, "1", "0", "0", k.EQ, k.EQ, state=table_state()
+    )
     assert big.error == "Range ERROR"
 
 
@@ -246,7 +254,7 @@ def test_clear() -> None:
 def test_setup_page_two_disp_and_contrast() -> None:
     """SETUP page 2 in the manuals' order; Disp 2 gives a decimal comma in answers (a dot is
     still typed); CONT changes the contrast with ◀ ▶."""
-    state = press(S, k.MODE, k.DOWN, "4", "2", "1", k.DIV, "4", k.EQ, k.SD)
+    state = press(S, k.MODE, k.DOWN, "4", "2", "1", k.DIV, "4", k.EQ)  # LineO: a decimal
     assert state.answer_text() == "0,25"
     press(S, k.MODE, k.DOWN, "5", k.RIGHT, k.RIGHT, k.AC, state=state)
     assert state.contrast == 2
