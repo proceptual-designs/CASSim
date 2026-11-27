@@ -155,7 +155,9 @@ def test_solving_in_degree_mode_reads_trig_in_degrees():
 def test_a_periodic_equation_gives_the_family_of_solutions():
     assert text("solve(sin(x)=1/2,x)") == "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6"
     same("solve(sin(x)=1/2,x)", "x=2*@n1*π+π/6 or x=2*@n1*π+5*π/6")
-    same("solve(cos(x)=0,x)", "x=@n1*π+π/2")  # evenly spaced families merge (run 6, R6-B3)
+    # Evenly spaced families merge (run 6, R6-B3), into the device's own form (run 7, R7-A5).
+    assert text("solve(cos(x)=0,x)") == "x=(2*@n1-1)*π/2"
+    assert text("solve(tan(x)=1,x)") == "x=@n1*π+π/4"  # one family keeps the sum form
 
 
 def test_a_family_in_degree_mode_is_in_degrees():

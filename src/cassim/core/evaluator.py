@@ -354,6 +354,11 @@ class Evaluator:
         decided = cas.truth(value.raw)
         if decided is not None:
             return Bool(decided)  # `eqn|x=4 and y=-2` that holds is `true`, never SymPy's True
+        cancelled = cas.cancel_quotient(value.raw)
+        if cancelled is not None:
+            # `(x²-1)/(x-1)` is `x+1`, with the domain warning (emulator run 5, H9h)
+            self.warn(errors.DOMAIN_WIDER)
+            value = Expr(cancelled)
         if self._settings.cas_mode != CasMode.ON and cas.is_symbolic(value.raw):
             raise TIError(errors.CAS_RESTRICTED)
         finished = Expr(cas.finish(value.raw, self._settings))
@@ -586,6 +591,11 @@ class Evaluator:
                 bindings[equality[0]] = self.expr(equality[1])
             else:
                 relations.append(as_expr(self.expr(part)).raw)
+        if _uses_constraints(node.left) and not all(
+            cas.is_simple_constraint(relation) for relation in relations
+        ):
+            # `solve(…)|0<x<h/2` (emulator run 7, R7-A1d)
+            self.warn(errors.CONSTRAINT_IGNORED)
         mark = len(self._constraints)
         self._constraints.extend(relations)
         self._substitutions.append(bindings)
@@ -680,6 +690,14 @@ def _apply_bindings(bindings: dict[str, Value], value: Value) -> Value:
         return Expr(cas.tidy_substitution(raw))
 
     return map_value(put, value)
+
+
+_CONSTRAINED = frozenset({"solve", "csolve", "nsolve", "zeros", "czeros", "fmin", "fmax"})
+
+
+def _uses_constraints(node: ast.Expr) -> bool:
+    """A call that solves within the conditions after `|`."""
+    return isinstance(node, ast.Call) and node.func.lower() in _CONSTRAINED
 
 
 def _conjuncts(node: ast.Expr) -> list[ast.Expr]:

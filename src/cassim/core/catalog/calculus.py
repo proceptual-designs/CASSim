@@ -69,6 +69,8 @@ def derivative(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     current = host.lookup(name)
 
     def differentiate(item: Value) -> Value:
+        if cas.derivative_widens_domain(raw_of(item), cas.symbol(name), order):
+            host.warn(errors.DOMAIN_WIDER)  # `d/dx((x+1)/(x-1))` (emulator run 7, R7-A1a)
         derived = cas.differentiate(raw_of(item), cas.symbol(name), order)
         result = _at_current(derived, name, current)
         if host.settings.cas_mode != CasMode.ON and cas.is_symbolic(result):
