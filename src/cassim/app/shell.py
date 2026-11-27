@@ -71,6 +71,7 @@ UNINSTALL_STEPS = (
 # tools/publish.py).
 UPDATE_TITLE = "Check for updates"
 OFFLINE_TITLE = "Offline status"
+LINK_PRIVACY = "It stays in the link and is never sent to a server."
 UPDATE_MESSAGES = {
     "downloading": (
         "A new version is downloading. Reload to update will appear in the {product} menu."
@@ -344,6 +345,31 @@ class Shell:
 
     def about(self) -> None:
         about_dialog(self.page)
+
+    def share_link(self, url: str, what: str, width: float = 420) -> None:
+        """Doc > Share link…: the link, with what it holds (`what`), and Copy link."""
+
+        def copy(_: object) -> None:
+            self.copy(url)
+            self.page.pop_dialog()
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Share link"),
+                content=ft.Column(
+                    [
+                        ft.Text(f"{what} {LINK_PRIVACY}", size=13),
+                        ft.TextField(value=url, read_only=True, dense=True, multiline=True),
+                    ],
+                    tight=True,
+                    width=width,
+                ),
+                actions=[
+                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Copy link", on_click=copy),
+                ],
+            )
+        )
 
     # ---- what the browser offers --------------------------------------------------------------
 

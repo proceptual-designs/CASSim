@@ -18,7 +18,7 @@ import flet.canvas as cv
 import pytest
 
 from cassim.app.appearance import APPEARANCE_KEY, Appearance, load_appearance
-from cassim.app.shell import BrowserOffers
+from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import THEMES, contrast
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
@@ -128,6 +128,8 @@ class FakeShell:
 
     def confirm(self, title: str, message: str, action: str, accept) -> None:
         asyncio.run(accept())
+
+    share_link = Shell.share_link  # the real dialog, on this shell's page
 
     def help(self, page: str = "") -> None: ...
     def about(self) -> None: ...
@@ -434,8 +436,21 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     """FR-FX-SHR-006, FR-DOC-010 (decision 0033): Save and Open keep calculations by name in
     the app's storage; only Import file and Export file touch a file on disk."""
     app, shell, page = started()
-    labels = [str(item.content) for item in app.doc_menu.controls]
-    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    labels = [
+        "|" if isinstance(item, ft.Divider) else str(getattr(item, "content", ""))
+        for item in app.doc_menu.controls
+    ]
+    assert labels[:9] == [
+        "New",
+        "Open…",
+        "Save",
+        "Save as…",
+        "|",
+        "Import file…",
+        "Export file…",
+        "Share link…",
+        "|",
+    ]  # SDD-15 section 9.4
     assert not app.saved.dirty()  # a first visit has nothing to lose
     for key in ("5", k.EQ):
         app.on_key(key)
@@ -927,3 +942,33 @@ def test_mixed_number_answer_is_spaced_like_the_entry() -> None:
     gap = render.width(answer, 20) - render.width(typed, 20)
     assert gap == pytest.approx(render.MIXED_GAP * 20)
     assert gap == 0  # the fraction follows the whole part directly, as in the entry
+
+
+def test_new_clears_the_calculation_and_keeps_the_settings() -> None:
+    """SDD-15 section 9.4: Doc > New clears memories and the entry but keeps SETUP (Reset all
+    clears those too), and asks first when the work is unsaved."""
+    app, shell, page = started()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, accept: (asked.append(title), asyncio.run(accept()))
+    app.cycle_angle()  # Rad
+    for key in ("7", k.MPLUS, "2", k.ADD, "3", k.EQ):
+        app.on_key(key)
+    app.new_calculation()
+    assert asked == ["Discard changes?"]
+    assert app.state.setup.angle == "RAD"  # kept
+    assert float(app.state.variables["M"]) == 0  # cleared
+    assert app.state.display().text() == ""
+    page.drop_tasks()
+
+
+def test_an_example_asks_before_replacing_unsaved_work() -> None:
+    app, shell, page = started()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, _accept: asked.append(title)
+    for key in ("1", k.ADD, "2", k.EQ):
+        app.on_key(key)
+    before = app.state.display().text()
+    app.load_example(0)
+    assert asked == ["Discard changes?"]
+    assert app.state.display().text() == before
+    page.drop_tasks()

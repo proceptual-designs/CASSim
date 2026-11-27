@@ -35,6 +35,8 @@ from cassim.devices.pseudocode.ui.trace_grid import (
     Column,
     TraceGrid,
 )
+from cassim.doc.serialize import DocumentFileError
+from cassim.doc.share import LinkTooLongError, encode_text, unpack
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
     PseudocodeError,
@@ -396,11 +398,15 @@ class CodeApp:
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
+                ft.MenuItemButton(content="New", on_click=self.new_program),
                 ft.MenuItemButton(content="Open…", on_click=self.saved.open),
                 ft.MenuItemButton(content="Save", on_click=self.saved.save),
                 ft.MenuItemButton(content="Save as…", on_click=self.saved.save_as),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Import file…", on_click=self.import_file),
                 ft.MenuItemButton(content="Export file…", on_click=self.export_file),
+                ft.MenuItemButton(content="Share link…", on_click=self.open_share_link),
+                ft.Divider(height=1, thickness=1),
                 examples,
             ],
         )
@@ -605,6 +611,7 @@ class CodeApp:
             await self.start_codemirror()
         await self.saved.start()
         self.saved.fresh()  # the starting program has nothing to lose yet
+        self.open_route()
 
     def editor_text_style(self) -> ft.TextStyle:
         family = CODE_FONT if self.code_style == "monospace" else "sans-serif"
@@ -944,11 +951,15 @@ class CodeApp:
     # (FR-EDT-003).
 
     def _dump(self, _name: str) -> str:
-        """The program as it is stored: its language with its text (FR-EDT-002)."""
+        """The program as it is stored: its language and text (FR-EDT-002), and its number and
+        angle modes, which belong to the program (SDD-15 section 6)."""
         return json.dumps(
             {
                 "format": "cassim-code",
+                "device": "pseudocode",
                 "language": self.language,
+                "number": self.number_mode,
+                "angle": self.angle_mode,
                 "source": self.python_translation_source()
                 if self.language == "python"
                 else self.source(),
@@ -966,7 +977,54 @@ class CodeApp:
             msg = "it is not a saved CASSim program"
             raise ValueError(msg)
         self.set_language("python" if data.get("language") == "python" else "pseudocode")
+        number, angle = data.get("number"), data.get("angle")
+        self.set_modes(
+            cast(NumberMode, number) if number in ("approx", "auto", "exact") else "approx",
+            cast(AngleMode, angle) if angle in ("radian", "degree") else "radian",
+        )
         self.show_text(data["source"])
+
+    def set_modes(self, number: NumberMode, angle: AngleMode) -> None:
+        """Show the program's number and angle modes on the toolbar, their only place."""
+        self.number_mode, self.angle_mode = number, angle
+        self.number_button.content = number.title()
+        self.angle_button.content = angle.title()
+        _safe_update(self.number_button)
+        _safe_update(self.angle_button)
+
+    def new_program(self, _: object = None) -> None:
+        """Doc > New: a blank program, asking first if work would be lost (SDD-15 9.4)."""
+
+        def blank() -> None:
+            self.show_text("")
+            self.saved.fresh()
+
+        self.saved.ask_discard(blank)
+
+    def open_share_link(self, _: object = None) -> None:
+        """Doc > Share link…: the program in a link. Opening it never runs it (FR-RUN-004)."""
+        try:
+            url = self.shell.link(encode_text(self._dump(self.saved.name)))
+        except LinkTooLongError:
+            self.shell.notice(
+                "Share link",
+                "This program is too long for a link. Use Doc ▸ Export file… and share that.",
+            )
+            return
+        self.shell.share_link(url, "Anyone who opens this link gets this program, ready to run.")
+
+    def open_route(self) -> None:
+        """A share link opens its program, saved nowhere here until Save. It waits for Run."""
+        route = getattr(self.shell, "route", "") or ""
+        try:
+            text = unpack(route.lstrip("/"))
+            if text is None:
+                return
+            self._load_saved(text, "")
+        except (DocumentFileError, ValueError) as error:
+            self.shell.notice("Share link", f"The link could not be opened: {error}.")
+            return
+        self.saved.unsaved()
 
     def set_language(self, target: str) -> None:
         """Show `target` as the language without translating the text (a saved program names
@@ -1006,6 +1064,7 @@ class CodeApp:
         await self.shell.save_file(f"{stem}.{extension}", self.source(), "Export code")
 
     def load_example(self, text: str) -> None:
+        """Doc > Examples: load one, asking first if work would be lost (SDD-15 section 9.4)."""
         try:
             source = (
                 pseudocode_to_python(text, self.settings()) if self.language == "python" else text
@@ -1013,11 +1072,15 @@ class CodeApp:
         except (PseudocodeError, SyntaxError, TranslationError) as error:
             self.shell.notice("Cannot load example", str(error))
             return
-        if self.language == "python":
-            self.set_generated_python(source)
-        else:
-            self.set_source(source)
-        self.saved.unsaved()  # an example is not the saved program any more
+
+        def load() -> None:
+            if self.language == "python":
+                self.set_generated_python(source)
+            else:
+                self.set_source(source)
+            self.saved.unsaved()  # an example is not the saved program any more
+
+        self.saved.ask_discard(load)
 
     @staticmethod
     def split_generated_python(source: str) -> tuple[str, str]:
@@ -2039,21 +2102,6 @@ window.CASSimTypingAids = function(editor, change) {
             event.control.value = bool(event.control.value)
             _safe_update(event.control)
 
-        number = ft.SegmentedButton(
-            selected=[self.number_mode],
-            segments=[
-                ft.Segment(value="approx", label="Approx"),
-                ft.Segment(value="auto", label="Auto"),
-                ft.Segment(value="exact", label="Exact"),
-            ],
-        )
-        angle = ft.SegmentedButton(
-            selected=[self.angle_mode],
-            segments=[
-                ft.Segment(value="radian", label="Radian"),
-                ft.Segment(value="degree", label="Degree"),
-            ],
-        )
         line_numbers = ft.Switch(
             label="Line numbers",
             value=self.line_numbers_visible,
@@ -2087,8 +2135,6 @@ window.CASSimTypingAids = function(editor, change) {
         )
 
         def save(_: ft.Event[ft.TextButton]) -> None:
-            self.number_mode = cast(NumberMode, number.selected[0])
-            self.angle_mode = cast(AngleMode, angle.selected[0])
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
             self.code_style = str(code_style.value or "monospace")
@@ -2101,10 +2147,6 @@ window.CASSimTypingAids = function(editor, change) {
                     self.set_source(new_source)
                     self.typing_undo = (new_source, old_source)
             self.symbol_style = new_symbol_style
-            self.number_button.content = self.number_mode.title()
-            self.angle_button.content = self.angle_mode.title()
-            _safe_update(self.number_button)
-            _safe_update(self.angle_button)
             if self.cm is not None:
                 self.cm.setOption("lineNumbers", self.line_numbers_visible)
                 self.cm.refresh()
@@ -2122,10 +2164,6 @@ window.CASSimTypingAids = function(editor, change) {
                 title=ft.Text("Settings"),
                 content=ft.Column(
                     [
-                        ft.Text("Number mode"),
-                        number,
-                        ft.Text("Angle"),
-                        angle,
                         code_style,
                         symbol_style,
                         ft.Divider(),

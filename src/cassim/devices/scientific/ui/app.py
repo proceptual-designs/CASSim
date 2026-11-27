@@ -171,13 +171,16 @@ class ScientificApp:
         self.refresh_cassim_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
-            controls=[
+            controls=[  # the shared sections (SDD-15 section 9.4)
+                ft.MenuItemButton(content="New", on_click=lambda _: self.new_calculation()),
                 ft.MenuItemButton(content="Open…", on_click=self.open_saved),
                 ft.MenuItemButton(content="Save", on_click=self.save),
                 ft.MenuItemButton(content="Save as…", on_click=self.save_as),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Import file…", on_click=self.import_file),
                 ft.MenuItemButton(content="Export file…", on_click=self.export_file),
                 ft.MenuItemButton(content="Share link…", on_click=lambda _: self.open_share_link()),
+                ft.Divider(height=1, thickness=1),
                 ft.SubmenuButton(
                     content="Examples",
                     controls=[
@@ -187,6 +190,7 @@ class ScientificApp:
                         for index, (title, _) in enumerate(EXAMPLES)
                     ],
                 ),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Reset all…", on_click=lambda _: self.confirm_reset()),
             ],
         )
@@ -1612,44 +1616,47 @@ class ScientificApp:
             )
             return
 
-        def copy(_: object) -> None:
-            self.shell.copy(url)
-            self.page.pop_dialog()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Share link"),
-                content=ft.Column(
-                    [
-                        ft.Text(
-                            "Anyone who opens this link gets this calculator: its settings, "
-                            "memories, STAT data and table. It stays in the link and is never "
-                            "sent to a server.",
-                            size=13,
-                        ),
-                        ft.TextField(value=url, read_only=True, dense=True, multiline=True),
-                    ],
-                    tight=True,
-                    width=self.dialog_width(420),
-                ),
-                actions=[
-                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
-                    ft.TextButton("Copy link", on_click=copy),
-                ],
-            )
+        self.shell.share_link(
+            url,
+            "Anyone who opens this link gets this calculator: its settings, memories, STAT data "
+            "and table.",
+            self.dialog_width(420),
         )
 
     def load_example(self, index: int) -> None:
-        self.stop_lesson()
+        """Doc > Examples: load one, asking first if work would be lost (SDD-15 section 9.4)."""
         reason = examples.missing(index, self.layout)
         if reason:
             self.shell.notice("Examples", reason)
             return
-        load_example(self.state, index)
-        self.saved.unsaved()  # an example is not the saved calculation any more
-        self.doc_name = "Untitled"
-        self.refresh()
-        self._schedule_save()
+
+        def load() -> None:
+            self.stop_lesson()
+            load_example(self.state, index)
+            self.saved.unsaved()  # an example is not the saved calculation any more
+            self.doc_name = "Untitled"
+            self.refresh()
+            self._schedule_save()
+
+        self.saved.ask_discard(load)
+
+    def new_calculation(self) -> None:
+        """Doc > New: a cleared calculator that keeps its settings (Reset all clears those too),
+        asking first if work would be lost."""
+
+        def new() -> None:
+            self.stop_lesson()
+            setup, mode = self.state.setup, self.state.mode
+            self.state.reset()
+            self.state.setup = setup
+            if mode in self.state.allowed_modes:
+                self.state.mode = mode
+            self.doc_name = "Untitled"
+            self.saved.fresh()
+            self.refresh()
+            self._schedule_save()
+
+        self.saved.ask_discard(new)
 
     def confirm_reset(self) -> None:
         async def reset() -> None:
