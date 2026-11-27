@@ -27,6 +27,7 @@ def test_plot_data_refreshes_after_a_list_changes() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     assert statistics.plot_data().x == (1.0, 2.0, 3.0)
 
     _eval(session, "scores:={2,4}")
@@ -68,6 +69,7 @@ def test_dragging_a_dot_plot_point_updates_its_source_list() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
 
     expression = statistics.drag_expression(1, 2.5, 0)
     assert expression == "scores[2]:=2.5"
@@ -102,6 +104,7 @@ def test_plot_settings_round_trip_without_copying_list_data() -> None:
     session = Session()
     _eval(session, 'category:={"B","A","B"}')
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     statistics.perform("sort-order:List Order")
     statistics.perform("plot:Bar Chart")
 
@@ -114,6 +117,7 @@ def test_force_categorical_and_numeric_x_switch_numeric_string_lists() -> None:
     session = Session()
     _eval(session, 'labels:={"7","8","7"}')
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     assert statistics.categorical_x
     assert statistics.plot_data().x == ("7", "8", "7")
 
@@ -198,6 +202,7 @@ def test_numeric_dot_plot_points_are_selectable_and_draggable() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     actions: list[tuple[str, str]] = []
     view = StatisticsView(DARK, lambda action, arg: actions.append((action, arg)), lambda: 1)
     view.refresh(statistics, 320, 220)
@@ -216,6 +221,7 @@ def test_dragging_a_selected_dot_moves_every_selected_dot() -> None:
     session = Session()
     _eval(session, "d1:={2,4,4,4,5,5,7,9}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     statistics.select(3)
     statistics.select(6)
 
@@ -428,6 +434,7 @@ def test_a_one_variable_plot_zooms_along_x_only() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3,9}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     statistics.perform("zoom:320,200,0.5,160,100")
     assert statistics.window is not None
     statistics.perform("zoom:320,200,2,160,100")
@@ -485,6 +492,7 @@ def test_a_deleted_list_is_still_dropped() -> None:
     session = Session()
     _eval(session, "scores:={1,2,3}")
     statistics = Statistics(session)
+    statistics.perform(f"x:{statistics.lists[0]}")
     assert statistics.x_name == "scores"
     _eval(session, "DelVar scores")
     statistics.update()
@@ -531,6 +539,7 @@ def test_save_and_open_through_the_browsers_engine_keep_the_statistics_page() ->
     state.prepare()
     saved = state.document.problems[0].pages[3].model
     assert isinstance(saved, Statistics)
+    saved.perform("x:xs")  # a new page has no variable until one is chosen (run 7)
     assert saved.x_name == "xs"
 
     fresh = Runner(LocalEngine())
@@ -547,3 +556,38 @@ def test_save_and_open_through_the_browsers_engine_keep_the_statistics_page() ->
     compiled = graph.functions[0].compiled
     assert compiled is not None
     assert compiled(3) == 9
+
+
+def test_a_dragged_point_is_stored_to_a_ten_thousandth_of_the_window() -> None:
+    """FR-STAT-005 (emulator run 7, R7-C1): on a window of x 0 to 100 and y 0 to 1000 a drag
+    stores 40.06 and 567.8; a selected point moves by the same rounded shift."""
+    session = Session()
+    _eval(session, "xs:={1,2,3,4,5,6,7,8}")
+    _eval(session, "ys:={2,4,5,4,5,7,8,9}")
+    statistics = Statistics(session)
+    statistics.perform("x:xs")
+    statistics.perform("y:ys")
+    statistics.window = (0.0, 100.0, 0.0, 1000.0)
+    assert statistics.drag_expression(7, 40.0612, 567.8333) == "xs[8]:=40.06:ys[8]:=567.8"
+    _eval(session, "xs[8]:=40.06:ys[8]:=567.8")
+    statistics.plot_data()  # the page reads the lists again
+    statistics.select(7)
+    statistics.select(6)
+    moved = statistics.drag_expression(6, 72.2712, 219.8123)
+    assert moved == "xs[7]:=72.27:ys[7]:=219.8:xs[8]:=105.33:ys[8]:=779.6"
+
+
+def test_a_new_page_shows_the_first_list_as_a_caption_plot() -> None:
+    """FR-STAT-001 (emulator runs 3, 5 and 7, R7-C7): before a variable is chosen, a new page shows
+    the alphabetically first list's values as labelled dots under `Caption: name`."""
+    session = Session()
+    _eval(session, "xs:={1,2,3}")
+    _eval(session, 'cat:={"a","b","c"}')
+    statistics = Statistics(session)
+    scene = statistics.scene(300, 200)
+    layer = scene.layer("caption")
+    assert layer is not None
+    texts = [shape.text for shape in layer.shapes if isinstance(shape, Label)]
+    assert texts == ["Caption: cat", "a", "b", "c"]
+    statistics.perform("x:xs")
+    assert statistics.scene(300, 200).layer("caption") is None

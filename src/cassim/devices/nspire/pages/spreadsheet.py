@@ -193,6 +193,9 @@ MENU_ENABLED_FOR: dict[str, frozenset[str]] = {
     "fill": frozenset({"cell", "block"}),
     "clear": frozenset({"column", "name", "row"}),
 }
+# Menu > Data > Quick Graph wants a whole column: grey for a single cell (emulator run 7, R7-C9).
+# Run 7 saw Summary Plot grey for a single cell too, but run 5 (R5-S) saw it live: open.
+_WHOLE_COLUMN = frozenset({"column", "name"})
 
 
 def pane_boxes(count: int, width: float, height: float) -> list[tuple[float, float, float, float]]:
@@ -353,6 +356,9 @@ class Spreadsheet:
         # The page's other panes, after the sheet (decision 0034 item 2).
         self.panes: list[Pane] = []
         self._pending_shade: ShadePane | None = None  # waits for its test's results
+        # Shaded tests with no room on a full page: each goes on a page of its own, inserted
+        # after this one by the app (emulator run 7, R7-C4).
+        self.shade_pages: list[PValuePlot] = []
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -533,7 +539,10 @@ class Spreadsheet:
             pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
             if pane is pending:
                 self._pending_shade = None
-                self.add_pane(pane, undoable=False)
+                if len(self.panes) >= MAX_PANES - 1:
+                    self.shade_pages.append(pane.plot)
+                else:
+                    self.add_pane(pane, undoable=False)
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -649,7 +658,7 @@ class Spreadsheet:
             enabled = item.enabled
             key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
             if item.action == "sheet" and item.arg == "quick_graph":
-                enabled = graph
+                enabled = graph and (not menu or kind in _WHOLE_COLUMN)
             elif item.action == "sheet" and item.arg == "insert_cell" and in_results:
                 enabled = False  # grey in a results column (run 6, R6-C8)
             elif menu and key in MENU_ENABLED_FOR and item is not root:

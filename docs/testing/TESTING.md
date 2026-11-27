@@ -361,6 +361,21 @@ Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays
 
 Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the simulator prints negative parameters as `+-` / `--`.
 
+### Check 6, run 7: data pages (2026-11-27)
+
+Results in `emulator-stats6-results.md` and `emulator-sheet7-results.md`. What CASSim now follows:
+- **A dragged point** is stored to about a ten-thousandth of its axis's range, rounded up to a power of ten: 40.06 and 567.8 on a window of 0 to 100 by 0 to 1000, and 6.949 on run 6's small window. Points selected with it move by the same rounded shift.
+- **A shaded test on a full 2×2 page** goes on a new Data & Statistics page after it, showing the shade alone; the 2×2 page keeps its panes.
+- **A new Data & Statistics page** chooses no variable. It shows the alphabetically first list as labelled dots under `Caption: name`, and Tab opens the x axis's list (shift+Tab the y axis's), starting at the first list.
+- **The 2-Sample z Test from lists** has the rows x̄1, x̄2, sx1, sx2, n1, n2, then σ1 and σ2 last.
+- **Quick Graph on the sheet's Menu** is grey for a single cell.
+
+Still open:
+- Run 7 saw Summary Plot grey for a single cell, but run 5 saw it live.
+- ctrl+Z after a shaded test takes two presses on the device, the first only showing the shade's page.
+- The device's 2-Sample z Test p-value differs from the exact value in the 7th figure (0.52708913 against 0.52708926); CASSim keeps the exact value.
+- Delete Row through a results table, Insert Cell and whole-column paste were seen but not compared.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).

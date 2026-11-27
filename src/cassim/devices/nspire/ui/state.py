@@ -246,6 +246,7 @@ class AppState:
         sheet = self.sheet
         if sheet is not None:
             sheet.update()
+            self._place_shade_pages(sheet)
             self._open_sheet_wizard(sheet)
         statistics = self.statistics
         if statistics is not None:
@@ -253,6 +254,20 @@ class AppState:
         graphs = self.graphs
         if graphs is not None:
             graphs.update()
+
+    def _place_shade_pages(self, sheet: Spreadsheet) -> None:
+        """A shaded test with no room left on its page goes on a new Data & Statistics page
+        after it, showing the shade alone; the sheet stays on screen (emulator run 7, R7-C4)."""
+        document = self.document
+        while sheet.shade_pages:
+            plot = sheet.shade_pages.pop(0)
+            if not document.can_add_page():
+                continue
+            here = (document.problem, document.page)
+            model = statistics_of(document.add_page(PageKind.STATISTICS))
+            if model is not None:
+                model.shade = plot
+            document.go(*here)
 
     def retain_sheets(self) -> None:
         """After pages are added, deleted, moved or brought back: each Problem's engine keeps
@@ -364,13 +379,7 @@ class AppState:
             self._graphs_key(graphs, binding)
             return
         if statistics is not None:
-            if binding.action == "statistics":
-                self._statistics_action(statistics, binding.arg)
-            elif binding.action == "context_menu":
-                self._open_menu(binding.arg or "menu_statistics")
-            elif binding.action in ("undo", "redo"):
-                self._page_undo(binding.action)
-                self.retain_sheets()
+            self._statistics_key(statistics, binding)
             return
         calculator = calculator_of(self.document.current)
         if calculator is not None and binding.action == "context_menu":
@@ -387,6 +396,19 @@ class AppState:
             calculator.perform(binding)
             if binding.action in ("copy", "cut") and self.clipboard_out is not None:
                 self.clipboard_out(self.document.clipboard.text)
+
+    def _statistics_key(self, statistics: Statistics, binding: Binding) -> None:
+        if binding.action == "statistics":
+            self._statistics_action(statistics, binding.arg)
+        elif binding.action == "context_menu":
+            self._open_menu(binding.arg or "menu_statistics")
+        elif binding.action in ("tab", "shift_tab"):
+            # Tab opens the x axis's variable list, shift+Tab the y axis's (emulator run 7,
+            # R7-C9: Tab, then Tab again for y), as a click on its box does
+            self._open_menu("statistics_x" if binding.action == "tab" else "statistics_y")
+        elif binding.action in ("undo", "redo"):
+            self._page_undo(binding.action)
+            self.retain_sheets()
 
     def _graphs_key(self, graphs: Graphs, binding: Binding) -> None:
         if binding.action == "graphs":
@@ -809,7 +831,9 @@ class AppState:
             return MenuItem(
                 f"Choose {purpose.title()} List",
                 jump=True,
-                start=(choices.index(selected) + 1 if selected in choices else 0,),
+                # the chosen list, or the first list when none is (the device's list starts
+                # there: emulator stats 1 and run 7, R7-C9)
+                start=(choices.index(selected) + 1 if selected in choices else int(bool(choices)),),
                 items=(
                     MenuItem("(none)", "statistics", f"{action}:"),
                     *(
