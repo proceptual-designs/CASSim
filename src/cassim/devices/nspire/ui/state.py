@@ -163,12 +163,12 @@ def _graphs_actions_menu() -> MenuItem:
                     MenuItem("Grid", key="3", enabled=False),
                 ),
             ),
-            todo("Hide/Show", "3"),
+            todo("Hide/show", "3"),
             tool("Attributes", "attributes", "4"),
             todo("Set conditions", "5"),
             todo("Delete all", "6"),
             tool("Text", "text", "7"),
-            tool("Coordinates and Equations", "coordinates", "8"),
+            tool("Coordinates and equations", "coordinates", "8"),
             tool("Calculate", "calculate", "9"),
             todo("Redefine", "A"),
         ),
@@ -861,8 +861,8 @@ class AppState:
                     items=(
                         MenuItem("Graphing", key="1", enabled=False),
                         MenuItem("Plane Geometry", key="2", enabled=False),
-                        MenuItem("3D Graphing", key="3", enabled=False),
-                        MenuItem("Hide Analytic Window", key="4", enabled=False),
+                        MenuItem("3D graphing", key="3", enabled=False),
+                        MenuItem("Hide analytic window", key="4", enabled=False),
                         MenuItem(
                             "Hide Axes" if graphs.show_axes else "Show Axes",
                             "graphs_view",
@@ -870,7 +870,7 @@ class AppState:
                             key="5",
                         ),
                         grid,
-                        MenuItem("Show Entry Line", key="7", enabled=False),
+                        MenuItem("Show entry line", key="7", enabled=False),
                         MenuItem(
                             "Hide Axes End Values"
                             if graphs.show_end_values
@@ -880,7 +880,7 @@ class AppState:
                             key="8",
                             enabled=graphs.show_axes,
                         ),
-                        MenuItem("Hide Object Selection Guides", key="9", enabled=False),
+                        MenuItem("Hide object selection guides", key="9", enabled=False),
                     ),
                 ),
                 _graph_entry_menu(),
@@ -908,7 +908,7 @@ class AppState:
         histogram = statistics.plot_type is PlotType.HISTOGRAM
         if name == "statistics_plot":
             return MenuItem(
-                "Plot Type",
+                "Plot type",
                 items=tuple(
                     MenuItem(
                         plot.value,
@@ -973,13 +973,13 @@ class AppState:
         return MenuItem(
             "Menu",
             items=(
-                MenuItem("Plot Type", key="1", jump=True, items=plot_types, enabled=has_x),
+                MenuItem("Plot type", key="1", jump=True, items=plot_types, enabled=has_x),
                 MenuItem(
-                    "Plot Properties",
+                    "Plot properties",
                     key="2",
                     items=(
                         MenuItem(
-                            "Connect Data Points",
+                            "Connect data points",
                             "statistics",
                             "toggle-connect",
                             key="1",
@@ -987,28 +987,28 @@ class AppState:
                             and statistics.plot_type in (PlotType.SCATTER, PlotType.XY_LINE),
                         ),
                         MenuItem(
-                            "Add X Variable",
+                            "Add X variable",
                             "open_menu",
                             "statistics_x",
                             key="5",
                             enabled=bool(statistics.lists),
                         ),
                         MenuItem(
-                            "Add X Summary List",
+                            "Add X summary list",
                             "open_menu",
                             "statistics_summary",
                             key="6",
                             enabled=categorical and bool(statistics.numeric_lists),
                         ),
-                        MenuItem("Remove X Variable", "statistics", "x:", key="7", enabled=has_x),
+                        MenuItem("Remove X variable", "statistics", "x:", key="7", enabled=has_x),
                         MenuItem(
-                            "Add Y Variable",
+                            "Add Y variable",
                             "open_menu",
                             "statistics_y",
                             key="8",
                             enabled=bool(statistics.numeric_lists),
                         ),
-                        MenuItem("Remove Y Variable", "statistics", "y:", key="9", enabled=has_y),
+                        MenuItem("Remove Y variable", "statistics", "y:", key="9", enabled=has_y),
                         MenuItem(
                             "Force Categorical X"
                             if not statistics.categorical_x
@@ -1019,14 +1019,14 @@ class AppState:
                             enabled=has_x,
                         ),
                         MenuItem(
-                            "Split Categories by Variable",
+                            "Split categories by variable",
                             "open_menu",
                             "statistics_split",
                             key="D",
                             enabled=categorical and bool(statistics.category_lists),
                         ),
                         MenuItem(
-                            "Remove Split Variable",
+                            "Remove split variable",
                             "statistics",
                             "split:",
                             key="E",
@@ -1051,14 +1051,14 @@ class AppState:
                             enabled=statistics.plot_type is PlotType.BOX,
                         ),
                         MenuItem(
-                            "Histogram Bin Width…",
+                            "Histogram bin width…",
                             "statistics",
                             "wizard:bin-width",
                             key="2",
                             enabled=histogram,
                         ),
                         MenuItem(
-                            "Histogram Scale",
+                            "Histogram scale",
                             key="A",
                             items=tuple(
                                 MenuItem(scale, "statistics", f"histogram-scale:{scale}")
@@ -1067,7 +1067,7 @@ class AppState:
                             enabled=histogram,
                         ),
                         MenuItem(
-                            "Clear All",
+                            "Clear all",
                             "statistics",
                             "clear",
                             key="F",
@@ -1080,7 +1080,7 @@ class AppState:
                     key="3",
                     items=(
                         MenuItem(
-                            "Category Order",
+                            "Category order",
                             key="1",
                             items=tuple(
                                 MenuItem(order, "statistics", f"sort-order:{order}")
@@ -1096,14 +1096,14 @@ class AppState:
                     enabled=has_x and not categorical_chart,
                     items=(
                         MenuItem(
-                            "Plot Function…",
+                            "Plot function…",
                             "statistics",
                             "wizard:function",
                             key="4",
                             enabled=numeric_pair,
                         ),
                         MenuItem(
-                            "Remove Plotted Function",
+                            "Remove plotted function",
                             "statistics",
                             "function:",
                             key="1",
@@ -1148,7 +1148,7 @@ class AppState:
                             ),
                         ),
                         MenuItem(
-                            "Plot Value…",
+                            "Plot value…",
                             "statistics",
                             "wizard:value",
                             key="8",
@@ -1164,19 +1164,19 @@ class AppState:
                     ),
                 ),
                 MenuItem(
-                    "Window/Zoom",
+                    "Window/zoom",
                     key="5",
                     enabled=has_x and statistics.plot_type is not PlotType.PIE,
                     items=(
                         MenuItem(
-                            "Window Settings…",
+                            "Window settings…",
                             "statistics",
                             "wizard:window",
                             key="1",
                             enabled=not categorical_chart,
                         ),
                         MenuItem(
-                            "Zoom - Data",
+                            "Zoom - data",
                             "statistics",
                             "zoom-data",
                             key="2",
@@ -1195,11 +1195,11 @@ class AppState:
             return statistics_menus.context_menu(statistics, target)
         zoom = MenuItem(
             "Zoom",
-            items=(MenuItem("Zoom - Data", "statistics", "zoom-data"),),
+            items=(MenuItem("Zoom - data", "statistics", "zoom-data"),),
         )
         if target == "x":
             return MenuItem(
-                "X Axis",
+                "X axis",
                 items=(
                     MenuItem(
                         "Force Categorical X"
@@ -1210,7 +1210,7 @@ class AppState:
                         enabled=bool(statistics.x_name),
                     ),
                     MenuItem(
-                        "Remove X Variable",
+                        "Remove X variable",
                         "statistics",
                         "x:",
                         enabled=bool(statistics.x_name),
@@ -1220,10 +1220,10 @@ class AppState:
             )
         if target == "y":
             return MenuItem(
-                "Y Axis",
+                "Y axis",
                 items=(
                     MenuItem(
-                        "Remove Y Variable",
+                        "Remove Y variable",
                         "statistics",
                         "y:",
                         enabled=bool(statistics.y_name),
@@ -1233,7 +1233,7 @@ class AppState:
             )
         items = (
             MenuItem(
-                "Connect Data Points",
+                "Connect data points",
                 "statistics",
                 "toggle-connect",
                 enabled=bool(statistics.y_name)
@@ -1321,10 +1321,10 @@ class AppState:
             return MenuItem(
                 "var",
                 items=(
-                    MenuItem("Store Var", "sheet", "store_var", key="1"),
+                    MenuItem("Store var", "sheet", "store_var", key="1"),
                     MenuItem("Unlink", "sheet", "unlink", key="2"),
                     MenuItem(
-                        "Link To:",
+                        "Link to:",
                         key="3",
                         jump=True,
                         items=lists or (MenuItem("(none)", "escape"),),

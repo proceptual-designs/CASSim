@@ -69,7 +69,7 @@ def test_window_settings_dialog_shows_full_digits_and_sets_the_window() -> None:
     pick(state, "4", "1")
     assert len(shown) == 1
     wizard = shown[0]
-    assert wizard.title == "Window Settings"
+    assert wizard.title == "Window settings"
     assert [field.label for field in wizard.fields] == [
         "XMin",
         "XMax",

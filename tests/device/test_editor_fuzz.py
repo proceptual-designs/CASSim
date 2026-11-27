@@ -174,3 +174,14 @@ def test_a_drop_target_outside_the_row_is_clamped() -> None:
         editor.move_selection([], pos)
         valid(editor)
         assert editor.linear() == "0"
+
+
+def test_a_list_template_is_one_row() -> None:
+    """Hypothesis found this: a list made 2 by 1, then a comma, had 3 slots in 2 columns."""
+    editor = Editor()
+    editor.insert_template(Kind.LIST, (2, 1))
+    editor.insert(",")
+    check_grids(editor.root)
+    template = editor.root[0]
+    assert isinstance(template, Template)
+    assert (len(template.slots), template.cols) == (3, 3)

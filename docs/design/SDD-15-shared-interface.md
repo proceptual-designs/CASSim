@@ -201,13 +201,13 @@ Paths are under `src/cassim/`; line numbers are approximate. The list is ordered
 | # | Gap | Where | Change |
 |---|---|---|---|
 | 13 | Only Computer and Handheld exist; the Nspire's landscape Handheld is what this document calls Tablet | `devices/nspire/ui/state.py:75`, `devices/nspire/ui/layout.py` | Add Tablet as a view; Handheld becomes one column (8.1). |
-| 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, and the swatch palette | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
+| 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, the swatch palette and the drawing palettes. `COLOURS_LEFT` in `tests/test_interface_rules.py` counts them by module | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
 | 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
 | 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
 
 ## 11. Checklist for a new extra
 
-Before a CASSim-own feature, panel or app merges, check that:
+Before a CASSim-own feature, panel or app merges, check that the items below hold. Three of them are tested for every app (`tests/test_interface_rules.py`): labels in sentence case, Cancel before the confirming button, and no new literal colours. Each has a frozen list of what does not follow it yet, which may only shrink; the test prints the fix for a label (`sentence()`).
 
 - [ ] Its menu items are in the right section of the CASSim or Doc menu, in sentence case, with an ellipsis if they open a dialog, and greyed (not hidden) when they can't be used.
 - [ ] It uses the shell's menus, dialogs, Open and Save, theme, update and size helpers, and adds none of its own.

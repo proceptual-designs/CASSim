@@ -298,10 +298,10 @@ def test_box_plot_and_histogram_context_menus() -> None:
     ]
     state.run_action("insert", "5")
     assert _rows(state)[-4:] == [
-        ("Window Settings…", True),
-        ("Zoom - Data", True),
-        ("Zoom - In", False),
-        ("Zoom - Out", False),
+        ("Window settings…", True),
+        ("Zoom - data", True),
+        ("Zoom - in", False),
+        ("Zoom - out", False),
     ]
     state.menu = None
     state.run_action("context_menu", "statistics_context_box")
@@ -315,7 +315,7 @@ def test_box_plot_and_histogram_context_menus() -> None:
         "Box Plot",
         "Normal Probability Plot",
         "Scale",
-        "Bin Settings",
+        "Bin settings",
         "Zoom",
         "Color",
     ]
@@ -325,7 +325,7 @@ def test_box_plot_and_histogram_context_menus() -> None:
     assert statistics.histogram_scale == "Density"
     state.run_action("context_menu", "statistics_context_histogram")
     state.run_action("insert", "5")
-    assert _rows(state)[-2:] == [("Equal Bin Width", True), ("Variable Bin Width", False)]
+    assert _rows(state)[-2:] == [("Equal bin width", True), ("Variable bin width", False)]
 
 
 def test_regression_context_menu() -> None:
@@ -338,18 +338,18 @@ def test_regression_context_menu() -> None:
     statistics.perform("regression:LinRegMx")
     state.run_action("context_menu", "statistics_context_regression")
     assert _rows(state) == [
-        ("Remove Regression", True),
-        ("Shade Under Function", False),
+        ("Remove regression", True),
+        ("Shade under function", False),
         ("Show Residual Squares", True),
         ("Show Residual Plot", True),
-        ("Graph Trace", False),
+        ("Graph trace", False),
         ("Color", True),
     ]
     state.run_action("insert", "6")
     assert _rows(state)[-3:] == [
-        ("Line Color", False),
-        ("Fill Color", False),
-        ("Text Color", False),
+        ("Line color", False),
+        ("Fill color", False),
+        ("Text color", False),
     ]
     state.menu = None
     state.run_action("context_menu", "statistics_context_regression")

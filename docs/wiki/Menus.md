@@ -6,7 +6,7 @@ Menus are numbered as on the handheld: press a number to choose that item, or us
 
 Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & vector, Finance, Functions & programs. Pages that are not built yet have no Menu.
 
-Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance Solver. Greyed-out items are on the handheld but not built yet in CASSim.
+Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance solver. Greyed-out items are on the handheld but not built yet in CASSim.
 
 ## Doc (F4)
 

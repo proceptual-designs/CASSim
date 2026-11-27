@@ -63,7 +63,7 @@ def test_analyze_graph_menu_is_numbered_as_on_the_device() -> None:
         ("6", "dy/dx", True),
         ("7", "Integral", True),
         ("8", "Bounded Area", True),
-        ("9", "Analyze Conics", False),
+        ("9", "Analyze conics", False),
     ]
 
 

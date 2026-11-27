@@ -514,7 +514,7 @@ def test_conflict_detected_asks_cell_or_variable():
     sheet.go((E, 1))
     type_cell(state, "=d1+1")
     wizard = state.wizards[-1]
-    assert wizard.title == "Conflict Detected"
+    assert wizard.title == "Conflict detected"
     assert wizard.fields[0].label == "d1 :  Cell or Variable?"
     finish_wizard(state, d1="variable")
     assert shown(state, E, 1) == "101"
@@ -883,7 +883,7 @@ def test_var_on_a_name_cell_links_to_a_list():
     sheet.go((C, NAME_ROW))
     state.run(Binding("sheet", "link:pp"))
     state.run(Binding("open_menu", "variables"))
-    assert [row.label for row in state.menu.view().rows] == ["Store Var", "Unlink", "Link To:"]
+    assert [row.label for row in state.menu.view().rows] == ["Store var", "Unlink", "Link to:"]
     state.menu = None
     state.run(Binding("sheet", "link:qq"))
     assert column(state, C, [1, 2, 3]) == ["7", "8", "9"]
@@ -1193,7 +1193,7 @@ def test_menu_copy_cut_paste_recalculate_and_goto():
     state.run(Binding("sheet", "recalculate"))
     assert column(state, B, [1]) == [""]
     state.run(Binding("sheet", "goto"))
-    assert state.wizards[-1].title == "Go To"
+    assert state.wizards[-1].title == "Go to"
 
 
 def test_escape_ends_a_mode_and_fill_with_nothing_chosen():
@@ -1298,8 +1298,8 @@ def test_the_name_cell_has_its_own_context_menu():
         "Paste",
         "Variables",
         "Resize",
-        "Summary Plot",
-        "Quick Graph",
+        "Summary plot",
+        "Quick graph",
         "Color",
     ]
     assert not rows[0].enabled
@@ -1316,7 +1316,7 @@ def test_quick_graph_context_item_enables_for_a_named_list():
     keys(state, "context_menu")
 
     assert state.menu is not None
-    quick_graph = next(row for row in state.menu.view().rows if row.label == "Quick Graph")
+    quick_graph = next(row for row in state.menu.view().rows if row.label == "Quick graph")
     assert quick_graph.enabled
 
 
@@ -1617,8 +1617,8 @@ def test_the_statistics_menu():
     state.run(Binding("insert", "1"))
     rows = state.menu.view().rows
     assert (rows[0].label, rows[2].label, rows[-1].enabled) == (
-        "One-Variable Statistics…",
-        "Linear Regression (mx+b)…",
+        "One-variable statistics…",
+        "Linear regression (mx+b)…",
         False,
     )
 
@@ -1676,12 +1676,12 @@ def test_quick_graph_is_grey_for_a_block_and_a_single_cell():
     """FR-SHEET-008 (R5-Q1, R5-S): grey, not a dialog, unless a column is selected."""
     state, sheet = lists_sheet()
     sheet.go((A, 1))
-    assert data_menu(state)["Quick Graph"] is False
+    assert data_menu(state)["Quick graph"] is False
     state.run(Binding("select_cells", "row:1"))  # shift+Down: A1:A2
     assert sheet.selection() is not None
-    assert data_menu(state)["Quick Graph"] is False
+    assert data_menu(state)["Quick graph"] is False
     sheet.go((A, NAME_ROW))
-    assert data_menu(state)["Quick Graph"] is True
+    assert data_menu(state)["Quick graph"] is True
 
 
 def test_two_selected_columns_make_a_scatter_plot_and_one_undo_removes_it():
@@ -1692,7 +1692,7 @@ def test_two_selected_columns_make_a_scatter_plot_and_one_undo_removes_it():
     sheet.go((A, NAME_ROW))
     keys(state, "select_right")
     assert sheet.whole_columns() == (A, B)
-    assert data_menu(state)["Quick Graph"] is True
+    assert data_menu(state)["Quick graph"] is True
     state.run(Binding("sheet", "quick_graph"))
     (plot,) = sheet.split_statistics
     assert (plot.x_name, plot.y_name, plot.plot_type.value) == ("xs", "ys", "Scatter Plot")
@@ -1799,7 +1799,7 @@ def test_a_shaded_t_test_adds_a_t_pane_and_a_shaded_z_test_makes_a_third():
     sheet.go((C, 1))
     state.run(Binding("sheet", "inference:tTest:data"))
     finish_wizard(state, null="4", x="d1", alternative="1", shade="1")
-    assert state.wizards[-1].title == "Conflict Detected"  # d1 is also a cell
+    assert state.wizards[-1].title == "Conflict detected"  # d1 is also a cell
     finish_wizard(state, d1="variable")
     (pane,) = sheet.panes
     assert isinstance(pane, ShadePane)
@@ -2045,21 +2045,21 @@ def test_the_data_menu_greys_items_by_what_is_selected():
     state, sheet = lists_sheet()
     sheet.go((C, 1))
     grey = {label for label, enabled in data_menu(state).items() if not enabled}
-    assert grey == {"Clear Data", "Quick Graph"}
+    assert grey == {"Clear data", "Quick graph"}
 
     state.run(Binding("select_cells", "row:1"))
     grey = {label for label, enabled in data_menu(state).items() if not enabled}
     assert grey >= {
-        "Generate Sequence…",
-        "Clear Data",
+        "Generate sequence…",
+        "Clear data",
         "Random",
         "List math",
         "List operations",
-        "Quick Graph",
+        "Quick graph",
         "Data capture",
     }
     assert "Fill" not in grey
-    assert "Summary Plot" not in grey
+    assert "Summary plot" not in grey
     state.run(Binding("open_menu", "menu"))
     assert state.menu is not None
     top = {row.label: row.enabled for row in state.menu.view().rows}
@@ -2068,7 +2068,7 @@ def test_the_data_menu_greys_items_by_what_is_selected():
 
     sheet.go((A, NAME_ROW))
     rows = data_menu(state)
-    assert (rows["Fill"], rows["Clear Data"], rows["Quick Graph"]) == (False, True, True)
+    assert (rows["Fill"], rows["Clear data"], rows["Quick graph"]) == (False, True, True)
 
 
 def test_the_random_list_math_and_list_operations_submenus():
@@ -2095,15 +2095,15 @@ def test_the_random_list_math_and_list_operations_submenus():
         "Maximum",
         "Mean",
         "Median",
-        "Sum of Elements",
-        "Product of Elements",
-        "Sample Standard Deviation",
-        "Sample Variance",
-        "Population Standard Deviation",
-        "Population Variance",
+        "Sum of elements",
+        "Product of elements",
+        "Sample standard deviation",
+        "Sample variance",
+        "Population standard deviation",
+        "Population variance",
     ]
     assert lists[2][-7:] == [
-        ("Cumulative Sum List", True),
+        ("Cumulative sum list", True),
         ("Difference list", True),
         ("Augment", True),
         ("Convert matrix to list", False),
@@ -2257,13 +2257,13 @@ def test_insert_cell_is_grey_in_a_results_column_and_with_a_range():
     state.run(Binding("sheet", "inference:tTest"))
     finish_wizard(state)
     finish_wizard(state, null="4")
-    assert _insert_menu(state)["Insert Cell"]
+    assert _insert_menu(state)["Insert cell"]
     for results in (D, E):
         sheet.go((results, 8))
         assert _insert_menu(state) == {
-            "Insert Cell": False,
-            "Insert Row": True,
-            "Insert Column": True,
+            "Insert cell": False,
+            "Insert row": True,
+            "Insert column": True,
         }
     state.run(Binding("sheet", "insert_cell"))
     assert column(state, D, [1, 8, 9]) == ["Title", "n", ""]
