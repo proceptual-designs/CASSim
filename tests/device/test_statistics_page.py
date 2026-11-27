@@ -1,4 +1,4 @@
-# Requirements traced here: FR-STAT-001, FR-STAT-003, FR-STAT-005
+# Requirements traced here: FR-STAT-001, FR-STAT-003, FR-STAT-005, FR-DOC-010
 """Data & Statistics views over live Problem variables."""
 
 from types import SimpleNamespace
@@ -459,3 +459,91 @@ def test_the_wheel_and_a_pinch_send_a_zoom_and_one_finger_still_drags() -> None:
     at = SimpleNamespace(x=point.screen_x, y=point.screen_y)
     view._scale_start(cast(Any, SimpleNamespace(pointer_count=1, local_focal_point=at)))
     assert view._drag_index == 1
+
+
+# ---- saved pages keep their lists (a bug: Save and Open lost the plot) ------------------------
+
+
+def test_a_loaded_page_keeps_lists_that_have_not_arrived_yet() -> None:
+    """FR-DOC-010: a saved Data & Statistics page is loaded before its lists exist (in the
+    browser the engine replays the sheet later; on any computer the sheet may come after it).
+    Its X, Y, summary and split lists must survive that, and fill in once the lists arrive."""
+    session = Session()
+    statistics = load_statistics(
+        Statistics(session),
+        {"x": "heights", "y": "weights", "summary": "", "split": "", "plot": "Scatter Plot"},
+    )
+    assert (statistics.x_name, statistics.y_name) == ("heights", "weights")
+    _eval(session, "heights:={150,160,170}")
+    _eval(session, "weights:={50,60,70}")
+    statistics.update()
+    assert (statistics.x_name, statistics.y_name) == ("heights", "weights")
+    assert statistics.plot_data().x == (150.0, 160.0, 170.0)
+
+
+def test_a_deleted_list_is_still_dropped() -> None:
+    session = Session()
+    _eval(session, "scores:={1,2,3}")
+    statistics = Statistics(session)
+    assert statistics.x_name == "scores"
+    _eval(session, "DelVar scores")
+    statistics.update()
+    assert statistics.x_name == ""
+
+
+def test_save_and_open_through_the_browsers_engine_keep_the_statistics_page() -> None:
+    """FR-DOC-010, FR-STAT-001: the browser opens a document with `Runner.load`, whose engine
+    is in a worker. The document that comes back is the one that was saved: the sheet's data,
+    the Graphs function and the statistics page's list."""
+    import asyncio  # noqa: PLC0415
+
+    from tests.device.test_spreadsheet_page import (  # noqa: PLC0415
+        NAME_ROW,
+        Recording,
+        sheet_app,
+        sheet_of,
+        type_cell,
+    )
+
+    from cassim.device.engine import LocalEngine  # noqa: PLC0415
+    from cassim.devices.nspire.pages import PAGES  # noqa: PLC0415
+    from cassim.devices.nspire.pages.graphs import graphs_of  # noqa: PLC0415
+    from cassim.devices.nspire.runner import Runner  # noqa: PLC0415
+    from cassim.doc.serialize import dumps, to_dict  # noqa: PLC0415
+
+    runner = Runner(LocalEngine())
+    state = sheet_app(Recording(sessions=runner.new_session))
+    sheet = sheet_of(state)
+    sheet.go((0, NAME_ROW))
+    type_cell(state, "xs")
+    for row, value in ((1, "4"), (2, "5"), (3, "6")):
+        sheet.go((0, row))
+        type_cell(state, value)
+    state.run_action("add_page", "graphs")
+    graphs = graphs_of(state.document.current)
+    assert graphs is not None
+    graphs.submit(0, "x^2")
+    for _ in range(2):  # the engine has the sheet's list before the page is added
+        asyncio.run(runner.sync(state.document))
+        state.prepare()
+    state.run_action("add_page", "statistics")
+    asyncio.run(runner.sync(state.document))
+    state.prepare()
+    saved = state.document.problems[0].pages[3].model
+    assert isinstance(saved, Statistics)
+    assert saved.x_name == "xs"
+
+    fresh = Runner(LocalEngine())
+    loaded = asyncio.run(fresh.load(dumps(state.document), PAGES))
+    assert to_dict(loaded) == to_dict(state.document)
+    asyncio.run(fresh.sync(loaded))
+    statistics = loaded.problems[0].pages[3].model
+    assert isinstance(statistics, Statistics)
+    statistics.update()
+    assert statistics.plot_data().x == (4.0, 5.0, 6.0)
+    graph = graphs_of(loaded.problems[0].pages[2])
+    assert graph is not None
+    graph.update()
+    compiled = graph.functions[0].compiled
+    assert compiled is not None
+    assert compiled(3) == 9

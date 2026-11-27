@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003, FR-DOC-010
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -2295,3 +2295,40 @@ def test_insert_row_leaves_test_results_where_they_are():
     assert column(state, E, [1, 2, 3, 4]) == before_values[:4]
     keys(state, "undo")
     assert column(state, C, [1, 2, 3]) == ["2", "4", "4"]
+
+
+def test_a_sheet_left_before_its_reply_still_saves_what_was_typed():
+    """FR-DOC-010 (a bug): in the browser a sheet takes the engine's replies only while it is
+    on screen. Typing a column name and data, then going to another page before the reply was
+    taken, saved an empty sheet, so the data and every plot of it were lost on Open."""
+    runner = Runner(LocalEngine())
+    state = sheet_app(Recording(sessions=runner.new_session))
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "xs")
+    sheet.go((A, 1))
+    type_cell(state, "4")
+    state.run_action("add_page", "graphs")  # another page is on screen now
+    asyncio.run(runner.sync(state.document))  # the reply waits for the sheet
+    data = json.loads(dumps(state.document))["problems"][0]["pages"][1]
+    assert data["columns"]["a"][0] == "xs"
+    assert data["cells"] == [[A, 1, "entry", "4"]]
+    fresh = Runner(LocalEngine())
+    loaded = asyncio.run(fresh.load(dumps(state.document), PAGES))
+    asyncio.run(fresh.sync(loaded))
+    names = [row.name for row in loaded.problems[0].session.variables()]
+    assert "xs" in names
+
+
+def test_typed_cells_the_engine_has_not_answered_are_saved_as_typed():
+    """Saved before the engine has seen the edit (it is still busy): the typed entry and
+    formula are kept, as they would be once answered."""
+    runner = Runner(LocalEngine())
+    state = sheet_app(Recording(sessions=runner.new_session))
+    sheet = sheet_of(state)
+    sheet.go((A, 1))
+    type_cell(state, "4")
+    sheet.go((A, 2))
+    type_cell(state, "=6*7")
+    data = json.loads(dumps(state.document))["problems"][0]["pages"][1]
+    assert data["cells"] == [[A, 1, "entry", "4"], [A, 2, "formula", "6*7"]]

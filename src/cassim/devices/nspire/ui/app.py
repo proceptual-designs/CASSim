@@ -13,7 +13,6 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
 
 import flet as ft
 
@@ -33,6 +32,7 @@ from cassim.app.keyboard import (
     key_name,
     repeat_interval,
 )
+from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers, Shell
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
@@ -94,8 +94,6 @@ from cassim.doc.library import (
     CURRENT_KEY,
     UNTITLED,
     Current,
-    Store,
-    clean_name,
     document_fingerprint,
     fingerprint,
     title,
@@ -297,9 +295,23 @@ class App:
         self.saved = ""  # the last text autosaved, so an idle refresh writes nothing
         self.save_at = 0.0  # when the waiting autosave runs (time.monotonic)
         self.save_waiting = False  # a save task is waiting for that time
-        # Documents saved by name in this browser (FR-DOC-010), and the open one's link to them
-        self.library = Store(shell.read, shell.write, shell.remove)
-        self.current = Current(None, document_fingerprint(state.document))
+        # Documents saved by name in this app (FR-DOC-010), with every app's Open and Save
+        # (`app/saved.py`, SDD-15 section 9.3), and the open one's link to them
+        self.documents = SavedDocuments(
+            shell.page,
+            shell,
+            dump=self.dump_named,
+            load=self.load_named,
+            changed=self.on_documents_change,
+            said=self.said,
+            noun="document",
+            menu="Doc ▸ File",
+            mark=lambda: document_fingerprint(self.state.document),
+            on_dialog=self.on_name_dialog,
+            suggest=lambda: "" if state.document.name == UNTITLED else state.document.name,
+            open_title="Open document",
+        )
+        self.documents.current = Current(None, document_fingerprint(state.document))
         self.dirty = False  # the document differs from its saved copy (or has none)
 
     async def start(self, view: Mode | None = None, settings: Settings | None = None) -> None:
@@ -391,13 +403,48 @@ class App:
             return str(self.status.value)
         return title(self.state.document.name, dirty=self.dirty)
 
+    @property
+    def current(self) -> Current:
+        """The open document's link to its saved copy (`self.documents`)."""
+        return self.documents.current
+
+    @current.setter
+    def current(self, current: Current) -> None:
+        self.documents.current = current
+
     def remember(self, current: Current) -> None:
         """Link the open document to its saved copy (or to none) and keep that with the
         autosave, so the name and the marker survive a reload."""
-        self.current = current
-        self.shell.write(CURRENT_KEY, current.dumps())
-        self.dirty = document_fingerprint(self.state.document) != current.saved
+        self.documents.remember(current)
+        self.on_documents_change(redraw=False)
+
+    def on_documents_change(self, *, redraw: bool = True) -> None:
+        """The open document or its link changed (saved, opened, deleted): the title's marker."""
+        self.dirty = document_fingerprint(self.state.document) != self.current.saved
         self.state.doc_title = self.doc_title()
+        if redraw:
+            self.refresh()
+
+    def dump_named(self, name: str) -> str:
+        """The document as saved under `name`, which becomes its name."""
+        document = self.state.document
+        document.name = name
+        return json.dumps(to_dict(document), ensure_ascii=False, separators=(",", ":"))
+
+    async def load_named(self, text: str, name: str) -> None:
+        """Open a saved document: replayed by this app's engine (a DocumentFileError, which is a
+        ValueError, if it cannot be)."""
+        self.replace(await self.read(text))
+        self.state.document.name = name
+
+    def said(self, text: str) -> None:
+        self.flash(text)
+        if self.debug:
+            print(f"CASSIM: SAVED {self.current.stored}", flush=True)
+
+    def on_name_dialog(self, dialog: ft.AlertDialog | None) -> None:
+        """Save as is open: its name box takes the keys, not the calculator."""
+        self.typing_dialog = dialog
 
     async def recover_system(self) -> None:
         """Reopen the saved System Settings, if any, and pick the view to start in. A phone is
@@ -414,7 +461,7 @@ class App:
 
     async def recover(self) -> None:
         """Reopen the autosaved document, if it is readable."""
-        await self.library.index()  # read once now, so the dialogs can check names at once
+        await self.documents.store.index()  # read now, so the dialogs can check names at once
         self.state.doc_title = self.doc_title()
         text = await self.shell.read(AUTOSAVE_KEY)
         if text is None:
@@ -1128,9 +1175,9 @@ class App:
             "panel:keypad": self.toggle_keypad,
             "settings": lambda: self.open_system_settings("Settings"),
             "appearance": self.open_appearance,
-            "save": self.save,
-            "save_as": self.save_as,
-            "open_document": self.open_document,
+            "save": self.documents.save,
+            "save_as": self.documents.save_as,
+            "open_document": self.documents.open,
             "export_file": lambda: self.page.run_task(self.export_file),
             "import_file": lambda: self.ask_discard(lambda: self.page.run_task(self.import_file)),
             "sheet_import_csv": lambda: self._start_sheet_file_action("csv", importing=True),
@@ -1157,27 +1204,7 @@ class App:
 
     def has_unsaved(self) -> bool:
         """The document has changes since it was last saved (so a reload asks first)."""
-        return document_fingerprint(self.state.document) != self.current.saved
-
-    # ---- documents saved by name in this browser (FR-DOC-010) --------------------------------
-
-    def save(self) -> None:
-        """Save: under the document's name, or ask for one if it has never been saved here."""
-        if self.current.stored is None:
-            self.save_as()
-        else:
-            self.page.run_task(self.store_as, self.current.stored)
-
-    async def store_as(self, name: str) -> None:
-        document = self.state.document
-        document.name = name
-        data = to_dict(document)
-        await self.library.save(name, json.dumps(data, ensure_ascii=False, separators=(",", ":")))
-        self.remember(Current(name, fingerprint(data)))
-        self.refresh()
-        self.flash(f"Saved “{name}”")
-        if self.debug:
-            print(f"CASSIM: SAVED {name}", flush=True)
+        return self.documents.dirty()
 
     def say(self, text: str) -> None:
         """Show `text` in the status line now, without redrawing the rest."""
@@ -1196,152 +1223,15 @@ class App:
 
         self.page.run_task(clear)
 
-    def save_as(self) -> None:
-        """Ask for a name, then save under it (asking first before replacing another one)."""
-        library = self.library
-        start = "" if self.state.document.name == UNTITLED else self.state.document.name
-        field = ft.TextField(value=start, label="Name", autofocus=True, max_length=60)
-
-        def done(_: object = None) -> None:
-            name = clean_name(field.value or "")
-            if not name:
-                field.error = "Type a name"
-                field.update()
-                return
-            self.page.pop_dialog()
-            self.typing_dialog = None
-            index = library.cached
-            other = index.spelled(name) if index is not None else None
-            if other is not None and other.casefold() != (self.current.stored or "").casefold():
-
-                async def replace() -> None:
-                    await self.store_as(name)
-
-                self.shell.confirm(
-                    "Replace saved document?",
-                    f"“{other}” is already saved here. Replace it with this document?",
-                    "Replace",
-                    replace,
-                )
-                return
-            self.page.run_task(self.store_as, name)
-
-        def cancel(_: object) -> None:
-            self.page.pop_dialog()
-            self.typing_dialog = None
-
-        field.on_submit = done
-        dialog = ft.AlertDialog(
-            title=ft.Text("Save as"),
-            content=ft.Column(
-                [
-                    ft.Text(
-                        "Saved in this app, on this device. Doc ▸ File ▸ Export file… saves "
-                        "a file you can move or share.",
-                        size=13,
-                    ),
-                    field,
-                ],
-                tight=True,
-                width=360,
-            ),
-            actions=[
-                ft.TextButton("Cancel", on_click=cancel),
-                ft.TextButton("Save", on_click=done),
-            ],
-        )
-        self.typing_dialog = dialog  # the keys go to the name box, not the calculator
-        self.page.show_dialog(dialog)
-
-    def open_document(self) -> None:
-        """Open: the documents saved in this browser, newest first; each can be deleted."""
-        index = self.library.cached
-        items = index.items if index is not None else []
-        if not items:
-            self.notice(
-                "No saved documents",
-                "Nothing is saved here yet. Doc ▸ File ▸ Save keeps a document in this app; "
-                "Doc ▸ File ▸ Import file… opens a file.",
-            )
-            return
-
-        def opened(name: str) -> Callable[[object], None]:
-            def go(_: object) -> None:
-                self.page.pop_dialog()
-                self.ask_discard(lambda: self.page.run_task(self.open_saved, name))
-
-            return go
-
-        def deleted(name: str) -> Callable[[object], None]:
-            def go(_: object) -> None:
-                self.page.pop_dialog()
-
-                async def gone() -> None:
-                    await self.library.delete(name)
-                    if self.current.stored == name:  # the open copy is now saved nowhere
-                        self.remember(Current(None, ""))
-                    self.refresh()
-                    self.open_document()
-
-                self.shell.confirm(
-                    f"Delete “{name}”?",
-                    "It is removed from this app's storage. This cannot be undone.",
-                    "Delete",
-                    gone,
-                )
-
-            return go
-
-        rows: list[ft.Control] = [
-            ft.ListTile(
-                title=ft.Text(item.name),
-                subtitle=ft.Text(datetime.fromtimestamp(item.when).strftime("%d %b %Y, %H:%M")),
-                on_click=opened(item.name),
-                trailing=ft.IconButton(
-                    ft.Icons.DELETE_OUTLINE, tooltip="Delete", on_click=deleted(item.name)
-                ),
-            )
-            for item in items
-        ]
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Open document"),
-                content=ft.Column(rows, tight=True, scroll=ft.ScrollMode.AUTO, width=380),
-                actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())],
-            )
-        )
-
-    async def open_saved(self, name: str) -> None:
-        text = await self.library.text(name)
-        try:
-            if text is None:
-                msg = "it is no longer in this app's storage"
-                raise DocumentFileError(msg)
-            self.replace(await self.read(text))
-            self.state.document.name = name
-            self.remember(Current(name, document_fingerprint(self.state.document)))
-        except DocumentFileError as error:
-            self.notice(f"Cannot open “{name}”", str(error))
-        self.refresh()
-
     def ask_discard(self, then: Callable[[], object]) -> None:
         """Do `then` (which replaces the document) at once, or after asking when the open
-        document has changes that are not saved."""
-        if document_fingerprint(self.state.document) == self.current.saved:
-            then()
-            return
+        document has changes that are not saved (every app's question, `app/saved.py`)."""
 
-        async def discard() -> None:
+        def go() -> None:
             then()
             self.refresh()
 
-        self.shell.confirm(
-            "Discard changes?",
-            f"“{self.state.document.name}” has changes that are not saved. "
-            "Doc ▸ File ▸ Save keeps them.",
-            "Discard",
-            discard,
-        )
+        self.documents.ask_discard(go)
 
     def on_new_document(self) -> None:
         """A new document is saved nowhere, and has nothing to lose yet."""
