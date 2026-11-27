@@ -12,7 +12,7 @@ Every CASSim app has two kinds of interface, and they follow different rules.
 
 | Kind | Examples | Rule |
 |---|---|---|
-| Follows the device | The Nspire Calculator Menu and Doc menu, its keypad and key labels, Document Settings; the Scientific key legends and modes | The device's order, numbering, structure and vocabulary (FR-DEV-005, FR-DEV-008, decision 0028). This document only sets their case (section 9.2). |
+| Follows the device | The Nspire Calculator Menu and Doc menu, its keypad and key labels, Document Settings; the Scientific key legends and modes | The device's order, numbering, structure and vocabulary (FR-DEV-005, FR-DEV-008, decision 0028). This document only sets their case (section 9.2). A learning aid may relabel a key for a moment, and a feature the device lacks may be offered, as long as it is marked as CASSim's own and can be switched off. The Scientific app's hyp names and its extras are examples (SDD-14 section 4.3, decision 0041). |
 | CASSim's own | The CASSim menu; the Doc menu of an app that has no device Doc menu; Open and Save; Import, Export and Share link; themes; views; install and update; toolbars; tutorials; trace tables; Home | This document. The same words, order, look and behaviour in every app. |
 
 Where the two meet, the device's structure wins and CASSim's items fit into it. For example, CASSim's Import, Export and Share link items go at the end of the Nspire's own File menu.
@@ -83,7 +83,7 @@ A setting appears in one place only. Remembered states:
 
 | Remembered per browser | Saved in the document | Not remembered |
 |---|---|---|
-| The theme and colour changes; Start in; which panels show (keypad, tutorials, sidebar), except on a phone; column splits and zoom; editor preferences; the calculator model | Maths settings (angle, number mode, display format); trace orientation; which page is open | Fullscreen; open menus; collapsed panes; a view chosen during a session |
+| The theme and colour changes; Start in; which panels show (keypad, tutorials, sidebar), except on a phone; column splits and zoom; editor preferences; the calculator model; the Scientific app's TABLE extra and hyp names | Maths settings (angle, number mode, display format, the Scientific app's exact-surds extra); trace orientation; which page is open | Fullscreen; open menus; collapsed panes; a view chosen during a session |
 
 ## 7. Colour schemes
 

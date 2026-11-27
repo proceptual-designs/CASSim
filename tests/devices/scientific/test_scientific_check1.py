@@ -6,9 +6,9 @@ MATRIXn emulator). Each starts from Reset All, as the captures did, unless it sa
 Decided by Simon on 2026-11-27 (decision 0041): follow the emulators by default; exact surds and
 π, and TABLE, are CASSim extras that are off.
 
-Requirements: FR-FX-CFG-001, FR-FX-CFG-003, FR-FX-CFG-006, FR-FX-DSP-005, FR-FX-DSP-007,
-FR-FX-DSP-008, FR-FX-FNC-002, FR-FX-FNC-005, FR-FX-FNC-008, FR-FX-MOD-003, FR-FX-MOD-004,
-FR-FX-STA-003, FR-FX-UI-008.
+Requirements: FR-FX-CFG-001, FR-FX-CFG-003, FR-FX-CFG-006, FR-FX-CFG-007, FR-FX-DSP-005,
+FR-FX-DSP-007, FR-FX-DSP-008, FR-FX-FNC-002, FR-FX-FNC-005, FR-FX-FNC-008, FR-FX-MOD-003,
+FR-FX-MOD-004, FR-FX-STA-003, FR-FX-UI-008.
 """
 
 from __future__ import annotations
