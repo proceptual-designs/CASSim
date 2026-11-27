@@ -114,12 +114,14 @@ def test_installed_phone_cutout_toggle_uses_all_safe_area_edges(size: tuple[int,
     initial_height = app.view.control.height
     assert app.use_cutout
     assert padding(app).top == 0
-    assert app.cassim_menu().items[1].label == "Avoid cutout"
+    cutout = next(item for item in app.cassim_menu().items if item.arg == "cutout")
+    assert (cutout.label, cutout.mark) == ("Avoid cutout", "")
 
     with patch.object(app, "refresh"):
-        app.go_fullscreen()
+        app.show_dialog("cutout")
         assert not app.use_cutout
-        assert app.cassim_menu().items[1].label == "Use cutout"
+        cutout = next(item for item in app.cassim_menu().items if item.arg == "cutout")
+        assert (cutout.label, cutout.mark) == ("Avoid cutout", "✓")
         assert padding(app).top == 30
         assert padding(app).right == 25 + PHONE_MARGIN
         assert padding(app).bottom == 10 + PHONE_MARGIN
@@ -128,7 +130,7 @@ def test_installed_phone_cutout_toggle_uses_all_safe_area_edges(size: tuple[int,
         assert initial_height is not None
         assert app.view.control.height < initial_height
         assert not app.toolbar.visible
-        app.go_fullscreen()
+        app.show_dialog("cutout")
     assert app.use_cutout
     assert app.view.control.height == initial_height
     assert padding(app).top == 0
@@ -143,7 +145,7 @@ def test_cutout_choice_survives_resize_and_only_affects_installed_phones() -> No
     shell.bridge.in_fullscreen = False
     shell.bridge.safe_area = (30, 25, 10, 20)
     with patch.object(app, "refresh"):
-        app.go_fullscreen()
+        app.show_dialog("cutout")
         page.width, page.height = 900, 400
         app.arrange()
         assert padding(app).left == 20 + PHONE_MARGIN
@@ -166,7 +168,7 @@ def test_noninstalled_phone_keeps_browser_fullscreen_action() -> None:
     shell: Any = app.shell
     shell.bridge = offers(standalone=False)
     with patch.object(app.shell, "toggle_fullscreen") as toggle:
-        app.go_fullscreen()
+        app.show_dialog("fullscreen")  # the shell does it, as for every app
         toggle.assert_called_once()
     assert app.use_cutout
 
@@ -230,7 +232,7 @@ def test_cassim_key_red_dot_tracks_browser_attention() -> None:
     assert isinstance(row, ft.Row)
     key = row.controls[-1]
     assert isinstance(key, ft.Container)
-    assert key.tooltip == "CASSim menu: attention required"
+    assert key.tooltip == "CASSim menu: update ready"
     column = key.content
     assert isinstance(column, ft.Column)
     labels = column.controls[-1]
@@ -246,7 +248,7 @@ def test_cassim_key_red_dot_tracks_browser_attention() -> None:
         for row in app.toolbar_controls()
         if isinstance(row, ft.Row)
         for control in row.controls
-        if control.tooltip == "CASSim menu: attention required"
+        if control.tooltip == "CASSim menu: offline setup failed"
     )
     assert isinstance(toolbar_button, ft.Container)
     toolbar_labels = toolbar_button.content
@@ -269,7 +271,7 @@ def test_reload_update_asks_before_reloading_unsaved_document() -> None:
         patch.object(app.shell, "confirm", side_effect=lambda *args: dialogs.append(args)),
         patch.object(app.shell, "reload_update") as reload_update,
     ):
-        app.activate_update()
+        app.shell.activate_update()  # the app told the shell it has unsaved work
         reload_update.assert_not_called()
         assert dialogs
         assert dialogs[0][0] == "Reload CASSim?"

@@ -338,12 +338,13 @@ LESSONS: tuple[Lesson, ...] = (
     ),
     Lesson(
         id="trig",
-        title="Exact trigonometry",
+        title="Trigonometry",
         category="Trigonometry",
-        problem="Find sin 30° exactly, then the angle whose sine is 0.5.",
+        problem="Find sin 30° as a fraction, then the angle whose sine is 0.5.",
         steps=(
             Step((k.SIN, "3", "0", k.RPAREN), "Press {SIN}, type 30 and close the bracket."),
-            Step((k.EQ,), "Press {EQ}.", "The exact value is 1/2."),
+            Step((k.EQ,), "Press {EQ}.", "The answer is 0.5."),
+            Step((k.SD,), "Press {SD} to see it as a fraction: 1/2."),
             Step((k.SHIFT, k.SIN), "Press {SHIFT SIN} for sin⁻¹."),
             Step(("0", k.DOT, "5", k.RPAREN), "Type 0.5 and close the bracket."),
             Step((k.EQ,), "Press {EQ}.", "The angle is in degrees."),
@@ -357,10 +358,13 @@ LESSONS: tuple[Lesson, ...] = (
         category="Number",
         problem="Increase $250 by 15%.",
         steps=(
-            Step(("2", "5", "0", k.ADD, "1", "5"), "Type 250 + 15."),
-            Step((k.SHIFT, k.LPAREN), "Press {SHIFT LPAREN} for %.", "+ 15% adds 15% of 250."),
-            Step((k.EQ,), "Press {EQ}.", "The exact answer is 575/2."),
-            Step((k.SD,), "Press {SD} to see it as a decimal: $287.50."),
+            Step(
+                ("2", "5", "0", k.ADD, "2", "5", "0", k.MUL, "1", "5"),
+                "Type 250 + 250 × 15.",
+                "The increase is 15% of 250, added to 250.",
+            ),
+            Step((k.SHIFT, k.LPAREN), "Press {SHIFT LPAREN} for %.", "% divides by 100."),
+            Step((k.EQ,), "Press {EQ}.", "The new amount is $287.50."),
         ),
         answer="287.5",
         challenge=Challenge("Decrease $80 by 25%.", _ans_close(60.0), "60"),
@@ -399,7 +403,7 @@ LESSONS: tuple[Lesson, ...] = (
         category="Functions",
         problem="Tabulate f(x) = x² − 3 for x = 1 to 5.",
         steps=(
-            Step((k.MODE, "3"), "Press {MODE} then 3 for TABLE."),
+            Step((k.MODE, "4"), "Press {MODE} then 4 for TABLE (a CASSim extra mode)."),
             Step((k.ALPHA, k.RPAREN), "Press {ALPHA RPAREN} to type X."),
             Step((k.X2, k.SUB, "3"), "Press {X2}, then {SUB} 3."),
             Step((k.EQ,), "Press {EQ}. The calculator asks for the start."),
@@ -948,30 +952,32 @@ SHARP_EXTRA: tuple[Lesson, ...] = (
 )
 
 
-def lessons_for(layout: layouts.Layout) -> tuple[Lesson, ...]:
+def lessons_for(layout: layouts.Layout, *, table: bool = False) -> tuple[Lesson, ...]:
     """The lessons for a calculator, in its own keys. A lesson for something it does not have
-    (TABLE, quartiles, FACT, the FREQ setting) is not offered."""
+    (TABLE unless that extra is on, quartiles, FACT, the FREQ setting) is not offered."""
+    modes = layouts.modes_for(layout, table=table)
     match layout.dialect:
         case "ms":
             return MS_LESSONS + MS_EXTRA
         case "sharp":
             return SHARP_LESSONS + SHARP_EXTRA
     return tuple(
-        lesson for lesson in LESSONS if not lesson.needs_mode or lesson.needs_mode in layout.modes
+        lesson for lesson in LESSONS if not lesson.needs_mode or lesson.needs_mode in modes
     )
 
 
-def layout_state(layout: layouts.Layout) -> ScientificState:
-    """A fresh calculator behind this layout's keys."""
+def layout_state(layout: layouts.Layout, *, table: bool = False) -> ScientificState:
+    """A fresh calculator behind this layout's keys (with the TABLE extra when `table`)."""
     state = ScientificState()
-    state.use_layout(layout.modes, linear=layout.linear, dialect=layout.dialect)
+    modes = layouts.modes_for(layout, table=table)
+    state.use_layout(modes, linear=layout.linear, dialect=layout.dialect)
     state.reset()
     return state
 
 
 def expected_screens(lesson: Lesson, layout: layouts.Layout = layouts.DEFAULT) -> list[str]:
     """What the screen shows after each step, found by running the lesson on that layout."""
-    state = layout_state(layout)
+    state = layout_state(layout, table=lesson.needs_mode == "TABLE")
     lesson.prepare(state)
     screens = []
     for step in lesson.steps:
@@ -983,7 +989,7 @@ def expected_screens(lesson: Lesson, layout: layouts.Layout = layouts.DEFAULT) -
 
 def run_lesson(lesson: Lesson, layout: layouts.Layout = layouts.DEFAULT) -> ScientificState:
     """The calculator after every step of a lesson (for tests and Show Me)."""
-    state = layout_state(layout)
+    state = layout_state(layout, table=lesson.needs_mode == "TABLE")
     lesson.prepare(state)
     for step in lesson.steps:
         for key in step.keys:

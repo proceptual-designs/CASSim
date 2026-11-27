@@ -151,13 +151,13 @@ def test_computer_toolbar_groups_actions_and_uses_keypad_theme() -> None:
     ]
     assert labels == [
         ["Keypad"],
-        ["CASSim", "Doc", "Settings"],
+        ["CASSim", "Doc", "Document settings"],
         ["Menu"],
         ["Page manager", "+ Page", "+ Problem"],
     ]
     assert text_chip(rows, "CASSim").bgcolor == app.theme.accent
     assert text_chip(rows, "Doc").bgcolor == app.theme.key_colours("nav")[0]
-    assert text_chip(rows, "Settings").bgcolor == app.theme.key
+    assert text_chip(rows, "Document settings").bgcolor == app.theme.key
 
 
 def test_computer_toolbar_keeps_beta_brand_with_attention(

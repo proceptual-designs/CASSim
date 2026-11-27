@@ -186,6 +186,17 @@ def set_typing_aid(page: Page, on: bool) -> None:
     expect(save).not_to_be_attached(timeout=10_000)  # the dialog has closed and redrawn
 
 
+def type_again_if_lost(page: Page, editor: Locator, keys: str) -> None:
+    """Type `keys` at the end of `editor`. A key lost on a loaded machine leaves the text
+    exactly as it was, so type it again then; a wrong result still fails the check after."""
+    before = editor.input_value()
+    for _ in range(3):
+        editor.press_sequentially(keys, delay=HUMAN_TYPING)
+        page.wait_for_timeout(REDRAW)
+        if editor.input_value() != before:
+            break
+
+
 def test_pseudocode_typing_aid_is_on_token_aware_undoable_and_a_setting(
     browser: Browser, site
 ) -> None:
@@ -211,21 +222,21 @@ def test_pseudocode_typing_aid_is_on_token_aware_undoable_and_a_setting(
             expect(editor).to_have_value(value)
 
         replace("x <")
-        editor.press_sequentially("-", delay=HUMAN_TYPING)
+        type_again_if_lost(page, editor, "-")
         expect(editor).to_have_value("x ←")  # on by default
         page.wait_for_timeout(REDRAW)  # let Flutter settle before the undo
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("x <-")
 
         replace("print @")
-        editor.press_sequentially("pi", delay=HUMAN_TYPING)
+        type_again_if_lost(page, editor, "pi")
         expect(editor).to_have_value("print π")
         page.wait_for_timeout(REDRAW)
         page.keyboard.press("Control+z")
         expect(editor).to_have_value("print @pi")
 
         replace('print "<')
-        editor.press_sequentially("-", delay=HUMAN_TYPING)
+        type_again_if_lost(page, editor, "-")
         expect(editor).to_have_value('print "<-')  # not inside a string
 
         set_typing_aid(page, on=False)
@@ -233,7 +244,7 @@ def test_pseudocode_typing_aid_is_on_token_aware_undoable_and_a_setting(
         # A different line each time: Python only sees the field's latest value, so retyping
         # the same text quickly can reach it as no change at all.
         replace("y <")
-        editor.press_sequentially("-", delay=HUMAN_TYPING)
+        type_again_if_lost(page, editor, "-")
         expect(editor).to_have_value("y <-")
 
         page.goto(site[1] + "#/app/pseudocode", wait_until="load")  # remembered when reopened
@@ -242,7 +253,7 @@ def test_pseudocode_typing_aid_is_on_token_aware_undoable_and_a_setting(
         expect(editor).to_be_attached(timeout=60_000)
         page.wait_for_timeout(REDRAW)
         replace("z <")
-        editor.press_sequentially("-", delay=HUMAN_TYPING)
+        type_again_if_lost(page, editor, "-")
         expect(editor).to_have_value("z <-")
     finally:
         page.close()

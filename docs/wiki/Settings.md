@@ -1,8 +1,8 @@
 # Settings
 
-## Document Settings
+## Document settings
 
-Doc, Settings & Status, **Document Settings**. These apply to every Problem in the document and are saved with it.
+Doc, Settings & status, **Document settings**. These apply to every Problem in the document and are saved with it.
 
 | Setting | What it controls |
 |---|---|
@@ -15,9 +15,9 @@ Doc, Settings & Status, **Document Settings**. These apply to every Problem in t
 
 On the handheld, VCE Methods usually uses Radian, Auto, Real; Specialist uses Radian, Auto, Rectangular; and General Mathematics usually uses Degree, Approximate, Real. Set the document up first, as you would on the handheld, because these settings change how answers look.
 
-## Handheld Setup
+## Handheld setup
 
-Doc, Settings & Status, **Handheld Setup**. These belong to your device, not the document.
+Doc, Settings & status, **Handheld setup**. These belong to your device, not the document.
 
 - **Start in:** Handheld or Computer
 - **Maths size:** how large the maths is drawn

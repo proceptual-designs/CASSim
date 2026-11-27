@@ -109,10 +109,12 @@ def test_a_share_link_opens_this_device_from_home() -> None:
 
 
 def test_table_function_travels_in_a_link() -> None:
+    """TABLE is an extra mode (MODE 4 when it is on); a link keeps the table's function."""
     state = press(
-        k.MODE, "3", "2", k.ALPHA, k.RPAREN, k.X2, k.SUB, "3", k.ALPHA, k.RPAREN, k.ADD, "1"
-    )
-    opened = ScientificState()
+        k.MODE, "4", "2", k.ALPHA, k.RPAREN, k.X2, k.SUB, "3", k.ALPHA, k.RPAREN, k.ADD, "1",
+        state=ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE")),
+    )  # fmt: skip
+    opened = ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE"))
     opened.open_fragment(state.share_fragment())
     assert opened.screen == "table_fx"
     assert opened.display().text() == "f(X)=\n2X²−3X+1"

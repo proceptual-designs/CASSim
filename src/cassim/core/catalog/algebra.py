@@ -23,16 +23,38 @@ def _rewrite(function: Callable[[Raw], Raw]) -> Callable[[Host, list[Value]], Va
 
 @eager("expand", 1, 2, cas=True)
 def expand(host: Host, args: list[Value]) -> Value:
-    """`expand(expr[, var])`: with a variable, a quotient is also divided out in it."""
-    variable = raw_of(args[1]) if len(args) > 1 else None
-    return map_value(lambda value: Expr(cas.expand(raw_of(value), variable)), args[0])
+    """`expand(expr[, var])`: with a variable, a quotient is also divided out in it; without
+    one, each term is, with the domain warning (emulator run 7, R7-A4)."""
+    if len(args) > 1:
+        variable = raw_of(args[1])
+        return map_value(lambda value: Expr(cas.expand(raw_of(value), variable)), args[0])
+
+    def each(value: Value) -> Value:
+        expanded, divided = cas.expand_each(raw_of(value))
+        if divided:
+            host.warn(errors.DOMAIN_WIDER)
+        return Expr(expanded)
+
+    return map_value(each, args[0])
 
 
 eager("factor", 1, 2)(_rewrite(cas.factor))
 eager("comDenom", 1, 2)(_rewrite(cas.common_denominator))
 eager("cFactor", 1, 2, cas=True)(_rewrite(cas.factor_over_gaussian_integers))
 eager("tExpand", 1, cas=True)(_rewrite(cas.expand_trig))
-eager("tCollect", 1, cas=True)(_rewrite(cas.collect_trig))
+
+
+@eager("tCollect", 1, cas=True)
+def t_collect(host: Host, args: list[Value]) -> Value:
+    """`tCollect`; multiplying a sum out first gives the domain warning (emulator run 7)."""
+
+    def collect(value: Value) -> Value:
+        collected, multiplied = cas.collect_trig_with_note(raw_of(value))
+        if multiplied:
+            host.warn(errors.DOMAIN_WIDER)
+        return Expr(collected)
+
+    return map_value(collect, args[0])
 
 
 def _square_variables(nodes: tuple[ast.Expr, ...]) -> list[ast.Expr]:

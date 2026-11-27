@@ -7,7 +7,7 @@ from cassim.app.shell import BrowserOffers
 from cassim.device.menu import MenuItem
 from cassim.devices.nspire.document import PageKind, loads
 from cassim.devices.nspire.screen import thumbnail
-from cassim.devices.nspire.ui.app import cassim_items
+from cassim.devices.nspire.ui.app import cassim_items, nspire_menu
 from cassim.devices.nspire.ui.sidebar import Sidebar
 from cassim.devices.nspire.ui.state import AppState
 from cassim.devices.nspire.ui.views import STUB_NOTICE, CalculatorView
@@ -95,7 +95,7 @@ def test_about_and_help_are_in_cassim_on_every_page(page: str, index: int, dialo
     """NFR-LEG-002: About and Help are available on every page type."""
     state = AppState()
     state.cassim_menu = lambda: MenuItem(
-        "CASSim", items=cassim_items(handheld=True, offers=BrowserOffers())
+        "CASSim", items=cassim_items(BrowserOffers(), nspire_menu(handheld=True))
     )
     asked: list[str] = []
     state.show_dialog = asked.append

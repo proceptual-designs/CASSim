@@ -1,5 +1,6 @@
 # Requirements traced here: FR-DOC-010
-"""Documents saved by name in the browser: Save, Save As, Open, and the unsaved marker."""
+"""Documents saved by name in the app: Save, Save as, Open (every app's, `app/saved.py`),
+and the unsaved marker."""
 
 import asyncio
 import json
@@ -110,14 +111,14 @@ def test_the_store_saves_lists_and_deletes() -> None:
 def library_app() -> tuple[Any, Any, Memory]:
     app, page = handheld_app()
     memory = Memory()
-    app.library = memory.store()
+    app.documents.store = memory.store()
     shell: Any = app.shell
     shell.write = memory.write
     shell.read = memory.read
     page.dialogs = []
     page.show_dialog = page.dialogs.append
     page.pop_dialog = lambda: page.dialogs.pop() if page.dialogs else None
-    asyncio.run(app.library.index())
+    asyncio.run(app.documents.store.index())
     return app, page, memory
 
 
@@ -129,7 +130,7 @@ def test_typing_marks_the_document_unsaved_and_save_clears_it() -> None:
     app.save_now()
     assert app.dirty
     assert app.doc_title() == "*Untitled"
-    asyncio.run(app.store_as("Week 1"))
+    asyncio.run(app.documents.store_as("Week 1"))
     page.run_queued()
     assert not app.dirty
     assert app.state.doc_title == "Week 1"
@@ -170,15 +171,12 @@ def test_save_as_explains_browser_storage_and_file_export_separately() -> None:
     assert isinstance(dialog.content, ft.Column)
     guidance = dialog.content.controls[0]
     assert isinstance(guidance, ft.Text)
-    assert guidance.value == "Saved in this browser."
-    callout = dialog.content.controls[1]
-    assert isinstance(callout, ft.Container)
-    assert callout.bgcolor == app.theme.key
-    assert isinstance(callout.content, ft.Text)
-    assert callout.content.value == (
-        "Use: Doc > File > Export File… if you want to save a file to your device."
+    assert guidance.value == (  # worded as every app's Save as (app/saved.py, SDD-15 9.3)
+        "Saved in this app, on this device. Doc ▸ File ▸ Export file… saves a file you can "
+        "move or share."
     )
-    assert callout.content.color == app.theme.panel_accent
+    assert dialog.title.value == "Save as"
+    assert [b.content for b in dialog.actions] == ["Cancel", "Save"]
 
 
 def test_a_new_document_asks_before_dropping_unsaved_changes() -> None:
@@ -188,7 +186,7 @@ def test_a_new_document_asks_before_dropping_unsaved_changes() -> None:
     assert len(page.dialogs) == 1  # Discard changes?
     assert app.state.document.current.model.editor.linear() == "1"
     page.dialogs.clear()
-    asyncio.run(app.store_as("Kept"))
+    asyncio.run(app.documents.store_as("Kept"))
     page.run_queued()
     app.state.run_action("new_document")  # saved: no question
     assert not page.dialogs
@@ -200,12 +198,12 @@ def test_a_new_document_asks_before_dropping_unsaved_changes() -> None:
 def test_open_shows_the_saved_documents_and_opens_one() -> None:
     app, page, _ = library_app()
     app.state.run(Binding("insert", "7"))
-    asyncio.run(app.store_as("Seven"))
+    asyncio.run(app.documents.store_as("Seven"))
     page.run_queued()
     app.state.run_action("new_document")
     app.show_dialog("open_document")
     assert len(page.dialogs) == 1
-    asyncio.run(app.open_saved("Seven"))
+    asyncio.run(app.documents.open_saved("Seven"))
     assert app.state.document.current.model.editor.linear() == "7"
     assert app.state.doc_title == "Seven"
     assert not app.dirty
@@ -214,7 +212,7 @@ def test_open_shows_the_saved_documents_and_opens_one() -> None:
 def test_open_with_nothing_saved_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     app, _, _ = library_app()
     told: list[str] = []
-    monkeypatch.setattr(app, "notice", lambda heading, _: told.append(heading))
+    monkeypatch.setattr(app.shell, "notice", lambda heading, _: told.append(heading))
     app.show_dialog("open_document")
     assert told == ["No saved documents"]
 
@@ -222,15 +220,30 @@ def test_open_with_nothing_saved_says_so(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_the_name_and_the_marker_survive_a_reload() -> None:
     app, page, memory = library_app()
     app.state.run(Binding("insert", "1"))
-    asyncio.run(app.store_as("Week 1"))
+    asyncio.run(app.documents.store_as("Week 1"))
     page.run_queued()
     app.state.run(Binding("insert", "2"))
     app.save_now()
     page.run_queued()
     again, _, _ = library_app()
     again.shell.read = memory.read
-    again.library = memory.store()
+    again.documents.store = memory.store()
     again.first_visit = False
     asyncio.run(again.recover())
     assert again.state.doc_title == "*Week 1"
     assert again.current.stored == "Week 1"
+
+
+def test_the_nspire_uses_every_apps_open_and_save() -> None:
+    """SDD-15 section 9.3 (gap 8): the Nspire's Open and Save are the shared dialogs, titled
+    after its items, with its own path to Export and a name to offer."""
+    app, page, _ = library_app()
+    assert app.documents.open_title == "Open document"
+    app.state.document.name = "Imported"
+    app.show_dialog("save_as")
+    dialog = page.dialogs[-1]
+    assert dialog.content.controls[1].value == "Imported"  # the name it has, offered
+    assert app.typing_dialog is dialog
+    dialog.actions[0].on_click(None)  # Cancel
+    assert app.typing_dialog is None
+    assert not page.dialogs

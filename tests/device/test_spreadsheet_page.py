@@ -1,5 +1,5 @@
 # Requirements traced here:
-# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003
+# FR-SHEET-001 to 008, FR-STAT-001, FR-STAT-004, FR-DOC-009, FR-DOC-008, FR-DOC-003, FR-DOC-010
 """The Lists & Spreadsheet page model (slice 3b), driven by keys and menu items as the app drives
 it. Behaviour from emulator check 6 part E and check run 2 (G, E finish rows)."""
 
@@ -1609,10 +1609,10 @@ def test_the_statistics_menu():
     state.run(Binding("insert", "4"))
     assert state.menu is not None
     assert [row.label for row in state.menu.view().rows] == [
-        "Stat Calculations",
+        "Stat calculations",
         "Distributions",
-        "Confidence Intervals",
-        "Stat Tests",
+        "Confidence intervals",
+        "Stat tests",
     ]
     state.run(Binding("insert", "1"))
     rows = state.menu.view().rows
@@ -1982,7 +1982,7 @@ def test_the_stat_tests_and_intervals_lists():
         "1-Prop z Interval…",
         "2-Prop z Interval…",
         "Linear Reg t Intervals…",
-        "Multiple Reg Intervals…",
+        "Multiple reg intervals…",
     ]
     assert labels[1][:10] == [
         "z Test…",
@@ -2053,10 +2053,10 @@ def test_the_data_menu_greys_items_by_what_is_selected():
         "Generate Sequence…",
         "Clear Data",
         "Random",
-        "List Math",
-        "List Operations",
+        "List math",
+        "List operations",
         "Quick Graph",
-        "Data Capture",
+        "Data capture",
     }
     assert "Fill" not in grey
     assert "Summary Plot" not in grey
@@ -2104,9 +2104,9 @@ def test_the_random_list_math_and_list_operations_submenus():
     ]
     assert lists[2][-7:] == [
         ("Cumulative Sum List", True),
-        ("Difference List", True),
+        ("Difference list", True),
         ("Augment", True),
-        ("Convert Matrix to List", False),
+        ("Convert matrix to list", False),
         ("Left", True),
         ("Mid", True),
         ("Right", True),
@@ -2295,3 +2295,62 @@ def test_insert_row_leaves_test_results_where_they_are():
     assert column(state, E, [1, 2, 3, 4]) == before_values[:4]
     keys(state, "undo")
     assert column(state, C, [1, 2, 3]) == ["2", "4", "4"]
+
+
+def test_a_sheet_left_before_its_reply_still_saves_what_was_typed():
+    """FR-DOC-010 (a bug): in the browser a sheet takes the engine's replies only while it is
+    on screen. Typing a column name and data, then going to another page before the reply was
+    taken, saved an empty sheet, so the data and every plot of it were lost on Open."""
+    runner = Runner(LocalEngine())
+    state = sheet_app(Recording(sessions=runner.new_session))
+    sheet = sheet_of(state)
+    sheet.go((A, NAME_ROW))
+    type_cell(state, "xs")
+    sheet.go((A, 1))
+    type_cell(state, "4")
+    state.run_action("add_page", "graphs")  # another page is on screen now
+    asyncio.run(runner.sync(state.document))  # the reply waits for the sheet
+    data = json.loads(dumps(state.document))["problems"][0]["pages"][1]
+    assert data["columns"]["a"][0] == "xs"
+    assert data["cells"] == [[A, 1, "entry", "4"]]
+    fresh = Runner(LocalEngine())
+    loaded = asyncio.run(fresh.load(dumps(state.document), PAGES))
+    asyncio.run(fresh.sync(loaded))
+    names = [row.name for row in loaded.problems[0].session.variables()]
+    assert "xs" in names
+
+
+def test_typed_cells_the_engine_has_not_answered_are_saved_as_typed():
+    """Saved before the engine has seen the edit (it is still busy): the typed entry and
+    formula are kept, as they would be once answered."""
+    runner = Runner(LocalEngine())
+    state = sheet_app(Recording(sessions=runner.new_session))
+    sheet = sheet_of(state)
+    sheet.go((A, 1))
+    type_cell(state, "4")
+    sheet.go((A, 2))
+    type_cell(state, "=6*7")
+    data = json.loads(dumps(state.document))["problems"][0]["pages"][1]
+    assert data["cells"] == [[A, 1, "entry", "4"], [A, 2, "formula", "6*7"]]
+
+
+def test_a_shaded_test_on_a_full_page_gets_a_page_of_its_own():
+    """FR-STAT-004 (emulator run 7, R7-C4): with the sheet and three shaded panes on the page, a
+    fourth shaded test replaces none of them: a new Data & Statistics page after this one shows
+    its shade alone, and the sheet stays on screen."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    for column, successes in ((C, "30"), (F, "31"), (J, "32"), (12, "33")):
+        sheet.go((column, 1))
+        state.run(Binding("sheet", "inference:zTest_1Prop"))
+        finish_wizard(state, p0="0.5", successes=successes, n="50", alternative="1", shade="1")
+        state.prepare()
+    shades = [p for p in sheet.panes if isinstance(p, ShadePane)]
+    assert len(shades) == 3
+    pages = state.document.problems[state.document.problem].pages
+    assert state.document.current.model is sheet
+    new = pages[state.document.page + 1].model
+    assert isinstance(new, Statistics)
+    assert new.shade is not None
+    assert new.shade.statistic == pytest.approx(2.2627417, abs=1e-6)  # 33 of 50 against 0.5
+    assert new.scene(300, 200).layers  # it draws the shade, not an empty plot

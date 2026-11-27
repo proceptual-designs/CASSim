@@ -16,7 +16,7 @@ def test_a_phone_stays_in_handheld() -> None:
     app, _ = handheld_app(412, 915)
     app.set_mode(Mode.COMPUTER)
     assert app.state.mode is Mode.HANDHELD
-    app.show_dialog("switch_view")
+    app.show_dialog("view:computer")
     assert app.state.mode is Mode.HANDHELD
 
 

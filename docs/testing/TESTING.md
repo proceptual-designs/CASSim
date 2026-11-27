@@ -361,6 +361,68 @@ Batch 22 (`027_app_overlays_conics.yaml`): exponential, power and cubic overlays
 
 Batch 23 (`028_app_templates_all.yaml`, `029_more_regressions.yaml`): every Equation Template form (Line x3, Parabola x4, Circle x2, Ellipse, Hyperbola x2, Conic General), plus quartic, logarithmic (`LnReg`), median-median, sinusoidal and logistic regressions. Notable: `SinReg` returns b in radians even in Degree mode; template Tab orders differ (hyperbola east-west h,a,k,b; south-north k,a,h,b; x-parabola a,k,h; circle standard has a linked second `a` box so needs two Tabs); the simulator prints negative parameters as `+-` / `--`.
 
+### Check 6, run 7 (`039_check6_run7.yaml`, 2026-11-27)
+
+Results in `emulator-calc8-results.md`. What CASSim now follows:
+- **Warning triangles** (CASSim's own wording; tested in `tests/unit/test_cas_run7.py`):
+  - *Domain of the result*: shown when putting the result over one denominator cancels a factor in a variable. The device appears to use the product of the denominators, so `(x²-1)/(x-1)` (now `x+1`) and `d/dx((x+1)/(x-1))` warn, and `d/dx(ln(x²-1))` does not. Also on `expand` without a variable when it divides a term out, and on `tCollect` when it multiplies a sum out first. The rule comes from about ten examples, triangle or none; more may break it.
+  - *More solutions*: on a `solve` that returns unsolved.
+  - *Condition*: on a solving command whose `|` condition is not a variable compared with a constant (`|0<x<h/2`).
+- **Families:** a family that merges two (cos(x)=0) is written `(2·n1-1)·π/2`; one family keeps the sum form (`n1·π+π/4`).
+- **fMin and fMax:**
+  - Of a single sine or cosine, they solve f = its extreme value, with no `(-1)^n` condition: `(4·n1+1)·π/2`, `2·n1·π`.
+  - A sum such as sin+cos keeps the condition (run 6).
+  - An extremum approached towards ±∞ is `x=-∞`. `fMax(x^2,x)` giving `x=-∞ or x=∞` follows from that and is not seen on the device.
+- **Logarithms:** logs of fractions in a sum are combined (`ln(9/2)/8`), and so is an equation's number side (`t=150·ln(59/40)`).
+- **Still different:**
+  - `fMin(cos(x)^2,x)`: the device adds `x=-∞ or … or x=∞` (xfail).
+  - The order of the three terms of `∫₀² 1/(x³+x+2)dx` and of `expand`'s terms.
+  - The unsolved equation is echoed; the device rearranges it.
+
+### Check 6, run 7: data pages (2026-11-27)
+
+Results in `emulator-stats6-results.md` and `emulator-sheet7-results.md`. What CASSim now follows:
+- **A dragged point** is stored to about a ten-thousandth of its axis's range, rounded up to a power of ten: 40.06 and 567.8 on a window of 0 to 100 by 0 to 1000, and 6.949 on run 6's small window. Points selected with it move by the same rounded shift.
+- **A shaded test on a full 2×2 page** goes on a new Data & Statistics page after it, showing the shade alone; the 2×2 page keeps its panes.
+- **A new Data & Statistics page** chooses no variable. It shows the alphabetically first list as labelled dots under `Caption: name`, and Tab opens the x axis's list (shift+Tab the y axis's), starting at the first list.
+- **The 2-Sample z Test from lists** has the rows x̄1, x̄2, sx1, sx2, n1, n2, then σ1 and σ2 last.
+- **Quick Graph on the sheet's Menu** is grey for a single cell.
+
+Still open:
+- Run 7 saw Summary Plot grey for a single cell, but run 5 saw it live.
+- ctrl+Z after a shaded test takes two presses on the device, the first only showing the shade's page.
+- The device's 2-Sample z Test p-value differs from the exact value in the 7th figure (0.52708913 against 0.52708926); CASSim keeps the exact value.
+- Delete Row through a results table, Insert Cell and whole-column paste were seen but not compared.
+
+### Check 6, run 7: Graphs (2026-11-27)
+
+Results in `emulator-graphs7-results.md`.
+- **Confirmed** what CASSim already did:
+  - axis drags scale both axes about the origin;
+  - Graph Trace's Up and Down follow the list order;
+  - Zoom Square keeps x and scales y about the x axis;
+  - Zoom Fit keeps x and pads y by a tenth (x², 2·sin(x) and x+1 on 0 to 10 give about -12.2 to 110.2);
+  - Bounded Area asks for no graph when only two are plotted;
+  - a kept trace point, and an analysis result, follow a redefined function.
+- **Now followed:**
+  - `Ans` in a graph's entry line is refused on Enter (CASSim's own wording), and the text stays.
+  - The var list types a function with both brackets and the cursor between them (`f9()`).
+- **New features, on their own branch:** Attributes, Equation Templates' empty forms, Text, Coordinates and Equations, Calculate, and dragging a curve to translate it.
+
+### Check 6, run 7: Graphs Actions (2026-11-27)
+
+FR-GRAPH-008; tested in `tests/unit/test_graph_actions.py`.
+
+- **Actions menu**, numbered as on the device:
+  - Pointer, Attributes, Text, Coordinates and Equations, and Calculate work;
+  - Select, Hide/Show, Set Conditions, Delete all and Redefine keep their places, greyed.
+- **Attributes** come in a dialog with the panel's rows: line weight, line style, label style 1 to 5, continuous or discrete, number of points. A discrete graph's step is the window's width over points + 1, which gives the device's 0.769231 for 25 points on -10 to 10. A label is drawn once a label style is chosen; the device shows one from the start.
+- **A drag that starts on a curve** translates it by two significant figures (`2·sin(x-0.91)-0.044`), applied when the drag ends; the device moves the curve as you drag.
+- **Graph Entry/Edit:**
+  - lists every entry type and every Equation Template form in its place, greyed except Function, since CASSim cannot plot relations yet;
+  - the device puts an empty template in the entry line as `e1`.
+- **Coordinates and Equations** labels a kept or analysed point with its coordinates, and a curve with its equation, as fixed text.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).

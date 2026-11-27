@@ -6,8 +6,8 @@ Looks like the calculator: a screen with the on-screen keypad below it. Tap or c
 
 - Drag the bar between the screen and the keypad to change their sizes.
 - The keypad letters can be ABC or QWERTY (see [[Settings]]).
-- In full screen (Doc, **Fullscreen**) or the installed app, the calculator's screen grows taller to use the whole height, up to the top edge of the phone.
-- In the installed app on a phone, the screen uses the camera cutout area by default. Choose Doc, **Avoid cutout** to keep the calculator within the safe area, or **Use cutout** to use that space again. The choice lasts until the app is closed or reloaded.
+- In full screen (CASSim ▸ **Fullscreen**) or the installed app, the calculator's screen grows taller to use the whole height, up to the top edge of the phone.
+- In the installed app on a phone, the screen uses the camera cutout area by default. Choose CASSim ▸ **Avoid cutout** to keep the calculator within the safe area (a ✓ shows it is on), and choose it again to use that space. The choice lasts until the app is closed or reloaded.
 
 ## Computer
 
@@ -25,4 +25,4 @@ On a tablet, tap the entry line (or a spreadsheet cell) and the device's own on-
 
 ## Switching
 
-Choose the view you start in under **Doc, Settings & Status, Handheld Setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. Doc, **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so Doc, **Computer view** is greyed there.
+Choose the view you start in under **Doc, Settings & status, Handheld setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. CASSim ▸ **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so CASSim ▸ **Computer view** is greyed there.

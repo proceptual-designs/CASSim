@@ -361,11 +361,11 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
         "One-Variable Statistics…",
         "Two-Variable Statistics…",
         *(f"{label}…" for label in regressions),
-        "Multiple Linear Regression…",
-        "Correlation Matrix",
+        "Multiple linear regression…",
+        "Correlation matrix",
     ]
     keys = "123456789ABCDEFGHIJK"
-    assert lists["Stat Calculations"] == list(zip(keys, calculations, strict=False))
+    assert lists["Stat calculations"] == list(zip(keys, calculations, strict=False))
     distributions = [label for _, label in lists["Distributions"]]
     assert [key for key, _ in lists["Distributions"]] == list(keys)
     assert (distributions[0], distributions[12], distributions[-1]) == (
@@ -373,7 +373,7 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
         "Inverse Binomial N…",
         "Poisson Cdf…",
     )
-    assert [label for _, label in lists["Confidence Intervals"]] == [
+    assert [label for _, label in lists["Confidence intervals"]] == [
         "z Interval…",
         "t Interval…",
         "2-Sample z Interval…",
@@ -381,9 +381,9 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
         "1-Prop z Interval…",
         "2-Prop z Interval…",
         "Linear Reg t Intervals…",
-        "Multiple Reg Intervals…",
+        "Multiple reg intervals…",
     ]
-    assert lists["Stat Tests"] == list(
+    assert lists["Stat tests"] == list(
         zip(
             keys,
             [
@@ -397,7 +397,7 @@ def test_calculator_statistics_menus_match_the_device_lists() -> None:
                 "χ² 2-way Test…",
                 "2-Sample F Test…",
                 "Linear Reg t Test…",
-                "Multiple Reg Tests…",
+                "Multiple reg tests…",
                 "ANOVA…",
                 "ANOVA 2-Way…",
             ],

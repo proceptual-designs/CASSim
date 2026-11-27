@@ -15,6 +15,7 @@ from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
 from cassim.device.keys import Action
 from cassim.device.math_layout import lines
+from cassim.devices.nspire.pages import graph_actions
 from cassim.devices.nspire.pages.graphs import (
     FUNCTION_COLOURS,
     Graphs,
@@ -67,6 +68,10 @@ class GraphsView:
         self._origin = (160.0, 50.0)  # the origin on the plot, in pixels
         self._axis: str | None = None  # the axis a drag holds (R6-A1)
         self._axis_at = (0.0, 0.0)
+        self._graphs: Graphs | None = None
+        # a drag that starts on a curve moves the curve (emulator run 7, R7-B2): which, and how far
+        self._curve: int | None = None
+        self._curve_moved = (0.0, 0.0)
         self.functions = ft.Column(spacing=0)
         self.plot = ft.Container(expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
         self._context_region = context_menu_region()
@@ -74,6 +79,7 @@ class GraphsView:
             content=self.plot,
             on_scale_start=self._scale_start,
             on_scale_update=self._scale_update,
+            on_scale_end=self._scale_end,
             on_scroll=self._scroll,
             on_tap_up=self._tap,
             on_secondary_tap_down=self._context,
@@ -90,6 +96,7 @@ class GraphsView:
     def refresh(self, graphs: Graphs, width: float, height: float) -> None:
         self._width, self._height = max(width, 120), max(height, 100)
         self._tool_active = graphs.tools.tool is not None
+        self._graphs = graphs
         scale = self.scale()
         controls: list[ft.Control] = []
         controls_height = 0.0
@@ -253,8 +260,21 @@ class GraphsView:
         one = event.pointer_count <= 1 and not self._tool_active
         self._axis = axis_grabbed(self._origin, start) if one else None
         self._axis_at = start
+        self._curve_moved = (0.0, 0.0)
+        self._curve = (
+            graph_actions.curve_at(self._graphs, *start)
+            if one and self._axis is None and self._graphs is not None
+            else None
+        )
 
     def _scale_update(self, event: ft.ScaleUpdateEvent) -> None:
+        if self._curve is not None and event.pointer_count > 1:
+            self._curve = None  # a second finger: a pinch, so the curve does not move
+        if self._curve is not None:
+            delta = event.focal_point_delta
+            moved = self._curve_moved
+            self._curve_moved = (moved[0] + delta.x, moved[1] + delta.y)
+            return
         if self._axis is not None and event.pointer_count <= 1:
             # A drag on an axis rescales both axes about the origin (R6-A1)
             at = (event.local_focal_point.x, event.local_focal_point.y)
@@ -270,6 +290,13 @@ class GraphsView:
         self._gesture(
             delta.x, delta.y, factor, event.local_focal_point.x, event.local_focal_point.y
         )
+
+    def _scale_end(self, _: ft.ScaleEndEvent) -> None:
+        """A curve that was dragged is moved by the whole drag, then redefined."""
+        index, self._curve = self._curve, None
+        dx, dy = self._curve_moved
+        if index is not None and (dx or dy):
+            self._act("graphs", f"drag_curve:{index},{dx:.17g},{dy:.17g}")
 
     def _scroll(self, event: ft.ScrollEvent) -> None:
         delta = max(-_WHEEL_ZOOM_STEP, min(_WHEEL_ZOOM_STEP, event.scroll_delta.y))

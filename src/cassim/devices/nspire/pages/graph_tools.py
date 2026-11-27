@@ -52,9 +52,20 @@ class Tool(StrEnum):
     TRACE = "trace"
     TRACE_ALL = "trace_all"
     ANALYZE = "analyze"  # Analyze Graph; its keys and marks are in `graph_analyze`
+    # Actions (emulator run 7, R7-B8, R7-B10); their work is in `graph_actions`
+    ATTRIBUTES = "attributes"
+    TEXT = "text"
+    COORDINATES = "coordinates"
+    CALCULATE = "calculate"
 
 
 ZOOM_TOOLS = (Tool.ZOOM_BOX, Tool.ZOOM_IN, Tool.ZOOM_OUT)
+ACTION_TOOLS = {
+    Tool.ATTRIBUTES: "Attributes: click a graph",
+    Tool.TEXT: "Text: click where it goes",
+    Tool.COORDINATES: "Coordinates and Equations: click a point or a graph",
+    Tool.CALCULATE: "Calculate: click an expression",
+}
 TRACE_TOOLS = (Tool.TRACE, Tool.TRACE_ALL)
 # Window / Zoom items that set the window at once, by their menu argument
 _PRESETS = {"standard": STANDARD, "quadrant1": QUADRANT_1, "trig": TRIG, "decimal": DECIMAL}
@@ -82,6 +93,8 @@ class ToolState:
     picked: list[str] = field(default_factory=list)  # its graphs, by name
     bounds: list[float] = field(default_factory=list)  # its bounds so far
     message: str = ""  # why the last analysis found nothing
+    # A dialog an Actions tool wants opened: ("attributes", name) or ("text", "x,y")
+    request: tuple[str, str] | None = None
 
 
 def coordinate_text(value: float | None) -> str:
@@ -351,6 +364,31 @@ def click(graphs: Graphs, x: float, y: float) -> None:
     elif state.tool in TRACE_TOOLS:
         state.typed = ""
         _trace_to(graphs, point[0])
+    else:
+        _action_click(graphs, x, y, point)
+
+
+def _action_click(graphs: Graphs, x: float, y: float, point: tuple[float, float]) -> None:
+    """A tap with an Actions tool on: Attributes takes the curve under it, Text a place for
+    text, Coordinates and Equations a point or a curve to label, Calculate a text to work out
+    (emulator run 7, R7-B8, R7-B10)."""
+    from cassim.devices.nspire.pages import graph_actions  # noqa: PLC0415
+
+    state = graphs.tools
+    if state.tool is Tool.ATTRIBUTES:
+        index = graph_actions.curve_at(graphs, x, y)
+        if index is not None:
+            state.request = ("attributes", graphs.functions[index].name)
+    elif state.tool is Tool.TEXT:
+        state.request = ("text", f"{point[0]!r},{point[1]!r}")
+    elif state.tool is Tool.COORDINATES:
+        text = graph_actions.coordinates_text(graphs, x, y)
+        if text is not None:
+            graphs.texts.append(graph_actions.TextObject(point[0], point[1], text))
+    elif state.tool is Tool.CALCULATE:
+        index = graph_actions.text_at(graphs, x, y)
+        if index is not None:
+            graph_actions.calculate(graphs, index)
 
 
 def prompt(graphs: Graphs) -> str:
@@ -380,6 +418,9 @@ def shapes(graphs: Graphs, viewport: Viewport, colour: Callable[[str], str]) -> 
     state = graphs.tools
     if state.tool is None:
         return ()
+    if state.tool in ACTION_TOOLS:
+        # the device shows the tool's icon at the top left until Esc (R7-B10); CASSim, its name
+        return (Label(8, 4, ACTION_TOOLS[state.tool], 12),)
     window, width, height = viewport.window, viewport.width, viewport.height
     found: list[Shape] = []
     if state.tool in ZOOM_TOOLS:
@@ -515,6 +556,26 @@ def set_trace_step(graphs: Graphs, argument: str) -> None:
     graphs.tools.trace_step = step
 
 
+def _action_result(graphs: Graphs, verb: str, rest: str) -> None:
+    """What an Actions dialog or a curve drag sends back: `attributes:f1:{json}`,
+    `text:x,y:words`, `drag_curve:index,dx,dy` (screen pixels)."""
+    import json  # noqa: PLC0415
+
+    from cassim.devices.nspire.pages import graph_actions  # noqa: PLC0415
+
+    if verb == "attributes":
+        name, _, values = rest.partition(":")
+        graph_actions.apply_attributes(graphs, name, json.loads(values))
+    elif verb == "text":
+        place, _, words = rest.partition(":")
+        x, y = (float(value) for value in place.split(","))
+        if words.strip():
+            graphs.texts.append(graph_actions.TextObject(x, y, words))
+    else:
+        index, dx, dy = rest.split(",")
+        graph_actions.drag_curve(graphs, int(index), float(dx), float(dy))
+
+
 def perform(graphs: Graphs, argument: str) -> None:
     """A `graphs` action that is not a dialog: `zoom:fit`, `tool:trace`, `tap:x,y`,
     `window:a,b,c,d`, `trace_step:0.5` or `escape`."""
@@ -531,6 +592,8 @@ def perform(graphs: Graphs, argument: str) -> None:
         apply_window(graphs, rest)
     elif verb == "trace_step":
         set_trace_step(graphs, rest)
+    elif verb in ("attributes", "text", "drag_curve"):
+        _action_result(graphs, verb, rest)
     elif verb == "escape":
         leave(graphs)
     else:

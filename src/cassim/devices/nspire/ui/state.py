@@ -16,13 +16,13 @@ from cassim.device.keys import Action, Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.profile import Profile
 from cassim.device.sheet_link import link_for
-from cassim.device.wizard import Wizard
+from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import statistics_menus
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
-from cassim.devices.nspire.menus import entry_context, history_context
-from cassim.devices.nspire.pages import graph_analyze, graph_tools
+from cassim.devices.nspire.menus import entry_context, history_context, todo
+from cassim.devices.nspire.pages import graph_actions, graph_analyze, graph_tools
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
@@ -143,6 +143,85 @@ MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}
 SHEET_MENUS = frozenset({"menu_sheet", "sheet_cell", "sheet_block", "sheet_name", "sheet_column"})
 
 
+def _graphs_actions_menu() -> MenuItem:
+    """Menu > 1 Actions on a Graphs page, numbered as on the device (emulator run 7, R7-B8)."""
+
+    def tool(label: str, name: str, key: str) -> MenuItem:
+        return MenuItem(label, "graphs", f"tool:{name}", key=key)
+
+    return MenuItem(
+        "Actions",
+        key="1",
+        items=(
+            MenuItem("Pointer", "graphs", "escape", key="1"),
+            MenuItem(
+                "Select",
+                key="2",
+                items=(
+                    todo("Region", "1"),
+                    MenuItem("Image", key="2", enabled=False),
+                    MenuItem("Grid", key="3", enabled=False),
+                ),
+            ),
+            todo("Hide/Show", "3"),
+            tool("Attributes", "attributes", "4"),
+            todo("Set conditions", "5"),
+            todo("Delete all", "6"),
+            tool("Text", "text", "7"),
+            tool("Coordinates and Equations", "coordinates", "8"),
+            tool("Calculate", "calculate", "9"),
+            todo("Redefine", "A"),
+        ),
+    )
+
+
+def _graph_entry_menu() -> MenuItem:
+    """Menu > 3 Graph entry/edit, numbered as on the device (R7-B9). CASSim plots functions; the
+    other entry types and the Equation templates keep their places, greyed."""
+
+    def templates(label: str, key: str, *forms: str) -> MenuItem:
+        return MenuItem(
+            label,
+            key=key,
+            items=tuple(todo(form, str(n)) for n, form in enumerate(forms, start=1)),
+        )
+
+    return MenuItem(
+        "Graph entry/edit",
+        key="3",
+        items=(
+            MenuItem("Function", "goto", key="1"),
+            todo("Relation", "2"),
+            MenuItem(
+                "Equation templates",
+                key="3",
+                items=(
+                    templates(
+                        "Line", "1", "Line slope intercept", "Vertical line", "Line standard"
+                    ),
+                    templates(
+                        "Parabola",
+                        "2",
+                        "Vertex form y",
+                        "Standard form y",
+                        "Vertex form x",
+                        "Standard form x",
+                    ),
+                    templates("Circle", "3", "Center form", "Standard form"),
+                    templates("Ellipse", "4", "Center form"),
+                    templates("Hyperbola", "5", "East-West", "South-North"),
+                    templates("Conic", "6", "General"),
+                ),
+            ),
+            todo("Parametric", "4"),
+            todo("Polar", "5"),
+            todo("Scatter plot", "6"),
+            todo("Sequence", "7"),
+            todo("Diff eq", "8"),
+        ),
+    )
+
+
 class AppState:
     """Everything the views draw. A profile supplies the keymaps and keypad (FR-DEV-007)."""
 
@@ -243,9 +322,13 @@ class AppState:
     def prepare(self) -> None:
         """Before drawing: the current sheet takes the engine's replies and asks for the cells
         it shows; a dialog it wants opened is opened."""
+        graphs_page = self.graphs
+        if graphs_page is not None and graphs_page.tools.request is not None:
+            self._graphs_request(graphs_page)
         sheet = self.sheet
         if sheet is not None:
             sheet.update()
+            self._place_shade_pages(sheet)
             self._open_sheet_wizard(sheet)
         statistics = self.statistics
         if statistics is not None:
@@ -253,6 +336,20 @@ class AppState:
         graphs = self.graphs
         if graphs is not None:
             graphs.update()
+
+    def _place_shade_pages(self, sheet: Spreadsheet) -> None:
+        """A shaded test with no room left on its page goes on a new Data & Statistics page
+        after it, showing the shade alone; the sheet stays on screen (emulator run 7, R7-C4)."""
+        document = self.document
+        while sheet.shade_pages:
+            plot = sheet.shade_pages.pop(0)
+            if not document.can_add_page():
+                continue
+            here = (document.problem, document.page)
+            model = statistics_of(document.add_page(PageKind.STATISTICS))
+            if model is not None:
+                model.shade = plot
+            document.go(*here)
 
     def retain_sheets(self) -> None:
         """After pages are added, deleted, moved or brought back: each Problem's engine keeps
@@ -364,13 +461,7 @@ class AppState:
             self._graphs_key(graphs, binding)
             return
         if statistics is not None:
-            if binding.action == "statistics":
-                self._statistics_action(statistics, binding.arg)
-            elif binding.action == "context_menu":
-                self._open_menu(binding.arg or "menu_statistics")
-            elif binding.action in ("undo", "redo"):
-                self._page_undo(binding.action)
-                self.retain_sheets()
+            self._statistics_key(statistics, binding)
             return
         calculator = calculator_of(self.document.current)
         if calculator is not None and binding.action == "context_menu":
@@ -387,6 +478,19 @@ class AppState:
             calculator.perform(binding)
             if binding.action in ("copy", "cut") and self.clipboard_out is not None:
                 self.clipboard_out(self.document.clipboard.text)
+
+    def _statistics_key(self, statistics: Statistics, binding: Binding) -> None:
+        if binding.action == "statistics":
+            self._statistics_action(statistics, binding.arg)
+        elif binding.action == "context_menu":
+            self._open_menu(binding.arg or "menu_statistics")
+        elif binding.action in ("tab", "shift_tab"):
+            # Tab opens the x axis's variable list, shift+Tab the y axis's (emulator run 7,
+            # R7-C9: Tab, then Tab again for y), as a click on its box does
+            self._open_menu("statistics_x" if binding.action == "tab" else "statistics_y")
+        elif binding.action in ("undo", "redo"):
+            self._page_undo(binding.action)
+            self.retain_sheets()
 
     def _graphs_key(self, graphs: Graphs, binding: Binding) -> None:
         if binding.action == "graphs":
@@ -418,6 +522,39 @@ class AppState:
             graphs.edit(binding)
             if binding.action in ("copy", "cut") and self.clipboard_out is not None:
                 self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_request(self, graphs: Graphs) -> None:
+        """An Actions tool's dialog: Attributes for the graph it took, or the text for Text."""
+        request, graphs.tools.request = graphs.tools.request, None
+        if request is None or self.show_wizard is None:
+            return
+        kind, argument = request
+        if kind == "attributes":
+            entry = next((f for f in graphs.functions if f.name == argument), None)
+            if entry is None:
+                return
+            found = graphs.attributes.get(argument, graph_actions.Attributes())
+            form = graph_actions.attributes_wizard(entry, found)
+            self.show_wizard(
+                Wizard(
+                    form.title,
+                    form.fields,
+                    steps=lambda values: [
+                        Binding("graphs", f"attributes:{argument}:{json.dumps(dict(values))}")
+                    ],
+                    check=graph_actions.attributes_problems,
+                )
+            )
+        else:
+            self.show_wizard(
+                Wizard(
+                    "Text",
+                    (Field("text", "Text"),),
+                    steps=lambda values: [
+                        Binding("graphs", f"text:{argument}:{values.get('text', '')}")
+                    ],
+                )
+            )
 
     def _graphs_tool_action(self, graphs: Graphs, argument: str) -> None:
         """Window / Zoom and Trace: a dialog opens here, everything else is the page's."""
@@ -558,7 +695,7 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "dialog" and binding.arg in {"help", "switch_view"}:
+        if binding.action == "dialog" and binding.arg in {"help", "view:computer", "view:handheld"}:
             self.menu = None
             self.run(binding)
             return
@@ -717,7 +854,7 @@ class AppState:
         return MenuItem(
             "Menu",
             items=(
-                MenuItem("Actions", key="1", enabled=False),
+                _graphs_actions_menu(),
                 MenuItem(
                     "View",
                     key="2",
@@ -746,7 +883,7 @@ class AppState:
                         MenuItem("Hide Object Selection Guides", key="9", enabled=False),
                     ),
                 ),
-                MenuItem("Graph Entry/Edit", key="3", enabled=False),
+                _graph_entry_menu(),
                 graph_tools.window_zoom_menu(),
                 graph_tools.trace_menu(),
                 graph_analyze.menu(),
@@ -809,7 +946,9 @@ class AppState:
             return MenuItem(
                 f"Choose {purpose.title()} List",
                 jump=True,
-                start=(choices.index(selected) + 1 if selected in choices else 0,),
+                # the chosen list, or the first list when none is (the device's list starts
+                # there: emulator stats 1 and run 7, R7-C9)
+                start=(choices.index(selected) + 1 if selected in choices else int(bool(choices)),),
                 items=(
                     MenuItem("(none)", "statistics", f"{action}:"),
                     *(
@@ -1192,8 +1331,13 @@ class AppState:
                     ),
                 ),
             )
+        # On a Graphs entry line a function comes with both brackets and the cursor between
+        # them, `f9()` (emulator run 7, R7-B11).
+        call = (lambda name: ("insert_linear", f"{name}({MARK})")) if graphs else None
         items = tuple(
-            MenuItem(row.text, "insert", f"{row.name}(", hint="function")
+            MenuItem(row.text, *call(row.name), hint="function")
+            if row.is_function and call is not None
+            else MenuItem(row.text, "insert", f"{row.name}(", hint="function")
             if row.is_function
             else MenuItem(row.name, "insert", row.name, hint=f"{row.name} = {row.text}")
             for row in rows

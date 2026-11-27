@@ -59,7 +59,7 @@ def _paint(stroke: Stroke, colours: Mapping[str, str]) -> ft.Paint:
         color=_colour(stroke.colour, colours),
         stroke_width=stroke.width,
         style=ft.PaintingStyle.STROKE,
-        stroke_dash_pattern=[4, 4] if stroke.dashed else None,
+        stroke_dash_pattern=[4, 4] if stroke.dashed else [1, 3] if stroke.dotted else None,
     )
 
 

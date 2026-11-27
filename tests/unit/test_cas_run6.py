@@ -148,7 +148,8 @@ def test_tcollect_multiplies_out_a_sum_of_squares_when_that_is_shorter():
 def test_expand_with_a_variable_divides_a_quotient_out():
     assert text("expand((x^2+a)/(b*x+c),x)") == "x/b-c/b^2+(a*b^2+c^2)/(b^2*(b*x+c))"
     assert text("expand((x^2+1)/(x+1),x)") == "x-1+2/(x+1)"
-    assert text("expand((x^2+a)/(b*x+c))") == "x^2/(b*x+c)+a/(b*x+c)"
+    # without a variable each term is divided out (emulator run 7, R7-A4)
+    assert text("expand((x^2+a)/(b*x+c))") == "a/(b*x+c)+x/b+c^2/(b^2*(b*x+c))-c/b^2"
 
 
 def test_a_condition_on_the_solved_variable_is_not_put_into_the_answer():

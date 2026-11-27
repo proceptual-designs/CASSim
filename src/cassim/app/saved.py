@@ -6,15 +6,17 @@ preferences on the desktop), under the device's own prefix. Files on disk are Im
 only. A device gives this class its text (`dump`) and a way to take a saved text back (`load`),
 and puts `open`, `save` and `save_as` in its Doc menu beside its own Import and Export.
 
-The Nspire app keeps its own copy of these dialogs (`devices/nspire/ui/app.py`), written first;
-the storage (`doc/library.py`) is the same.
+Every app uses it, the Nspire included (SDD-15 section 9.3). An app whose documents load
+asynchronously (the Nspire recalculates one through its engine) gives a coroutine as `load`, and
+an app with its own idea of "changed" (the Nspire ignores which page is showing) gives `mark`.
 """
 
 from __future__ import annotations
 
 import functools
 import hashlib
-from collections.abc import Callable
+import inspect
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 
 import flet as ft
@@ -32,17 +34,25 @@ class SavedDocuments:
         shell: Shell,
         *,
         dump: Callable[[str], str],
-        load: Callable[[str, str], None],
+        load: Callable[[str, str], Awaitable[None] | None],
         changed: Callable[[], None] | None = None,
         said: Callable[[str], None] | None = None,
         noun: str = "document",
         menu: str = "Doc",
+        mark: Callable[[], str] | None = None,
+        on_dialog: Callable[[ft.AlertDialog | None], None] | None = None,
+        suggest: Callable[[], str] | None = None,
+        open_title: str = "Open",
     ) -> None:
         """`dump(name)` is the open document as text, to save under `name`; `load(text, name)`
-        replaces the open document with a saved one and raises ValueError if it cannot.
-        `changed` is called after the open document or its name changes, and `said` with a
-        short note such as "Saved" for the device to show. `noun` is what the device calls a
-        document ("calculation", "program")."""
+        replaces the open document with a saved one (a coroutine if that takes time) and raises
+        ValueError if it cannot. `changed` is called after the open document or its name
+        changes, and `said` with a short note such as "Saved" for the device to show. `noun` is
+        what the device calls a document ("calculation", "program"), and `menu` the path to its
+        Save and Export ("Doc", or the Nspire's "Doc ▸ File"). `mark` decides whether the
+        document has changed (by default, its dumped text). `on_dialog` hears the Save as dialog
+        open (with the dialog) and close (with None), so a device can send keys to its name box;
+        `suggest` is the name it offers; `open_title` names the Open dialog as its menu item."""
         self.page = page
         self.shell = shell
         self.dump = dump
@@ -51,6 +61,10 @@ class SavedDocuments:
         self.said = said or (lambda _: None)
         self.noun = noun
         self.menu = menu
+        self._mark = mark
+        self.on_dialog = on_dialog or (lambda _: None)
+        self.suggest = suggest
+        self.open_title = open_title
         self.current = Current()
 
     @functools.cached_property
@@ -72,6 +86,8 @@ class SavedDocuments:
 
     def mark(self) -> str:
         """What decides whether the open document differs from its saved copy."""
+        if self._mark is not None:
+            return self._mark()
         return hashlib.sha256(self.dump("").encode("utf-8")).hexdigest()
 
     def dirty(self) -> bool:
@@ -107,9 +123,12 @@ class SavedDocuments:
 
     def save_as(self, _: object = None) -> None:
         """Ask for a name, then save under it (asking first before replacing another one)."""
-        field = ft.TextField(
-            value=self.current.stored or "", label="Name", autofocus=True, max_length=MAX_NAME
-        )
+        start = self.suggest() if self.suggest is not None else self.current.stored or ""
+        field = ft.TextField(value=start, label="Name", autofocus=True, max_length=MAX_NAME)
+
+        def close() -> None:
+            self.page.pop_dialog()
+            self.on_dialog(None)
 
         def done(_: object = None) -> None:
             name = clean_name(field.value or "")
@@ -117,7 +136,7 @@ class SavedDocuments:
                 field.error = "Type a name"
                 field.update()
                 return
-            self.page.pop_dialog()
+            close()
             index = self.store.cached
             other = index.spelled(name) if index is not None else None
             if other is not None and other.casefold() != (self.current.stored or "").casefold():
@@ -135,27 +154,27 @@ class SavedDocuments:
             self.page.run_task(self.store_as, name)
 
         field.on_submit = done
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Save as"),
-                content=ft.Column(
-                    [
-                        ft.Text(
-                            f"Saved in this app, on this device. {self.menu} ▸ Export file… "
-                            "saves a file you can move or share.",
-                            size=13,
-                        ),
-                        field,
-                    ],
-                    tight=True,
-                    width=min(360, (self.page.width or 360) - 80),
-                ),
-                actions=[
-                    ft.TextButton("Save", on_click=done),
-                    ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+        dialog = ft.AlertDialog(
+            title=ft.Text("Save as"),
+            content=ft.Column(
+                [
+                    ft.Text(
+                        f"Saved in this app, on this device. {self.menu} ▸ Export file… "
+                        "saves a file you can move or share.",
+                        size=13,
+                    ),
+                    field,
                 ],
-            )
+                tight=True,
+                width=min(360, (self.page.width or 360) - 80),
+            ),
+            actions=[
+                ft.TextButton("Cancel", on_click=lambda _: close()),
+                ft.TextButton("Save", on_click=done),
+            ],
         )
+        self.on_dialog(dialog)  # before it shows: the keys go to the name box
+        self.page.show_dialog(dialog)
 
     # ---- Open ---------------------------------------------------------------------------------
 
@@ -211,7 +230,7 @@ class SavedDocuments:
         ]
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text("Open"),
+                title=ft.Text(self.open_title),
                 content=ft.Column(
                     rows,
                     tight=True,
@@ -228,7 +247,9 @@ class SavedDocuments:
             self.shell.notice(f"Cannot open “{name}”", "It is no longer in this app's storage.")
             return
         try:
-            self.load(text, name)
+            loading = self.load(text, name)
+            if inspect.isawaitable(loading):
+                await loading
         except ValueError as error:
             self.shell.notice(f"Cannot open “{name}”", str(error))
             return

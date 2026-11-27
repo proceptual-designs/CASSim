@@ -1,5 +1,9 @@
 """Calculations typed on the keypad, checked on the answer line.
 
+These run in MthIO-MathO with the exact surds and π extra on (`natural()`), so the exact forms are
+checked too; the calculator's own defaults (MthIO-LineO, surds as decimals) are tested in
+`test_scientific_check1.py` (decision 0041).
+
 Requirements: FR-FX-MOD-001, FR-FX-DSP-003, FR-FX-DSP-005 to -009, FR-FX-FNC-001 to -009,
 FR-FX-CFG-002 to -004, FR-FX-MEM-001 to -003.
 Cited: FR-FX-CFG-003 FR-FX-CFG-004 FR-FX-DSP-006 FR-FX-MEM-001 FR-FX-MEM-002 FR-FX-MEM-003
@@ -16,8 +20,16 @@ from cassim.devices.scientific.state import ScientificState
 S, A = k.SHIFT, k.ALPHA
 
 
+def natural() -> ScientificState:
+    """A calculator in MthIO-MathO with exact surds and π switched on."""
+    state = ScientificState()
+    state.setup.output = "math"
+    state.setup.surds = True
+    return state
+
+
 def press(*keys: str, state: ScientificState | None = None) -> ScientificState:
-    state = state or ScientificState()
+    state = state or natural()
     for key in keys:
         state.press(key)
     return state
@@ -76,10 +88,18 @@ def digits(text: str) -> tuple[str, ...]:
         (("6", S, k.XINV, k.EQ), "720"),
         ((A, k.MUL, "1", "2", S, k.RPAREN, "1", "8", k.EQ), "6"),
         ((A, k.DIV, "4", S, k.RPAREN, "6", k.EQ), "12"),
-        # percentages (FR-FX-FNC-008)
-        (("2", "0", "0", k.ADD, "1", "0", S, k.LPAREN, k.EQ), "220"),
-        (("8", "0", k.SUB, "2", "5", S, k.LPAREN, k.EQ), "60"),
-        (("1", "5", "0", "0", k.MUL, "1", "2", S, k.LPAREN, k.EQ), "180"),
+        # percentages (FR-FX-FNC-008): % is ÷100, as in the fx-82AU PLUS II manual's examples
+        (("1", "5", "0", k.MUL, "2", "0", S, k.LPAREN, k.EQ), "30"),
+        (("6", "6", "0", k.DIV, "8", "8", "0", S, k.LPAREN, k.EQ), "75"),
+        (
+            ("2", "5", "0", "0", k.ADD, "2", "5", "0", "0", k.MUL, "1", "5", S, k.LPAREN, k.EQ),
+            "2875",
+        ),
+        (
+            ("3", "5", "0", "0", k.SUB, "3", "5", "0", "0", k.MUL, "2", "5", S, k.LPAREN, k.EQ),
+            "2625",
+        ),
+        (("2", "5", "0", k.ADD, "1", "5", S, k.LPAREN, k.EQ), "5003⌟20"),  # 250.15 (check 1)
         # coordinates (FR-FX-FNC-006)
         ((S, k.ADD, "1", S, k.RPAREN, "1", k.EQ), "r=√2, θ=45"),
         ((S, k.SUB, "2", S, k.RPAREN, "6", "0", k.EQ), "X=1, Y=√3"),
@@ -101,17 +121,21 @@ def test_angle_units() -> None:
     assert rad.annunciators()["R"]
     gra = press(S, k.MODE, "5")
     assert answer(k.SIN, "1", "0", "0", k.EQ, state=gra) == "1"
-    deg = ScientificState()
+    deg = natural()
     keys = (k.SIN, k.LPAREN, S, k.EXP, k.DIV, "2", k.RPAREN, S, k.ANS, "2", k.EQ)
     assert answer(*keys, state=deg) == "1"  # sin((π÷2)ʳ) in degrees
 
 
 def test_dms() -> None:
-    """FR-FX-DSP-008: entering ° ' " and showing an answer in them."""
+    """FR-FX-DSP-008: entering ° ' " and showing an answer in them. An entry of ° ' " values
+    and + − × ÷ answers in ° ' " (manual; emulator check 1, B6); ° ' " then switches it."""
     state = press("1", "2", k.DMS, "3", "4", k.DMS, "5", "6", k.DMS, k.EQ)
-    assert state.answer_text() == "12.58222222"
-    state.press(k.DMS)
     assert state.answer_text() == "12°34°56°"
+    state.press(k.DMS)
+    assert state.answer_text() == "12.58222222"
+    sum_ = ("2", k.DMS, "2", "0", k.DMS, "3", "0", k.DMS, k.ADD, "0", k.DMS, "3", "9", k.DMS)
+    assert answer(*sum_, "3", "0", k.DMS, k.EQ) == "3°0°0°"
+    assert answer(k.SIN, "3", "0", k.DMS, "0", k.DMS, k.RPAREN, k.EQ) == "0.5"
     assert answer("2", k.DOT, "2", "5", k.EQ, k.DMS) == "2°15°0°"
 
 
@@ -246,7 +270,7 @@ def test_error_screen_goes_back_to_the_entry() -> None:
 
 def test_verify() -> None:
     """FR-FX-MOD-004: relations give TRUE or FALSE, only in VERIFY mode."""
-    state = press(k.MODE, "4")
+    state = press(k.MODE, "3")  # VERIF is MODE 3 (fx-82AU PLUS II manual; emulator check 1)
     assert answer("1", k.ADD, "1", S, "6", "1", "2", k.EQ, state=state) == "TRUE"
     assert answer(k.SQRT, "2", k.RIGHT, k.REL_LT, "1", k.DOT, "5", k.EQ, state=state) == "TRUE"
     assert answer("3", k.REL_GT, "4", k.EQ, state=state) == "FALSE"

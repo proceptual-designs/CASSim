@@ -98,6 +98,7 @@ def _solve(host: Host, args: tuple[ast.Expr, ...], *, complex_roots: bool) -> Va
     if condition is None and not complex_roots:
         condition = _numeric_fallback(host, equations, symbols)
     if condition is None:
+        host.warn(errors.MORE_SOLUTIONS)  # emulator run 7, R7-A1c
         return _unevaluated("cSolve" if complex_roots else "solve", equations, symbols)
     return _answer(condition)
 

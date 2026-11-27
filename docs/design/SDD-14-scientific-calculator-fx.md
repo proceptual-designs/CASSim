@@ -18,7 +18,7 @@ In Australian secondary mathematics (Year 7–10, VCE General Mathematics, VCE M
 
 **CASSim Scientific** is a scientific calculator device package (`src/cassim/devices/scientific`) in the CASSim multi-app browser shell. It delivers:
 - A responsive handheld calculator in CASSim's own design that keeps the familiar 50-key arrangement, usable with a mouse, touch or the computer keyboard.
-- Natural Display (MthIO) input and exact answers: fractions, mixed numbers, surds and multiples of π.
+- Natural Display (MthIO) input, with the calculators' own answer rules: fractions and mixed numbers exactly, surds and multiples of π as decimals. Exact surds and π, and TABLE mode, are CASSim extras that are off until switched on (decision 0041).
 - The statistics conventions CASSim uses everywhere (median-split quartiles, $n-1$ sample $s_x$, $n$ population $\sigma_x$, Pearson's $r$).
 - A **user-driven interactive tutorial engine** in which the student presses every key (Guide me), watches the keys played (Show me), or solves a new problem unaided (Test me).
 
@@ -43,14 +43,14 @@ The requirements are in `docs/SRS.md` section 4.12 ("CASSim Scientific") and now
 
 | IDs | Area | Designed in |
 |---|---|---|
-| FR-FX-MOD-001 to 005, FR-FX-CFG-001 to 006 | Modes (COMP, STAT, TABLE, VERIFY; CMPLX and VECTOR later), SETUP and CLR | sections 4.2, 6 and 8 |
+| FR-FX-MOD-001 to 005, FR-FX-CFG-001 to 007 | Modes (COMP, STAT, VERIFY; TABLE as an extra; CMPLX and VECTOR later), SETUP, CLR and the exact-surds extra | sections 4.2, 4.3, 6 and 8 |
 | FR-FX-DSP-001 to 009 | The two-line display, annunciators, natural input, S⇔D, ENG, DMS, FACT | sections 4, 5 and 6 |
 | FR-FX-MEM-001 to 004 | Ans, the nine variables, M+ and M−, PreAns | sections 4 and 8 |
 | FR-FX-FNC-001 to 009 | Functions: trigonometry, hyperbolics, powers, logarithms, nPr and nCr, Pol and Rec, GCD and LCM, %, Rnd | section 4 |
 | FR-FX-STA-001 to 006 | Statistics: data entry, summaries, school quartiles, regression, the STAT menu | sections 4.2 and 6 |
 | FR-FX-TUT-001 to 006 | Tutorials: Guide me, Show me, Test me | sections 5.1 and 7 |
 | FR-FX-SHR-001 to 006 | Autosave, share links and files | section 6 |
-| FR-FX-UI-001 to 007 | Top bar, presentation mode, tutorial panel, computer keyboard, calculator layouts, phones | sections 4.1, 4.2 and 5.1 |
+| FR-FX-UI-001 to 008 | Top bar, presentation mode, tutorial panel, computer keyboard, calculator layouts, phones, hyp waiting | sections 4.1, 4.2, 4.3 and 5.1 |
 
 ---
 
@@ -97,9 +97,9 @@ The keypad keeps the standard 50-key arrangement. Small labels above a key are i
   (Rnd)        (Ran# / RanInt) (π / e)        (DRG▶)
 ```
 
-The default layout (section 4.2) follows the fx-82 series, whose row 2 is `Abs x³ x⁻¹ x!`; the log■□ template (FR-FX-DSP-003) is typed with the keyboard key `g`. Other changes from the first draft of this document: `)` carries the comma on SHIFT and `X` on ALPHA; `S⇔D` carries `Y` and `M+` carries `M` on ALPHA. SHIFT 6 (VERIFY) opens the relations `= ≠ > ≥ < ≤`. SHIFT DEL (INS) inserts a row in the STAT editor; the calculation screen is always in insert mode.
+The default layout (section 4.2) follows the fx-82 series, whose row 2 is `Abs x³ x⁻¹ x!`; the log■□ template (FR-FX-DSP-003) is typed with the keyboard key `g`. Other changes from the first draft of this document: `)` carries the comma on SHIFT and `X` on ALPHA; `S⇔D` carries `Y` and `M+` carries `M` on ALPHA. SHIFT 6 (VERIFY) opens the relations `= ≠ > ≥ < ≤`. hyp opens a menu of the six hyperbolic functions (emulator check 1). SHIFT DEL (INS) inserts a row in the STAT editor; the calculation screen is always in insert mode.
 
-Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, %, °, ʳ, ᵍ, x̂, ŷ) and powers; the negative sign; nPr and nCr; multiplication with the × left out (so 1÷2π is 1÷(2π)); × and ÷; + and −; relations. `a + b%` adds b% of a. A missing `)` at the end of an entry is allowed.
+Priority, highest first: brackets and functions; postfix keys (x², x⁻¹, x!, %, °, ʳ, ᵍ, x̂, ŷ) and powers; the negative sign; nPr and nCr; multiplication with the × left out (so 1÷2π is 1÷(2π)); × and ÷; + and −; relations. `%` divides by 100 on the fx-82 and SX-II, so a percentage increase is typed `a + a × b%`; on the EL-531 and 10s `a + b%` adds b% of a (their manuals; decision 0041). A missing `)` at the end of an entry is allowed.
 
 ### 4.1 Computer keyboard (FR-FX-UI-004)
 
@@ -134,8 +134,8 @@ A layout is data: rows of keys, each with its face, its legends and, for each la
 
 Each layout names a **dialect**, the way the device state runs its menus (`state.py`):
 
-- `casio` (fx-82): as the SRS rows (FR-FX-MOD, -CFG, -STA) and section 4.1 describe. The two-variable STAT menu is 1 Type, 2 Data, 3 Sum, 4 Var, 5 Reg, 6 MinMax (corrected 2026-11-25; Reg was 6).
-- `sx2` (SX-II): as `casio`, but HYP opens a menu (1 sinh … 6 tanh⁻¹), the VERIFY menu is = ≠ > < ≥ ≤, and Norm 2 is the default.
+- `casio` (fx-82): as the SRS rows (FR-FX-MOD, -CFG, -STA) and section 4.1 describe. MODE is 1 COMP, 2 STAT, 3 VERIF (and 4 TABLE with that extra on). hyp opens a menu (1 sinh … 6 tanh⁻¹). Reset gives MthIO-LineO and Norm 2. `%` divides by 100. The two-variable STAT menu is 1 Type, 2 Data, 3 Sum, 4 Var, 5 Reg, 6 MinMax (corrected 2026-11-25; Reg was 6). Checked on the fx-82AU PLUS II emulator (check 1, 2026-11-26).
+- `sx2` (SX-II): as `casio`, but the VERIFY menu is = ≠ > < ≥ ≤. Checked on the SX-II MATRIXn emulator.
 - `ms` (the fx-82MS family the HP 10s follows): MODE shows COMP, SD, REG, and MODE again shows Deg/Rad/Gra, then Fix/Sci/Norm, then Disp (a b/c or d/c). SHIFT MODE is CLR: 1 Scl (in SD/REG) or Mcl, 2 Mode, 3 All, then =. SD and REG take data on the calculation screen: x DT, x ; f DT, x , y DT, and DT alone repeats the last entry. SHIFT 1 (S-SUM) and SHIFT 2 (S-VAR) are menus of pages turned with ◀ ▶ (S-VAR: x̄, xσn, xσn-1; ȳ, yσn, yσn-1; A, B, r; x̂, ŷ). % works out the whole entry: A × B % is B% of A, and + or − straight after adds it on or takes it off; A ÷ B %, A + B % and A − B % are the ratio, the total and the change as a percentage of B. a b/c types a fraction mark (2⌟3, 1⌟2⌟3) and, after an answer, switches between a fraction and a decimal. Defaults: LineIO, Norm 2, mixed numbers.
 - `sharp` (EL-531): MODE 0 is NORMAL and MODE 1 n is STAT (0 SD, 1 LINE, 2 QUAD, 3 EXP, 4 LOG, 5 PWR, 6 INV), with data typed as x DATA, x (x,y) f DATA or x (x,y) y DATA; RCL and a statistics key shows its value. SET UP 0 n sets FIX, SCI, ENG, NORM1, NORM2 and SET UP 1 n sets TAB. DRG cycles the angle unit and 2ndF DRG▸ converts the answer into the next unit. 2ndF % works out the entry (125 + 10 % is 137.5). a b/c as for `ms`. 2ndF CA clears the answer and the statistics; 2ndF M-CLR offers 0 (memories) and 1 (reset, then =). Defaults: LineIO, mixed numbers.
 
@@ -143,16 +143,30 @@ Each layout names a **dialect**, the way the device state runs its menus (`state
 |---|---|---|---|---|
 | SHIFT / ALPHA keys | SHIFT, ALPHA | 2nd, ALPHA | 2ndF, ALPHA | SHIFT, ALPHA |
 | Display | natural | natural ("Math") | two-line linear | two-line linear |
-| Modes listed | COMP, STAT, TABLE, VERIFY | COMP, STAT, VERIFY | COMP, STAT | COMP, STAT |
+| Modes listed | COMP, STAT, VERIF (TABLE as an extra) | COMP, STAT, VERIF (TABLE as an extra) | COMP, STAT | COMP, STAT |
+| hyp | a menu of six | a menu of six | a prefix | a prefix |
+| % | ÷100 | ÷100 | adds on | adds on |
 | Exact/decimal key | S⇔D | F↔D | a b/c after an answer | a b/c after an answer |
 | SETUP | SHIFT MODE | 2nd SET UP | SET UP 0 (FSE), 1 (TAB); DRG key | MODE pressed again |
 | Clear | SHIFT 9 (CLR) | 2nd CLR | 2ndF CA; 2ndF M-CLR | SHIFT MODE (CLR) |
 | STAT data entry | table editor | table editor | x (x,y) f DATA | x ; f DT, x , y DT |
 | STAT results | SHIFT 1 menus | 2nd STATVAR menus | RCL + key | SHIFT S-SUM / S-VAR pages |
-| Lessons not offered | — | TABLE | freq, fivenum, prime, table | freq, fivenum, prime, table |
+| Lessons not offered | TABLE unless the extra is on | TABLE unless the extra is on | freq, fivenum, prime, table | freq, fivenum, prime, table |
 | On the keys but not simulated | — | — | base-n, logic, ENG display mode, STAT VAR list | CL (delete a data item), Σx³ page, `:` |
 
 Older fx-82 models (fx-82MS) have a linear display and no VERIFY or TABLE; the fx-82 layout follows the natural-display models, and the HP 10s layout shows how the MS family works. Not yet checked against a real calculator: the EL-531's M-CLR menu (not in its operation guide), CA's exact reach, and STAT VAR (it opens the fx-82's STAT menu). Doc ▸ Examples are the fx-82's keys; they are pressed on its menus and refused where the calculator lacks the feature.
+
+### 4.3 CASSim extras and assists (decision 0041)
+
+CASSim follows each calculator by default. Anything a calculator does not do is an **extra**, which is off until CASSim ▸ Settings ▸ CASSim extras switches it on. A display aid that helps a student learn without changing the maths is an **assist**, which is on by default and can be switched off.
+
+| Name | Kind | What it does | Kept |
+|---|---|---|---|
+| Exact surds and π (FR-FX-CFG-007) | extra, fx-82 and SX-II | In MathO, surds with up to two terms and multiples of π are shown exactly, and S⇔D switches them to decimals. This follows the fx-8200 AU, fx-991ES PLUS, HP 300s+ and TI MultiView models; none of them keeps e symbolic, and neither does CASSim. | with the calculation (`Setup.surds`) |
+| TABLE mode (FR-FX-MOD-003) | extra, fx-82 and SX-II | TABLE is added to MODE as 4, and its lesson and example are offered. A calculation saved or shared in TABLE mode switches it on. | in the browser |
+| hyp waiting (FR-FX-UI-008) | assist, every layout | While hyp waits, the hyp key is lit and a `hyp` mark shows. sin, cos and tan, and their SHIFT legends, read sinh, cosh and tanh, and on the fx-82 and SX-II a trig key picks from the hyp menu. The setting turns the names off; the lit key and the mark stay. | in the browser |
+
+Renaming the trig keys is the one place the keypad leaves the device's legends (SDD-15 section 1): it lasts only while hyp waits, and the printed name comes back as soon as a function is picked.
 
 ---
 
@@ -171,11 +185,11 @@ The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 des
 ### 5.1 Top Navigation Bar & Presentation Mode (CASSim Consistency)
 
 1. **Top bar (FR-FX-UI-001)**:
-   - **CASSim menu**: Home, Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…, Check for updates, Help (wiki)…, About CASSim….
-   - **Doc menu**: Open…, Save, Save as… (calculations kept by name in the app's storage: `cassim.app.saved`, decision 0033), Import file…, Export file… (`.cassim.json`), Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
+   - **CASSim menu** (the shared menu, SDD-15 section 4): Home; Tutorials (✓ when shown), Fullscreen or, on an installed phone, Avoid cutout; Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…; Install, Check for Updates, the offline status; Help (wiki)…, About CASSim….
+   - **Doc menu**: Open…, Save, Save as… (calculations kept by name in the app's storage: `cassim.app.saved`, decision 0033), Import file…, Export file… (`.cassim.json`), Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values (with the TABLE extra on), mixed numbers, trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
    - **Status chips**: mode, angle unit, input mode; clickable.
 2. **Presentation mode (FR-FX-UI-002)**: the full-screen button hides the bar; a floating button or Esc restores it.
-3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Show/Hide tutorials; lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
+3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Tutorials (✓ when shown); lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
 
 ---
 
@@ -205,18 +219,20 @@ The device follows decision 0032: it imports no other device, only `ui/` imports
 
 ## 7. Tutorials
 
-The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are built, covering the six priority lessons (reset, frequency setup, mean and standard deviation, five-number summary, frequency tables, regression) and fractions with S⇔D, exact trigonometry, percentage increase, storing to a variable, FACT and TABLE mode. Each lesson has a Test me problem. Tests run every lesson to its stated answer and check that every key it asks for is a keypad key.
+The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are built, covering the six priority lessons (reset, frequency setup, mean and standard deviation, five-number summary, frequency tables, regression) and fractions with S⇔D, trigonometry (sin 30° is 0.5, and S⇔D gives 1/2), percentage increase (250 + 250 × 15%), storing to a variable, FACT and TABLE mode (offered with the TABLE extra on). Each lesson has a Test me problem. Tests run every lesson to its stated answer and check that every key it asks for is a keypad key.
 
 ---
 
-## 8. Implementation status (2026-11-25)
+## 8. Implementation status (2026-11-27)
 
 | Area | Status |
 |---|---|
-| COMP, STAT (all eight types), TABLE, VERIFY | Built and unit tested. |
+| COMP, STAT (all eight types), TABLE, VERIFY | Built and unit tested. VERIFY is MODE 3; TABLE is an extra mode (section 4.3). |
 | CMPLX and VECTOR (FR-FX-MOD-005, Could) | Not built: they need an fx-100 series layout (FR-FX-UI-006, Could, deferred 2026-11-25). |
-| SETUP, CLR, annunciators | Built and tested, including Disp (decimal comma) and CONT (contrast). SETUP page 2 is ab/c, d/c, STAT, Disp, CONT and the default is Norm 2, as the fx-82AU PLUS II and SX-II manuals give (corrected 2026-11-25). The manuals also give MthIO-LineO as the default output; CASSim keeps MathO until the emulator check (`docs/testing/emulator-scientific-capture.md`, row A7) confirms it. |
-| Natural display input and exact answers | Built: fraction, mixed, √, ³√, ⁿ√, power, ×10ˣ, Abs, log■□ templates; fractions, surds with up to two terms, multiples of π; exact trigonometry at multiples of 30° and 45°. |
+| SETUP, CLR, annunciators | Built and tested, including Disp (decimal comma) and CONT (contrast). SETUP page 2 is ab/c, d/c, STAT, Disp, CONT and the default is Norm 2, as the fx-82AU PLUS II and SX-II manuals give (corrected 2026-11-25). The default output is MthIO-LineO, as the manuals give and the emulators showed (row A7; decision 0041). |
+| Natural display input and exact answers | Built: fraction, mixed, √, ³√, ⁿ√, power, ×10ˣ, Abs, log■□ templates; fractions; with the exact-surds extra on, surds with up to two terms, multiples of π and exact trigonometry at multiples of 30° and 45°. |
+| hyp and the extras | Built 2026-11-27 (section 4.3): the hyp menu on the fx-82, hyp lit and the trig keys renamed while it waits, Settings ▸ CASSim extras. |
+| Ran# | A three-place decimal on every calculator and in every display mode, by choice: the fx-82 in MathO shows thousandths as a fraction (581/1000), and CASSim does not follow it (decision 0041 item 5). |
 | Multi-statement `:` | Not built. |
 | PreAns (FR-FX-MEM-004, Could) | Held as a variable; no key types it: none of the four calculators' manuals shows a PreAns key. |
 | Tutorials | Twelve lessons on the fx-82 keys (eleven on the SX-II), and lessons written in the HP 10s's and EL-531's own keys; Guide, Show and Test modes; progress kept in browser storage per calculator. |
@@ -226,4 +242,4 @@ The tutorial catalogue (`tutorials-catalog-fx.md`) plans 64 lessons. Twelve are 
 | Drawing (`ui/render.py`) | √ and its vinculum are one stroke sized to the argument (a √ character and a separate line did not meet). A mixed-number answer's fraction follows its whole part directly, as in the typed entry (it had a whole character's space). |
 | Calculator layouts | Built (section 4.2): fx-82 (default), SX-II, EL-531 and 10s series, from the keypad pictures in the makers' manuals (`references/`; no screenshots are kept, see `docs/design/reference/scientific/README.md`). Checked in Chrome on 2026-11-25. |
 | Browser (E) verification | Checked by hand in Chrome on 2026-11-25 (layout at 1366 × 650 and 1920 × 935, keyboard input, natural display, Guide and Show modes, themes). No Playwright test yet. |
-| Device verification | None of the behaviour has been compared with a physical calculator. The emulator check (`docs/testing/emulator-scientific-capture.md`) covers the fx-82AU PLUS II and SX-II: Norm thresholds, the default output, ENG on whole numbers, mixed-number display, the clearing of STAT data on leaving STAT mode and the keypad legends. The HP 10s and EL-531 sequences come from their manuals only. |
+| Device verification | None of the behaviour has been compared with a physical calculator. Emulator check 1 (2026-11-26 and 27; results in `docs/testing/emulator-scientific-results.md`, screenshots in the evidence repository, decision 0039) ran the brief on the makers' emulators of all four calculators: the fx-82AU PLUS II and SX-II fully, the HP 10s and EL-531 in part. `tests/devices/scientific/test_scientific_check1.py` holds its rows. Still to run: check 2 (`emulator-scientific-check2-brief.md` in the evidence repository). |

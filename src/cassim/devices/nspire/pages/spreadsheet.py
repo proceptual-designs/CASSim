@@ -186,13 +186,16 @@ MENU_ENABLED_FOR: dict[str, frozenset[str]] = {
     "Resize": _NOT_BLOCK,
     "Select": _NOT_BLOCK,
     "generate": _DATA,
-    "Data Capture": _DATA,
+    "Data capture": _DATA,
     "Random": _DATA,
-    "List Math": _DATA,
-    "List Operations": _DATA,
+    "List math": _DATA,
+    "List operations": _DATA,
     "fill": frozenset({"cell", "block"}),
     "clear": frozenset({"column", "name", "row"}),
 }
+# Menu > Data > Quick Graph wants a whole column: grey for a single cell (emulator run 7, R7-C9).
+# Run 7 saw Summary Plot grey for a single cell too, but run 5 (R5-S) saw it live: open.
+_WHOLE_COLUMN = frozenset({"column", "name"})
 
 
 def pane_boxes(count: int, width: float, height: float) -> list[tuple[float, float, float, float]]:
@@ -353,6 +356,9 @@ class Spreadsheet:
         # The page's other panes, after the sheet (decision 0034 item 2).
         self.panes: list[Pane] = []
         self._pending_shade: ShadePane | None = None  # waits for its test's results
+        # Shaded tests with no room on a full page: each goes on a page of its own, inserted
+        # after this one by the app (emulator run 7, R7-C4).
+        self.shade_pages: list[PValuePlot] = []
         self.revision = -1  # the sheet's revision in the last reply
         self._viewed: tuple[int, tuple[int, int, int, int]] | None = None
         self._asked: tuple[int, tuple[int, int, int, int]] | None = None
@@ -452,10 +458,15 @@ class Spreadsheet:
         self.link.send(self.restore_op())
         self.update()
 
-    def update(self) -> None:
-        """Take the engine's replies, then ask for the cells on show if they are out of date."""
+    def take_replies(self) -> None:
+        """Take the engine's replies for this sheet. They wait in the session while another page
+        is on screen, so a sheet left before its reply came back takes it here."""
         for reply in self.link.take(self.id):
             self._accept(reply)
+
+    def update(self) -> None:
+        """Take the engine's replies, then ask for the cells on show if they are out of date."""
+        self.take_replies()
         for statistics in self.split_statistics:
             statistics.update()
         if isinstance(self.session, RemoteSession) and self.session.journal:
@@ -528,7 +539,10 @@ class Spreadsheet:
             pane.plot = PValuePlot(statistic, p_value, pane.alternative, pane.variable, df)
             if pane is pending:
                 self._pending_shade = None
-                self.add_pane(pane, undoable=False)
+                if len(self.panes) >= MAX_PANES - 1:
+                    self.shade_pages.append(pane.plot)
+                else:
+                    self.add_pane(pane, undoable=False)
 
     def _failed(self, error: SheetErrorPayload) -> None:
         """A refused action: Data Loss asks first, Conflict Detected asks Cell or Variable for
@@ -644,7 +658,7 @@ class Spreadsheet:
             enabled = item.enabled
             key = item.arg.partition(":")[0] if item.action == "sheet" else item.label
             if item.action == "sheet" and item.arg == "quick_graph":
-                enabled = graph
+                enabled = graph and (not menu or kind in _WHOLE_COLUMN)
             elif item.action == "sheet" and item.arg == "insert_cell" and in_results:
                 enabled = False  # grey in a results column (run 6, R6-C8)
             elif menu and key in MENU_ENABLED_FOR and item is not root:
@@ -2147,10 +2161,18 @@ def _inside(inner: tuple[int, int, int, int], outer: tuple[int, int, int, int]) 
 
 def dump(sheet: Spreadsheet) -> dict[str, Any]:
     """A sheet page in a document file: its definitions and view state, not its values. The
-    cursor and selection are not kept: a reopened sheet starts at A1 (R5-Q3)."""
+    cursor and selection are not kept: a reopened sheet starts at A1 (R5-Q3).
+
+    What was typed is kept even when the page was left before the engine answered: the sheet
+    first takes the replies waiting for it, and a typed cell still unanswered is saved as typed
+    (a bug lost the data, the column names and the plots that used them)."""
+    sheet.take_replies()
+    cells = dict(sheet.cells)
+    for key, text in sheet.waiting.items():
+        cells[key] = ("formula", text[1:]) if text.startswith("=") else ("entry", text)
     columns = {letter(c): list(info) for c, info in enumerate(sheet.columns) if any(info)}
     data: dict[str, Any] = {
-        "cells": [[c, r, kind, text] for (c, r), (kind, text) in sorted(sheet.cells.items())],
+        "cells": [[c, r, kind, text] for (c, r), (kind, text) in sorted(cells.items())],
         "columns": columns,
         "widths": {letter(c): w for c, w in sorted(sheet.widths.items())},
     }

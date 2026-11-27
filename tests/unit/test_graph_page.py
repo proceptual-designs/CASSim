@@ -9,6 +9,7 @@ from cassim.device.keys import Binding
 from cassim.devices.nspire.document import Document, PageKind, loads
 from cassim.devices.nspire.pages.graphs import (
     FUNCTION_COLOURS,
+    GRAPH_ANS,
     Graphs,
     GridStyle,
     axis_drag_factor,
@@ -665,3 +666,26 @@ def test_a_drag_on_an_axis_rescales_both_axes_about_the_origin() -> None:
     graphs.gesture(0, 0, 0.5, 159.0, 106.0)
     assert graphs.window.x_max == pytest.approx(before.x_max / 2)
     assert graphs.window.y_max == pytest.approx(before.y_max / 2)
+
+
+def test_ans_is_refused_in_a_graph_and_var_types_a_function_with_its_brackets() -> None:
+    """Emulator run 7, R7-B11: `Ans` in a graph's entry gives an error on Enter and stays to be
+    edited; the var list types `f1()` with the cursor between the brackets."""
+    state = AppState()
+    state.run_action("add_page", "graphs")
+    graphs = state.graphs
+    assert graphs is not None
+    graphs.submit(0, "x^2")
+    graphs.submit(1, "Ans+1")
+    assert graphs.functions[1].error == GRAPH_ANS
+    assert graphs.functions[1].compiled is None
+    assert graphs.functions[1].editing.editor.linear() == "Ans+1"
+    graphs.submit(1, "")
+    graphs.active_index = 1
+    menu = state._variables_menu()
+    assert menu is not None
+    item = next(item for item in menu.items if item.arg.startswith("f1("))
+    assert item.action == "insert_linear"
+    state.run(Binding("insert_linear", item.arg))
+    editor = graphs.functions[1].editing.editor
+    assert editor.linear() == "f1()"

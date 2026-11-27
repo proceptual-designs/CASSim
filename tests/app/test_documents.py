@@ -188,5 +188,5 @@ def test_file_menu_has_no_tns_entry() -> None:
     file_menu = next(item for item in DOC.items if item.label == "File")
     labels = [item.label for item in file_menu.items]
     assert not any("tns" in label.lower() for label in labels)
-    files = {item.label: item.arg for item in file_menu.items if "File" in item.label}
-    assert files == {"Import File…": "import_file", "Export File…": "export_file"}
+    files = {item.label: item.arg for item in file_menu.items if "file" in item.label}
+    assert files == {"Import file…": "import_file", "Export file…": "export_file"}

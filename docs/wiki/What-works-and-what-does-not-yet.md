@@ -5,11 +5,11 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 ## Works now
 
 - The **Calculator** page: algebra, calculus, matrices, lists, probability and statistics commands, with 2D templates for fractions, powers, roots, logs, piecewise, systems, sums, products, limits, derivatives and integrals
-- Document Settings, Problems and Pages, undo and redo
+- Document settings, Problems and Pages, undo and redo
 - Handheld and Computer views, with touch, mouse and keyboard
 - Save and open files, share links, autosave, install and offline use
 - The **Pseudocode & Python** app: run pseudocode, step through a trace table (including inside function calls), and translate between pseudocode and Python (see [[Pseudocode]])
-- The **Scientific** app: natural display, statistics, tables and interactive tutorials, with the keys and key sequences of the fx-82, SX-II, EL-531 or 10s series (see [[Scientific calculator]] and [[Choosing your calculator]]). Not built there: complex numbers and vectors (they need an fx-100 series layout), and `:` between calculations. Its answers have not yet been checked key for key against a physical calculator
+- The **Scientific** app: natural display, statistics, tables and interactive tutorials, with the keys and key sequences of the fx-82, SX-II, EL-531 or 10s series (see [[Scientific calculator]] and [[Choosing your calculator]]). Not built there: complex numbers and vectors (they need an fx-100 series layout), and `:` between calculations. Its answers have been checked against the makers' emulators, not yet against a physical calculator
 - A site of its own for each app, as well as the all-in-one site (see [[Which site to use]])
 
 ## Not built yet (Nspire)

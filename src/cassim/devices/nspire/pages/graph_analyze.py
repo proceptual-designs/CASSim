@@ -355,6 +355,16 @@ def _shade(graphs: Graphs, viewport: Viewport, item: AnalysisObject) -> list[tup
     return [*top, *reversed(bottom)]
 
 
+def marked_points(graphs: Graphs) -> list[tuple[float, float]]:
+    """The points the kept results mark, as they are now (for Coordinates and Equations)."""
+    found = []
+    for item in graphs.objects:
+        outcome = result(graphs, item)
+        if outcome is not None and outcome.point is not None:
+            found.append(outcome.point)
+    return found
+
+
 def object_shapes(graphs: Graphs, viewport: Viewport) -> tuple[Shape, ...]:
     """The kept results, worked out from the functions as they are now."""
     window, width, height = viewport.window, viewport.width, viewport.height

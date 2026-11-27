@@ -5,16 +5,20 @@ from __future__ import annotations
 import ast
 import asyncio
 import contextlib
-import io
 import json
+import random
 import re
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.appearance import Appearance, appearance_dialog
+from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
 from cassim.app.saved import SavedDocuments
+from cassim.app.shell import BrowserOffers
 from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -32,6 +36,8 @@ from cassim.devices.pseudocode.ui.trace_grid import (
     Column,
     TraceGrid,
 )
+from cassim.doc.serialize import DocumentFileError
+from cassim.doc.share import LinkTooLongError, encode_text, unpack
 from cassim.runtime.pseudocode import (
     TRANSLATION_MARKER,
     PseudocodeError,
@@ -281,6 +287,7 @@ class CodeApp:
             said=lambda text: shell.notice("Saved", text),
             noun="program",
         )
+        shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -296,7 +303,9 @@ class CodeApp:
         self.code_style = "monospace"
         self.symbol_style = "unicode"
         self.console_inputs: list[str] = []
-        self.python_console_namespace: dict[str, object] = {"__name__": "cassim_console"}
+        # the Python Console's statements so far, run again before each line (sandboxed)
+        self.python_console_lines: list[str] = []
+        self.python_console_seed = random.randrange(2**31)
         self.language = "pseudocode"
         self.number_mode: NumberMode = "approx"
         self.angle_mode: AngleMode = "radian"
@@ -387,34 +396,21 @@ class CodeApp:
 
         self.number_button = ft.Button("Approx", on_click=self.cycle_number, style=_control_style())
         self.angle_button = ft.Button("Radian", on_click=self.toggle_angle, style=_control_style())
-        self.update_item = ft.MenuItemButton(
-            content=getattr(self.shell, "update_label", "Check for Updates"),
-            on_click=self.activate_update,
-        )
-        self.cassim_menu = ft.SubmenuButton(
-            content="CASSim",
-            controls=[
-                *(
-                    [ft.MenuItemButton(content="Home", on_click=self.home)]
-                    if getattr(self.shell, "home", None) is not None
-                    else []
-                ),
-                ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
-                ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
-                self.update_item,
-                ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
-                ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
-            ],
-        )
+        self.cassim_menu = ft.SubmenuButton(content="CASSim")
+        self.refresh_cassim_menu()
         examples = self.build_examples_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
+                ft.MenuItemButton(content="New", on_click=self.new_program),
                 ft.MenuItemButton(content="Open…", on_click=self.saved.open),
                 ft.MenuItemButton(content="Save", on_click=self.saved.save),
                 ft.MenuItemButton(content="Save as…", on_click=self.saved.save_as),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Import file…", on_click=self.import_file),
                 ft.MenuItemButton(content="Export file…", on_click=self.export_file),
+                ft.MenuItemButton(content="Share link…", on_click=self.open_share_link),
+                ft.Divider(height=1, thickness=1),
                 examples,
             ],
         )
@@ -605,7 +601,7 @@ class CodeApp:
             SYMBOL_FONT: "fonts/NotoSansSymbols2-Regular.ttf",
         }
         await self.load_editor_settings()
-        self.page.title = "CASSim-pseudocode"
+        self.page.title = f"{about.product_name()} Pseudocode & Python"
         self.page.padding = 8
         self.page.on_resize = self.on_resize
         self.page.on_keyboard_event = self.on_keyboard
@@ -619,6 +615,7 @@ class CodeApp:
             await self.start_codemirror()
         await self.saved.start()
         self.saved.fresh()  # the starting program has nothing to lose yet
+        self.open_route()
 
     def editor_text_style(self) -> ft.TextStyle:
         family = CODE_FONT if self.code_style == "monospace" else "sans-serif"
@@ -690,6 +687,7 @@ class CodeApp:
             if host:
                 host.remove()
         self.shell.changed = lambda: None
+        self.shell.has_unsaved = lambda: False
         self.page.on_keyboard_event = None
         self.page.on_resize = None
         self.page.controls.clear()
@@ -705,8 +703,30 @@ class CodeApp:
         return hasattr(js, "document")
 
     def on_bridge(self) -> None:
-        self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
-        _safe_update(self.update_item)
+        """The page reported a change (an update, installing, going offline)."""
+        self.refresh_cassim_menu()
+        _safe_update(self.cassim_menu)
+
+    @property
+    def offers(self) -> BrowserOffers:
+        return getattr(self.shell, "offers", None) or BrowserOffers()
+
+    def refresh_cassim_menu(self) -> None:
+        """The CASSim menu, shared with every app (SDD-15 section 4)."""
+        facts = AppMenu(home=getattr(self.shell, "home", None) is not None)
+        fill_cassim_menu(self.cassim_menu, self.offers, facts, self.cassim_action, self.theme)
+
+    def cassim_action(self, action: str) -> None:
+        """A CASSim menu item: this app's own, or one the shell does for every app."""
+        own: dict[str, Callable[[], object]] = {
+            "home": self.home,
+            "settings": self.open_settings,
+            "appearance": self.open_appearance,
+        }
+        if action in own:
+            own[action]()
+        else:
+            self.shell.menu_action(action, HELP_PAGE)
 
     @property
     def theme(self) -> Theme:
@@ -936,11 +956,15 @@ class CodeApp:
     # (FR-EDT-003).
 
     def _dump(self, _name: str) -> str:
-        """The program as it is stored: its language with its text (FR-EDT-002)."""
+        """The program as it is stored: its language and text (FR-EDT-002), and its number and
+        angle modes, which belong to the program (SDD-15 section 6)."""
         return json.dumps(
             {
                 "format": "cassim-code",
+                "device": "pseudocode",
                 "language": self.language,
+                "number": self.number_mode,
+                "angle": self.angle_mode,
                 "source": self.python_translation_source()
                 if self.language == "python"
                 else self.source(),
@@ -958,7 +982,54 @@ class CodeApp:
             msg = "it is not a saved CASSim program"
             raise ValueError(msg)
         self.set_language("python" if data.get("language") == "python" else "pseudocode")
+        number, angle = data.get("number"), data.get("angle")
+        self.set_modes(
+            cast(NumberMode, number) if number in ("approx", "auto", "exact") else "approx",
+            cast(AngleMode, angle) if angle in ("radian", "degree") else "radian",
+        )
         self.show_text(data["source"])
+
+    def set_modes(self, number: NumberMode, angle: AngleMode) -> None:
+        """Show the program's number and angle modes on the toolbar, their only place."""
+        self.number_mode, self.angle_mode = number, angle
+        self.number_button.content = number.title()
+        self.angle_button.content = angle.title()
+        _safe_update(self.number_button)
+        _safe_update(self.angle_button)
+
+    def new_program(self, _: object = None) -> None:
+        """Doc > New: a blank program, asking first if work would be lost (SDD-15 9.4)."""
+
+        def blank() -> None:
+            self.show_text("")
+            self.saved.fresh()
+
+        self.saved.ask_discard(blank)
+
+    def open_share_link(self, _: object = None) -> None:
+        """Doc > Share link…: the program in a link. Opening it never runs it (FR-RUN-004)."""
+        try:
+            url = self.shell.link(encode_text(self._dump(self.saved.name)))
+        except LinkTooLongError:
+            self.shell.notice(
+                "Share link",
+                "This program is too long for a link. Use Doc ▸ Export file… and share that.",
+            )
+            return
+        self.shell.share_link(url, "Anyone who opens this link gets this program, ready to run.")
+
+    def open_route(self) -> None:
+        """A share link opens its program, saved nowhere here until Save. It waits for Run."""
+        route = getattr(self.shell, "route", "") or ""
+        try:
+            text = unpack(route.lstrip("/"))
+            if text is None:
+                return
+            self._load_saved(text, "")
+        except (DocumentFileError, ValueError) as error:
+            self.shell.notice("Share link", f"The link could not be opened: {error}.")
+            return
+        self.saved.unsaved()
 
     def set_language(self, target: str) -> None:
         """Show `target` as the language without translating the text (a saved program names
@@ -998,6 +1069,7 @@ class CodeApp:
         await self.shell.save_file(f"{stem}.{extension}", self.source(), "Export code")
 
     def load_example(self, text: str) -> None:
+        """Doc > Examples: load one, asking first if work would be lost (SDD-15 section 9.4)."""
         try:
             source = (
                 pseudocode_to_python(text, self.settings()) if self.language == "python" else text
@@ -1005,11 +1077,15 @@ class CodeApp:
         except (PseudocodeError, SyntaxError, TranslationError) as error:
             self.shell.notice("Cannot load example", str(error))
             return
-        if self.language == "python":
-            self.set_generated_python(source)
-        else:
-            self.set_source(source)
-        self.saved.unsaved()  # an example is not the saved program any more
+
+        def load() -> None:
+            if self.language == "python":
+                self.set_generated_python(source)
+            else:
+                self.set_source(source)
+            self.saved.unsaved()  # an example is not the saved program any more
+
+        self.saved.ask_discard(load)
 
     @staticmethod
     def split_generated_python(source: str) -> tuple[str, str]:
@@ -1129,34 +1205,42 @@ class CodeApp:
                 _safe_update(self.run_button)
 
     def submit_python_console(self, text: str) -> str:
-        """Execute a Python console line or expression in a persistent namespace."""
+        """A Python Console line, run as Run runs a program: translated to pseudocode and run by
+        CASSim's own interpreter, never executed as Python, so it cannot reach the page, the
+        network, storage or the computer (SDD-15 section 9.5). Statements are kept and run again
+        before the next line, with the session's own random seed, so `x = 6` then `x + 1` gives
+        7; a bare expression is printed."""
+        stripped = text.strip()
         try:
-            parsed = ast.parse(text, mode="exec")
-            is_print_call = (
-                len(parsed.body) == 1
-                and isinstance(parsed.body[0], ast.Expr)
-                and isinstance(parsed.body[0].value, ast.Call)
-                and isinstance(parsed.body[0].value.func, ast.Name)
-                and parsed.body[0].value.func.id == "print"
-            )
-            if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr) and not is_print_call:
-                parsed = ast.Expression(parsed.body[0].value)
-                value = eval(
-                    compile(parsed, "<console>", "eval"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-                return str(value)
-            buffer = io.StringIO()
-            with contextlib.redirect_stdout(buffer):
-                exec(
-                    compile(parsed, "<console>", "exec"),
-                    {"__builtins__": __builtins__},
-                    self.python_console_namespace,
-                )
-            return buffer.getvalue().rstrip("\n")
-        except Exception as error:
-            return f"Error: {type(error).__name__}: {error}"
+            parsed = ast.parse(stripped, mode="exec")
+        except SyntaxError as error:
+            return f"Error: SyntaxError: {error.msg}"
+        body = parsed.body
+        call = body[0].value if len(body) == 1 and isinstance(body[0], ast.Expr) else None
+        is_print = (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Name)
+            and call.func.id == "print"
+        )
+        # A method call (lst.append(3)) changes what it is called on: a statement to keep
+        method = isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+        expression = call is not None and not is_print and not method
+        line = f"print({stripped})" if expression else stripped
+        settings = replace(self.settings(), seed=self.python_console_seed)
+        earlier = self.python_console_lines
+        try:
+            before = python_to_pseudocode("\n".join(earlier) + "\n") if earlier else ""
+            now = python_to_pseudocode("\n".join([*earlier, line]) + "\n")
+        except (SyntaxError, TranslationError) as error:
+            return f"Error: {error}"
+        shown = len(run(before, settings).output) if before else 0
+        result = run(now, settings)
+        output = list(result.output[shown:])
+        if result.error:
+            return "\n".join([*output, f"Error: {result.error}"])
+        if not expression and not is_print:
+            self.python_console_lines.append(stripped)  # a statement the next line can use
+        return "\n".join(output)
 
     def pseudocode_console_source(self, source: str, text: str) -> str:
         """Turn a console line into valid pseudocode in the selected language."""
@@ -2021,31 +2105,16 @@ window.CASSimTypingAids = function(editor, change) {
                 )
             )
 
-    def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def home(self, _: object = None) -> None:
         home = getattr(self.shell, "home", None)
         if home is not None:
             home()
 
-    def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def open_settings(self, _: object = None) -> None:
         def switch_changed(event: ft.Event[ft.Switch]) -> None:
             event.control.value = bool(event.control.value)
             _safe_update(event.control)
 
-        number = ft.SegmentedButton(
-            selected=[self.number_mode],
-            segments=[
-                ft.Segment(value="approx", label="Approx"),
-                ft.Segment(value="auto", label="Auto"),
-                ft.Segment(value="exact", label="Exact"),
-            ],
-        )
-        angle = ft.SegmentedButton(
-            selected=[self.angle_mode],
-            segments=[
-                ft.Segment(value="radian", label="Radian"),
-                ft.Segment(value="degree", label="Degree"),
-            ],
-        )
         line_numbers = ft.Switch(
             label="Line numbers",
             value=self.line_numbers_visible,
@@ -2079,8 +2148,6 @@ window.CASSimTypingAids = function(editor, change) {
         )
 
         def save(_: ft.Event[ft.TextButton]) -> None:
-            self.number_mode = cast(NumberMode, number.selected[0])
-            self.angle_mode = cast(AngleMode, angle.selected[0])
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
             self.code_style = str(code_style.value or "monospace")
@@ -2093,10 +2160,6 @@ window.CASSimTypingAids = function(editor, change) {
                     self.set_source(new_source)
                     self.typing_undo = (new_source, old_source)
             self.symbol_style = new_symbol_style
-            self.number_button.content = self.number_mode.title()
-            self.angle_button.content = self.angle_mode.title()
-            _safe_update(self.number_button)
-            _safe_update(self.angle_button)
             if self.cm is not None:
                 self.cm.setOption("lineNumbers", self.line_numbers_visible)
                 self.cm.refresh()
@@ -2114,10 +2177,6 @@ window.CASSimTypingAids = function(editor, change) {
                 title=ft.Text("Settings"),
                 content=ft.Column(
                     [
-                        ft.Text("Number mode"),
-                        number,
-                        ft.Text("Angle"),
-                        angle,
                         code_style,
                         symbol_style,
                         ft.Divider(),
@@ -2137,13 +2196,13 @@ window.CASSimTypingAids = function(editor, change) {
                     spacing=8,
                 ),
                 actions=[
-                    ft.TextButton("Save", on_click=save),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Save", on_click=save),
                 ],
             )
         )
 
-    def open_appearance(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def open_appearance(self, _: object = None) -> None:
         """CASSim > Appearance…: the theme shared with Home and every app (SDD-15 section 7.3)."""
 
         def save(appearance: Appearance) -> None:
@@ -2151,15 +2210,6 @@ window.CASSimTypingAids = function(editor, change) {
             self.apply_theme()
 
         appearance_dialog(self.page, self.shell.appearance, save, on_preview=self.apply_theme)
-
-    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.activate_update()
-
-    def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.help(HELP_PAGE)
-
-    def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.about()
 
 
 def mount(shell: Shell) -> CodeApp:

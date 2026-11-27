@@ -132,3 +132,13 @@ def test_bad_window_values_are_refused(text: str) -> None:
 def test_small_values_use_the_exponent_marker() -> None:
     assert window_text(1.5e-7) == "1.5ᴇ-07"
     assert window_text(-math.pi) == "-π"
+
+
+def test_zoom_fit_covers_every_graph_over_the_window() -> None:
+    """Emulator run 7, R7-B4: x², 2·sin(x) and x+1 on x 0 to 10 give y about -12.2008 to
+    110.2088, x kept."""
+    window = Window(0, 10, -1.6666666666667, 5)
+    fitted = zoom_fit(window, [lambda x: x * x, lambda x: 2 * math.sin(x), lambda x: x + 1], 318)
+    assert (fitted.x_min, fitted.x_max) == (0, 10)
+    assert fitted.y_min == pytest.approx(-12.2007997411759, abs=0.01)
+    assert fitted.y_max == pytest.approx(110.208827088125, abs=0.01)

@@ -68,6 +68,14 @@ class GraphCompileOp(TypedDict):
     expression: str
 
 
+class GraphCalcOp(TypedDict):
+    """Graphs ▸ Actions ▸ Calculate on text object `index`: `line` worked out in the Problem."""
+
+    op: Literal["graph_calc"]
+    index: int
+    line: str
+
+
 type SheetAction = Literal[
     "cell",
     "formula",
@@ -98,7 +106,9 @@ class SheetOp(TypedDict):
     args: dict[str, object]
 
 
-type Op = NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | GraphCompileOp | SheetOp
+type Op = (
+    NewProblemOp | SettingsOp | StoreOp | AnsOp | EvalOp | GraphCompileOp | GraphCalcOp | SheetOp
+)
 
 # What each sheet action takes. "span" is [left, top, right, bottom] (columns from 0, rows from
 # 1); "choose" maps a name to "cell" or "variable" (Conflict Detected).
@@ -270,6 +280,11 @@ class GraphCompileReply(TypedDict):
     error: str | None
 
 
+class GraphCalcReply(TypedDict):
+    index: int
+    text: str | None  # None when the text does not work out
+
+
 class Reply(TypedDict):
     result: ResultPayload | None  # the last `eval`'s result
     full: bool  # `changed` is every variable: replace, do not merge
@@ -277,6 +292,7 @@ class Reply(TypedDict):
     deleted: list[str]  # names deleted since the last reply
     sheets: NotRequired[list[SheetReply]]  # the sheets that changed or were asked about
     graph_compiles: NotRequired[list[GraphCompileReply]]
+    graph_calcs: NotRequired[list[GraphCalcReply]]
 
 
 class EngineError(RuntimeError):
@@ -332,10 +348,23 @@ def check_op(raw: object) -> Op:
             "line": _text(raw.get("line"), "the entry"),
             "approximate": approximate,
         }
-    if name in {"graph_compile", "sheet"}:
-        return _check_graph_compile_op(raw) if name == "graph_compile" else _check_sheet_op(raw)
+    checks = {
+        "graph_compile": _check_graph_compile_op,
+        "graph_calc": _check_graph_calc_op,
+        "sheet": _check_sheet_op,
+    }
+    if name in checks:
+        return checks[name](raw)
     msg = f"unknown engine op {name!r}"
     raise EngineError(msg)
+
+
+def _check_graph_calc_op(raw: dict[str, object]) -> GraphCalcOp:
+    index = raw.get("index")
+    if not isinstance(index, int) or isinstance(index, bool) or index < 0:
+        msg = "graph_calc needs a text object index"
+        raise EngineError(msg)
+    return {"op": "graph_calc", "index": index, "line": _text(raw.get("line"), "the text")}
 
 
 def _check_graph_compile_op(raw: dict[str, object]) -> GraphCompileOp:
@@ -415,6 +444,18 @@ def check_reply(raw: object) -> Reply:
             msg = f"not graph compile replies: {str(graph_compiles)[:80]}"
             raise EngineError(msg)
         checked["graph_compiles"] = graph_compiles
+    if "graph_calcs" in raw:
+        graph_calcs = raw["graph_calcs"]
+        if not isinstance(graph_calcs, list) or not all(
+            isinstance(item, dict)
+            and set(item) == {"index", "text"}
+            and isinstance(item["index"], int)
+            and (item["text"] is None or isinstance(item["text"], str))
+            for item in graph_calcs
+        ):
+            msg = f"not graph calculate replies: {str(graph_calcs)[:80]}"
+            raise EngineError(msg)
+        checked["graph_calcs"] = graph_calcs
     return checked
 
 
@@ -428,6 +469,16 @@ def eval_op(line: str, *, approximate: bool) -> EvalOp:
 
 def graph_compile_op(name: str, expression: str) -> GraphCompileOp:
     return {"op": "graph_compile", "name": name, "expression": expression}
+
+
+def graph_calc_op(index: int, line: str) -> GraphCalcOp:
+    return {"op": "graph_calc", "index": index, "line": line}
+
+
+def graph_calc(session: Session, index: int, line: str) -> GraphCalcReply:
+    """Text object `index`'s `line` worked out without changing Ans (R7-B10: `12` gives 12)."""
+    done = session.preview(line)
+    return {"index": index, "text": done.text if done.error is None else None}
 
 
 def store_op(numbers: dict[str, float]) -> StoreOp:
@@ -476,6 +527,21 @@ def _compile_graph(session: Session, name: str, expression: str) -> GraphCompile
 # ---- the engine side ----------------------------------------------------------------------------
 
 
+def _add_replies(
+    reply: Reply,
+    sheets: dict[int, SheetReply],
+    graph_compiles: list[GraphCompileReply],
+    graph_calcs: list[GraphCalcReply],
+) -> None:
+    """Put the pages' own replies in `reply`, those there are."""
+    if sheets:
+        reply["sheets"] = [sheets[page] for page in sorted(sheets)]
+    if graph_compiles:
+        reply["graph_compiles"] = graph_compiles
+    if graph_calcs:
+        reply["graph_calcs"] = graph_calcs
+
+
 class EngineCore:
     """One Session per Problem id, driven by ops. Pure Python, no UI and no transport."""
 
@@ -497,6 +563,7 @@ class EngineCore:
         result: ResultPayload | None = None
         sheet_replies: dict[int, SheetReply] = {}
         graph_compiles: list[GraphCompileReply] = []
+        graph_calcs: list[GraphCalcReply] = []
         for op in checked:
             settings = session.settings
             match op["op"]:
@@ -519,6 +586,8 @@ class EngineCore:
                     }
                 case "graph_compile":
                     graph_compiles.append(_compile_graph(session, op["name"], op["expression"]))
+                case "graph_calc":
+                    graph_calcs.append(graph_calc(session, op["index"], op["line"]))
                 case "sheet":
                     self._sheets_of(problem, session).run(op, sheet_replies)
             if problem in self.sheets:
@@ -547,10 +616,7 @@ class EngineCore:
             ],
             "deleted": [] if full else sorted(names - present),
         }
-        if sheet_replies:
-            reply["sheets"] = [sheet_replies[page] for page in sorted(sheet_replies)]
-        if graph_compiles:
-            reply["graph_compiles"] = graph_compiles
+        _add_replies(reply, sheet_replies, graph_compiles, graph_calcs)
         return reply
 
     def _sheets_of(self, problem: int, session: Session) -> ProblemSheets:
@@ -674,6 +740,7 @@ class RemoteSession:
         # Sheet replies by page id, until the page takes them (`cassim.device.sheet_link`)
         self.sheet_inbox: dict[int, list[SheetReply]] = {}
         self.graph_inbox: dict[str, list[GraphCompileReply]] = {}
+        self.graph_calc_inbox: list[GraphCalcReply] = []  # until the Graphs page takes them
         if self._settings != Settings():
             self.outbox.append(settings_op(self._settings))
 
@@ -735,6 +802,7 @@ class RemoteSession:
             self.sheet_inbox.setdefault(sheet["page"], []).append(sheet)
         for graph in reply.get("graph_compiles", []):
             self.graph_inbox.setdefault(graph["name"], []).append(graph)
+        self.graph_calc_inbox.extend(reply.get("graph_calcs", []))
 
     def compact(self, page: int, restore: SheetOp) -> None:
         """Keep one op for a sheet in the journal: `restore` with its contents now, where its
@@ -753,4 +821,5 @@ class RemoteSession:
 
 
 def _is_view(op: Op) -> bool:
-    return op["op"] == "sheet" and op["action"] == "view"
+    """An op that changes nothing the engine keeps, so a replay leaves it out."""
+    return (op["op"] == "sheet" and op["action"] == "view") or op["op"] == "graph_calc"

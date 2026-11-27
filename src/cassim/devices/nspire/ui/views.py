@@ -364,7 +364,7 @@ STATUS_FIELDS = ("angle", "calc", "domain")  # the order of the words in the sta
 
 STUB_NOTICE = "This page type is not built yet. CASSim has the Calculator page so far."
 STUB_HELP = (
-    "Doc > Insert adds a Calculator page; Doc > Page Layout > Delete Page removes this one; "
+    "Doc ▸ Insert adds a Calculator page; Doc ▸ Page layout ▸ Delete page removes this one; "
     "undo takes it away again."
 )
 
@@ -457,7 +457,7 @@ class CalculatorView:
             self.title,
             on_click=lambda _: self.on_action("dialog", SORTER),
             ink=True,
-            tooltip="Page Sorter",
+            tooltip="Page sorter",
         )
         title_bar = ft.Container(
             ft.Row(
@@ -1446,6 +1446,10 @@ class CalculatorView:
             ),
             label_text(row.label, size=px(12), color=colour, expand=True, no_wrap=True),
         ]
+        if any(other.mark for other in panel.rows) or any(
+            other.label.startswith(("✓", "●")) for other in panel.rows
+        ):
+            parts.insert(1, label_text(row.mark, size=px(11), color=colour, width=px(10)))
         if wide and row.hint:
             hint_colour = colour if on else theme.menu_hint
             parts.append(ft.Text(row.hint, size=px(11), color=hint_colour, no_wrap=True))
@@ -1458,6 +1462,7 @@ class CalculatorView:
             height=px(LIST_ROW_H),  # fixed, so a pointer click can find the row
             alignment=ft.Alignment.CENTER_LEFT,
             border_radius=px(3),
+            border=ft.Border(top=ft.BorderSide(1, theme.menu_disabled)) if row.rule else None,
             tooltip=row.hint or None,
             ink=True,
             on_click=lambda _: self.on_action("menu_pick", f"{depth}:{index}"),
@@ -1588,7 +1593,7 @@ def settings_dialog(
 
     page.show_dialog(
         ft.AlertDialog(
-            title=ft.Text("Document Settings"),
+            title=ft.Text("Document settings"),
             content=ft.Column(controls, tight=True, spacing=12),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
@@ -1604,8 +1609,9 @@ def system_settings_dialog(
     on_change: Callable[[], None],
     theme: Theme = DARK,
     on_appearance: Callable[[], None] | None = None,
-) -> None:
-    """System Settings: the view the app starts in and the size of the maths."""
+) -> ft.AlertDialog:
+    """System Settings: the view the app starts in and the size of the maths. Titled
+    "Settings"; the caller retitles it after the item that opened it (SDD-15 section 9.2)."""
     system = state.system
     start = ft.Dropdown(
         label="Start in",
@@ -1647,29 +1653,29 @@ def system_settings_dialog(
         page.pop_dialog()
         on_change()
 
-    page.show_dialog(
-        ft.AlertDialog(
-            title=ft.Text("System Settings"),
-            content=ft.Column(
-                [
-                    start,
-                    size,
-                    zoom_row,
-                    letters,
-                    column_controls,
-                    ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
-                    if on_appearance is not None
-                    else ft.Container(),
-                ],
-                tight=True,
-                spacing=12,
-            ),
-            actions=[
-                ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                ft.TextButton("OK", on_click=apply),
+    dialog = ft.AlertDialog(
+        title=ft.Text("Settings"),
+        content=ft.Column(
+            [
+                start,
+                size,
+                zoom_row,
+                letters,
+                column_controls,
+                ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
+                if on_appearance is not None
+                else ft.Container(),
             ],
-        )
+            tight=True,
+            spacing=12,
+        ),
+        actions=[
+            ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+            ft.TextButton("OK", on_click=apply),
+        ],
     )
+    page.show_dialog(dialog)
+    return dialog
 
 
 def selected_index(panel: Panel) -> int:

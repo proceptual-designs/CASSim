@@ -2,8 +2,9 @@
 
 Decimals have ten significant digits. Norm 1 switches to ×10ⁿ below 0.01, Norm 2 below 10⁻⁹, and
 both at 10¹⁰ and above; Fix n shows n decimal places; Sci n shows n significant digits (Sci 0 is
-ten). Exact answers are fractions, mixed numbers, surds and multiples of π while they fit in ten
-digits; otherwise the decimal is shown. Pure Python: no Flet.
+ten). Exact answers are fractions and mixed numbers while they fit in ten digits; otherwise the
+decimal is shown. Surds and multiples of π are shown exactly only with the `surds` extra on (the
+four calculators behind the keys show them as decimals). Pure Python: no Flet.
 """
 
 from __future__ import annotations
@@ -31,13 +32,16 @@ class Setup:
     """The SETUP settings, with the device's defaults."""
 
     input: Literal["math", "line"] = "math"  # MthIO or LineIO
-    output: Literal["math", "line"] = "math"  # MathO or LineO (LineIO always shows LineO)
+    output: Literal["math", "line"] = "line"  # MathO or LineO (LineIO always shows LineO)
     angle: AngleUnit = "DEG"
     disp: Literal["Norm", "Fix", "Sci", "Eng"] = "Norm"  # Eng: the EL-531's ENG display mode
     digits: int = 1  # Norm 1 or 2, Fix 0-9, Sci 0-9, Eng 0-9 (decimal places)
     fraction: Literal["d/c", "ab/c"] = "d/c"
     frequency: bool = False
     comma: bool = False  # Disp: a decimal comma in answers (a dot is always typed)
+    # CASSim's own extra, off by default: exact surds and multiples of π in MathO, as the
+    # fx-8200 AU, fx-991ES PLUS, HP 300s+ and TI MultiView models give (decision 0041)
+    surds: bool = False
 
     @property
     def natural_output(self) -> bool:
@@ -53,6 +57,7 @@ class Setup:
             "fraction": self.fraction,
             "frequency": self.frequency,
             "comma": self.comma,
+            "surds": self.surds,
         }
 
     @classmethod
@@ -77,6 +82,7 @@ class Setup:
             setup.fraction = data["fraction"]
         setup.frequency = data.get("frequency") is True
         setup.comma = data.get("comma") is True
+        setup.surds = data.get("surds") is True
         return setup
 
 
@@ -202,7 +208,7 @@ def fraction(q: Fraction, setup: Setup, *, mixed: bool) -> Seq | None:  # noqa: 
             return None
         return (Text(f"{sign}{a.numerator}"),)
     whole, rest = divmod(a.numerator, a.denominator)
-    natural = setup.natural_output
+    natural = setup.input == "math"  # MthIO draws fractions stacked, in MathO and LineO alike
     if mixed and whole:
         if _ndigits(whole, rest, a.denominator) > MAX_EXACT_DIGITS:
             return None
@@ -261,8 +267,8 @@ def exact(value: Number, setup: Setup, *, mixed: bool) -> Seq | None:
         q = value.rational
         if q is not None:
             return fraction(q, setup, mixed=mixed)
-        if not setup.natural_output:
-            return None
+        if not (setup.natural_output and setup.surds):
+            return None  # the four calculators show surds and π as decimals
         return surd(value)
     q = v.recognise_fraction(value)
     return None if q is None else fraction(q, setup, mixed=mixed)

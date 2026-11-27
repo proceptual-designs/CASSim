@@ -301,6 +301,9 @@ def finish(raw: Raw, settings: Settings) -> Raw:
     """
     if isinstance(raw, sp.And | sp.Or):
         return raw.func(*(finish(arg, settings) for arg in raw.args))
+    if isinstance(raw, sp.Eq) and raw.rhs.is_number and not raw.rhs.has(sp.zoo, sp.nan):
+        # `t=-150·ln(40/59)` is `t=150·ln(59/40)` (emulator run 7, R7-A8)
+        return sp.Eq(raw.lhs, finish(raw.rhs, settings), evaluate=False)
     if raw.has(sp.zoo, sp.nan):
         return sp.nan
     if _is_decimal_result(raw, settings):
@@ -314,13 +317,48 @@ def finish(raw: Raw, settings: Settings) -> Raw:
 
 def _simplest_number(raw: Raw) -> Raw:
     """A number multiplied out. The logarithm of a fraction stays whole, `ln(9/2)/8` (emulator
-    run 6, R6-B5), where `ln(4)` is `2*ln(2)`; a fraction below 1 is turned over, `-ln(2)`."""
+    run 6, R6-B5), where `ln(4)` is `2*ln(2)`; a fraction below 1 is turned over, `-ln(2)`; and
+    logarithms of fractions in a sum are one: `ln(3)/4-ln(2)/8` is `ln(9/2)/8` (run 7, R7-A8)."""
+    raw = _logs_combined(raw)
     fractions = [log for log in raw.atoms(sp.log) if log.args[0].is_Rational]
     fractions = [log for log in fractions if not log.args[0].is_Integer]
     if not fractions:
         return sp.expand(raw)
     turned = {log: -sp.log(1 / log.args[0]) for log in fractions if log.args[0] < 1}
     return sp.expand(raw.xreplace(turned), log=False)
+
+
+_MAX_COMBINED_LOG_BITS = 4096  # the combined argument's rough size in bits
+
+
+def _logs_combined(raw: Raw) -> Raw:
+    """`a·ln(p)+b·ln(q)` with rational a, b, p and q as `ln(p^(a·d)·q^(b·d))/d`, d the least common
+    denominator of a and b. Other terms stay as they are."""
+    if not isinstance(raw, sp.Add):
+        return raw
+    logs: list[tuple[Raw, Raw]] = []
+    rest: list[Raw] = []
+    for term in sp.Add.make_args(sp.expand(raw)):
+        coefficient, factor = term.as_coeff_Mul()
+        if isinstance(factor, sp.log) and factor.args[0].is_Rational and coefficient.is_Rational:
+            logs.append((coefficient, factor.args[0]))
+        else:
+            rest.append(term)
+    if len(logs) < 2:  # noqa: PLR2004 (one logarithm has nothing to combine with)
+        return raw
+    denominator = math.lcm(*(int(c.q) for c, _ in logs))
+    size = sum(
+        abs(c * denominator) * (int(q.p).bit_length() + int(q.q).bit_length()) for c, q in logs
+    )
+    if size > _MAX_COMBINED_LOG_BITS:  # ln(2)/1000003+ln(3)/999983 would build a huge power
+        return raw
+    argument = sp.Mul(*(q ** (c * denominator) for c, q in logs))
+    if argument == 1:
+        return sp.Add(*rest)
+    combined = sp.log(argument, evaluate=False) / denominator
+    if argument < 1:
+        combined = -sp.log(1 / argument, evaluate=False) / denominator
+    return sp.Add(combined, *rest)
 
 
 _INVERSE_FUNCTIONS = (sp.asin, sp.acos, sp.acot, sp.asec, sp.acsc, sp.asinh, sp.acosh, sp.atanh)
@@ -1003,6 +1041,24 @@ def expand(raw: Raw, variable: Raw | None = None) -> Raw:
     return sp.expand(raw)
 
 
+def expand_each(raw: Raw) -> tuple[Raw, bool]:
+    """`expand` with no variable: each term of the expansion whose numerator has as high a degree
+    as its denominator in some variable is divided out in it, `x²/(b·x+c)` becoming
+    `x/b-c/b²+c²/(b²·(b·x+c))` (emulator run 7, R7-A4); and whether any term was."""
+    expanded = sp.expand(raw)
+    terms: list[Raw] = []
+    divided_any = False
+    for term in sp.Add.make_args(expanded):
+        done = None
+        for variable in sorted(term.free_symbols, key=str, reverse=True):
+            done = _divided_out(term, variable)
+            if done is not None:
+                break
+        divided_any = divided_any or done is not None
+        terms.append(done if done is not None else term)
+    return sp.Add(*terms), divided_any
+
+
 def _divided_out(raw: Raw, variable: Raw) -> Raw | None:
     """The polynomial part of a quotient and the rest over the denominator; None unless the
     numerator's degree in `variable` is at least the denominator's."""
@@ -1307,10 +1363,20 @@ def _family(found: Raw, variable: Raw) -> Raw | None:
     if families is None:
         return None
     counter = fresh_integer()
+    merged = _merged(families)
+    if len(merged) < len(families):
+        # Families the device joined itself are written its own way: `x=(2·n1-1)·π/2` for
+        # cos(x)=0 (emulator run 7, R7-A5), `x=n1·π` for sin(x)=0.
+        return sp.Or(
+            *[
+                sp.Eq(variable, _family_text(offset, step, counter), evaluate=False)
+                for offset, step in merged
+            ]
+        )
     return sp.Or(
         *[
             sp.Eq(variable, sp.expand(offset + step * counter), evaluate=False)
-            for offset, step in _merged(families)
+            for offset, step in merged
         ]
     )
 
@@ -1550,6 +1616,83 @@ def polynomial_value(coefficients: list[Raw], point: Raw) -> Raw:
 
 def substitute(raw: Raw, variable: Raw, value: Raw) -> Raw:
     return raw.subs(variable, value)
+
+
+def _polynomial_denominator(term: Raw) -> tuple[Raw, Raw]:
+    """A term as (numerator, denominator) with only the denominator's polynomial factors kept
+    below: `x·ⅇ^(-x)` has no denominator here, `(x+1)/(x-1)²` has `(x-1)²`."""
+    numerator, denominator = sp.fraction(term)
+    symbols = term.free_symbols
+    kept, moved = [], []
+    for factor in sp.Mul.make_args(denominator):
+        base, _ = factor.as_base_exp()
+        if symbols and base.free_symbols and factor.is_polynomial(*symbols):
+            kept.append(factor)
+        else:
+            moved.append(factor)
+    return numerator / sp.Mul(*moved), sp.Mul(*kept)
+
+
+def widens_domain(raw: Raw) -> bool:
+    """Whether putting `raw` over one denominator cancels a factor in a variable, which is when
+    the device warns that the result's domain may be larger than the input's. The device appears
+    to combine fractions over the product of their denominators: `(x²-1)/(x-1)` cancels `x-1`,
+    and `d/dx((x+1)/(x-1))`, which is `1/(x-1)-(x+1)/(x-1)²`, cancels `x-1` over `(x-1)³`;
+    `d/dx(ln(x²-1))`, `d/dx(x·ⅇ^(-x))` and `d/dx(√(x²+1))` cancel nothing and show no warning
+    (emulator check 6, runs 5 to 7)."""
+    if not isinstance(raw, sp.Expr) or not raw.free_symbols:
+        return False
+    parts = [_polynomial_denominator(term) for term in sp.Add.make_args(raw)]
+    product = sp.Mul(*(denominator for _, denominator in parts))
+    if not product.free_symbols:
+        return False
+    numerator = sp.Add(*(top * sp.cancel(product / bottom) for top, bottom in parts))
+    try:
+        common = sp.gcd(sp.expand(numerator), sp.expand(product))
+    except sp.PolynomialError:
+        return False
+    return bool(common.free_symbols)
+
+
+def derivative_widens_domain(expression: Raw, variable: Raw, order: int) -> bool:
+    """`widens_domain` for the derivative as the product and quotient rules give it."""
+    try:
+        derived = sp.diff(expression, variable, order)
+    except ValueError, TypeError:
+        return False
+    if derived.has(sp.Derivative, AppliedUndef, sp.Piecewise) or isinstance(derived, Boolean):
+        return False
+    return widens_domain(derived)
+
+
+def is_simple_constraint(raw: Raw) -> bool:
+    """A condition the device uses as it is: a variable compared with a constant, or a chain or
+    conjunction of those (`0<x<5`). `x<h/2` is not (emulator run 7, R7-A1d)."""
+    if isinstance(raw, sp.And):
+        return all(is_simple_constraint(part) for part in raw.args)
+    if not isinstance(raw, sp.core.relational.Relational):
+        return True
+    sides = (raw.lhs, raw.rhs)
+    return (
+        any(isinstance(side, sp.Symbol) for side in sides)
+        and sum(bool(side.free_symbols) for side in sides) == 1
+    )
+
+
+def cancel_quotient(raw: Raw) -> Raw | None:
+    """A typed quotient of polynomials with a common factor, cancelled: `(x²-1)/(x-1)` is `x+1`
+    (emulator run 5, H9h); None if there is nothing to cancel."""
+    if not isinstance(raw, sp.Mul | sp.Pow):
+        return None
+    symbols = raw.free_symbols
+    numerator, denominator = sp.fraction(raw)
+    if not (symbols and denominator.free_symbols):
+        return None
+    if not (numerator.is_polynomial(*symbols) and denominator.is_polynomial(*symbols)):
+        return None
+    if not sp.gcd(numerator, denominator).free_symbols:
+        return None
+    return sp.cancel(raw)
 
 
 def differentiate(expression: Raw, variable: Raw, order: int) -> Raw:
@@ -2012,6 +2155,9 @@ def _extremum_family(expression: Raw, variable: Raw, *, maximum: bool) -> Raw | 
     offset is in (-step, 0]; when minima and maxima alternate along the family, `(-1)^n>0` keeps
     the even members. None if the critical points are not one family (TI then gives a decimal,
     as `fMin(sin(x/2)+cos(2·x),x)` is `x=-1.65576`, run 5 K4)."""
+    single = _single_trig_extremum(expression, variable, maximum=maximum)
+    if single is not None:
+        return single
     found = _critical_family(expression, variable)
     if found is None:
         return None
@@ -2027,13 +2173,50 @@ def _extremum_family(expression: Raw, variable: Raw, *, maximum: bool) -> Raw | 
     return sp.And(point, sp.Gt(parity, 0) if even else sp.Lt(parity, 0))
 
 
+def _single_trig_extremum(expression: Raw, variable: Raw, *, maximum: bool) -> Raw | None:
+    """fMax and fMin of an expression in one sine or cosine, solved as f = its greatest or least
+    value: `fMax(sin(x),x)` is `x=(4·n1+1)·π/2`, `fMin(sin(x),x)` is `x=(4·n1-1)·π/2`,
+    `fMax(cos(x),x)` is `x=2·n1·π` and `fMin(cos(x)²,x)` gives `(2·n1-1)·π/2` (emulator run 7,
+    R7-A5 and R7-A10), with no `(-1)^n` condition. A sum such as sin(x)+cos(x) keeps the family
+    of f'=0 with its condition (run 6, R6-B3). None for anything else."""
+    trig = [a for a in expression.atoms(sp.sin, sp.cos) if a.has(variable)]
+    if len(trig) != 1 or expression.atoms(sp.tan, sp.cot, sp.sec, sp.csc):
+        return None
+    families = _families_where_extreme(expression, variable, maximum=maximum) or []
+    merged = _merged(families) if families else []
+    if len(merged) != 1:
+        return None
+    offset, step = merged[0]
+    counter = fresh_integer()
+    if len(merged) < len(families):
+        return sp.Eq(variable, _family_text(offset, step, counter), evaluate=False)
+    principal = sp.simplify(offset % step)
+    if sp.simplify(principal - step / 2).is_positive:
+        principal = sp.simplify(principal - step)  # the offset nearest 0: π/2, -π/2
+    return sp.Eq(variable, sp.factor(principal + step * counter), evaluate=False)
+
+
+def _families_where_extreme(
+    expression: Raw, variable: Raw, *, maximum: bool
+) -> list[tuple[Raw, Raw]] | None:
+    """The families of x where `expression` takes its greatest (or least) value, if finite."""
+    try:
+        bound = (sp.maximum if maximum else sp.minimum)(expression, variable, sp.S.Reals)
+        if not bound.is_finite:
+            return None
+        found = sp.solveset(sp.expand(expression - bound), variable, sp.S.Reals)
+    except NotImplementedError, ValueError, TypeError:
+        return None
+    return _family_pieces(found)
+
+
 def _domain_ends(
     expression: Raw, variable: Raw, domain: Raw
-) -> tuple[list[Raw], list[float]] | None:
-    """The closed ends of the domain, and what the expression approaches at its unbounded ends;
-    None if the domain is not intervals or the expression oscillates at an end."""
+) -> tuple[list[Raw], list[tuple[Raw, float]]] | None:
+    """The closed ends of the domain, and each unbounded end with what the expression approaches
+    there; None if the domain is not intervals or the expression oscillates at an end."""
     closed: list[Raw] = []
-    reaches: list[float] = []
+    reaches: list[tuple[Raw, float]] = []
     for piece in domain.args if isinstance(domain, sp.Union) else (domain,):
         if not isinstance(piece, sp.Interval):
             return None
@@ -2044,7 +2227,7 @@ def _domain_ends(
                 reach = sp.limit(expression, variable, end)
                 if reach.has(sp.AccumBounds):  # it oscillates, so there may be no extremum
                     return None
-                reaches.append(float(reach.evalf()))
+                reaches.append((end, float(reach.evalf())))
     return closed, reaches
 
 
@@ -2071,15 +2254,31 @@ def extremum(
     ends = _domain_ends(expression, variable, domain)
     if ends is None:
         return None
-    closed, reaches = ends
-    candidates = [*critical, *closed]
+    return _best_of(expression, variable, [*critical, *ends[0]], ends[1], maximum=maximum)
+
+
+def _best_of(
+    expression: Raw,
+    variable: Raw,
+    candidates: list[Raw],
+    reaches: list[tuple[Raw, float]],
+    *,
+    maximum: bool,
+) -> Raw | None:
+    """The candidate where `expression` is most extreme, or the unbounded ends it grows without
+    bound towards: `fMin(x^3,x)` is `x=-∞` (emulator run 7, R7-A6). None when a value is only
+    approached, never reached."""
+    unbounded = math.inf if maximum else -math.inf
+    endless = [end for end, value in reaches if value == unbounded]
+    if endless:
+        return sp.Or(*(sp.Eq(variable, end, evaluate=False) for end in endless))
     if not candidates:
         return None
     values = {c: float(expression.subs(variable, c).evalf()) for c in candidates}
     pick = max if maximum else min
     best = pick(candidates, key=values.__getitem__)
-    # A value approached but never reached beats every candidate if it is more extreme.
-    if reaches and pick([values[best], *reaches]) != values[best]:
+    approached = [value for _, value in reaches]
+    if approached and pick([values[best], *approached]) != values[best]:
         return None
     return sp.Eq(variable, best, evaluate=False)
 
@@ -2197,9 +2396,17 @@ def collect_trig(raw: Raw) -> Raw:
     squares is multiplied out first when that ends shorter: the dot product of
     `[5cos(t)-4cos(5t/2), 5sin(t)-4sin(5t/2)]` with itself is `41-40·cos(3·t/2)` (emulator run 6,
     R6-B7)."""
+    return collect_trig_with_note(raw)[0]
+
+
+def collect_trig_with_note(raw: Raw) -> tuple[Raw, bool]:
+    """`collect_trig`, and whether the sum was multiplied out first, when the device warns that
+    the domain may be larger (emulator run 7, R7-A1b)."""
     collected = sp.fu(raw)
     expanded = sp.fu(sp.expand(raw))
-    return expanded if sp.count_ops(expanded) < sp.count_ops(collected) else collected
+    if sp.count_ops(expanded) < sp.count_ops(collected):
+        return expanded, True
+    return collected, False
 
 
 def _eigen_key(value: Raw) -> tuple[float, float]:

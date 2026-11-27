@@ -138,16 +138,21 @@ def test_mode_menu_lists_only_the_layouts_modes() -> None:
     state.press(k.AC)
     sx = layout_state(L.SX2)
     sx.press(k.MODE)
-    assert sx.display().options == ("1:COMP", "2:STAT", "3:VERIFY")
+    assert sx.display().options == ("1:COMP", "2:STAT", "3:VERIF")
     state.use_layout(L.FX82.modes, linear=False)
     assert state.setup.input == "math"
     state.press(k.MODE)
-    assert len(state.display().options) == 4
+    assert state.display().options == ("1:COMP", "2:STAT", "3:VERIF")  # emulator check 1
+    state.press(k.AC)
+    state.use_layout(L.modes_for(L.FX82, table=True), linear=False)
+    state.press(k.MODE)
+    assert state.display().options[-1] == "4:TABLE"  # the extra, last
+    assert L.modes_for(L.HP10S, table=True) == L.HP10S.modes  # only the natural displays
 
 
 def test_leaving_a_mode_the_layout_lacks() -> None:
-    state = ScientificState()
-    for key in (k.MODE, "3"):
+    state = ScientificState(allowed_modes=("COMP", "STAT", "VERIFY", "TABLE"))
+    for key in (k.MODE, "4"):
         state.press(key)
     assert state.mode == "TABLE"
     state.use_layout(L.SX2.modes, linear=False)
@@ -295,7 +300,7 @@ def test_sx2_hyp_menu_verify_order_and_norm2() -> None:
     assert keys_on(L.SX2).setup.digits == 2
     verify = keys_on(L.SX2, k.MODE, "3", k.SHIFT, "6")
     assert verify.display().options[3] == "4:<"
-    casio = keys_on(L.FX82, k.MODE, "4", k.SHIFT, "6")
+    casio = keys_on(L.FX82, k.MODE, "3", k.SHIFT, "6")
     assert casio.display().options[3] == "4:≥"
 
 

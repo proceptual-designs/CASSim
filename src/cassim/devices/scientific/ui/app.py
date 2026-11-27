@@ -16,9 +16,12 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.appearance import Appearance, AppearanceDialog, appearance_dialog
+from cassim.app.cassim_menu import AppMenu, Panel, fill_cassim_menu
 from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
+from cassim.app.shell import BrowserOffers
 from cassim.app.theme import DEFAULT_THEME
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
@@ -38,6 +41,8 @@ from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
 from cassim.devices.scientific.ui.skins import SKINS, Skin, skin_for
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from cassim.app.shell import Shell
     from cassim.app.theme import Theme
 
@@ -133,6 +138,9 @@ class ScientificApp:
             noun="calculation",
         )
         self.key_controls: dict[str, ft.Container] = {}
+        self.legend_controls: dict[str, ft.Text] = {}  # each key's SHIFT legend, by key id
+        self.extra_table = False  # CASSim's TABLE mode for the fx-82 and SX-II (decision 0041)
+        self.hyp_names = True  # the trig keys read sinh, cosh, tanh while hyp waits (FR-FX-UI-008)
         self.completed: set[str] = set()
         self.speed = 1.0
         self.session: TutorialSession | None = None  # a lesson in progress
@@ -162,48 +170,20 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     def _build(self) -> None:
-        self.update_item = ft.MenuItemButton(
-            content=getattr(self.shell, "update_label", "Check for updates"),
-            on_click=lambda _: self.shell.activate_update(),
-        )
-        home = (
-            [ft.MenuItemButton(content="Home", on_click=lambda _: self._home())]
-            if self.shell.home is not None
-            else []
-        )
-        self.tutorials_item = ft.MenuItemButton(
-            content="Hide tutorials", on_click=lambda _: self.toggle_panel()
-        )
-        self.cutout_item = ft.MenuItemButton(
-            content="Avoid cutout", on_click=lambda _: self.toggle_cutout(), visible=False
-        )
-        self.cassim_menu = ft.SubmenuButton(
-            content="CASSim",
-            controls=[
-                *home,
-                self.tutorials_item,
-                self.cutout_item,
-                ft.MenuItemButton(content="Settings…", on_click=lambda _: self.open_settings()),
-                ft.MenuItemButton(content="Appearance…", on_click=lambda _: self.open_appearance()),
-                ft.MenuItemButton(
-                    content="Keyboard shortcuts…", on_click=lambda _: self.open_shortcuts()
-                ),
-                self.update_item,
-                ft.MenuItemButton(
-                    content="Help (wiki)…", on_click=lambda _: self.shell.help(HELP_PAGE)
-                ),
-                ft.MenuItemButton(content="About CASSim…", on_click=lambda _: self.shell.about()),
-            ],
-        )
+        self.cassim_menu = ft.SubmenuButton(content="CASSim")
+        self.refresh_cassim_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
-            controls=[
+            controls=[  # the shared sections (SDD-15 section 9.4)
+                ft.MenuItemButton(content="New", on_click=lambda _: self.new_calculation()),
                 ft.MenuItemButton(content="Open…", on_click=self.open_saved),
                 ft.MenuItemButton(content="Save", on_click=self.save),
                 ft.MenuItemButton(content="Save as…", on_click=self.save_as),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Import file…", on_click=self.import_file),
                 ft.MenuItemButton(content="Export file…", on_click=self.export_file),
                 ft.MenuItemButton(content="Share link…", on_click=lambda _: self.open_share_link()),
+                ft.Divider(height=1, thickness=1),
                 ft.SubmenuButton(
                     content="Examples",
                     controls=[
@@ -213,6 +193,7 @@ class ScientificApp:
                         for index, (title, _) in enumerate(EXAMPLES)
                     ],
                 ),
+                ft.Divider(height=1, thickness=1),
                 ft.MenuItemButton(content="Reset all…", on_click=lambda _: self.confirm_reset()),
             ],
         )
@@ -324,6 +305,7 @@ class ScientificApp:
         skin = self.skin
         layout = self.shown_layout
         self.key_controls = {}
+        self.legend_controls = {}
         inner = (BASE_WIDTH - 28) * s
         self.lcd = ft.Container(
             height=112 * s * (1 + (self.stretch - 1) / 2),
@@ -441,23 +423,26 @@ class ScientificApp:
         # lone legend at the left), inset from the edges, bold, and clipped there so nothing runs
         # into the next key.
         size = legend_font_size(key.shift_label, key.alpha_label, w, s)
+        texts = [
+            ft.Text(
+                label,
+                size=size,
+                color=colour,
+                weight=ft.FontWeight.BOLD,
+                no_wrap=True,
+                style=ft.TextStyle(font_family_fallback=FALLBACK),
+            )
+            for label, colour in (
+                ((key.shift_label, shift_colour), (key.alpha_label, alpha_colour))
+                if key.shift_label
+                else ((key.alpha_label, alpha_colour), ("", shift_colour))
+            )
+        ]
+        if key.shift_label:
+            self.legend_controls[key.id] = texts[0]
         legend = ft.Container(
             ft.Row(
-                [
-                    ft.Text(
-                        label,
-                        size=size,
-                        color=colour,
-                        weight=ft.FontWeight.BOLD,
-                        no_wrap=True,
-                        style=ft.TextStyle(font_family_fallback=FALLBACK),
-                    )
-                    for label, colour in (
-                        ((key.shift_label, shift_colour), (key.alpha_label, alpha_colour))
-                        if key.shift_label
-                        else ((key.alpha_label, alpha_colour), ("", shift_colour))
-                    )
-                ],
+                list[ft.Control](texts),
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 spacing=LEGEND_GAP * s,
                 vertical_alignment=ft.CrossAxisAlignment.END,
@@ -570,7 +555,9 @@ class ScientificApp:
         ink = skin.lcd_text
         width = (BASE_WIDTH - 28) * s - 22 * s
         renderer = Renderer(ink, ink)
-        ann_names = ("S", "A", "M", "STO", "RCL", "STAT", "D", "R", "G", "FIX", "SCI", "Math")
+        ann_names = (
+            "S", "A", "M", "STO", "RCL", "hyp", "STAT", "D", "R", "G", "FIX", "SCI", "Math"
+        )  # fmt: skip
         marks = {"S": self.shown_layout.shift_mark, "A": self.shown_layout.alpha_mark}
         annunciators = ft.Row(
             [
@@ -733,10 +720,12 @@ class ScientificApp:
         return ft.Column(lines, spacing=0, expand=True)
 
     def _paint_keys(self) -> None:
-        """Modifier keys light up while waiting; the tutorial's next key glows."""
+        """Modifier keys light up while waiting; hyp too, and while it waits the trig keys are
+        named sinh, cosh, tanh (FR-FX-UI-008, a setting); the tutorial's next key glows."""
         target = self._target_key()
         skin = self.skin
         shift_colour, alpha_colour = self._legend_colours()
+        hyp = self.state.hyp_waiting
         for key, face in self.key_controls.items():
             spec = self._layout_key(key)
             fill, text = self._colours(spec)
@@ -746,9 +735,13 @@ class ScientificApp:
             elif spec.plain == (k.ALPHA,) and self.state.alpha:
                 fill = alpha_colour
                 text = ink_on(fill)
+            elif spec.plain == (k.HYP,) and hyp:
+                fill = shift_colour
+                text = ink_on(fill)
             face.bgcolor = fill
             if isinstance(face.content, ft.Text):
                 face.content.color = text  # a lit modifier's own name must stay readable
+                self._rename_trig(key, spec, face.content, renamed=hyp and self.hyp_names)
             if key == target:
                 face.border = ft.Border.all(3 * self.scale, skin.target)
                 face.shadow = ft.BoxShadow(spread_radius=1, blur_radius=10, color=skin.target)
@@ -756,6 +749,17 @@ class ScientificApp:
                 face.border = ft.Border.all(1, skin.key_edge)
                 face.shadow = None
             _safe_update(face)
+
+    def _rename_trig(self, key: str, spec: LKey, face: ft.Text, *, renamed: bool) -> None:
+        """sin, cos and tan (and their SHIFT legends) read sinh, cosh, tanh while hyp waits."""
+        names = layouts.hyperbolic_names(spec)
+        if names is None:
+            return
+        face.value = names[0] if renamed else spec.face
+        legend = self.legend_controls.get(key)
+        if legend is not None:
+            legend.value = names[1] if renamed else spec.shift_label
+            _safe_update(legend)
 
     def _paint_bar(self) -> None:
         skin = self.skin
@@ -802,12 +806,13 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     async def start(self, **_options: object) -> None:
-        self.page.title = "CASSim Scientific"
+        self.page.title = f"{about.product_name()} Scientific"
         self.page.fonts = {**(self.page.fonts or {}), **FONTS}
         self.page.padding = 0
         self.page.on_keyboard_event = self.on_keyboard
         self.page.on_resize = lambda _: self.fit()
         self.shell.changed = self.on_bridge
+        self.shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
         error = await self.shell.load_appearance()
         await self._load_prefs()
         if self.phone:
@@ -815,7 +820,7 @@ class ScientificApp:
         await self._load_state()
         layout = self.layout
         self.state.use_layout(
-            layout.modes, linear=layout.linear, dialect=layout.dialect, switch_display=False
+            self._modes(layout), linear=layout.linear, dialect=layout.dialect, switch_display=False
         )
         self.page.controls.clear()
         self.page.add(self.root)
@@ -828,14 +833,46 @@ class ScientificApp:
         self.page.on_keyboard_event = None
         self.page.on_resize = None
         self.shell.changed = lambda: None
+        self.shell.has_unsaved = lambda: False
         self.page.controls.clear()
 
     def on_bridge(self) -> None:
         """The page reported a change (an update, installing, the safe area)."""
-        self.update_item.content = getattr(self.shell, "update_label", "Check for updates")
-        _safe_update(self.update_item)
+        self.refresh_cassim_menu()
+        _safe_update(self.cassim_menu)
         if self.key_controls:
             self.fit()
+
+    @property
+    def offers(self) -> BrowserOffers:
+        return getattr(self.shell, "offers", None) or BrowserOffers()
+
+    def refresh_cassim_menu(self) -> None:
+        """The CASSim menu, shared with every app (SDD-15 section 4): Tutorials is this app's
+        panel, Avoid cutout appears on an installed phone, and it has keyboard shortcuts."""
+        facts = AppMenu(
+            home=self.shell.home is not None,
+            panels=(Panel("tutorials", "Tutorials", shown=self.panel_open),),
+            phone=self.phone,
+            cutout=self.use_cutout,
+            shortcuts=True,
+        )
+        fill_cassim_menu(self.cassim_menu, self.offers, facts, self.cassim_action, self.theme)
+
+    def cassim_action(self, action: str) -> None:
+        """A CASSim menu item: this app's own, or one the shell does for every app."""
+        own: dict[str, Callable[[], object]] = {
+            "home": self._home,
+            "panel:tutorials": self.toggle_panel,
+            "cutout": self.toggle_cutout,
+            "settings": self.open_settings,
+            "appearance": self.open_appearance,
+            "shortcuts": self.open_shortcuts,
+        }
+        if action in own:
+            own[action]()
+        else:
+            self.shell.menu_action(action, HELP_PAGE)
 
     @property
     def phone(self) -> bool:
@@ -1042,10 +1079,7 @@ class ScientificApp:
         follow the state."""
         for item in (self.angle_chip, self.io_chip, self.panel_button):
             item.visible = not phone
-        self.tutorials_item.content = "Hide tutorials" if self.panel_open else "Show tutorials"
-        offers = getattr(self.shell, "offers", None)
-        self.cutout_item.visible = bool(phone and offers is not None and offers.installed)
-        self.cutout_item.content = "Avoid cutout" if self.use_cutout else "Use cutout"
+        self.refresh_cassim_menu()  # ✓ Tutorials, Avoid cutout on an installed phone
         _safe_update(self.top_bar)
 
     def _home(self) -> None:
@@ -1312,7 +1346,7 @@ class ScientificApp:
     @property
     def lessons(self) -> tuple[Lesson, ...]:
         """The chosen calculator's lessons, in its own keys."""
-        return lessons_for(self.layout)
+        return lessons_for(self.layout, table=self.extra_table)
 
     @property
     def lesson(self) -> Lesson:
@@ -1352,7 +1386,7 @@ class ScientificApp:
         changed = layout is not self.shown_layout
         self.shown_layout = layout
         self.state.use_layout(
-            layout.modes,
+            self._modes(layout),
             linear=layout.linear,
             dialect=layout.dialect,
             switch_display=switch_display,
@@ -1525,6 +1559,24 @@ class ScientificApp:
             self.panel_open = prefs["panel"]
         if prefs.get("speed") in SPEEDS:
             self.speed = prefs["speed"]
+        if isinstance(prefs.get("table"), bool):
+            self.extra_table = prefs["table"]
+        if isinstance(prefs.get("hyp_names"), bool):
+            self.hyp_names = prefs["hyp_names"]
+
+    def _modes(self, layout: Layout) -> tuple[layouts.CalcModeName, ...]:
+        """The layout's modes, with TABLE when the extra is on. A calculation saved or shared in
+        TABLE mode switches the extra on, so the table it holds can still be used."""
+        if self.state.mode == "TABLE" and layouts.offers_table(layout) and not self.extra_table:
+            self.extra_table = True
+            self._save_prefs()
+        return layouts.modes_for(layout, table=self.extra_table)
+
+    def _set_table(self, *, on: bool) -> None:
+        """Settings switched the TABLE extra; off leaves TABLE mode, which would switch it back."""
+        self.extra_table = on
+        if not on:
+            self.state.leave_table()
 
     def _save_prefs(self) -> None:
         self.shell.write(
@@ -1535,6 +1587,8 @@ class ScientificApp:
                     "completed": sorted(self.completed),
                     "panel": self.panel_open,
                     "speed": self.speed,
+                    "table": self.extra_table,
+                    "hyp_names": self.hyp_names,
                 }
             ),
         )
@@ -1610,44 +1664,47 @@ class ScientificApp:
             )
             return
 
-        def copy(_: object) -> None:
-            self.shell.copy(url)
-            self.page.pop_dialog()
-
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("Share link"),
-                content=ft.Column(
-                    [
-                        ft.Text(
-                            "Anyone who opens this link gets this calculator: its settings, "
-                            "memories, STAT data and table. It stays in the link and is never "
-                            "sent to a server.",
-                            size=13,
-                        ),
-                        ft.TextField(value=url, read_only=True, dense=True, multiline=True),
-                    ],
-                    tight=True,
-                    width=self.dialog_width(420),
-                ),
-                actions=[
-                    ft.TextButton("Copy link", on_click=copy),
-                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
-                ],
-            )
+        self.shell.share_link(
+            url,
+            "Anyone who opens this link gets this calculator: its settings, memories, STAT data "
+            "and table.",
+            self.dialog_width(420),
         )
 
     def load_example(self, index: int) -> None:
-        self.stop_lesson()
-        reason = examples.missing(index, self.layout)
+        """Doc > Examples: load one, asking first if work would be lost (SDD-15 section 9.4)."""
+        reason = examples.missing(index, self.layout, self._modes(self.layout))
         if reason:
             self.shell.notice("Examples", reason)
             return
-        load_example(self.state, index)
-        self.saved.unsaved()  # an example is not the saved calculation any more
-        self.doc_name = "Untitled"
-        self.refresh()
-        self._schedule_save()
+
+        def load() -> None:
+            self.stop_lesson()
+            load_example(self.state, index)
+            self.saved.unsaved()  # an example is not the saved calculation any more
+            self.doc_name = "Untitled"
+            self.refresh()
+            self._schedule_save()
+
+        self.saved.ask_discard(load)
+
+    def new_calculation(self) -> None:
+        """Doc > New: a cleared calculator that keeps its settings (Reset all clears those too),
+        asking first if work would be lost."""
+
+        def new() -> None:
+            self.stop_lesson()
+            setup, mode = self.state.setup, self.state.mode
+            self.state.reset()
+            self.state.setup = setup
+            if mode in self.state.allowed_modes:
+                self.state.mode = mode
+            self.doc_name = "Untitled"
+            self.saved.fresh()
+            self.refresh()
+            self._schedule_save()
+
+        self.saved.ask_discard(new)
 
     def confirm_reset(self) -> None:
         async def reset() -> None:
@@ -1659,7 +1716,7 @@ class ScientificApp:
             self._schedule_save()
 
         self.shell.confirm(
-            "Reset all",
+            "Reset all?",
             "Clear every setting, memory, STAT data and the table? This cannot be undone.",
             "Reset",
             reset,
@@ -1758,6 +1815,13 @@ class ScientificApp:
             value="comma" if setup.comma else "dot",
         )
         frequency = ft.Switch(label="STAT frequency column", value=setup.frequency)
+        natural = dialect in ("casio", "sx2")  # the extras are for the natural-display calculators
+        surds = ft.Switch(label="Exact surds and π in MathO answers", value=setup.surds)
+        table = ft.Switch(label="TABLE mode (MODE 4)", value=self.extra_table)
+        hyp_names = ft.Switch(
+            label="Show sinh, cosh and tanh on the keys after hyp", value=self.hyp_names
+        )
+        extras: list[ft.Control] = [surds, table] if natural else []
         where = {
             "ms": "These are the choices on the MODE pages (MODE, pressed again for each page).",
             "sharp": "These are the SET UP menu's choices; DRG also changes the angle unit.",
@@ -1780,9 +1844,15 @@ class ScientificApp:
             new.comma = point.value == "comma"
             self.state.set_frequency(on=bool(frequency.value))
             new.frequency = self.state.setup.frequency
+            new.surds = bool(surds.value) if natural else setup.surds
             self.state.setup = new
+            if natural:
+                self._set_table(on=bool(table.value))
+            self.hyp_names = bool(hyp_names.value)
             self.page.pop_dialog()
+            self._show_layout(self.layout, switch_display=False)  # TABLE joins or leaves MODE
             self.refresh()
+            self._save_prefs()
             self._schedule_save()
 
         def heading(text: str) -> ft.Text:
@@ -1790,7 +1860,7 @@ class ScientificApp:
 
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text("Calculator settings"),
+                title=ft.Text("Settings"),
                 content=ft.Column(
                     [
                         heading("Angle unit"),
@@ -1805,6 +1875,14 @@ class ScientificApp:
                         point,
                         frequency,
                         ft.Text(where, size=12),
+                        heading("CASSim extras"),
+                        *extras,
+                        hyp_names,
+                        ft.Text(
+                            "Extras the calculator itself does not have start off. Exact "
+                            "answers apply in MathO; TABLE joins the MODE menu.",
+                            size=12,
+                        ),
                     ],
                     tight=True,
                     spacing=6,
@@ -1812,8 +1890,8 @@ class ScientificApp:
                     width=width,
                 ),
                 actions=[
-                    ft.TextButton("Apply", on_click=apply),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Apply", on_click=apply),
                 ],
             )
         )

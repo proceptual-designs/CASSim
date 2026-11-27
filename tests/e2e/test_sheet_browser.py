@@ -35,7 +35,7 @@ def enter(app: AppPage, text: str) -> None:
 
 
 def sheet_origin(app: AppPage) -> tuple[float, float]:
-    title = app.page.get_by_role("button", name="Page Sorter 1.2")
+    title = app.page.get_by_role("button", name="Page sorter 1.2")
     app.wait(lambda: title.bounding_box() is not None, "sheet title")
     box = title.bounding_box()
     assert box is not None

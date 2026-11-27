@@ -26,7 +26,9 @@ The first group is the Nspire's UI in `devices/nspire/ui/`; the second is the sh
 | `devices/nspire/ui/views.py`, `keypad.py`, `sidebar.py` | `CalculatorView` (title bar, history, entry, menu overlay), `Keypad`, `Sidebar` (page sorter and variable list), and the dialogs: Document Settings, Handheld Setup, Page Sorter, wizards. `math()` draws LaTeX. (One module, `app/ui.py`, until decision 0032.) |
 | `devices/nspire/ui/app.py` | Joins `state.py` to the views; `sheet_view.py`, `statistics_view.py` and `graphs_view.py` draw the other page types (SDD-07). |
 | `app/main.py` | `Application`: chooses Home, or the device a direct route or share link names; imports and mounts a device UI only when selected. |
-| `app/home.py` | The all-in-one Home screen, fixed choice order, unavailable state and CASSim ▸ Appearance…. It imports no device UI. |
+| `app/home.py` | The all-in-one Home screen, fixed choice order, unavailable state and the CASSim menu with Home's subset. It imports no device UI. |
+| `app/cassim_menu.py` | The CASSim menu every app shares (SDD-15 section 4): `cassim_sections` gives its five sections as data from an app's `AppMenu`, `menu_bar_controls` draws them in a Flet menu bar, and the Nspire draws them as its numbered panel. `Shell.menu_action` does the items every app shares (install, update, offline status, fullscreen, help, about); `Shell.has_unsaved` lets a reload for an update ask first. |
+| `app/saved.py` | `SavedDocuments`: Open, Save and Save as on documents kept by name in the app's storage (decision 0033), used by every app. The Nspire gives it an asynchronous `load` (the engine recalculates the document) and its own `mark` (the fingerprint ignores which page is showing). |
 | `app/shell.py` | Shared page services and storage for Home and a mounted device, including shell-wide preferences. |
 | `app/web.py` | Browser-only: the engine worker, the page bridge (SDD-02) and the IndexedDB `TextStore`. |
 | `app/about.py` | The About text (disclaimer, privacy, licence, notices, versions) as data. |

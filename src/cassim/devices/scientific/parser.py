@@ -65,6 +65,9 @@ class Context:
     rnd: Callable[[Number], Number] = lambda value: value  # Rnd( at the display setting
     rng: random.Random = field(default_factory=random.Random)
     relations: bool = False  # VERIFY mode
+    # + and − read a following a% as a change by that share (the EL-531); off, % is just ÷100
+    # (the fx-82 and SX-II: 250+15% is 250.15, decision 0041)
+    percent_addon: bool = True
 
 
 # ---- lexing ---------------------------------------------------------------------------------
@@ -380,7 +383,8 @@ class Parser:
                     raise v.math_error()
                 return v.rational(math.factorial(n))
             case "%":
-                return Percent(v.div(x, v.rational(100)))
+                share = v.div(x, v.rational(100))
+                return Percent(share) if self.ctx.percent_addon else share
             case "dms":
                 return self.dms(x)
             case "deg":
