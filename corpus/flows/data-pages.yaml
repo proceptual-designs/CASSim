@@ -18,7 +18,8 @@ flows:
   - {keys: "Left Up Up Up"}
   - {type: "scores", enter: false, keys: Enter, sheet: A=}
   - {keys: "Down", sheet: A1 2}
-  - {keys: "F4 4 7", page: '1.3', plot_x: scores, note: "Insert Data & Statistics"}
+  - {keys: "F4 4 7", page: '1.3', plot_x: '', note: "Insert Data & Statistics: no variable yet (run 7)"}
+  - {keys: "Tab Enter", plot_x: scores, note: "Tab opens the x axis's list; Enter takes scores"}
   - {keys: "alt+Left", page: '1.2', sheet: A1 2}
   - {type: "6", enter: false, keys: Enter}
   - {keys: "Up", sheet: A1 6}

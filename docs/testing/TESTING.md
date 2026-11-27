@@ -379,6 +379,21 @@ Results in `emulator-calc8-results.md`. What CASSim now follows:
   - The order of the three terms of `∫₀² 1/(x³+x+2)dx` and of `expand`'s terms.
   - The unsolved equation is echoed; the device rearranges it.
 
+### Check 6, run 7: data pages (2026-11-27)
+
+Results in `emulator-stats6-results.md` and `emulator-sheet7-results.md`. What CASSim now follows:
+- **A dragged point** is stored to about a ten-thousandth of its axis's range, rounded up to a power of ten: 40.06 and 567.8 on a window of 0 to 100 by 0 to 1000, and 6.949 on run 6's small window. Points selected with it move by the same rounded shift.
+- **A shaded test on a full 2×2 page** goes on a new Data & Statistics page after it, showing the shade alone; the 2×2 page keeps its panes.
+- **A new Data & Statistics page** chooses no variable. It shows the alphabetically first list as labelled dots under `Caption: name`, and Tab opens the x axis's list (shift+Tab the y axis's), starting at the first list.
+- **The 2-Sample z Test from lists** has the rows x̄1, x̄2, sx1, sx2, n1, n2, then σ1 and σ2 last.
+- **Quick Graph on the sheet's Menu** is grey for a single cell.
+
+Still open:
+- Run 7 saw Summary Plot grey for a single cell, but run 5 saw it live.
+- ctrl+Z after a shaded test takes two presses on the device, the first only showing the shade's page.
+- The device's 2-Sample z Test p-value differs from the exact value in the 7th figure (0.52708913 against 0.52708926); CASSim keeps the exact value.
+- Delete Row through a results table, Insert Cell and whole-column paste were seen but not compared.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).

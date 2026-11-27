@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from cassim.core.compat.statistics import Fit, fit_regression
 from cassim.core.results import VariableInfo
 from cassim.device.wizard import Field, Wizard
+from cassim.devices.nspire.statistics_plot import PValuePlot, p_value_scene
+from cassim.graph.scene import Dots, Label, Layer, Point, Scene, Shape
 from cassim.stats.data import DataValue, NumericExpression, as_numbers, parse_items
 from cassim.stats.plots import (
     PlotData,
@@ -30,7 +32,6 @@ if TYPE_CHECKING:
     from cassim.core.session import Session
     from cassim.device.engine import RemoteSession
     from cassim.doc.document import Page, Problem
-    from cassim.graph.scene import Scene
 
 type PlotPoint = tuple[float, float]
 MIN_NORMAL_SAMPLE = 2
@@ -115,6 +116,9 @@ class Statistics:
         self.function_text = ""
         self.plot_value_text = ""
         self.window: tuple[float, float, float, float] | None = None
+        # A shaded test's density, when this page was made to show one: a test with Shade P
+        # Value on a full 2×2 page gets a page of its own (emulator run 7, R7-C4).
+        self.shade: PValuePlot | None = None
         self.message = ""
         self._rows: dict[str, VariableInfo] = {}
         self._values: dict[str, tuple[DataValue, ...]] = {}
@@ -125,9 +129,9 @@ class Statistics:
         # gone (deleted), not when it has not arrived yet: a saved page is loaded before the
         # browser's engine has replayed the sheet that defines its lists.
         self._seen_lists: set[str] = set()
+        # No variable is chosen for a new page: it shows the first list as a caption plot until
+        # one is (emulator runs 3, 5 and 7; `_caption_scene`).
         self.update()
-        if self.lists:
-            self.x_name = self.lists[0]
 
     @property
     def lists(self) -> tuple[str, ...]:
@@ -507,13 +511,39 @@ class Statistics:
         )
 
     def scene(self, width: float, height: float, *, axis_labels: bool = True) -> Scene:
+        if self.shade is not None:
+            return p_value_scene(self.shade, width, height)
         self.update()
+        if not self.x_name and not self.y_name and self.lists:
+            return self._caption_scene(width, height)
         # the selection is the Problem's, so another plot may have changed it
         size = (width, height, axis_labels, frozenset(self.selected))
         if self._scene is None or self._scene_size != size:
             self._scene = plot_scene(self.plot_data(), width, height, axis_labels=axis_labels)
             self._scene_size = size
         return self._scene
+
+    def _caption_scene(self, width: float, height: float) -> Scene:
+        """A page with no variable chosen yet shows the alphabetically first list as loose dots
+        labelled with its values, under `Caption: name` (emulator runs 3, 5 and 7: `cat` among
+        cat, fr, xs and ys; `xs` among xs and ys). Clicking an axis box still chooses."""
+        name = self.lists[0]
+        values = self._values.get(name, ())
+        dots: list[Point] = []
+        labels: list[Shape] = [Label(8, 6, f"Caption: {name}", size=12)]
+        golden = (math.sqrt(5) - 1) / 2
+        for index, value in enumerate(values):
+            # spread over the plot without a pattern, the same way every time
+            x = 24 + (width - 60) * ((index * golden + 0.37) % 1)
+            y = 30 + (height - 70) * ((index * golden * golden + 0.61) % 1)
+            dots.append((x, y))
+            text = _format(value) if isinstance(value, float) else str(value or "")
+            labels.append(Label(x + 6, y - 16, text, size=11, colour="axis"))
+        return Scene(
+            width,
+            height,
+            (Layer("caption", (Dots(tuple(dots)), *labels)),),
+        )
 
     def plotted_points(self, width: float, height: float) -> tuple[PlottedPoint, ...]:
         data = self.plot_data()
@@ -593,8 +623,9 @@ class Statistics:
         x_value = _numeric_text(x_values[index]) if self.force_numeric_x else x_values[index]
         if not isinstance(x_value, float):
             return None
+        x_step, y_step = self._drag_steps()
         if not self.y_name and self.plot_type is PlotType.DOT:
-            return f"{self.x_name}[{index + 1}]:={_input_number(x)}"
+            return f"{self.x_name}[{index + 1}]:={_input_number(x, x_step)}"
         if (
             self.plot_type not in (PlotType.SCATTER, PlotType.XY_LINE)
             or not self.y_name
@@ -605,9 +636,22 @@ class Statistics:
         if index >= len(y_values) or not isinstance(y_values[index], float):
             return None
         return (
-            f"{self.x_name}[{index + 1}]:={_input_number(x)}:"
-            f"{self.y_name}[{index + 1}]:={_input_number(y)}"
+            f"{self.x_name}[{index + 1}]:={_input_number(x, x_step)}:"
+            f"{self.y_name}[{index + 1}]:={_input_number(y, y_step)}"
         )
+
+    def _drag_steps(self) -> tuple[float, float]:
+        """How finely a dragged point's coordinates are stored: about a ten-thousandth of each
+        axis's range, rounded up to a power of ten. On a window of x 0 to 100 and y 0 to 1000 a
+        drag stores 40.06 and 567.8 (emulator run 7, R7-C1); on run 6's small window, 6.949."""
+        if self.window is not None:
+            xmin, xmax, ymin, ymax = self.window
+        else:
+            xmin, xmax, ymin, ymax = self._default_window()
+            # the automatic window has a margin of a tenth of the data's range on each side
+            xmin, xmax = xmin - (xmax - xmin) / 10, xmax + (xmax - xmin) / 10
+            ymin, ymax = ymin - (ymax - ymin) / 10, ymax + (ymax - ymin) / 10
+        return _drag_step(xmax - xmin), _drag_step(ymax - ymin)
 
     def _fit(self, pairs: list[tuple[float, float]]) -> Fit | None:
         try:
@@ -748,14 +792,21 @@ def _format(value: float) -> str:
     return f"{value:.6g}"
 
 
-# A dragged point's value is stored to three decimal places: the device stored 6.949 on a
-# window with y from 2 to 8, also at Float 12 (emulator run 6, S1 and C1). Whether the places
-# depend on the window is not known yet (run 7, J3a); until then every window uses three.
-_DRAG_PLACES = 3
+# A dragged point's value is stored to about a ten-thousandth of its axis's range (`_drag_step`):
+# 6.949 on run 6's small window, 40.06 and 567.8 on run 7's window of 0 to 100 by 0 to 1000.
+_DRAG_PLACES = 3  # when the window has no size to go by
+_DRAG_STEPS = 10_000  # a dragged coordinate is stored to about a ten-thousandth of the axis
 
 
-def _input_number(value: float) -> str:
-    rounded = round(value, _DRAG_PLACES) + 0.0  # + 0.0 turns -0.0 into 0.0
+def _drag_step(span: float) -> float:
+    if not math.isfinite(span) or span <= 0:
+        return 10.0**-_DRAG_PLACES
+    return 10.0 ** math.ceil(math.log10(span / _DRAG_STEPS))
+
+
+def _input_number(value: float, step: float = 10.0**-_DRAG_PLACES) -> str:
+    places = max(0, -round(math.log10(step)))
+    rounded = round(round(value / step) * step, places) + 0.0  # + 0.0 turns -0.0 into 0.0
     return re.sub(r"[eE]", "ᴇ", format(rounded, ".15g"))
 
 
@@ -795,10 +846,43 @@ def dump_statistics(statistics: Statistics) -> dict[str, Any]:
         "function": statistics.function_text,
         "plot_value": statistics.plot_value_text,
         "window": list(statistics.window) if statistics.window is not None else None,
+        "shade": _dump_shade(statistics.shade),
     }
 
 
+def _dump_shade(plot: PValuePlot | None) -> dict[str, Any] | None:
+    if plot is None:
+        return None
+    return {
+        "variable": plot.variable,
+        "alternative": plot.alternative,
+        "statistic": plot.statistic,
+        "p_value": plot.p_value,
+        "df": plot.df,
+    }
+
+
+def _load_shade(saved: object) -> PValuePlot | None:
+    if not isinstance(saved, dict):
+        return None
+    numbers = {}
+    for key in ("statistic", "p_value", "df"):
+        value = saved.get(key)
+        ok = isinstance(value, int | float) and not isinstance(value, bool)
+        numbers[key] = float(value) if ok and math.isfinite(value) else None
+    variable = saved.get("variable") if saved.get("variable") in ("z", "t") else "z"
+    alternative = saved.get("alternative")
+    if alternative not in (0, 1, 2) or isinstance(alternative, bool):
+        alternative = 0
+    if numbers["statistic"] is None or numbers["p_value"] is None:
+        return None
+    return PValuePlot(
+        numbers["statistic"], numbers["p_value"], int(alternative), str(variable), numbers["df"]
+    )
+
+
 def load_statistics(statistics: Statistics, data: dict[str, Any]) -> Statistics:
+    statistics.shade = _load_shade(data.get("shade"))
     statistics.x_name = _saved_text(data.get("x"))
     statistics.y_name = _saved_text(data.get("y"))
     statistics.summary_name = _saved_text(data.get("summary"))

@@ -22,13 +22,15 @@ def test_statistics_page_renders_for_a_live_list(browser: Browser, site: tuple[P
     for key in ("F4", "4", "7"):
         app.press(key)
 
-    expect(app.page.get_by_role("button", name="scores", exact=True)).to_be_visible(timeout=30000)
-    expect(app.page.get_by_role("button", name="Click to add variable", exact=True)).to_be_visible()
+    # A new page has no variable yet: both axes ask for one (emulator run 7, R7-C7).
+    add = app.page.get_by_role("button", name="Click to add variable", exact=True)
+    expect(add).to_have_count(2, timeout=30000)
     expect(app.page.get_by_role("button", name="Dot Plot", exact=True)).to_have_count(0)
-    app.page.get_by_role("button", name="scores", exact=True).click(force=True)
+    app.press("Tab")  # the x axis's list (R7-C9)
     expect(app.page.get_by_role("group", name="Choose X List")).to_be_visible()
     expect(app.page.get_by_role("button", name="(none)", exact=True)).to_be_visible()
-    app.press("Escape")
+    app.page.get_by_role("button", name="scores", exact=True).click(force=True)
+    expect(app.page.get_by_role("button", name="scores", exact=True)).to_be_visible()
     app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
     expect(app.page.get_by_role("group", name="Choose Y List")).to_be_visible()
     app.page.close()
@@ -51,6 +53,8 @@ def test_sorter_switches_between_calculator_and_statistics(
     for key in ("F4", "4", "7"):
         app.press(key)
     expect(app.page.get_by_role("button", name="Page sorter 1.2")).to_be_attached()
+    app.press("Tab")  # a new page has no variable yet: Tab opens the x axis's list
+    app.page.get_by_role("button", name="scores", exact=True).click(force=True)
     app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
     app.page.get_by_role("button", name="time", exact=True).click(force=True)
     app.page.get_by_role("button", name="Page manager", exact=True).click()

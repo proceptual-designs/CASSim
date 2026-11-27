@@ -345,3 +345,16 @@ def test_two_sample_z_test_from_summary_statistics():
     z = 0.6 / (1.2**2 / 10 + 1.5**2 / 12) ** 0.5
     assert _number(session, "z") == pytest.approx(z, abs=1e-7)
     assert _number(session, "PVal") == pytest.approx(stats.norm.cdf(z), abs=1e-8)
+
+
+def test_two_sample_z_test_rows_follow_the_device():
+    """FR-STAT-004 (emulator run 7, R7-C2): from lists, x̄1, x̄2, sx1, sx2, n1, n2, then σ1 and
+    σ2 last."""
+    session = _session("xs:={1,2,3,4,5,6,7,8}", "ys:={2,4,5,4,5,7,8,9}", "zTest_2Samp 2,4,xs,ys")
+    rows = session.eval("stat.results").text
+    names = [part.split(",")[0].strip('"[') for part in rows.split(";")]
+    assert names == [
+        "Title", "Alternate Hyp", "z", "PVal", "x̄1", "x̄2", "sx1", "sx2", "n1", "n2", "σ1", "σ2",
+    ]  # fmt: skip
+    assert _number(session, "z") == pytest.approx(-0.63245553)
+    assert _number(session, "sx1") == pytest.approx(2.4494897)

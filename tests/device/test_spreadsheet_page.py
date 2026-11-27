@@ -2332,3 +2332,25 @@ def test_typed_cells_the_engine_has_not_answered_are_saved_as_typed():
     type_cell(state, "=6*7")
     data = json.loads(dumps(state.document))["problems"][0]["pages"][1]
     assert data["cells"] == [[A, 1, "entry", "4"], [A, 2, "formula", "6*7"]]
+
+
+def test_a_shaded_test_on_a_full_page_gets_a_page_of_its_own():
+    """FR-STAT-004 (emulator run 7, R7-C4): with the sheet and three shaded panes on the page, a
+    fourth shaded test replaces none of them: a new Data & Statistics page after this one shows
+    its shade alone, and the sheet stays on screen."""
+    state = sheet_app()
+    sheet = sheet_of(state)
+    for column, successes in ((C, "30"), (F, "31"), (J, "32"), (12, "33")):
+        sheet.go((column, 1))
+        state.run(Binding("sheet", "inference:zTest_1Prop"))
+        finish_wizard(state, p0="0.5", successes=successes, n="50", alternative="1", shade="1")
+        state.prepare()
+    shades = [p for p in sheet.panes if isinstance(p, ShadePane)]
+    assert len(shades) == 3
+    pages = state.document.problems[state.document.problem].pages
+    assert state.document.current.model is sheet
+    new = pages[state.document.page + 1].model
+    assert isinstance(new, Statistics)
+    assert new.shade is not None
+    assert new.shade.statistic == pytest.approx(2.2627417, abs=1e-6)  # 33 of 50 against 0.5
+    assert new.scene(300, 200).layers  # it draws the shade, not an empty plot

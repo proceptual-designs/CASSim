@@ -745,11 +745,18 @@ def z_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
     """`zTest_2Samp σ1,σ2,List1,List2[,Freq1[,Freq2[,Hypoth]]]` or
     `zTest_2Samp σ1,σ2,x̄1,n1,x̄2,n2[,Hypoth]`."""
     sigma1, sigma2 = _number_at(host, args, 0, 0), _number_at(host, args, 1, 0)
+    deviations: tuple[tuple[str, str, float], ...] = ()
     if _has_list(host, args, 2):
         first = _list_argument(host, args, 2, 4)
         second = _list_argument(host, args, 3, 5)
-        mean1, mean2 = float(stats.summarise(first).mean), float(stats.summarise(second).mean)
+        summary1, summary2 = stats.summarise(first), stats.summarise(second)
+        mean1, mean2 = float(summary1.mean), float(summary2.mean)
         count1, count2 = len(first), len(second)
+        # from lists the device also lists the samples' sx (emulator run 7, R7-C2)
+        deviations = (
+            ("sx1", "sx1", summary1.sample_deviation),
+            ("sx2", "sx2", summary2.sample_deviation),
+        )
     else:
         mean1, count1 = _number_at(host, args, 2, 0), _integer_at(host, args, 3, 0)
         mean2, count2 = _number_at(host, args, 4, 0), _integer_at(host, args, 5, 0)
@@ -775,8 +782,11 @@ def z_test_two_samples(host: Host, args: tuple[ast.Expr, ...]) -> Value:
                 rows=(
                     ("x̄1", "x̄1", mean1),
                     ("x̄2", "x̄2", mean2),
+                    *deviations,
                     ("n1", "n1", count1),
                     ("n2", "n2", count2),
+                    ("σ1", "σ1", sigma1),  # σ1 and σ2 come last (emulator run 7, R7-C2)
+                    ("σ2", "σ2", sigma2),
                 ),
                 hypothesis=_hypothesis("μ1", "μ2", alternative),
             )
