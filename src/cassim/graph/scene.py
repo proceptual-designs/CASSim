@@ -30,6 +30,7 @@ class Stroke:
     colour: str = "ink"
     width: float = 1.0
     dashed: bool = False
+    dotted: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -16,13 +16,13 @@ from cassim.device.keys import Action, Binding, Keyboard, Keypad
 from cassim.device.menu import MenuItem, MenuState
 from cassim.device.profile import Profile
 from cassim.device.sheet_link import link_for
-from cassim.device.wizard import Wizard
+from cassim.device.wizard import Field, Wizard
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import statistics_menus
 from cassim.devices.nspire.document import Document as NspireDocument
 from cassim.devices.nspire.document import PageKind
-from cassim.devices.nspire.menus import entry_context, history_context
-from cassim.devices.nspire.pages import graph_analyze, graph_tools
+from cassim.devices.nspire.menus import entry_context, history_context, todo
+from cassim.devices.nspire.pages import graph_actions, graph_analyze, graph_tools
 from cassim.devices.nspire.pages.calculator import calculator_of
 from cassim.devices.nspire.pages.graphs import Graphs, GridStyle, graphs_of
 from cassim.devices.nspire.pages.spreadsheet import (
@@ -143,6 +143,85 @@ MATH_SIZES = {"Small": 16, "Normal": 20, "Large": 26}
 SHEET_MENUS = frozenset({"menu_sheet", "sheet_cell", "sheet_block", "sheet_name", "sheet_column"})
 
 
+def _graphs_actions_menu() -> MenuItem:
+    """Menu > 1 Actions on a Graphs page, numbered as on the device (emulator run 7, R7-B8)."""
+
+    def tool(label: str, name: str, key: str) -> MenuItem:
+        return MenuItem(label, "graphs", f"tool:{name}", key=key)
+
+    return MenuItem(
+        "Actions",
+        key="1",
+        items=(
+            MenuItem("Pointer", "graphs", "escape", key="1"),
+            MenuItem(
+                "Select",
+                key="2",
+                items=(
+                    todo("Region", "1"),
+                    MenuItem("Image", key="2", enabled=False),
+                    MenuItem("Grid", key="3", enabled=False),
+                ),
+            ),
+            todo("Hide/Show", "3"),
+            tool("Attributes", "attributes", "4"),
+            todo("Set Conditions", "5"),
+            todo("Delete all", "6"),
+            tool("Text", "text", "7"),
+            tool("Coordinates and Equations", "coordinates", "8"),
+            tool("Calculate", "calculate", "9"),
+            todo("Redefine", "A"),
+        ),
+    )
+
+
+def _graph_entry_menu() -> MenuItem:
+    """Menu > 3 Graph Entry/Edit, numbered as on the device (R7-B9). CASSim plots functions; the
+    other entry types and the Equation Templates keep their places, greyed."""
+
+    def templates(label: str, key: str, *forms: str) -> MenuItem:
+        return MenuItem(
+            label,
+            key=key,
+            items=tuple(todo(form, str(n)) for n, form in enumerate(forms, start=1)),
+        )
+
+    return MenuItem(
+        "Graph Entry/Edit",
+        key="3",
+        items=(
+            MenuItem("Function", "goto", key="1"),
+            todo("Relation", "2"),
+            MenuItem(
+                "Equation Templates",
+                key="3",
+                items=(
+                    templates(
+                        "Line", "1", "Line Slope Intercept", "Vertical Line", "Line Standard"
+                    ),
+                    templates(
+                        "Parabola",
+                        "2",
+                        "Vertex form y",
+                        "Standard form y",
+                        "Vertex form x",
+                        "Standard form x",
+                    ),
+                    templates("Circle", "3", "Center form", "Standard form"),
+                    templates("Ellipse", "4", "Center form"),
+                    templates("Hyperbola", "5", "East-West", "South-North"),
+                    templates("Conic", "6", "General"),
+                ),
+            ),
+            todo("Parametric", "4"),
+            todo("Polar", "5"),
+            todo("Scatter Plot", "6"),
+            todo("Sequence", "7"),
+            todo("Diff Eq", "8"),
+        ),
+    )
+
+
 class AppState:
     """Everything the views draw. A profile supplies the keymaps and keypad (FR-DEV-007)."""
 
@@ -243,6 +322,9 @@ class AppState:
     def prepare(self) -> None:
         """Before drawing: the current sheet takes the engine's replies and asks for the cells
         it shows; a dialog it wants opened is opened."""
+        graphs_page = self.graphs
+        if graphs_page is not None and graphs_page.tools.request is not None:
+            self._graphs_request(graphs_page)
         sheet = self.sheet
         if sheet is not None:
             sheet.update()
@@ -440,6 +522,38 @@ class AppState:
             graphs.edit(binding)
             if binding.action in ("copy", "cut") and self.clipboard_out is not None:
                 self.clipboard_out(self.document.clipboard.text)
+
+    def _graphs_request(self, graphs: Graphs) -> None:
+        """An Actions tool's dialog: Attributes for the graph it took, or the text for Text."""
+        request, graphs.tools.request = graphs.tools.request, None
+        if request is None or self.show_wizard is None:
+            return
+        kind, argument = request
+        if kind == "attributes":
+            entry = next((f for f in graphs.functions if f.name == argument), None)
+            if entry is None:
+                return
+            found = graphs.attributes.get(argument, graph_actions.Attributes())
+            form = graph_actions.attributes_wizard(entry, found)
+            self.show_wizard(
+                Wizard(
+                    form.title,
+                    form.fields,
+                    steps=lambda values: [
+                        Binding("graphs", f"attributes:{argument}:{json.dumps(dict(values))}")
+                    ],
+                )
+            )
+        else:
+            self.show_wizard(
+                Wizard(
+                    "Text",
+                    (Field("text", "Text"),),
+                    steps=lambda values: [
+                        Binding("graphs", f"text:{argument}:{values.get('text', '')}")
+                    ],
+                )
+            )
 
     def _graphs_tool_action(self, graphs: Graphs, argument: str) -> None:
         """Window / Zoom and Trace: a dialog opens here, everything else is the page's."""
@@ -739,7 +853,7 @@ class AppState:
         return MenuItem(
             "Menu",
             items=(
-                MenuItem("Actions", key="1", enabled=False),
+                _graphs_actions_menu(),
                 MenuItem(
                     "View",
                     key="2",
@@ -768,7 +882,7 @@ class AppState:
                         MenuItem("Hide Object Selection Guides", key="9", enabled=False),
                     ),
                 ),
-                MenuItem("Graph Entry/Edit", key="3", enabled=False),
+                _graph_entry_menu(),
                 graph_tools.window_zoom_menu(),
                 graph_tools.trace_menu(),
                 graph_analyze.menu(),

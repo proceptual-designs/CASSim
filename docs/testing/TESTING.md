@@ -409,6 +409,20 @@ Results in `emulator-graphs7-results.md`.
   - The var list types a function with both brackets and the cursor between them (`f9()`).
 - **New features, on their own branch:** Attributes, Equation Templates' empty forms, Text, Coordinates and Equations, Calculate, and dragging a curve to translate it.
 
+### Check 6, run 7: Graphs Actions (2026-11-27)
+
+FR-GRAPH-008; tested in `tests/unit/test_graph_actions.py`.
+
+- **Actions menu**, numbered as on the device:
+  - Pointer, Attributes, Text, Coordinates and Equations, and Calculate work;
+  - Select, Hide/Show, Set Conditions, Delete all and Redefine keep their places, greyed.
+- **Attributes** come in a dialog with the panel's rows: line weight, line style, label style 1 to 5, continuous or discrete, number of points. A discrete graph's step is the window's width over points + 1, which gives the device's 0.769231 for 25 points on -10 to 10. A label is drawn once a label style is chosen; the device shows one from the start.
+- **A drag that starts on a curve** translates it by two significant figures (`2·sin(x-0.91)-0.044`), applied when the drag ends; the device moves the curve as you drag.
+- **Graph Entry/Edit:**
+  - lists every entry type and every Equation Template form in its place, greyed except Function, since CASSim cannot plot relations yet;
+  - the device puts an empty template in the entry line as `e1`.
+- **Coordinates and Equations** labels a kept or analysed point with its coordinates, and a curve with its equation, as fixed text.
+
 ### Review fixes (2026-11-02)
 
 - Gradian marker is `ᵍ` (U+1D4D, lowercase superscript g, ASCII `@g`), not `ᴳ`. Changed in the corpus, `CLAUDE.md`, the lexer, evaluator, formatter, AST and unit tests (tests not re-run in this pass).
