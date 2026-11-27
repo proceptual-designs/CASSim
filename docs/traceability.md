@@ -134,7 +134,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DOC-004 | Must | `tests/device/test_serialize.py` |
 | FR-DOC-007 | Should | `tests/app/test_pseudocode_view.py`, `tests/device/test_share.py` |
 | FR-DOC-008 | Must | `tests/app/test_variable_sidebar.py`, `tests/device/test_engine_delta.py`, `tests/device/test_engine_sheet.py` and 5 more |
-| FR-DOC-010 | Should | `tests/app/test_documents.py`, `tests/app/test_library.py`, `tests/app/test_pseudocode_view.py` and 1 more |
+| FR-DOC-010 | Should | `tests/app/test_documents.py`, `tests/app/test_library.py`, `tests/app/test_pseudocode_view.py` and 3 more |
 | FR-DOC-009 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_serialize.py`, `tests/device/test_spreadsheet_page.py` |
 | FR-DOC-006 | Would | `tests/app/test_documents.py`, `tests/device/test_serialize.py` |
 | FR-SHEET-001 | Must | `tests/app/test_sheet_view.py`, `tests/device/test_engine_sheet.py`, `tests/device/test_sheet_scene.py` and 8 more |

@@ -121,6 +121,10 @@ class Statistics:
         self._revisions: dict[str, int] = {}
         self._scene_size: tuple[float, float, bool, frozenset[int]] | None = None
         self._scene: Scene | None = None
+        # Lists this page has seen in the session. A chosen list is dropped only when it has
+        # gone (deleted), not when it has not arrived yet: a saved page is loaded before the
+        # browser's engine has replayed the sheet that defines its lists.
+        self._seen_lists: set[str] = set()
         self.update()
         if self.lists:
             self.x_name = self.lists[0]
@@ -176,18 +180,13 @@ class Statistics:
                 self._values[row.name] = parse_items(row.items)
                 self._revisions[row.name] = revision
                 self._scene = None
-        if self.x_name and self.x_name not in self.lists:
-            self.x_name = ""
-            self._scene = None
-        if self.y_name and self.y_name not in self.lists:
-            self.y_name = ""
-            self._scene = None
-        if self.summary_name and self.summary_name not in self.lists:
-            self.summary_name = ""
-            self._scene = None
-        if self.split_name and self.split_name not in self.lists:
-            self.split_name = ""
-            self._scene = None
+        present = set(self.lists)
+        self._seen_lists |= present
+        for attribute in ("x_name", "y_name", "summary_name", "split_name"):
+            name = getattr(self, attribute)
+            if name and name not in present and name in self._seen_lists:
+                setattr(self, attribute, "")  # the list was deleted
+                self._scene = None
 
     def available_plot_types(self) -> tuple[PlotType, ...]:
         if not self.x_name:
