@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -10,6 +11,8 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.appearance import Appearance, appearance_dialog
+from cassim.app.cassim_menu import HOME_MENU, fill_cassim_menu
+from cassim.app.shell import BrowserOffers
 
 if TYPE_CHECKING:
     from cassim.app.shell import Shell
@@ -70,7 +73,7 @@ class Home:
         self.appearance = shell.appearance  # the shared theme, or a preview of another
         self.symbol_font = "Symbols"
         self.control: ft.Control | None = None
-        self.update_button: ft.TextButton | None = None
+        self.cassim_menu = ft.SubmenuButton(content="CASSim")
         shell.changed = self.on_bridge
 
     async def start(self) -> None:
@@ -197,26 +200,7 @@ class Home:
                                 weight=ft.FontWeight.W_600,
                                 color=self.theme.panel_accent,
                             ),
-                            ft.TextButton(
-                                content=ft.Row(
-                                    [
-                                        ft.Icon(
-                                            ft.Icons.MENU,
-                                            size=19,
-                                            color=self.theme.panel_accent,
-                                        ),
-                                        ft.Text(
-                                            about.product_name(),
-                                            size=14,
-                                            color=self.theme.panel_accent,
-                                        ),
-                                    ],
-                                    tight=True,
-                                    spacing=5,
-                                ),
-                                tooltip="CASSim menu",
-                                on_click=lambda _: self.open_cassim_menu(),
-                            ),
+                            ft.MenuBar(controls=[self.refresh_cassim_menu()]),
                         ],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -236,53 +220,30 @@ class Home:
         page.add(self.control)
         page.update()
 
-    def open_cassim_menu(self) -> None:
-        update = ft.TextButton(
-            self.shell.update_label,
-            on_click=self.activate_update,
-        )
-        self.update_button = update
-        self.page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text("CASSim"),
-                content=ft.Column(
-                    [
-                        ft.TextButton("Appearance…", on_click=self.open_appearance),
-                        update,
-                        ft.TextButton("Help (wiki)…", on_click=self.open_help),
-                        ft.TextButton(f"About {about.product_name()}…", on_click=self.open_about),
-                    ],
-                    tight=True,
-                ),
-                actions=[ft.TextButton("Close", on_click=self.close_cassim_menu)],
-            )
-        )
+    @property
+    def offers(self) -> BrowserOffers:
+        return getattr(self.shell, "offers", None) or BrowserOffers()
+
+    def refresh_cassim_menu(self) -> ft.SubmenuButton:
+        """The CASSim menu, as in every app (SDD-15 section 4), with Home's subset."""
+        fill_cassim_menu(self.cassim_menu, self.offers, HOME_MENU, self.cassim_action, self.theme)
+        return self.cassim_menu
+
+    def cassim_action(self, action: str) -> None:
+        if action == "appearance":
+            self.open_appearance()
+        else:
+            self.shell.menu_action(action)
 
     def on_bridge(self) -> None:
-        if self.update_button is not None:
-            self.update_button.content = self.shell.update_label
-            self.update_button.update()
+        """The page reported a change (an update, installing): redraw the menu."""
+        self.refresh_cassim_menu()
+        if self.control is not None:
+            with contextlib.suppress(RuntimeError):  # not on the page yet
+                self.cassim_menu.update()
 
-    def activate_update(self, _: ft.Event[ft.TextButton]) -> None:
-        self.update_button = None
-        self.shell.activate_update()
-
-    def close_cassim_menu(self, _: ft.Event[ft.TextButton]) -> None:
-        self.update_button = None
-        self.page.pop_dialog()
-
-    def open_help(self, _: ft.Event[ft.TextButton]) -> None:
-        self.update_button = None
-        self.shell.help()
-
-    def open_about(self, _: ft.Event[ft.TextButton]) -> None:
-        self.update_button = None
-        self.shell.about()
-
-    def open_appearance(self, _: ft.Event[ft.TextButton]) -> None:
+    def open_appearance(self) -> None:
         """CASSim > Appearance…: the theme for Home and every app (SDD-15 section 7.3)."""
-        self.update_button = None
-        self.page.pop_dialog()
 
         def preview(appearance: Appearance) -> None:
             self.appearance = appearance

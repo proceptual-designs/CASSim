@@ -170,15 +170,12 @@ def test_save_as_explains_browser_storage_and_file_export_separately() -> None:
     assert isinstance(dialog.content, ft.Column)
     guidance = dialog.content.controls[0]
     assert isinstance(guidance, ft.Text)
-    assert guidance.value == "Saved in this browser."
-    callout = dialog.content.controls[1]
-    assert isinstance(callout, ft.Container)
-    assert callout.bgcolor == app.theme.key
-    assert isinstance(callout.content, ft.Text)
-    assert callout.content.value == (
-        "Use: Doc > File > Export File… if you want to save a file to your device."
+    assert guidance.value == (  # worded as every app's Save as (app/saved.py, SDD-15 9.3)
+        "Saved in this app, on this device. Doc ▸ File ▸ Export file… saves a file you can "
+        "move or share."
     )
-    assert callout.content.color == app.theme.panel_accent
+    assert dialog.title.value == "Save as"
+    assert [b.content for b in dialog.actions] == ["Cancel", "Save"]
 
 
 def test_a_new_document_asks_before_dropping_unsaved_changes() -> None:

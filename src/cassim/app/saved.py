@@ -151,8 +151,8 @@ class SavedDocuments:
                     width=min(360, (self.page.width or 360) - 80),
                 ),
                 actions=[
-                    ft.TextButton("Save", on_click=done),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Save", on_click=done),
                 ],
             )
         )

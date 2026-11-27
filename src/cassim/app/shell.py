@@ -46,10 +46,10 @@ class BrowserOffers:
     @property
     def update_label(self) -> str:
         if self.update_ready:
-            return "Reload for Update"
+            return "Reload to update"
         if self.update_fetching:
-            return "Fetching Update"
-        return "Check for Updates"
+            return "Fetching update…"
+        return "Check for updates"
 
     @property
     def needs_attention(self) -> bool:
@@ -67,14 +67,16 @@ UNINSTALL_STEPS = (
     "• iPhone or iPad: touch and hold the {product} icon, then Remove App."
 )
 
-# CASSim > Check for Updates: what the page found, by its answer (see `checkUpdate` in
+# CASSim > Check for updates: what the page found, by its answer (see `checkUpdate` in
 # tools/publish.py).
-UPDATE_TITLE = "Check for Updates"
+UPDATE_TITLE = "Check for updates"
+OFFLINE_TITLE = "Offline status"
+LINK_PRIVACY = "It stays in the link and is never sent to a server."
 UPDATE_MESSAGES = {
     "downloading": (
-        "A new version is downloading. Reload for Update will appear in the {product} menu."
+        "A new version is downloading. Reload to update will appear in the {product} menu."
     ),
-    "ready": "A new version is ready. Choose Reload for Update in the {product} menu to use it.",
+    "ready": "A new version is ready. Choose Reload to update in the {product} menu to use it.",
     "offline": "{product} could not reach its site. Check the connection and try again.",
     "unsupported": "This copy of {product} cannot check for updates.",
 }
@@ -158,6 +160,8 @@ class Shell:
         self.appearance_saved = False  # a theme was saved in this browser
         # Set by the device's UI: called when what the browser offers changes (Install appears).
         self.changed: Callable[[], None] = lambda: None
+        # Set by the device's UI: whether its work has changes not saved, so Reload asks first.
+        self.has_unsaved: Callable[[], bool] = lambda: False
         self.bridge = make_bridge(self._offers_changed)
         self.clipboard = ft.Clipboard()
         self.files = ft.FilePicker()
@@ -336,14 +340,39 @@ class Shell:
                 title=ft.Text(title),
                 content=ft.Text(message),
                 actions=[
-                    ft.TextButton(action, on_click=lambda _: self.page.run_task(accepted)),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton(action, on_click=lambda _: self.page.run_task(accepted)),
                 ],
             )
         )
 
     def about(self) -> None:
         about_dialog(self.page)
+
+    def share_link(self, url: str, what: str, width: float = 420) -> None:
+        """Doc > Share link…: the link, with what it holds (`what`), and Copy link."""
+
+        def copy(_: object) -> None:
+            self.copy(url)
+            self.page.pop_dialog()
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Share link"),
+                content=ft.Column(
+                    [
+                        ft.Text(f"{what} {LINK_PRIVACY}", size=13),
+                        ft.TextField(value=url, read_only=True, dense=True, multiline=True),
+                    ],
+                    tight=True,
+                    width=width,
+                ),
+                actions=[
+                    ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Copy link", on_click=copy),
+                ],
+            )
+        )
 
     # ---- what the browser offers --------------------------------------------------------------
 
@@ -399,6 +428,36 @@ class Shell:
             show_steps,
         )
 
+    def menu_action(self, action: str, help_page: str = "") -> bool:
+        """Do a CASSim menu item every app shares (`cassim_menu.SHELL_ACTIONS`); False when
+        `action` is the app's own. `help_page` is the app's page on the help site."""
+        handlers: dict[str, Callable[[], None]] = {
+            "fullscreen": self.toggle_fullscreen,
+            "install": self.install,
+            "uninstall": self.uninstall,
+            "update": self.activate_update,
+            "offline_status": self.show_offline_status,
+            "help": lambda: self.help(help_page),
+            "about": self.about,
+        }
+        handler = handlers.get(action)
+        if handler is None:
+            return False
+        handler()
+        return True
+
+    def show_offline_status(self) -> None:
+        """CASSim > Offline status: what the page reports; when setup failed, a Retry."""
+        offers = self.offers
+        if offers.offline_retry and offers.offline_state != "update_failed":
+
+            async def retry() -> None:
+                self.retry_offline()
+
+            self.confirm(OFFLINE_TITLE, offers.offline_message, "Retry", retry)
+            return
+        self.notice(OFFLINE_TITLE, offers.offline_message)
+
     def check_for_updates(self) -> None:
         """Ask the server for a newer version and show the result."""
         bridge = self.bridge
@@ -408,12 +467,26 @@ class Shell:
         bridge.on_update = lambda result: self.notice(UPDATE_TITLE, update_message(result))
         bridge.check_update()
 
-    def activate_update(self, reload: Callable[[], None] | None = None) -> None:
-        """Check for an update, or run `reload` when one is already waiting."""
-        if self.offers.update_ready:
-            (reload or self.reload_update)()
-        else:
+    def activate_update(self) -> None:
+        """The update item: check for an update, or reload when one is waiting, asking first
+        when the app has work that is not saved (SDD-15 section 5)."""
+        if not self.offers.update_ready:
             self.check_for_updates()
+            return
+        if not self.has_unsaved():
+            self.reload_update()
+            return
+
+        async def reload() -> None:
+            self.reload_update()
+
+        product = about.product_name()
+        self.confirm(
+            f"Reload {product}?",
+            "Your work has changes that are not saved. Reloading may lose them.",
+            "Reload",
+            reload,
+        )
 
     def toggle_fullscreen(self) -> None:
         """Fullscreen, or back out of it while the page is fullscreen."""

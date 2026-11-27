@@ -46,7 +46,7 @@ def test_keyboard_ctrl_7_reaches_the_first_history_row():
 
 @pytest.mark.parametrize(
     ("key", "arg"),
-    [("F1", "help"), ("alt+shift+c", "switch_view"), ("alt+shift+h", "switch_view")],
+    [("F1", "help"), ("alt+shift+c", "view:computer"), ("alt+shift+h", "view:handheld")],
 )
 def test_app_shortcuts_are_available_while_a_menu_is_open(key: str, arg: str) -> None:
     state = AppState()

@@ -8,7 +8,7 @@ Open it from the Home screen of <https://cassim-app.pages.dev/>, or use its own 
 - [[The two views]]: Handheld and Computer
 - [[Keys and shortcuts]]
 - [[Menus]]
-- [[Settings]]: Document Settings and Handheld Setup
+- [[Settings]]: Document settings and Handheld setup
 - [[Documents and sharing]]: pages, saving, opening and share links
 - [[What works and what does not yet]]
 - [[Text interface]]: the Nspire engine in a terminal

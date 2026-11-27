@@ -1609,10 +1609,10 @@ def test_the_statistics_menu():
     state.run(Binding("insert", "4"))
     assert state.menu is not None
     assert [row.label for row in state.menu.view().rows] == [
-        "Stat Calculations",
+        "Stat calculations",
         "Distributions",
-        "Confidence Intervals",
-        "Stat Tests",
+        "Confidence intervals",
+        "Stat tests",
     ]
     state.run(Binding("insert", "1"))
     rows = state.menu.view().rows
@@ -1982,7 +1982,7 @@ def test_the_stat_tests_and_intervals_lists():
         "1-Prop z Interval…",
         "2-Prop z Interval…",
         "Linear Reg t Intervals…",
-        "Multiple Reg Intervals…",
+        "Multiple reg intervals…",
     ]
     assert labels[1][:10] == [
         "z Test…",
@@ -2053,10 +2053,10 @@ def test_the_data_menu_greys_items_by_what_is_selected():
         "Generate Sequence…",
         "Clear Data",
         "Random",
-        "List Math",
-        "List Operations",
+        "List math",
+        "List operations",
         "Quick Graph",
-        "Data Capture",
+        "Data capture",
     }
     assert "Fill" not in grey
     assert "Summary Plot" not in grey
@@ -2104,9 +2104,9 @@ def test_the_random_list_math_and_list_operations_submenus():
     ]
     assert lists[2][-7:] == [
         ("Cumulative Sum List", True),
-        ("Difference List", True),
+        ("Difference list", True),
         ("Augment", True),
-        ("Convert Matrix to List", False),
+        ("Convert matrix to list", False),
         ("Left", True),
         ("Mid", True),
         ("Right", True),

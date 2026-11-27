@@ -50,12 +50,18 @@ class DummyShell:
         self.changed = lambda: None
         self.home: Callable[[], None] | None = None
         self.notices: list[tuple[str, str]] = []
+        self.confirmed: list[str] = []
 
     def notice(self, title: str, message: str) -> None:
         self.notices.append((title, message))
 
     def write(self, key: str, text: str) -> None:
         """Storage is not kept here (StoringShell keeps it)."""
+
+    def confirm(self, title: str, message: str, action: str, accept: Any) -> None:
+        """Say yes at once (Discard changes?, before an example replaces the program)."""
+        self.confirmed.append(title)
+        asyncio.run(accept())
 
 
 def typed(app: CodeApp, text: str, selection_end: int | None) -> SimpleNamespace:
@@ -123,7 +129,7 @@ def test_home_delegates_to_the_application_shell() -> None:
     shell.home = lambda: requested.append(True)
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
 
-    app.home(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("home")
 
     assert requested == [True]
 
@@ -379,13 +385,43 @@ def test_fixed_trace_column_widths_are_precomputed() -> None:
 
 
 def test_python_console_accepts_print_and_expressions() -> None:
-    app = object.__new__(CodeApp)
-    app.python_console_namespace = {"__name__": "cassim_console"}
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
 
-    assert app.submit_python_console("50 * 'hi'") == "hi" * 50
-    assert app.submit_python_console("print(50 * 'hi')") == "hi" * 50
+    assert app.submit_python_console("50 * 2") == "100"
+    assert app.submit_python_console("print('hi')") == "hi"
     assert app.submit_python_console("x = 6") == ""
     assert app.submit_python_console("x + 1") == "7"
+
+
+def test_python_console_keeps_random_values_between_lines() -> None:
+    """Earlier lines run again before each new one, with the session's own seed."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.submit_python_console("r = randint(1, 1000000)") == ""
+    first = app.submit_python_console("r")
+    assert app.submit_python_console("r") == first
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "import os",
+        "from js import fetch",
+        "__import__('os').system('echo hi')",
+        "(1).__class__",
+        "open('notes.txt').read()",
+        "eval('1 + 1')",
+        "exec('x = 1')",
+        "getattr(1, 'real')",
+        "globals()",
+    ],
+)
+def test_python_console_is_sandboxed(line: str) -> None:
+    """SDD-15 section 9.5: a Console line is never executed as Python. It goes through the
+    same translator and interpreter as Run, which have no imports, attributes, files, eval or
+    network, so each of these is refused with an error and nothing else happens."""
+    app = CodeApp(DummyShell())  # ty: ignore[invalid-argument-type]
+    assert app.submit_python_console(line).startswith("Error:")
+    assert app.python_console_lines == []
 
 
 def test_pseudocode_console_accepts_print_and_bare_expressions() -> None:
@@ -790,13 +826,13 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
 
 def test_help_opens_the_pseudocode_page_of_the_wiki() -> None:
     shell = DummyShell()
-    asked: list[str] = []
-    shell.help = asked.append  # ty: ignore[unresolved-attribute]
+    asked: list[tuple[str, str]] = []
+    shell.menu_action = lambda action, page="": asked.append((action, page)) or True  # ty: ignore[unresolved-attribute]
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
 
-    app.open_help(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("help")  # CASSim > Help (wiki)…, which the shell opens for every app
 
-    assert asked == ["Pseudocode.html"]
+    assert asked == [("help", "Pseudocode.html")]
 
 
 def test_step_in_the_main_table_steps_over_a_call_and_highlights_the_line() -> None:
@@ -879,8 +915,21 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     in the app's storage with their language; only Import and Export touch a file."""
     shell = StoringShell()
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
-    labels = [str(getattr(item, "content", "")) for item in app.doc_menu.controls]
-    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    labels = [
+        "|" if isinstance(item, ft.Divider) else str(getattr(item, "content", ""))
+        for item in app.doc_menu.controls
+    ]
+    assert labels[:9] == [
+        "New",
+        "Open…",
+        "Save",
+        "Save as…",
+        "|",
+        "Import file…",
+        "Export file…",
+        "Share link…",
+        "|",
+    ]  # SDD-15 section 9.4
     app.saved.fresh()
     app.set_source("x ← 1\nprint x\n")
     assert app.saved.dirty()
@@ -888,7 +937,7 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     app.saved.save()  # never saved: asks for a name
     dialog = shell.dialogs[-1]
     dialog.content.controls[1].value = "First steps"
-    dialog.actions[0].on_click(None)
+    dialog.actions[-1].on_click(None)  # Save, last (Material order)
     shell.run_tasks()
     assert not shell.downloads  # nothing was downloaded
     assert '"language": "pseudocode"' in shell.stored["doc:First steps"]
@@ -952,7 +1001,7 @@ def test_appearance_is_saved_for_every_app() -> None:
     """SDD-15 gap 1: Appearance… was applied but never saved, so a reload was Dark again."""
     shell = ThemedShell(Appearance())
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
-    app.open_appearance(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("appearance")
     (shown,) = shell.dialogs
     assert shown.title.value == "Appearance"  # ty: ignore[unresolved-attribute]
     choice = next(c for c in shown.content.controls if isinstance(c, ft.SegmentedButton))  # ty: ignore[unresolved-attribute]
@@ -963,3 +1012,76 @@ def test_appearance_is_saved_for_every_app() -> None:
     save.on_click(None)
     assert [a.theme_name for a in shell.saved_appearances] == ["Light"]
     assert app.appearance.theme_name == "Light"
+
+
+def test_new_asks_first_then_gives_a_blank_program() -> None:
+    """SDD-15 section 9.4: Doc > New, which asks before throwing away unsaved work."""
+    shell = StoringShell()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, accept: (asked.append(title), asyncio.run(accept()))  # ty: ignore[invalid-assignment]
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.saved.fresh()
+    app.new_program()
+    assert asked == []  # nothing to lose
+    app.set_source("x ← 1\n")
+    app.new_program()
+    assert asked == ["Discard changes?"]
+    assert app.source() == ""
+    assert not app.saved.dirty()
+
+
+def test_an_example_asks_before_replacing_unsaved_work() -> None:
+    """SDD-15 gap 15: an example used to replace the program without asking."""
+    shell = StoringShell()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, _accept: asked.append(title)  # ty: ignore[invalid-assignment]
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.saved.fresh()
+    app.set_source("x ← 1\n")
+    app.load_example(BISECTION)
+    assert asked == ["Discard changes?"]
+    assert app.source() == "x ← 1\n"  # not replaced: the answer was not given
+
+
+def test_number_and_angle_belong_to_the_program_and_live_on_the_toolbar() -> None:
+    """SDD-15 section 6: one place for each setting. The toolbar sets them; a saved program
+    keeps them; Settings no longer repeats them."""
+    shell = StoringShell()
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.saved.fresh()
+    app.cycle_number(None)  # ty: ignore[invalid-argument-type]
+    app.toggle_angle(None)  # ty: ignore[invalid-argument-type]
+    assert app.saved.dirty()  # a mode change is a change to the program
+    text = app._dump("Modes")
+    other = CodeApp(StoringShell())  # ty: ignore[invalid-argument-type]
+    other._load_saved(text, "Modes")
+    assert (other.number_mode, other.angle_mode) == ("auto", "degree")
+    assert other.number_button.content == "Auto"
+    app.open_settings()
+    settings = shell.dialogs[-1]
+    words = [c.value for c in settings.content.controls if isinstance(c, ft.Text)]
+    assert "Number mode" not in words
+    assert "Angle" not in words
+
+
+def test_a_share_link_opens_its_program_without_running_it() -> None:
+    """FR-DOC-007, FR-EDT-004: Doc > Share link… puts the program in the link; opening the
+    link loads it, saved nowhere here, and nothing runs until Run."""
+    shell = StoringShell()
+    shell.link = lambda fragment: f"https://example.test/#/{fragment}"  # ty: ignore[unresolved-attribute]
+    shared: list[str] = []
+    shell.share_link = lambda url, what, width=420: shared.append(url)  # ty: ignore[unresolved-attribute]
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.set_source("print 6 × 7\n")
+    app.toggle_angle(None)  # ty: ignore[invalid-argument-type]
+    app.open_share_link()
+    (url,) = shared
+    fragment = url.split("#", 1)[1]
+    opened = StoringShell()
+    opened.route = fragment  # ty: ignore[unresolved-attribute]
+    other = CodeApp(opened)  # ty: ignore[invalid-argument-type]
+    other.open_route()
+    assert other.source() == "print 6 × 7\n"
+    assert other.angle_mode == "degree"
+    assert other.result is None  # loaded, not run
+    assert other.saved.current.stored is None

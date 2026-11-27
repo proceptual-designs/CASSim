@@ -1,6 +1,6 @@
 # SDD-15. Shared interface (CASSim's own menus, themes, views and dialogs)
 
-Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17.
+Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17; the shared CASSim menu (sections 3 to 6) closed gaps 4 to 7 and 12; dialogs and wording (section 9) closed 9 to 11, 16 and 20 and narrowed 8; the Doc menu (section 9.4) closed 14 and 15; decision 0040 closed 21.
 Applies to: the Home screen and every app (Nspire, Pseudocode & Python, Scientific, and later ClassPad and Prime).
 Requirements: FR-DEV-002, FR-DEV-003, FR-DEV-004, FR-DEV-006, FR-DEV-008, FR-DEV-010, FR-THEME-001, FR-THEME-002, FR-DOC-010, FR-PROF-010 to FR-PROF-013, NFR-PORT-002, NFR-PORT-003.
 Decisions: 0028 (clean room), 0032 (device interface and shell), 0033 (named documents).
@@ -192,9 +192,7 @@ The app supplies only its noun ("document", "program", "calculation") and its fi
 
 ### 9.5 Running code
 
-The Pseudocode & Python runner is fully sandboxed in its worker, so Run runs at once, with no permission prompt (Simon, 2026-11-26). Code that arrives from Open, Import, an example or a share link never runs by itself: it waits for Run. Stop must end a run within 1 s.
-
-FR-PY-002, FR-RUN-004 and the AGENTS.md line "must prompt before running" still describe a prompt. They need updating to match.
+The Pseudocode & Python runner is sandboxed, so Run runs at once, with no permission prompt (decision 0040). No user code runs as Python: a Pseudocode program, a Python program (translated to pseudocode first) and a Console line all go through CASSim's own interpreter. Code that arrives from Open, Import, an example or a share link never runs by itself: it waits for Run. Stop must end a run within 1 s.
 
 ## 10. Where the code differs (2026-11-26)
 
@@ -202,24 +200,11 @@ Paths are under `src/cassim/`; line numbers are approximate. The list is ordered
 
 | # | Gap | Where | Change |
 |---|---|---|---|
-| 4 | Home's CASSim menu is a dialog with other items (it has Appearance… since 2026-11-27) | `app/home.py:246` | The shared menu with the Home subset (4.1). |
-| 5 | Install, Uninstall, Fullscreen and the offline status are only in the Nspire | `devices/nspire/ui/app.py:135` | Build the CASSim menu once in the shell (4.2). |
-| 6 | The optional Home and Retry items shift the Nspire's numbers | `devices/nspire/ui/app.py:135` | Fold Retry into the offline status (4.1). |
-| 7 | The attention dot and the unsaved-work question before a reload are Nspire-only, and the dot is a literal colour | `devices/nspire/ui/app.py:966, 1165`, `devices/nspire/ui/keypad.py:120` | Move both into the shell (3, 5). |
-| 8 | The Nspire has its own Open and Save as, and its wording has drifted ("Saved in this browser.", ">") | `devices/nspire/ui/app.py:1272`, `app/saved.py` | Use `SavedDocuments` (9.3). |
-| 9 | A stale message: "Use Doc > File > Save to file instead" | `devices/nspire/ui/app.py:1444` | "Use Doc ▸ Export file… instead." |
-| 10 | Dialog buttons have the confirming action first | `app/shell.py:304`, `app/saved.py`, `devices/scientific/ui/app.py` | Material order (9.1). |
-| 11 | Settings naming: the Nspire toolbar's Settings opens Document Settings; Handheld Setup… opens System Settings; Scientific's Settings… opens "Calculator settings" | `devices/nspire/ui/app.py:1003`, `devices/nspire/ui/views.py:1653`, `devices/scientific/ui/app.py:1786` | Each label names what it opens; CASSim ▸ Settings… opens "Settings" (4.1, 9.2). |
-| 12 | Panel and view items swap labels; Alt+Shift+C and Alt+Shift+H both toggle | `devices/scientific/ui/app.py:172`, `devices/nspire/ui/app.py:135`, `devices/nspire/keymap.py:141` | ✓ and ● items; each shortcut picks its view (6). |
+| 8 | The Nspire still has its own Open and Save as code (its wording and button order now match `app/saved.py`). Opening a Nspire document recalculates it through the engine, which is asynchronous, and its unsaved check compares the document's structure; `SavedDocuments` takes a synchronous `load` and hashes the dumped text | `devices/nspire/ui/app.py:1164-1350`, `app/saved.py` | Give `SavedDocuments` an asynchronous `load` and a `mark` the app can supply, then use it in the Nspire (9.3). |
 | 13 | Only Computer and Handheld exist; the Nspire's landscape Handheld is what this document calls Tablet | `devices/nspire/ui/state.py:75`, `devices/nspire/ui/layout.py` | Add Tablet as a view; Handheld becomes one column (8.1). |
-| 14 | Pseudocode and Scientific have no Doc ▸ New; Pseudocode has no Share link | `devices/pseudocode/ui/app.py:412`, `devices/scientific/ui/app.py:190` | Add both (9.4). |
-| 15 | Pseudocode: Number mode and Angle are both on the toolbar and in Settings, and saved in neither; examples replace work without asking | `devices/pseudocode/ui/app.py:390, 972, 1999` | Toolbar only, saved in the document; ask first (6, 9.4). |
-| 16 | Title Case in the update labels, the Nspire's device menus and other titles; "ctrl+O" next to "Alt+Shift+C" | `app/shell.py:46`, `devices/scientific/ui/app.py:158, 824`, `devices/nspire/menus.py` | Sentence case (9.2). |
 | 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, and the swatch palette | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
 | 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
 | 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
-| 20 | Literal "About CASSim…" and the page title "CASSim-pseudocode" | `devices/scientific/ui/app.py:189`, `devices/pseudocode/ui/app.py:610` | Use `about.product_name()`. |
-| 21 | The SRS and AGENTS.md still require a prompt before running code | `docs/SRS.md` (FR-PY-002, FR-RUN-004), `AGENTS.md` | Update them to 9.5. |
 
 ## 11. Checklist for a new extra
 

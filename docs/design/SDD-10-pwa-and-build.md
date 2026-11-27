@@ -33,7 +33,7 @@ The version string is `<pyproject version>+<content hash>`, covering site conten
 - **activate:** after successful installation, delete older CASSim caches for the same service-worker scope and claim clients; failed updates leave the active cache intact. Legacy unscoped caches are left untouched because their scope cannot be identified safely.
 - **fetch:** same-origin GETs only. Navigations use the cached `index.html` first, so an unavailable host or network filter cannot prevent the app from opening. If the host redirects `index.html` to the directory URL, the worker returns a new response without the redirect history: browsers otherwise reject that cached response for navigation. Other resources are cache-first, filling the cache on a miss.
 - **update:** the page registers the worker and reports a waiting update through the bridge. The CASSim button shows a red dot and the menu offers Reload; it posts `skipWaiting` and the page reloads on `controllerchange`. Unsaved changes require confirmation.
-- **readiness:** the page asks its controlling worker whether all verified assets remain present and reports the status to the CASSim menu. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
+- **readiness:** the page asks its controlling worker whether all verified assets remain present and reports the status to the CASSim menu, whose offline status offers Retry when setup failed. Retry fetches and verifies missing assets. The browser is asked for persistent storage where supported; it may decline, and users can still clear data.
 
 Because the Python app runs in a Web Worker with no DOM, install and fullscreen requests go over a `BroadcastChannel("cassim")` to the page (`app/web.py` `Bridge`, `BODY_TAGS`). The page also reports the CSS safe-area insets, including after a resize. In the installed app on a phone-sized window, the CASSim menu toggles whether the layout uses the cutout area; the choice starts on and lasts for the session.
 
@@ -66,7 +66,7 @@ site's service-worker script for updates; the
 `version.json` request is served from the cache when available. Other cached app resources are
 loaded from the service worker, with a network request on a cache miss. Flutter also attempts to
 initialize an unused Rive plugin; the build disables this in the supported Flet JavaScript build.
-The first visit and precache require access to the site. Wait for “Offline: Ready” in the CASSim menu before
+The first visit and precache require access to the site. Wait for “Offline: ready” in the CASSim menu before
 disconnecting.
 
 ## Hosting requirements

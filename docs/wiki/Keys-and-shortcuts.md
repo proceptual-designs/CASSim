@@ -14,7 +14,7 @@
 | Ctrl+I | Add a page (choose its type) |
 | Ctrl+Alt+I | Add a Problem (choose its first page's type) |
 | Ctrl+Left, Ctrl+Right; Alt+Left, Alt+Right | Previous and next page |
-| Ctrl+Up | Page Sorter |
+| Ctrl+Up | Page sorter |
 | Ctrl+L | Variables menu |
 | Ctrl+N, Ctrl+O, Ctrl+S | New, open, save document |
 | Ctrl+Z, Ctrl+Y | Undo and redo |
@@ -63,7 +63,7 @@ The keypad has the same keys as the handheld, with the second functions (the blu
   while shift is selected. Both shortcuts open a page-type picker.
 - ctrl then **esc**: undo
 - ctrl then **Z** or **Y**: undo or redo; ctrl then **C**, **X** or **V**: copy, cut or paste
-- ctrl then **▲**: Page Sorter; ctrl then **◀** or **▶**: previous or next page
+- ctrl then **▲**: Page sorter; ctrl then **◀** or **▶**: previous or next page
 - shift then **◀** or **▶**: select part of an entry; shift then **tab**: previous slot
 - ctrl then **7** or **1**: first history row or back to the entry line; ctrl then **8** or **2**: start or end of the entry
 - **var**: variables menu; ctrl then **var**: store arrow `→`; ctrl then **del**: clear the entry

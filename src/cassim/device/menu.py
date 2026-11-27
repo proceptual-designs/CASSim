@@ -41,6 +41,8 @@ class MenuItem:
     jump: bool = False  # a submenu where a typed letter jumps to the first item starting with it
     start: tuple[int, ...] = ()  # submenus opened at once (the Catalog opens on its first tab)
     icon: str = ""  # a grid cell drawn as this named picture instead of its label
+    mark: str = ""  # drawn before the label: ✓ for a toggle that is on, ● for the current choice
+    rule: bool = False  # a thin line above the item: it starts a section (SDD-15 section 4.1)
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,8 @@ class Row:
     hint: str = ""
     enabled: bool = True
     icon: str = ""
+    mark: str = ""
+    rule: bool = False
 
 
 @dataclass(frozen=True)
@@ -124,6 +128,8 @@ class MenuState:
                         item.hint,
                         item.enabled,
                         item.icon,
+                        item.mark,
+                        item.rule,
                     )
                     for index, (key, item) in enumerate(
                         zip(item_keys(entry.item), entry.item.items, strict=True)

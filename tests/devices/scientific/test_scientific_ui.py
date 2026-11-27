@@ -18,7 +18,7 @@ import flet.canvas as cv
 import pytest
 
 from cassim.app.appearance import APPEARANCE_KEY, Appearance, load_appearance
-from cassim.app.shell import BrowserOffers
+from cassim.app.shell import BrowserOffers, Shell
 from cassim.app.theme import THEMES, contrast
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
@@ -128,6 +128,8 @@ class FakeShell:
 
     def confirm(self, title: str, message: str, action: str, accept) -> None:
         asyncio.run(accept())
+
+    share_link = Shell.share_link  # the real dialog, on this shell's page
 
     def help(self, page: str = "") -> None: ...
     def about(self) -> None: ...
@@ -426,7 +428,7 @@ def save_under(page: FakePage, name: str) -> None:
     """Type `name` into the Save as dialog and press Save."""
     dialog: Any = page.dialogs[-1]
     dialog.content.controls[1].value = name
-    dialog.actions[0].on_click(None)
+    dialog.actions[-1].on_click(None)  # Save, last (Material order)
     page.run_tasks()
 
 
@@ -434,8 +436,21 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     """FR-FX-SHR-006, FR-DOC-010 (decision 0033): Save and Open keep calculations by name in
     the app's storage; only Import file and Export file touch a file on disk."""
     app, shell, page = started()
-    labels = [str(item.content) for item in app.doc_menu.controls]
-    assert labels[:5] == ["Open…", "Save", "Save as…", "Import file…", "Export file…"]
+    labels = [
+        "|" if isinstance(item, ft.Divider) else str(getattr(item, "content", ""))
+        for item in app.doc_menu.controls
+    ]
+    assert labels[:9] == [
+        "New",
+        "Open…",
+        "Save",
+        "Save as…",
+        "|",
+        "Import file…",
+        "Export file…",
+        "Share link…",
+        "|",
+    ]  # SDD-15 section 9.4
     assert not app.saved.dirty()  # a first visit has nothing to lose
     for key in ("5", k.EQ):
         app.on_key(key)
@@ -734,6 +749,23 @@ def test_model_chip_and_title_cycle_the_calculators() -> None:
     page.drop_tasks()
 
 
+def menu_item(app: ScientificApp, label: str) -> Any:
+    """The CASSim menu's item with `label`, or None."""
+    return next(
+        (
+            c
+            for c in app.cassim_menu.controls
+            if isinstance(c, ft.MenuItemButton) and c.content == label
+        ),
+        None,
+    )
+
+
+def mark(item: Any) -> str:
+    """The ✓ or ● drawn before a menu item's label ("" when off)."""
+    return item.leading.content.value
+
+
 def test_a_phone_hides_the_tutorials_and_fills_the_screen() -> None:
     """On a phone the tutorials start hidden (whatever was saved), the calculator fills the
     width and its keys grow to use the height; CASSim ▸ Show tutorials brings them back below."""
@@ -746,12 +778,12 @@ def test_a_phone_hides_the_tutorials_and_fills_the_screen() -> None:
     assert app.stretch > 1.2
     assert not app.angle_chip.visible
     assert not app.panel_button.visible
-    assert app.tutorials_item.content == "Show tutorials"
-    app.tutorials_item.on_click(None)
+    assert mark(menu_item(app, "Tutorials")) == ""  # SDD-15 section 6: ✓ when shown
+    menu_item(app, "Tutorials").on_click(None)
     assert app.panel_open
     assert app.panel.visible
     assert app.stretch == 1.0  # room for the tutorials below the calculator
-    assert app.tutorials_item.content == "Hide tutorials"
+    assert mark(menu_item(app, "Tutorials")) == "✓"
     assert json.loads(shell.store["prefs"])["panel"] is True  # a phone keeps the saved choice
     page.drop_tasks()
 
@@ -760,10 +792,10 @@ def test_tutorials_show_and_hide_from_the_menu_on_a_computer() -> None:
     app, shell, page = started()
     assert not app.phone
     assert app.panel_open
-    assert app.tutorials_item.content == "Hide tutorials"
-    app.tutorials_item.on_click(None)
+    assert mark(menu_item(app, "Tutorials")) == "✓"
+    menu_item(app, "Tutorials").on_click(None)
     assert not app.panel.visible
-    assert app.tutorials_item.content == "Show tutorials"
+    assert mark(menu_item(app, "Tutorials")) == ""
     assert json.loads(shell.store["prefs"])["panel"] is False
     page.drop_tasks()
 
@@ -772,14 +804,16 @@ def test_an_installed_phone_can_avoid_the_cutout() -> None:
     """As in the Nspire app: an installed phone draws under the camera cutout until CASSim ▸
     Avoid cutout keeps the calculator inside the safe area."""
     app, shell, page = started(FakePage(390, 844))
-    assert not app.cutout_item.visible  # not installed
+    assert menu_item(app, "Avoid cutout") is None  # not installed: Fullscreen instead
+    assert menu_item(app, "Fullscreen") is not None
     shell.offers = BrowserOffers(installed=True, safe_area=(40, 0, 20, 0))
     app.on_bridge()
-    assert app.cutout_item.visible
-    assert app.cutout_item.content == "Avoid cutout"
+    item = menu_item(app, "Avoid cutout")
+    assert item is not None
+    assert mark(item) == ""
     assert app.root.padding.top == 0
-    app.cutout_item.on_click(None)
-    assert app.cutout_item.content == "Use cutout"
+    item.on_click(None)
+    assert mark(menu_item(app, "Avoid cutout")) == "✓"
     assert app.root.padding.top == 40
     assert app.root.padding.bottom == 20
     page.drop_tasks()
@@ -908,3 +942,33 @@ def test_mixed_number_answer_is_spaced_like_the_entry() -> None:
     gap = render.width(answer, 20) - render.width(typed, 20)
     assert gap == pytest.approx(render.MIXED_GAP * 20)
     assert gap == 0  # the fraction follows the whole part directly, as in the entry
+
+
+def test_new_clears_the_calculation_and_keeps_the_settings() -> None:
+    """SDD-15 section 9.4: Doc > New clears memories and the entry but keeps SETUP (Reset all
+    clears those too), and asks first when the work is unsaved."""
+    app, shell, page = started()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, accept: (asked.append(title), asyncio.run(accept()))
+    app.cycle_angle()  # Rad
+    for key in ("7", k.MPLUS, "2", k.ADD, "3", k.EQ):
+        app.on_key(key)
+    app.new_calculation()
+    assert asked == ["Discard changes?"]
+    assert app.state.setup.angle == "RAD"  # kept
+    assert float(app.state.variables["M"]) == 0  # cleared
+    assert app.state.display().text() == ""
+    page.drop_tasks()
+
+
+def test_an_example_asks_before_replacing_unsaved_work() -> None:
+    app, shell, page = started()
+    asked: list[str] = []
+    shell.confirm = lambda title, _m, _a, _accept: asked.append(title)
+    for key in ("1", k.ADD, "2", k.EQ):
+        app.on_key(key)
+    before = app.state.display().text()
+    app.load_example(0)
+    assert asked == ["Discard changes?"]
+    assert app.state.display().text() == before
+    page.drop_tasks()

@@ -65,6 +65,7 @@ class Keypad:
         self.on_cassim = on_cassim
         self.installable = False
         self.needs_attention = False
+        self.attention_tooltip = "CASSim menu"
         self.theme = theme
         self.control = ft.Column(spacing=KEY_GAP, tight=True)
         self._look: tuple[object, ...] | None = None
@@ -141,7 +142,7 @@ class Keypad:
             bgcolor=self.theme.title_bar,
             border_radius=self.state.kpx(7),
             ink=True,
-            tooltip="CASSim menu: attention required" if self.needs_attention else "CASSim menu",
+            tooltip=self.attention_tooltip if self.needs_attention else "CASSim menu",
             on_click=lambda _: on_cassim(),
         )
 

@@ -8,7 +8,7 @@ Open it from the Home screen of <https://cassim-app.pages.dev/>, or use its own 
 
 ## Save and open
 
-**Doc ▸ Save** keeps your program under a name in this browser, and **Doc ▸ Open** lists the programs you have saved, as in the other CASSim apps. Saved programs live on this device and browser only. To keep a copy elsewhere, **Doc ▸ Export file…** downloads the program as a text file (`.pseudo.txt`, or `.py` for Python) and **Import file…** opens one. Nothing you open or import runs until you press Run.
+**Doc ▸ New** starts a blank program. **Doc ▸ Save** keeps your program under a name in this browser, with its number mode and angle, and **Doc ▸ Open** lists the programs you have saved, as in the other CASSim apps. Saved programs live on this device and browser only. To keep a copy elsewhere, **Doc ▸ Export file…** downloads the program as a text file (`.pseudo.txt`, or `.py` for Python) and **Import file…** opens one. **Doc ▸ Share link…** makes a link that holds the program, so you can send it to a class; the link never sends anything to a server. New, Open, Import and an example ask first if your program has changes you have not saved. Nothing you open, import or follow a link to runs until you press Run.
 
 ## Write and run
 
@@ -30,13 +30,13 @@ The trace table records every change to a variable, in order, as a desk check wo
 
 ## Settings
 
-**Number mode** sets how numbers are kept:
+The **number mode** button on the toolbar (Approx, Auto or Exact) sets how numbers are kept, and is saved with the program:
 
 - **Approx:** division gives decimals, as in Python.
 - **Auto:** whole numbers and fractions stay exact.
 - **Exact:** decimals are also read as fractions.
 
-**Angle** is Radian or Degree. **Settings…** also has:
+The **angle** button beside it is Radian or Degree. **CASSim ▸ Settings…** has:
 
 - the code style and symbols the translation writes;
 - line numbers;
