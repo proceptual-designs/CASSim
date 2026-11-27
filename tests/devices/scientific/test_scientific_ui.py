@@ -1054,3 +1054,36 @@ def test_table_example_asks_for_the_extra() -> None:
         "TABLE is an extra mode: switch it on in CASSim ▸ Settings first.",
     )
     page.drop_tasks()
+
+
+def test_table_switched_off_in_table_mode_stays_off() -> None:
+    """Switching the TABLE extra off while in TABLE mode goes back to COMP, so the extra does not
+    switch itself on again."""
+    app, shell, page = started()
+    app.extra_table = True
+    app.state.use_layout(
+        app._modes(app.layout), linear=app.layout.linear, dialect=app.layout.dialect
+    )
+    for key in (k.MODE, "4"):
+        app.state.press(key)
+    assert app.state.mode == "TABLE"
+    app.open_settings()
+    dialog = page.dialogs[-1]
+    switches = {c.label: c for c in _walk(dialog.content) if isinstance(c, ft.Switch)}
+    switches["TABLE mode (MODE 4)"].value = False
+    apply = next(b for b in dialog.actions if isinstance(b, ft.TextButton) and b.content == "Apply")
+    apply.on_click(None)
+    assert app.state.mode == "COMP"
+    assert not app.extra_table
+    assert "TABLE" not in app.state.allowed_modes
+    assert json.loads(shell.store["prefs"])["table"] is False
+    page.drop_tasks()
+
+
+def test_reload_to_update_asks_about_an_unsaved_calculation() -> None:
+    """SDD-15 section 5: Scientific tells the shell about unsaved work, and stops when left."""
+    app, shell, page = started()
+    assert shell.has_unsaved == app.saved.dirty
+    app.unmount()
+    assert shell.has_unsaved() is False
+    page.drop_tasks()

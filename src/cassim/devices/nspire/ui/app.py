@@ -278,6 +278,7 @@ class App:
         """Save the current document and release the page owned by this device."""
         self.save_now()
         self.shell.changed = lambda: None
+        self.shell.has_unsaved = lambda: False
         self.page.on_keyboard_event = None
         self.page.on_resize = None
         self.page.on_app_lifecycle_state_change = None

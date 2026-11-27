@@ -268,7 +268,9 @@ class GraphsView:
         )
 
     def _scale_update(self, event: ft.ScaleUpdateEvent) -> None:
-        if self._curve is not None and event.pointer_count <= 1:
+        if self._curve is not None and event.pointer_count > 1:
+            self._curve = None  # a second finger: a pinch, so the curve does not move
+        if self._curve is not None:
             delta = event.focal_point_delta
             moved = self._curve_moved
             self._curve_moved = (moved[0] + delta.x, moved[1] + delta.y)

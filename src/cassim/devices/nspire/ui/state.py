@@ -165,7 +165,7 @@ def _graphs_actions_menu() -> MenuItem:
             ),
             todo("Hide/Show", "3"),
             tool("Attributes", "attributes", "4"),
-            todo("Set Conditions", "5"),
+            todo("Set conditions", "5"),
             todo("Delete all", "6"),
             tool("Text", "text", "7"),
             tool("Coordinates and Equations", "coordinates", "8"),
@@ -176,8 +176,8 @@ def _graphs_actions_menu() -> MenuItem:
 
 
 def _graph_entry_menu() -> MenuItem:
-    """Menu > 3 Graph Entry/Edit, numbered as on the device (R7-B9). CASSim plots functions; the
-    other entry types and the Equation Templates keep their places, greyed."""
+    """Menu > 3 Graph entry/edit, numbered as on the device (R7-B9). CASSim plots functions; the
+    other entry types and the Equation templates keep their places, greyed."""
 
     def templates(label: str, key: str, *forms: str) -> MenuItem:
         return MenuItem(
@@ -187,17 +187,17 @@ def _graph_entry_menu() -> MenuItem:
         )
 
     return MenuItem(
-        "Graph Entry/Edit",
+        "Graph entry/edit",
         key="3",
         items=(
             MenuItem("Function", "goto", key="1"),
             todo("Relation", "2"),
             MenuItem(
-                "Equation Templates",
+                "Equation templates",
                 key="3",
                 items=(
                     templates(
-                        "Line", "1", "Line Slope Intercept", "Vertical Line", "Line Standard"
+                        "Line", "1", "Line slope intercept", "Vertical line", "Line standard"
                     ),
                     templates(
                         "Parabola",
@@ -215,9 +215,9 @@ def _graph_entry_menu() -> MenuItem:
             ),
             todo("Parametric", "4"),
             todo("Polar", "5"),
-            todo("Scatter Plot", "6"),
+            todo("Scatter plot", "6"),
             todo("Sequence", "7"),
-            todo("Diff Eq", "8"),
+            todo("Diff eq", "8"),
         ),
     )
 
@@ -542,6 +542,7 @@ class AppState:
                     steps=lambda values: [
                         Binding("graphs", f"attributes:{argument}:{json.dumps(dict(values))}")
                     ],
+                    check=graph_actions.attributes_problems,
                 )
             )
         else:

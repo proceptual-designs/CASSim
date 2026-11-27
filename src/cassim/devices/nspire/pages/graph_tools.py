@@ -387,13 +387,8 @@ def _action_click(graphs: Graphs, x: float, y: float, point: tuple[float, float]
             graphs.texts.append(graph_actions.TextObject(point[0], point[1], text))
     elif state.tool is Tool.CALCULATE:
         index = graph_actions.text_at(graphs, x, y)
-        value = graph_actions.calculate(graphs, index) if index is not None else None
-        if index is not None and value is not None:
-            item = graphs.texts[index]
-            width = graphs.window.x_max - graphs.window.x_min
-            graphs.texts.append(
-                graph_actions.TextObject(item.x + width * 0.06 * len(item.text), item.y, value)
-            )
+        if index is not None:
+            graph_actions.calculate(graphs, index)
 
 
 def prompt(graphs: Graphs) -> str:
