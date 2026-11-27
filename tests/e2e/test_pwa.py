@@ -313,12 +313,11 @@ def test_cassim_menu_shows_browser_attention_without_overlay(
         message: "Offline files are incomplete.", retry: true, updateReady: false});
     }""")
     expect(
-        page.get_by_role("button", name=re.compile("CASSim menu: attention required"))
+        page.get_by_role("button", name=re.compile("CASSim menu: offline setup failed"))
     ).to_be_attached()
     assert page.locator("#cassim-offline").is_hidden()
     button.click()
-    expect(page.get_by_text("Offline: Unavailable")).to_be_attached()
-    expect(page.get_by_text("Retry offline setup")).to_be_attached()
+    expect(page.get_by_text("Offline: unavailable")).to_be_attached()
     page.evaluate("""() => {
       const channel = new BroadcastChannel("cassim");
       channel.postMessage({op: "update", result: "downloading"});

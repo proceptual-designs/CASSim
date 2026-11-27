@@ -3,6 +3,7 @@
 
 from collections.abc import Mapping
 from types import SimpleNamespace
+from typing import Any
 
 import flet as ft
 import pytest
@@ -16,7 +17,7 @@ from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire import syntax as nspire_syntax
 from cassim.devices.nspire.pages.calculator import Calculator, calculator_of, calculator_on
 from cassim.devices.nspire.pages.spreadsheet import SHEET_ACTIONS, Spreadsheet
-from cassim.devices.nspire.ui.app import browser_menu_items, cassim_items
+from cassim.devices.nspire.ui.app import cassim_items, nspire_menu
 from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.nspire.ui.template_icons import HEIGHT, ICONS, WIDTH, Slot, Stroke
 from cassim.devices.nspire.ui.views import (
@@ -747,127 +748,60 @@ def test_cassim_menu_opens_and_dispatches_browser_items() -> None:
     assert asked == ["fullscreen"]
 
 
-def test_cassim_status_and_attention_follow_browser_offers() -> None:
-    ready = BrowserOffers(offline_state="ready", offline_message="Ready for offline use.")
-    assert not ready.needs_attention
-    labels = [item.label for item in cassim_items(handheld=True, offers=ready)]
-    assert "Offline: Ready" in labels
-    assert "Check for Updates" in labels
-    assert "Reload for Update" not in labels
-    failed = BrowserOffers(
-        offline_state="unavailable", offline_message="Offline files incomplete.", offline_retry=True
-    )
-    assert failed.needs_attention
-    items = cassim_items(handheld=True, offers=failed)
-    assert any(
-        item.label == "Offline: Unavailable" and item.hint == failed.offline_message
-        for item in items
-    )
-    assert any(item.arg == "retry_offline" for item in items)
-    failed_update = BrowserOffers(
-        offline_state="update_failed", offline_message="Update failed.", offline_retry=True
-    )
-    assert not any(
-        item.arg == "retry_offline" for item in cassim_items(handheld=True, offers=failed_update)
-    )
-    update = BrowserOffers(offline_state="ready", update_ready=True)
-    assert update.needs_attention
-    items = cassim_items(handheld=True, offers=update)
-    assert [item.label for item in items if item.arg == "update"] == ["Reload for Update"]
-    assert not any(item.arg == "reload_update" for item in items)
-
-
-def test_cassim_menu_browser_items_never_move() -> None:
-    """The browser items keep their places whatever the browser offers (muscle memory);
-    one that is not available is greyed and Fullscreen turns into Exit Fullscreen."""
-
-    def items(**offers: bool) -> list[tuple[str, bool]]:
-        handheld = offers.pop("handheld", True)
-        given = BrowserOffers(
-            can_fullscreen=True,
-            in_fullscreen=offers.get("in_fullscreen", False),
-            standalone=offers.get("standalone", False),
-            installable=offers.get("installable", False),
-        )
-        return [(i.label, i.enabled) for i in browser_menu_items(handheld=handheld, offers=given)]
-
-    assert items() == [
-        ("Computer view", True),
-        ("Fullscreen", True),
-        ("Install CASSim", False),
-        ("Check for Updates", True),
+def nspire_rows(**facts: Any) -> list[tuple[str, str, str, bool, bool]]:
+    """(key, label, mark, rule, enabled) of each row of the Nspire's CASSim menu."""
+    offers = facts.pop("offers", BrowserOffers())
+    items = cassim_items(offers, nspire_menu(**facts))
+    root = MenuItem("CASSim", items=items)
+    return [
+        (key, item.label, item.mark, item.rule, item.enabled)
+        for key, item in zip(item_keys(root), items, strict=True)
     ]
-    assert items(in_fullscreen=True, standalone=True)[1] == ("Exit Fullscreen", True)
-    assert items(standalone=True)[1] == ("Fullscreen", False)
-    assert items(installable=True)[2] == ("Install CASSim", True)
-    assert items(handheld=False)[0] == ("Handheld view", True)
 
 
-@pytest.mark.parametrize(
-    ("offers", "label"),
-    [
-        (BrowserOffers(), "Check for Updates"),
-        (BrowserOffers(update_fetching=True), "Fetching Update"),
-        (BrowserOffers(update_ready=True), "Reload for Update"),
-    ],
-)
-def test_cassim_menu_has_one_stateful_update_item(offers: BrowserOffers, label: str) -> None:
-    """FR-PWA-004: update checking and reload occupy one CASSim menu row."""
-    items = browser_menu_items(handheld=True, offers=offers)
-    assert [(item.arg, item.label) for item in items if item.arg == "update"] == [("update", label)]
-    assert sum(item.arg in ("update", "check_updates", "reload_update") for item in items) == 1
-
-
-def test_cassim_menu_hints_are_shortcuts_not_redundant_labels() -> None:
-    computer_switch, _, _, _ = browser_menu_items(handheld=True, offers=BrowserOffers())
-    handheld_switch, _, _, _ = browser_menu_items(handheld=False, offers=BrowserOffers())
-    items = cassim_items(handheld=True, offers=BrowserOffers())
-    assert computer_switch.hint == "Alt+Shift+C"
-    assert handheld_switch.hint == "Alt+Shift+H"
-    assert next(item for item in items if item.arg == "help").hint == "F1"
-    assert all(item.hint != "CASSim" for item in items)
-
-
-def test_testing_site_menu_uses_beta_brand(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(about.bundle, "SOURCE", "CASSim-calc")
-    items = cassim_items(handheld=True, offers=BrowserOffers(installed=True))
-    assert items[2].label == "Uninstall CASSimᵝ"
-    assert items[-1].label == "About CASSimᵝ…"
-
-
-def test_a_phone_cannot_switch_to_computer_view() -> None:
-    """A phone has no room for Computer view and the on-screen keyboard: the switch is greyed."""
-    items = browser_menu_items(handheld=True, offers=BrowserOffers(), phone=True)
-    assert (items[0].label, items[0].enabled) == ("Computer view", False)
-
-
-def test_installed_phone_offers_cutout_toggle_in_both_states() -> None:
-    offers = BrowserOffers(installed=True, standalone=True)
-    for use_cutout, label in ((True, "Avoid cutout"), (False, "Use cutout")):
-        for handheld in (True, False):
-            items = browser_menu_items(
-                handheld=handheld, offers=offers, phone=True, use_cutout=use_cutout
-            )
-            if handheld:
-                assert (items[1].label, items[1].enabled) == (label, True)
-            else:
-                assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
-    items = browser_menu_items(handheld=True, offers=offers, phone=False)
-    assert (items[1].label, items[1].enabled) == ("Fullscreen", False)
-    browser_fullscreen = BrowserOffers(
-        can_fullscreen=True, standalone=True, in_fullscreen=True, installed=False
-    )
-    items = browser_menu_items(handheld=True, offers=browser_fullscreen, phone=True)
-    assert (items[1].label, items[1].enabled) == ("Exit Fullscreen", True)
-
-
-def test_the_installed_app_offers_uninstall() -> None:
-    """In the installed app the Install row reads Uninstall, in the same place, and asks first."""
-    labels = [
-        (i.label, i.arg, i.enabled)
-        for i in browser_menu_items(handheld=True, offers=BrowserOffers(installed=True))
+def test_the_nspire_numbers_the_shared_sections_and_rules_them_off() -> None:
+    """SDD-15 section 4: the shared sections as a numbered panel; each section after the
+    first starts with a rule, and ● marks the current view."""
+    assert nspire_rows(handheld=False, keypad=True) == [
+        ("1", "Computer view", "●", False, True),
+        ("2", "Handheld view", "", False, True),
+        ("3", "Keypad", "✓", False, True),
+        ("4", "Fullscreen", "", False, False),
+        ("5", "Settings…", "", True, True),
+        ("6", "Appearance…", "", False, True),
+        ("7", "Install CASSim…", "", True, False),
+        ("8", "Check for Updates", "", False, True),
+        ("9", "Offline: unknown", "", False, True),
+        ("A", "Help (wiki)…", "", True, True),
+        ("B", "About CASSim…", "", False, True),
     ]
-    assert labels[2] == ("Uninstall CASSim", "uninstall", True)
+
+
+def test_handheld_view_greys_the_keypad_which_it_always_shows() -> None:
+    rows = nspire_rows(handheld=True)
+    assert rows[0][1:3] == ("Computer view", "")
+    assert rows[1][1:3] == ("Handheld view", "●")
+    assert rows[2][1:] == ("Keypad", "✓", False, False)
+
+
+def test_home_comes_first_and_never_moves_the_other_numbers_within_a_build() -> None:
+    """Home is fixed for a bundle; the retry item that used to appear and shift the numbers is
+    folded into the offline status."""
+    failed = BrowserOffers(offline_state="unavailable", offline_retry=True)
+    plain = [row[1] for row in nspire_rows(handheld=True, home=True)]
+    with_failure = [row[1] for row in nspire_rows(handheld=True, home=True, offers=failed)]
+    assert plain[0] == "Home"
+    assert len(plain) == len(with_failure)
+    assert "Offline: unavailable" in with_failure
+
+
+def test_the_hints_are_shortcuts() -> None:
+    items = cassim_items(BrowserOffers(), nspire_menu(handheld=True))
+    hints = {item.label: item.hint for item in items}
+    assert hints["Computer view"] == "Alt+Shift+C"
+    assert hints["Handheld view"] == "Alt+Shift+H"
+    assert hints["Help (wiki)…"] == "F1"
+    assert all(hint != "CASSim" for hint in hints.values())
 
 
 def test_template_cells_are_drawn_as_pictures() -> None:
@@ -1004,31 +938,3 @@ def test_check_for_updates_asks_the_page_and_shows_its_answer(
     shell.bridge = None
     Shell.check_for_updates(shell)  # ty: ignore[invalid-argument-type]
     assert shown == ["This copy of CASSimᵝ cannot check for updates."]
-
-
-@pytest.mark.parametrize("fetching", [False, True])
-def test_activate_update_checks_again_until_an_update_is_ready(fetching: bool) -> None:
-    """The Fetching Update row remains active and repeats the check."""
-    checked: list[str] = []
-    shell = SimpleNamespace(
-        offers=BrowserOffers(update_fetching=fetching),
-        check_for_updates=lambda: checked.append("check"),
-        reload_update=lambda: checked.append("reload"),
-    )
-    Shell.activate_update(shell)  # ty: ignore[invalid-argument-type]
-    assert checked == ["check"]
-
-
-def test_activate_update_reloads_only_when_the_update_is_ready() -> None:
-    """FR-PWA-004: the ready update row dispatches to the document's guarded reload."""
-    reloaded: list[str] = []
-    shell = SimpleNamespace(
-        offers=BrowserOffers(update_ready=True),
-        check_for_updates=lambda: reloaded.append("check"),
-        reload_update=lambda: reloaded.append("shell reload"),
-    )
-    Shell.activate_update(
-        shell,  # ty: ignore[invalid-argument-type]
-        lambda: reloaded.append("guarded reload"),
-    )
-    assert reloaded == ["guarded reload"]

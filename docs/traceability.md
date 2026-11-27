@@ -165,12 +165,12 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-THEME-002 | Should | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py` |
 | FR-DEV-006 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_state.py` |
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
-| FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_menus.py` |
+| FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_cassim_menu.py`, `tests/app/test_menus.py` |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
 | FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` and 1 more |
 | FR-PWA-002 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py`, `tests/unit/test_bundles.py` |
 | FR-PWA-003 | Must | `tests/e2e/test_pwa.py` |
-| FR-PWA-004 | Should | `tests/app/test_full_screen.py`, `tests/app/test_menus.py`, `tests/e2e/test_pwa.py` |
+| FR-PWA-004 | Should | `tests/app/test_cassim_menu.py`, `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py` |
 | FR-PROF-001 | Could | `tests/device/test_devices.py` |
 | FR-PROF-002 | Must | `tests/device/test_devices.py` |
 | FR-PROF-006 | Should | `tests/device/test_serialize.py` |
@@ -182,7 +182,7 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-PROF-013 | Could | `tests/app/test_home.py` |
 | FR-PROF-014 | Could | `tests/app/test_home.py`, `tests/e2e/test_pseudocode_workspace_browser.py` |
 | FR-PROF-015 | Could | `tests/app/test_home.py`, `tests/devices/scientific/test_scientific_files.py` |
-| FR-PROF-016 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
+| FR-PROF-016 | Could | `tests/app/test_cassim_menu.py`, `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | FR-PROF-017 | Could | `tests/app/test_home.py`, `tests/e2e/test_home_browser.py` |
 | FR-PROF-018 | Could | `tests/app/test_home.py` |
 | FR-RUN-005 | Should | `tests/runtime/test_pseudocode.py` |
@@ -297,7 +297,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
 | NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |
 | NFR-MAINT-005 | Should | `tests/unit/test_bundles.py` |
-| NFR-LEG-002 | Must | `tests/app/test_about.py`, `tests/app/test_stub_pages.py` |
+| NFR-LEG-002 | Must | `tests/app/test_about.py`, `tests/app/test_cassim_menu.py`, `tests/app/test_stub_pages.py` |
 | NFR-LEG-003 | Must | `tests/app/test_about.py` |
 | NFR-LEG-005 | Must | `tests/app/test_about.py` |
 | NFR-LEG-007 | Must | `corpus/pseudocode/seed.yaml` |

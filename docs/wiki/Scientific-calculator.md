@@ -81,4 +81,4 @@ The full-screen button at the right of the menu bar hides the bar for presenting
 
 ## On a phone
 
-On a phone the calculator fills the screen and its keys grow to use the height. The tutorials start hidden: **CASSim ▸ Show tutorials** brings them back, below the calculator, and **Hide tutorials** puts them away (on a larger screen the same menu item, or the Tutorials button, does the same). The menu bar keeps the calculator and mode chips. In the installed app, **CASSim ▸ Avoid cutout** keeps the calculator clear of the camera cutout, and **Use cutout** draws under it again.
+On a phone the calculator fills the screen and its keys grow to use the height. The tutorials start hidden: **CASSim ▸ Tutorials** brings them back, below the calculator, with a ✓ in the menu, and choosing it again puts them away (on a larger screen the same menu item, or the Tutorials button, does the same). The menu bar keeps the calculator and mode chips. In the installed app, **CASSim ▸ Avoid cutout** keeps the calculator clear of the camera cutout, and choosing it again draws under it.

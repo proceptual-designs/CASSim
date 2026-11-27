@@ -734,6 +734,23 @@ def test_model_chip_and_title_cycle_the_calculators() -> None:
     page.drop_tasks()
 
 
+def menu_item(app: ScientificApp, label: str) -> Any:
+    """The CASSim menu's item with `label`, or None."""
+    return next(
+        (
+            c
+            for c in app.cassim_menu.controls
+            if isinstance(c, ft.MenuItemButton) and c.content == label
+        ),
+        None,
+    )
+
+
+def mark(item: Any) -> str:
+    """The ✓ or ● drawn before a menu item's label ("" when off)."""
+    return item.leading.content.value
+
+
 def test_a_phone_hides_the_tutorials_and_fills_the_screen() -> None:
     """On a phone the tutorials start hidden (whatever was saved), the calculator fills the
     width and its keys grow to use the height; CASSim ▸ Show tutorials brings them back below."""
@@ -746,12 +763,12 @@ def test_a_phone_hides_the_tutorials_and_fills_the_screen() -> None:
     assert app.stretch > 1.2
     assert not app.angle_chip.visible
     assert not app.panel_button.visible
-    assert app.tutorials_item.content == "Show tutorials"
-    app.tutorials_item.on_click(None)
+    assert mark(menu_item(app, "Tutorials")) == ""  # SDD-15 section 6: ✓ when shown
+    menu_item(app, "Tutorials").on_click(None)
     assert app.panel_open
     assert app.panel.visible
     assert app.stretch == 1.0  # room for the tutorials below the calculator
-    assert app.tutorials_item.content == "Hide tutorials"
+    assert mark(menu_item(app, "Tutorials")) == "✓"
     assert json.loads(shell.store["prefs"])["panel"] is True  # a phone keeps the saved choice
     page.drop_tasks()
 
@@ -760,10 +777,10 @@ def test_tutorials_show_and_hide_from_the_menu_on_a_computer() -> None:
     app, shell, page = started()
     assert not app.phone
     assert app.panel_open
-    assert app.tutorials_item.content == "Hide tutorials"
-    app.tutorials_item.on_click(None)
+    assert mark(menu_item(app, "Tutorials")) == "✓"
+    menu_item(app, "Tutorials").on_click(None)
     assert not app.panel.visible
-    assert app.tutorials_item.content == "Show tutorials"
+    assert mark(menu_item(app, "Tutorials")) == ""
     assert json.loads(shell.store["prefs"])["panel"] is False
     page.drop_tasks()
 
@@ -772,14 +789,16 @@ def test_an_installed_phone_can_avoid_the_cutout() -> None:
     """As in the Nspire app: an installed phone draws under the camera cutout until CASSim ▸
     Avoid cutout keeps the calculator inside the safe area."""
     app, shell, page = started(FakePage(390, 844))
-    assert not app.cutout_item.visible  # not installed
+    assert menu_item(app, "Avoid cutout") is None  # not installed: Fullscreen instead
+    assert menu_item(app, "Fullscreen") is not None
     shell.offers = BrowserOffers(installed=True, safe_area=(40, 0, 20, 0))
     app.on_bridge()
-    assert app.cutout_item.visible
-    assert app.cutout_item.content == "Avoid cutout"
+    item = menu_item(app, "Avoid cutout")
+    assert item is not None
+    assert mark(item) == ""
     assert app.root.padding.top == 0
-    app.cutout_item.on_click(None)
-    assert app.cutout_item.content == "Use cutout"
+    item.on_click(None)
+    assert mark(menu_item(app, "Avoid cutout")) == "✓"
     assert app.root.padding.top == 40
     assert app.root.padding.bottom == 20
     page.drop_tasks()

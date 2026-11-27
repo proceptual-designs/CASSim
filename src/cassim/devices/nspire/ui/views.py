@@ -1446,6 +1446,10 @@ class CalculatorView:
             ),
             label_text(row.label, size=px(12), color=colour, expand=True, no_wrap=True),
         ]
+        if any(other.mark for other in panel.rows) or any(
+            other.label.startswith(("✓", "●")) for other in panel.rows
+        ):
+            parts.insert(1, label_text(row.mark, size=px(11), color=colour, width=px(10)))
         if wide and row.hint:
             hint_colour = colour if on else theme.menu_hint
             parts.append(ft.Text(row.hint, size=px(11), color=hint_colour, no_wrap=True))
@@ -1458,6 +1462,7 @@ class CalculatorView:
             height=px(LIST_ROW_H),  # fixed, so a pointer click can find the row
             alignment=ft.Alignment.CENTER_LEFT,
             border_radius=px(3),
+            border=ft.Border(top=ft.BorderSide(1, theme.menu_disabled)) if row.rule else None,
             tooltip=row.hint or None,
             ink=True,
             on_click=lambda _: self.on_action("menu_pick", f"{depth}:{index}"),

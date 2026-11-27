@@ -123,7 +123,7 @@ def test_home_delegates_to_the_application_shell() -> None:
     shell.home = lambda: requested.append(True)
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
 
-    app.home(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("home")
 
     assert requested == [True]
 
@@ -790,13 +790,13 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
 
 def test_help_opens_the_pseudocode_page_of_the_wiki() -> None:
     shell = DummyShell()
-    asked: list[str] = []
-    shell.help = asked.append  # ty: ignore[unresolved-attribute]
+    asked: list[tuple[str, str]] = []
+    shell.menu_action = lambda action, page="": asked.append((action, page)) or True  # ty: ignore[unresolved-attribute]
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
 
-    app.open_help(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("help")  # CASSim > Help (wiki)…, which the shell opens for every app
 
-    assert asked == ["Pseudocode.html"]
+    assert asked == [("help", "Pseudocode.html")]
 
 
 def test_step_in_the_main_table_steps_over_a_call_and_highlights_the_line() -> None:
@@ -952,7 +952,7 @@ def test_appearance_is_saved_for_every_app() -> None:
     """SDD-15 gap 1: Appearance… was applied but never saved, so a reload was Dark again."""
     shell = ThemedShell(Appearance())
     app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
-    app.open_appearance(SimpleNamespace())  # ty: ignore[invalid-argument-type]
+    app.cassim_action("appearance")
     (shown,) = shell.dialogs
     assert shown.title.value == "Appearance"  # ty: ignore[unresolved-attribute]
     choice = next(c for c in shown.content.controls if isinstance(c, ft.SegmentedButton))  # ty: ignore[unresolved-attribute]

@@ -171,11 +171,11 @@ The calculator scales to the window (between 0.7× and 1.3× of a 360 × 700 des
 ### 5.1 Top Navigation Bar & Presentation Mode (CASSim Consistency)
 
 1. **Top bar (FR-FX-UI-001)**:
-   - **CASSim menu**: Home, Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…, Check for updates, Help (wiki)…, About CASSim….
+   - **CASSim menu** (the shared menu, SDD-15 section 4): Home; Tutorials (✓ when shown), Fullscreen or, on an installed phone, Avoid cutout; Settings… (the SETUP choices as a form), Appearance…, Keyboard shortcuts…; Install, Check for Updates, the offline status; Help (wiki)…, About CASSim….
    - **Doc menu**: Open…, Save, Save as… (calculations kept by name in the app's storage: `cassim.app.saved`, decision 0033), Import file…, Export file… (`.cassim.json`), Share link…, Examples ▸ (standard deviation, five-number summary, linear regression, table of values, mixed numbers, exact trigonometry, degrees-minutes-seconds, prime factorisation), Reset all… (asks first).
    - **Status chips**: mode, angle unit, input mode; clickable.
 2. **Presentation mode (FR-FX-UI-002)**: the full-screen button hides the bar; a floating button or Esc restores it.
-3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Show/Hide tutorials; lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
+3. **Tutorial panel (FR-FX-UI-003)**: shown or hidden by the Tutorials button or CASSim ▸ Tutorials (✓ when shown); lesson list (completed lessons ticked), Guide me / Show me / Test me, playback speed, step counter, instruction and reason, next-key chip, expected screen, keys so far, Back / Skip step / Restart / End. The student's own calculation is put aside when a lesson starts and comes back when it ends.
 
 ---
 

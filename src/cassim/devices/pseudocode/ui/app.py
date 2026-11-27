@@ -14,7 +14,9 @@ from typing import TYPE_CHECKING, cast
 import flet as ft
 
 from cassim.app.appearance import Appearance, appearance_dialog
+from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
 from cassim.app.saved import SavedDocuments
+from cassim.app.shell import BrowserOffers
 from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -387,25 +389,8 @@ class CodeApp:
 
         self.number_button = ft.Button("Approx", on_click=self.cycle_number, style=_control_style())
         self.angle_button = ft.Button("Radian", on_click=self.toggle_angle, style=_control_style())
-        self.update_item = ft.MenuItemButton(
-            content=getattr(self.shell, "update_label", "Check for Updates"),
-            on_click=self.activate_update,
-        )
-        self.cassim_menu = ft.SubmenuButton(
-            content="CASSim",
-            controls=[
-                *(
-                    [ft.MenuItemButton(content="Home", on_click=self.home)]
-                    if getattr(self.shell, "home", None) is not None
-                    else []
-                ),
-                ft.MenuItemButton(content="Settings…", on_click=self.open_settings),
-                ft.MenuItemButton(content="Appearance…", on_click=self.open_appearance),
-                self.update_item,
-                ft.MenuItemButton(content="Help (wiki)…", on_click=self.open_help),
-                ft.MenuItemButton(content="About CASSim…", on_click=self.open_about),
-            ],
-        )
+        self.cassim_menu = ft.SubmenuButton(content="CASSim")
+        self.refresh_cassim_menu()
         examples = self.build_examples_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
@@ -705,8 +690,30 @@ class CodeApp:
         return hasattr(js, "document")
 
     def on_bridge(self) -> None:
-        self.update_item.content = getattr(self.shell, "update_label", "Check for Updates")
-        _safe_update(self.update_item)
+        """The page reported a change (an update, installing, going offline)."""
+        self.refresh_cassim_menu()
+        _safe_update(self.cassim_menu)
+
+    @property
+    def offers(self) -> BrowserOffers:
+        return getattr(self.shell, "offers", None) or BrowserOffers()
+
+    def refresh_cassim_menu(self) -> None:
+        """The CASSim menu, shared with every app (SDD-15 section 4)."""
+        facts = AppMenu(home=getattr(self.shell, "home", None) is not None)
+        fill_cassim_menu(self.cassim_menu, self.offers, facts, self.cassim_action, self.theme)
+
+    def cassim_action(self, action: str) -> None:
+        """A CASSim menu item: this app's own, or one the shell does for every app."""
+        own: dict[str, Callable[[], object]] = {
+            "home": self.home,
+            "settings": self.open_settings,
+            "appearance": self.open_appearance,
+        }
+        if action in own:
+            own[action]()
+        else:
+            self.shell.menu_action(action, HELP_PAGE)
 
     @property
     def theme(self) -> Theme:
@@ -2021,12 +2028,12 @@ window.CASSimTypingAids = function(editor, change) {
                 )
             )
 
-    def home(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def home(self, _: object = None) -> None:
         home = getattr(self.shell, "home", None)
         if home is not None:
             home()
 
-    def open_settings(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def open_settings(self, _: object = None) -> None:
         def switch_changed(event: ft.Event[ft.Switch]) -> None:
             event.control.value = bool(event.control.value)
             _safe_update(event.control)
@@ -2143,7 +2150,7 @@ window.CASSimTypingAids = function(editor, change) {
             )
         )
 
-    def open_appearance(self, _: ft.Event[ft.MenuItemButton]) -> None:
+    def open_appearance(self, _: object = None) -> None:
         """CASSim > Appearance…: the theme shared with Home and every app (SDD-15 section 7.3)."""
 
         def save(appearance: Appearance) -> None:
@@ -2151,15 +2158,6 @@ window.CASSimTypingAids = function(editor, change) {
             self.apply_theme()
 
         appearance_dialog(self.page, self.shell.appearance, save, on_preview=self.apply_theme)
-
-    def activate_update(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.activate_update()
-
-    def open_help(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.help(HELP_PAGE)
-
-    def open_about(self, _: ft.Event[ft.MenuItemButton]) -> None:
-        self.shell.about()
 
 
 def mount(shell: Shell) -> CodeApp:

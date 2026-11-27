@@ -17,8 +17,10 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from cassim.app.appearance import Appearance, AppearanceDialog, appearance_dialog
+from cassim.app.cassim_menu import AppMenu, Panel, fill_cassim_menu
 from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
+from cassim.app.shell import BrowserOffers
 from cassim.app.theme import DEFAULT_THEME
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
@@ -38,6 +40,8 @@ from cassim.devices.scientific.ui.render import FALLBACK, FONT, FONTS, Renderer
 from cassim.devices.scientific.ui.skins import SKINS, Skin, skin_for
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from cassim.app.shell import Shell
     from cassim.app.theme import Theme
 
@@ -162,39 +166,8 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     def _build(self) -> None:
-        self.update_item = ft.MenuItemButton(
-            content=getattr(self.shell, "update_label", "Check for updates"),
-            on_click=lambda _: self.shell.activate_update(),
-        )
-        home = (
-            [ft.MenuItemButton(content="Home", on_click=lambda _: self._home())]
-            if self.shell.home is not None
-            else []
-        )
-        self.tutorials_item = ft.MenuItemButton(
-            content="Hide tutorials", on_click=lambda _: self.toggle_panel()
-        )
-        self.cutout_item = ft.MenuItemButton(
-            content="Avoid cutout", on_click=lambda _: self.toggle_cutout(), visible=False
-        )
-        self.cassim_menu = ft.SubmenuButton(
-            content="CASSim",
-            controls=[
-                *home,
-                self.tutorials_item,
-                self.cutout_item,
-                ft.MenuItemButton(content="Settings…", on_click=lambda _: self.open_settings()),
-                ft.MenuItemButton(content="Appearance…", on_click=lambda _: self.open_appearance()),
-                ft.MenuItemButton(
-                    content="Keyboard shortcuts…", on_click=lambda _: self.open_shortcuts()
-                ),
-                self.update_item,
-                ft.MenuItemButton(
-                    content="Help (wiki)…", on_click=lambda _: self.shell.help(HELP_PAGE)
-                ),
-                ft.MenuItemButton(content="About CASSim…", on_click=lambda _: self.shell.about()),
-            ],
-        )
+        self.cassim_menu = ft.SubmenuButton(content="CASSim")
+        self.refresh_cassim_menu()
         self.doc_menu = ft.SubmenuButton(
             content="Doc",
             controls=[
@@ -832,10 +805,41 @@ class ScientificApp:
 
     def on_bridge(self) -> None:
         """The page reported a change (an update, installing, the safe area)."""
-        self.update_item.content = getattr(self.shell, "update_label", "Check for updates")
-        _safe_update(self.update_item)
+        self.refresh_cassim_menu()
+        _safe_update(self.cassim_menu)
         if self.key_controls:
             self.fit()
+
+    @property
+    def offers(self) -> BrowserOffers:
+        return getattr(self.shell, "offers", None) or BrowserOffers()
+
+    def refresh_cassim_menu(self) -> None:
+        """The CASSim menu, shared with every app (SDD-15 section 4): Tutorials is this app's
+        panel, Avoid cutout appears on an installed phone, and it has keyboard shortcuts."""
+        facts = AppMenu(
+            home=self.shell.home is not None,
+            panels=(Panel("tutorials", "Tutorials", shown=self.panel_open),),
+            phone=self.phone,
+            cutout=self.use_cutout,
+            shortcuts=True,
+        )
+        fill_cassim_menu(self.cassim_menu, self.offers, facts, self.cassim_action, self.theme)
+
+    def cassim_action(self, action: str) -> None:
+        """A CASSim menu item: this app's own, or one the shell does for every app."""
+        own: dict[str, Callable[[], object]] = {
+            "home": self._home,
+            "panel:tutorials": self.toggle_panel,
+            "cutout": self.toggle_cutout,
+            "settings": self.open_settings,
+            "appearance": self.open_appearance,
+            "shortcuts": self.open_shortcuts,
+        }
+        if action in own:
+            own[action]()
+        else:
+            self.shell.menu_action(action, HELP_PAGE)
 
     @property
     def phone(self) -> bool:
@@ -1042,10 +1046,7 @@ class ScientificApp:
         follow the state."""
         for item in (self.angle_chip, self.io_chip, self.panel_button):
             item.visible = not phone
-        self.tutorials_item.content = "Hide tutorials" if self.panel_open else "Show tutorials"
-        offers = getattr(self.shell, "offers", None)
-        self.cutout_item.visible = bool(phone and offers is not None and offers.installed)
-        self.cutout_item.content = "Avoid cutout" if self.use_cutout else "Use cutout"
+        self.refresh_cassim_menu()  # ✓ Tutorials, Avoid cutout on an installed phone
         _safe_update(self.top_bar)
 
     def _home(self) -> None:

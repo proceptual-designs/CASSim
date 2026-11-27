@@ -558,7 +558,7 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "dialog" and binding.arg in {"help", "switch_view"}:
+        if binding.action == "dialog" and binding.arg in {"help", "view:computer", "view:handheld"}:
             self.menu = None
             self.run(binding)
             return

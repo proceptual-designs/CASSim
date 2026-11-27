@@ -21,14 +21,23 @@ Some items open a small form instead of expecting you to type the command, for e
 ## CASSim
 
 The **CASSim** button is in the Computer toolbar and above **Doc** on the Handheld keypad.
-Its menu has the view switch, Fullscreen, Install or Uninstall, Check for Updates, offline status,
-Help and About. On an installed phone, **Avoid cutout** or **Use cutout** replaces Fullscreen.
-Unavailable actions are greyed out. On the Handheld keypad, ctrl then CASSim offers direct
-installation when the browser supports it.
+It is the same menu, in the same order, in every CASSim app and on Home:
 
-A red dot on the button means an offline problem, failed update or a downloaded update needs
-attention. Open the menu for details and, when available, Retry or Reload. Reload asks first if
-the document has unsaved changes; updates are never applied automatically.
+- **Home**, in the all-in-one app
+- the views (● marks the one you are in) and the panels you can show or hide (✓ when shown):
+  here **Computer view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
+  phone, **Avoid cutout**, ✓ while the calculator keeps clear of the camera cutout)
+- **Settings…** and **Appearance…**
+- **Install CASSim…** or **Uninstall CASSim…**, **Check for Updates** and the offline status
+- **Help (wiki)…** and **About CASSim…**
+
+Items you cannot use at the moment are greyed out rather than removed, so the numbers stay the
+same. On the Handheld keypad, ctrl then CASSim offers direct installation when the browser
+supports it.
+
+A red dot on the button means an update is ready or offline setup failed; hover over it to see
+which. Choose the offline status for details, and **Retry** there if setup failed. **Reload for
+Update** asks first if your work has unsaved changes; updates are never applied automatically.
 
 ## Other menus
 
