@@ -5,7 +5,7 @@ If CASSim gives a different answer from the real calculator, behaves oddly, or i
 ## How to report
 
 - **Students:** tell your teacher, or whoever gave you the CASSim link.
-- **Anyone with a GitHub account:** open an issue at <https://github.com/simonjtyler/CASSim/issues>. Look through the open issues first, in case it is already there; if it is, add what you saw to that issue.
+- **Anyone with a GitHub account:** open an issue at <https://github.com/proceptual-designs/CASSim/issues>. Look through the open issues first, in case it is already there; if it is, add what you saw to that issue.
 
 Issues are public. Do not put names, school details or assessment questions in them.
 
@@ -22,4 +22,4 @@ A screenshot of CASSim helps. Please do not attach screenshots of the makers' ow
 
 ## Security problems
 
-If you find a security problem, do not open a public issue. Use **Report a vulnerability** on <https://github.com/simonjtyler/CASSim/security> so it can be fixed first.
+If you find a security problem, do not open a public issue. Use **Report a vulnerability** on <https://github.com/proceptual-designs/CASSim/security> so it can be fixed first.
