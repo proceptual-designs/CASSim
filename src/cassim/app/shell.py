@@ -46,10 +46,10 @@ class BrowserOffers:
     @property
     def update_label(self) -> str:
         if self.update_ready:
-            return "Reload for Update"
+            return "Reload to update"
         if self.update_fetching:
-            return "Fetching Update"
-        return "Check for Updates"
+            return "Fetching update…"
+        return "Check for updates"
 
     @property
     def needs_attention(self) -> bool:
@@ -67,15 +67,15 @@ UNINSTALL_STEPS = (
     "• iPhone or iPad: touch and hold the {product} icon, then Remove App."
 )
 
-# CASSim > Check for Updates: what the page found, by its answer (see `checkUpdate` in
+# CASSim > Check for updates: what the page found, by its answer (see `checkUpdate` in
 # tools/publish.py).
-UPDATE_TITLE = "Check for Updates"
+UPDATE_TITLE = "Check for updates"
 OFFLINE_TITLE = "Offline status"
 UPDATE_MESSAGES = {
     "downloading": (
-        "A new version is downloading. Reload for Update will appear in the {product} menu."
+        "A new version is downloading. Reload to update will appear in the {product} menu."
     ),
-    "ready": "A new version is ready. Choose Reload for Update in the {product} menu to use it.",
+    "ready": "A new version is ready. Choose Reload to update in the {product} menu to use it.",
     "offline": "{product} could not reach its site. Check the connection and try again.",
     "unsupported": "This copy of {product} cannot check for updates.",
 }
@@ -336,8 +336,8 @@ class Shell:
                 title=ft.Text(title),
                 content=ft.Text(message),
                 actions=[
-                    ft.TextButton(action, on_click=lambda _: self.page.run_task(accepted)),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton(action, on_click=lambda _: self.page.run_task(accepted)),
                 ],
             )
         )

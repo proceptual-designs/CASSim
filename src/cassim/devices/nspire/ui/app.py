@@ -969,6 +969,11 @@ class App:
                 spacing=4,
             )
         doc_fill, doc_text = theme.key_colours("nav")
+        # named as the dialog it opens (SDD-15 section 9.2), so it takes more of the row
+        document_settings = button(
+            "Document settings", self.open_settings, theme.key, theme.key_text
+        )
+        document_settings.expand = 2
         undo = ft.IconButton(
             icon=ft.Icons.UNDO,
             tooltip="Undo (Ctrl+Z)",
@@ -997,7 +1002,7 @@ class App:
                 [
                     cassim,
                     button("Doc", lambda: self.act("open_menu", "doc"), doc_fill, doc_text),
-                    button("Settings", self.open_settings, theme.key, theme.key_text),
+                    document_settings,
                 ],
                 spacing=4,
             ),
@@ -1121,7 +1126,7 @@ class App:
             "view:computer": lambda: self.set_mode(Mode.COMPUTER),
             "view:handheld": lambda: self.set_mode(Mode.HANDHELD),
             "panel:keypad": self.toggle_keypad,
-            "settings": lambda: self.show_dialog("system_settings"),
+            "settings": lambda: self.open_system_settings("Settings"),
             "appearance": self.open_appearance,
             "save": self.save,
             "save_as": self.save_as,
@@ -1134,9 +1139,7 @@ class App:
             "sheet_export_xlsx": lambda: self._start_sheet_file_action("xlsx", importing=False),
             "share_link": self.share_link,
             "document_settings": self.open_settings,
-            "system_settings": lambda: system_settings_dialog(
-                self.page, self.state, self.on_system_change, self.theme, self.open_appearance
-            ),
+            "system_settings": lambda: self.open_system_settings("Handheld setup"),
             "home": lambda: self.shell.home() if self.shell.home is not None else None,
         }
         dialog = dialogs.get(name)
@@ -1144,6 +1147,13 @@ class App:
             dialog()
         else:
             self.shell.menu_action(name, HELP_PAGE)  # install, update, help... (every app's)
+
+    def open_system_settings(self, title: str) -> None:
+        """System Settings, titled after the item that opened it (SDD-15 section 9.2)."""
+        dialog = system_settings_dialog(
+            self.page, self.state, self.on_system_change, self.theme, self.open_appearance
+        )
+        dialog.title = ft.Text(title)
 
     def has_unsaved(self) -> bool:
         """The document has changes since it was last saved (so a reload asks first)."""
@@ -1209,7 +1219,7 @@ class App:
 
                 self.shell.confirm(
                     "Replace saved document?",
-                    f"“{other}” is already saved in this browser. Replace it with this document?",
+                    f"“{other}” is already saved here. Replace it with this document?",
                     "Replace",
                     replace,
                 )
@@ -1222,19 +1232,13 @@ class App:
 
         field.on_submit = done
         dialog = ft.AlertDialog(
-            title=ft.Text("Save As"),
+            title=ft.Text("Save as"),
             content=ft.Column(
                 [
-                    ft.Text("Saved in this browser."),
-                    ft.Container(
-                        content=ft.Text(
-                            "Use: Doc > File > Export File… if you want to save a file "
-                            "to your device.",
-                            color=self.theme.panel_accent,
-                        ),
-                        bgcolor=self.theme.key,
-                        border_radius=6,
-                        padding=10,
+                    ft.Text(
+                        "Saved in this app, on this device. Doc ▸ File ▸ Export file… saves "
+                        "a file you can move or share.",
+                        size=13,
                     ),
                     field,
                 ],
@@ -1242,8 +1246,8 @@ class App:
                 width=360,
             ),
             actions=[
-                ft.TextButton("Save", on_click=done),
                 ft.TextButton("Cancel", on_click=cancel),
+                ft.TextButton("Save", on_click=done),
             ],
         )
         self.typing_dialog = dialog  # the keys go to the name box, not the calculator
@@ -1256,8 +1260,8 @@ class App:
         if not items:
             self.notice(
                 "No saved documents",
-                "Nothing is saved in this browser yet. Doc > File > Save keeps a document here; "
-                "Import File… opens a .cassim.json file.",
+                "Nothing is saved here yet. Doc ▸ File ▸ Save keeps a document in this app; "
+                "Doc ▸ File ▸ Import file… opens a file.",
             )
             return
 
@@ -1281,7 +1285,7 @@ class App:
 
                 self.shell.confirm(
                     f"Delete “{name}”?",
-                    "It is removed from this browser. This cannot be undone.",
+                    "It is removed from this app's storage. This cannot be undone.",
                     "Delete",
                     gone,
                 )
@@ -1301,7 +1305,7 @@ class App:
         ]
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text("Open Document"),
+                title=ft.Text("Open document"),
                 content=ft.Column(rows, tight=True, scroll=ft.ScrollMode.AUTO, width=380),
                 actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())],
             )
@@ -1311,7 +1315,7 @@ class App:
         text = await self.library.text(name)
         try:
             if text is None:
-                msg = "it is no longer in this browser's storage"
+                msg = "it is no longer in this app's storage"
                 raise DocumentFileError(msg)
             self.replace(await self.read(text))
             self.state.document.name = name
@@ -1334,7 +1338,7 @@ class App:
         self.shell.confirm(
             "Discard changes?",
             f"“{self.state.document.name}” has changes that are not saved. "
-            "Doc > File > Save keeps them.",
+            "Doc ▸ File ▸ Save keeps them.",
             "Discard",
             discard,
         )
@@ -1413,7 +1417,7 @@ class App:
         try:
             fragment = encode(self.state.document)
         except LinkTooLongError as error:
-            self.notice("Too big for a link", f"{error}. Use Doc > File > Save to file instead.")
+            self.notice("Too big for a link", f"{error}. Use Doc ▸ File ▸ Export file… instead.")
             return
         self.shell.copy(self.shell.link(fragment))
         self.notice("Link copied", "Anyone with the link can open this document. Nothing is sent.")
@@ -1433,7 +1437,7 @@ class App:
         async def accept() -> None:
             try:
                 self.replace(await self.read(text))
-                self.remember(Current(None, ""))  # not saved in this browser yet
+                self.remember(Current(None, ""))  # not saved in this app yet
             except DocumentFileError as error:
                 self.notice("Cannot open that link", str(error))
             self.refresh()

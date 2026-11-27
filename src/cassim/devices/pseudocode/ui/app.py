@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, cast
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
 from cassim.app.saved import SavedDocuments
@@ -590,7 +591,7 @@ class CodeApp:
             SYMBOL_FONT: "fonts/NotoSansSymbols2-Regular.ttf",
         }
         await self.load_editor_settings()
-        self.page.title = "CASSim-pseudocode"
+        self.page.title = f"{about.product_name()} Pseudocode & Python"
         self.page.padding = 8
         self.page.on_resize = self.on_resize
         self.page.on_keyboard_event = self.on_keyboard
@@ -2144,8 +2145,8 @@ window.CASSimTypingAids = function(editor, change) {
                     spacing=8,
                 ),
                 actions=[
-                    ft.TextButton("Save", on_click=save),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Save", on_click=save),
                 ],
             )
         )

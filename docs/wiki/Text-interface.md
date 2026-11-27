@@ -9,7 +9,7 @@ uv run cassim -c "solve(x^2=2,x)"
 uv run cassim run lesson.tib
 ```
 
-`uv run cassim` on its own opens the graphical app. `--view handheld` or `--view computer` chooses its view, and `--course` and `--set` set the Document Settings.
+`uv run cassim` on its own opens the graphical app. `--view handheld` or `--view computer` chooses its view, and `--course` and `--set` set the Document settings.
 
 ## Plain keyboard spellings
 

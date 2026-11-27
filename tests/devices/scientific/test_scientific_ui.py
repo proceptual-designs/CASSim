@@ -426,7 +426,7 @@ def save_under(page: FakePage, name: str) -> None:
     """Type `name` into the Save as dialog and press Save."""
     dialog: Any = page.dialogs[-1]
     dialog.content.controls[1].value = name
-    dialog.actions[0].on_click(None)
+    dialog.actions[-1].on_click(None)  # Save, last (Material order)
     page.run_tasks()
 
 

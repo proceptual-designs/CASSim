@@ -322,13 +322,13 @@ def test_cassim_menu_shows_browser_attention_without_overlay(
       const channel = new BroadcastChannel("cassim");
       channel.postMessage({op: "update", result: "downloading"});
     }""")
-    expect(page.get_by_text(re.compile("Fetching Update"))).to_be_attached()
+    expect(page.get_by_text(re.compile("Fetching update…"))).to_be_attached()
     page.evaluate("""() => {
       const channel = new BroadcastChannel("cassim");
       channel.postMessage({op: "status", state: "ready",
         message: "Ready for offline use.", retry: false, updateReady: true});
     }""")
-    expect(page.get_by_text(re.compile("Reload for Update"))).to_be_attached()
+    expect(page.get_by_text(re.compile("Reload to update"))).to_be_attached()
     expect(page.get_by_text("Reload update…", exact=True)).not_to_be_attached()
 
 

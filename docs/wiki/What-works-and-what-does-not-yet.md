@@ -5,7 +5,7 @@ CASSim is a work in progress. This page is kept up to date as pages are added.
 ## Works now
 
 - The **Calculator** page: algebra, calculus, matrices, lists, probability and statistics commands, with 2D templates for fractions, powers, roots, logs, piecewise, systems, sums, products, limits, derivatives and integrals
-- Document Settings, Problems and Pages, undo and redo
+- Document settings, Problems and Pages, undo and redo
 - Handheld and Computer views, with touch, mouse and keyboard
 - Save and open files, share links, autosave, install and offline use
 - The **Pseudocode & Python** app: run pseudocode, step through a trace table (including inside function calls), and translate between pseudocode and Python (see [[Pseudocode]])

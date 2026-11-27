@@ -25,7 +25,7 @@ def test_saved_custom_theme_is_applied_after_reload(
             "document.getElementById('cassim-offline').dataset.state === 'ready'", timeout=150000
         )
         context.set_offline(True)
-    for key in ("F4", "7", "3"):  # Doc > Settings & Status > Handheld Setup
+    for key in ("F4", "7", "3"):  # Doc > Settings & status > Handheld setup
         app.page.keyboard.press(key)
         app.page.wait_for_timeout(300)
     app.page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")

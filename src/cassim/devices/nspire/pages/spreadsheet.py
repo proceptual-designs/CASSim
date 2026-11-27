@@ -186,10 +186,10 @@ MENU_ENABLED_FOR: dict[str, frozenset[str]] = {
     "Resize": _NOT_BLOCK,
     "Select": _NOT_BLOCK,
     "generate": _DATA,
-    "Data Capture": _DATA,
+    "Data capture": _DATA,
     "Random": _DATA,
-    "List Math": _DATA,
-    "List Operations": _DATA,
+    "List math": _DATA,
+    "List operations": _DATA,
     "fill": frozenset({"cell", "block"}),
     "clear": frozenset({"column", "name", "row"}),
 }

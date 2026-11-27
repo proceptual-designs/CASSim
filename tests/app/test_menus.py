@@ -40,9 +40,9 @@ def test_doc_menu_opens_and_lists_rows() -> None:
         ("2", "Edit"),
         ("3", "View"),
         ("4", "Insert"),
-        ("5", "Page Layout"),
-        ("6", "Refresh Libraries"),
-        ("7", "Settings & Status"),
+        ("5", "Page layout"),
+        ("6", "Refresh libraries"),
+        ("7", "Settings & status"),
         ("8", "Login"),
         ("9", "Press-to-Test"),
     ]
@@ -650,7 +650,7 @@ def test_unimplemented_convert_submenu_stays_greyed() -> None:
     state.key_event("3")
     state.key_event("A")  # Convert Expression: it opens to show the device's items, greyed
     view = _menu(state)
-    assert view.title == "Menu > Algebra > Convert Expression"
+    assert view.title == "Menu > Algebra > Convert expression"
     assert [row.label for row in view.rows][:2] == ["Convert to ln", "Convert to logbase"]
     assert not any(row.enabled for row in view.rows)
     state.key_event("Escape")
@@ -770,7 +770,7 @@ def test_the_nspire_numbers_the_shared_sections_and_rules_them_off() -> None:
         ("5", "Settings…", "", True, True),
         ("6", "Appearance…", "", False, True),
         ("7", "Install CASSim…", "", True, False),
-        ("8", "Check for Updates", "", False, True),
+        ("8", "Check for updates", "", False, True),
         ("9", "Offline: unknown", "", False, True),
         ("A", "Help (wiki)…", "", True, True),
         ("B", "About CASSim…", "", False, True),
@@ -892,7 +892,7 @@ def test_ctrl_i_ctrl_doc_and_insert_problem_offer_the_applications():
         ("5", "Add Data & Statistics"),
         ("6", "Add Notes"),
         ("7", "Add Vernier DataQuest™"),
-        ("8", "Add Widget"),
+        ("8", "Add widget"),
         ("9", "Add Program Editor"),
         ("A", "Add Python"),
     ]

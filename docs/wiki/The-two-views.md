@@ -25,4 +25,4 @@ On a tablet, tap the entry line (or a spreadsheet cell) and the device's own on-
 
 ## Switching
 
-Choose the view you start in under **Doc, Settings & Status, Handheld Setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. Doc, **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so Doc, **Computer view** is greyed there.
+Choose the view you start in under **Doc, Settings & status, Handheld setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. CASSim ▸ **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so CASSim ▸ **Computer view** is greyed there.

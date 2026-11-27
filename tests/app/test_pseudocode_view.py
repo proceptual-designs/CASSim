@@ -888,7 +888,7 @@ def test_open_and_save_use_app_storage_and_files_are_import_and_export() -> None
     app.saved.save()  # never saved: asks for a name
     dialog = shell.dialogs[-1]
     dialog.content.controls[1].value = "First steps"
-    dialog.actions[0].on_click(None)
+    dialog.actions[-1].on_click(None)  # Save, last (Material order)
     shell.run_tasks()
     assert not shell.downloads  # nothing was downloaded
     assert '"language": "pseudocode"' in shell.stored["doc:First steps"]

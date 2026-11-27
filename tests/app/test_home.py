@@ -307,7 +307,7 @@ def test_home_menu_offers_appearance_for_every_app() -> None:
     assert labels == [
         "Appearance…",
         "Install CASSim…",
-        "Check for Updates",
+        "Check for updates",
         "Offline: unknown",
         "Help (wiki)…",
         "About CASSim…",

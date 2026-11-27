@@ -43,20 +43,20 @@ def test_computer_controls_align_at_minimum_sidebar_width(
     """FR-DEV-002: aligned controls remain visible and usable in the minimum-width sidebar."""
     app = open_app(browser, site)
     page = app.page
-    names = ("CASSim", "Doc", "Settings", "Menu", "Page manager", "+ Page", "+ Problem")
+    names = ("CASSim", "Doc", "Document settings", "Menu", "Page manager", "+ Page", "+ Problem")
     boxes = {}
     for name in names:
         locator = page.get_by_role("button", name=re.compile(rf"^{re.escape(name)}(?:\s|$)"))
         box = locator.bounding_box()
         assert box, f"{name} is not visible"
         boxes[name] = box
-    for row in (("CASSim", "Doc", "Settings"), ("Page manager", "+ Page", "+ Problem")):
+    for row in (("CASSim", "Doc", "Document settings"), ("Page manager", "+ Page", "+ Problem")):
         assert max(boxes[name]["y"] for name in row) - min(boxes[name]["y"] for name in row) < 2
         assert all(
             boxes[left]["x"] + boxes[left]["width"] <= boxes[right]["x"]
             for left, right in pairwise(row)
         )
-    assert boxes["Settings"]["y"] < boxes["Menu"]["y"] < boxes["Page manager"]["y"]
+    assert boxes["Document settings"]["y"] < boxes["Menu"]["y"] < boxes["Page manager"]["y"]
     expect(button(page, "delete page")).not_to_be_attached()
     button(page, "Page manager").click()
     expect(page.get_by_role("button", name=re.compile("Close the sorter"))).to_be_attached()

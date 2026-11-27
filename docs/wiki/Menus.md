@@ -4,7 +4,7 @@ Menus are numbered as on the handheld: press a number to choose that item, or us
 
 ## Menu (F2)
 
-Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & Vector, Finance, Functions & Programs. Pages that are not built yet have no Menu.
+Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & vector, Finance, Functions & programs. Pages that are not built yet have no Menu.
 
 Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance Solver. Greyed-out items are on the handheld but not built yet in CASSim.
 
@@ -12,10 +12,10 @@ Some items open a small form instead of expecting you to type the command, for e
 
 - **File:** new document, open and save documents kept in this browser, import and export `.cassim.json` files, copy a share link
 - **Edit:** undo, redo, copy and paste
-- **View:** Page Sorter and other views
+- **View:** Page sorter and other views
 - **Insert:** add a Problem or a page (Calculator and Lists & Spreadsheet work so far)
-- **Page Layout:** delete a page
-- **Settings & Status:** Document Settings and Handheld Setup
+- **Page layout:** delete a page
+- **Settings & status:** Document settings and Handheld setup
 - **8 Login** and **9 Press-to-Test** are unavailable placeholders.
 
 ## CASSim
@@ -28,7 +28,7 @@ It is the same menu, in the same order, in every CASSim app and on Home:
   here **Computer view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
   phone, **Avoid cutout**, ✓ while the calculator keeps clear of the camera cutout)
 - **Settings…** and **Appearance…**
-- **Install CASSim…** or **Uninstall CASSim…**, **Check for Updates** and the offline status
+- **Install CASSim…** or **Uninstall CASSim…**, **Check for updates** and the offline status
 - **Help (wiki)…** and **About CASSim…**
 
 Items you cannot use at the moment are greyed out rather than removed, so the numbers stay the

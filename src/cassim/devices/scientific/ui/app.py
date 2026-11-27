@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from cassim.app import about
 from cassim.app.appearance import Appearance, AppearanceDialog, appearance_dialog
 from cassim.app.cassim_menu import AppMenu, Panel, fill_cassim_menu
 from cassim.app.keyboard import key_name
@@ -775,7 +776,7 @@ class ScientificApp:
     # ------------------------------------------------------------------------------------------
 
     async def start(self, **_options: object) -> None:
-        self.page.title = "CASSim Scientific"
+        self.page.title = f"{about.product_name()} Scientific"
         self.page.fonts = {**(self.page.fonts or {}), **FONTS}
         self.page.padding = 0
         self.page.on_keyboard_event = self.on_keyboard
@@ -1632,8 +1633,8 @@ class ScientificApp:
                     width=self.dialog_width(420),
                 ),
                 actions=[
-                    ft.TextButton("Copy link", on_click=copy),
                     ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Copy link", on_click=copy),
                 ],
             )
         )
@@ -1660,7 +1661,7 @@ class ScientificApp:
             self._schedule_save()
 
         self.shell.confirm(
-            "Reset all",
+            "Reset all?",
             "Clear every setting, memory, STAT data and the table? This cannot be undone.",
             "Reset",
             reset,
@@ -1791,7 +1792,7 @@ class ScientificApp:
 
         self.page.show_dialog(
             ft.AlertDialog(
-                title=ft.Text("Calculator settings"),
+                title=ft.Text("Settings"),
                 content=ft.Column(
                     [
                         heading("Angle unit"),
@@ -1813,8 +1814,8 @@ class ScientificApp:
                     width=width,
                 ),
                 actions=[
-                    ft.TextButton("Apply", on_click=apply),
                     ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                    ft.TextButton("Apply", on_click=apply),
                 ],
             )
         )

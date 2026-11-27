@@ -48,7 +48,7 @@ def test_the_sections_are_in_the_fixed_order() -> None:
         ["Home"],
         ["Computer view", "Handheld view", "Keypad", "Fullscreen"],
         ["Settings…", "Appearance…", "Keyboard shortcuts…"],
-        ["Install CASSim…", "Check for Updates", "Offline: unknown"],
+        ["Install CASSim…", "Check for updates", "Offline: unknown"],
         ["Help (wiki)…", "About CASSim…"],
     ]
 
@@ -134,9 +134,9 @@ def test_the_installed_app_offers_uninstall_in_the_same_place() -> None:
 @pytest.mark.parametrize(
     ("offers", "label"),
     [
-        (BrowserOffers(), "Check for Updates"),
-        (BrowserOffers(update_fetching=True), "Fetching Update"),
-        (BrowserOffers(update_ready=True), "Reload for Update"),
+        (BrowserOffers(), "Check for updates"),
+        (BrowserOffers(update_fetching=True), "Fetching update…"),
+        (BrowserOffers(update_ready=True), "Reload to update"),
     ],
 )
 def test_one_update_item_with_three_states(offers: BrowserOffers, label: str) -> None:
@@ -158,7 +158,7 @@ def test_offline_status_has_no_separate_retry_item() -> None:
 def test_home_shows_its_subset() -> None:
     assert labels(cassim_sections(BrowserOffers(), HOME_MENU)) == [
         ["Appearance…"],
-        ["Install CASSim…", "Check for Updates", "Offline: unknown"],
+        ["Install CASSim…", "Check for updates", "Offline: unknown"],
         ["Help (wiki)…", "About CASSim…"],
     ]
 

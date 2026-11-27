@@ -33,14 +33,14 @@ def test_the_entry_lines_context_menu() -> None:
     state = AppState()
     state.key_event("ContextMenu")
     assert _items(_menu(state)) == [
-        ("1", "Clear History", True),
+        ("1", "Clear history", True),
         ("2", "Cut", False),
         ("3", "Copy", False),
         ("4", "Paste", True),
         ("5", "Delete", False),
-        ("6", "Select Variable", True),
+        ("6", "Select variable", True),
         ("7", "Symbols…", True),
-        ("8", "Math Templates…", True),
+        ("8", "Math templates…", True),
     ]
     assert _menu(state).rows[5].submenu
 
@@ -87,8 +87,8 @@ def test_the_history_lines_context_menu_and_clear_history() -> None:
     state.key_event("ArrowUp")
     state.key_event("ContextMenu")
     assert _items(_menu(state)) == [
-        ("1", "Show Warning Info…", False),
-        ("2", "Clear History", True),
+        ("1", "Show warning info…", False),
+        ("2", "Clear history", True),
         ("3", "Copy", True),
         ("4", "Delete", True),
     ]
