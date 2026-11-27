@@ -273,9 +273,9 @@ def test_keyboard_input() -> None:
     keyboard(app, "r")
     keyboard(app, "2")
     keyboard(app, "Enter")
-    assert app.state.display().text() == "2⌟3+√2\n(2+3√2)⌟3"
+    assert app.state.display().text() == "2⌟3+√2\n2.080880229"  # surds are decimals
     keyboard(app, "c", ctrl=True)
-    assert shell.copied == ["(2+3√2)⌟3"]
+    assert shell.copied == ["2.080880229"]
     keyboard(app, "F1")
     keyboard(app, "9")
     assert app.state.menu == "clr"
@@ -288,7 +288,7 @@ def test_keyboard_input() -> None:
 
 def test_keyboard_in_verify_mode_types_equals() -> None:
     app, _, page = started()
-    for key in (k.MODE, "4", "2"):
+    for key in (k.MODE, "3", "2"):
         app.on_key(key)
     keyboard(app, "Equal")
     keyboard(app, "2")

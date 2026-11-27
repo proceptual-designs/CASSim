@@ -67,7 +67,7 @@ class Layout:
     top: tuple[tuple[Cell, ...], ...]  # rows beside the D-pad
     rows: tuple[tuple[Cell, ...], ...]
     dpad: DpadPlace = "center"
-    modes: tuple[CalcModeName, ...] = ("COMP", "STAT", "TABLE", "VERIFY")
+    modes: tuple[CalcModeName, ...] = ("COMP", "STAT", "VERIFY")
     linear: bool = False  # a two-line linear display: choosing it switches SETUP to LineIO
     dialect: Dialect = "casio"
     shift_colour: str = ""  # legend colours on a dark body; "" keeps the theme's
@@ -294,7 +294,7 @@ SX2 = Layout(
             std(k.EQ, "=", style="eq"),
         ),
     ),
-    notes=("No TABLE mode.", "F↔D switches between a fraction and a decimal, like S⇔D."),
+    notes=("F↔D switches between a fraction and a decimal, like S⇔D.",),
 )
 
 # ---- Sharp EL-531 series --------------------------------------------------------------------
@@ -514,6 +514,21 @@ HP10S = Layout(
 )
 
 LAYOUTS: tuple[Layout, ...] = (FX82, SX2, EL531, HP10S)
+
+
+def offers_table(layout: Layout) -> bool:
+    """TABLE is a CASSim extra for the natural-display calculators: the fx-82AU PLUS II and the
+    SX-II list only COMP, STAT and VERIF (their manuals and emulators, check 1; decision 0041)."""
+    return layout.dialect in ("casio", "sx2")
+
+
+def modes_for(layout: Layout, *, table: bool) -> tuple[CalcModeName, ...]:
+    """The calculator's own modes, with TABLE last when the extra is switched on."""
+    if table and offers_table(layout) and "TABLE" not in layout.modes:
+        return (*layout.modes, "TABLE")
+    return layout.modes
+
+
 LAYOUTS_BY_ID: dict[str, Layout] = {layout.id: layout for layout in LAYOUTS}
 DEFAULT = FX82
 
