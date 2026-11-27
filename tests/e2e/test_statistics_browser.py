@@ -30,8 +30,9 @@ def test_statistics_page_renders_for_a_live_list(browser: Browser, site: tuple[P
     expect(app.page.get_by_role("group", name="Choose X List")).to_be_visible()
     expect(app.page.get_by_role("button", name="(none)", exact=True)).to_be_visible()
     app.page.get_by_role("button", name="scores", exact=True).click(force=True)
-    expect(app.page.get_by_role("button", name="scores", exact=True)).to_be_visible()
-    app.page.get_by_role("button", name="Click to add variable", exact=True).click(force=True)
+    # the list also has a scores button, so wait for the x axis's prompt to go instead
+    expect(add).to_have_count(1)
+    add.click(force=True)
     expect(app.page.get_by_role("group", name="Choose Y List")).to_be_visible()
     app.page.close()
 
