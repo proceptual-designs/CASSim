@@ -1,6 +1,6 @@
 # SDD-15. Shared interface (CASSim's own menus, themes, views and dialogs)
 
-Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17; the shared CASSim menu (sections 3 to 6) closed gaps 4 to 7 and 12; dialogs and wording (section 9) closed 8 to 11, 16 and 20 (the Nspire moved onto `SavedDocuments` on 2026-11-27); the Doc menu (section 9.4) closed 14 and 15; decision 0040 closed 21.
+Status: Standard agreed with Simon on 2026-11-26. It is written against `main` on that date; section 10 lists where the code does not follow it yet. The shared theme (section 7) was built on 2026-11-27, which closed gaps 1 to 3 and most of 17; the shared CASSim menu (sections 3 to 6) closed gaps 4 to 7 and 12; dialogs and wording (section 9) closed 8 to 11, 16 and 20 (the Nspire moved onto `SavedDocuments` on 2026-11-27); the Doc menu (section 9.4) closed 14 and 15; decision 0040 closed 21; `cassim.app.sizes` closed 18 on 2026-11-28.
 Applies to: the Home screen and every app (Nspire, Pseudocode & Python, Scientific, and later ClassPad and Prime).
 Requirements: FR-DEV-002, FR-DEV-003, FR-DEV-004, FR-DEV-006, FR-DEV-008, FR-DEV-010, FR-THEME-001, FR-THEME-002, FR-DOC-010, FR-PROF-010 to FR-PROF-013, NFR-PORT-002, NFR-PORT-003.
 Decisions: 0028 (clean room), 0032 (device interface and shell), 0033 (named documents).
@@ -128,7 +128,7 @@ All three views work by touch, mouse and keyboard. An app that cannot sensibly o
 | Narrow | Width under 900 px | Computer view stacks its columns, as in Handheld. |
 | Installed phone | `offers.installed` on a phone | Avoid cutout replaces Fullscreen. |
 
-The constants, the tests and the dialog width rule (`clamp(280, preferred, window − 48)`) live in one shared module in `cassim.app`.
+The constants, the tests and the dialog width rule live in `cassim.app.sizes`. A dialog's content is `clamp(200, preferred, window − 128)` wide: an AlertDialog keeps 40 px either side and pads its content by 24 px, so a 360 px phone leaves 232 px.
 
 ### 8.3 Touch in every view
 
@@ -202,7 +202,6 @@ Paths are under `src/cassim/`; line numbers are approximate. The list is ordered
 |---|---|---|---|
 | 13 | Only Computer and Handheld exist; the Nspire's landscape Handheld is what this document calls Tablet | `devices/nspire/ui/state.py:75`, `devices/nspire/ui/layout.py` | Add Tablet as a view; Handheld becomes one column (8.1). |
 | 17 | A few literal colours remain: Scientific's key-legend contrast colours and its shadow, the Nspire's first status colour, the swatch palette and the drawing palettes. `COLOURS_LEFT` in `tests/test_interface_rules.py` counts them by module | `devices/scientific/ui/app.py:85, 360`, `devices/nspire/ui/app.py:211`, `app/appearance.py` | Tokens where they are UI colours (7.2). |
-| 18 | Each app defines its own breakpoints and dialog widths | `devices/nspire/ui/layout.py:14`, `devices/scientific/ui/app.py:50, 55`, `devices/pseudocode/ui/app.py:193`, `app/saved.py` | One shared sizes module (8.2). |
 | 19 | Touch: Scientific's status chips can't take focus; drag handles are 12–16 px; some hints show only on hover | `devices/scientific/ui/app.py:217`, `devices/pseudocode/ui/panes.py`, `devices/pseudocode/ui/call_window.py` | Section 8.3. |
 
 ## 11. Checklist for a new extra

@@ -2,6 +2,7 @@
 
 import pytest
 
+from cassim.app.sizes import PHONE_SIDE
 from cassim.device.keys import keypad_units
 from cassim.devices.nspire import keymap as nspire
 from cassim.devices.nspire.ui.layout import (
@@ -13,7 +14,6 @@ from cassim.devices.nspire.ui.layout import (
     MIN_SCALE,
     MIN_SHARE,
     MIN_ZOOM,
-    NARROW,
     PHONE_MARGIN,
     STATUS_H,
     Sizing,
@@ -34,8 +34,8 @@ PAD = keypad_size(*UNITS)
     ("width", "mode"),
     [
         (360, Mode.HANDHELD),
-        (NARROW - 1, Mode.HANDHELD),
-        (NARROW, Mode.COMPUTER),
+        (PHONE_SIDE - 1, Mode.HANDHELD),
+        (PHONE_SIDE, Mode.COMPUTER),
         (1280, Mode.COMPUTER),
         (None, Mode.COMPUTER),
         (0, Mode.COMPUTER),

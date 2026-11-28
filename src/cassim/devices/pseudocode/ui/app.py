@@ -19,6 +19,7 @@ from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
+from cassim.app.sizes import is_narrow
 from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -197,7 +198,6 @@ POLYNOMIAL_NEWTON = (
     "  print x\n"
     "end for"
 )
-MOBILE_BREAKPOINT = 900
 # The typing aid converts once typing has paused this long (seconds). Converting on every
 # key sent the whole text back from Python, overwriting keys typed in the meantime.
 TYPING_AID_PAUSE = 0.5
@@ -1405,7 +1405,7 @@ window.CASSimTypingAids = function(editor, change) {
         host.style.display = "none" if self.editor_pane.collapsed else "block"
         host.style.top = "58px"
         host.style.left = "16px"
-        if width < MOBILE_BREAKPOINT:
+        if is_narrow(width):
             host.style.width = f"{max(1, width - 32)}px"
         else:
             host.style.width = f"{max(1, (width - 28) * self.column_split - 20)}px"
@@ -1417,7 +1417,7 @@ window.CASSimTypingAids = function(editor, change) {
         width = getattr(self.page, "width", 1000) or 1000
         left = ft.Column(
             [self.editor_pane.container, self.console_pane.container],
-            expand=width >= MOBILE_BREAKPOINT,
+            expand=not is_narrow(width),
             spacing=8,
         )
         right = ft.Column(
@@ -1426,10 +1426,10 @@ window.CASSimTypingAids = function(editor, change) {
                 self.items_pane.container,
                 self.trace_pane.container,
             ],
-            expand=width >= MOBILE_BREAKPOINT,
+            expand=not is_narrow(width),
             spacing=8,
         )
-        if width < MOBILE_BREAKPOINT:
+        if is_narrow(width):
             body = ft.Column([left, right], scroll=ft.ScrollMode.AUTO, expand=True, spacing=8)
         else:
             available = max(640, width - 28)

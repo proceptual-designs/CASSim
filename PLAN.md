@@ -74,6 +74,7 @@ cassim/
                             may use (storage, files, clipboard, links, notices, About, install and full screen, the engine
                             worker); math_canvas.py (maths lines painted on a canvas from device/math_layout.py, decision 0038); saved.py (Open, Save and
                             Save As on documents kept by name in the app's storage, for any device, decision 0033);
+                            sizes.py (phone, narrow, dialog width and touch sizes, SDD-15 8.2);
                             web.py, about.py, theme.py,
                             keyboard.py, assets
   src/cassim/devices/        one plug-in package per calculator (decision 0032): the Device interface, the table of sites,

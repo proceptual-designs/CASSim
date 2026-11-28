@@ -10,10 +10,11 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from cassim.app.sizes import page_is_phone
+
 if TYPE_CHECKING:
     from flet import Page
 
-PHONE_WIDTH = 600  # narrower than this the window fills the page
 STACK_WIDTH = 640  # a window narrower than this stacks its two parts in one column
 MIN_WIDTH, MIN_HEIGHT = 320, 240
 DIVIDER_WIDTH = 12
@@ -27,7 +28,8 @@ def _safe_update(control: ft.Control) -> None:
 
 
 def is_phone(page: Page) -> bool:
-    return (getattr(page, "width", 1000) or 1000) < PHONE_WIDTH
+    """On a phone (`cassim.app.sizes`) the window fills the page."""
+    return page_is_phone(page)
 
 
 class CallWindow:

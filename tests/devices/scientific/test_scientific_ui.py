@@ -19,6 +19,7 @@ import pytest
 
 from cassim.app.appearance import APPEARANCE_KEY, Appearance, load_appearance
 from cassim.app.shell import BrowserOffers, Shell
+from cassim.app.sizes import DIALOG_MARGIN
 from cassim.app.theme import THEMES, contrast
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific import layouts
@@ -891,7 +892,7 @@ def test_phone_dialogs_fit_the_screen(size: tuple[int, int], dialog: str) -> Non
     }[dialog]()
     shown = page.dialogs[-1]
     assert isinstance(shown, ft.AlertDialog)
-    room = size[0] - ui.DIALOG_MARGIN
+    room = size[0] - DIALOG_MARGIN
     assert _too_wide(shown, room) == []
     page.drop_tasks()
 

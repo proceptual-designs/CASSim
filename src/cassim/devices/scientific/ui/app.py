@@ -22,6 +22,7 @@ from cassim.app.cassim_menu import AppMenu, Panel, fill_cassim_menu
 from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
+from cassim.app.sizes import dialog_width, page_is_phone
 from cassim.app.theme import DEFAULT_THEME
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
@@ -53,14 +54,10 @@ BAR_HEIGHT = 48.0
 PANEL_WIDTH = 330.0
 MIN_SCALE = 0.7
 MAX_SCALE = 1.3
-# A phone: a short side below this (as the Nspire app's NARROW, decision 0013 item 3). There the
-# calculator fills the screen, its keys grow to use the height, and the tutorials start hidden.
-NARROW = 600
+# On a phone (`cassim.app.sizes`) the calculator fills the screen, its keys grow to use the
+# height, and the tutorials start hidden.
 PHONE_MAX_SCALE = 2.0
 PHONE_MIN_SCALE = 0.4  # a landscape phone: smaller keys rather than a calculator cut off
-# An AlertDialog keeps 40 px either side of it and pads its content by 24 px: a dialog's content
-# may be no wider than the window less these, or it runs off a phone's screen.
-DIALOG_MARGIN = 2 * 40 + 2 * 24
 DIALOG_TEXT = 14  # a dialog's radio and switch labels
 MAX_STRETCH = 1.8  # how much taller the keys may grow on a phone
 SAVE_DELAY = 0.6
@@ -877,8 +874,7 @@ class ScientificApp:
     @property
     def phone(self) -> bool:
         """A phone-sized window: its short side is narrow."""
-        sides = [side for side in (self.page.width, self.page.height) if side]
-        return bool(sides) and min(sides) < NARROW
+        return page_is_phone(self.page)
 
     def _safe_area(self) -> tuple[float, float, float, float]:
         """The inset kept clear of a phone's camera cutout, when the user asks for it (installed
@@ -1728,8 +1724,7 @@ class ScientificApp:
 
     def dialog_width(self, preferred: float) -> float:
         """A dialog's content width: what it would like, or what a narrow window leaves."""
-        page_w = float(getattr(self.page, "width", 0) or 1200)
-        return max(200.0, min(preferred, page_w - DIALOG_MARGIN))
+        return dialog_width(self.page, preferred)
 
     @staticmethod
     def _choice(value: str, label: str, group: list[ft.RadioGroup]) -> ft.Control:

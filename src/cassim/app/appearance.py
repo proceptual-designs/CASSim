@@ -10,6 +10,7 @@ from typing import NamedTuple
 
 import flet as ft
 
+from cassim.app.sizes import dialog_width
 from cassim.app.theme import (
     DEFAULT_THEME,
     THEME_FIELDS,
@@ -123,11 +124,6 @@ async def load_appearance(read: Callable[[str], Awaitable[str | None]]) -> Loade
     if found is None:
         return Loaded(Appearance(), INVALID, saved=True)
     return Loaded(found, "", saved=True, migrated=legacy)
-
-
-def dialog_width(page: ft.Page, preferred: float) -> float:
-    """A dialog's content width: `preferred`, narrower on a small window (SDD-15 section 8.2)."""
-    return max(200.0, min(preferred, float(page.width or 800) - 128))
 
 
 def field_label(name: str) -> str:

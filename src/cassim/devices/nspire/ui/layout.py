@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from cassim.app.sizes import is_phone
 from cassim.devices.nspire.ui.state import COMPUTER_MAX_SIDEBAR, COMPUTER_MIN_SIDEBAR, Mode
 
-NARROW = 600  # px: a short side below this starts a first visit in Handheld (decision 0013 item 3)
 MARGIN = 12  # px kept clear round the scaled calculator
 GAP = 12  # px between the screen and the keypad
 SCREEN_W, SCREEN_H = 320, 240  # the handheld's pixels
@@ -23,8 +23,7 @@ BAR_H = 44  # the toolbar row above the calculator
 def starting_mode(width: float | None, height: float | None = None) -> Mode:
     """The mode for a first visit: Handheld when the window's short side is phone-sized (so a
     phone in landscape too), else Computer."""
-    sides = [side for side in (width, height) if side]
-    return Mode.HANDHELD if sides and min(sides) < NARROW else Mode.COMPUTER
+    return Mode.HANDHELD if is_phone(width, height) else Mode.COMPUTER
 
 
 def key_span(units: float, size: int = KEY_W) -> float:

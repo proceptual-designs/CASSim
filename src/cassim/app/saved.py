@@ -22,6 +22,7 @@ from datetime import datetime
 import flet as ft
 
 from cassim.app.shell import Shell
+from cassim.app.sizes import dialog_width
 from cassim.doc.library import CURRENT_KEY, MAX_NAME, UNTITLED, Current, Store, clean_name
 
 
@@ -166,7 +167,7 @@ class SavedDocuments:
                     field,
                 ],
                 tight=True,
-                width=min(360, (self.page.width or 360) - 80),
+                width=dialog_width(self.page, 360),
             ),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: close()),
@@ -235,7 +236,7 @@ class SavedDocuments:
                     rows,
                     tight=True,
                     scroll=ft.ScrollMode.AUTO,
-                    width=min(380, (self.page.width or 380) - 80),
+                    width=dialog_width(self.page, 380),
                 ),
                 actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())],
             )

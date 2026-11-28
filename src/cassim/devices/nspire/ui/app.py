@@ -34,6 +34,7 @@ from cassim.app.keyboard import (
 )
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers, Shell
+from cassim.app.sizes import page_is_phone
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
@@ -53,7 +54,6 @@ from cassim.devices.nspire.ui.layout import (
     FULL_RESERVE,
     GAP,
     MARGIN,
-    NARROW,
     PHONE_MARGIN,
     SCREEN_H,
     SCREEN_W,
@@ -896,8 +896,7 @@ class App:
     def phone(self) -> bool:
         """A phone-sized window (its short side is narrow): only Handheld view is offered, with no
         splitter and a thinner margin."""
-        sides = [side for side in (self.page.width, self.page.height) if side]
-        return bool(sides) and min(sides) < NARROW
+        return page_is_phone(self.page)
 
     @property
     def installable(self) -> bool:
