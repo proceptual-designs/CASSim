@@ -295,7 +295,7 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
 | NFR-USE-003 | Should | `tests/app/test_appearance.py` |
 | NFR-PORT-002 | Must | `tests/app/test_math_canvas.py` |
-| NFR-PORT-003 | Should | `tests/app/test_layout.py` |
+| NFR-PORT-003 | Should | `tests/app/test_layout.py`, `tests/app/test_sizes.py` |
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
 | NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |
