@@ -11,6 +11,7 @@ import contextlib
 import json
 import os
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -114,6 +115,7 @@ from cassim.sheet.fileio import read_csv, read_xlsx, write_csv, write_xlsx
 
 
 TITLE_H = 20  # the screen's title bar, in the handheld's pixels
+TYPEAHEAD = 64  # keys kept while the engine works
 COLUMN_HEADER_H = 32  # a column's header, if shown: its name, to drag
 # < and > either side of a resize bar: they fit the bar's width, and are tall for a finger
 COLUMN_ARROW_W, COLUMN_ARROW_H = 11, 40
@@ -193,6 +195,8 @@ def cassim_items(offers: BrowserOffers, app: AppMenu) -> tuple[MenuItem, ...]:
 class App:
     """Wires the state to the views: the top bar, the screen, the keypad and the sidebar."""
 
+    draining = False  # running the keys typed while the engine worked
+
     def __init__(self, shell: Shell, state: AppState, runner: Runner | None = None) -> None:
         page = shell.page
         self.shell = shell
@@ -249,6 +253,9 @@ class App:
         self.computer_panels: dict[str, ft.Container] = {}
         self.computer_row: ft.Row | None = None
         self.dragged_column: str | None = None  # a column whose header is being dragged
+        # Keys typed while the engine works: run in order once it is free, as a handheld keeps
+        # them, instead of lost (a key typed just after adding a page or pressing Enter)
+        self.typeahead: deque[Binding | str] = deque(maxlen=TYPEAHEAD)
         # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
         # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
@@ -531,6 +538,29 @@ class App:
                 )
             self.print_sheet()
         self.kick()
+        self.drain_typeahead()
+
+    def drain_typeahead(self) -> None:
+        """Run the keys typed while the engine worked, in order, until one sends an entry to
+        the engine again (the rest wait for that run)."""
+        if self.draining:
+            return  # a key's own redraw: the loop below goes on
+        self.draining = True
+        try:
+            while self.typeahead and not self.busy and not self.engine_owed():
+                key = self.typeahead.popleft()
+                if isinstance(key, str):
+                    self.state.press_keypad(key)
+                else:
+                    self.state.run(key)
+                self.refresh()
+        finally:
+            self.draining = False
+
+    def engine_owed(self) -> bool:
+        """An entry is waiting for the engine (Enter was pressed, the run not started yet)."""
+        calculator = calculator_of(self.state.document.current)
+        return calculator is not None and calculator.pending is not None
 
     def show_key_time(self, build: float, send: float) -> None:
         """The last redraw's cost in the status line and the console (`CASSIM: KEY`): `build` is
@@ -632,8 +662,12 @@ class App:
 
     def press(self, name: str) -> None:
         if self.busy:
-            if name == "esc" and self.running:
-                self.page.run_task(self.cancel)
+            if name == "esc":
+                self.typeahead.clear()
+                if self.running:
+                    self.page.run_task(self.cancel)
+            else:
+                self.typeahead.append(name)  # a keypad key, run when the engine is free
             return
         self.pointer.hide()  # a key press puts the pointer away
         self.state.press_keypad(name)
@@ -789,11 +823,15 @@ class App:
             return
         if binding.action == "escape":
             state.clear_pending()
-        if self.busy:  # only Esc gets through: it cancels the run
-            if binding.action == "escape" and self.running:
-                await self.cancel()
-            elif binding.action == "escape":
-                self.refresh()
+        if self.busy:  # Esc cancels the run and what was typed after it; other keys wait
+            if binding.action == "escape":
+                self.typeahead.clear()
+                if self.running:
+                    await self.cancel()
+                else:
+                    self.refresh()
+            else:
+                self.typeahead.append(binding)
             return
         if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
             return  # typed into the hidden box: on_sink turns it into keys
@@ -817,6 +855,7 @@ class App:
         keys = keys_for(self.sink.value or "")
         self.sink.value = SENTINEL
         if self.busy:
+            self.typeahead.extend(keys)
             return
         for binding in keys:
             if binding.action in ("undo", "redo") and self.variable_history_action(binding.action):
