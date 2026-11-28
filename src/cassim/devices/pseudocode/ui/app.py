@@ -1312,7 +1312,7 @@ if (!window.CASSimPseudocodeModeDefined) {
         host.id = "cassim-codemirror"
         host.style.position = "fixed"
         host.style.zIndex = "20"
-        host.style.background = "#282a36"
+        host.style.background = self.appearance.theme.code_background
         host.style.border = "1px solid #555"
         document.body.appendChild(host)
 

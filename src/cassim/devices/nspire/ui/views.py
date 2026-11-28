@@ -217,7 +217,7 @@ POINTER_SHAPE = ((0, 0), (0, 13), (3.5, 10), (6, 15.5), (8, 14.6), (5.6, 9.4), (
 POINTER_TICK = 1 / 30  # seconds between the pointer's moves
 
 
-def pointer_mark(scale: float) -> ft.Container:
+def pointer_mark(scale: float, theme: Theme) -> ft.Container:
     """The pointer's arrow, hidden until the centre key moves it. Its tip is the place a click
     goes to; a short glide between steps keeps the motion smooth at a low step rate."""
     (x, y), *rest = POINTER_SHAPE
@@ -226,11 +226,11 @@ def pointer_mark(scale: float) -> ft.Container:
     outline.append(cv.Path.Close())
     canvas = cv.Canvas(
         [
-            cv.Path(outline, paint=ft.Paint(color="#ffffff", style=ft.PaintingStyle.FILL)),
+            cv.Path(outline, paint=ft.Paint(color=theme.pointer_fill, style=ft.PaintingStyle.FILL)),
             cv.Path(
                 outline,
                 paint=ft.Paint(
-                    color="#000000",
+                    color=theme.pointer_edge,
                     stroke_width=max(1.0, scale),
                     style=ft.PaintingStyle.STROKE,
                     stroke_join=ft.StrokeJoin.ROUND,
@@ -497,7 +497,7 @@ class CalculatorView:
         # The pointer the keypad's centre key moves. Its place is in pixels of this layer, the
         # body's own frame under the title bar, which is also the sheet's frame.
         self._pointer_scale = state.px(1)
-        self.pointer = pointer_mark(self._pointer_scale)
+        self.pointer = pointer_mark(self._pointer_scale, theme)
         self.control = ft.Container(
             ft.Column(
                 [title_bar, ft.Stack([body, self.error, menu_layer, self.pointer], expand=True)],
@@ -781,7 +781,7 @@ class CalculatorView:
         mark = self.pointer
         scale = self.state.px(1)
         if pointer.visible and scale != self._pointer_scale:  # zoomed: redraw the arrow
-            mark.content = pointer_mark(scale).content
+            mark.content = pointer_mark(scale, self.theme).content
             self._pointer_scale = scale
         mark.visible = pointer.visible
         mark.left, mark.top = pointer.x, pointer.y
@@ -1238,7 +1238,7 @@ class CalculatorView:
             top=0,
             right=0,
             bottom=0,
-            bgcolor="#30000000",
+            bgcolor=ft.Colors.with_opacity(0.19, self.theme.shadow),
             on_click=lambda _: self.on_action("escape", ""),
         )
         self.menu.content = ft.Stack([outside, *panels])
@@ -1348,7 +1348,7 @@ class CalculatorView:
             padding=px(4),
             border_radius=px(6),
             width=None if panel.columns else px(MENU_W_WIDE if wide else MENU_W),
-            shadow=ft.BoxShadow(blur_radius=8, color="#80000000"),
+            shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.5, theme.shadow)),
             on_click=lambda _: None,  # a click between rows is not a click outside the menu
         )
         if not last:
@@ -1479,10 +1479,14 @@ class CalculatorView:
                         screen.error_title,
                         size=self.state.px(14),
                         weight=ft.FontWeight.BOLD,
-                        color="#ffffff",
+                        color=self.theme.on_error,
                     ),
-                    ft.Text(screen.error, size=self.state.px(14), color="#ffffff"),
-                    ft.Text("click or press any key", size=self.state.px(11), color="#ffd0cc"),
+                    ft.Text(screen.error, size=self.state.px(14), color=self.theme.on_error),
+                    ft.Text(
+                        "click or press any key",
+                        size=self.state.px(11),
+                        color=self.theme.on_error_muted,
+                    ),
                 ],
                 spacing=4,
                 tight=True,
@@ -1747,7 +1751,12 @@ class _WizardClosing:
 
 
 def wizard_dialog(
-    page: ft.Page, state: AppState, wizard: Wizard, on_change: Callable[[], None]
+    page: ft.Page,
+    state: AppState,
+    wizard: Wizard,
+    on_change: Callable[[], None],
+    *,
+    problem_colour: str = DARK.problem_text,
 ) -> ft.AlertDialog:
     """A command's dialog (FR-CALC-005): a box per field, OK pastes the command. A field that
     will not do is reported in the dialog, which stays open.
@@ -1784,7 +1793,7 @@ def wizard_dialog(
         boxes[field.name] = field_box(
             field, on_focus(field.name), on_submit(field.name), copier(field.name)
         )
-    problems = ft.Text("", color="#ff8a80", size=12)
+    problems = ft.Text("", color=problem_colour, size=12)
 
     def values() -> dict[str, str]:
         return {**extra, **{name: _wizard_value(box) for name, box in boxes.items()}}
