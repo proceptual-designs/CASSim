@@ -114,6 +114,7 @@ from cassim.sheet.fileio import read_csv, read_xlsx, write_csv, write_xlsx
 
 
 TITLE_H = 20  # the screen's title bar, in the handheld's pixels
+COLUMN_HEADER_H = 40  # a column header: its name to drag, and its ⋯ menu (SDD-15 section 8.3)
 COMPUTER_PANEL_NAMES = {
     "sidebar": "Controls and pages",
     "workspace": "Calculation",
@@ -245,7 +246,7 @@ class App:
         self.layout = ft.Container(expand=True)
         self.computer_panels: dict[str, ft.Container] = {}
         self.computer_row: ft.Row | None = None
-        self.dragged_boundary: tuple[str, str] | None = None
+        self.dragged_column: str | None = None  # a column whose header is being dragged
         # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
         # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
@@ -1515,6 +1516,8 @@ class App:
                 ft.DragTarget(
                     panel,
                     group="computer-columns",
+                    on_will_accept=lambda _, target=name: self._mark_drop(target),
+                    on_leave=lambda _, target=name: self._mark_drop(target, over=False),
                     on_accept=lambda _, target=name: self._drop_column(target),
                 )
             )
@@ -1531,51 +1534,13 @@ class App:
         self.layout.content = self.computer_row
 
     def _computer_panel(self, name: str, width: float, height: float) -> ft.Container:
-        controls: list[ft.Control] = []
-        if self.state.system.computer_column_controls:
-            title = COMPUTER_PANEL_NAMES[name]
-            controls.append(
-                ft.Row(
-                    [
-                        label_text(title, size=12, color=self.theme.panel_text, expand=True),
-                        ft.IconButton(
-                            icon=ft.Semantics(
-                                label=f"Move {title.lower()} left",
-                                content=ft.Icon(ft.Icons.ARROW_LEFT),
-                            ),
-                            tooltip=f"Move {title.lower()} left",
-                            on_click=lambda _, column=name: self._move_column(column, -1),
-                            icon_color=self.theme.key_text,
-                            icon_size=12,
-                            width=24,
-                            height=24,
-                            padding=2,
-                        ),
-                        ft.IconButton(
-                            icon=ft.Semantics(
-                                label=f"Move {title.lower()} right",
-                                content=ft.Icon(ft.Icons.ARROW_RIGHT),
-                            ),
-                            tooltip=f"Move {title.lower()} right",
-                            on_click=lambda _, column=name: self._move_column(column, 1),
-                            icon_color=self.theme.key_text,
-                            icon_size=12,
-                            width=24,
-                            height=24,
-                            padding=2,
-                        ),
-                    ],
-                    spacing=3,
-                )
-            )
+        controls: list[ft.Control] = [self._column_header(name)]
         if name == "sidebar":
             content: ft.Control = ft.Column(
                 [self.toolbar, self.sidebar.control], spacing=6, expand=True
             )
         elif name == "workspace":
-            self.view.control.height = max(
-                height - (38 if self.state.system.computer_column_controls else 8), 300
-            )
+            self.view.control.height = max(height - COLUMN_HEADER_H - 8, 300)
             content = self.view.control
         else:
             content = ft.Column(
@@ -1591,6 +1556,85 @@ class App:
             padding=COMPUTER_COLUMN_PADDING,
         )
 
+    def _column_header(self, name: str) -> ft.Control:
+        """A column's header: drag it by its name to move the column (a bar shows where it will
+        go), or use its ⋯ menu's Move left and Move right."""
+        theme = self.theme
+        title = COMPUTER_PANEL_NAMES[name]
+        order = self._visible_columns()
+        place = order.index(name)
+        label = ft.Row(
+            [
+                ft.Icon(ft.Icons.DRAG_INDICATOR, size=16, color=theme.key_label),
+                label_text(title, size=12, color=theme.panel_text, no_wrap=True),
+            ],
+            spacing=4,
+            tight=True,
+        )
+        grip = ft.Draggable(
+            ft.Container(
+                label,
+                height=COLUMN_HEADER_H,
+                padding=ft.Padding.symmetric(horizontal=6),
+                alignment=ft.Alignment.CENTER_LEFT,
+                tooltip=f"Drag to move {title.lower()}",
+            ),
+            group="computer-columns",
+            content_feedback=ft.Container(
+                label_text(title, size=13, color=theme.accent_text, no_wrap=True),
+                bgcolor=theme.accent,
+                padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+                border_radius=8,
+                opacity=0.9,
+            ),
+            on_drag_start=lambda _: setattr(self, "dragged_column", name),
+        )
+        menu = ft.PopupMenuButton(
+            content=ft.Semantics(  # a name for the button, which an icon alone does not give
+                label=f"Move {title.lower()}",
+                content=ft.Icon(ft.Icons.MORE_HORIZ, size=18, color=theme.key_label),
+            ),
+            tooltip=f"Move {title.lower()}",
+            items=[
+                ft.PopupMenuItem(
+                    content="Move left",
+                    disabled=place == 0,
+                    on_click=lambda _: self._move_column(name, -1),
+                ),
+                ft.PopupMenuItem(
+                    content="Move right",
+                    disabled=place == len(order) - 1,
+                    on_click=lambda _: self._move_column(name, 1),
+                ),
+            ],
+        )
+        return ft.Row(
+            [ft.Container(grip, expand=True), menu],
+            height=COLUMN_HEADER_H,
+            spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    def _visible_columns(self) -> list[str]:
+        system = self.state.system
+        return [c for c in system.computer_column_order if c != "keypad" or system.computer_keypad]
+
+    def _mark_drop(self, target: str, *, over: bool = True) -> None:
+        """While a column is dragged over `target`, a bar on the side it will go to: before the
+        target if it comes from the right, after it if from the left."""
+        panel = self.computer_panels.get(target)
+        source = self.dragged_column
+        if panel is None:
+            return
+        panel.border = None
+        if over and source is not None and source != target:
+            order = self._visible_columns()
+            side = ft.BorderSide(3, self.theme.accent)
+            after = order.index(source) < order.index(target)
+            panel.border = ft.Border(right=side) if after else ft.Border(left=side)
+        with contextlib.suppress(RuntimeError):  # not on a page (the tests' stand-in page)
+            panel.update()
+
     def _computer_splitter(self, first: str, second: str, height: float) -> ft.Control:
         def resize(delta: float) -> None:
             self._resize_boundary(first, second, delta)
@@ -1604,7 +1648,7 @@ class App:
                 ft.Container(
                     width=2,
                     height=max(
-                        height - 28 - (48 if self.state.system.computer_column_controls else 0), 1
+                        height - (48 if self.state.system.computer_column_controls else 0), 1
                     ),
                     bgcolor=self.theme.key_label,
                 ),
@@ -1623,19 +1667,7 @@ class App:
                 SYSTEM_KEY, self.state.system.dumps()
             ),
         )
-        controls: list[ft.Control] = [
-            ft.Draggable(
-                ft.Container(
-                    ft.Icon(ft.Icons.DRAG_INDICATOR, size=16, color=self.theme.key_label),
-                    width=COMPUTER_SPLITTER,
-                    height=28,
-                    alignment=ft.Alignment.CENTER,
-                    tooltip="Drag left or right to move columns",
-                ),
-                group="computer-columns",
-                on_drag_start=lambda _: setattr(self, "dragged_boundary", (first, second)),
-            ),
-        ]
+        controls: list[ft.Control] = []
         if self.state.system.computer_column_controls:
             controls.extend(
                 [
@@ -1714,26 +1746,25 @@ class App:
         self.page.update()
 
     def _move_column(self, name: str, step: int) -> None:
-        order = self.state.system.computer_column_order
-        visible = [
-            column for column in order if column != "keypad" or self.state.system.computer_keypad
-        ]
-        index = visible.index(name)
-        target = max(0, min(len(visible) - 1, index + step))
-        first, second = order.index(name), order.index(visible[target])
-        order[first], order[second] = order[second], order[first]
-        self.on_system_change()
+        """Move a column one place left (-1) or right (1): its header's ⋯ menu."""
+        order = self._visible_columns()
+        place = order.index(name) + step
+        if 0 <= place < len(order):
+            self._place_column(name, order[place])
 
     def _drop_column(self, target: str) -> None:
-        boundary = self.dragged_boundary
-        self.dragged_boundary = None
-        if boundary is None:
-            return
+        """A column dragged by its header was dropped on `target`: it takes the target's place,
+        and the columns between move up one."""
+        source, self.dragged_column = self.dragged_column, None
+        if source is not None and source != target:
+            self._place_column(source, target)
+
+    def _place_column(self, source: str, target: str) -> None:
+        """`source` takes `target`'s place: after it if it came from the left, else before."""
         order = self.state.system.computer_column_order
-        left, right = boundary
-        source = right if order.index(target) <= order.index(left) else left
-        first, second = order.index(source), order.index(target)
-        order[first], order[second] = order[second], order[first]
+        after = order.index(source) < order.index(target)
+        order.remove(source)
+        order.insert(order.index(target) + (1 if after else 0), source)
         self.on_system_change()
 
     def splitter(self, plan: HandheldPlan) -> ft.Control:

@@ -1644,7 +1644,7 @@ def system_settings_dialog(
         visible=bool(layouts),
     )
     column_controls = ft.Checkbox(
-        label="Show keyboard-accessible column controls",
+        label="Show buttons to resize the columns",
         value=system.computer_column_controls,
     )
 

@@ -19,6 +19,8 @@ The calculator with the keypad beside the screen instead of below it, for a tabl
 
 A larger layout for a laptop or desktop with a hardware keyboard, with a page list and the variables beside the screen. The keypad can be shown beside the screen when you want it.
 
+Each column has a header with its name. Drag the header to move the column: a bar shows where it will go. Or use the header's **⋯** menu, which has **Move left** and **Move right**. Drag the lines between the columns to resize them. For buttons that resize them instead, turn on **Show buttons to resize the columns** in CASSim ▸ **Settings**.
+
 Click **Pages** or **Variables** to hide or show each section. On a Problem's first page, use its
 button to collapse or expand the other pages. Both sections scroll when needed.
 
