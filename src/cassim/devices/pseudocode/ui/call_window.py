@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
-from cassim.app.sizes import page_is_phone
+from cassim.app.sizes import POINTER_TARGET, page_is_phone
 
 if TYPE_CHECKING:
     from flet import Page
 
 STACK_WIDTH = 640  # a window narrower than this stacks its two parts in one column
 MIN_WIDTH, MIN_HEIGHT = 320, 240
-DIVIDER_WIDTH = 12
+DIVIDER_WIDTH = POINTER_TARGET  # a hit area a finger can use (SDD-15 section 8.3)
 BODY_PADDING = 16  # the body's padding, left and right
 TITLE_HEIGHT = 40
 
@@ -91,8 +91,8 @@ class CallWindow:
         grip = ft.GestureDetector(
             ft.Container(
                 ft.Icon(ft.Icons.SOUTH_EAST, size=16),
-                width=28,
-                height=28,
+                width=POINTER_TARGET,
+                height=POINTER_TARGET,
                 alignment=ft.Alignment.BOTTOM_RIGHT,
             ),
             mouse_cursor=ft.MouseCursor.RESIZE_DOWN_RIGHT,

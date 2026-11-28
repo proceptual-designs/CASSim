@@ -31,7 +31,7 @@ from cassim.devices.pseudocode.ui.app import (
     CodeApp,
     wrapped_rows,
 )
-from cassim.devices.pseudocode.ui.call_window import CallWindow
+from cassim.devices.pseudocode.ui.call_window import DIVIDER_WIDTH, CallWindow
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
 
 
@@ -807,7 +807,7 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
         if isinstance(control, ft.GestureDetector)
         for control in [control.content]
     ]
-    width = window.width - 16 - 12  # less the body's padding and the divider
+    width = window.width - 16 - DIVIDER_WIDTH  # less the body's padding and the divider
     start = window.first.width
     assert start is not None
     assert start == pytest.approx(0.42 * width)
@@ -822,7 +822,9 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
     resize = SimpleNamespace(global_position=SimpleNamespace(x=0, y=0))
     window.start_drag(resize)  # ty: ignore[invalid-argument-type]
     window.resize(SimpleNamespace(global_position=SimpleNamespace(x=-100, y=0)))  # ty: ignore[invalid-argument-type]
-    assert window.first.width == pytest.approx(0.8 * (window.width - 28))  # keeps its share
+    assert window.first.width == pytest.approx(
+        0.8 * (window.width - 16 - DIVIDER_WIDTH)
+    )  # keeps its share
 
 
 def test_help_opens_the_pseudocode_page_of_the_wiki() -> None:

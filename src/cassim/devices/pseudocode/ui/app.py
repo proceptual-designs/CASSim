@@ -19,7 +19,7 @@ from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
-from cassim.app.sizes import is_narrow
+from cassim.app.sizes import POINTER_TARGET, is_narrow
 from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -1441,7 +1441,7 @@ window.CASSimTypingAids = function(editor, change) {
             divider = ft.GestureDetector(
                 ft.Container(
                     ft.Icon(ft.Icons.DRAG_INDICATOR, size=14),
-                    width=12,
+                    width=POINTER_TARGET,  # a hit area a finger can use (SDD-15 section 8.3)
                     expand=True,
                     alignment=ft.Alignment.CENTER,
                     tooltip="Resize columns",
@@ -1735,7 +1735,7 @@ window.CASSimTypingAids = function(editor, change) {
         return ft.GestureDetector(
             ft.Container(
                 ft.Icon(ft.Icons.DRAG_INDICATOR, size=12),
-                width=14,
+                width=POINTER_TARGET,
                 expand=True,
                 tooltip=f"Resize Symbols column {index + 1}",
                 alignment=ft.Alignment.CENTER,

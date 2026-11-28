@@ -1088,3 +1088,15 @@ def test_reload_to_update_asks_about_an_unsaved_calculation() -> None:
     app.unmount()
     assert shell.has_unsaved() is False
     page.drop_tasks()
+
+
+def test_the_status_chips_take_taps_over_the_bars_height() -> None:
+    """SDD-15 section 8.3: each chip is drawn small but takes taps across the bar's 48 px, and a
+    tap there does what a tap on the chip does."""
+    app, _, page = started()
+    row = app.top_bar.content
+    areas = [c for c in row.controls if isinstance(c, ft.Container) and c.content is app.mode_chip]
+    assert len(areas) == 1
+    assert areas[0].height == 48
+    assert areas[0].on_click is app.mode_chip.on_click
+    page.drop_tasks()

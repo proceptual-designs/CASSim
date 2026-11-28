@@ -234,10 +234,10 @@ class ScientificApp:
             ft.Row(
                 [
                     ft.MenuBar(controls=[self.cassim_menu, self.doc_menu]),
-                    self.model_chip,
-                    self.mode_chip,
-                    self.angle_chip,
-                    self.io_chip,
+                    *(
+                        self._tap_area(chip)
+                        for chip in (self.model_chip, self.mode_chip, self.angle_chip, self.io_chip)
+                    ),
                     ft.Container(expand=True),
                     self.panel_button,
                     self.hide_button,
@@ -245,7 +245,7 @@ class ScientificApp:
                 spacing=8,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+            padding=ft.Padding.symmetric(horizontal=10),
             height=BAR_HEIGHT,
         )
         self.restore_button = ft.Container(
@@ -284,6 +284,18 @@ class ScientificApp:
                 expand=True,
             ),
             expand=True,
+        )
+
+    @staticmethod
+    def _tap_area(chip: ft.Container) -> ft.Container:
+        """A chip drawn small, taking taps over the bar's full height (SDD-15 section 8.3:
+        48 px by touch). A tap anywhere in it is a tap on the chip."""
+        return ft.Container(
+            chip,
+            height=BAR_HEIGHT,
+            alignment=ft.Alignment.CENTER,
+            on_click=chip.on_click,  # set before the bar is built
+            ink=False,  # not focusable either
         )
 
     def _chip(self, text: str, tooltip: str) -> ft.Container:
