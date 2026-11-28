@@ -276,6 +276,17 @@ def test_shared_status_colours_contrast(name: str):
     assert contrast(theme.panel_text, theme.line_highlight) >= 4.5
 
 
+@pytest.mark.parametrize("name", list(THEMES))
+def test_the_tokens_that_replaced_literal_colours_contrast(name: str):
+    """SDD-15 gap 17: an error message's text on its colour, a dialog's problem text on a
+    panel, and the pointer's arrow against its outline, in each preset."""
+    theme = THEMES[name]
+    assert contrast(theme.on_error, theme.error) >= 4.5
+    assert contrast(theme.on_error_muted, theme.error) >= 3
+    assert contrast(theme.problem_text, theme.home_card) >= 4.5
+    assert contrast(theme.pointer_fill, theme.pointer_edge) >= 4.5
+
+
 @pytest.mark.parametrize("modifier", ["ctrl", "shift"])
 def test_active_modifier_has_a_non_colour_indicator(modifier: str):
     state = AppState()

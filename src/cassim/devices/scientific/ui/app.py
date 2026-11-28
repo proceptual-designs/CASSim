@@ -23,7 +23,7 @@ from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
 from cassim.app.sizes import dialog_width, page_is_phone
-from cassim.app.theme import DEFAULT_THEME
+from cassim.app.theme import DEFAULT_THEME, INK_ON_DARK, INK_ON_LIGHT
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
 from cassim.devices.scientific.examples import EXAMPLES, load_example
@@ -87,9 +87,9 @@ def ink_on(fill: str) -> str:
     """Near-black or white text, whichever reads better on `fill` (a #rrggbb colour)."""
     hex_ = fill.lstrip("#")[:6]
     if len(hex_) != 6:  # noqa: PLR2004
-        return "#ffffff"
+        return INK_ON_DARK
     r, g, b = (int(hex_[i : i + 2], 16) / 255 for i in (0, 2, 4))
-    return "#111111" if 0.299 * r + 0.587 * g + 0.114 * b > 0.55 else "#ffffff"  # noqa: PLR2004
+    return INK_ON_LIGHT if 0.299 * r + 0.587 * g + 0.114 * b > 0.55 else INK_ON_DARK  # noqa: PLR2004
 
 
 def _safe_update(control: ft.Control) -> None:
@@ -356,7 +356,11 @@ class ScientificApp:
         self.calculator.bgcolor = skin.chassis
         self.calculator.border_radius = 22 * s
         self.calculator.border = ft.Border.all(1.5, skin.chassis_edge)
-        self.calculator.shadow = ft.BoxShadow(spread_radius=1, blur_radius=14, color="#00000066")
+        self.calculator.shadow = ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=14,
+            color=ft.Colors.with_opacity(0.4, self.appearance.theme.shadow),
+        )
 
     def _colours(self, key: LKey) -> tuple[str, str]:  # noqa: PLR0911
         skin = self.skin

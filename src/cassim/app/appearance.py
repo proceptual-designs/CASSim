@@ -13,6 +13,7 @@ import flet as ft
 from cassim.app.sizes import dialog_width
 from cassim.app.theme import (
     DEFAULT_THEME,
+    PALETTE,
     THEME_FIELDS,
     THEME_NAMES,
     THEMES,
@@ -26,33 +27,6 @@ APPEARANCE_KEY = "cassim.appearance"  # shell-wide: Home and every app read the 
 LEGACY_KEY = "cassim.system"  # the Nspire's System Settings, which held the theme until SDD-15
 INVALID = "Saved theme settings are invalid; Dark defaults are in use."
 CUSTOMISE_HINT = "Tap a swatch or type #RRGGBB. Custom colours may reduce contrast."
-
-PALETTE = (
-    "#000000",
-    "#14161a",
-    "#2b2f36",
-    "#4a515c",
-    "#808080",
-    "#cfd4db",
-    "#f1f3f5",
-    "#ffffff",
-    "#143a60",
-    "#245c96",
-    "#2462a1",
-    "#7fb2e8",
-    "#a6d2ff",
-    "#c6ddf7",
-    "#27603c",
-    "#3d8053",
-    "#78b590",
-    "#e8b04a",
-    "#aa6500",
-    "#965200",
-    "#e0a030",
-    "#b3261e",
-    "#6a428a",
-    "#f0d7b4",
-)
 
 
 @dataclass

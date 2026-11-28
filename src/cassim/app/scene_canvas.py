@@ -11,6 +11,7 @@ from collections.abc import Mapping
 import flet as ft
 import flet.canvas as cv
 
+from cassim.app.theme import DARK, Theme
 from cassim.graph.scene import (
     Align,
     Box,
@@ -26,22 +27,23 @@ from cassim.graph.scene import (
     Stroke,
 )
 
-# Colour names a scene uses, for the dark theme. A theme may override any of them.
-COLOURS: Mapping[str, str] = {
-    "ink": "#e8e8e8",
-    "axis": "#9a9a9a",
-    "grid": "#3a3a3a",
-    "cursor": "#6aa9ff",
-    "selection": "#2d5fa8",
-    "header": "#2a2d33",  # a sheet's column heads and row numbers
-    "edit": "#101826",  # the cell being typed in
-    "curve1": "#4f9dff",
-    "curve2": "#ff6b6b",
-    "curve3": "#5fd068",
-    "curve4": "#ffb84d",
-    "curve5": "#c77dff",
-    "curve6": "#4dd0e1",
-}
+
+def scene_colours(theme: Theme) -> dict[str, str]:
+    """The colour names a scene uses, from the theme's tokens (SDD-15 section 7.2)."""
+    return {
+        "ink": theme.screen_text,
+        "axis": theme.sheet_axis,
+        "grid": theme.sheet_grid,
+        "cursor": theme.accent,
+        "selection": theme.selection,
+        "header": theme.sheet_header,  # a sheet's column heads and row numbers
+        "edit": theme.sheet_edit,  # the cell being typed in
+        **{f"curve{n}": getattr(theme, f"plot_{n}") for n in range(1, 7)},
+    }
+
+
+# The Dark theme's: what a scene is drawn with when it is given no colours of its own
+COLOURS: Mapping[str, str] = scene_colours(DARK)
 
 _ALIGN = {
     Align.LEFT: (ft.Alignment.TOP_LEFT, ft.TextAlign.LEFT),

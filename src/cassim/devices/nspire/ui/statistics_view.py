@@ -9,7 +9,7 @@ import flet as ft
 import flet.canvas as cv
 
 from cassim.app.context_menu import context_menu_region
-from cassim.app.scene_canvas import COLOURS, layer_shapes
+from cassim.app.scene_canvas import layer_shapes, scene_colours
 from cassim.app.theme import Theme
 from cassim.device.keys import Action
 from cassim.devices.nspire.pages.statistics import Statistics
@@ -26,12 +26,7 @@ WHEEL_ZOOM_STEP = 600  # scroll pixels for a zoom by a factor of e, as on a Grap
 
 
 def statistics_colours(theme: Theme) -> dict[str, str]:
-    return {
-        **COLOURS,
-        "ink": theme.screen_text,
-        "axis": theme.sheet_axis,
-        "grid": theme.sheet_grid,
-    }
+    return scene_colours(theme)
 
 
 class StatisticsView:

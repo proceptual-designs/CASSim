@@ -199,7 +199,7 @@ class App:
         self.state = state
         shell.changed = self.on_bridge  # the browser's offers changed
         self.runner = runner  # None: the maths runs in this process, synchronously
-        self.status = ft.Text("", size=13, color="#ffd479")
+        self.status = ft.Text("", size=13, color=shell.theme.status_text)
         self.debug = "debug" in (page.url or "")  # `#/debug` prints results for the e2e tests
         self.shown: tuple[int, int] | None = None  # the page last drawn, for the debug PAGE line
         # `#/debug/keytime` shows what each redraw cost in the status line, to measure typing on a
@@ -759,7 +759,9 @@ class App:
             await asyncio.sleep(repeat_interval(time.monotonic() - started))
 
     def show_wizard(self, wizard: Wizard) -> None:
-        self.typing_dialog = wizard_dialog(self.page, self.state, wizard, self.refresh)
+        self.typing_dialog = wizard_dialog(
+            self.page, self.state, wizard, self.refresh, problem_colour=self.theme.problem_text
+        )
 
     async def on_key(self, e: ft.KeyboardEvent) -> None:
         key = key_name(e.key)
