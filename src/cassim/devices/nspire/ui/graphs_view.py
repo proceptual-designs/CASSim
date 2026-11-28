@@ -8,8 +8,8 @@ from collections.abc import Callable, Sequence
 import flet as ft
 
 from cassim.app.context_menu import context_menu_region
-from cassim.app.math_canvas import PAD, MathLine
-from cassim.app.scene_canvas import COLOURS, canvas
+from cassim.app.math_canvas import HIT, PAD, MathLine
+from cassim.app.scene_canvas import canvas, scene_colours
 from cassim.app.theme import Theme
 from cassim.core.results import latex_for_markdown
 from cassim.device.editor import format_target
@@ -35,13 +35,7 @@ _LABEL_SIZE = 14
 
 def graph_colours(theme: Theme) -> dict[str, str]:
     """The scene's colour names for a Graphs page: TI's black is the screen text."""
-    colours = {
-        **COLOURS,
-        "ink": theme.screen_text,
-        "axis": theme.sheet_axis,
-        "grid": theme.sheet_grid,
-        "paper": theme.screen,
-    }
+    colours = {**scene_colours(theme), "paper": theme.screen}
     colours.update((name, getattr(theme, name)) for name in FUNCTION_COLOURS if name != "ink")
     return colours
 
@@ -119,7 +113,7 @@ class GraphsView:
                     ft.Row([field], scroll=ft.ScrollMode.AUTO),
                     height=function_height,
                     alignment=ft.Alignment.CENTER_LEFT,
-                    bgcolor="#01ffffff",
+                    bgcolor=HIT,
                 ),
                 expand=True,
                 on_tap=lambda _, editor=entry.editing.editor: self._place(

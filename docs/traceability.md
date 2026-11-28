@@ -291,11 +291,11 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-REL-002 | Must | `tests/device/test_engine.py` |
 | NFR-SEC-001 | Must | `tests/app/test_about.py`, `tests/devices/scientific/test_scientific_files.py` |
 | NFR-SEC-003 | Must | `tests/runtime/test_pseudocode_syntax.py` |
-| NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
+| NFR-USE-001 | Must | `tests/app/test_typeahead.py`, `tests/flows/test_exam_flows.py` |
 | NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
 | NFR-USE-003 | Should | `tests/app/test_appearance.py` |
 | NFR-PORT-002 | Must | `tests/app/test_math_canvas.py` |
-| NFR-PORT-003 | Should | `tests/app/test_layout.py` |
+| NFR-PORT-003 | Should | `tests/app/test_layout.py`, `tests/app/test_sizes.py` |
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
 | NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |

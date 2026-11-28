@@ -24,6 +24,7 @@ from cassim.app.main import Application, shared_device, startup_device
 from cassim.app.shell import BrowserOffers
 from cassim.app.theme import DARK, LIGHT
 from cassim.devices.nspire.ui.app import cassim_items, nspire_menu
+from cassim.devices.nspire.ui.state import Mode
 
 
 def fragment(device: str) -> str:
@@ -264,8 +265,8 @@ def test_a_direct_debug_launch_is_not_remembered(monkeypatch: pytest.MonkeyPatch
 
 
 def test_home_menu_action_is_only_added_for_the_all_in_one_app() -> None:
-    regular = cassim_items(BrowserOffers(), nspire_menu(handheld=True))
-    with_home = cassim_items(BrowserOffers(), nspire_menu(handheld=True, home=True))
+    regular = cassim_items(BrowserOffers(), nspire_menu(view=Mode.HANDHELD))
+    with_home = cassim_items(BrowserOffers(), nspire_menu(view=Mode.HANDHELD, home=True))
     assert all(item.arg != "home" for item in regular)
     assert with_home[0].label == "Home"
     assert with_home[0].arg == "home"

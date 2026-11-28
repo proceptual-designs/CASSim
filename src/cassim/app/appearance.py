@@ -10,8 +10,10 @@ from typing import NamedTuple
 
 import flet as ft
 
+from cassim.app.sizes import dialog_width
 from cassim.app.theme import (
     DEFAULT_THEME,
+    PALETTE,
     THEME_FIELDS,
     THEME_NAMES,
     THEMES,
@@ -25,33 +27,6 @@ APPEARANCE_KEY = "cassim.appearance"  # shell-wide: Home and every app read the 
 LEGACY_KEY = "cassim.system"  # the Nspire's System Settings, which held the theme until SDD-15
 INVALID = "Saved theme settings are invalid; Dark defaults are in use."
 CUSTOMISE_HINT = "Tap a swatch or type #RRGGBB. Custom colours may reduce contrast."
-
-PALETTE = (
-    "#000000",
-    "#14161a",
-    "#2b2f36",
-    "#4a515c",
-    "#808080",
-    "#cfd4db",
-    "#f1f3f5",
-    "#ffffff",
-    "#143a60",
-    "#245c96",
-    "#2462a1",
-    "#7fb2e8",
-    "#a6d2ff",
-    "#c6ddf7",
-    "#27603c",
-    "#3d8053",
-    "#78b590",
-    "#e8b04a",
-    "#aa6500",
-    "#965200",
-    "#e0a030",
-    "#b3261e",
-    "#6a428a",
-    "#f0d7b4",
-)
 
 
 @dataclass
@@ -123,11 +98,6 @@ async def load_appearance(read: Callable[[str], Awaitable[str | None]]) -> Loade
     if found is None:
         return Loaded(Appearance(), INVALID, saved=True)
     return Loaded(found, "", saved=True, migrated=legacy)
-
-
-def dialog_width(page: ft.Page, preferred: float) -> float:
-    """A dialog's content width: `preferred`, narrower on a small window (SDD-15 section 8.2)."""
-    return max(200.0, min(preferred, float(page.width or 800) - 128))
 
 
 def field_label(name: str) -> str:

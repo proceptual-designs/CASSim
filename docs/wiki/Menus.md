@@ -25,7 +25,7 @@ It is the same menu, in the same order, in every CASSim app and on Home:
 
 - **Home**, in the all-in-one app
 - the views (● marks the one you are in) and the panels you can show or hide (✓ when shown):
-  here **Computer view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
+  here **Computer view**, **Tablet view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
   phone, **Avoid cutout**, ✓ while the calculator keeps clear of the camera cutout)
 - **Settings…** and **Appearance…**
 - **Install CASSim…** or **Uninstall CASSim…**, **Check for updates** and the offline status

@@ -50,3 +50,30 @@ def test_the_view_is_chosen_before_the_first_draw() -> None:
     assert recovered_mode(412, 915, None) is Mode.HANDHELD
     assert recovered_mode(1200, 800, Mode.HANDHELD) is Mode.HANDHELD
     assert recovered_mode(1200, 800, None) is Mode.COMPUTER
+
+
+def test_a_phone_follows_its_orientation() -> None:
+    """SDD-15 section 8.2: Handheld upright, Tablet on its side, as the phone turns."""
+    app, page = handheld_app(412, 915)
+    for width, height, mode in ((915, 412, Mode.TABLET), (412, 915, Mode.HANDHELD)):
+        page.width, page.height = width, height
+        app.on_resize(cast("ft.PageResizeEvent", SimpleNamespace(width=width, height=height)))
+        assert app.state.mode is mode
+    assert recovered_mode(915, 412, Mode.COMPUTER) is Mode.TABLET
+
+
+def test_tablet_puts_the_keypad_beside_the_screen_and_handheld_under_it() -> None:
+    """SDD-15 section 8.1, in the same window: the view decides, not the window's shape."""
+    app, _ = handheld_app(1200, 800)
+    for mode, beside in ((Mode.TABLET, True), (Mode.HANDHELD, False)):
+        app.set_mode(mode)
+        assert app.plan is not None
+        assert app.plan.side_by_side is beside
+        assert app.state.mode is mode
+
+
+def test_tablet_view_has_its_shortcut_and_menu_item() -> None:
+    app, _ = handheld_app(1200, 800)
+    app.set_mode(Mode.COMPUTER)
+    app.show_dialog("view:tablet")  # CASSim > Tablet view, Alt+Shift+T
+    assert app.state.mode is Mode.TABLET

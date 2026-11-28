@@ -220,15 +220,10 @@ COLOUR_HOMES = frozenset(
 )
 # Literal colours elsewhere, by module, until they become tokens (SDD-15 section 10, gap 17)
 COLOURS_LEFT: dict[str, int] = {
-    "app/appearance.py": 24,  # the colour picker's swatches
+    # an all-but-invisible box that takes clicks, and the maths selection's defaults
     "app/math_canvas.py": 3,
-    "app/scene_canvas.py": 13,  # the drawing palette the theme starts from
+    # the cursor bar's colours, written into the LaTeX (`device` cannot import the theme)
     "device/editor.py": 3,
-    "devices/nspire/ui/app.py": 1,
-    "devices/nspire/ui/graphs_view.py": 1,  # an all-but-invisible box that takes clicks
-    "devices/nspire/ui/views.py": 8,
-    "devices/pseudocode/ui/app.py": 1,
-    "devices/scientific/ui/app.py": 4,  # key-legend contrast and the case's shadow
 }
 
 

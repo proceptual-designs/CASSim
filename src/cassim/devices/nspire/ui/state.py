@@ -72,8 +72,17 @@ COMPUTER_MAX_SIDEBAR = 420
 
 
 class Mode(StrEnum):
+    """The views (SDD-15 section 8.1): Handheld is the device in one column, the keypad under the
+    screen; Tablet puts the keypad beside it; Computer has the sidebar and the workspace."""
+
     HANDHELD = "handheld"
+    TABLET = "tablet"
     COMPUTER = "computer"
+
+    @property
+    def device(self) -> bool:
+        """The device as it looks, screen and keypad: Handheld or Tablet."""
+        return self is not Mode.COMPUTER
 
 
 @dataclass
@@ -87,6 +96,7 @@ class System:
     computer_sidebar_width: float = COMPUTER_MIN_SIDEBAR
     computer_keypad_width: float = 320.0
     computer_column_controls: bool = False
+    computer_column_headers: bool = False  # a header on each column, to drag it by
     keypad_share: float = 0.0  # Handheld: the keypad's share of the room (splitter); 0 is auto
     zoom: float = 1.0  # everything larger or smaller than the fitted size
     letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
@@ -106,6 +116,7 @@ class System:
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
             system.computer_keypad = data.get("computer_keypad") is True
             system.computer_column_controls = data.get("computer_column_controls") is True
+            system.computer_column_headers = data.get("computer_column_headers") is True
             order = data.get("computer_column_order")
             if (
                 isinstance(order, list)
@@ -695,7 +706,12 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "dialog" and binding.arg in {"help", "view:computer", "view:handheld"}:
+        if binding.action == "dialog" and binding.arg in {
+            "help",
+            "view:computer",
+            "view:tablet",
+            "view:handheld",
+        }:
             self.menu = None
             self.run(binding)
             return

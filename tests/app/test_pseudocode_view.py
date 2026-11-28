@@ -1,6 +1,7 @@
 """Focused state tests for the standalone pseudocode Code view."""
 
 import asyncio
+import json
 import sys
 from collections.abc import Callable
 from types import SimpleNamespace
@@ -10,12 +11,14 @@ import flet as ft
 import pytest
 
 from cassim.app.appearance import Appearance
+from cassim.app.sizes import starting_view
 from cassim.app.theme import DARK, HIGH_CONTRAST
 from cassim.devices.pseudocode.ui.app import (
     BISECTION,
     CONDITION_COLUMN_WIDTH,
     D4_SAMPLE_SPACE,
     DICE_MAX_STATS,
+    EDITOR_SETTINGS_KEY,
     EDITOR_SIDE_PADDING,
     EDITOR_TOP,
     EXAMPLE,
@@ -31,7 +34,7 @@ from cassim.devices.pseudocode.ui.app import (
     CodeApp,
     wrapped_rows,
 )
-from cassim.devices.pseudocode.ui.call_window import CallWindow
+from cassim.devices.pseudocode.ui.call_window import DIVIDER_WIDTH, CallWindow
 from cassim.runtime.pseudocode import TRANSLATION_MARKER, Settings, run, trace
 
 
@@ -807,7 +810,7 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
         if isinstance(control, ft.GestureDetector)
         for control in [control.content]
     ]
-    width = window.width - 16 - 12  # less the body's padding and the divider
+    width = window.width - 16 - DIVIDER_WIDTH  # less the body's padding and the divider
     start = window.first.width
     assert start is not None
     assert start == pytest.approx(0.42 * width)
@@ -822,7 +825,9 @@ def test_a_call_window_divider_resizes_its_columns() -> None:
     resize = SimpleNamespace(global_position=SimpleNamespace(x=0, y=0))
     window.start_drag(resize)  # ty: ignore[invalid-argument-type]
     window.resize(SimpleNamespace(global_position=SimpleNamespace(x=-100, y=0)))  # ty: ignore[invalid-argument-type]
-    assert window.first.width == pytest.approx(0.8 * (window.width - 28))  # keeps its share
+    assert window.first.width == pytest.approx(
+        0.8 * (window.width - 16 - DIVIDER_WIDTH)
+    )  # keeps its share
 
 
 def test_help_opens_the_pseudocode_page_of_the_wiki() -> None:
@@ -1105,3 +1110,52 @@ def test_reload_to_update_asks_about_an_unsaved_program() -> None:
     shell.page.controls = []  # what unmount clears
     app.unmount()
     assert shell.has_unsaved() is False
+
+
+def sized_app(width: float, height: float = 760) -> CodeApp:
+    shell = DummyShell()
+    shell.page = SimpleNamespace(overlay=[], update=lambda: None, width=width, height=height)
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.view = starting_view(width, height)
+    return app
+
+
+def body_of(app: CodeApp) -> ft.Control:
+    app.arrange()
+    return app.root.controls[-1]
+
+
+def test_each_view_lays_the_columns_out_its_own_way() -> None:
+    """SDD-15 section 8.1: Computer has the splitter, Tablet the two columns without it, and
+    Handheld stacks them; a narrow Computer window stacks too (section 8.2)."""
+    app = sized_app(1200)
+    computer = body_of(app)
+    assert isinstance(computer, ft.Row)
+    assert any(isinstance(c, ft.GestureDetector) for c in computer.controls)  # the splitter
+    app.set_view("tablet")
+    tablet = body_of(app)
+    assert isinstance(tablet, ft.Row)
+    assert not any(isinstance(c, ft.GestureDetector) for c in tablet.controls)
+    app.set_view("handheld")
+    assert isinstance(body_of(app), ft.Column)
+    narrow = sized_app(800)
+    assert isinstance(body_of(narrow), ft.Column)
+
+
+def test_a_phone_follows_its_orientation_and_has_no_computer_view() -> None:
+    assert sized_app(390, 844).view == "handheld"
+    phone = sized_app(844, 390)
+    assert phone.view == "tablet"
+    phone.cassim_action("view:computer")  # greyed on a phone
+    assert phone.view == "tablet"
+
+
+def test_the_view_shortcuts_and_start_in() -> None:
+    shell = StoringShell()
+    shell.page.height = 760
+    app = CodeApp(shell)  # ty: ignore[invalid-argument-type]
+    app.on_keyboard(SimpleNamespace(key="H", shift=True, ctrl=False, alt=True, meta=False))  # ty: ignore[invalid-argument-type]
+    assert app.view == "handheld"
+    app.start_view = "tablet"
+    app.save_editor_settings()
+    assert json.loads(shell.stored[EDITOR_SETTINGS_KEY])["start"] == "tablet"

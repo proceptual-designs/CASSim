@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from cassim.app.sizes import starting_view
 from cassim.devices.nspire.ui.state import COMPUTER_MAX_SIDEBAR, COMPUTER_MIN_SIDEBAR, Mode
 
-NARROW = 600  # px: a short side below this starts a first visit in Handheld (decision 0013 item 3)
 MARGIN = 12  # px kept clear round the scaled calculator
 GAP = 12  # px between the screen and the keypad
 SCREEN_W, SCREEN_H = 320, 240  # the handheld's pixels
@@ -21,10 +21,9 @@ BAR_H = 44  # the toolbar row above the calculator
 
 
 def starting_mode(width: float | None, height: float | None = None) -> Mode:
-    """The mode for a first visit: Handheld when the window's short side is phone-sized (so a
-    phone in landscape too), else Computer."""
-    sides = [side for side in (width, height) if side]
-    return Mode.HANDHELD if sides and min(sides) < NARROW else Mode.COMPUTER
+    """The view for a first visit, and for a phone as it turns: on a phone, Handheld upright and
+    Tablet on its side (SDD-15 section 8.2); else Computer."""
+    return Mode(starting_view(width, height))
 
 
 def key_span(units: float, size: int = KEY_W) -> float:
@@ -67,6 +66,7 @@ class Sizing:
     bar: float = BAR_H  # the toolbar's height above the calculator (0 when it is empty)
     margin: float = MARGIN
     splitter: bool = True  # a phone has no splitter, only half a gap between the parts
+    side: bool | None = None  # keypad beside the screen (Tablet), under it (Handheld), or the best
 
     @property
     def between(self) -> float:
@@ -116,12 +116,12 @@ def handheld_plan(
 
     if sizing.share is None:
         side_fit, top_fit = (_fill(frame(side)) for side in (True, False))
-        side = side_fit > top_fit
+        side = side_fit > top_fit if sizing.side is None else sizing.side
         scale, pad_scale = side_fit if side else top_fit
         extent, pad0 = max(frame(side)[0], 1), frame(side)[1]
         share = pad0 * pad_scale / extent
         return HandheldPlan(side, scale * zoom, pad_scale * zoom, share, extent)
-    side = _fill(frame(True)) > _fill(frame(False))
+    side = _fill(frame(True)) > _fill(frame(False)) if sizing.side is None else sizing.side
     extent, pad0, screen0, across, pad_across, screen_across = frame(side)
     extent = max(extent, 1)
     share = clamp_share(sizing.share)
