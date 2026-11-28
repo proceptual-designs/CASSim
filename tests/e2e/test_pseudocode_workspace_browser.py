@@ -100,7 +100,9 @@ def test_code_workspace_is_responsive_in_both_themes(
             assert trace["x"] > code["x"]
 
 
-RUN_BUTTON = (564, 58, 620, 90)  # left, top, right, bottom at a 1100 x 760 viewport
+# The right column starts after the 40 px column divider (SDD-15 section 8.3)
+COLUMN_SHIFT = 28  # the divider was 12 px wide before
+RUN_BUTTON = (564 + COLUMN_SHIFT, 58, 620 + COLUMN_SHIFT, 90)  # at a 1100 x 760 viewport
 
 
 def wait_until_drawn(page: Page, box: tuple[int, int, int, int], timeout: float = 60.0) -> None:
@@ -129,9 +131,9 @@ def test_mouse_clicks_reach_the_editor_and_checkboxes(browser: Browser, site) ->
         page.wait_for_timeout(1_000)  # let the field connect, or the first keys are lost (A13)
         page.keyboard.press("Enter")
         page.keyboard.type("print 7")
-        page.mouse.click(583, 65)  # Run
+        page.mouse.click(583 + COLUMN_SHIFT, 65)  # Run
         page.wait_for_timeout(3_000)
-        page.mouse.click(580, 179)  # the first variable's checkbox (a)
+        page.mouse.click(580 + COLUMN_SHIFT, 179)  # the first variable's checkbox (a)
         page.wait_for_timeout(1_000)
 
         page.locator("flt-semantics-placeholder").evaluate("(element) => element.click()")
