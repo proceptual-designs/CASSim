@@ -69,7 +69,7 @@ def test_computer_layout_defaults_to_sidebar_workspace_and_optional_keypad() -> 
     assert list(app.computer_panels) == ["sidebar", "workspace"]
     sidebar_content = app.computer_panels["sidebar"].content
     assert isinstance(sidebar_content, ft.Column)
-    content = sidebar_content.controls[1]  # under the column's header
+    content = sidebar_content.controls[0]  # no header by default
     assert isinstance(content, ft.Column)
     assert content.controls[0] is app.toolbar
 
@@ -174,36 +174,45 @@ def test_computer_toolbar_keeps_beta_brand_with_attention(
     )
 
 
-def test_each_column_has_a_header_to_drag_and_a_menu_to_move_it() -> None:
-    """A column moves by its own header: drag its name, or its ⋯ menu's Move left and Move
-    right. The dividers only resize (their step buttons are a setting)."""
+def test_arrows_on_each_resize_bar_move_the_columns_across_it() -> None:
+    """< | > in the middle of each resize bar: < moves the column right of it left, > the one
+    left of it right. They take no keyboard focus (Tab and Enter are calculator keys) unless
+    the keyboard column controls are on, which also add the bars' resize buttons. No headers
+    unless Settings asks for them."""
     app, _ = computer_app()
     assert app.computer_row is not None
     controls = descendants(app.computer_row)
-    tips = {control.tooltip for control in controls if isinstance(control.tooltip, str)}
-    assert {"Drag to move controls and pages", "Drag to move calculation"} <= tips
-    assert len([c for c in controls if isinstance(c, ft.Draggable)]) == 2  # one per column
-    menus = [c for c in controls if isinstance(c, ft.PopupMenuButton)]
-    assert [[item.content for item in menu.items] for menu in menus] == [
-        ["Move left", "Move right"]
-    ] * 2
-    first, last = menus
-    assert [item.disabled for item in first.items] == [True, False]  # already on the left
-    assert [item.disabled for item in last.items] == [False, True]
-    assert "Narrow the column on the left" not in tips
+    arrows = [c for c in controls if isinstance(c, ft.Container) and c.width == 11]
+    assert [a.tooltip for a in arrows] == ["Move calculation left", "Move controls and pages right"]
+    assert all(a.ink is False for a in arrows)  # not focusable
+    assert not [c for c in controls if isinstance(c, (ft.IconButton, ft.Draggable))]
+    handler = cast("Callable[[object], object]", arrows[0].on_click)
+    handler(None)
+    assert list(app.computer_panels) == ["workspace", "sidebar"]
 
     app.state.system.computer_column_controls = True
     app.arrange()
     assert app.computer_row is not None
-    tips = {c.tooltip for c in descendants(app.computer_row) if isinstance(c.tooltip, str)}
+    buttons = [c for c in descendants(app.computer_row) if isinstance(c, ft.IconButton)]
+    tips = {b.tooltip for b in buttons}
+    assert {"Move controls and pages left", "Move calculation right"} <= tips  # Tab reaches them
     assert "Narrow the column on the left" in tips
 
-    app._move_column("workspace", -1)
-    assert list(app.computer_panels) == ["workspace", "sidebar"]
     app.toggle_keypad()
     assert app.computer_row is not None
+    arrows = [c for c in descendants(app.computer_row) if isinstance(c, ft.IconButton)]
+    assert len([a for a in arrows if str(a.tooltip).startswith("Move ")]) == 4  # two bars
+
+
+def test_column_headers_are_a_setting_for_dragging_a_column() -> None:
+    app, _ = computer_app()
+    app.state.system.computer_column_headers = True
+    app.arrange()
+    assert app.computer_row is not None
     controls = descendants(app.computer_row)
-    assert len([c for c in controls if isinstance(c, ft.Draggable)]) == 3
+    assert len([c for c in controls if isinstance(c, ft.Draggable)]) == 2  # one per column
+    tips = {c.tooltip for c in controls if isinstance(c.tooltip, str)}
+    assert {"Drag to move controls and pages", "Drag to move calculation"} <= tips
 
 
 def test_a_dropped_column_takes_the_targets_place() -> None:

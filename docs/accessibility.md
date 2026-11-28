@@ -7,7 +7,7 @@ NFR-USE-002 (Should) asks for keyboard-only operation in Computer mode and visib
 | Area | State |
 |---|---|
 | Keyboard in Computer mode | Entry, menus (F2, F4, numbers, arrows, Enter, Esc), pages, undo and redo, copy and paste work from the keyboard (`devices/nspire/keymap.py`, `docs/user` and the wiki's Keys page). The toolbar chips, sidebar buttons and dialogs are Flet controls; whether each can be reached and used with Tab alone is **not checked**. |
-| Computer columns | Each column's header has a ⋯ menu with Move left and Move right, and Settings has a “Show buttons to resize the columns” option. The option is saved; Tab-only operation and screen-reader labels remain **not checked**. |
+| Computer columns | The < and > on each resize bar move the columns and take no keyboard focus (Tab and Enter are calculator keys); Settings has a “Show keyboard-accessible column controls” option that makes them buttons and adds resize buttons, and “Show column headers” for dragging a column by its name. The option is saved; Tab-only operation and screen-reader labels remain **not checked**. |
 | Text size | Maths size and Zoom (50 to 200%) in Handheld Setup, saved per device. Interface text follows Zoom. The browser's own zoom also works. |
 | Touch targets | Handheld keys are sized by the layout code to fit the window; the smallest size on a 360 px phone is **not measured** (NFR-PORT-003 is tested for fit, not target size). |
 | Tooltips | Keys, status items and the splitter have tooltips (`devices/nspire/ui/keypad.py`, `views.py`). |

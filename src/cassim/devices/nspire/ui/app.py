@@ -114,7 +114,9 @@ from cassim.sheet.fileio import read_csv, read_xlsx, write_csv, write_xlsx
 
 
 TITLE_H = 20  # the screen's title bar, in the handheld's pixels
-COLUMN_HEADER_H = 40  # a column header: its name to drag, and its ⋯ menu (SDD-15 section 8.3)
+COLUMN_HEADER_H = 32  # a column's header, if shown: its name, to drag
+# < and > either side of a resize bar: they fit the bar's width, and are tall for a finger
+COLUMN_ARROW_W, COLUMN_ARROW_H = 11, 40
 COMPUTER_PANEL_NAMES = {
     "sidebar": "Controls and pages",
     "workspace": "Calculation",
@@ -1534,13 +1536,14 @@ class App:
         self.layout.content = self.computer_row
 
     def _computer_panel(self, name: str, width: float, height: float) -> ft.Container:
-        controls: list[ft.Control] = [self._column_header(name)]
+        headers = self.state.system.computer_column_headers
+        controls: list[ft.Control] = [self._column_header(name)] if headers else []
         if name == "sidebar":
             content: ft.Control = ft.Column(
                 [self.toolbar, self.sidebar.control], spacing=6, expand=True
             )
         elif name == "workspace":
-            self.view.control.height = max(height - COLUMN_HEADER_H - 8, 300)
+            self.view.control.height = max(height - (COLUMN_HEADER_H if headers else 0) - 8, 300)
             content = self.view.control
         else:
             content = ft.Column(
@@ -1557,12 +1560,10 @@ class App:
         )
 
     def _column_header(self, name: str) -> ft.Control:
-        """A column's header: drag it by its name to move the column (a bar shows where it will
-        go), or use its ⋯ menu's Move left and Move right."""
+        """A column's header (Settings: Show column headers): drag it by its name to move the
+        column, and a bar shows where it will go."""
         theme = self.theme
         title = COMPUTER_PANEL_NAMES[name]
-        order = self._visible_columns()
-        place = order.index(name)
         label = ft.Row(
             [
                 ft.Icon(ft.Icons.DRAG_INDICATOR, size=16, color=theme.key_label),
@@ -1589,30 +1590,39 @@ class App:
             ),
             on_drag_start=lambda _: setattr(self, "dragged_column", name),
         )
-        menu = ft.PopupMenuButton(
-            content=ft.Semantics(  # a name for the button, which an icon alone does not give
-                label=f"Move {title.lower()}",
-                content=ft.Icon(ft.Icons.MORE_HORIZ, size=18, color=theme.key_label),
-            ),
-            tooltip=f"Move {title.lower()}",
-            items=[
-                ft.PopupMenuItem(
-                    content="Move left",
-                    disabled=place == 0,
-                    on_click=lambda _: self._move_column(name, -1),
-                ),
-                ft.PopupMenuItem(
-                    content="Move right",
-                    disabled=place == len(order) - 1,
-                    on_click=lambda _: self._move_column(name, 1),
-                ),
-            ],
-        )
-        return ft.Row(
-            [ft.Container(grip, expand=True), menu],
-            height=COLUMN_HEADER_H,
-            spacing=0,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        return ft.Row([ft.Container(grip, expand=True)], height=COLUMN_HEADER_H, spacing=0)
+
+    def _move_arrow(self, name: str, step: int) -> ft.Control:
+        """A < or > beside a resize bar: < moves the column right of the bar one place left, >
+        the column left of it one place right. A tap area that takes no keyboard focus, so Tab
+        and Enter stay the calculator's keys; with the keyboard column controls on (Settings)
+        it is a button that Tab reaches."""
+        icon = ft.Icons.CHEVRON_LEFT if step < 0 else ft.Icons.CHEVRON_RIGHT
+        colour = self.theme.key_label
+        tip = f"Move {COMPUTER_PANEL_NAMES[name].lower()} {'left' if step < 0 else 'right'}"
+
+        def move(_: object) -> None:
+            self._move_column(name, step)
+
+        if self.state.system.computer_column_controls:
+            return ft.IconButton(
+                icon=ft.Semantics(label=tip, content=ft.Icon(icon)),
+                tooltip=tip,
+                on_click=move,
+                icon_color=colour,
+                icon_size=14,
+                width=COLUMN_ARROW_W,
+                height=COLUMN_ARROW_H,
+                padding=0,
+            )
+        return ft.Container(
+            ft.Icon(icon, size=14, color=colour),
+            width=COLUMN_ARROW_W,
+            height=COLUMN_ARROW_H,
+            alignment=ft.Alignment.CENTER,
+            tooltip=tip,
+            on_click=move,
+            ink=False,  # not focusable: Tab and Enter must not land on it
         )
 
     def _visible_columns(self) -> list[str]:
@@ -1643,14 +1653,33 @@ class App:
             resize(delta)
             self.shell.write(SYSTEM_KEY, self.state.system.dumps())
 
+        # The line's parts have fixed heights: a bar made only of parts that stretch broke the
+        # layout so that typed keys stopped reaching a sheet (the flows browser test)
+        room = max(height - (48 if self.state.system.computer_column_controls else 0), 1)
+        half = max((room - COLUMN_ARROW_H) / 2, 1)
+
+        def line(length: float) -> ft.Container:
+            return ft.Container(width=2, height=length, bgcolor=self.theme.key_label)
+
         divider = ft.GestureDetector(
             ft.Container(
-                ft.Container(
-                    width=2,
-                    height=max(
-                        height - (48 if self.state.system.computer_column_controls else 0), 1
-                    ),
-                    bgcolor=self.theme.key_label,
+                ft.Column(
+                    [
+                        line(half),
+                        ft.Row(  # < | > in the bar's middle: move a column across it
+                            [
+                                self._move_arrow(second, -1),
+                                line(COLUMN_ARROW_H),
+                                self._move_arrow(first, 1),
+                            ],
+                            spacing=0,
+                            tight=True,
+                        ),
+                        line(half),
+                    ],
+                    spacing=0,
+                    tight=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 expand=True,
                 alignment=ft.Alignment.CENTER,

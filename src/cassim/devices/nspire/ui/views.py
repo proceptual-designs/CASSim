@@ -1644,8 +1644,12 @@ def system_settings_dialog(
         visible=bool(layouts),
     )
     column_controls = ft.Checkbox(
-        label="Show buttons to resize the columns",
+        label="Show keyboard-accessible column controls",
         value=system.computer_column_controls,
+    )
+    column_headers = ft.Checkbox(
+        label="Show column headers (drag a column by its name)",
+        value=system.computer_column_headers,
     )
 
     def apply() -> None:
@@ -1654,6 +1658,7 @@ def system_settings_dialog(
         system.math_size = MATH_SIZES.get(size.value or "", system.math_size)
         system.zoom = round((zoom.value or 100) / 100, 2)
         system.computer_column_controls = bool(column_controls.value)
+        system.computer_column_headers = bool(column_headers.value)
         page.pop_dialog()
         on_change()
 
@@ -1666,6 +1671,7 @@ def system_settings_dialog(
                 zoom_row,
                 letters,
                 column_controls,
+                column_headers,
                 ft.TextButton("Appearance…", on_click=lambda _: on_appearance())
                 if on_appearance is not None
                 else ft.Container(),

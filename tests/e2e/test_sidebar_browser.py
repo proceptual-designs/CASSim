@@ -63,10 +63,10 @@ def test_computer_controls_align_at_minimum_sidebar_width(
     page.close()
 
 
-def test_computer_divider_resizes_and_a_header_moves_its_column(
+def test_computer_divider_resizes_and_its_arrow_moves_a_column(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
-    """FR-DEV-002: the divider resizes, and dragging a column's header moves the column."""
+    """FR-DEV-002: the resize bar resizes, and the > in its middle moves a column across it."""
     app = open_app(browser, site)
     page = app.page
     heading = button(page, "Hide pages Pages")
@@ -87,16 +87,9 @@ def test_computer_divider_resizes_and_a_header_moves_its_column(
     )
     resized = heading.bounding_box()
     assert resized
-    header = page.get_by_text(re.compile("^Drag to move controls and pages")).bounding_box()
-    assert header, "the sidebar's header"
-    grip_x, grip_y = header["x"] + 20, header["y"] + header["height"] / 2
-    page.mouse.move(grip_x, grip_y)
-    page.mouse.down()
-    page.mouse.move(grip_x + 40, grip_y, steps=10)
-    page.wait_for_timeout(500)
-    page.mouse.move(grip_x + 500, grip_y + 120, steps=15)  # over the calculation column
-    page.wait_for_timeout(500)
-    page.mouse.up()
+    arrow = page.get_by_text("Move controls and pages right").bounding_box()
+    assert arrow, "the > beside the resize bar"
+    page.mouse.click(arrow["x"] + arrow["width"] / 2, arrow["y"] + arrow["height"] / 2)
     app.wait(
         lambda: (box := heading.bounding_box()) is not None and box["x"] > resized["x"] + 100,
         "the sidebar to move right",
@@ -107,20 +100,19 @@ def test_computer_divider_resizes_and_a_header_moves_its_column(
 def test_column_controls_can_be_enabled_from_system_settings(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
-    """NFR-USE-002: the optional resize buttons are exposed through Settings, and a column's
-    header menu moves it, all by keyboard."""
+    """NFR-USE-002: the optional column controls are exposed through System Settings."""
     app = open_app(browser, site)
     page = app.page
     for key in ("F4", "7", "3"):
         app.press(key)
-    checkbox = page.get_by_role("checkbox", name="Show buttons to resize the columns")
+    checkbox = page.get_by_role("checkbox", name="Show keyboard-accessible column controls")
     checkbox.focus()
     page.keyboard.press("Space")
     expect(checkbox).to_be_checked()
     button(page, "OK").focus()
     page.keyboard.press("Enter")
-    menu = page.get_by_role("button", name=re.compile(r"^Move calculation")).last
-    expect(menu).to_be_attached()
+    move = page.get_by_role("button", name=re.compile(r"^Move calculation left")).last
+    expect(move).to_be_attached()
     before = button(page, "Hide pages Pages").bounding_box()
     assert before
     resize = page.get_by_role("button", name=re.compile(r"^Widen the column on the left")).last
@@ -134,12 +126,8 @@ def test_column_controls_can_be_enabled_from_system_settings(
         "keyboard column resize",
         seconds=8,
     )
-    menu.focus()
-    page.keyboard.press("Enter")  # the header's ⋯ menu
-    move = page.get_by_role("menuitem", name="Move left").or_(
-        page.get_by_role("button", name="Move left")
-    )
-    move.first.click()
+    move.focus()
+    page.keyboard.press("Enter")
     app.wait(
         lambda: (
             (box := button(page, "Hide pages Pages").bounding_box()) is not None
