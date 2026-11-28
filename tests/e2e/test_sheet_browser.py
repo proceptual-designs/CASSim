@@ -309,7 +309,7 @@ def test_long_press_still_opens_the_cell_menu(browser: Browser, site: tuple[Path
     app.page.wait_for_timeout(800)
     session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
     ready_count = app.logs.count("CASSIM: ENGINE READY")
-    app.page.get_by_role("button", name="4 Insert Cell").click()
+    app.page.get_by_role("button", name="4 Insert cell").click()
     app.wait(lambda: app.logs.count("CASSIM: ENGINE READY") > ready_count, "insert cell")
     app.press("Down")
     sheet_line(app, "C2 9")

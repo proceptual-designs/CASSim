@@ -72,8 +72,17 @@ COMPUTER_MAX_SIDEBAR = 420
 
 
 class Mode(StrEnum):
+    """The views (SDD-15 section 8.1): Handheld is the device in one column, the keypad under the
+    screen; Tablet puts the keypad beside it; Computer has the sidebar and the workspace."""
+
     HANDHELD = "handheld"
+    TABLET = "tablet"
     COMPUTER = "computer"
+
+    @property
+    def device(self) -> bool:
+        """The device as it looks, screen and keypad: Handheld or Tablet."""
+        return self is not Mode.COMPUTER
 
 
 @dataclass
@@ -87,6 +96,7 @@ class System:
     computer_sidebar_width: float = COMPUTER_MIN_SIDEBAR
     computer_keypad_width: float = 320.0
     computer_column_controls: bool = False
+    computer_column_headers: bool = False  # a header on each column, to drag it by
     keypad_share: float = 0.0  # Handheld: the keypad's share of the room (splitter); 0 is auto
     zoom: float = 1.0  # everything larger or smaller than the fitted size
     letters: str = ""  # keypad letter layout, a name in `Profile.keypads` ("" is the default)
@@ -106,6 +116,7 @@ class System:
             system.math_size = size if size in MATH_SIZES.values() else system.math_size
             system.computer_keypad = data.get("computer_keypad") is True
             system.computer_column_controls = data.get("computer_column_controls") is True
+            system.computer_column_headers = data.get("computer_column_headers") is True
             order = data.get("computer_column_order")
             if (
                 isinstance(order, list)
@@ -163,12 +174,12 @@ def _graphs_actions_menu() -> MenuItem:
                     MenuItem("Grid", key="3", enabled=False),
                 ),
             ),
-            todo("Hide/Show", "3"),
+            todo("Hide/show", "3"),
             tool("Attributes", "attributes", "4"),
             todo("Set conditions", "5"),
             todo("Delete all", "6"),
             tool("Text", "text", "7"),
-            tool("Coordinates and Equations", "coordinates", "8"),
+            tool("Coordinates and equations", "coordinates", "8"),
             tool("Calculate", "calculate", "9"),
             todo("Redefine", "A"),
         ),
@@ -695,7 +706,12 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "dialog" and binding.arg in {"help", "view:computer", "view:handheld"}:
+        if binding.action == "dialog" and binding.arg in {
+            "help",
+            "view:computer",
+            "view:tablet",
+            "view:handheld",
+        }:
             self.menu = None
             self.run(binding)
             return
@@ -860,27 +876,27 @@ class AppState:
                     key="2",
                     items=(
                         MenuItem("Graphing", key="1", enabled=False),
-                        MenuItem("Plane Geometry", key="2", enabled=False),
-                        MenuItem("3D Graphing", key="3", enabled=False),
-                        MenuItem("Hide Analytic Window", key="4", enabled=False),
+                        MenuItem("Plane geometry", key="2", enabled=False),
+                        MenuItem("3D graphing", key="3", enabled=False),
+                        MenuItem("Hide analytic window", key="4", enabled=False),
                         MenuItem(
-                            "Hide Axes" if graphs.show_axes else "Show Axes",
+                            "Hide axes" if graphs.show_axes else "Show axes",
                             "graphs_view",
                             "axes",
                             key="5",
                         ),
                         grid,
-                        MenuItem("Show Entry Line", key="7", enabled=False),
+                        MenuItem("Show entry line", key="7", enabled=False),
                         MenuItem(
-                            "Hide Axes End Values"
+                            "Hide axes end values"
                             if graphs.show_end_values
-                            else "Show Axes End Values",
+                            else "Show axes end values",
                             "graphs_view",
                             "end-values",
                             key="8",
                             enabled=graphs.show_axes,
                         ),
-                        MenuItem("Hide Object Selection Guides", key="9", enabled=False),
+                        MenuItem("Hide object selection guides", key="9", enabled=False),
                     ),
                 ),
                 _graph_entry_menu(),
@@ -908,7 +924,7 @@ class AppState:
         histogram = statistics.plot_type is PlotType.HISTOGRAM
         if name == "statistics_plot":
             return MenuItem(
-                "Plot Type",
+                "Plot type",
                 items=tuple(
                     MenuItem(
                         plot.value,
@@ -973,13 +989,13 @@ class AppState:
         return MenuItem(
             "Menu",
             items=(
-                MenuItem("Plot Type", key="1", jump=True, items=plot_types, enabled=has_x),
+                MenuItem("Plot type", key="1", jump=True, items=plot_types, enabled=has_x),
                 MenuItem(
-                    "Plot Properties",
+                    "Plot properties",
                     key="2",
                     items=(
                         MenuItem(
-                            "Connect Data Points",
+                            "Connect data points",
                             "statistics",
                             "toggle-connect",
                             key="1",
@@ -987,78 +1003,78 @@ class AppState:
                             and statistics.plot_type in (PlotType.SCATTER, PlotType.XY_LINE),
                         ),
                         MenuItem(
-                            "Add X Variable",
+                            "Add X variable",
                             "open_menu",
                             "statistics_x",
                             key="5",
                             enabled=bool(statistics.lists),
                         ),
                         MenuItem(
-                            "Add X Summary List",
+                            "Add X summary list",
                             "open_menu",
                             "statistics_summary",
                             key="6",
                             enabled=categorical and bool(statistics.numeric_lists),
                         ),
-                        MenuItem("Remove X Variable", "statistics", "x:", key="7", enabled=has_x),
+                        MenuItem("Remove X variable", "statistics", "x:", key="7", enabled=has_x),
                         MenuItem(
-                            "Add Y Variable",
+                            "Add Y variable",
                             "open_menu",
                             "statistics_y",
                             key="8",
                             enabled=bool(statistics.numeric_lists),
                         ),
-                        MenuItem("Remove Y Variable", "statistics", "y:", key="9", enabled=has_y),
+                        MenuItem("Remove Y variable", "statistics", "y:", key="9", enabled=has_y),
                         MenuItem(
-                            "Force Categorical X"
+                            "Force categorical X"
                             if not statistics.categorical_x
-                            else "Force Numeric X",
+                            else "Force numeric X",
                             "statistics",
                             "toggle-force-x",
                             key="B",
                             enabled=has_x,
                         ),
                         MenuItem(
-                            "Split Categories by Variable",
+                            "Split categories by variable",
                             "open_menu",
                             "statistics_split",
                             key="D",
                             enabled=categorical and bool(statistics.category_lists),
                         ),
                         MenuItem(
-                            "Remove Split Variable",
+                            "Remove split variable",
                             "statistics",
                             "split:",
                             key="E",
                             enabled=bool(statistics.split_name),
                         ),
                         MenuItem(
-                            "Show All Labels"
+                            "Show all labels"
                             if not statistics.show_all_labels
-                            else "Hide All Labels",
+                            else "Hide all labels",
                             "statistics",
                             "toggle-labels",
                             key="4",
                             enabled=categorical_chart,
                         ),
                         MenuItem(
-                            "Extend Box Plot Whiskers"
+                            "Extend box plot whiskers"
                             if not statistics.extend_whiskers
-                            else "Show Box Plot Outliers",
+                            else "Show box plot outliers",
                             "statistics",
                             "toggle-whiskers",
                             key="3",
                             enabled=statistics.plot_type is PlotType.BOX,
                         ),
                         MenuItem(
-                            "Histogram Bin Width…",
+                            "Histogram bin width…",
                             "statistics",
                             "wizard:bin-width",
                             key="2",
                             enabled=histogram,
                         ),
                         MenuItem(
-                            "Histogram Scale",
+                            "Histogram scale",
                             key="A",
                             items=tuple(
                                 MenuItem(scale, "statistics", f"histogram-scale:{scale}")
@@ -1067,7 +1083,7 @@ class AppState:
                             enabled=histogram,
                         ),
                         MenuItem(
-                            "Clear All",
+                            "Clear all",
                             "statistics",
                             "clear",
                             key="F",
@@ -1080,7 +1096,7 @@ class AppState:
                     key="3",
                     items=(
                         MenuItem(
-                            "Category Order",
+                            "Category order",
                             key="1",
                             items=tuple(
                                 MenuItem(order, "statistics", f"sort-order:{order}")
@@ -1096,14 +1112,14 @@ class AppState:
                     enabled=has_x and not categorical_chart,
                     items=(
                         MenuItem(
-                            "Plot Function…",
+                            "Plot function…",
                             "statistics",
                             "wizard:function",
                             key="4",
                             enabled=numeric_pair,
                         ),
                         MenuItem(
-                            "Remove Plotted Function",
+                            "Remove plotted function",
                             "statistics",
                             "function:",
                             key="1",
@@ -1128,18 +1144,18 @@ class AppState:
                             enabled=bool(statistics.regression),
                             items=(
                                 MenuItem(
-                                    "Show Residual Squares"
+                                    "Show residual squares"
                                     if not statistics.residual_squares
-                                    else "Hide Residual Squares",
+                                    else "Hide residual squares",
                                     "statistics",
                                     "toggle-residual-squares",
                                     key="1",
                                     enabled=bool(statistics.regression),
                                 ),
                                 MenuItem(
-                                    "Show Residual Plot"
+                                    "Show residual plot"
                                     if not statistics.residual_plot
-                                    else "Hide Residual Plot",
+                                    else "Hide residual plot",
                                     "statistics",
                                     "toggle-residual-plot",
                                     key="2",
@@ -1148,14 +1164,14 @@ class AppState:
                             ),
                         ),
                         MenuItem(
-                            "Plot Value…",
+                            "Plot value…",
                             "statistics",
                             "wizard:value",
                             key="8",
                             enabled=has_x and not categorical_chart,
                         ),
                         MenuItem(
-                            "Show Normal PDF" if not statistics.normal_pdf else "Hide Normal PDF",
+                            "Show normal PDF" if not statistics.normal_pdf else "Hide normal PDF",
                             "statistics",
                             "toggle-normal-pdf",
                             key="9",
@@ -1164,19 +1180,19 @@ class AppState:
                     ),
                 ),
                 MenuItem(
-                    "Window/Zoom",
+                    "Window/zoom",
                     key="5",
                     enabled=has_x and statistics.plot_type is not PlotType.PIE,
                     items=(
                         MenuItem(
-                            "Window Settings…",
+                            "Window settings…",
                             "statistics",
                             "wizard:window",
                             key="1",
                             enabled=not categorical_chart,
                         ),
                         MenuItem(
-                            "Zoom - Data",
+                            "Zoom - data",
                             "statistics",
                             "zoom-data",
                             key="2",
@@ -1195,22 +1211,22 @@ class AppState:
             return statistics_menus.context_menu(statistics, target)
         zoom = MenuItem(
             "Zoom",
-            items=(MenuItem("Zoom - Data", "statistics", "zoom-data"),),
+            items=(MenuItem("Zoom - data", "statistics", "zoom-data"),),
         )
         if target == "x":
             return MenuItem(
-                "X Axis",
+                "X axis",
                 items=(
                     MenuItem(
-                        "Force Categorical X"
+                        "Force categorical X"
                         if not statistics.categorical_x
-                        else "Force Numeric X",
+                        else "Force numeric X",
                         "statistics",
                         "toggle-force-x",
                         enabled=bool(statistics.x_name),
                     ),
                     MenuItem(
-                        "Remove X Variable",
+                        "Remove X variable",
                         "statistics",
                         "x:",
                         enabled=bool(statistics.x_name),
@@ -1220,10 +1236,10 @@ class AppState:
             )
         if target == "y":
             return MenuItem(
-                "Y Axis",
+                "Y axis",
                 items=(
                     MenuItem(
-                        "Remove Y Variable",
+                        "Remove Y variable",
                         "statistics",
                         "y:",
                         enabled=bool(statistics.y_name),
@@ -1233,7 +1249,7 @@ class AppState:
             )
         items = (
             MenuItem(
-                "Connect Data Points",
+                "Connect data points",
                 "statistics",
                 "toggle-connect",
                 enabled=bool(statistics.y_name)
@@ -1321,10 +1337,10 @@ class AppState:
             return MenuItem(
                 "var",
                 items=(
-                    MenuItem("Store Var", "sheet", "store_var", key="1"),
+                    MenuItem("Store var", "sheet", "store_var", key="1"),
                     MenuItem("Unlink", "sheet", "unlink", key="2"),
                     MenuItem(
-                        "Link To:",
+                        "Link to:",
                         key="3",
                         jump=True,
                         items=lists or (MenuItem("(none)", "escape"),),

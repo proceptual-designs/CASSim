@@ -140,6 +140,7 @@ COMPUTER: Keymap = {
     "alt+ArrowLeft": Binding("prev_page"),
     "alt+shift+c": Binding("dialog", "view:computer"),
     "alt+shift+h": Binding("dialog", "view:handheld"),
+    "alt+shift+t": Binding("dialog", "view:tablet"),
     "ctrl+c": Binding("copy"),
     "ctrl+x": Binding("cut"),
     "ctrl+v": Binding("paste"),

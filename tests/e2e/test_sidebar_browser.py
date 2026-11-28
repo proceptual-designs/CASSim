@@ -63,18 +63,16 @@ def test_computer_controls_align_at_minimum_sidebar_width(
     page.close()
 
 
-def test_computer_divider_resizes_and_grip_swaps_columns(
+def test_computer_divider_resizes_and_its_arrow_moves_a_column(
     browser: Browser, site: tuple[Path, str]
 ) -> None:
-    """FR-DEV-002: the divider resizes and its top grip moves a column."""
+    """FR-DEV-002: the resize bar resizes, and the > in its middle moves a column across it."""
     app = open_app(browser, site)
     page = app.page
     heading = button(page, "Hide pages Pages")
     initial = heading.bounding_box()
-    mode = button(page, "Handheld").bounding_box()
     last = button(page, "+ Problem").bounding_box()
     assert initial
-    assert mode
     assert last
     divider_x = last["x"] + last["width"] + 4
     page.mouse.move(divider_x + 12, initial["y"] + 20)
@@ -89,18 +87,12 @@ def test_computer_divider_resizes_and_grip_swaps_columns(
     )
     resized = heading.bounding_box()
     assert resized
-    grip_x = divider_x + 40 + 6
-    grip_y = mode["y"] + 8
-    page.mouse.move(grip_x, grip_y)
-    page.mouse.down()
-    page.mouse.move(grip_x + 40, grip_y, steps=10)
-    page.wait_for_timeout(500)
-    page.mouse.move(grip_x + 220, grip_y + 100, steps=15)
-    page.wait_for_timeout(500)
-    page.mouse.up()
+    arrow = page.get_by_text("Move controls and pages right").bounding_box()
+    assert arrow, "the > beside the resize bar"
+    page.mouse.click(arrow["x"] + arrow["width"] / 2, arrow["y"] + arrow["height"] / 2)
     app.wait(
         lambda: (box := heading.bounding_box()) is not None and box["x"] > resized["x"] + 100,
-        "columns to swap",
+        "the sidebar to move right",
     )
     page.close()
 

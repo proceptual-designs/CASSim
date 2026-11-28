@@ -114,12 +114,12 @@ def test_the_graphs_menu_has_actions_and_graph_entry_numbered_as_on_the_device()
     assert [(item.key, item.label, item.enabled) for item in actions.items] == [
         ("1", "Pointer", True),
         ("2", "Select", True),
-        ("3", "Hide/Show", False),
+        ("3", "Hide/show", False),
         ("4", "Attributes", True),
         ("5", "Set conditions", False),
         ("6", "Delete all", False),
         ("7", "Text", True),
-        ("8", "Coordinates and Equations", True),
+        ("8", "Coordinates and equations", True),
         ("9", "Calculate", True),
         ("A", "Redefine", False),
     ]

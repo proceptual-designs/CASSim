@@ -55,6 +55,20 @@ class Theme:
     graph_green: str = "#1e7b1e"
     graph_orange: str = "#c25400"
     graph_brown: str = "#8b4513"
+    # Data & Statistics plots, one colour per plotted series, in order
+    plot_1: str = "#4f9dff"
+    plot_2: str = "#ff6b6b"
+    plot_3: str = "#5fd068"
+    plot_4: str = "#ffb84d"
+    plot_5: str = "#c77dff"
+    plot_6: str = "#4dd0e1"
+    shadow: str = "#000000"  # shadows and the dimmed layer behind a menu, used translucent
+    pointer_fill: str = "#ffffff"  # the arrow the keypad's centre key moves
+    pointer_edge: str = "#000000"
+    on_error: str = "#ffffff"  # text on an error message's colour
+    on_error_muted: str = "#ffd0cc"
+    problem_text: str = "#ff8a80"  # what is wrong with a dialog's field
+    code_background: str = "#282a36"  # behind the code editor (its Dracula colours)
 
     def key_colours(self, style: str) -> tuple[str, str]:
         return self.key_styles.get(style, (self.key, self.key_text))
@@ -92,6 +106,7 @@ LIGHT = replace(
     panel_text="#14161a",
     panel_accent="#245c96",
     attention="#c62828",
+    problem_text="#b3261e",
     warning="#965200",
     success="#1e7b1e",
     chip_edge="#7d8894",
@@ -171,3 +186,36 @@ def luminance(colour: str) -> float:
 def contrast(a: str, b: str) -> float:
     high, low = sorted((luminance(a), luminance(b)), reverse=True)
     return (high + 0.05) / (low + 0.05)
+
+
+# The colours the Appearance dialog offers to pick from (`cassim.app.appearance`)
+PALETTE = (
+    "#000000",
+    "#14161a",
+    "#2b2f36",
+    "#4a515c",
+    "#808080",
+    "#cfd4db",
+    "#f1f3f5",
+    "#ffffff",
+    "#143a60",
+    "#245c96",
+    "#2462a1",
+    "#7fb2e8",
+    "#a6d2ff",
+    "#c6ddf7",
+    "#27603c",
+    "#3d8053",
+    "#78b590",
+    "#e8b04a",
+    "#aa6500",
+    "#965200",
+    "#e0a030",
+    "#b3261e",
+    "#6a428a",
+    "#f0d7b4",
+)
+
+# Text on a colour of the user's own: near-black on a light one, white on a dark one
+INK_ON_LIGHT = "#111111"
+INK_ON_DARK = "#ffffff"

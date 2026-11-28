@@ -90,6 +90,10 @@ Your calculator is saved in the browser as you go. **Doc ▸ New** clears the ca
 
 The full-screen button at the right of the menu bar hides the bar for presenting; Esc or the button in the corner brings it back. **CASSim ▸ Appearance** offers a dark theme, a light theme and a high-contrast theme for projectors; the choice is shared with Home and the other CASSim apps. **CASSim ▸ Settings** sets the same choices as SETUP, including a decimal comma in answers, and the CASSim extras.
 
+## Views
+
+CASSim ▸ **Computer view**, **Tablet view** or **Handheld view** (Alt+Shift+C, T or H) chooses the layout. Computer has the menu bar and chips, with the tutorials beside the calculator when there is room; Tablet always keeps the tutorials beside it; Handheld puts them below. **CASSim ▸ Settings ▸ Start in** chooses the view CASSim opens in.
+
 ## On a phone
 
-On a phone the calculator fills the screen and its keys grow to use the height. The tutorials start hidden: **CASSim ▸ Tutorials** brings them back, below the calculator, with a ✓ in the menu, and choosing it again puts them away (on a larger screen the same menu item, or the Tutorials button, does the same). The menu bar keeps the calculator and mode chips. In the installed app, **CASSim ▸ Avoid cutout** keeps the calculator clear of the camera cutout, and choosing it again draws under it.
+On a phone the view follows the way you hold it: Handheld upright, Tablet on its side (Computer view is greyed). The calculator fills the screen and its keys grow to use the height. The tutorials start hidden: **CASSim ▸ Tutorials** brings them back, below the calculator, with a ✓ in the menu, and choosing it again puts them away (on a larger screen the same menu item, or the Tutorials button, does the same). The menu bar keeps the calculator and mode chips. In the installed app, **CASSim ▸ Avoid cutout** keeps the calculator clear of the camera cutout, and choosing it again draws under it.

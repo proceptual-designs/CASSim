@@ -161,11 +161,11 @@ CI runs `--check` (NFR-MAINT-006).
 | FR-DEV-002 | Must | `tests/app/test_computer_columns.py`, `tests/e2e/test_sidebar_browser.py` |
 | FR-DEV-004 | Must | `tests/app/test_full_screen.py`, `tests/app/test_history_cache.py`, `tests/app/test_layout.py` and 7 more |
 | FR-DEV-005 | Should | `tests/app/test_history_cache.py`, `tests/app/test_keypad_refresh.py`, `tests/app/test_keypad_shapes.py` and 4 more |
-| FR-THEME-001 | Must | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py` |
+| FR-THEME-001 | Must | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py`, `tests/test_interface_rules.py` |
 | FR-THEME-002 | Should | `tests/app/test_appearance.py`, `tests/e2e/test_theme_browser.py` |
 | FR-DEV-006 | Must | `tests/app/test_computer_columns.py`, `tests/app/test_state.py` |
 | FR-DEV-007 | Should | `tests/app/test_menus.py`, `tests/app/test_stub_pages.py`, `tests/device/test_calculator.py` and 3 more |
-| FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_cassim_menu.py`, `tests/app/test_menus.py` |
+| FR-DEV-008 | Should | `tests/app/test_calculator_menus.py`, `tests/app/test_cassim_menu.py`, `tests/app/test_menus.py` and 1 more |
 | FR-DEV-009 | Should | `tests/device/test_wizard.py` |
 | FR-PWA-001 | Must | `tests/app/test_full_screen.py`, `tests/app/test_home.py`, `tests/e2e/test_pwa.py` and 1 more |
 | FR-PWA-002 | Must | `tests/app/test_full_screen.py`, `tests/e2e/test_pwa.py`, `tests/unit/test_bundles.py` |
@@ -291,11 +291,11 @@ CI runs `--check` (NFR-MAINT-006).
 | NFR-REL-002 | Must | `tests/device/test_engine.py` |
 | NFR-SEC-001 | Must | `tests/app/test_about.py`, `tests/devices/scientific/test_scientific_files.py` |
 | NFR-SEC-003 | Must | `tests/runtime/test_pseudocode_syntax.py` |
-| NFR-USE-001 | Must | `tests/flows/test_exam_flows.py` |
+| NFR-USE-001 | Must | `tests/app/test_typeahead.py`, `tests/flows/test_exam_flows.py` |
 | NFR-USE-002 | Should | `tests/e2e/test_sidebar_browser.py` |
 | NFR-USE-003 | Should | `tests/app/test_appearance.py` |
 | NFR-PORT-002 | Must | `tests/app/test_math_canvas.py` |
-| NFR-PORT-003 | Should | `tests/app/test_layout.py` |
+| NFR-PORT-003 | Should | `tests/app/test_layout.py`, `tests/app/test_sizes.py` |
 | NFR-MAINT-002 | Must | `tests/test_architecture.py` |
 | NFR-MAINT-004 | Should | `tests/unit/test_coverage_check.py` |
 | NFR-MAINT-006 | Must | `tests/unit/test_traceability.py` |

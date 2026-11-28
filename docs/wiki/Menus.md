@@ -6,7 +6,7 @@ Menus are numbered as on the handheld: press a number to choose that item, or us
 
 Actions, Number, Algebra, Calculus, Probability, Statistics, Matrix & vector, Finance, Functions & programs. Pages that are not built yet have no Menu.
 
-Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance Solver. Greyed-out items are on the handheld but not built yet in CASSim.
+Some items open a small form instead of expecting you to type the command, for example the distributions, regressions, Create Matrix, systems of equations, polynomial roots and the Finance solver. Greyed-out items are on the handheld but not built yet in CASSim.
 
 ## Doc (F4)
 
@@ -25,7 +25,7 @@ It is the same menu, in the same order, in every CASSim app and on Home:
 
 - **Home**, in the all-in-one app
 - the views (● marks the one you are in) and the panels you can show or hide (✓ when shown):
-  here **Computer view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
+  here **Computer view**, **Tablet view**, **Handheld view** and **Keypad**; then **Fullscreen** (on an installed
   phone, **Avoid cutout**, ✓ while the calculator keeps clear of the camera cutout)
 - **Settings…** and **Appearance…**
 - **Install CASSim…** or **Uninstall CASSim…**, **Check for updates** and the offline status

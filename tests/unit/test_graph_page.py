@@ -135,8 +135,8 @@ def test_graph_view_menu_controls_axes_end_values_and_grid() -> None:
     state.key_event("2")
     assert state.menu is not None
     rows = {row.label: row for row in state.menu.view().rows}
-    assert "Show Axes" in rows
-    assert not rows["Show Axes End Values"].enabled
+    assert "Show axes" in rows
+    assert not rows["Show axes end values"].enabled
     state.key_event("8")
     assert state.menu is not None
     state.key_event("5")

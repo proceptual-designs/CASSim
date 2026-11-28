@@ -121,9 +121,80 @@ def _run(steps: tuple[tuple[str, ...], ...]) -> bool:
 
 def run_groups(groups: tuple[str, ...], *, full_e2e: bool) -> bool:
     for group in groups:
+        if group == "browser" and not os.environ.get("CI"):
+            wait_for_memory()  # the browser suite is the heaviest part: start it with room
         steps = PYTHON_STEPS if group == "python" else browser_steps(full=full_e2e)
         if not _run(steps):
             return False
+    return True
+
+
+# The browser suite runs a browser with CASSim's Python engine in it. Started while memory is
+# short (other agents, browsers, the emulator), it was stopped by the machine running out, so a
+# run waits for this much free memory first, as it waits for the lock, and starts anyway after
+# `MEMORY_WAIT_LIMIT` rather than never.
+MIN_FREE_MEMORY = 4 * 2**30
+MEMORY_POLL = 30.0
+MEMORY_WAIT_LIMIT = 30 * 60.0
+
+
+def free_memory() -> int | None:
+    """Bytes of physical memory free now, or None where this cannot be read."""
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class _Status(ctypes.Structure):
+            _fields_ = (
+                ("dwLength", wintypes.DWORD),
+                ("dwMemoryLoad", wintypes.DWORD),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            )
+
+        status = _Status()
+        status.dwLength = ctypes.sizeof(_Status)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return int(status.ullAvailPhys)
+    try:
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    except OSError:
+        return None
+    return None
+
+
+def wait_for_memory(  # noqa: PLR0913
+    need: int = MIN_FREE_MEMORY,
+    *,
+    poll: float = MEMORY_POLL,
+    limit: float = MEMORY_WAIT_LIMIT,
+    free: Callable[[], int | None] = free_memory,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> bool:
+    """Wait until `need` bytes are free (True), or `limit` seconds have passed (False)."""
+    end = clock() + limit
+    told = False
+    while (now := free()) is not None and now < need:
+        if clock() >= end:
+            print("local_ci: still short of memory; starting the browser tests anyway", flush=True)
+            return False
+        if not told:
+            print(
+                f"local_ci: waiting for {need / 2**30:.1f} GB of free memory before the browser"
+                f" tests ({now / 2**30:.1f} GB free now)",
+                flush=True,
+            )
+            told = True
+        sleep(poll)
     return True
 
 

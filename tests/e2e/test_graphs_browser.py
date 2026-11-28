@@ -56,11 +56,11 @@ def test_graph_view_menu_updates_grid_and_axes(browser: Browser, site: tuple[Pat
 
     for key in ("F2", "2", "6", "2", "F2", "2", "5", "F2", "2"):
         app.press(key)
-    expect(app.page.get_by_role("button", name="5 Show Axes", exact=True)).to_be_visible(
+    expect(app.page.get_by_role("button", name="5 Show axes", exact=True)).to_be_visible(
         timeout=10000
     )
     expect(
-        app.page.get_by_role("button", name="8 Hide Axes End Values", exact=True)
+        app.page.get_by_role("button", name="8 Hide axes end values", exact=True)
     ).to_be_visible()
     app.press("Escape")
     app.press("Escape")
@@ -101,7 +101,7 @@ def test_window_zoom_and_trace_menus_work_in_the_browser(
         timeout=10000
     )
     app.press("1")
-    expect(app.page.get_by_text("Window Settings")).to_be_visible(timeout=10000)
+    expect(app.page.get_by_text("Window settings")).to_be_visible(timeout=10000)
     # Flutter exposes the value of the focused box only (XMin); the full digits of the other
     # boxes are checked headless in tests/unit/test_graph_window_zoom.py
     expect(app.page.get_by_role("textbox", name="XMin")).to_have_value("-10", timeout=10000)
@@ -110,7 +110,7 @@ def test_window_zoom_and_trace_menus_work_in_the_browser(
 
     for key in ("F2", "5"):
         app.press(key)
-    expect(app.page.get_by_role("button", name="3 Trace Step…", exact=True)).to_be_visible(
+    expect(app.page.get_by_role("button", name="3 Trace step…", exact=True)).to_be_visible(
         timeout=10000
     )
     app.press("Escape")

@@ -28,10 +28,10 @@ def zoom(key: str) -> MenuItem:
         "Zoom",
         key=key,
         items=(
-            MenuItem("Window Settings…", "statistics", "wizard:window", key="1"),
-            _item("Zoom - Data", "zoom-data", "2"),
-            _grey("Zoom - In", "3"),
-            _grey("Zoom - Out", "4"),
+            MenuItem("Window settings…", "statistics", "wizard:window", key="1"),
+            _item("Zoom - data", "zoom-data", "2"),
+            _grey("Zoom - in", "3"),
+            _grey("Zoom - out", "4"),
         ),
     )
 
@@ -42,7 +42,7 @@ def color(key: str) -> MenuItem:
     return MenuItem(
         "Color",
         key=key,
-        items=(_grey("Line Color", "1"), _grey("Fill Color", "2"), _grey("Text Color", "3")),
+        items=(_grey("Line color", "1"), _grey("Fill color", "2"), _grey("Text color", "3")),
     )
 
 
@@ -53,15 +53,15 @@ def _plot(plot: PlotType, key: str) -> MenuItem:
 def context_menu(statistics: Statistics, target: str) -> MenuItem | None:
     if target == "box":
         return MenuItem(
-            "Box Plot",
+            "Box plot",
             items=(
                 _plot(PlotType.DOT, "1"),
                 _plot(PlotType.HISTOGRAM, "2"),
                 _plot(PlotType.NORMAL_PROBABILITY, "3"),
                 _item(
-                    "Show Box Plot Outliers"
+                    "Show box plot outliers"
                     if statistics.extend_whiskers
-                    else "Extend Box Plot Whiskers",
+                    else "Extend box plot whiskers",
                     "toggle-whiskers",
                     "4",
                 ),
@@ -90,11 +90,11 @@ def context_menu(statistics: Statistics, target: str) -> MenuItem | None:
                     ),
                 ),
                 MenuItem(
-                    "Bin Settings",
+                    "Bin settings",
                     key="5",
                     items=(
-                        _item("Equal Bin Width", "wizard:bin-width", "1"),
-                        _grey("Variable Bin Width", "2"),
+                        _item("Equal bin width", "wizard:bin-width", "1"),
+                        _grey("Variable bin width", "2"),
                     ),
                 ),
                 zoom("6"),
@@ -105,21 +105,21 @@ def context_menu(statistics: Statistics, target: str) -> MenuItem | None:
         return MenuItem(
             "Regression",
             items=(
-                _item("Remove Regression", "regression:none", "1"),
-                _grey("Shade Under Function", "2"),
+                _item("Remove regression", "regression:none", "1"),
+                _grey("Shade under function", "2"),
                 _item(
-                    "Hide Residual Squares"
+                    "Hide residual squares"
                     if statistics.residual_squares
-                    else "Show Residual Squares",
+                    else "Show residual squares",
                     "toggle-residual-squares",
                     "3",
                 ),
                 _item(
-                    "Hide Residual Plot" if statistics.residual_plot else "Show Residual Plot",
+                    "Hide residual plot" if statistics.residual_plot else "Show residual plot",
                     "toggle-residual-plot",
                     "4",
                 ),
-                _grey("Graph Trace", "5"),
+                _grey("Graph trace", "5"),
                 color("6"),
             ),
         )

@@ -5,7 +5,7 @@ CASSim's Nspire app simulates the TI-Nspire CX CAS for VCE Mathematical Methods 
 Open it from the Home screen of <https://cassim-app.pages.dev/>, or use its own site, <https://cassim-tin.pages.dev/>, which opens straight into it.
 
 - [[Getting started]]: opening and installing CASSim
-- [[The two views]]: Handheld and Computer
+- [[The views|The two views]]: Handheld, Tablet and Computer
 - [[Keys and shortcuts]]
 - [[Menus]]
 - [[Settings]]: Document settings and Handheld setup
@@ -28,4 +28,4 @@ Fractions, roots, powers and other templates appear as you would write them on p
 - **Doc** (F4, or the doc key): files, editing, view, pages and settings.
 - Menus are numbered like the handheld. Press the number of an item to choose it.
 
-Next: [[The two views]] and [[Keys and shortcuts]].
+Next: [[The views|The two views]] and [[Keys and shortcuts]].

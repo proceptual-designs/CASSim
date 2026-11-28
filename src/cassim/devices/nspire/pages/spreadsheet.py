@@ -67,19 +67,19 @@ UNDO_DEPTH = 50
 # Statistics > Stat Calculations on a sheet, after One-Variable (check 4 E15; run 4, S4):
 # (label, command, menu key)
 STAT_CALCULATIONS = (
-    ("Two-Variable Statistics", "TwoVar", "2"),
-    ("Linear Regression (mx+b)", "LinRegMx", "3"),
-    ("Linear Regression (a+bx)", "LinRegBx", "4"),
-    ("Median-Median Line", "MedMed", "5"),
-    ("Quadratic Regression", "QuadReg", "6"),
-    ("Cubic Regression", "CubicReg", "7"),
-    ("Quartic Regression", "QuartReg", "8"),
-    ("Power Regression", "PowerReg", "9"),
-    ("Exponential Regression", "ExpReg", "A"),
-    ("Logarithmic Regression", "LnReg", "B"),
-    ("Sinusoidal Regression", "SinReg", "C"),
-    ("Logistic Regression (d=0)", "Logistic", "D"),
-    ("Logistic Regression (d≠0)", "LogisticD", "E"),
+    ("Two-variable statistics", "TwoVar", "2"),
+    ("Linear regression (mx+b)", "LinRegMx", "3"),
+    ("Linear regression (a+bx)", "LinRegBx", "4"),
+    ("Median-median line", "MedMed", "5"),
+    ("Quadratic regression", "QuadReg", "6"),
+    ("Cubic regression", "CubicReg", "7"),
+    ("Quartic regression", "QuartReg", "8"),
+    ("Power regression", "PowerReg", "9"),
+    ("Exponential regression", "ExpReg", "A"),
+    ("Logarithmic regression", "LnReg", "B"),
+    ("Sinusoidal regression", "SinReg", "C"),
+    ("Logistic regression (d=0)", "Logistic", "D"),
+    ("Logistic regression (d≠0)", "LogisticD", "E"),
 )
 INVALID_INPUT = "Cannot accept change: Invalid input."
 GO_TO_INVALID = "Invalid reference. Please try again."
@@ -1699,7 +1699,7 @@ class Spreadsheet:
                 )
             ]
 
-        return Wizard("Summary Plot", fields, steps=steps)
+        return Wizard("Summary plot", fields, steps=steps)
 
     def _show_summary(self, values: Mapping[str, str]) -> None:
         statistics = Statistics(self.session)
@@ -1803,7 +1803,7 @@ class Spreadsheet:
         """The Statistics menu's items, and what their dialogs send back."""
         if name == "onevar":  # One-Variable asks how many lists first (run 4, S1, S5)
             self.wizard = Wizard(
-                "One-Variable Statistics",
+                "One-variable statistics",
                 (Field("count", "Num of Lists:", "1", whole=(1, 20)),),
                 steps=lambda values: [Binding("sheet", f"stat:OneVar:{values['count']}")],
             )
@@ -1969,7 +1969,7 @@ class Spreadsheet:
 
     def _go_to_dialog(self) -> None:
         self.wizard = Wizard(
-            "Go To",
+            "Go to",
             (Field("ref", ""),),
             steps=lambda values: [Binding("sheet_goto", values["ref"])],
         )
@@ -2130,7 +2130,7 @@ def _conflict_wizard(error: SheetErrorPayload, last: SheetOp, columns: set[str])
         return [Binding("sheet_choose", json.dumps(again))]
 
     return Wizard(
-        "Conflict Detected",
+        "Conflict detected",
         tuple(field(name) for name in error["names"]),
         steps=steps,
     )

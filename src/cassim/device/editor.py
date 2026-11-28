@@ -59,6 +59,9 @@ class Template:
     def empty(cls, kind: Kind, shape: tuple[int, int] = (1, 1)) -> Template:
         """Empty slots. `shape` is (rows, columns) for a grid; piecewise and system templates
         have fixed columns, so only the rows count."""
+        if kind is Kind.LIST:  # {a, b, c} is one row, and a comma adds a column to it
+            count = max(shape[0] * shape[1], 1)
+            return cls(kind, [[] for _ in range(count)], count)
         if kind in GRIDS:
             rows, cols = shape
             cols = GRIDS[kind] or cols

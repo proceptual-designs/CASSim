@@ -103,9 +103,9 @@ def menu() -> MenuItem:
         for number, (name, label, _, _) in enumerate(ITEMS, start=1)
     )
     return MenuItem(
-        "Analyze Graph",
+        "Analyze graph",
         key="6",
-        items=(*items, MenuItem("Analyze Conics", key="9", enabled=False)),
+        items=(*items, MenuItem("Analyze conics", key="9", enabled=False)),
     )
 
 

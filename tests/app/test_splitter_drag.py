@@ -60,9 +60,10 @@ def test_many_drag_steps_make_one_redraw() -> None:
 
 
 def test_a_redraw_rebuilds_only_the_part_whose_scale_changed() -> None:
-    """Here the screen is limited by the height of the window, so the splitter changes only
-    the keys' scale: the history is not drawn again."""
+    """Here (Tablet view: the keypad beside the screen) the screen is limited by the height of
+    the window, so the splitter changes only the keys' scale: the history is not drawn again."""
     app, page = handheld_app(1200, 700)
+    app.state.mode = Mode.TABLET
     app.state.system.keypad_share = 0.2
     app.resize_now()
     screen_scale = app.state.scale

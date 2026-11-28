@@ -468,7 +468,7 @@ def window_wizard(graphs: Graphs) -> Wizard:
         Field("yscale", "YScale", "Auto", choices=auto),
     )
     return Wizard(
-        "Window Settings",
+        "Window settings",
         fields,
         steps=lambda values: [Binding("graphs", f"window:{_window_argument(values)}")],
         check=_window_problems,
@@ -521,7 +521,7 @@ def trace_step_wizard(graphs: Graphs) -> Wizard:
         Field("value", "Value", "" if step is None else window_text(step)),
     )
     return Wizard(
-        "Trace Step",
+        "Trace step",
         fields,
         steps=lambda values: [
             Binding(
@@ -618,7 +618,7 @@ def window_zoom_menu() -> MenuItem:
         ("C", "Zoom – Decimal", "zoom:decimal"),
     )
     return MenuItem(
-        "Window / Zoom",
+        "Window / zoom",
         key="4",
         items=tuple(MenuItem(label, "graphs", argument, key=k) for k, label, argument in items),
     )
@@ -630,11 +630,11 @@ def trace_menu() -> MenuItem:
         "Trace",
         key="5",
         items=(
-            MenuItem("Graph Trace", "graphs", "tool:trace", key="1"),
-            MenuItem("Trace All", "graphs", "tool:trace_all", key="2"),
-            MenuItem("Trace Step…", "graphs", "dialog:trace_step", key="3"),
-            MenuItem("Path Plot", key="4", enabled=False),
-            MenuItem("Geometry Trace", key="5", enabled=False),
-            MenuItem("Erase Geometry Trace", key="6", enabled=False),
+            MenuItem("Graph trace", "graphs", "tool:trace", key="1"),
+            MenuItem("Trace all", "graphs", "tool:trace_all", key="2"),
+            MenuItem("Trace step…", "graphs", "dialog:trace_step", key="3"),
+            MenuItem("Path plot", key="4", enabled=False),
+            MenuItem("Geometry trace", key="5", enabled=False),
+            MenuItem("Erase geometry trace", key="6", enabled=False),
         ),
     )

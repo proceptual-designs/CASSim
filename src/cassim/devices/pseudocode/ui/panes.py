@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 
 import flet as ft
 
+from cassim.app.sizes import POINTER_TARGET, TOUCH_TARGET
+
 TITLE_HEIGHT = 42
 
 
@@ -48,8 +50,8 @@ class BoxedPane:
         self.grip = ft.GestureDetector(
             ft.Container(
                 ft.Icon(ft.Icons.DRAG_HANDLE, size=15),
-                width=36,
-                height=24,
+                width=TOUCH_TARGET,  # a hit area a finger can use (SDD-15 section 8.3)
+                height=POINTER_TARGET,
                 alignment=ft.Alignment.BOTTOM_RIGHT,
                 tooltip=f"Resize {title}",
             ),
