@@ -35,7 +35,7 @@ from cassim.app.keyboard import (
 )
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers, Shell
-from cassim.app.sizes import is_phone, page_is_phone
+from cassim.app.sizes import is_landscape, page_is_phone, repick_view
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
@@ -196,6 +196,7 @@ class App:
     """Wires the state to the views: the top bar, the screen, the keypad and the sidebar."""
 
     draining = False  # running the keys typed while the engine worked
+    landscape: bool | None = None  # the window's shape at the last resize
 
     def __init__(self, shell: Shell, state: AppState, runner: Runner | None = None) -> None:
         page = shell.page
@@ -255,7 +256,7 @@ class App:
         self.dragged_column: str | None = None  # a column whose header is being dragged
         # Keys typed while the engine works: run in order once it is free, as a handheld keeps
         # them, instead of lost (a key typed just after adding a page or pressing Enter)
-        self.typeahead: deque[Binding | str] = deque(maxlen=TYPEAHEAD)
+        self.typeahead: deque[Binding | str] = deque()
         # Computer view on a phone or tablet: a hidden text box in the toolbar row takes the
         # focus when typing is expected, so the on-screen keyboard opens (see soft_keys)
         self.sink = ft.TextField(
@@ -548,12 +549,21 @@ class App:
         self.draining = True
         try:
             while self.typeahead and not self.busy and not self.engine_owed():
+                if self.typing_dialog is not None and self.typing_dialog.open:
+                    self.typeahead.clear()  # keys meant for the screen do not go behind a dialog
+                    break
                 key = self.typeahead.popleft()
                 if isinstance(key, str):
-                    self.state.press_keypad(key)
+                    self.press(key)
+                elif key.action == "paste":  # reads the clipboard: the rest wait for it
+                    self.page.run_task(self.run_binding, key)
+                    break
+                elif key.action in ("undo", "redo") and self.variable_history_action(key.action):
+                    self.refresh()
                 else:
+                    self.pointer.hide()
                     self.state.run(key)
-                self.refresh()
+                    self.refresh()
         finally:
             self.draining = False
 
@@ -667,7 +677,7 @@ class App:
                 if self.running:
                     self.page.run_task(self.cancel)
             else:
-                self.typeahead.append(name)  # a keypad key, run when the engine is free
+                self.keep(name)  # a keypad key, run when the engine is free
             return
         self.pointer.hide()  # a key press puts the pointer away
         self.state.press_keypad(name)
@@ -793,7 +803,8 @@ class App:
         started = time.monotonic()
         await asyncio.sleep(REPEAT_DELAY)
         while self.arrow_event is event:
-            await self._handle_key(event)
+            if not self.busy:  # a held arrow does not pile up keys while the engine works
+                await self._handle_key(event)
             await asyncio.sleep(repeat_interval(time.monotonic() - started))
 
     def show_wizard(self, wizard: Wizard) -> None:
@@ -823,6 +834,8 @@ class App:
             return
         if binding.action == "escape":
             state.clear_pending()
+        if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
+            return  # typed into the hidden box: on_sink turns it into keys
         if self.busy:  # Esc cancels the run and what was typed after it; other keys wait
             if binding.action == "escape":
                 self.typeahead.clear()
@@ -831,18 +844,26 @@ class App:
                 else:
                     self.refresh()
             else:
-                self.typeahead.append(binding)
+                self.keep(binding)
             return
-        if self.sink_focused and binding.action in ("insert", "backspace", "enter"):
-            return  # typed into the hidden box: on_sink turns it into keys
+        await self.run_binding(binding)
+
+    async def run_binding(self, binding: Binding) -> None:
+        """One key, typed now or kept while the engine worked."""
         if binding.action == "paste":  # the system clipboard may hold text from elsewhere
             binding = Binding("paste", await self.shell.pasted())
         if binding.action in ("undo", "redo") and self.variable_history_action(binding.action):
             self.refresh()
             return
         self.pointer.hide()
-        state.run(binding)
+        self.state.run(binding)
         self.refresh()
+
+    def keep(self, key: Binding | str) -> None:
+        """Keep a key typed while the engine works; when the queue is full, later keys are
+        refused rather than the first ones lost."""
+        if len(self.typeahead) < TYPEAHEAD:
+            self.typeahead.append(key)
 
     # ---- the on-screen keyboard (Computer view on a phone or tablet) --------------------------
 
@@ -855,7 +876,8 @@ class App:
         keys = keys_for(self.sink.value or "")
         self.sink.value = SENTINEL
         if self.busy:
-            self.typeahead.extend(keys)
+            for key in keys:
+                self.keep(key)
             return
         for binding in keys:
             if binding.action in ("undo", "redo") and self.variable_history_action(binding.action):
@@ -865,7 +887,9 @@ class App:
 
     def on_sink_submit(self, _: object = None) -> None:
         self.on_sink()
-        if not self.busy:
+        if self.busy:
+            self.keep(Binding("enter"))  # after the characters it follows
+        else:
             self.state.run(Binding("enter"))
             self.refresh()
         self.page.run_task(self.sink.focus)  # Enter would otherwise close the keyboard
@@ -931,7 +955,10 @@ class App:
         """Keep the layout fitted to the window. A first visit follows its size until a view is
         chosen; a phone follows its orientation (Handheld upright, Tablet on its side), and so
         does a window that shrinks to phone size."""
-        if self.first_visit or is_phone(e.width, e.height):
+        now = is_landscape(e.width, e.height)
+        turned, self.landscape = self.landscape is not None and now != self.landscape, now
+        mode = self.state.mode.value
+        if repick_view(e.width, e.height, mode, chosen=not self.first_visit, turned=turned):
             self.state.mode = starting_mode(e.width, e.height)
         self.arrange()
         self.refresh()
@@ -1459,6 +1486,8 @@ class App:
     def arrange(self) -> None:
         state = self.state
         system = state.system
+        if self.landscape is None:  # the shape the first layout had, for telling a phone turned
+            self.landscape = is_landscape(self.page.width, self.page.height)
         self.keypad.installable = self.installable
         self.keypad.needs_attention = self.shell.offers.needs_attention
         self.keypad.attention_tooltip = needs_attention_tooltip(self.shell.offers)

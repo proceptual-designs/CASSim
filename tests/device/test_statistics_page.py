@@ -292,7 +292,7 @@ def test_box_plot_and_histogram_context_menus() -> None:
         ("Dot Plot", True),
         ("Histogram", True),
         ("Normal Probability Plot", True),
-        ("Extend Box Plot Whiskers", True),
+        ("Extend box plot whiskers", True),
         ("Zoom", True),
         ("Color", True),
     ]
@@ -340,8 +340,8 @@ def test_regression_context_menu() -> None:
     assert _rows(state) == [
         ("Remove regression", True),
         ("Shade under function", False),
-        ("Show Residual Squares", True),
-        ("Show Residual Plot", True),
+        ("Show residual squares", True),
+        ("Show residual plot", True),
         ("Graph trace", False),
         ("Color", True),
     ]

@@ -62,3 +62,41 @@ def test_a_key_after_enter_goes_into_the_next_entry() -> None:
     assert typed(app) == "5"
     for task in page.tasks:
         task.close()
+
+
+def test_a_kept_paste_reads_the_clipboard_when_it_runs() -> None:
+    """Ctrl+V typed while busy pastes what the clipboard holds then, not an empty paste."""
+    app, page = handheld_app()
+
+    async def pasted() -> str:
+        return "42"
+
+    app.shell.pasted = pasted  # ty: ignore[invalid-assignment]
+    app.starting = True
+    ctrl_v = SimpleNamespace(key="V", shift=False, ctrl=True, alt=False, meta=False)
+    asyncio.run(app.on_key(ctrl_v))  # ty: ignore[invalid-argument-type]
+    app.starting = False
+    app.refresh()
+    page.run_queued()
+    assert typed(app) == "42"
+
+
+def test_the_queue_refuses_keys_when_full_rather_than_losing_the_first() -> None:
+    app, page = handheld_app()
+    app.starting = True
+    key(app, "1")
+    for _ in range(100):
+        key(app, "2")
+    assert len(app.typeahead) == 64
+    assert app.typeahead[0].arg == "1"  # ty: ignore[unresolved-attribute]
+    for task in page.tasks:
+        task.close()
+
+
+def test_the_on_screen_keyboards_enter_is_kept_after_its_characters() -> None:
+    app, page = handheld_app()
+    app.starting = True
+    app.on_sink_submit()
+    assert [k.action for k in app.typeahead if not isinstance(k, str)][-1:] == ["enter"]
+    for task in page.tasks:
+        task.close()

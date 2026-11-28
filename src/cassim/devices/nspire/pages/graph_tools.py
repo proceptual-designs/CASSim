@@ -635,6 +635,6 @@ def trace_menu() -> MenuItem:
             MenuItem("Trace step…", "graphs", "dialog:trace_step", key="3"),
             MenuItem("Path plot", key="4", enabled=False),
             MenuItem("Geometry trace", key="5", enabled=False),
-            MenuItem("Erase Geometry trace", key="6", enabled=False),
+            MenuItem("Erase geometry trace", key="6", enabled=False),
         ),
     )

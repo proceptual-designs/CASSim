@@ -121,3 +121,33 @@ def test_the_lock_is_outside_every_worktree(
 
 def test_deleting_a_remote_branch_is_not_checked(repo: Path) -> None:
     assert local_ci.verify_push([f"(delete) {'0' * 40} refs/heads/x {'1' * 40}"]) == []
+
+
+def test_the_browser_tests_wait_for_free_memory_then_start(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Started while memory was short, the browser suite was stopped by the machine running
+    out: a run waits for 4 GB free first, says so once, and goes on when it is there."""
+    readings = iter([1 * 2**30, 2 * 2**30, 5 * 2**30])
+    naps: list[float] = []
+    assert local_ci.wait_for_memory(free=lambda: next(readings), sleep=naps.append)
+    assert naps == [local_ci.MEMORY_POLL] * 2
+    out = capsys.readouterr().out
+    assert out.count("waiting for 4.0 GB of free memory") == 1
+    assert "(1.0 GB free now)" in out
+
+
+def test_the_wait_for_memory_gives_up_and_starts_anyway(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    times = iter([0.0, 10.0, 2000.0])
+    assert not local_ci.wait_for_memory(
+        free=lambda: 2**30, sleep=lambda _: None, clock=lambda: next(times), limit=1800
+    )
+    assert "starting the browser tests anyway" in capsys.readouterr().out
+
+
+def test_memory_that_cannot_be_read_does_not_hold_a_run_up() -> None:
+    assert local_ci.wait_for_memory(free=lambda: None, sleep=lambda _: pytest.fail("waited"))
+    free = local_ci.free_memory()
+    assert free is None or free > 0

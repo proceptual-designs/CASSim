@@ -1159,3 +1159,9 @@ def test_the_view_shortcuts_and_start_in() -> None:
     app.start_view = "tablet"
     app.save_editor_settings()
     assert json.loads(shell.stored[EDITOR_SETTINGS_KEY])["start"] == "tablet"
+
+
+def test_tablet_stacks_the_columns_where_two_cannot_fit() -> None:
+    app = sized_app(500, 900)
+    app.set_view("tablet")
+    assert isinstance(body_of(app), ft.Column)

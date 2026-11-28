@@ -64,6 +64,19 @@ def starting_view(width: float | None, height: float | None, saved: str | None =
     return saved if saved in VIEWS else COMPUTER
 
 
+def repick_view(
+    width: float | None, height: float | None, view: str, *, chosen: bool, turned: bool
+) -> bool:
+    """Whether a resize picks the view again (SDD-15 section 8.4): until one is chosen; and on
+    a phone when it turns, or when Computer view (no room there) is showing. A phone's browser
+    bar coming and going also resizes the window, and leaves a chosen view alone."""
+    return not chosen or (is_phone(width, height) and (turned or view == COMPUTER))
+
+
+def is_landscape(width: float | None, height: float | None) -> bool:
+    return bool(width and height and width > height)
+
+
 def target(*, touch: bool) -> int:
     """The least size of a control: `TOUCH_TARGET` in Tablet and Handheld, else `POINTER_TARGET`."""
     return TOUCH_TARGET if touch else POINTER_TARGET

@@ -876,11 +876,11 @@ class AppState:
                     key="2",
                     items=(
                         MenuItem("Graphing", key="1", enabled=False),
-                        MenuItem("Plane Geometry", key="2", enabled=False),
+                        MenuItem("Plane geometry", key="2", enabled=False),
                         MenuItem("3D graphing", key="3", enabled=False),
                         MenuItem("Hide analytic window", key="4", enabled=False),
                         MenuItem(
-                            "Hide Axes" if graphs.show_axes else "Show Axes",
+                            "Hide axes" if graphs.show_axes else "Show axes",
                             "graphs_view",
                             "axes",
                             key="5",
@@ -888,9 +888,9 @@ class AppState:
                         grid,
                         MenuItem("Show entry line", key="7", enabled=False),
                         MenuItem(
-                            "Hide Axes End Values"
+                            "Hide axes end values"
                             if graphs.show_end_values
-                            else "Show Axes End Values",
+                            else "Show axes end values",
                             "graphs_view",
                             "end-values",
                             key="8",
@@ -1026,9 +1026,9 @@ class AppState:
                         ),
                         MenuItem("Remove Y variable", "statistics", "y:", key="9", enabled=has_y),
                         MenuItem(
-                            "Force Categorical X"
+                            "Force categorical X"
                             if not statistics.categorical_x
-                            else "Force Numeric X",
+                            else "Force numeric X",
                             "statistics",
                             "toggle-force-x",
                             key="B",
@@ -1049,18 +1049,18 @@ class AppState:
                             enabled=bool(statistics.split_name),
                         ),
                         MenuItem(
-                            "Show All Labels"
+                            "Show all labels"
                             if not statistics.show_all_labels
-                            else "Hide All Labels",
+                            else "Hide all labels",
                             "statistics",
                             "toggle-labels",
                             key="4",
                             enabled=categorical_chart,
                         ),
                         MenuItem(
-                            "Extend Box Plot Whiskers"
+                            "Extend box plot whiskers"
                             if not statistics.extend_whiskers
-                            else "Show Box Plot Outliers",
+                            else "Show box plot outliers",
                             "statistics",
                             "toggle-whiskers",
                             key="3",
@@ -1144,18 +1144,18 @@ class AppState:
                             enabled=bool(statistics.regression),
                             items=(
                                 MenuItem(
-                                    "Show Residual Squares"
+                                    "Show residual squares"
                                     if not statistics.residual_squares
-                                    else "Hide Residual Squares",
+                                    else "Hide residual squares",
                                     "statistics",
                                     "toggle-residual-squares",
                                     key="1",
                                     enabled=bool(statistics.regression),
                                 ),
                                 MenuItem(
-                                    "Show Residual Plot"
+                                    "Show residual plot"
                                     if not statistics.residual_plot
-                                    else "Hide Residual Plot",
+                                    else "Hide residual plot",
                                     "statistics",
                                     "toggle-residual-plot",
                                     key="2",
@@ -1171,7 +1171,7 @@ class AppState:
                             enabled=has_x and not categorical_chart,
                         ),
                         MenuItem(
-                            "Show Normal PDF" if not statistics.normal_pdf else "Hide Normal PDF",
+                            "Show normal PDF" if not statistics.normal_pdf else "Hide normal PDF",
                             "statistics",
                             "toggle-normal-pdf",
                             key="9",
@@ -1218,9 +1218,9 @@ class AppState:
                 "X axis",
                 items=(
                     MenuItem(
-                        "Force Categorical X"
+                        "Force categorical X"
                         if not statistics.categorical_x
-                        else "Force Numeric X",
+                        else "Force numeric X",
                         "statistics",
                         "toggle-force-x",
                         enabled=bool(statistics.x_name),
