@@ -42,6 +42,10 @@ The **angle** button beside it is Radian or Degree. **CASSim ▸ Settings…** h
 - line numbers;
 - the **typing aid**, on by default. It turns `<-` into `←`, `<=` into `≤`, `\pi` into `π`, `x^2` into `x²` and so on, a moment after you stop typing.
 
+## Views
+
+CASSim ▸ **Computer view**, **Tablet view** or **Handheld view** (Alt+Shift+C, T or H) chooses the layout. Computer has two columns with a bar between them to drag (on a narrow window they stack); Tablet has the two columns without the bar; Handheld stacks the panes one above the other. **CASSim ▸ Settings ▸ Start in** chooses the view CASSim opens in.
+
 ## On a phone
 
-The panes stack one above the other. The typing aid is the quickest way to get `←`, `≤`, `≠` and powers.
+The view follows the way you hold it: Handheld upright, with the panes one above the other, and Tablet on its side (Computer view is greyed). The typing aid is the quickest way to get `←`, `≤`, `≠` and powers.

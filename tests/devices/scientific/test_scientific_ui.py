@@ -29,7 +29,7 @@ from cassim.devices.scientific.layouts import LAYOUTS
 from cassim.devices.scientific.state import ScientificState
 from cassim.devices.scientific.ui import app as ui
 from cassim.devices.scientific.ui import render
-from cassim.devices.scientific.ui.app import BASE_WIDTH, ScientificApp
+from cassim.devices.scientific.ui.app import BASE_WIDTH, PANEL_WIDTH, ScientificApp
 from cassim.devices.scientific.ui.skins import SKINS
 
 
@@ -1099,4 +1099,59 @@ def test_the_status_chips_take_taps_over_the_bars_height() -> None:
     assert len(areas) == 1
     assert areas[0].height == 48
     assert areas[0].on_click is app.mode_chip.on_click
+    page.drop_tasks()
+
+
+def test_a_phone_opens_in_handheld_upright_and_tablet_on_its_side() -> None:
+    """SDD-15 sections 8.2 and 8.4: a phone follows its orientation; a computer opens in
+    Computer view."""
+    for size, view in (((390, 844), "handheld"), ((844, 390), "tablet"), ((1366, 650), "computer")):
+        app, _, page = started(FakePage(*size))
+        assert app.view == view
+        page.drop_tasks()
+
+
+def test_tablet_keeps_the_tutorials_beside_and_handheld_puts_them_below() -> None:
+    """SDD-15 section 8.1: in the same window, the view decides where the tutorials go."""
+    app, _, page = started(FakePage(1000, 700))
+    app.set_view("tablet")
+    assert app.body.wrap is False
+    assert app.panel.width == PANEL_WIDTH
+    beside = app.scale
+    app.set_view("handheld")
+    assert app.body.wrap is True
+    assert app.panel.width > PANEL_WIDTH  # as wide as the window, so it wraps below
+    assert app.scale >= beside  # the calculator no longer shares the width
+    page.drop_tasks()
+
+
+def test_the_views_are_in_the_cassim_menu_with_their_shortcuts() -> None:
+    app, _, page = started()
+    app.cassim_action("view:handheld")
+    assert app.view == "handheld"
+    keyboard(app, "t", alt=True, shift=True)  # Alt+Shift+T
+    assert app.view == "tablet"
+    app.cassim_action("view:computer")
+    assert app.view == "computer"
+    page.drop_tasks()
+    phone, _, page = started(FakePage(390, 844))
+    phone.cassim_action("view:computer")  # greyed on a phone
+    assert phone.view == "handheld"
+    page.drop_tasks()
+
+
+def test_start_in_is_kept_and_used_next_time() -> None:
+    app, shell, page = started()
+    app.open_settings()
+    dialog = page.dialogs[-1]
+    start = next(
+        c for c in _walk(dialog.content) if isinstance(c, ft.Dropdown) and c.label == "Start in"
+    )
+    start.value = "tablet"
+    apply = next(b for b in dialog.actions if isinstance(b, ft.TextButton) and b.content == "Apply")
+    apply.on_click(None)
+    assert json.loads(shell.store["prefs"])["start"] == "tablet"
+    page.drop_tasks()
+    again, _, page = started(store=shell.store)
+    assert again.view == "tablet"
     page.drop_tasks()

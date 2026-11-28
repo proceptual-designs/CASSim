@@ -51,6 +51,19 @@ def dialog_width(page: Sized | float | None, preferred: float) -> float:
     return max(float(DIALOG_MIN), min(preferred, room))
 
 
+# The views every app may offer (SDD-15 section 8.1), by their ids in the CASSim menu
+COMPUTER, TABLET, HANDHELD = "computer", "tablet", "handheld"
+VIEWS = (COMPUTER, TABLET, HANDHELD)
+
+
+def starting_view(width: float | None, height: float | None, saved: str | None = None) -> str:
+    """The view to open in (SDD-15 sections 8.2 and 8.4): on a phone, Handheld upright and Tablet
+    on its side, whatever was saved; elsewhere the saved Start in, or Computer."""
+    if is_phone(width, height):
+        return TABLET if width and height and width > height else HANDHELD
+    return saved if saved in VIEWS else COMPUTER
+
+
 def target(*, touch: bool) -> int:
     """The least size of a control: `TOUCH_TARGET` in Tablet and Handheld, else `POINTER_TARGET`."""
     return TOUCH_TARGET if touch else POINTER_TARGET

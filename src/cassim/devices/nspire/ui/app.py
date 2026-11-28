@@ -20,9 +20,9 @@ from cassim.app import about
 from cassim.app.appearance import Appearance, appearance_dialog
 from cassim.app.cassim_menu import (
     MARKS,
+    STANDARD_VIEWS,
     AppMenu,
     Panel,
-    View,
     cassim_sections,
     needs_attention_tooltip,
 )
@@ -137,11 +137,7 @@ class VariableDeletion:
     names: tuple[str, ...]
 
 
-NSPIRE_VIEWS = (
-    View("computer", "Computer", shortcut="Alt+Shift+C", phone=False),
-    View("tablet", "Tablet", shortcut="Alt+Shift+T"),
-    View("handheld", "Handheld", shortcut="Alt+Shift+H"),
-)
+NSPIRE_VIEWS = STANDARD_VIEWS
 
 
 def nspire_menu(

@@ -66,6 +66,15 @@ class View:
     phone: bool = True  # usable on a phone
 
 
+# Computer, Tablet and Handheld with their shortcuts, for an app that offers all three
+STANDARD_VIEWS = (
+    View("computer", "Computer", shortcut="Alt+Shift+C", phone=False),
+    View("tablet", "Tablet", shortcut="Alt+Shift+T"),
+    View("handheld", "Handheld", shortcut="Alt+Shift+H"),
+)
+VIEW_SHORTCUTS = {"alt+shift+c": "computer", "alt+shift+t": "tablet", "alt+shift+h": "handheld"}
+
+
 @dataclass(frozen=True)
 class Panel:
     """A panel the app can show or hide (Keypad, Tutorials). Its action is `panel:<id>`."""

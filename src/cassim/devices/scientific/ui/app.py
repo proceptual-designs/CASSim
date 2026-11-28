@@ -18,11 +18,19 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.appearance import Appearance, AppearanceDialog, appearance_dialog
-from cassim.app.cassim_menu import AppMenu, Panel, fill_cassim_menu
+from cassim.app.cassim_menu import STANDARD_VIEWS, VIEW_SHORTCUTS, AppMenu, Panel, fill_cassim_menu
 from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
-from cassim.app.sizes import dialog_width, page_is_phone
+from cassim.app.sizes import (
+    COMPUTER,
+    HANDHELD,
+    TABLET,
+    VIEWS,
+    dialog_width,
+    page_is_phone,
+    starting_view,
+)
 from cassim.app.theme import DEFAULT_THEME, INK_ON_DARK, INK_ON_LIGHT
 from cassim.devices.scientific import HELP_PAGE, examples, layouts
 from cassim.devices.scientific import keys as k
@@ -52,6 +60,7 @@ PREFS_KEY = "prefs"
 BASE_WIDTH = 360.0  # the calculator at scale 1
 BAR_HEIGHT = 48.0
 PANEL_WIDTH = 330.0
+BODY_GAP = 20  # between the calculator and the tutorials beside it
 MIN_SCALE = 0.7
 MAX_SCALE = 1.3
 # On a phone (`cassim.app.sizes`) the calculator fills the screen, its keys grow to use the
@@ -122,6 +131,11 @@ class ScientificApp:
         self.scale = 1.0
         self.menu_visible = True
         self.panel_open = True
+        # Computer, Tablet or Handheld (SDD-15 section 8.1); a phone follows its orientation,
+        # and elsewhere the size picks until a view is chosen; Settings > Start in is kept
+        self.view = COMPUTER
+        self.view_chosen = False
+        self.start_view: str | None = None
         self.stretch = 1.0  # the keys' height over their width's, above 1 on a tall phone
         self.use_cutout = True  # an installed phone draws under its camera cutout unless avoided
         self.doc_name = "Untitled"
@@ -263,7 +277,7 @@ class ScientificApp:
         self.body = ft.Row(
             [self.calculator, self.panel],
             wrap=True,
-            spacing=20,
+            spacing=BODY_GAP,
             run_spacing=16,
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.START,
@@ -823,11 +837,12 @@ class ScientificApp:
         self.page.fonts = {**(self.page.fonts or {}), **FONTS}
         self.page.padding = 0
         self.page.on_keyboard_event = self.on_keyboard
-        self.page.on_resize = lambda _: self.fit()
+        self.page.on_resize = lambda _: self.on_resize()
         self.shell.changed = self.on_bridge
         self.shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
         error = await self.shell.load_appearance()
         await self._load_prefs()
+        self.view = starting_view(self.page.width, self.page.height, self.start_view)
         if self.phone:
             self.panel_open = False  # a phone starts with the whole screen for the calculator
         await self._load_state()
@@ -865,6 +880,8 @@ class ScientificApp:
         panel, Avoid cutout appears on an installed phone, and it has keyboard shortcuts."""
         facts = AppMenu(
             home=self.shell.home is not None,
+            views=STANDARD_VIEWS,
+            view=self.view,
             panels=(Panel("tutorials", "Tutorials", shown=self.panel_open),),
             phone=self.phone,
             cutout=self.use_cutout,
@@ -881,6 +898,7 @@ class ScientificApp:
             "settings": self.open_settings,
             "appearance": self.open_appearance,
             "shortcuts": self.open_shortcuts,
+            **{f"view:{view}": lambda view=view: self.set_view(view) for view in VIEWS},
         }
         if action in own:
             own[action]()
@@ -891,6 +909,20 @@ class ScientificApp:
     def phone(self) -> bool:
         """A phone-sized window: its short side is narrow."""
         return page_is_phone(self.page)
+
+    def on_resize(self) -> None:
+        """A phone follows its orientation; elsewhere the size keeps picking until a view is
+        chosen (SDD-15 section 8.4)."""
+        if self.phone or not self.view_chosen:
+            self.view = starting_view(self.page.width, self.page.height, self.start_view)
+        self.fit()
+
+    def set_view(self, view: str) -> None:
+        """CASSim > Computer, Tablet or Handheld view: for this session (Start in is saved)."""
+        if view == COMPUTER and self.phone:
+            return  # greyed on a phone (SDD-15 section 8.2)
+        self.view, self.view_chosen = view, True
+        self.fit()
 
     def _safe_area(self) -> tuple[float, float, float, float]:
         """The inset kept clear of a phone's camera cutout, when the user asks for it (installed
@@ -916,7 +948,9 @@ class ScientificApp:
         margin = 8 if phone else 28
         room = page_h - bar - (12 if phone else 32)
         tall = room / self.layout_height()
-        wide = (page_w - margin) / BASE_WIDTH
+        beside = self.view == TABLET and self.panel_open  # the tutorials take room across
+        panel_w = min(PANEL_WIDTH, page_w - margin)
+        wide = (page_w - margin - (panel_w + BODY_GAP if beside else 0)) / BASE_WIDTH
         smallest = PHONE_MIN_SCALE if phone else MIN_SCALE
         scale = max(smallest, min(PHONE_MAX_SCALE if phone else MAX_SCALE, tall, wide))
         stretch = 1.0
@@ -928,7 +962,10 @@ class ScientificApp:
             self.scale, self.stretch = scale, stretch
             self._build_calculator()
         self.body_frame.padding = 2 if phone else 12
-        self.panel.width = min(PANEL_WIDTH, page_w - margin)
+        # Computer: the tutorials beside when they fit, else below; Tablet: always beside;
+        # Handheld: always below, as wide as the window
+        self.body.wrap = self.view != TABLET
+        self.panel.width = page_w - margin if self.view == HANDHELD else panel_w
         self.body.width = page_w - (4 if phone else 24)  # a wrapping row needs a width
         self._phone_bar(phone=phone)
         self.refresh()
@@ -1038,13 +1075,7 @@ class ScientificApp:
         if raw.startswith("Numpad ") and raw[-1].isdigit():
             raw = raw[-1]
         name = key_name(raw, shift=event.shift, ctrl=event.ctrl, alt=event.alt, meta=event.meta)
-        if name is None:
-            return
-        if name == "Escape" and not self.menu_visible:
-            self.toggle_menu_bar()
-            return
-        if name == "=" and self.state.mode == "VERIFY":
-            self.on_key(k.REL_EQ)
+        if name is None or self._app_shortcut(name):
             return
         binding = k.COMPUTER.get(name)
         if binding is None:
@@ -1054,6 +1085,19 @@ class ScientificApp:
             return
         for key in k.sequence(binding):
             self.on_key(key)
+
+    def _app_shortcut(self, name: str) -> bool:
+        """A key the app takes before the calculator's keymap: Esc brings the menu bar back, the
+        view shortcuts, and = typed in VERIFY is the relation key. True if it was taken."""
+        if name == "Escape" and not self.menu_visible:
+            self.toggle_menu_bar()
+        elif name == "=" and self.state.mode == "VERIFY":
+            self.on_key(k.REL_EQ)
+        elif name in VIEW_SHORTCUTS:
+            self.set_view(VIEW_SHORTCUTS[name])
+        else:
+            return False
+        return True
 
     def cycle_angle(self) -> None:
         order = ("DEG", "RAD", "GRA")
@@ -1575,6 +1619,8 @@ class ScientificApp:
             self.extra_table = prefs["table"]
         if isinstance(prefs.get("hyp_names"), bool):
             self.hyp_names = prefs["hyp_names"]
+        if prefs.get("start") in VIEWS:
+            self.start_view = prefs["start"]
 
     def _modes(self, layout: Layout) -> tuple[layouts.CalcModeName, ...]:
         """The layout's modes, with TABLE when the extra is on. A calculation saved or shared in
@@ -1601,6 +1647,7 @@ class ScientificApp:
                     "speed": self.speed,
                     "table": self.extra_table,
                     "hyp_names": self.hyp_names,
+                    "start": self.start_view,
                 }
             ),
         )
@@ -1833,6 +1880,13 @@ class ScientificApp:
             label="Show sinh, cosh and tanh on the keys after hyp", value=self.hyp_names
         )
         extras: list[ft.Control] = [surds, table] if natural else []
+        start = ft.Dropdown(
+            label="Start in",
+            value=self.start_view or COMPUTER,
+            options=[ft.DropdownOption(key=v.id, text=v.label) for v in STANDARD_VIEWS],
+            width=min(240, width),
+            dense=True,
+        )
         where = {
             "ms": "These are the choices on the MODE pages (MODE, pressed again for each page).",
             "sharp": "These are the SET UP menu's choices; DRG also changes the angle unit.",
@@ -1859,7 +1913,7 @@ class ScientificApp:
             self.state.setup = new
             if natural:
                 self._set_table(on=bool(table.value))
-            self.hyp_names = bool(hyp_names.value)
+            self.hyp_names, self.start_view = bool(hyp_names.value), start.value or COMPUTER
             self.page.pop_dialog()
             self._show_layout(self.layout, switch_display=False)  # TABLE joins or leaves MODE
             self.refresh()
@@ -1886,6 +1940,8 @@ class ScientificApp:
                         point,
                         frequency,
                         ft.Text(where, size=12),
+                        heading("View"),
+                        start,
                         heading("CASSim extras"),
                         *extras,
                         hyp_names,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cassim.app.sizes import is_phone
+from cassim.app.sizes import starting_view
 from cassim.devices.nspire.ui.state import COMPUTER_MAX_SIDEBAR, COMPUTER_MIN_SIDEBAR, Mode
 
 MARGIN = 12  # px kept clear round the scaled calculator
@@ -23,9 +23,7 @@ BAR_H = 44  # the toolbar row above the calculator
 def starting_mode(width: float | None, height: float | None = None) -> Mode:
     """The view for a first visit, and for a phone as it turns: on a phone, Handheld upright and
     Tablet on its side (SDD-15 section 8.2); else Computer."""
-    if not is_phone(width, height):
-        return Mode.COMPUTER
-    return Mode.TABLET if width and height and width > height else Mode.HANDHELD
+    return Mode(starting_view(width, height))
 
 
 def key_span(units: float, size: int = KEY_W) -> float:

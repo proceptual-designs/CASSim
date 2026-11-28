@@ -16,10 +16,19 @@ import flet as ft
 
 from cassim.app import about
 from cassim.app.appearance import Appearance, appearance_dialog
-from cassim.app.cassim_menu import AppMenu, fill_cassim_menu
+from cassim.app.cassim_menu import STANDARD_VIEWS, VIEW_SHORTCUTS, AppMenu, fill_cassim_menu
+from cassim.app.keyboard import key_name
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers
-from cassim.app.sizes import POINTER_TARGET, is_narrow
+from cassim.app.sizes import (
+    COMPUTER,
+    HANDHELD,
+    POINTER_TARGET,
+    VIEWS,
+    is_narrow,
+    page_is_phone,
+    starting_view,
+)
 from cassim.app.theme import DARK, Theme
 from cassim.devices.pseudocode.typing_aids import (
     TYPED_BURST,
@@ -288,6 +297,11 @@ class CodeApp:
             noun="program",
         )
         shell.has_unsaved = self.saved.dirty  # a reload for an update asks first
+        # Computer, Tablet or Handheld (SDD-15 section 8.1); a phone follows its orientation,
+        # and elsewhere the size picks until a view is chosen; Settings > Start in is kept
+        self.view = COMPUTER
+        self.view_chosen = False
+        self.start_view: str | None = None
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -601,6 +615,7 @@ class CodeApp:
             SYMBOL_FONT: "fonts/NotoSansSymbols2-Regular.ttf",
         }
         await self.load_editor_settings()
+        self.view = starting_view(self.page.width, self.page.height, self.start_view)
         self.page.title = f"{about.product_name()} Pseudocode & Python"
         self.page.padding = 8
         self.page.on_resize = self.on_resize
@@ -648,6 +663,8 @@ class CodeApp:
             self.symbol_style = str(symbol_style)
         if isinstance(typing_aid, bool):
             self.typing_aid = typing_aid
+        if data.get("start") in VIEWS:
+            self.start_view = str(data["start"])
         self.update_typing_aids()
         self.apply_code_style()
         if self.symbol_style == "ascii":
@@ -661,6 +678,7 @@ class CodeApp:
                     "code_style": self.code_style,
                     "symbol_style": self.symbol_style,
                     "typing_aid": self.typing_aid,
+                    "start": self.start_view,
                 }
             ),
         )
@@ -713,7 +731,12 @@ class CodeApp:
 
     def refresh_cassim_menu(self) -> None:
         """The CASSim menu, shared with every app (SDD-15 section 4)."""
-        facts = AppMenu(home=getattr(self.shell, "home", None) is not None)
+        facts = AppMenu(
+            home=getattr(self.shell, "home", None) is not None,
+            views=STANDARD_VIEWS,
+            view=self.view,
+            phone=page_is_phone(self.page),
+        )
         fill_cassim_menu(self.cassim_menu, self.offers, facts, self.cassim_action, self.theme)
 
     def cassim_action(self, action: str) -> None:
@@ -722,6 +745,7 @@ class CodeApp:
             "home": self.home,
             "settings": self.open_settings,
             "appearance": self.open_appearance,
+            **{f"view:{view}": lambda view=view: self.set_view(view) for view in VIEWS},
         }
         if action in own:
             own[action]()
@@ -1405,7 +1429,7 @@ window.CASSimTypingAids = function(editor, change) {
         host.style.display = "none" if self.editor_pane.collapsed else "block"
         host.style.top = "58px"
         host.style.left = "16px"
-        if is_narrow(width):
+        if self.stacked(width):
             host.style.width = f"{max(1, width - 32)}px"
         else:
             host.style.width = f"{max(1, (width - 28) * self.column_split - 20)}px"
@@ -1417,7 +1441,7 @@ window.CASSimTypingAids = function(editor, change) {
         width = getattr(self.page, "width", 1000) or 1000
         left = ft.Column(
             [self.editor_pane.container, self.console_pane.container],
-            expand=not is_narrow(width),
+            expand=not self.stacked(width),
             spacing=8,
         )
         right = ft.Column(
@@ -1426,10 +1450,10 @@ window.CASSimTypingAids = function(editor, change) {
                 self.items_pane.container,
                 self.trace_pane.container,
             ],
-            expand=not is_narrow(width),
+            expand=not self.stacked(width),
             spacing=8,
         )
-        if is_narrow(width):
+        if self.stacked(width):
             body = ft.Column([left, right], scroll=ft.ScrollMode.AUTO, expand=True, spacing=8)
         else:
             available = max(640, width - 28)
@@ -1450,10 +1474,11 @@ window.CASSimTypingAids = function(editor, change) {
                 on_horizontal_drag_update=self.resize_columns,
                 drag_interval=25,
             )
+            # Tablet: the two columns with no splitter, only the gap between them
             body = ft.Row(
                 [
                     self.left_host,
-                    divider,
+                    *([divider] if self.view == COMPUTER else [ft.Container(width=8)]),
                     ft.Container(right, expand=True),
                 ],
                 expand=True,
@@ -1467,7 +1492,25 @@ window.CASSimTypingAids = function(editor, change) {
             self.position_codemirror()
 
     def on_resize(self, _: ft.PageResizeEvent) -> None:
+        """A phone follows its orientation; elsewhere the size keeps picking until a view is
+        chosen (SDD-15 section 8.4)."""
+        if page_is_phone(self.page) or not self.view_chosen:
+            self.view = starting_view(self.page.width, self.page.height, self.start_view)
         self.arrange()
+
+    def set_view(self, view: str) -> None:
+        """CASSim > Computer, Tablet or Handheld view: for this session (Start in is saved)."""
+        if view == COMPUTER and page_is_phone(self.page):
+            return  # greyed on a phone (SDD-15 section 8.2)
+        self.view, self.view_chosen = view, True
+        self.arrange()
+        self.refresh_cassim_menu()
+        _safe_update(self.cassim_menu)
+
+    def stacked(self, width: float) -> bool:
+        """The columns one above the other: Handheld, or Computer view in a narrow window
+        (SDD-15 section 8.2). Tablet keeps two columns."""
+        return self.view == HANDHELD or (self.view == COMPUTER and is_narrow(width))
 
     def resize_columns(self, event: ft.DragUpdateEvent) -> None:
         if event.global_delta is None or self.left_host is None:
@@ -1482,6 +1525,10 @@ window.CASSimTypingAids = function(editor, change) {
         self.position_codemirror()
 
     def on_keyboard(self, event: ft.KeyboardEvent) -> None:
+        name = key_name(event.key, shift=event.shift, ctrl=event.ctrl, alt=event.alt)
+        if name in VIEW_SHORTCUTS:
+            self.set_view(VIEW_SHORTCUTS[name])
+            return
         if (
             self.cm is None
             and (event.ctrl or event.meta)
@@ -2147,7 +2194,14 @@ window.CASSimTypingAids = function(editor, change) {
             ],
         )
 
+        start = ft.Dropdown(
+            label="Start in",
+            value=self.start_view or COMPUTER,
+            options=[ft.DropdownOption(key=v.id, text=v.label) for v in STANDARD_VIEWS],
+        )
+
         def save(_: ft.Event[ft.TextButton]) -> None:
+            self.start_view = str(start.value or COMPUTER)
             self.line_numbers_visible = bool(line_numbers.value)
             self.typing_aid = bool(typing_aid.value)
             self.code_style = str(code_style.value or "monospace")
@@ -2179,6 +2233,7 @@ window.CASSimTypingAids = function(editor, change) {
                     [
                         code_style,
                         symbol_style,
+                        start,
                         ft.Divider(),
                         line_numbers,
                         typing_aid,
