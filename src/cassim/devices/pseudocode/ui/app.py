@@ -24,9 +24,12 @@ from cassim.app.sizes import (
     COMPUTER,
     HANDHELD,
     POINTER_TARGET,
+    TABLET,
     VIEWS,
+    is_landscape,
     is_narrow,
     page_is_phone,
+    repick_view,
     starting_view,
 )
 from cassim.app.theme import DARK, Theme
@@ -210,6 +213,7 @@ POLYNOMIAL_NEWTON = (
 # The typing aid converts once typing has paused this long (seconds). Converting on every
 # key sent the whole text back from Python, overwriting keys typed in the meantime.
 TYPING_AID_PAUSE = 0.5
+MIN_COLUMNS_WIDTH = 640  # the narrowest window that has room for two columns
 EDITOR_FONT_SIZE = 14
 # Width the editor keeps from its text: content padding (8 each side) and Flutter's text
 # cursor (2), measured 2026-11-22: a 461.2 px line wrapped in a 478 px editor.
@@ -302,6 +306,7 @@ class CodeApp:
         self.view = COMPUTER
         self.view_chosen = False
         self.start_view: str | None = None
+        self.landscape: bool | None = None  # the window's shape at the last resize
         self.result = None
         self.cursor = 0
         self.selection = trace.VerticalSelection()
@@ -616,6 +621,7 @@ class CodeApp:
         }
         await self.load_editor_settings()
         self.view = starting_view(self.page.width, self.page.height, self.start_view)
+        self.landscape = is_landscape(self.page.width, self.page.height)
         self.page.title = f"{about.product_name()} Pseudocode & Python"
         self.page.padding = 8
         self.page.on_resize = self.on_resize
@@ -1494,8 +1500,13 @@ window.CASSimTypingAids = function(editor, change) {
     def on_resize(self, _: ft.PageResizeEvent) -> None:
         """A phone follows its orientation; elsewhere the size keeps picking until a view is
         chosen (SDD-15 section 8.4)."""
-        if page_is_phone(self.page) or not self.view_chosen:
-            self.view = starting_view(self.page.width, self.page.height, self.start_view)
+        width, height = self.page.width, self.page.height
+        now = is_landscape(width, height)
+        turned, self.landscape = self.landscape is not None and now != self.landscape, now
+        if repick_view(width, height, self.view, chosen=self.view_chosen, turned=turned):
+            self.view = starting_view(width, height, self.start_view)
+            self.refresh_cassim_menu()  # ● on the view now showing
+            _safe_update(self.cassim_menu)
         self.arrange()
 
     def set_view(self, view: str) -> None:
@@ -1508,8 +1519,10 @@ window.CASSimTypingAids = function(editor, change) {
         _safe_update(self.cassim_menu)
 
     def stacked(self, width: float) -> bool:
-        """The columns one above the other: Handheld, or Computer view in a narrow window
-        (SDD-15 section 8.2). Tablet keeps two columns."""
+        """The columns one above the other: Handheld, Computer view in a narrow window (SDD-15
+        section 8.2), and Tablet where two columns cannot fit."""
+        if self.view == TABLET:
+            return width < MIN_COLUMNS_WIDTH
         return self.view == HANDHELD or (self.view == COMPUTER and is_narrow(width))
 
     def resize_columns(self, event: ft.DragUpdateEvent) -> None:

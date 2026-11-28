@@ -69,7 +69,7 @@ def test_trace_menu_is_numbered_as_on_the_device() -> None:
         ("3", "Trace step…", True),
         ("4", "Path plot", False),
         ("5", "Geometry trace", False),
-        ("6", "Erase Geometry trace", False),
+        ("6", "Erase geometry trace", False),
     ]
 
 

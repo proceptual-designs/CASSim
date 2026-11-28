@@ -44,11 +44,12 @@ PROPER = (
     "Pseudocode",
     "Scientific",
     "Taylor",
+    "Lbl",  # GoTo Lbl, a command
     "Pdf",  # a distribution's density and cumulative functions, as abbreviations
     "Cdf",
 )
 _WORD = re.compile("[A-Za-z][A-Za-z'" + chr(0x2019) + "]*")  # with a curly apostrophe
-_RESTART = ("▸", ":", "—", ".", "?", "!")  # a new phrase starts after these
+_RESTART = ("▸", ":", "—", ".", "?", "!", "…")  # a new phrase starts after these
 
 
 def _keep(word: str) -> bool:
@@ -145,6 +146,14 @@ def _literal(node: ast.expr | None) -> str | None:
     return None
 
 
+def _literals(node: ast.expr | None) -> list[str]:
+    """The labels an argument can be: both sides of `a if test else b` too."""
+    if isinstance(node, ast.IfExp):
+        return _literals(node.body) + _literals(node.orelse)
+    label = _literal(node)
+    return [label] if label else []
+
+
 def _ui_files() -> list[tuple[str, ast.Module]]:
     """Every module that can show something: all but the maths and the code runtimes."""
     files = []
@@ -167,7 +176,9 @@ def _labels(tree: ast.Module) -> list[str]:
         if not isinstance(node, ast.Call) or _name(node.func) not in LABEL_CALLS:
             continue
         values = node.args[:1] + [k.value for k in node.keywords if k.arg in LABEL_KEYWORDS]
-        found += [label for value in values if (label := _literal(value))]
+        if _name(node.func) == "todo_sub":  # todo_sub(label, key, *labels)
+            values += node.args[2:]
+        found += [label for value in values for label in _literals(value)]
     return found
 
 

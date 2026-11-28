@@ -56,11 +56,11 @@ def test_graph_view_menu_updates_grid_and_axes(browser: Browser, site: tuple[Pat
 
     for key in ("F2", "2", "6", "2", "F2", "2", "5", "F2", "2"):
         app.press(key)
-    expect(app.page.get_by_role("button", name="5 Show Axes", exact=True)).to_be_visible(
+    expect(app.page.get_by_role("button", name="5 Show axes", exact=True)).to_be_visible(
         timeout=10000
     )
     expect(
-        app.page.get_by_role("button", name="8 Hide Axes End Values", exact=True)
+        app.page.get_by_role("button", name="8 Hide axes end values", exact=True)
     ).to_be_visible()
     app.press("Escape")
     app.press("Escape")

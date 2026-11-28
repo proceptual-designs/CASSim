@@ -416,11 +416,11 @@ MENU = MenuItem(
                 "7",
                 "Refresh libraries",
                 'Insert "\\" character',
-                "Create Library Shortcut",
+                "Create library shortcut",
                 "Define LibPriv",
-                "Define LibPub (Show in Catalog)",
+                "Define LibPub (show in catalog)",
             ),
-            todo_sub("Lock", "8", "Lock Variable", "Unlock Variable", "Get Lock Info"),
+            todo_sub("Lock", "8", "Lock variable", "Unlock variable", "Get lock info"),
         ),
         sub(
             "Number",
@@ -670,16 +670,16 @@ MENU = MenuItem(
             sub("Norms", "7", fn("Norm", "norm", "1"), todo("Row", "2"), todo("Column", "3")),
             sub("Dimensions", "8", fn("Matrix", "dim", "1"), todo("Row", "2"), todo("Column", "3")),
             todo_sub(
-                "Row operations", "9", "Swap Rows", "Row Add", "Multiply Row", "Multiply Row & Add"
+                "Row operations", "9", "Swap rows", "Row add", "Multiply row", "Multiply row & add"
             ),
             todo_sub(
                 "Element operations",
                 "A",
-                "Dot Add",
-                "Dot Subtract",
-                "Dot Multiply",
-                "Dot Divide",
-                "Dot Power",
+                "Dot add",
+                "Dot subtract",
+                "Dot multiply",
+                "Dot divide",
+                "Dot power",
             ),
             sub(
                 "Advanced",
@@ -727,9 +727,9 @@ MENU = MenuItem(
             todo_sub(
                 "Cash flows",
                 "4",
-                "Net Present Value",
-                "Internal Rate of Return",
-                "Modified Internal Rate of Return",
+                "Net present value",
+                "Internal rate of return",
+                "Modified internal rate of return",
             ),
             sub(
                 "Interest conversion",
@@ -737,7 +737,7 @@ MENU = MenuItem(
                 fn("Nominal interest rate", "nom", "1"),
                 fn("Effective interest rate", "eff", "2"),
             ),
-            todo_sub("Days between dates", "6", "Month Day Format", "Day Month Format"),
+            todo_sub("Days between dates", "6", "Month day format", "Day month format"),
         ),
         sub(
             "Functions & programs",
@@ -856,7 +856,7 @@ DOC = MenuItem(
             MenuItem("Copy", "copy", key="4", hint="Ctrl+C"),
             MenuItem("Paste", "paste", key="5", hint="Ctrl+V"),
             MenuItem("Delete", "delete", key="6"),
-            todo_sub("Color", "7", "Fill Color", "Text Color"),
+            todo_sub("Color", "7", "Fill color", "Text color"),
             MenuItem("Move page earlier", "move_page", "-1", hint="CASSim"),
             MenuItem("Move page later", "move_page", "1", hint="CASSim"),
             MenuItem("Move problem earlier", "move_problem", "-1", hint="CASSim"),
@@ -1109,10 +1109,10 @@ CATALOG = MenuItem(
     items=(
         _catalog_list(),
         _tab(todo_sub("Math functions", "2", "Number", "Angle", "List", "Matrix", "Vector")),
-        _tab(todo_sub("Units", "3", "Conversion Assistant", "Constants", "Length", "Area")),
+        _tab(todo_sub("Units", "3", "Conversion assistant", "Constants", "Length", "Area")),
         CATALOG_SYMBOLS,
         MenuItem("Math expression templates", key="5", columns=11, items=TEMPLATES.items),
-        _tab(todo_sub("Library", "6", "Current Problem")),
+        _tab(todo_sub("Library", "6", "Current problem")),
     ),
 )
 

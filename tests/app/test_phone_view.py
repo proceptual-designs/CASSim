@@ -77,3 +77,16 @@ def test_tablet_view_has_its_shortcut_and_menu_item() -> None:
     app.set_mode(Mode.COMPUTER)
     app.show_dialog("view:tablet")  # CASSim > Tablet view, Alt+Shift+T
     assert app.state.mode is Mode.TABLET
+
+
+def test_a_chosen_view_stays_when_a_phone_resizes_without_turning() -> None:
+    """SDD-15 section 8.4: a browser bar coming and going resizes the window; the view the
+    person chose stays until the phone turns."""
+    app, page = handheld_app(412, 915)
+    app.set_mode(Mode.TABLET)
+    page.width, page.height = 412, 860  # the address bar came back
+    app.on_resize(cast("ft.PageResizeEvent", SimpleNamespace(width=412, height=860)))
+    assert app.state.mode is Mode.TABLET
+    page.width, page.height = 860, 412  # turned
+    app.on_resize(cast("ft.PageResizeEvent", SimpleNamespace(width=860, height=412)))
+    assert app.state.mode is Mode.TABLET  # on its side: Tablet anyway

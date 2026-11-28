@@ -59,9 +59,9 @@ def context_menu(statistics: Statistics, target: str) -> MenuItem | None:
                 _plot(PlotType.HISTOGRAM, "2"),
                 _plot(PlotType.NORMAL_PROBABILITY, "3"),
                 _item(
-                    "Show Box Plot Outliers"
+                    "Show box plot outliers"
                     if statistics.extend_whiskers
-                    else "Extend Box Plot Whiskers",
+                    else "Extend box plot whiskers",
                     "toggle-whiskers",
                     "4",
                 ),
@@ -108,14 +108,14 @@ def context_menu(statistics: Statistics, target: str) -> MenuItem | None:
                 _item("Remove regression", "regression:none", "1"),
                 _grey("Shade under function", "2"),
                 _item(
-                    "Hide Residual Squares"
+                    "Hide residual squares"
                     if statistics.residual_squares
-                    else "Show Residual Squares",
+                    else "Show residual squares",
                     "toggle-residual-squares",
                     "3",
                 ),
                 _item(
-                    "Hide Residual Plot" if statistics.residual_plot else "Show Residual Plot",
+                    "Hide residual plot" if statistics.residual_plot else "Show residual plot",
                     "toggle-residual-plot",
                     "4",
                 ),

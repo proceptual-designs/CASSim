@@ -28,7 +28,9 @@ from cassim.app.sizes import (
     TABLET,
     VIEWS,
     dialog_width,
+    is_landscape,
     page_is_phone,
+    repick_view,
     starting_view,
 )
 from cassim.app.theme import DEFAULT_THEME, INK_ON_DARK, INK_ON_LIGHT
@@ -136,6 +138,7 @@ class ScientificApp:
         self.view = COMPUTER
         self.view_chosen = False
         self.start_view: str | None = None
+        self.landscape: bool | None = None  # the window's shape at the last resize
         self.stretch = 1.0  # the keys' height over their width's, above 1 on a tall phone
         self.use_cutout = True  # an installed phone draws under its camera cutout unless avoided
         self.doc_name = "Untitled"
@@ -843,6 +846,7 @@ class ScientificApp:
         error = await self.shell.load_appearance()
         await self._load_prefs()
         self.view = starting_view(self.page.width, self.page.height, self.start_view)
+        self.landscape = is_landscape(self.page.width, self.page.height)
         if self.phone:
             self.panel_open = False  # a phone starts with the whole screen for the calculator
         await self._load_state()
@@ -913,8 +917,12 @@ class ScientificApp:
     def on_resize(self) -> None:
         """A phone follows its orientation; elsewhere the size keeps picking until a view is
         chosen (SDD-15 section 8.4)."""
-        if self.phone or not self.view_chosen:
-            self.view = starting_view(self.page.width, self.page.height, self.start_view)
+        width, height = self.page.width, self.page.height
+        now = is_landscape(width, height)
+        turned, self.landscape = self.landscape is not None and now != self.landscape, now
+        if repick_view(width, height, self.view, chosen=self.view_chosen, turned=turned):
+            self.view = starting_view(width, height, self.start_view)
+            self.refresh_cassim_menu()  # ● on the view now showing
         self.fit()
 
     def set_view(self, view: str) -> None:
