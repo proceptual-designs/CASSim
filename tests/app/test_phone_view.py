@@ -3,10 +3,12 @@
 view is picked before the first draw, so the page does not show Computer view and then swap."""
 
 import asyncio
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import cast
 
 import flet as ft
+from tests.app.test_computer_columns import descendants
 from tests.app.test_splitter_drag import handheld_app
 
 from cassim.devices.nspire.ui.state import Mode, System
@@ -90,3 +92,26 @@ def test_a_chosen_view_stays_when_a_phone_resizes_without_turning() -> None:
     page.width, page.height = 860, 412  # turned
     app.on_resize(cast("ft.PageResizeEvent", SimpleNamespace(width=860, height=412)))
     assert app.state.mode is Mode.TABLET  # on its side: Tablet anyway
+
+
+def test_tablets_bar_resizes_and_its_arrows_swap_the_keypad_and_screen() -> None:
+    """Tablet: < | > round the bar's grip put the keypad on the other side of the screen, which
+    is kept, and dragging the bar still resizes the keypad."""
+    app, _ = handheld_app(1200, 800)
+    app.set_mode(Mode.TABLET)
+    row = app.layout.content
+    assert isinstance(row, ft.Row)
+    assert row.controls[0] is app.view.control
+    arrows = {
+        c.tooltip: c
+        for c in descendants(row)
+        if isinstance(c, ft.Container)
+        and isinstance(c.tooltip, str)
+        and c.tooltip.startswith("Move")
+    }
+    assert set(arrows) == {"Move the keypad left", "Move the screen right"}
+    cast("Callable[[object], object]", arrows["Move the keypad left"].on_click)(None)
+    assert app.state.system.keypad_first
+    row = app.layout.content
+    assert isinstance(row, ft.Row)
+    assert row.controls[-1] is app.view.control  # the keypad now on the left
