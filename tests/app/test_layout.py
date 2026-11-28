@@ -45,8 +45,10 @@ def test_first_visit_mode_follows_the_window(width: float | None, mode: Mode) ->
     assert starting_mode(width) is mode
 
 
-def test_a_phone_in_landscape_starts_in_handheld_too() -> None:
-    assert starting_mode(844, 390) is Mode.HANDHELD
+def test_a_phone_starts_in_handheld_upright_and_tablet_on_its_side() -> None:
+    """SDD-15 section 8.2."""
+    assert starting_mode(390, 844) is Mode.HANDHELD
+    assert starting_mode(844, 390) is Mode.TABLET
     assert starting_mode(1280, 800) is Mode.COMPUTER
     assert starting_mode(768, 1024) is Mode.COMPUTER  # a tablet
 

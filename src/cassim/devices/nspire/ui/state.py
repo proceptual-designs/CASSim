@@ -72,8 +72,17 @@ COMPUTER_MAX_SIDEBAR = 420
 
 
 class Mode(StrEnum):
+    """The views (SDD-15 section 8.1): Handheld is the device in one column, the keypad under the
+    screen; Tablet puts the keypad beside it; Computer has the sidebar and the workspace."""
+
     HANDHELD = "handheld"
+    TABLET = "tablet"
     COMPUTER = "computer"
+
+    @property
+    def device(self) -> bool:
+        """The device as it looks, screen and keypad: Handheld or Tablet."""
+        return self is not Mode.COMPUTER
 
 
 @dataclass
@@ -695,7 +704,12 @@ class AppState:
 
     def _active_menu_key(self, binding: Binding) -> None:
         assert self.menu is not None
-        if binding.action == "dialog" and binding.arg in {"help", "view:computer", "view:handheld"}:
+        if binding.action == "dialog" and binding.arg in {
+            "help",
+            "view:computer",
+            "view:tablet",
+            "view:handheld",
+        }:
             self.menu = None
             self.run(binding)
             return

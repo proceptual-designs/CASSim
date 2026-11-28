@@ -254,7 +254,7 @@ def test_computer_mode_and_keypad_controls_have_toggle_states() -> None:
         for control in descendants(root)
         if isinstance(control, ft.SegmentedButton)
     )
-    assert [segment.value for segment in mode_toggle.segments] == ["handheld", "computer"]
+    assert [segment.value for segment in mode_toggle.segments] == ["handheld", "tablet", "computer"]
     assert mode_toggle.selected == ["computer"]
     assert not mode_toggle.show_selected_icon
     assert not mode_toggle.allow_empty_selection

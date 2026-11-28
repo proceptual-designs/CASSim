@@ -14,7 +14,7 @@ from cassim.app.shell import BrowserOffers, Shell
 from cassim.device.menu import MenuItem
 from cassim.devices.nspire.ui import app as nspire
 from cassim.devices.nspire.ui.app import cassim_items, nspire_menu
-from cassim.devices.nspire.ui.state import AppState
+from cassim.devices.nspire.ui.state import AppState, Mode
 from cassim.devices.pseudocode.ui import app as pseudocode
 
 
@@ -129,7 +129,7 @@ def test_about_is_in_the_cassim_menu() -> None:
     """CASSim > About asks for the about dialog."""
     state = AppState()
     state.cassim_menu = lambda: MenuItem(
-        "CASSim", items=cassim_items(BrowserOffers(), nspire_menu(handheld=True))
+        "CASSim", items=cassim_items(BrowserOffers(), nspire_menu(view=Mode.HANDHELD))
     )
     asked: list[str] = []
     state.show_dialog = asked.append
@@ -144,7 +144,7 @@ def test_help_menu_item_opens_the_wiki() -> None:
     assert about.WIKI_URL == "https://cassim-wiki.pages.dev/"
     state = AppState()
     state.cassim_menu = lambda: MenuItem(
-        "CASSim", items=cassim_items(BrowserOffers(), nspire_menu(handheld=True))
+        "CASSim", items=cassim_items(BrowserOffers(), nspire_menu(view=Mode.HANDHELD))
     )
     asked: list[str] = []
     state.show_dialog = asked.append

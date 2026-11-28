@@ -1,4 +1,6 @@
-# The two views
+# The views
+
+The calculator apps have three views. Handheld and Tablet show the calculator itself; Computer gives a larger layout for a keyboard and mouse. All three work by touch.
 
 ## Handheld
 
@@ -8,6 +10,10 @@ Looks like the calculator: a screen with the on-screen keypad below it. Tap or c
 - The keypad letters can be ABC or QWERTY (see [[Settings]]).
 - In full screen (CASSim ▸ **Fullscreen**) or the installed app, the calculator's screen grows taller to use the whole height, up to the top edge of the phone.
 - In the installed app on a phone, the screen uses the camera cutout area by default. Choose CASSim ▸ **Avoid cutout** to keep the calculator within the safe area (a ✓ shows it is on), and choose it again to use that space. The choice lasts until the app is closed or reloaded.
+
+## Tablet
+
+The calculator with the keypad beside the screen instead of below it, for a tablet or a phone on its side. Everything else is as in Handheld, including the bar between the screen and the keypad.
 
 ## Computer
 
@@ -25,4 +31,4 @@ On a tablet, tap the entry line (or a spreadsheet cell) and the device's own on-
 
 ## Switching
 
-Choose the view you start in under **Doc, Settings & status, Handheld setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a narrow screen starts in Handheld and a wide one in Computer. CASSim ▸ **Computer view** (or **Handheld view**) switches at any time. A phone has only Handheld view: there is not enough room for Computer view and the on-screen keyboard, so CASSim ▸ **Computer view** is greyed there.
+Choose the view you start in under **Doc, Settings & status, Handheld setup** (see [[Settings]]). CASSim remembers it. The first time it opens, a phone starts in Handheld (or Tablet, held on its side) and a wider screen in Computer. CASSim ▸ **Computer view**, **Tablet view** or **Handheld view** switches at any time (Alt+Shift+C, T or H). On a phone the view follows the way you hold it: Handheld upright, Tablet on its side. There is not enough room on a phone for Computer view and the on-screen keyboard, so CASSim ▸ **Computer view** is greyed there.

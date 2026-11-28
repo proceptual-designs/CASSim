@@ -9,7 +9,7 @@
 **Nspire**
 
 - [[Nspire calculator|Nspire]]
-- [[The two views]]
+- [[The views|The two views]]
 - [[Keys and shortcuts]]
 - [[Menus]]
 - [[Settings]]

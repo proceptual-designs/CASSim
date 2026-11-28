@@ -34,7 +34,7 @@ from cassim.app.keyboard import (
 )
 from cassim.app.saved import SavedDocuments
 from cassim.app.shell import BrowserOffers, Shell
-from cassim.app.sizes import page_is_phone
+from cassim.app.sizes import is_phone, page_is_phone
 from cassim.core.results import VariableInfo
 from cassim.core.settings import Settings, next_choice
 from cassim.device.editor import Editor
@@ -139,24 +139,26 @@ class VariableDeletion:
 
 NSPIRE_VIEWS = (
     View("computer", "Computer", shortcut="Alt+Shift+C", phone=False),
+    View("tablet", "Tablet", shortcut="Alt+Shift+T"),
     View("handheld", "Handheld", shortcut="Alt+Shift+H"),
 )
 
 
 def nspire_menu(
     *,
-    handheld: bool,
+    view: Mode,
     phone: bool = False,
     use_cutout: bool = True,
     home: bool = False,
     keypad: bool = False,
 ) -> AppMenu:
-    """What the Nspire puts in the CASSim menu: its two views, the Keypad (a panel only in
-    Computer view; Handheld always has it), and the cutout on an installed phone."""
+    """What the Nspire puts in the CASSim menu: its three views, the Keypad (a panel only in
+    Computer view; Tablet and Handheld always have it), and the cutout on an installed phone."""
+    handheld = view.device
     return AppMenu(
         home=home,
         views=NSPIRE_VIEWS,
-        view="handheld" if handheld else "computer",
+        view=view.value,
         panels=(
             Panel(
                 "keypad",
@@ -455,7 +457,10 @@ class App:
         saved = await self.shell.read(SYSTEM_KEY)
         if saved is not None:
             self.state.system = System.loads(saved)
-            self.state.mode = Mode.HANDHELD if self.phone else self.state.system.start_mode
+            start = self.state.system.start_mode
+            self.state.mode = (
+                starting_mode(self.page.width, self.page.height) if self.phone else start
+            )
         else:
             self.first_visit = True
             self.state.mode = starting_mode(self.page.width, self.page.height)
@@ -487,7 +492,7 @@ class App:
         """The screen's room under its title bar, for a page that draws to size (the sheet)."""
         state = self.state
         title = state.px(TITLE_H)
-        if state.mode is Mode.HANDHELD:
+        if state.mode.device:
             return state.px(SCREEN_W), (self.view.control.height or state.px(SCREEN_H)) - title
         widths, _ = computer_columns(
             self.page.width,
@@ -506,7 +511,7 @@ class App:
         self.view.refresh()
         self.view.show_pointer(self.pointer)
         self.keypad.refresh()
-        if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Handheld
+        if self.state.mode is Mode.COMPUTER:  # the sidebar is not shown in Tablet or Handheld
             self.sidebar.refresh()
         self.place_status()
         built = time.perf_counter()
@@ -885,12 +890,11 @@ class App:
         self.refresh()
 
     def on_resize(self, e: ft.PageResizeEvent) -> None:
-        """Keep the layout fitted to the window; a first visit follows its size until chosen, and
-        a window that shrinks to phone size goes to Handheld."""
-        if self.first_visit:
+        """Keep the layout fitted to the window. A first visit follows its size until a view is
+        chosen; a phone follows its orientation (Handheld upright, Tablet on its side), and so
+        does a window that shrinks to phone size."""
+        if self.first_visit or is_phone(e.width, e.height):
             self.state.mode = starting_mode(e.width, e.height)
-        elif starting_mode(e.width, e.height) is Mode.HANDHELD:  # phone-sized now
-            self.state.mode = Mode.HANDHELD
         self.arrange()
         self.refresh()
 
@@ -924,13 +928,12 @@ class App:
         self.refresh()
 
     def cassim_menu(self) -> MenuItem:
-        handheld = self.state.mode is Mode.HANDHELD
         return MenuItem(
             about.product_name(),
             items=cassim_items(
                 self.shell.offers,
                 nspire_menu(
-                    handheld=handheld,
+                    view=self.state.mode,
                     phone=self.phone,
                     use_cutout=self.use_cutout,
                     home=self.shell.home is not None,
@@ -956,7 +959,7 @@ class App:
 
     def toolbar_controls(self) -> list[ft.Control]:
         theme, mode = self.theme, self.state.mode
-        if mode is Mode.HANDHELD:
+        if mode.device:
             return []  # the keypad has the Doc, Menu and CASSim keys
 
         def button(text: str, action: Callable[[], None], fill: str, colour: str) -> ft.Container:
@@ -974,6 +977,7 @@ class App:
         mode_control = ft.SegmentedButton(
             segments=[
                 ft.Segment(value=Mode.HANDHELD.value, label="Handheld"),
+                ft.Segment(value=Mode.TABLET.value, label="Tablet"),
                 ft.Segment(value=Mode.COMPUTER.value, label="Computer"),
             ],
             selected=[mode.value],
@@ -1174,6 +1178,7 @@ class App:
             "cutout": self.toggle_cutout,
             "view:computer": lambda: self.set_mode(Mode.COMPUTER),
             "view:handheld": lambda: self.set_mode(Mode.HANDHELD),
+            "view:tablet": lambda: self.set_mode(Mode.TABLET),
             "panel:keypad": self.toggle_keypad,
             "settings": lambda: self.open_system_settings("Settings"),
             "appearance": self.open_appearance,
@@ -1419,10 +1424,10 @@ class App:
         self.keypad.installable = self.installable
         self.keypad.needs_attention = self.shell.offers.needs_attention
         self.keypad.attention_tooltip = needs_attention_tooltip(self.shell.offers)
-        full = state.mode is Mode.HANDHELD and self.shell.offers.standalone and system.zoom <= 1
+        full = state.mode.device and self.shell.offers.standalone and system.zoom <= 1
         self.full = full
         self.toolbar.visible = not full
-        if state.mode is Mode.HANDHELD:
+        if state.mode.device:
             self._arrange_handheld(full=full, phone=self.phone)
         else:
             self._arrange_computer()
@@ -1443,6 +1448,7 @@ class App:
             FULL_RESERVE if full else STATUS_H,
             margin,
             not phone,
+            side=state.mode is Mode.TABLET,
         )
         plan = handheld_plan(width, height, units[0], units[1], sizing)
         sizing = replace(sizing, bar=0) if full else sizing
@@ -1453,7 +1459,7 @@ class App:
             full_screen_height(plan, height, units[1], sizing) if full else state.px(SCREEN_H)
         )
         view.expand = False
-        shape = (Mode.HANDHELD, plan.side_by_side, phone, system.zoom > 1, full)
+        shape = (state.mode, plan.side_by_side, phone, system.zoom > 1, full)
         if shape == self.shape:
             self.size_splitter(plan)
             return

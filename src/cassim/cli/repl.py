@@ -281,7 +281,9 @@ def _parser() -> argparse.ArgumentParser:
         "--web", action="store_true", help="open the graphical app in the browser, not a window"
     )
     parser.add_argument(
-        "--view", choices=("handheld", "computer"), help="the app's view (default: as last used)"
+        "--view",
+        choices=("handheld", "tablet", "computer"),
+        help="the app's view (default: as last used)",
     )
     parser.add_argument(
         "--app",

@@ -21,9 +21,11 @@ BAR_H = 44  # the toolbar row above the calculator
 
 
 def starting_mode(width: float | None, height: float | None = None) -> Mode:
-    """The mode for a first visit: Handheld when the window's short side is phone-sized (so a
-    phone in landscape too), else Computer."""
-    return Mode.HANDHELD if is_phone(width, height) else Mode.COMPUTER
+    """The view for a first visit, and for a phone as it turns: on a phone, Handheld upright and
+    Tablet on its side (SDD-15 section 8.2); else Computer."""
+    if not is_phone(width, height):
+        return Mode.COMPUTER
+    return Mode.TABLET if width and height and width > height else Mode.HANDHELD
 
 
 def key_span(units: float, size: int = KEY_W) -> float:
@@ -66,6 +68,7 @@ class Sizing:
     bar: float = BAR_H  # the toolbar's height above the calculator (0 when it is empty)
     margin: float = MARGIN
     splitter: bool = True  # a phone has no splitter, only half a gap between the parts
+    side: bool | None = None  # keypad beside the screen (Tablet), under it (Handheld), or the best
 
     @property
     def between(self) -> float:
@@ -115,12 +118,12 @@ def handheld_plan(
 
     if sizing.share is None:
         side_fit, top_fit = (_fill(frame(side)) for side in (True, False))
-        side = side_fit > top_fit
+        side = side_fit > top_fit if sizing.side is None else sizing.side
         scale, pad_scale = side_fit if side else top_fit
         extent, pad0 = max(frame(side)[0], 1), frame(side)[1]
         share = pad0 * pad_scale / extent
         return HandheldPlan(side, scale * zoom, pad_scale * zoom, share, extent)
-    side = _fill(frame(True)) > _fill(frame(False))
+    side = _fill(frame(True)) > _fill(frame(False)) if sizing.side is None else sizing.side
     extent, pad0, screen0, across, pad_across, screen_across = frame(side)
     extent = max(extent, 1)
     share = clamp_share(sizing.share)

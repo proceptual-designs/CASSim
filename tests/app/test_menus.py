@@ -762,44 +762,47 @@ def nspire_rows(**facts: Any) -> list[tuple[str, str, str, bool, bool]]:
 def test_the_nspire_numbers_the_shared_sections_and_rules_them_off() -> None:
     """SDD-15 section 4: the shared sections as a numbered panel; each section after the
     first starts with a rule, and ● marks the current view."""
-    assert nspire_rows(handheld=False, keypad=True) == [
+    assert nspire_rows(view=Mode.COMPUTER, keypad=True) == [
         ("1", "Computer view", "●", False, True),
-        ("2", "Handheld view", "", False, True),
-        ("3", "Keypad", "✓", False, True),
-        ("4", "Fullscreen", "", False, False),
-        ("5", "Settings…", "", True, True),
-        ("6", "Appearance…", "", False, True),
-        ("7", "Install CASSim…", "", True, False),
-        ("8", "Check for updates", "", False, True),
-        ("9", "Offline: unknown", "", False, True),
-        ("A", "Help (wiki)…", "", True, True),
-        ("B", "About CASSim…", "", False, True),
+        ("2", "Tablet view", "", False, True),
+        ("3", "Handheld view", "", False, True),
+        ("4", "Keypad", "✓", False, True),
+        ("5", "Fullscreen", "", False, False),
+        ("6", "Settings…", "", True, True),
+        ("7", "Appearance…", "", False, True),
+        ("8", "Install CASSim…", "", True, False),
+        ("9", "Check for updates", "", False, True),
+        ("A", "Offline: unknown", "", False, True),
+        ("B", "Help (wiki)…", "", True, True),
+        ("C", "About CASSim…", "", False, True),
     ]
 
 
-def test_handheld_view_greys_the_keypad_which_it_always_shows() -> None:
-    rows = nspire_rows(handheld=True)
-    assert rows[0][1:3] == ("Computer view", "")
-    assert rows[1][1:3] == ("Handheld view", "●")
-    assert rows[2][1:] == ("Keypad", "✓", False, False)
+@pytest.mark.parametrize("mode", [Mode.HANDHELD, Mode.TABLET])
+def test_the_device_views_grey_the_keypad_which_they_always_show(mode: Mode) -> None:
+    rows = {row[1]: row for row in nspire_rows(view=mode)}
+    assert rows["Computer view"][2] == ""
+    assert rows[f"{mode.value.title()} view"][2] == "●"
+    assert rows["Keypad"][2:] == ("✓", False, False)
 
 
 def test_home_comes_first_and_never_moves_the_other_numbers_within_a_build() -> None:
     """Home is fixed for a bundle; the retry item that used to appear and shift the numbers is
     folded into the offline status."""
     failed = BrowserOffers(offline_state="unavailable", offline_retry=True)
-    plain = [row[1] for row in nspire_rows(handheld=True, home=True)]
-    with_failure = [row[1] for row in nspire_rows(handheld=True, home=True, offers=failed)]
+    plain = [row[1] for row in nspire_rows(view=Mode.HANDHELD, home=True)]
+    with_failure = [row[1] for row in nspire_rows(view=Mode.HANDHELD, home=True, offers=failed)]
     assert plain[0] == "Home"
     assert len(plain) == len(with_failure)
     assert "Offline: unavailable" in with_failure
 
 
 def test_the_hints_are_shortcuts() -> None:
-    items = cassim_items(BrowserOffers(), nspire_menu(handheld=True))
+    items = cassim_items(BrowserOffers(), nspire_menu(view=Mode.HANDHELD))
     hints = {item.label: item.hint for item in items}
     assert hints["Computer view"] == "Alt+Shift+C"
     assert hints["Handheld view"] == "Alt+Shift+H"
+    assert hints["Tablet view"] == "Alt+Shift+T"
     assert hints["Help (wiki)…"] == "F1"
     assert all(hint != "CASSim" for hint in hints.values())
 
