@@ -23,7 +23,7 @@ The owner's position is that the algorithm questions are generic enough not to b
 
 ## Condition before anything goes public
 
-The licence above covers schools using material internally. It does not cover publishing on a website, and CASSim is to be released under the Unlicense, which would let anyone reuse the repository contents commercially. So before the repository is made public or the corpus is distributed, do one of:
+The licence above covers schools using material internally. It does not cover publishing on a website, and CASSim is released under a permissive licence (the Unlicense when this was written, MIT since decision 0042), which lets anyone reuse the repository contents commercially. So before the repository is made public or the corpus is distributed, do one of:
 
 1. get VCAA's permission for the cases;
 2. replace each `third_party: true` case with an original program that exercises the same construct (the author's own examples already cover every construct); or
